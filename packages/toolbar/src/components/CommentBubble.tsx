@@ -6,7 +6,7 @@ import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { orderBy } from '@signalco/js';
 import { useComments } from '../hooks/useComments';
-import { resolveAnchorElement, useCommentItemRects } from '../hooks/useCommentItemRects';
+import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { newCommentDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer } from './CommentComposer';
@@ -14,6 +14,7 @@ import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
 import { useAnnounce } from './Announcer';
+import { getDeviceInfo } from './info/getDeviceInfo';
 import { CommentDraft, CommentItem, commentTextMaxLength, floatingShadowClassName } from './@types/Comments';
 
 // Bubble (CommentIcon) half size and its minimal distance from the left and right window edges
@@ -63,8 +64,9 @@ export function CommentBubble(props: CommentBubbleProps) {
     const drafts = useDrafts();
     const announce = useAnnounce();
     const triggerRef = useRef<HTMLButtonElement>(null);
-    const selectionRects = useCommentItemRects(position);
-    const lastRect = orderBy(selectionRects, r => r.bottom).at(-1);
+    // A text comment whose text is gone gets its pin on the closest element that is still there
+    const { rects: placementRects, textMissing } = useCommentPlacement(position);
+    const lastRect = orderBy(placementRects, r => r.bottom).at(-1);
     const { create, reply } = useComments();
     const mutation = creating ? create : reply;
     // A deleted first item ("Comment deleted") is not a message
@@ -86,7 +88,8 @@ export function CommentBubble(props: CommentBubbleProps) {
             position: draft.position,
             text,
             quotedText: quotedText || undefined,
-            device: draft.device
+            // The viewport as it is when the comment is posted
+            device: getDeviceInfo()
         });
         drafts.delete(draftKey);
         announce('Comment posted');
@@ -144,7 +147,10 @@ export function CommentBubble(props: CommentBubbleProps) {
     return (
         <>
             {position.type === 'text' && (
-                <CommentSelectionHighlight commentSelection={position} />
+                <CommentSelectionHighlight
+                    commentSelection={position}
+                    commentId={commentItem?.id}
+                    onClick={commentItem ? () => setOpen(true) : undefined} />
             )}
             <Popper
                 container={rootElement}
@@ -155,7 +161,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
                         aria-label={creating
                             ? 'New comment'
-                            : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
+                            : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}${textMissing ? '. The commented text is no longer on the page' : ''}`}
                         onFocus={handleFocus}
                         className={cx(
                             'fixed z-[48] hover:z-[49] cursor-pointer rounded-full',
@@ -192,6 +198,11 @@ export function CommentBubble(props: CommentBubbleProps) {
             >
                 {commentItem && (
                     <>
+                        {textMissing && (
+                            <p className="m-0 shrink-0 px-4 pt-3 text-xs text-muted-foreground">
+                                The commented text is no longer on the page.
+                            </p>
+                        )}
                         {/* Focusable so the thread can be scrolled with the keyboard */}
                         <div
                             tabIndex={0}

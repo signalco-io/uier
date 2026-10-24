@@ -3,7 +3,7 @@ import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { useComments } from '../hooks/useComments';
-import { resolveAnchorElement, useCommentItemRects } from '../hooks/useCommentItemRects';
+import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
 import { CommentToolbar } from './CommentToolbar';
 import { CommentSelectionPopover } from './CommentSelectionPopover';
@@ -12,14 +12,10 @@ import { CommentPointOverlay } from './CommentPointOverlay';
 import { CommentBubble } from './CommentBubble';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
-import { getDeviceInfo } from './info/getDeviceInfo';
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
 import type { CommentsFilter } from './sidebar/CommentsFilter';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength } from './@types/Comments';
-
-// Selection text limit of the comments API
-const selectionTextMaxLength = 2000;
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
 function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement | undefined) {
@@ -134,8 +130,7 @@ export function CommentsGlobal({
         draftKeyRef.current += 1;
         setCreatingComment({
             key: draftKeyRef.current,
-            position,
-            device: getDeviceInfo()
+            position
         });
     };
 
@@ -221,16 +216,30 @@ export function CommentsGlobal({
             return;
         }
 
+        // A boundary in a text node is stored as a character offset in all the text of its
+        // element, so it is found again even when it is not the element's first text node
+        const boundary = (node: Node | null, offset: number) => {
+            const element = node instanceof Element ? node : node?.parentElement;
+            const isText = node?.nodeType === Node.TEXT_NODE;
+            return {
+                selector: getElementSelector(element),
+                offset: isText && element && node ? textOffsetWithin(element, node, offset) : offset,
+                type: isText ? 'text' as const : 'element' as const
+            };
+        };
+        const start = boundary(selection.anchorNode, selection.anchorOffset);
+        const end = boundary(selection.focusNode, selection.focusOffset);
+
         closeHintForUse();
         setCreatingCommentSelection({
             text: text.slice(0, selectionTextMaxLength),
             type: 'text',
-            startSelector: getElementSelector(selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode?.parentElement),
-            startOffset: selection.anchorOffset,
-            startType: selection.anchorNode?.nodeType === Node.TEXT_NODE ? 'text' : 'element',
-            endSelector: getElementSelector(selection.focusNode instanceof Element ? selection.focusNode : selection.focusNode?.parentElement),
-            endOffset: selection.focusOffset,
-            endType: selection.focusNode?.nodeType === Node.TEXT_NODE ? 'text' : 'element'
+            startSelector: start.selector,
+            startOffset: start.offset,
+            startType: start.type,
+            endSelector: end.selector,
+            endOffset: end.offset,
+            endType: end.type
         });
     });
 

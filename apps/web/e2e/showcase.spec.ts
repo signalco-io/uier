@@ -124,7 +124,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
 
     // Visitor A: text-selection comment
     await author.getByText(heroText).selectText();
-    await author.getByRole('button', { name: 'Comment...', exact: true }).click();
+    await author.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: 'Add comment' }).click();
     await expect(openThread(author).locator('blockquote')).toContainText(heroText);
     const selectionComposer = author.getByRole('textbox', { name: 'Comment', exact: true });
     await selectionComposer.fill('Could you show an example?');

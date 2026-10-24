@@ -44,7 +44,7 @@ const selectionPosition = {
 };
 
 const commentKeys = ['createdAt', 'id', 'isMine', 'kind', 'path', 'position', 'resolved', 'thread'];
-const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'windowSize', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
+const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
 
 type CommentDto = {
     id: string;
@@ -53,7 +53,7 @@ type CommentDto = {
     kind: string;
     // A deleted first item has only `id`, `deleted` and `createdAt`
     thread: { items: { id: string; text: string; quotedText?: string; author: { name: string; isMe: boolean }; createdAt?: string; deleted?: true }[] };
-    device?: { size?: string };
+    device?: { size?: string; windowSize?: [number, number] };
     resolved: boolean;
     isMine: boolean;
     createdAt?: string;
@@ -337,7 +337,7 @@ test('comments are listed per page (path), newest first', async ({ newVisitor })
     await expectError(await visitor.get('/api/comments', { params: { path: 'no-leading-slash' } }), 400, 'invalid_request');
 });
 
-test('responses never contain author ids, IP hashes or device details', async ({ newVisitor }) => {
+test('responses never contain author ids, IP hashes or device details beyond size and viewport', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const author = await newVisitor({ ip: uniqueIp() });
     const other = await newVisitor({ ip: uniqueIp() });
@@ -352,7 +352,8 @@ test('responses never contain author ids, IP hashes or device details', async ({
     const authorId = createHash('sha256').update(token!).digest('hex');
 
     const comment = await created(createResponse);
-    expect(comment.device).toEqual({ size: 'mobile' });
+    // The viewport the comment was left from is part of the comment
+    expect(comment.device).toEqual({ size: 'mobile', windowSize: [390, 844] });
     expect(comment.thread.items[0]).toMatchObject({ text: 'The heading could use a subtitle.', quotedText: 'leaving comments' });
     await created(await other.post(`/api/comments/${comment.id}/replies`, { data: { text: 'A reply' } }));
 
@@ -404,6 +405,27 @@ test('anonymous visitor cookie', async ({ newVisitor }) => {
     const httpsVisitor = await newVisitor({ headers: { 'X-Forwarded-Proto': 'https' } });
     const httpsCookie = visitorCookie(await createComment(httpsVisitor, path));
     expect(httpsCookie?.split('; ')).toContain('Secure');
+});
+
+test('every comment keeps the viewport it was left from', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+
+    const desktop = await created(await createComment(visitor, path, { device: { size: 'desktop', windowSize: [1280, 720] } }));
+    const mobile = await created(await createComment(visitor, path, { device: { size: 'mobile', windowSize: [393, 727] } }));
+    const unknown = await created(await createComment(visitor, path));
+    expect(desktop.device).toEqual({ size: 'desktop', windowSize: [1280, 720] });
+
+    // Fetched again, each comment still has its own
+    const listed = new Map((await listComments(await newVisitor(), path)).map(c => [c.id, c.device]));
+    expect(listed.get(desktop.id)).toEqual({ size: 'desktop', windowSize: [1280, 720] });
+    expect(listed.get(mobile.id)).toEqual({ size: 'mobile', windowSize: [393, 727] });
+    expect(listed.get(unknown.id)).toBeUndefined();
+
+    // Replies and status changes don't touch it
+    await created(await visitor.post(`/api/comments/${desktop.id}/replies`, { data: { text: 'Same on my phone' } }));
+    const resolved = await visitor.patch(`/api/comments/${desktop.id}`, { data: { resolved: true } });
+    expect((await resolved.json() as CommentDto).device).toEqual({ size: 'desktop', windowSize: [1280, 720] });
 });
 
 test('feedback and bug reports are about the page', async ({ newVisitor }) => {

@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Button } from '@signalco/ui-primitives/Button';
+import { Row } from '@signalco/ui-primitives/Row';
 import { Comment } from '@signalco/ui-icons';
 import { orderBy } from '@signalco/js';
 import { useResizeObserver } from '@enterwell/react-hooks';
 import { floatingShadowClassName, popoverWidth, popoverWindowMargin } from './@types/Comments';
 
+/** The toolbar for selected page text: below the selection, or above it near the window's bottom */
 export function CommentSelectionPopover({ rects, onCreate }: { rects: DOMRect[]; onCreate: () => void; }) {
     const [popoverHeight, setPopoverHeight] = useState(0);
     const resizeObserverRef = useResizeObserver((_, entry) => {
@@ -25,20 +27,21 @@ export function CommentSelectionPopover({ rects, onCreate }: { rects: DOMRect[];
     return (
         <div
             ref={resizeObserverRef}
+            role="toolbar"
+            aria-label="Selected text"
             className={cx(
                 'absolute z-[52] bg-card border rounded-full p-1 -translate-x-1/2', floatingShadowClassName
             )}
             style={{ left: leftFixed, top: topFixed }}>
-            <div>
+            <Row spacing={0.5}>
                 <Button
-                    title="Add comment"
                     variant="plain"
                     className="gap-2 rounded-full"
                     onClick={onCreate}
                     startDecorator={<Comment />}>
-                    Comment...
+                    Add comment
                 </Button>
-            </div>
+            </Row>
         </div>
     );
 }
