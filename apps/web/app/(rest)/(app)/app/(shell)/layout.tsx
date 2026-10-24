@@ -12,6 +12,7 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
     const context = await requireAppContext();
     const links: AppNavLink[] = [
         { href: KnownPages.AppProjects, label: 'Projects' },
+        ...(context.isAdmin ? [{ href: KnownPages.AppUsers, label: 'Users' }] : []),
         { href: KnownPages.AppBilling, label: 'Billing' }
     ];
 

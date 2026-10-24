@@ -78,6 +78,12 @@ export default function PrivacyPolicyPage() {
                 you signed in; the <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has the details. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>
+            <p>
+                When an admin of a workspace invites you, we store your email address, the role and projects they
+                chose, and who invited you, and we email you the invitation link. We store only a hash of the token
+                in the link. The invitation is deleted when you accept it, when the admin revokes it, or after 7
+                days. Accepting it creates your account if you don&rsquo;t have one yet.
+            </p>
 
             <h3>Comments in projects</h3>
             <p>
@@ -126,8 +132,8 @@ export default function PrivacyPolicyPage() {
                     performance of the service you use (Article 6(1)(b) GDPR).
                 </li>
                 <li>
-                    To sign you in to the app and keep your account, workspace and projects: the performance of
-                    the service you use (Article 6(1)(b) GDPR).
+                    To sign you in to the app, keep your account, workspace and projects, and send the invitations
+                    an admin asks for: the performance of the service you use (Article 6(1)(b) GDPR).
                 </li>
                 <li>
                     To protect {brand.name} from spam and abuse with rate limits, bot protection and request logs:
@@ -142,7 +148,7 @@ export default function PrivacyPolicyPage() {
             <h2>Where it is stored and who processes it</h2>
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
-                <li>Sign-in emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Sign-in and invitation emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
@@ -163,6 +169,7 @@ export default function PrivacyPolicyPage() {
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
                 <li>Comments in projects: until their author or a project admin deletes them.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
+                <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>uier_visitor</code> cookie: one year after it is set. The <code>uier_session</code> cookie: 30 days after you sign in.</li>
                 <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>
             </ul>

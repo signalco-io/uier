@@ -1,4 +1,5 @@
 import type { AppContext } from './context';
+import type { DbMember } from './model';
 import { findProject, projectOrigins, reviewUrl } from './projects';
 import { getMember, memberCanAccessProject } from './workspaces';
 import { issueReviewCode } from '../review/actor';
@@ -17,12 +18,17 @@ const commentIdPattern = /^comment_[A-Za-z0-9_-]{1,64}$/;
  * `null` when the project does not exist or the person has no access to it.
  */
 export async function reviewTarget(context: AppContext, projectId: string, requestedUrl: string | null, commentId?: string | null) {
+    return await memberReviewTarget(context.user.id, projectId, requestedUrl, commentId, context.memberships.map(m => m.member));
+}
+
+/** {@link reviewTarget} for a user (e.g. right after accepting an invitation) */
+export async function memberReviewTarget(userId: string, projectId: string, requestedUrl: string | null, commentId?: string | null, knownMemberships: DbMember[] = []) {
     const project = await findProject(projectId);
     if (!project)
         return null;
 
-    const member = context.memberships.find(m => m.workspace.id === project.workspaceId)?.member
-        ?? await getMember(project.workspaceId, context.user.id);
+    const member = knownMemberships.find(m => m.workspaceId === project.workspaceId)
+        ?? await getMember(project.workspaceId, userId);
     if (!member || !memberCanAccessProject(member, project.id))
         return null;
 
@@ -40,7 +46,7 @@ export async function reviewTarget(context: AppContext, projectId: string, reque
         return null;
 
     const target = new URL(reviewUrl(url, project.id));
-    target.searchParams.set(REVIEW_TOKEN_PARAM, await issueReviewCode(context.user.id, project.id));
+    target.searchParams.set(REVIEW_TOKEN_PARAM, await issueReviewCode(userId, project.id));
     if (commentId && commentIdPattern.test(commentId))
         target.searchParams.set(REVIEW_COMMENT_PARAM, commentId);
     return target.toString();

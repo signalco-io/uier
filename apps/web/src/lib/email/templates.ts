@@ -50,6 +50,27 @@ ${paragraphs.map(p => `<p style="margin:0 0 16px;font-size:16px;line-height:26px
     return { to, subject, text, html };
 }
 
+export function invitationEmail({ to, url, inviterName, inviterEmail, projectName, role }: {
+    to: string;
+    url: string;
+    inviterName: string;
+    inviterEmail: string;
+    projectName?: string;
+    role: 'admin' | 'commenter';
+}) {
+    const what = projectName ? projectName : 'their projects';
+    return layoutEmail({
+        to,
+        subject: projectName ? `Review ${projectName} on ${brand.name}` : `Join ${inviterName} on ${brand.name}`,
+        paragraphs: [
+            `${inviterName} (${inviterEmail}) invited you to review ${what} on ${brand.name}${role === 'admin' ? ', as an admin' : ''}.`,
+            `${brand.name} lets you leave comments directly on the site. Accepting signs you in as ${to}${projectName ? ' and opens the site with the toolbar' : ''}.`
+        ],
+        action: { label: 'Accept invitation', url },
+        footnote: 'The link works once and expires in 7 days. If you did not expect this invitation, ignore this email.'
+    });
+}
+
 export function signInEmail({ to, url }: { to: string; url: string }) {
     return layoutEmail({
         to,

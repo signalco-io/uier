@@ -104,6 +104,35 @@ export type DbProjectRef = AppDoc & {
     workspaceId: string;
 };
 
+/** A pending invitation to a workspace (in the workspace's partition, listed with its members) */
+export type DbInvitation = AppDoc & {
+    type: 'invitation';
+    /** `invitation_<nanoid>` */
+    id: string;
+    pk: `workspace:${string}`;
+    workspaceId: string;
+    /** Normalized email of the invited person */
+    email: string;
+    role: MemberRole;
+    projects: ProjectsAccess;
+    /** The project to open after accepting (the invitation was made from a project) */
+    projectId?: string;
+    invitedBy: string;
+    createdAt: string;
+    expiresAt: string;
+    /** SHA-256 of the token in the invitation link */
+    tokenHash: string;
+};
+
+/** Invitation link token -> invitation (single use, expires with the invitation) */
+export type DbInvitationToken = AppDoc & {
+    type: 'invitation-token';
+    pk: `invitation:${string}`;
+    workspaceId: string;
+    invitationId: string;
+    ttl: number;
+};
+
 export const workspacePk = (workspaceId: string) => `workspace:${workspaceId}` as const;
 export const userPk = (userId: string) => `user:${userId}` as const;
 export const emailPk = (email: string) => `email:${email}` as const;

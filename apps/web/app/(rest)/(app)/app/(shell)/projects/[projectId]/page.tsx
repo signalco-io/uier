@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Settings } from '@signalco/ui-icons';
-import { KnownPageLinks } from '@/src/knownPages';
+import { People, Settings } from '@signalco/ui-icons';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject, reviewUrl } from '@/src/lib/app/projects';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
@@ -53,9 +53,14 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
                     <>
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} />
                         {context.isAdmin && (
-                            <Button href={KnownPageLinks.projectSettings(project.id)} variant="plain" startDecorator={<Settings className="size-4" />}>
-                                Settings
-                            </Button>
+                            <>
+                                <Button href={`${KnownPages.AppInviteUser}?project=${project.id}`} variant="plain" startDecorator={<People className="size-4" />}>
+                                    Invite
+                                </Button>
+                                <Button href={KnownPageLinks.projectSettings(project.id)} variant="plain" startDecorator={<Settings className="size-4" />}>
+                                    Settings
+                                </Button>
+                            </>
                         )}
                     </>
                 )} />
