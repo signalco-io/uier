@@ -104,13 +104,20 @@ error boundary, so one bad comment never breaks the toolbar.
 - Feedback and bug reports: the megaphone opens a dialog to choose feedback (heart) or a bug report (bug) and
   describe it. It is saved as a comment of that `kind` about the whole page (`position: { type: 'page' }`):
   no pin, but it is counted and listed in the inbox like any thread.
-- Point comments: the + button starts point mode (an instruction shows above the pill, Esc cancels), then
-  a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
+- Point comments: the + button starts point mode (a pin cursor and an instruction above the pill, Esc
+  cancels). The element under the pointer gets a dashed accent outline, drawn by the toolbar over it (the
+  page's own styles are not touched, and the toolbar's controls are never outlined); a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).
 - Text comments: select text, then "Comment...".
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
-- After posting, the focus moves to the new pin and "Comment posted" / "Reply posted" is announced.
+- After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
+  "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
+- A thread starts with its status (**Open** or **Done**), **Mark as done** / **Reopen** for the comment's author,
+  and **Copy link** for everyone. The link is the comment's page with `?uier-comment=<id>` (plus the review
+  link in a review, so the toolbar opens for whoever follows it); opening it opens the thread on its pin, or
+  the inbox for a done thread or feedback. The parameter is then removed from the address. Done threads have
+  no pin; the inbox lists them under "Done".
 
 ## UI and styles
 

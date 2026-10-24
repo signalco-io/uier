@@ -86,7 +86,23 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await author.getByRole('button', { name: 'Add comment' }).click();
     const heading = await author.getByRole('heading', { level: 1, name: brand.tagline }).boundingBox();
     expect(heading).not.toBeNull();
-    await author.mouse.click(heading!.x + heading!.width / 2, heading!.y + heading!.height / 2);
+    const headingCenter = { x: heading!.x + heading!.width / 2, y: heading!.y + heading!.height / 2 };
+
+    // Point mode outlines the element under the pointer, but never the toolbar's own controls
+    const outline = author.locator('[data-uier-outline]');
+    await author.mouse.move(headingCenter.x, headingCenter.y);
+    await expect(outline).toBeVisible();
+    const outlined = await outline.boundingBox();
+    expect(outlined!.x).toBeLessThanOrEqual(headingCenter.x);
+    expect(outlined!.x + outlined!.width).toBeGreaterThanOrEqual(headingCenter.x);
+    expect(outlined!.y).toBeLessThanOrEqual(headingCenter.y);
+    expect(outlined!.y + outlined!.height).toBeGreaterThanOrEqual(headingCenter.y);
+    const pill = await toolbar(author).boundingBox();
+    await author.mouse.move(pill!.x + pill!.width / 2, pill!.y + pill!.height / 2);
+    await expect(outline).toHaveCount(0);
+
+    await author.mouse.click(headingCenter.x, headingCenter.y);
+    await expect(outline).toHaveCount(0);
 
     const pointComposer = author.getByRole('textbox', { name: 'Comment', exact: true });
     await expect(pointComposer).toBeFocused();
@@ -97,7 +113,14 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     // Same-origin API call protected by BotID (instrumentation-client.ts adds the challenge header)
     expect((await createRequest).headers()['x-is-human']).toBeTruthy();
     await expect(commentBubble(author, 1)).toBeVisible();
-    await expect(openThread(author)).toBeHidden();
+    // The posted comment shows its thread, ready for a reply
+    const postedThread = openThread(author);
+    await expect(postedThread.getByText('The heading could use a subtitle.')).toBeVisible();
+    await expect(postedThread).toContainText('Status: Open');
+    await expect(postedThread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+    await author.keyboard.press('Escape');
+    await expect(postedThread).toBeHidden();
+    await expect(commentBubble(author, 1)).toBeFocused();
 
     // Visitor A: text-selection comment
     await author.getByText(heroText).selectText();
@@ -108,6 +131,8 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await selectionComposer.press('Enter');
     await expect(commentBubbles(author)).toHaveCount(2);
     await expect(author.getByRole('button', { name: 'Inbox, 2 comments' })).toBeVisible();
+    await author.keyboard.press('Escape');
+    await expect(openThread(author)).toBeHidden();
     await author.evaluate(() => window.getSelection()?.removeAllRanges());
     await expectNoAxeViolations(author);
 
@@ -121,8 +146,10 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await commentBubbles(visitor).first().click();
     const visitorThread = openThread(visitor);
     await expect(visitorThread.getByText(/^Guest [0-9A-F]{4}$/)).toBeVisible();
-    await expect(visitorThread.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+    await expect(visitorThread.getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(0);
+    // Anyone can copy a link to it
+    await expect(visitorThread.getByRole('button', { name: 'Copy link' })).toBeVisible();
 
     const reply = visitorThread.getByRole('textbox', { name: 'Reply' });
     await reply.fill('Agreed, +1');
@@ -132,7 +159,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await expect(visitorThread.getByText('You', { exact: true })).toBeVisible();
     // Only the own reply can be deleted
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(1);
-    await expect(visitorThread.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+    await expect(visitorThread.getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
     await visitor.keyboard.press('Escape');
     await expect(visitorThread).toBeHidden();
 
@@ -151,7 +178,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     const authorThread = openThread(author);
     await expect(authorThread.getByText(/^Guest [0-9A-F]{4}$/)).toBeVisible();
     await expect(authorThread.getByRole('button', { name: 'More options' })).toHaveCount(1);
-    await authorThread.getByRole('button', { name: 'Resolve' }).click();
+    await authorThread.getByRole('button', { name: 'Mark as done' }).click();
     await expect(commentBubbles(author)).toHaveCount(1);
     await expect(author.getByRole('button', { name: 'Inbox, 1 comment' })).toBeVisible();
 
@@ -318,7 +345,7 @@ test('deleting a comment others replied to keeps their replies', async ({ browse
     await expect(authorThread.getByText('Comment deleted', { exact: true })).toBeVisible();
     await expect(authorThread.getByText('The heading could use a subtitle.')).toHaveCount(0);
     await expect(authorThread.getByText('Agreed, +1')).toBeVisible();
-    await expect(authorThread.getByRole('button', { name: /^(More options|Resolve|Reopen)/ })).toHaveCount(0);
+    await expect(authorThread.getByRole('button', { name: /^(More options|Mark as done|Reopen)/ })).toHaveCount(0);
     await expect(authorThread.getByRole('group', { name: 'Messages' })).toBeFocused();
     await expect(author.getByRole('status').filter({ hasText: 'Comment deleted' })).toBeAttached();
     // The pin counts messages, not the placeholder
@@ -424,9 +451,11 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await composer.press('Enter');
     const bubble = commentBubble(page, 1);
     await expect(bubble).toBeVisible();
-    // The new pin takes the focus, and the result is announced
-    await expect(bubble).toBeFocused();
+    // The new comment's thread opens with the focus in its reply box, and the result is announced
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toBeFocused();
     await expect(page.getByRole('status').filter({ hasText: 'Comment posted' })).toBeAttached();
+    await page.keyboard.press('Escape');
+    await expect(bubble).toBeFocused();
     const comments = await page.evaluate(async () => {
         const response = await fetch('/api/comments?path=/');
         return await response.json() as { position: { selector: string }; thread: { items: { text: string }[] } }[];
@@ -437,6 +466,61 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     expect(await page.evaluate(selector => document.querySelector(selector)?.textContent, comment?.position.selector ?? '')).toBe('How it works');
 
     await expectNoAxeViolations(page);
+    await context.close();
+});
+
+test('a thread keeps its replies and status; Copy link opens it', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+    await openLanding(page, origin, { dismissHint: true });
+    const created = await postComment(page, {
+        position: { type: 'point', selector: 'main>section>div>div>h1', xNormal: 0.5, yNormal: 0.5 },
+        text: 'The heading could use a subtitle.'
+    });
+    expect(created.status).toBe(201);
+    await page.reload();
+
+    await commentBubble(page, 1).click();
+    const thread = openThread(page);
+    await expect(thread).toContainText('Status: Open');
+    const reply = thread.getByRole('textbox', { name: 'Reply' });
+    await reply.fill('Seconded.');
+    await reply.press('Enter');
+    await expect(thread.getByText('Seconded.')).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Reply posted' })).toBeAttached();
+
+    // Copy link: the page with the comment's id
+    await thread.getByRole('button', { name: 'Copy link' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Link copied' })).toBeAttached();
+    const link = await page.evaluate(async () => await navigator.clipboard.readText());
+    expect(link).toBe(`${origin}/?uier-comment=${created.body.id}`);
+
+    // Done: the pin goes, the thread waits under "Done" with its reply
+    await thread.getByRole('button', { name: 'Mark as done' }).click();
+    await expect(commentBubbles(page)).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'Marked as done' })).toBeAttached();
+    await page.reload();
+    await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+    const sidebar = page.getByRole('complementary', { name: 'Comments' });
+    await sidebar.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(sidebar).toContainText('Status: Done');
+    await expect(sidebar.getByText('Seconded.')).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    // The link to a done comment opens the inbox on "Done", and leaves the address clean
+    await page.goto(link);
+    await expect(sidebar.getByRole('button', { name: 'Done', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(sidebar.getByText('The heading could use a subtitle.')).toBeVisible();
+    expect(new URL(page.url()).search).toBe('');
+
+    // Reopened, the link opens the thread on its pin
+    await sidebar.getByRole('button', { name: 'Reopen' }).click();
+    await expect(commentBubble(page, 2)).toBeVisible();
+    await page.goto(link);
+    await expect(openThread(page)).toContainText('Status: Open');
+    await expect(openThread(page).getByText('Seconded.')).toBeVisible();
+
     await context.close();
 });
 

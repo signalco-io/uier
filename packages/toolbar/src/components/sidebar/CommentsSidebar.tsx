@@ -10,13 +10,15 @@ import { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
 
 export type CommentsSidebarProps = {
+    /** The status shown first (a link to a done comment opens the inbox on "Done") */
+    initialStatus?: NonNullable<CommentsFilter['status']>;
     onClose: () => void;
     rootElement?: HTMLElement;
 };
 
-export function CommentsSidebar({ onClose, rootElement }: CommentsSidebarProps) {
+export function CommentsSidebar({ initialStatus, onClose, rootElement }: CommentsSidebarProps) {
     const [filterOpen, setFilterOpen] = useState<boolean>(false);
-    const [filter, setFilter] = useState<CommentsFilter>();
+    const [filter, setFilter] = useState<CommentsFilter>({ status: initialStatus });
     const [hidding, setHidding] = useState<boolean>(false);
 
     const handleClose = () => {

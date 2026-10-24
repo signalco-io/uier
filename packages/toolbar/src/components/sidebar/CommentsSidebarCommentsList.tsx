@@ -28,7 +28,7 @@ export function CommentsSidebarCommentsList({ status }: { status: NonNullable<Co
         <Stack spacing={1}>
             {!filteredComments?.length && (
                 <div className="py-4 text-center text-muted-foreground">
-                    {status === 'resolved' ? 'No resolved comments' : 'No comments'}
+                    {status === 'resolved' ? 'No done comments' : 'No comments'}
                 </div>
             )}
             {filteredComments?.map((commentItem) => (

@@ -39,9 +39,9 @@ function prefersReducedMotion() {
 }
 
 type CommentBubbleProps = {
-    /** Moves the keyboard focus to the bubble once it is on the page (a comment that was just posted) */
-    autoFocus?: boolean;
-    onAutoFocused?: () => void;
+    /** Opens the thread once the pin is on the page (a comment that was just posted, or a comment link) */
+    autoOpen?: boolean;
+    onAutoOpened?: () => void;
     onCreated?: (comment: CommentItem) => void;
     onCanceled?: () => void;
     className?: string;
@@ -53,7 +53,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoFocus, onAutoFocused, onCreated, onCanceled, className } = props;
+    const { autoOpen, onAutoOpened, onCreated, onCanceled, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -110,14 +110,19 @@ export function CommentBubble(props: CommentBubbleProps) {
         onCanceled?.();
     };
 
-    // A comment that was just posted gets the focus (its draft popover, which had it, is gone)
+    // The thread opens (and takes the focus, its reply box) once the pin is on the page; a pin
+    // outside the window (a comment link) is scrolled into view first
     const hasRect = Boolean(lastRect);
     useEffect(() => {
-        if (autoFocus && hasRect) {
-            triggerRef.current?.focus();
-            onAutoFocused?.();
+        if (autoOpen && hasRect) {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
+                resolveAnchorElement(position)?.scrollIntoView({ block: 'center', behavior: 'auto' });
+            }
+            setOpen(true);
+            onAutoOpened?.();
         }
-    }, [autoFocus, hasRect, onAutoFocused]);
+    }, [autoOpen, hasRect, onAutoOpened, position]);
 
     // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
     const handleFocus = () => {
