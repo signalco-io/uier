@@ -6,6 +6,7 @@ import { CommentThreadItem } from './CommentThreadItem';
 import { CommentThreadHeader } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 
+/** A thread: its first and last message, and "Show all" for the ones between */
 export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
     const [expanded, setExpanded] = useState(false);
     if (!commentItem.thread.items.length) return null;
@@ -45,7 +46,7 @@ export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
                     variant="plain"
                     className="rounded-none text-muted-foreground"
                     onClick={() => setExpanded(true)}>
-                    Show {restComments.length} more {restComments.length === 1 ? 'reply' : 'replies'}
+                    Show all {commentItem.thread.items.length} messages
                 </Button>
             )}
             {threadLastItem && (

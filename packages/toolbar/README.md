@@ -126,7 +126,8 @@ Content-Security-Policy add the sources from the install guide's "Advanced" sect
 
 `src/hooks/useComments.tsx` calls `<apiUrl>/api/comments` with `credentials: 'include'`; the API identifies
 anonymous visitors with its HttpOnly `uier_visitor` cookie. Comments are public: every visitor sees the
-unresolved comments of the page (`?path=` is `location.pathname` without a trailing slash) and can reply.
+unresolved comments of the page (`?path=` is `location.pathname` without a trailing slash) and can reply;
+in a review the inbox also lists the site's other pages (`?scope=site`).
 Only the author of a comment can resolve, reopen or delete it, and only the author of a reply can delete
 that reply (the API returns `isMine` / `author.isMe`). When others replied, deleting a comment keeps the
 thread: its first item comes back as `{ deleted: true }` and shows as "Comment deleted", without author or
@@ -178,11 +179,17 @@ error boundary, so one bad comment never breaks the toolbar.
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
-- A thread starts with its status (**Open** or **Done**), **Mark as done** / **Reopen** for the comment's author,
-  and **Copy link** for everyone. The link is the comment's page with `?uier-comment=<id>` (plus the review
+- A thread starts with its status (**Open** or **Done**) and public id (`#12`, numbered per site), **Mark as
+  done** / **Reopen** for the comment's author, and **Copy link** for everyone. The link is the comment's page with `?uier-comment=<id>` (plus the review
   link in a review, so the toolbar opens for whoever follows it); opening it opens the thread on its pin, or
   the inbox for a done thread or feedback. The parameter is then removed from the address. Done threads have
   no pin; the inbox lists them under "Done".
+- The inbox (the pill's inbox button opens and closes it; Esc and the close button close it too) lists
+  **This page** and, in a review, the site's **Other pages** (`?scope=site`), newest first.
+  **Open**, **Done** and **All** filter by status, and the search box matches messages, quoted text, guest
+  names, page paths and public ids. A thread shows its first and last message; **Show all** shows the rest.
+  **Show on page** opens an open comment's thread on its pin; a comment on another page links to its thread
+  there (`?uier-comment=`). The showcase runs on the landing page only, so it has no other pages.
 
 ## UI and styles
 

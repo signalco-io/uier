@@ -79,6 +79,8 @@ export type DbComment = {
     /** Page path without query string and without a trailing slash (except "/") */
     path: string;
     position: DbCommentPosition;
+    /** Public id, numbered per domain (`#12`); missing on old documents */
+    number?: number;
     /** Missing on old documents: `comment` */
     kind?: DbCommentKind;
     thread: { items: DbThreadItem[] };
@@ -104,4 +106,16 @@ export type DbCounter = {
     type: 'counter';
     count: number;
     ttl: number;
+};
+
+/**
+ * The domain's comment numbers (`DbComment.number`): one document per domain, incremented
+ * atomically. No `ttl` of its own (and no `path`, so comment queries never match it).
+ */
+export type DbSequence = {
+    /** `sequence_comments` */
+    id: string;
+    domain: string;
+    type: 'sequence';
+    count: number;
 };

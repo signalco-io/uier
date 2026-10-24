@@ -50,8 +50,8 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentSelectionPopover.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
 | `components/info/` | `getDeviceInfo` (read when a comment is posted) and `CommentDeviceMeta` ("Desktop · 1280×720") |
-| `components/sidebar/` | the inbox sidebar (ink, radius 16) |
-| `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API |
+| `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages (review mode), the status filter and search (`CommentsFilter.tsx`) |
+| `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
 | `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, a fallback pin when it is gone, nothing for hidden anchors; never throws (invalid selectors, out-of-range offsets) |
 | `hooks/useLayoutVersion.ts` | one shared "measure again" signal: scroll (capture), resize, size and DOM changes of the page |
@@ -82,8 +82,8 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 - End-to-end tests run the built toolbar on the landing page: `apps/web/e2e/showcase.spec.ts`
   (desktop and mobile, with axe checks), and on a reviewed site on another origin:
   `apps/web/e2e/embed.spec.ts`; review links and the pill's controls are in
-  `apps/web/e2e/review.spec.ts`; a project's site (the script tag, the React component, the
-  notices and their Exit review) is in `apps/web/e2e/project-review.spec.ts`; pins and
-  highlights after a reload, a scroll and a resize are in `apps/web/e2e/anchors.spec.ts`. Also
-  check the add-comment, reply, resolve and inbox
+  `apps/web/e2e/review.spec.ts`; the inbox is in `apps/web/e2e/inbox.spec.ts`; a project's site (the
+  script tag, the React component, the notices and their Exit review) is in
+  `apps/web/e2e/project-review.spec.ts`; pins and highlights after a reload, a scroll and a resize
+  are in `apps/web/e2e/anchors.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.

@@ -3,9 +3,14 @@ import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../src/lib/c
 import { createComment, listComments } from '../../../src/lib/comments/service';
 import { createCommentSchema, describeValidationError, pathSchema } from '../../../src/lib/comments/validation';
 
-// GET /api/comments?path=/x - all comments on the page (newest first)
+// GET /api/comments?path=/x - the comments of the page (newest first)
+// GET /api/comments?scope=site - the comments of every page of the domain (newest first)
 export const GET = commentsApiHandler(async (context) => {
-    const path = pathSchema.safeParse(new URL(context.request.url).searchParams.get('path'));
+    const params = new URL(context.request.url).searchParams;
+    if (params.get('scope') === 'site')
+        return Response.json(await listComments(context, null));
+
+    const path = pathSchema.safeParse(params.get('path'));
     if (!path.success)
         throw apiErrors.invalidRequest(describeValidationError(path.error, 'path'));
 

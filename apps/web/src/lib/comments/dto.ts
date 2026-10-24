@@ -26,6 +26,8 @@ export type CommentDto = {
     id: string;
     path: string;
     position: DbCommentPosition;
+    /** Public id, numbered per domain (`#12`); missing on old comments */
+    number?: number;
     kind: DbCommentKind;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
@@ -132,6 +134,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         id: comment.id,
         path: normalizePath(optionalString(comment.path) ?? '/'),
         position,
+        number: typeof comment.number === 'number' && Number.isInteger(comment.number) ? comment.number : undefined,
         kind: commentKinds.find(kind => kind === comment.kind) ?? 'comment',
         thread: {
             items: items

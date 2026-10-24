@@ -15,7 +15,7 @@ import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
-import type { CommentsFilter } from './sidebar/CommentsFilter';
+import type { CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength, commentTextMaxLength } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
@@ -95,7 +95,7 @@ export function CommentsGlobal({
     const [openCommentId, setOpenCommentId] = useState<string>();
     const [linkedCommentId] = useState(takeLinkedCommentId);
     const linkHandledRef = useRef(false);
-    const [sidebarStatus, setSidebarStatus] = useState<NonNullable<CommentsFilter['status']>>('unresolved');
+    const [sidebarStatus, setSidebarStatus] = useState<CommentsStatusFilter>('unresolved');
     const hintId = useId();
     const addButtonRef = useRef<HTMLButtonElement>(null);
     const inboxButtonRef = useRef<HTMLButtonElement>(null);
@@ -279,7 +279,7 @@ export function CommentsGlobal({
         setCreatingCommentPoint((curr) => !curr);
     };
 
-    const showInSidebar = (status: NonNullable<CommentsFilter['status']>) => {
+    const showInSidebar = (status: CommentsStatusFilter) => {
         setSidebarStatus(status);
         setSidebarOpen(true);
     };
@@ -324,6 +324,12 @@ export function CommentsGlobal({
     const handleCloseSidebar = () => {
         setSidebarOpen(false);
         inboxButtonRef.current?.focus();
+    };
+
+    // "Show on page" in the inbox: the thread opens on its pin (and takes the focus)
+    const handleShowOnPage = (commentId: string) => {
+        setSidebarOpen(false);
+        setOpenCommentId(commentId);
     };
 
     const handleCollapsedChange = (next: boolean) => {
@@ -384,8 +390,7 @@ export function CommentsGlobal({
                 <CommentsSidebar
                     initialStatus={sidebarStatus}
                     onClose={handleCloseSidebar}
-                    rootElement={rootElement}
-                />
+                    onShowOnPage={handleShowOnPage} />
             )}
             <CommentToolbar
                 mode={mode}
@@ -400,7 +405,8 @@ export function CommentsGlobal({
                 inboxButtonRef={inboxButtonRef}
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
-                onShowSidebar={() => showInSidebar('unresolved')}
+                sidebarOpen={sidebarOpen}
+                onToggleSidebar={() => sidebarOpen ? setSidebarOpen(false) : showInSidebar('unresolved')}
                 onFeedbackOpen={() => {
                     setCreatingCommentPoint(false);
                     closeHintForUse();

@@ -1,5 +1,5 @@
 import type { SqlParameter } from '@azure/cosmos';
-import type { DbComment, DbCounter } from '../db/schema';
+import type { DbComment, DbCounter, DbSequence } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
@@ -42,7 +42,7 @@ export function createCosmosCommentsStore(): CommentsStore {
             return resources.map(withoutSystemProperties);
         },
         async listAll(domain, limit) {
-            // Rate-limit counters share the partition; they have no `path`
+            // Rate-limit counters and the comment numbers' sequence share the partition; they have no `path`
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
                 'SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path) ORDER BY c.createdAt DESC',
@@ -107,6 +107,40 @@ export function createCosmosCommentsStore(): CommentsStore {
                     return 'not_found';
                 throw error;
             }
+        },
+        async nextCommentNumber(domain) {
+            const container = cosmosDataContainerComments();
+            const id = 'sequence_comments';
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const { resource } = await container.item(id, domain).patch<DbSequence>({
+                        operations: [{ op: 'incr', path: '/count', value: 1 }]
+                    });
+                    if (typeof resource?.count === 'number')
+                        return resource.count;
+                    throw new Error(`Sequence ${id} has no count`);
+                } catch (error) {
+                    if (errorCode(error) !== 404)
+                        throw error;
+                }
+
+                // The domain's first number (409 = created concurrently, increment again). A sequence
+                // that expired (`comments-preview` has a default ttl) continues after the highest stored.
+                const [highest] = await queryAll<number | undefined>(
+                    domain,
+                    'SELECT VALUE MAX(c.number) FROM c WHERE c.domain = @domain AND IS_NUMBER(c.number)',
+                    []);
+                const first = (typeof highest === 'number' ? highest : 0) + 1;
+                try {
+                    await container.items.create<DbSequence>({ id, domain, type: 'sequence', count: first });
+                    return first;
+                } catch (error) {
+                    if (errorCode(error) !== 409)
+                        throw error;
+                }
+            }
+
+            throw new Error(`Sequence ${id} could not be updated`);
         },
         async incrementCounter(domain, id, limit, ttlSeconds) {
             const container = cosmosDataContainerComments();

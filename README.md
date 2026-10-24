@@ -204,7 +204,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | --- | --- |
 | `GET /api/review/<code>` | the project (name, who can comment), the reviewer and whether they can comment, the sign-in URL |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
-| `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`), a new comment (`authorName` from guests) |
+| `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `DELETE .../replies/<itemId>` | replies, done (`resolved`), deleting |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
@@ -306,6 +306,7 @@ trailing slash).
 | Request | Body | Response |
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
+| `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
 | `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device? }` | `201` the new comment. `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
@@ -314,6 +315,12 @@ trailing slash).
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
 | `DELETE /api/visitor` | | `204`; signs out: removes the `uier_visitor` cookie (never creates one) |
 | `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
+
+**Public ids.** Every new comment gets a `number`, counted per domain (per project for a project's comments)
+from 1 and shown as `#12` in the toolbar and the app. One sequence document per partition (`type: 'sequence'`, id `sequence_comments`, no `ttl` of its own) is incremented
+atomically when a comment is created; a sequence that is gone (the preview container expires idle items)
+starts again after the highest number stored. Numbers are never used twice, deleted comments leave gaps,
+and comments from before numbering have none.
 
 **Deleting.** One visitor can't delete what others wrote:
 

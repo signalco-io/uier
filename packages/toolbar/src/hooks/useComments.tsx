@@ -70,18 +70,36 @@ async function deleteReply({ commentId, itemId }: { commentId: string; itemId: s
     });
 }
 
+async function getSiteComments() {
+    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site`);
+    return Array.isArray(comments) ? comments : [];
+}
+
 export function commentsQueryKey(path: string) {
     return [...commentsQueryKeyPrefix, path] as const;
 }
 
-function updateCachedComments(client: QueryClient, path: string, update: (comments: CommentItem[]) => CommentItem[]) {
-    client.setQueryData<CommentItem[]>(commentsQueryKey(path), (current) => update(current ?? []));
-}
+/** The comments of every page of the site (paths always start with "/", so this key is not a page's) */
+export const siteCommentsQueryKey = [...commentsQueryKeyPrefix, 'site'] as const;
 
 function withComment(comments: CommentItem[], comment: CommentItem) {
     return comments.some(c => c.id === comment.id)
         ? comments.map(c => c.id === comment.id ? comment : c)
         : [comment, ...comments];
+}
+
+/** Applies a change to every cached list of comments (each page's and the site's) */
+function updateAllCachedComments(client: QueryClient, update: (comments: CommentItem[]) => CommentItem[]) {
+    client.setQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix }, (current) => current && update(current));
+}
+
+/** The comments of every page of the site, for the inbox (fetched while `enabled`) */
+export function useSiteComments(enabled: boolean): UseQueryResult<CommentItem[], Error> {
+    return useQuery({
+        queryKey: siteCommentsQueryKey,
+        queryFn: getSiteComments,
+        enabled
+    });
 }
 
 export function useComments(): {
@@ -102,15 +120,16 @@ export function useComments(): {
         queryFn: () => getComments(path)
     });
 
+    // A comment can be on another page (the inbox lists the whole site): every list that has it
     const handleCommentChanged = (comment: CommentItem) => {
-        updateCachedComments(client, path, (comments) => withComment(comments, comment));
+        updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? comment : c));
     };
     const handleCommentDeleted = (commentId: string) => {
-        updateCachedComments(client, path, (comments) => comments.filter(c => c.id !== commentId));
+        updateAllCachedComments(client, (comments) => comments.filter(c => c.id !== commentId));
     };
     const handleSettled = () => {
         // Also picks up other visitors' changes; the comment is gone on `not_found`
-        client.invalidateQueries({ queryKey });
+        client.invalidateQueries({ queryKey: commentsQueryKeyPrefix });
     };
 
     // The first comment or reply gives the visitor a guest name (see hooks/useVisitor.tsx)
@@ -121,7 +140,11 @@ export function useComments(): {
 
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => createComment(path, input),
-        onSuccess: handleWritten,
+        onSuccess: (comment: CommentItem) => {
+            client.setQueryData<CommentItem[]>(queryKey, (current) => withComment(current ?? [], comment));
+            client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && withComment(current, comment));
+            client.invalidateQueries({ queryKey: visitorQueryKey });
+        },
         onSettled: handleSettled
     });
 

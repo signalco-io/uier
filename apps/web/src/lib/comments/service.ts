@@ -115,9 +115,15 @@ async function updateComment<T extends DbComment | null>(
     throw apiErrors.conflict();
 }
 
-/** The page's newest comments, as many as fit into {@link MAX_LIST_RESPONSE_BYTES} */
-export async function listComments(context: CommentsApiContext, path: string) {
-    const comments = await getCommentsStore().list(context.domain, path, MAX_LIST_COMMENTS);
+/**
+ * The page's newest comments (or, without a path, those of every page of the domain), as many as
+ * fit into {@link MAX_LIST_RESPONSE_BYTES}
+ */
+export async function listComments(context: CommentsApiContext, path: string | null) {
+    const store = getCommentsStore();
+    const comments = path === null
+        ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
+        : await store.list(context.domain, path, MAX_LIST_COMMENTS);
     const dtos: CommentDto[] = [];
     let bytes = 2;
     for (const comment of comments) {
@@ -151,6 +157,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         domain: context.domain,
         path: input.path,
         position: input.position,
+        number: await store.nextCommentNumber(context.domain),
         kind: input.kind,
         thread: { items: [firstItem] },
         device: compactDevice(input.device),

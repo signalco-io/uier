@@ -152,6 +152,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         origin: input.origin,
         path: input.path,
         position: input.position,
+        number: await store.nextCommentNumber(partition),
         kind: input.kind,
         thread: {
             items: [{

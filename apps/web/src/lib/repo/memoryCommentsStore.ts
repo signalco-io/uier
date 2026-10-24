@@ -19,6 +19,8 @@ type MemoryCounter = {
 type MemoryState = {
     domains: Map<string, Map<string, MemoryEntry>>;
     counters: Map<string, MemoryCounter>;
+    /** Comment numbers per domain (missing in state from before it existed, `next dev`) */
+    sequences?: Map<string, number>;
     version: number;
 };
 
@@ -130,6 +132,12 @@ export function getMemoryCommentsStore(): CommentsStore {
             };
             entries.set(id, { comment, version: ++state().version, modifiedAt: Date.now() });
             return 'ok';
+        },
+        async nextCommentNumber(domain) {
+            const sequences = state().sequences ??= new Map();
+            const next = (sequences.get(domain) ?? 0) + 1;
+            sequences.set(domain, next);
+            return next;
         },
         async incrementCounter(domain, id, limit, ttlSeconds) {
             const counters = state().counters;

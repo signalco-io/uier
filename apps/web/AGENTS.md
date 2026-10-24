@@ -66,8 +66,8 @@ how it works (`#how-it-works`), features (`#features`), get started (`#get-start
 
 - **Only what the toolbar does today.** Every step, feature and answer describes behaviour you can
   try on the page (check `packages/toolbar` before adding one). Not claimed, because it is not
-  true yet: using uier on your own site (#53), a domain-wide inbox, search in the inbox, showing
-  the device of a comment.
+  true yet: using uier on your own site (#53), and with it the inbox's other pages (the showcase
+  is the landing page only).
 - **Get started** goes to `#get-started`, which starts the one supported flow: leaving a comment
   with the showcase toolbar on this page. Point it at the app (and update the test) once
   onboarding exists.
