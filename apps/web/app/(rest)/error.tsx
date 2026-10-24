@@ -26,7 +26,7 @@ export default function RootError({ error, reset }: RootErrorProps) {
                     <Typography>{'Can\'t find find what you\'re looking for...'}</Typography>
                     <Row spacing={1}>
                         <Button variant="plain" onClick={() => reset()}>Try again...</Button>
-                        <NavigatingButton href="/">doprocess home</NavigatingButton>
+                        <NavigatingButton href="/">uier home</NavigatingButton>
                     </Row>
                 </Stack>
             </Row>

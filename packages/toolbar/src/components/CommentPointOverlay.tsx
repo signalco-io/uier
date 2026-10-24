@@ -9,7 +9,7 @@ type CommentPointOverlayProps = {
 };
 
 export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
-    const hoveredElement = useRef<Element>();
+    const hoveredElement = useRef<Element | undefined>(undefined);
 
     useWindowEvent('mousemove', (e) => {
         hoveredElement.current = window.document.elementsFromPoint(e.clientX, e.clientY)

@@ -1,1 +1,10 @@
-@import '@signalco/ui-themes-minimal/styles';
+@import 'tailwindcss';
+@import './styles/tailwind-v3-compat.css';
+@import './styles/signalco-theme.css';
+
+/* JS preset from @signalco/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
+@config '../tailwind.config.js';
+
+/* The UI kit ships precompiled class names; node_modules is not scanned automatically */
+@source '../node_modules/@signalco/ui/dist';
+@source '../node_modules/@signalco/ui-primitives/dist';

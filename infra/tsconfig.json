@@ -1,10 +1,28 @@
 {
-    "extends": "@infra/typescript-config/app.json",
-    "parserOptions": {
-        "project": "./tsconfig.json"
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "compilerOptions": {
+        "target": "ESNext",
+        "lib": [
+            "ESNext"
+        ],
+        "types": [
+            "node"
+        ],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "moduleDetection": "force",
+        "esModuleInterop": true,
+        "isolatedModules": true,
+        "resolveJsonModule": true,
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "skipLibCheck": true,
+        "rootDir": "src",
+        "outDir": "dist",
+        "sourceMap": true
     },
     "include": [
-        "./src/**/*.ts"
+        "src/**/*.ts"
     ],
     "exclude": [
         "node_modules",

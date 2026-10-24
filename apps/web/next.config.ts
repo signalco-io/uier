@@ -1,11 +1,12 @@
+import type { NextConfig } from 'next';
 import { createSecureHeaders } from 'next-secure-headers';
-import { combineSecureHeaders, knownSecureHeadersExternalUrls } from '@signalco/data/node';
+import { combineSecureHeaders, knownSecureHeadersExternalUrls } from './src/lib/secureHeaders';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
     reactStrictMode: true,
+    reactCompiler: true,
     images: {
         dangerouslyAllowSVG: true,
         contentSecurityPolicy: 'default-src \'self\'; script-src \'none\'; sandbox;',
@@ -22,20 +23,20 @@ const nextConfig = {
             }
         ]
     },
-    experimental: {
-        reactCompiler: true
-    },
     async headers() {
         return [{
             source: '/(.*)',
             headers: createSecureHeaders(combineSecureHeaders(
-                ['uier.io', 'next.uier.io'],
+                ['uier.io'],
                 false,
                 isDevelopment,
                 [
                     knownSecureHeadersExternalUrls.vercel,
                     knownSecureHeadersExternalUrls.googleFonts,
-                    { scriptSrc: 'http://localhost:4005', styleSrc: 'http://localhost:4005', connectSrc: 'http://localhost:4005' },
+                    // Local review toolbar dev server (packages/toolbar `pnpm dev`)
+                    ...(isDevelopment
+                        ? [{ scriptSrc: ['http://localhost:4005'], styleSrc: ['http://localhost:4005'], connectSrc: ['http://localhost:4005'] }]
+                        : []),
                 ]
             ))
         }];
