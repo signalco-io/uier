@@ -66,5 +66,6 @@ configuration: [README.md](README.md).
   http://localhost:4004/?review=true (or any page, e.g. `/brand?review=true`).
 - `pnpm -C packages/toolbar build` produces the production bundle; `pnpm typecheck` checks it.
 - End-to-end tests run the built toolbar on the landing page: `apps/web/e2e/showcase.spec.ts`
-  (desktop and mobile, with axe checks). Also check the add-comment, reply, resolve and inbox
+  (desktop and mobile, with axe checks), and on a reviewed site on another origin:
+  `apps/web/e2e/embed.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.

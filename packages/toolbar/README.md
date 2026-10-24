@@ -6,11 +6,22 @@ feedback pinned to an element (point comments) or to selected text.
 ## Embedding
 
 The bundle (`dist/index.js`) is a classic script (an IIFE, so nothing leaks into the page's globals).
-The web app serves it at `/toolbar.js`:
+The web app serves it at `/toolbar.js`; the production URL is `https://uier.io/toolbar.js`, served from
+Vercel's CDN (caching and updates: the root README, [`/toolbar.js`](../../README.md#toolbarjs)). A reviewed
+site embeds it with:
+
+```html
+<script src="https://uier.io/toolbar.js" defer></script>
+```
+
+and opens a page with `?review=true` to start the toolbar. The uier.io landing page uses showcase mode:
 
 ```html
 <script src="https://uier.io/toolbar.js" data-uier-mode="showcase" defer></script>
 ```
+
+The comments API does not accept requests from other sites yet
+([#53](https://github.com/signalco-io/uier/issues/53)): there the toolbar starts but can't load or post comments.
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:

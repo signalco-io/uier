@@ -120,6 +120,8 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   comments, a second visitor who can reply but not resolve or delete, a deleted comment whose replies stay,
   review mode on other pages. Each of these tests opens the site on an origin of its own
   (`<random>.localhost:4004`, on the test port), so its comments are isolated from the other tests.
+  [`embed.spec.ts`](apps/web/e2e/embed.spec.ts) loads `/toolbar.js` on a reviewed site on another origin (a
+  small server on `reviewed.localhost`).
 
 Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
 (`api.vercel.com`), so they need network access.
@@ -140,17 +142,42 @@ the page and can reply to it. Embedding options and the toolbar's modes are desc
 
 ### `/toolbar.js`
 
+The production URL of the toolbar is **`https://uier.io/toolbar.js`**. A reviewed site embeds it with:
+
+```html
+<script src="https://uier.io/toolbar.js" defer></script>
+```
+
+and the toolbar starts on its pages opened with `?review=true` (review mode, the default; options in
+[`packages/toolbar/README.md`](packages/toolbar/README.md#embedding)). It calls the comments API on the origin of
+its own script URL, so a preview deployment's landing page talks to that preview's API.
+
 `pnpm build` in `apps/web` first copies the production bundle of `@uier/toolbar` (a workspace devDependency,
 built before the web app through Turborepo's `^build`) to `apps/web/public/toolbar.js`
 ([`scripts/copy-toolbar.mjs`](apps/web/scripts/copy-toolbar.mjs); the copy is gitignored and a Turborepo build
 output). It refuses to copy a development build. [`next.config.ts`](apps/web/next.config.ts) serves it with
-`Content-Type: application/javascript`, `Cache-Control: public, max-age=300, s-maxage=3600` (the URL is not
-versioned yet, so no `immutable`) and `Access-Control-Allow-Origin: *`. Vercel builds through Turborepo as well
-(`buildCommand` in [`apps/web/vercel.json`](apps/web/vercel.json)), so `vercel build` produces it too.
+`Content-Type: application/javascript`, `Cache-Control: public, max-age=300, s-maxage=3600` and
+`Access-Control-Allow-Origin: *`. Vercel builds through Turborepo as well (`buildCommand` in
+[`apps/web/vercel.json`](apps/web/vercel.json)), so `vercel build` produces it too, and every deployment of the
+website ships the toolbar built from the same commit.
 
-The toolbar calls the comments API on the origin of its own script URL, so a preview deployment's landing
-page talks to that preview's API. Embedding it on other sites is not supported by the API yet: it sends no
-CORS headers, and BotID only protects requests from the same origin.
+**Caching and updates.** The bundle is a static file of the deployment, served by Vercel's CDN (compressed, with
+an `ETag`). The URL is not versioned, so it is cached briefly and never `immutable`:
+
+- The CDN keeps it for up to an hour (`s-maxage=3600`). Its cache key includes the deployment, so a new
+  production deployment serves its own bundle from the first request (`x-vercel-cache: MISS`, then `HIT`); no
+  purge is needed. A rollback (promoting an earlier deployment) serves that deployment's bundle the same way.
+- Browsers reuse their copy for up to 5 minutes (`max-age=300`), then revalidate with `If-None-Match` and get a
+  `304` while the bundle is unchanged. A release reaches every visitor within 5 minutes of the deploy
+  (other shared caches on the way may keep it for up to an hour).
+
+Every reviewed site always runs the latest toolbar; there are no pinned versions yet.
+
+**On other sites** the toolbar mounts and calls `https://uier.io/api/comments`
+([`embed.spec.ts`](apps/web/e2e/embed.spec.ts)), but the comments API does not accept cross-origin requests
+yet: it sends no CORS headers, BotID only protects requests from the same origin and the `uier_visitor` cookie
+is not sent cross-site. Until [#53](https://github.com/signalco-io/uier/issues/53) is done, comments only work on
+uier.io itself.
 
 ### Comments API
 
