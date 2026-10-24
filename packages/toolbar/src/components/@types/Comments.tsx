@@ -6,6 +6,20 @@ export const popoverWindowMargin = 8;
 /** Maximum length of a comment or reply text (enforced by the API as well) */
 export const commentTextMaxLength = 1000;
 
+/** Most comments the API lists for a page (`GET /api/comments`); a full list may have more */
+export const commentsListMaxLength = 200;
+
+/**
+ * Destructive text (errors, Delete) from the `--destructive` token (#DC2626, 4.8:1 on paper).
+ * On the dark surfaces it is mixed with white so it keeps at least 4.5:1 there too.
+ */
+export const destructiveTextClassName = 'text-[hsl(var(--destructive))] dark:text-[color-mix(in_srgb,hsl(var(--destructive))_55%,white)]';
+
+/**
+ * Floating elevation (packages/brand/BRAND.md, "Borders and elevation"): popovers, menus, the hint
+ */
+export const floatingShadowClassName = 'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)]';
+
 export type CommentPoint = {
     type: 'point';
     selector: string;

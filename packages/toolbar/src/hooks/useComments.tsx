@@ -21,18 +21,26 @@ export type CommentsApiErrorCode =
     | 'server_error'
     | 'network_error';
 
+export type CommentsRateLimitReason = 'too_fast' | 'page_full';
+
 export class CommentsApiError extends Error {
     readonly code: CommentsApiErrorCode | (string & {});
     readonly status: number;
     /** Seconds until the request may be retried (`Retry-After`), for `rate_limited` */
     readonly retryAfter?: number;
+    /**
+     * Why a request was rate limited: `too_fast` (this visitor sends too much) or `page_full`
+     * (the page has too many open comments). A missing reason means `too_fast`.
+     */
+    readonly reason?: CommentsRateLimitReason | (string & {});
 
-    constructor(code: CommentsApiError['code'], message: string, status: number, retryAfter?: number) {
+    constructor(code: CommentsApiError['code'], message: string, status: number, retryAfter?: number, reason?: string) {
         super(message);
         this.name = 'CommentsApiError';
         this.code = code;
         this.status = status;
         this.retryAfter = retryAfter;
+        this.reason = reason;
     }
 }
 
@@ -63,7 +71,7 @@ async function request<T>(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH
     }
 
     if (!response.ok) {
-        let body: { error?: unknown; message?: unknown } | undefined;
+        let body: { error?: unknown; message?: unknown; reason?: unknown } | undefined;
         try {
             body = await response.json() as typeof body;
         } catch {
@@ -76,7 +84,8 @@ async function request<T>(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH
             typeof body?.error === 'string' ? body.error : errorCodeFromStatus(response.status),
             typeof body?.message === 'string' ? body.message : response.statusText,
             response.status,
-            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined);
+            Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+            typeof body?.reason === 'string' ? body.reason : undefined);
     }
 
     if (response.status === 204) {
