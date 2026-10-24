@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
@@ -10,17 +10,36 @@ import { CommentSelectionPopover } from './CommentSelectionPopover';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentPointOverlay } from './CommentPointOverlay';
 import { CommentBubble } from './CommentBubble';
-import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentItem } from './@types/Comments';
+import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
+import { getDeviceInfo } from './info/getDeviceInfo';
+import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft } from './@types/Comments';
+
+// Selection text limit of the comments API
+const selectionTextMaxLength = 2000;
+
+/** Whether the node is in the toolbar's shadow root (or is its host) */
+function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement | undefined) {
+    const rootNode = rootElement?.getRootNode();
+    if (!node || !(rootNode instanceof ShadowRoot)) {
+        return false;
+    }
+
+    return node.getRootNode() === rootNode || node === rootNode.host || rootNode.host.contains(node);
+}
 
 export function CommentsGlobal({
+    mode,
     reviewParamKey = 'review',
     rootElement
 }: CommentsGlobalProps) {
     const [creatingCommentSelection, setCreatingCommentSelection] = useState<CommentSelection>();
-    const [creatingComment, setCreatingComment] = useState<CommentItem>();
+    const [creatingComment, setCreatingComment] = useState<CommentDraft>();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
+    const hintButtonRef = useRef<HTMLButtonElement>(null);
 
     const { query: commentItems } = useComments();
+    const unresolvedComments = (commentItems.data ?? []).filter(c => !c.resolved);
 
     const [creatingCommentPoint, setCreatingCommentPoint] = useState(false);
 
@@ -37,13 +56,18 @@ export function CommentsGlobal({
         // Ignore if selection is empty or no selection in document
         const selection = window.getSelection();
         const text = selection?.toString();
-        if (!selection || !text?.length) {
+        if (!selection || !text?.trim().length) {
             setCreatingCommentSelection(undefined);
             return;
         }
 
+        // Text selected in the toolbar itself
+        if (isToolbarNode(selection.anchorNode, rootElement) || isToolbarNode(selection.focusNode, rootElement)) {
+            return;
+        }
+
         setCreatingCommentSelection({
-            text,
+            text: text.slice(0, selectionTextMaxLength),
             type: 'text',
             startSelector: getElementSelector(selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode?.parentElement),
             startOffset: selection.anchorOffset,
@@ -64,11 +88,7 @@ export function CommentsGlobal({
         setCreatingCommentSelection(undefined);
         setCreatingComment({
             position: creatingCommentSelection,
-            thread: { items: [] },
-            device: {
-                size: window.innerWidth >= 1024 ? 'desktop' : (window.innerWidth >= 768 ? 'tablet' : 'mobile'),
-
-            }
+            device: getDeviceInfo()
         });
     };
 
@@ -76,15 +96,7 @@ export function CommentsGlobal({
         setCreatingCommentPoint(false);
         setCreatingComment({
             position: commentPoint,
-            thread: { items: [] },
-            device: {
-                size: window.innerWidth >= 1024 ? 'desktop' : (window.innerWidth >= 768 ? 'tablet' : 'mobile'),
-                pixelRatio: window.devicePixelRatio,
-                os: (navigator as any).userAgentData?.platform,
-                browser: `${(navigator as any).userAgentData?.brands?.at(-1)?.brand} (${(navigator as any).userAgentData?.brands?.at(-1)?.version})`,
-                userAgent: navigator.userAgent,
-                windowSize: [window.innerWidth, window.innerHeight]
-            }
+            device: getDeviceInfo()
         });
     };
 
@@ -94,19 +106,29 @@ export function CommentsGlobal({
         window.history.replaceState({}, '', url.toString());
     };
 
+    const handleDismissHint = (hadFocus: boolean) => {
+        rememberShowcaseHintDismissed();
+        setHintOpen(false);
+        // Keep the keyboard focus in the toolbar
+        if (hadFocus) {
+            hintButtonRef.current?.focus();
+        }
+    };
+
     return (
         <>
-            {(creatingComment ? [...(commentItems.data ?? []), creatingComment] : (commentItems.data ?? [])).map((commentItem) => {
-                console.log('creating comment id', commentItem.id)
-                return (
-                    <CommentBubble
-                        key={commentItem.id ?? 'new'}
-                        commentItem={commentItem}
-                        creating={!commentItem.id}
-                        onCreated={() => setCreatingComment(undefined)}
-                        onCanceled={() => setCreatingComment(undefined)} />
-                );
-            })}
+            {unresolvedComments.map((commentItem) => (
+                <CommentBubble
+                    key={commentItem.id}
+                    commentItem={commentItem} />
+            ))}
+            {creatingComment && (
+                <CommentBubble
+                    key="new"
+                    draft={creatingComment}
+                    onCreated={() => setCreatingComment(undefined)}
+                    onCanceled={() => setCreatingComment(undefined)} />
+            )}
             {creatingCommentSelection && (
                 <CommentSelectionHighlight commentSelection={creatingCommentSelection} />
             )}
@@ -124,10 +146,18 @@ export function CommentsGlobal({
                     rootElement={rootElement}
                 />
             )}
+            {mode === 'showcase' && hintOpen && (
+                <ShowcaseHint onDismiss={handleDismissHint} />
+            )}
             <CommentToolbar
+                mode={mode}
                 creatingPointComment={creatingCommentPoint}
+                commentsCount={unresolvedComments.length}
+                hintOpen={hintOpen}
+                hintButtonRef={hintButtonRef}
                 onAddPointComment={() => setCreatingCommentPoint((curr) => !curr)}
                 onShowSidebar={() => setSidebarOpen(true)}
+                onToggleHint={() => hintOpen ? handleDismissHint(false) : setHintOpen(true)}
                 onExitReview={handleExitReview} />
         </>
     );

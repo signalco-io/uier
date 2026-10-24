@@ -2,8 +2,10 @@ import { createRoot } from 'react-dom/client';
 import { GEIST_FONTS_URL } from '@uier/brand';
 import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
+import { toolbarConfig, ToolbarMode } from './config';
 
 const reviewParamKey = 'review';
+const containerId = 'uier-toolbar';
 
 /**
  * Loads Geist into the reviewed page so the toolbar can use it (BRAND.md, "Typography").
@@ -24,25 +26,34 @@ function ensureBrandFont() {
     }
 }
 
-function MountOnPage() {
-    // Create root container and attach shadow DOM
+function MountOnPage(mode: ToolbarMode) {
+    // The script can be included more than once (or re-run by client-side navigation)
+    if (document.getElementById(containerId)) {
+        console.debug('uier-toolbar: Already mounted');
+        return;
+    }
+
+    // Create root container and attach shadow DOM. The shadow root is open so assistive
+    // technologies, accessibility checkers and end-to-end tests can reach the toolbar UI.
     const container = document.createElement('div');
-    container.setAttribute('id', 'uier-toolbar');
-    const shadowRoot = container.attachShadow({ mode: 'closed' });
+    container.setAttribute('id', containerId);
+    const shadowRoot = container.attachShadow({ mode: 'open' });
 
     // Create style element in shadow dom
     const style = document.createElement('style');
     style.innerHTML = '__uier_toolbar_css__/*\"\"*/';
     shadowRoot.appendChild(style);
 
-    // Create inner container (in shadow DOM)
-    const shadowDomContainer = document.createElement('main');
-    shadowDomContainer.style.fontFamily = 'Geist, system-ui, -apple-system, "Segoe UI", sans-serif';
+    // Create inner container (in shadow DOM); styles/toolbar-theme.css resets the text styles it
+    // would otherwise inherit from the reviewed page
+    const shadowDomContainer = document.createElement('div');
+    shadowDomContainer.setAttribute('data-uier-root', '');
     shadowRoot.appendChild(shadowDomContainer);
 
-    // Threads follow the system theme (the toolbar and pins are always ink): toggle the UI kit's `dark` class
+    // Threads follow the system theme (the toolbar, pins and sidebar are always ink, see
+    // components/InkScope.tsx). The UI kit's `dark:` variants match `[class="dark"]` exactly.
     const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-    const applyScheme = () => shadowDomContainer.classList.toggle('dark', darkScheme.matches);
+    const applyScheme = () => { shadowDomContainer.className = darkScheme.matches ? 'dark' : ''; };
     applyScheme();
     darkScheme.addEventListener('change', applyScheme);
 
@@ -53,13 +64,27 @@ function MountOnPage() {
     // Run React
     const root = createRoot(shadowDomContainer);
     root.render(<CommentsBootstrapper
+        mode={mode}
         rootElement={shadowDomContainer}
         reviewParamKey={reviewParamKey} />);
 }
 
-console.debug('uier-toolbar: Checking review param...')
-const urlInReview = new URL(window.location.href).searchParams.get(reviewParamKey) === 'true';
-if (urlInReview) {
-    console.debug('uier-toolbar: In review, mounting...');
-    MountOnPage();
+function whenBodyReady(callback: () => void) {
+    if (document.body) {
+        callback();
+    } else {
+        document.addEventListener('DOMContentLoaded', callback, { once: true });
+    }
+}
+
+if (toolbarConfig.mode === 'showcase') {
+    console.debug('uier-toolbar: Showcase mode, mounting...');
+    whenBodyReady(() => MountOnPage('showcase'));
+} else {
+    console.debug('uier-toolbar: Checking review param...');
+    const urlInReview = new URL(window.location.href).searchParams.get(reviewParamKey) === 'true';
+    if (urlInReview) {
+        console.debug('uier-toolbar: In review, mounting...');
+        whenBodyReady(() => MountOnPage('review'));
+    }
 }

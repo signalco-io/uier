@@ -9,7 +9,8 @@
                 "!.next/dev/**",
                 "dist/**",
                 "public/sitemap*.xml",
-                "public/robots.txt"
+                "public/robots.txt",
+                "public/toolbar.js"
             ],
             "env": ["SITE_URL"]
         },

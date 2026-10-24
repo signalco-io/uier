@@ -3,6 +3,8 @@
 @import './styles/signalco-theme.css';
 /* uier brand tokens override the theme above; `:host` makes them apply inside the shadow root. Rules: packages/brand/BRAND.md */
 @import '@uier/brand/tokens.css';
+/* Inherited text styles reset and reduced motion; after the tokens so it reads them */
+@import './styles/toolbar-theme.css';
 
 /* JS preset from @signalco/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
 @config '../tailwind.config.js';

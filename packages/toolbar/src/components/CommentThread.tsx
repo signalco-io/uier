@@ -5,7 +5,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { CommentThreadItem } from './CommentThreadItem';
 import { CommentItem } from './@types/Comments';
 
-export function CommentThread({ commentItem, onResolve }: { commentItem: CommentItem; onResolve: () => void; }) {
+export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
     const [expanded, setExpanded] = useState(false);
     if (!commentItem.thread.items.length) return null;
 
@@ -21,8 +21,7 @@ export function CommentThread({ commentItem, onResolve }: { commentItem: Comment
                         <CommentThreadItem
                             first
                             comment={commentItem}
-                            threadItem={threadFistItem}
-                            onDone={onResolve} />
+                            threadItem={threadFistItem} />
                     </div>
                     {threadLastItem && <Divider />}
                 </>
@@ -32,8 +31,7 @@ export function CommentThread({ commentItem, onResolve }: { commentItem: Comment
                     <div className="px-4 py-3">
                         <CommentThreadItem
                             comment={commentItem}
-                            threadItem={item}
-                            onDone={onResolve} />
+                            threadItem={item} />
                     </div>
                     <Divider />
                 </Fragment>
@@ -41,6 +39,7 @@ export function CommentThread({ commentItem, onResolve }: { commentItem: Comment
             {!expanded && restComments.length > 0 && (
                 <Button
                     variant="plain"
+                    className="rounded-none text-muted-foreground"
                     onClick={() => setExpanded(true)}>
                     Show all ({restComments.length} more)...
                 </Button>
@@ -51,8 +50,7 @@ export function CommentThread({ commentItem, onResolve }: { commentItem: Comment
                     <div className="px-4 py-2 pt-3">
                         <CommentThreadItem
                             comment={commentItem}
-                            threadItem={threadLastItem}
-                            onDone={onResolve} />
+                            threadItem={threadLastItem} />
                     </div>
                 </>
             )}

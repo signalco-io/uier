@@ -1,0 +1,36 @@
+/*
+ * The toolbar renders into a shadow root on pages it does not control. Colours come from
+ * @uier/brand/tokens.css (`:host` for light, `.dark` for dark); this file only keeps the page out.
+ *
+ * Inherited text styles cross the shadow boundary, so without the reset below the toolbar would
+ * use the page's text colour, font, size and alignment.
+ */
+
+@layer base {
+    [data-uier-root] {
+        color: hsl(var(--foreground));
+        font-family: Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-feature-settings: "rlig" 1, "calt" 1;
+        font-size: 1rem;
+        font-style: normal;
+        font-weight: 400;
+        letter-spacing: normal;
+        line-height: 1.5;
+        text-align: start;
+        text-indent: 0;
+        text-transform: none;
+        white-space: normal;
+        word-spacing: normal;
+        visibility: visible;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        [data-uier-root] *,
+        [data-uier-root] *::before,
+        [data-uier-root] *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}

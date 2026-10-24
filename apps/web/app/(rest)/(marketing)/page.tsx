@@ -7,6 +7,7 @@ import { Mark } from '@uier/brand/Mark';
 import { Footer1 } from '../../../src/components/marketing/Footer1';
 import { ReviewThreadDemo } from '../../../src/components/marketing/ReviewThreadDemo';
 import { KnownPages } from '../../../src/knownPages';
+import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 
 // Copy and layout follow packages/brand/BRAND.md ("Marketing and metadata"): the tagline is the
 // headline, the review layer is shown on the page itself instead of a screenshot.
@@ -115,6 +116,8 @@ export default function LandingPage() {
                         ]
                     }
                 ]} />
+            {/* Showcase: the real uier toolbar runs on the landing page and anyone can leave public feedback */}
+            <ToolbarScript mode="showcase" />
         </main>
     );
 }

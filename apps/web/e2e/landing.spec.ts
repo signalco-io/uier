@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
-import { assertAccessibility } from './accessibility';
+import { expectNoAxeViolations } from './accessibility';
+import { showcaseHint, toolbar } from './support/toolbar';
 
 test('landing page renders', async ({ page }) => {
     const response = await page.goto('/');
@@ -19,4 +20,25 @@ test('landing page sends security headers', async ({ request }) => {
     expect(response.headers()['strict-transport-security']).toContain('max-age=345600');
 });
 
-test('landing page is accessible', ({ page }) => assertAccessibility(page, '/'));
+test('landing page is accessible (with the showcase toolbar)', async ({ page }) => {
+    await page.goto('/');
+    await expect(toolbar(page)).toBeVisible();
+    await expect(showcaseHint(page)).toBeVisible();
+    await expectNoAxeViolations(page);
+});
+
+test('toolbar bundle is served at /toolbar.js', async ({ request }) => {
+    const response = await request.get('/toolbar.js');
+    expect(response.status()).toBe(200);
+
+    const headers = response.headers();
+    expect(headers['content-type']).toMatch(/^application\/javascript\b/);
+    expect(headers['cache-control']).toBe('public, max-age=300, s-maxage=3600');
+    expect(headers['access-control-allow-origin']).toBe('*');
+
+    // The production build of packages/toolbar, with its CSS inlined
+    const body = await response.text();
+    expect(body).toContain('uier-toolbar');
+    expect(body).not.toContain('__uier_toolbar_css__');
+    expect(body).not.toContain('http://localhost:4004');
+});

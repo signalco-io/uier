@@ -80,10 +80,21 @@ const up = async () => {
         protect,
         aliases: [{ type: 'azure-native:documentdb:DatabaseAccount' }],
     });
-    const cosmosPrimaryConnectionString = listDatabaseAccountConnectionStringsOutput({
+    const cosmosConnectionStrings = listDatabaseAccountConnectionStringsOutput({
         resourceGroupName: resourceGroup.name,
         accountName: cosmosDbAccount.name,
-    }).apply(keys => keys.connectionStrings?.at(0)?.connectionString ?? '');
+    });
+    const cosmosPrimaryConnectionString = cosmosConnectionStrings
+        .apply(keys => keys.connectionStrings?.at(0)?.connectionString ?? '');
+    // PR preview deployments use the secondary read-write key of the same account. It can be
+    // regenerated (Azure portal -> Cosmos DB account -> Keys) to revoke their access without
+    // touching production, which uses the primary key.
+    const cosmosSecondaryConnectionString = cosmosConnectionStrings.apply((keys) => {
+        const secondary = keys.connectionStrings?.find(c => c.keyKind === 'Secondary' && c.type === 'Sql');
+        if (!secondary?.connectionString)
+            throw new Error(`Cosmos DB account "${cosmosAccountName}" returned no secondary SQL connection string.`);
+        return secondary.connectionString;
+    });
 
     // Create a SQL Database within the Cosmos DB Account
     const sqlDatabase = new SqlResourceSqlDatabase(databaseName, {
@@ -98,8 +109,11 @@ const up = async () => {
     });
 
     // Creating the containers inside the database
-    const containerNames = ['comments'];
-    containerNames.map((containerName) =>
+    // `defaultTtl` turns on Cosmos DB time to live (an in-place container update, existing items
+    // are kept): -1 = items never expire by default, only items with their own `ttl` field do;
+    // a positive value = every item expires that many seconds after its last write unless its own
+    // `ttl` says otherwise (a per-item `ttl` always overrides the container default).
+    const sqlContainer = (containerName: string, defaultTtl: number) =>
         new SqlResourceSqlContainer(`dbcontainer-${containerName}`, {
             resourceGroupName: resourceGroup.name,
             accountName: cosmosDbAccount.name,
@@ -111,14 +125,23 @@ const up = async () => {
                     kind: 'Hash',
                     paths: ['/domain'],
                 },
+                defaultTtl,
             },
         }, {
             protect,
             aliases: [{ type: 'azure-native:documentdb:SqlResourceSqlContainer' }],
-        }),
-    );
+        });
+    // Production comments; anonymous showcase comments carry their own `ttl` (90 days).
+    const commentsContainer = sqlContainer('comments', -1);
+    // Comments written by PR preview deployments: 7 days, as long as items carry no longer `ttl`.
+    const commentsPreviewContainer = sqlContainer('comments-preview', 7 * 24 * 60 * 60);
 
     // Assign app environment variables
+    // Production and preview deployments get separate variables (same keys, disjoint targets):
+    // the production ones stay untouched, and the preview ones point at their own container.
+    // Vercel allows one variable per key and target, so a replace of the new variables (a changed
+    // `key` or `sensitive`) has to delete the old one first; variables apply to new deployments only.
+    const envVarOptions = { deleteBeforeReplace: true };
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
         projectId: app.projectId,
         key: 'COSMOSDB_CONNECTION_STRING',
@@ -130,6 +153,29 @@ const up = async () => {
         // replace (which fails safely with ENV_CONFLICT, as create runs before delete).
         sensitive: false,
     });
+    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container', {
+        projectId: app.projectId,
+        key: 'COSMOSDB_COMMENTS_CONTAINER',
+        value: commentsContainer.name,
+        targets: ['production'],
+        // A container name, not a secret ("Config" in the Vercel dashboard).
+        sensitive: false,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-preview', {
+        projectId: app.projectId,
+        key: 'COSMOSDB_CONNECTION_STRING',
+        value: cosmosSecondaryConnectionString,
+        targets: ['preview'],
+        // "Secret" in the Vercel dashboard: write-only, only deployments can read it.
+        sensitive: true,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container-preview', {
+        projectId: app.projectId,
+        key: 'COSMOSDB_COMMENTS_CONTAINER',
+        value: commentsPreviewContainer.name,
+        targets: ['preview'],
+        sensitive: false,
+    }, envVarOptions);
 };
 
 export default up;
