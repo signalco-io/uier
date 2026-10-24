@@ -10,9 +10,10 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/` | the signed-in app shell (`/app`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
+| `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
 | `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
@@ -79,6 +80,12 @@ control from it when it stops being true, and add one only when it ships. `/open
 licenses in each `package.json`, the root `LICENSE` and the README "License" section. Both have the
 repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
 `e2e/pages.spec.ts` checks them.
+
+## Status page
+
+`/status` (dynamic) and `/api/status` render `getServiceStatus()` from `src/lib/status`: only what
+those checks measure, at request time. Do not add uptime percentages, history or services that are
+not checked. A new service gets a real check there first. `e2e/status.spec.ts` covers both.
 
 ## Testing
 

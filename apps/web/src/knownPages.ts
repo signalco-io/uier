@@ -5,6 +5,7 @@ export const KnownPages = {
     Brand: '/brand',
     OpenSource: '/open-source',
     Security: '/security',
+    Status: '/status',
 
     LegalPrivacyPolicy: '/legal/privacy-policy',
     LegalTermsOfService: '/legal/terms-of-service',

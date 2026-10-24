@@ -300,6 +300,21 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
    `thread.items` and **Update** to remove a single reply. If only a deleted first item (`deletedAt`) would be
    left, delete the document instead. Changes are visible immediately (the API does not cache).
 
+## Status
+
+[uier.io/status](https://uier.io/status) and `GET /api/status` show the live state of the services, checked on the
+server when they are requested ([`src/lib/status`](apps/web/src/lib/status/serviceStatus.ts)):
+
+| Service | Check |
+| --- | --- |
+| Website | none: it answers, so it is up |
+| Comments | the comments server key is configured and a point read of a missing document in the comments store answers within 5 s (about 1 RU on Cosmos DB) |
+
+Results are reused for 30 seconds per server instance. `/api/status` returns the report as JSON with `200` when
+every service is operational and `503` otherwise (`Cache-Control: no-store`), so an external monitor can poll it.
+Nothing is recorded: there is no history or uptime figure, and none is claimed. A failed check is logged as
+`[status] Comments API check failed` with the error. If uier.io itself is down, the status page is down too.
+
 ## Infrastructure
 
 [`infra/`](infra) is the Pulumi project **`uier`** (Node.js runtime) with a single stack,
