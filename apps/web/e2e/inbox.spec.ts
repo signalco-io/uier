@@ -237,3 +237,41 @@ test('inbox: a comment\'s link never leaves the site', async ({ browser }, testI
 
     await context.close();
 });
+
+test('inbox: Show on page only where the pin can be placed; Show all counts like the pin', async ({ browser, request }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await page.goto(`${origin}/brand?review=true`);
+    await addToolbarScript(page);
+    await expect(toolbar(page)).toBeVisible();
+
+    // #1 is pinned to an element this page doesn't have; #2 to the page's main content
+    await comment(page, '/brand', 'On an element that is gone.', { selector: 'main>section:nth-of-type(99)' });
+    const deleted = await comment(page, '/brand', 'Deleted after two replies.');
+    // Another visitor replies twice, then the author deletes the comment: [deleted, reply, reply]
+    for (const text of ['First answer.', 'Second answer.']) {
+        const reply = await request.post(`/api/comments/${deleted.id}/replies`, { headers: { Host: new URL(origin).host }, data: { text } });
+        expect(reply.status(), await reply.text()).toBe(201);
+    }
+    const removed = await page.evaluate(async (id) => (await fetch(`/api/comments/${id}`, { method: 'DELETE' })).status, deleted.id);
+    expect(removed).toBe(200);
+
+    await page.reload();
+    await addToolbarScript(page);
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const thisPage = page.getByRole('complementary', { name: 'Comments' }).getByRole('region', { name: 'This page' });
+    await expectListed(thisPage, ['Comment #2', 'Comment #1']);
+
+    // No pin for #1, so no way to show it on the page; #2's pin is there
+    await expect(thisPage.getByRole('article', { name: 'Comment #2' }).getByRole('button', { name: 'Show on page' })).toBeVisible();
+    await expect(thisPage.getByRole('article', { name: 'Comment #1' }).getByRole('button', { name: 'Show on page' })).toHaveCount(0);
+
+    // Two messages, like its pin ("Comment deleted" is not one)
+    const card = thisPage.getByRole('article', { name: 'Comment #2' });
+    await expect(card.getByText('Comment deleted')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comment, 2 messages', exact: true })).toBeVisible();
+    await card.getByRole('button', { name: 'Show all 2 messages' }).click();
+    await expect(card.getByText('First answer.')).toBeVisible();
+
+    await context.close();
+});
