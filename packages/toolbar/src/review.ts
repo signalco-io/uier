@@ -3,10 +3,11 @@
  *
  * In `review` mode the toolbar mounts only when the page was opened with a review link:
  *
- * - `?toolbar-code=<project code>`: the review link of a project (the code identifies the
- *   project in the uier app)
- * - `?review=true`: a review without a project code
+ * - `?toolbar-code=<project code>`: the review link of a project, as the uier app makes them
+ * - `?review=true`: a review link without a project code
  *
+ * The link only starts the review. The project whose comments and settings apply is the script's
+ * `data-uier-project` (`config.ts`), so `?review=true` on a project's site reviews that project.
  * The review then lasts for the browser tab (`sessionStorage`), so it continues on other pages
  * of the site, until the reviewer chooses "Exit review".
  */

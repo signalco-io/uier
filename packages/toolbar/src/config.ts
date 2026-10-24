@@ -11,7 +11,8 @@ export type ToolbarMode = 'showcase' | 'review';
 
 export type ToolbarConfig = {
     /**
-     * - `review` (default): mounts only when the page URL contains `?review=true`
+     * - `review` (default): mounts only for a review link, `?toolbar-code=<project code>` or
+     *   `?review=true`, then for the rest of the browser tab until "Exit review" (`src/review.ts`)
      * - `showcase`: always mounted, shows a first-run hint, anyone can leave public feedback
      */
     mode: ToolbarMode;
@@ -20,7 +21,8 @@ export type ToolbarConfig = {
     /**
      * The uier project code (from the app's install guide). With a project, comments belong to the
      * project and its access settings apply (`/api/review/<project>`); without one, to the domain
-     * (`/api/comments`, the uier.io showcase).
+     * (`/api/comments`, the uier.io showcase). This is the project a review applies to, whichever
+     * review link started it: the link only starts the review.
      */
     project?: string;
 };

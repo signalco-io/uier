@@ -135,6 +135,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## Toolbar in development
 
-`app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with
-`?review=true` (for example `/brand?review=true`) to see the real toolbar on top of it. The landing
-page embeds it with the toolbar's React component (`@uier/toolbar/react`, see `ToolbarScript`).
+`app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with a
+review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
+see the real toolbar on top of it. uier.io's own pages have no project (no `data-uier-project`), so
+their comments are stored per domain whichever link started the review. On a project's site the
+script's `data-uier-project` decides the project, and `?review=true` there reviews that project
+(`e2e/project-review.spec.ts`). The landing page embeds the toolbar with its React component
+(`@uier/toolbar/react`, see `ToolbarScript`).

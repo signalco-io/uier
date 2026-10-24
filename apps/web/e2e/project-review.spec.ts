@@ -81,6 +81,7 @@ test('invited people only: a review link signs members in, everyone else is aske
     await stranger.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
     await expect(toolbar(stranger.page)).toContainText('Sign in to see and leave comments.');
     await expect(stranger.page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await expect(stranger.page.getByRole('button', { name: 'Exit review' })).toBeVisible();
     await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
     expect(strangerViolations).toEqual([]);
 
@@ -150,6 +151,30 @@ test('guest mode: anyone with the link comments under their name', async ({ page
     await expect(comment).toContainText('On mobile especially.');
 });
 
+test('a React site adds the project\'s toolbar with the React component', async ({ page, browser, baseURL }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setAccess(page, projectId, 'Anyone with the link');
+    const appOrigin = new URL(baseURL!).origin;
+
+    // `<UierToolbar project={projectId} />`, opened with `?review=true`: the link has no project code
+    const guest = await anonymousVisitor(browser, testInfo);
+    const violations = await watchCsp(guest.page);
+    const reviewInfo = guest.page.waitForResponse(response => response.request().method() === 'GET'
+        && new URL(response.url()).pathname === `/api/review/${projectId}`);
+    await guest.page.goto(`${siteOrigin()}/${projectId}/?review=true&embed=react`);
+    await expect(guest.page.locator(`script[data-uier-mode="review"][data-uier-project="${projectId}"]`))
+        .toHaveAttribute('src', `${appOrigin}/toolbar.js`);
+    // The toolbar uses the project's review API
+    expect((await reviewInfo).status()).toBe(200);
+    await expect(guest.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+
+    // "View project" opens the script's project
+    await guest.page.getByRole('button', { name: 'Options', exact: true }).click();
+    await expect(guest.page.getByRole('link', { name: 'View project' })).toHaveAttribute('href', `${appOrigin}/app/projects/${projectId}`);
+    expect(violations).toEqual([]);
+    await guest.context.close();
+});
+
 test('comments off: the toolbar says so and the API refuses', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
     await setAccess(page, projectId, 'Comments off');
@@ -157,6 +182,16 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}/${projectId}/`)}`);
     await expect(toolbar(page)).toContainText('Comments are turned off for this project.');
     await expect(page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
+    await expectNoAxeViolations(page);
+
+    // The notice still ends the review: the toolbar leaves, also after a reload
+    await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/?toolbar-code=${projectId}`);
+    await page.getByRole('button', { name: 'Exit review' }).click();
+    await expect(page.locator('#uier-toolbar')).toHaveCount(0);
+    await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/`);
+    // After the load event: the toolbar script has run (it is deferred) and mounts synchronously
+    await page.reload();
+    await expect(page.locator('#uier-toolbar')).toHaveCount(0);
 
     const response = await request.get(`/api/review/${projectId}/comments?path=/`, {
         headers: { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') }
@@ -171,6 +206,7 @@ test('the toolbar works only on the project\'s own sites', async ({ page, reques
 
     await page.goto(`${siteOrigin('elsewhere')}/${projectId}/?toolbar-code=${projectId}`);
     await expect(toolbar(page)).toContainText('uier can\'t open this project here.');
+    await expect(page.getByRole('button', { name: 'Exit review' })).toBeVisible();
 
     // CORS: preflights are answered for the project's origins only
     const allowed = await request.fetch(`/api/review/${projectId}/comments`, {

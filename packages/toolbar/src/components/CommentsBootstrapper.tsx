@@ -33,7 +33,7 @@ export function CommentsBootstrapper({
                     <DraftsProvider>
                         {toolbarConfig.project ? (
                             // A project's comments: only when the project lets this reviewer comment
-                            <ProjectGate>
+                            <ProjectGate onExitReview={onExitReview}>
                                 <CommentsGlobal
                                     mode={mode}
                                     review={review}

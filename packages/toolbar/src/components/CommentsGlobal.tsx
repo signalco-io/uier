@@ -329,9 +329,11 @@ export function CommentsGlobal({
         }
     };
 
-    // The project of the review link, in the uier app
-    const projectUrl = review?.projectCode
-        ? `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(review.projectCode)}`
+    // The reviewed project in the uier app: the script's project, whose comments these are, else
+    // the review link's code (`?review=true` on a project's site still has a project)
+    const projectCode = review ? toolbarConfig.project ?? review.projectCode : undefined;
+    const projectUrl = projectCode
+        ? `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(projectCode)}`
         : undefined;
 
     return (

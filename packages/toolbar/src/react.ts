@@ -6,8 +6,8 @@ import { useEffect } from 'react';
  * Renders nothing: it adds the toolbar script to the page once, exactly like the script tag in
  * the README does. Render it once, e.g. in the root layout:
  *
- *     <UierToolbar />                     // review links (?toolbar-code=..., ?review=true)
- *     <UierToolbar mode="showcase" />     // always shown
+ *     <UierToolbar project="k3m9x2p7q4ab" />  // a project's site, opened with its review links
+ *     <UierToolbar mode="showcase" />         // always shown
  */
 
 export type UierToolbarProps = {
@@ -17,6 +17,12 @@ export type UierToolbarProps = {
      * - `showcase`: always shown
      */
     mode?: 'review' | 'showcase';
+    /**
+     * The uier project code from the app's install guide (`data-uier-project`). The comments then
+     * belong to the project and its "who can comment" setting applies. Sites other than uier.io
+     * need it to load and post comments.
+     */
+    project?: string;
     /** URL of the toolbar script. Default: https://uier.io/toolbar.js */
     src?: string;
     /** Base URL of the uier API. Default: the origin of `src` */
@@ -25,7 +31,7 @@ export type UierToolbarProps = {
 
 export const defaultToolbarScriptSrc = 'https://uier.io/toolbar.js';
 
-export function UierToolbar({ mode = 'review', src = defaultToolbarScriptSrc, apiUrl }: UierToolbarProps) {
+export function UierToolbar({ mode = 'review', project, src = defaultToolbarScriptSrc, apiUrl }: UierToolbarProps) {
     useEffect(() => {
         // Once per page: the toolbar stays mounted across client-side navigation, and the
         // script would not mount it twice anyway
@@ -39,11 +45,14 @@ export function UierToolbar({ mode = 'review', src = defaultToolbarScriptSrc, ap
         script.src = src;
         script.async = true;
         script.dataset.uierMode = mode;
+        if (project) {
+            script.dataset.uierProject = project;
+        }
         if (apiUrl) {
             script.dataset.uierApiUrl = apiUrl;
         }
         document.body.appendChild(script);
-    }, [mode, src, apiUrl]);
+    }, [mode, project, src, apiUrl]);
 
     return null;
 }
