@@ -3,6 +3,8 @@ export const KnownPages = {
     HowItWorks: '/#how-it-works',
     App: '/app',
     Brand: '/brand',
+    OpenSource: '/open-source',
+    Security: '/security',
 
     LegalPrivacyPolicy: '/legal/privacy-policy',
     LegalTermsOfService: '/legal/terms-of-service',

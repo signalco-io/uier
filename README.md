@@ -425,8 +425,9 @@ A ruleset on `main` requires a pull request with a passing **`CI OK`** check and
 
 ## Contributing
 
-- Open pull requests against `main`.
-- Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore(deps):` ...).
+See [CONTRIBUTING.md](CONTRIBUTING.md): pull requests against `main`, [Conventional Commits](https://www.conventionalcommits.org/)
+(`feat:`, `fix:`, `chore(deps):` ...), and `pnpm typecheck && pnpm build && pnpm test` before you push. Report security
+problems as described in [SECURITY.md](SECURITY.md), not in an issue.
 
 ## History
 
@@ -440,3 +441,4 @@ with its git history preserved (`web/apps/uier` -> `apps/web`, `web/packages/uie
 [`apps/web`](apps/web) is licensed under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
 [`packages/toolbar`](packages/toolbar) and [`infra`](infra) are licensed under the MIT license, as declared in their
 `package.json`. Anything without an explicit license is covered by the root [LICENSE](LICENSE) (AGPL-3.0).
+[uier.io/open-source](https://uier.io/open-source) explains the licenses in plain words; keep it in step with this section.

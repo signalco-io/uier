@@ -30,7 +30,7 @@ export default function SlaPage() {
             <ul>
                 <li>Every feature available today stays free.</li>
                 <li>Problems can be reported in <a href={brand.issues}>GitHub issues</a>, where fixes are discussed in the open.</li>
-                <li>Security problems can be reported privately to <a href={`mailto:${brand.contact.security}`}>{brand.contact.security}</a>.</li>
+                <li>Security problems can be reported privately, as described on the <a href={KnownPages.Security}>security page</a>.</li>
             </ul>
             <p>
                 If that changes, this page will say so. Until then the{' '}

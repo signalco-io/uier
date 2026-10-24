@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 
 // Every public page shares the footer from the marketing layout
-const publicPages = ['/', '/brand', '/legal/privacy-policy'];
+const publicPages = ['/', '/brand', '/legal/privacy-policy', '/security', '/open-source'];
 
 test('footer is on every public page', async ({ page }) => {
     for (const path of publicPages) {

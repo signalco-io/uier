@@ -30,7 +30,7 @@ export default function AcceptableUsePolicyPage() {
             <ul>
                 <li>Do not post in bulk, automate the toolbar or the comments API, or work around rate limits or bot protection.</li>
                 <li>Do not try to read, change or delete other people&rsquo;s comments in ways the toolbar does not offer.</li>
-                <li>Do not overload, probe or attack {brand.domain}. To report a vulnerability, email <a href={`mailto:${brand.contact.security}`}>{brand.contact.security}</a>.</li>
+                <li>Do not overload, probe or attack {brand.domain}. To report a vulnerability, follow the <a href={KnownPages.Security}>security policy</a>.</li>
             </ul>
 
             <h2>What we do</h2>

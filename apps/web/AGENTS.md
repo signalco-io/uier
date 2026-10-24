@@ -10,11 +10,11 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `layout.tsx` (nav, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/` | the signed-in app shell (`/app`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
-| `src/components/marketing/` | `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
+| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
@@ -71,6 +71,14 @@ third party, a different retention), update the matching document and its effect
 same pull request. The SLA states that there are no service commitments; do not add uptime targets
 or credits before they are decided. `e2e/legal.spec.ts` checks each document, the legal navigation
 and the footer links.
+
+## Security and open source pages
+
+`/security` lists only controls that are in place and can be checked in this repository; remove a
+control from it when it stops being true, and add one only when it ships. `/open-source` mirrors the
+licenses in each `package.json`, the root `LICENSE` and the README "License" section. Both have the
+repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
+`e2e/pages.spec.ts` checks them.
 
 ## Testing
 
