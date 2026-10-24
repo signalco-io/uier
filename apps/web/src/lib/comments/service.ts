@@ -2,13 +2,12 @@ import { nanoid } from 'nanoid';
 import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
-import { toCommentDto, type CommentDto } from './dto';
+import { toCommentDto, withinListResponseSize, type CommentDto } from './dto';
 import { isLocalRuntime } from './environment';
 import { apiErrors, writerId, type CommentsApiContext } from './http';
 import {
     COMMENT_TTL_SECONDS,
     MAX_LIST_COMMENTS,
-    MAX_LIST_RESPONSE_BYTES,
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
@@ -115,22 +114,18 @@ async function updateComment<T extends DbComment | null>(
     throw apiErrors.conflict();
 }
 
-/** The page's newest comments, as many as fit into {@link MAX_LIST_RESPONSE_BYTES} */
-export async function listComments(context: CommentsApiContext, path: string) {
-    const comments = await getCommentsStore().list(context.domain, path, MAX_LIST_COMMENTS);
-    const dtos: CommentDto[] = [];
-    let bytes = 2;
-    for (const comment of comments) {
-        const dto = toCommentDto(comment, context.visitor.authorId);
-        if (!dto)
-            continue;
-
-        bytes += Buffer.byteLength(JSON.stringify(dto)) + 1;
-        if (bytes > MAX_LIST_RESPONSE_BYTES)
-            break;
-        dtos.push(dto);
-    }
-    return dtos;
+/**
+ * The page's newest comments (or, without a path, those of every page of the domain), as many as
+ * fit into {@link MAX_LIST_RESPONSE_BYTES}
+ */
+export async function listComments(context: CommentsApiContext, path: string | null) {
+    const store = getCommentsStore();
+    const comments = path === null
+        ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
+        : await store.list(context.domain, path, MAX_LIST_COMMENTS);
+    return withinListResponseSize(comments
+        .map(comment => toCommentDto(comment, context.visitor.authorId))
+        .filter((dto): dto is CommentDto => Boolean(dto)));
 }
 
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
@@ -151,6 +146,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         domain: context.domain,
         path: input.path,
         position: input.position,
+        number: await store.nextCommentNumber(context.domain),
         kind: input.kind,
         thread: { items: [firstItem] },
         device: compactDevice(input.device),

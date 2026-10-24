@@ -389,7 +389,7 @@ test('a long thread keeps its reply box inside the window', async ({ browser }, 
     await page.reload();
     await commentBubble(page, 4).click();
     const thread = openThread(page);
-    await thread.getByRole('button', { name: 'Show 2 more replies' }).click();
+    await thread.getByRole('button', { name: 'Show all 4 messages' }).click();
     const reply = thread.getByRole('textbox', { name: 'Reply' });
     await reply.fill('Still visible');
 

@@ -104,9 +104,15 @@ export const commentLinkParamKey = 'uier-comment';
 /**
  * Link to a comment on its page of this site. In a review it carries the review link too, so the
  * toolbar opens for whoever follows it; showcase pages need none.
+ *
+ * Always on this page's origin: the stored path only replaces the path, so a path like `//host` or
+ * `/\host` (which a browser would read as another site) can't lead away.
  */
 export function commentLink(comment: { id: string; path: string }, review: ReviewSession | null | undefined) {
-    const url = new URL(comment.path, window.location.origin);
+    const url = new URL(window.location.href);
+    url.pathname = comment.path.startsWith('/') ? comment.path : `/${comment.path}`;
+    url.search = '';
+    url.hash = '';
     if (review?.projectCode) {
         url.searchParams.set(toolbarCodeParamKey, review.projectCode);
     } else if (review) {

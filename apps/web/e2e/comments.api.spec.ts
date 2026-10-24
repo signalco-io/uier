@@ -43,13 +43,15 @@ const selectionPosition = {
     endType: 'text'
 };
 
-const commentKeys = ['createdAt', 'id', 'isMine', 'kind', 'path', 'position', 'resolved', 'thread'];
+const commentKeys = ['createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'resolved', 'thread'];
 const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
 
 type CommentDto = {
     id: string;
     path: string;
     position: Record<string, unknown>;
+    /** Public id, numbered per site */
+    number?: number;
     kind: string;
     // A deleted first item has only `id`, `deleted` and `createdAt`
     thread: { items: { id: string; text: string; quotedText?: string; author: { name: string; isMe: boolean }; createdAt?: string; deleted?: true }[] };
@@ -335,6 +337,57 @@ test('comments are listed per page (path), newest first', async ({ newVisitor })
 
     await expectError(await visitor.get('/api/comments'), 400, 'invalid_request');
     await expectError(await visitor.get('/api/comments', { params: { path: 'no-leading-slash' } }), 400, 'invalid_request');
+});
+
+test('comments are numbered per site, and listed for the whole site', async ({ newVisitor }) => {
+    // Sites of their own: comments are partitioned by the request host
+    const site = await newVisitor({ headers: { Host: `site-${randomUUID()}.localhost` } });
+    const otherSite = await newVisitor({ headers: { Host: `site-${randomUUID()}.localhost` } });
+
+    const first = await created(await createComment(site, '/a', { text: 'First' }));
+    const second = await created(await createComment(site, '/b?ref=mail', { text: 'Second' }));
+    const feedback = await created(await createComment(site, '/a', { kind: 'feedback', position: { type: 'page' }, text: 'Third' }));
+    expect([first.number, second.number, feedback.number]).toEqual([1, 2, 3]);
+    expect((await created(await createComment(otherSite, '/a'))).number).toBe(1);
+
+    // The number stays with the comment, and a deleted comment's number is not used again
+    const replied = await created(await site.post(`/api/comments/${first.id}/replies`, { data: { text: 'Reply' } }));
+    expect(replied.number).toBe(1);
+    const resolved = await site.patch(`/api/comments/${second.id}`, { data: { resolved: true } });
+    expect((await resolved.json() as CommentDto).number).toBe(2);
+    expect((await site.delete(`/api/comments/${feedback.id}`)).status()).toBe(204);
+    const fourth = await created(await createComment(site, '/c', { text: 'Fourth' }));
+    expect(fourth.number).toBe(4);
+
+    // Every page of the site, newest first, resolved ones too; only this site's
+    const siteComments = await site.get('/api/comments', { params: { scope: 'site' } });
+    expect(siteComments.status()).toBe(200);
+    expect((await siteComments.json() as CommentDto[]).map(c => [c.number, c.path, c.resolved])).toEqual([
+        [4, '/c', false],
+        [2, '/b', true],
+        [1, '/a', false]
+    ]);
+    expect((await listComments(site, '/a')).map(c => c.number)).toEqual([1]);
+
+    // Any other scope is a page's list, which needs a path
+    await expectError(await site.get('/api/comments', { params: { scope: 'everything' } }), 400, 'invalid_request');
+
+    // The numbers' sequence document shares the partition, but no route reaches it
+    const sequence = `/api/comments/${encodeURIComponent('$sequence_comments')}`;
+    await expectError(await site.patch(sequence, { data: { resolved: true } }), 404, 'not_found');
+    await expectError(await site.delete(sequence), 404, 'not_found');
+    await expectError(await site.post(`${sequence}/replies`, { data: { text: 'Hi' } }), 404, 'not_found');
+    await expectError(await site.patch('/api/comments/sequence_comments', { data: { resolved: true } }), 404, 'not_found');
+    expect((await created(await createComment(site, '/c', { text: 'Fifth' }))).number).toBe(5);
+});
+
+test('a comment\'s path stays on its site', async ({ newVisitor }) => {
+    const visitor = await newVisitor();
+    // A browser reads `//host` and `/\host` as another site: a link to such a comment would leave this one
+    for (const path of ['//evil.example/login', '/\\evil.example/login', '/a\\b']) {
+        await expectError(await createComment(visitor, path), 400, 'invalid_request');
+        await expectError(await visitor.get('/api/comments', { params: { path } }), 400, 'invalid_request');
+    }
 });
 
 test('responses never contain author ids, IP hashes or device details beyond size and viewport', async ({ newVisitor }) => {
@@ -646,6 +699,7 @@ test('requests are validated', async ({ newVisitor }) => {
     // Unknown fields are ignored; ids, authors and state are set by the server
     const forged = await created(await createComment(visitor, path, {
         id: 'comment_forged',
+        number: 1000,
         authorId: 'someone-else',
         resolved: true,
         isMine: false,
@@ -653,6 +707,7 @@ test('requests are validated', async ({ newVisitor }) => {
         thread: { items: [{ id: 'item_forged', text: 'Forged' }] }
     }));
     expect(forged.id).not.toBe('comment_forged');
+    expect(forged.number).not.toBe(1000);
     expect(forged).toMatchObject({ resolved: false, isMine: true });
     expect(forged.thread.items.map(item => item.text)).toEqual(['The heading could use a subtitle.']);
     expect(Object.keys(forged).sort()).toEqual(commentKeys);

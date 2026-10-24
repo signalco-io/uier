@@ -33,7 +33,9 @@ type CommentToolbarProps = {
     hintButtonRef?: Ref<HTMLButtonElement>;
     /** `fromKeyboard` is set when the button was activated with the keyboard (Enter or Space) */
     onAddPointComment: (fromKeyboard: boolean) => void;
-    onShowSidebar: () => void;
+    /** Whether the inbox sidebar is open (the Inbox button opens and closes it) */
+    sidebarOpen?: boolean;
+    onToggleSidebar: () => void;
     /** The feedback dialog opened */
     onFeedbackOpen?: () => void;
     onToggleHint?: () => void;
@@ -52,7 +54,7 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, onAddPointComment, onShowSidebar, onFeedbackOpen, onToggleHint, onCollapsedChange, onExitReview
+    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onToggleSidebar, onFeedbackOpen, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
     const capped = commentsCountCapped || commentsCount >= commentsListMaxLength;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
@@ -137,7 +139,8 @@ export function CommentToolbar({
                                 ref={inboxButtonRef}
                                 variant="plain"
                                 className="relative rounded-full"
-                                onClick={onShowSidebar}
+                                aria-expanded={sidebarOpen}
+                                onClick={onToggleSidebar}
                                 title="Inbox"
                                 aria-label={commentsLabel ? `Inbox, ${commentsLabel}` : 'Inbox'}>
                                 <Inbox />

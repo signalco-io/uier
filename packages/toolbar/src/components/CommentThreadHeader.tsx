@@ -28,8 +28,8 @@ export function CommentStatusBadge({ done }: { done: boolean }) {
 }
 
 /**
- * The top of a thread (popover and inbox): its status, "Mark as done" / "Reopen" for the author
- * and "Copy link" for everyone.
+ * The top of a thread (popover and inbox): its status and public id (`#12`), "Mark as done" /
+ * "Reopen" for the author and "Copy link" for everyone.
  */
 export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
     const { review } = useContext(CommentsBootstrapperContext);
@@ -62,7 +62,15 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
     return (
         <Stack spacing={1}>
             <Row spacing={1} justifyContent="space-between">
-                <CommentStatusBadge done={done} />
+                <Row spacing={1} className="min-w-0">
+                    <CommentStatusBadge done={done} />
+                    {/* The public id, numbered per site */}
+                    {comment.number !== undefined && (
+                        <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
+                            <span className="sr-only">Comment </span>#{comment.number}
+                        </span>
+                    )}
+                </Row>
                 <Row spacing={0.5} className="shrink-0">
                     {/* Only the author changes the status (the API enforces it too); in a project,
                         every member can (the API's `permissions`) */}

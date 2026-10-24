@@ -32,6 +32,8 @@ export type ProjectCommentView = {
     /** The page it was left on: origin and path */
     url: string;
     path: string;
+    /** Public id, numbered per project (`#12`, as in the toolbar); missing on older comments */
+    number?: number;
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
     device?: DbDeviceSize;
@@ -66,6 +68,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         id: comment.id,
         url: `${origin}${path === '/' ? '/' : path}`,
         path,
+        number: Number.isInteger(comment.number) ? comment.number : undefined,
         kind: comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment',
         device: size && deviceSizes.includes(size) ? size : undefined,
         createdAt: comment.createdAt,

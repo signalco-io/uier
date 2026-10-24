@@ -22,7 +22,9 @@ export const pathSchema = z.string()
     .max(MAX_PATH_LENGTH)
     .refine(path => path.startsWith('/'), 'Path must start with "/"')
     .refine(path => !controlCharacters.test(path), 'Path must not contain control characters')
-    .transform(normalizePath);
+    .transform(normalizePath)
+    // Browsers read `//host` and `/\host` as another site: a link to the comment would leave this one
+    .refine(path => !path.startsWith('//') && !path.includes('\\'), 'Path must not start with "//" or contain "\\"');
 
 /** Removes the query string, hash and trailing slashes (except for "/") */
 export function normalizePath(path: string) {

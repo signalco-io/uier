@@ -1,6 +1,7 @@
 import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { displayName } from './visitor';
 import { normalizePath } from './validation';
+import { MAX_LIST_RESPONSE_BYTES } from './limits';
 
 export type CommentAuthorDto = {
     name: string;
@@ -26,6 +27,8 @@ export type CommentDto = {
     id: string;
     path: string;
     position: DbCommentPosition;
+    /** Public id, numbered per domain (`#12`); missing on old comments */
+    number?: number;
     kind: DbCommentKind;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
@@ -132,6 +135,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         id: comment.id,
         path: normalizePath(optionalString(comment.path) ?? '/'),
         position,
+        number: typeof comment.number === 'number' && Number.isInteger(comment.number) ? comment.number : undefined,
         kind: commentKinds.find(kind => kind === comment.kind) ?? 'comment',
         thread: {
             items: items
@@ -143,4 +147,20 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         isMine: Boolean(authorId) && authorId === visitorAuthorId,
         createdAt: optionalString(comment.createdAt)
     };
+}
+
+/**
+ * The first comments that fit into {@link MAX_LIST_RESPONSE_BYTES} as a JSON array: the lists of
+ * the comments API and of a project's review API
+ */
+export function withinListResponseSize<T>(comments: T[]): T[] {
+    const fitting: T[] = [];
+    let bytes = 2;
+    for (const comment of comments) {
+        bytes += Buffer.byteLength(JSON.stringify(comment)) + 1;
+        if (bytes > MAX_LIST_RESPONSE_BYTES)
+            break;
+        fitting.push(comment);
+    }
+    return fitting;
 }

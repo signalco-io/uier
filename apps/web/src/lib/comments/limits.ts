@@ -20,9 +20,9 @@ export const MAX_PIXEL_RATIO = 10;
 export const MAX_DEVICE_LABEL_LENGTH = 64;
 export const MAX_THREAD_ITEMS = 50;
 
-/** Maximum number of comments returned by GET /api/comments */
+/** Maximum number of comments returned by GET /api/comments (and by a project's review API) */
 export const MAX_LIST_COMMENTS = 200;
-/** Maximum size of a GET /api/comments response (the newest comments that fit are returned) */
+/** Maximum size of such a list response (the newest comments that fit are returned) */
 export const MAX_LIST_RESPONSE_BYTES = 1_000_000;
 
 /**

@@ -287,6 +287,50 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
     expect((await off.json()).error).toBe('comments_disabled');
 });
 
+test('the toolbar\'s inbox lists the project\'s other pages; comments have public ids', async ({ page, request, browser }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setAccess(page, projectId, 'Anyone with the link');
+    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const post = async (path: string, text: string) => {
+        const response = await request.post(`/api/review/${projectId}/comments`, {
+            headers,
+            data: { path, position: { type: 'point', selector: 'body>main>h1', xNormal: 0.5, yNormal: 0.5 }, text, authorName: 'Dana' }
+        });
+        expect(response.status()).toBe(201);
+        return await response.json() as { id: string; number: number };
+    };
+    const pricing = await post(`/${projectId}/pricing`, 'Show yearly prices.');
+    const checkout = await post(`/${projectId}/checkout`, 'The pay button is hidden.');
+    expect([pricing.number, checkout.number]).toEqual([1, 2]);
+    // The numbers' sequence document is in the project's partition too, out of reach
+    const sequence = await request.patch(`/api/review/${projectId}/comments/${encodeURIComponent('$sequence_comments')}`, { headers, data: { resolved: true } });
+    expect(sequence.status()).toBe(404);
+
+    // Every page of the project, newest first
+    const site = await request.get(`/api/review/${projectId}/comments?scope=site`, { headers });
+    expect(site.status()).toBe(200);
+    expect((await site.json() as { number: number; path: string }[]).map(c => [c.number, c.path])).toEqual([
+        [2, `/${projectId}/checkout`],
+        [1, `/${projectId}/pricing`]
+    ]);
+
+    // The toolbar on the pricing page: this page, and the checkout page under "Other pages"
+    const guest = await anonymousVisitor(browser, testInfo);
+    await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await guest.page.getByRole('button', { name: 'Inbox, 1 comment' }).click();
+    const sidebar = guest.page.getByRole('complementary', { name: 'Comments' });
+    await expect(sidebar.getByRole('region', { name: 'This page' }).getByRole('article', { name: 'Comment #1' })).toContainText('Show yearly prices.');
+    const other = sidebar.getByRole('region', { name: 'Other pages' }).getByRole('article', { name: 'Comment #2' });
+    await expect(other).toContainText('The pay button is hidden.');
+    await expect(other.getByRole('link', { name: `Open on /${projectId}/checkout` }))
+        .toHaveAttribute('href', `${siteOrigin()}/${projectId}/checkout?toolbar-code=${projectId}&uier-comment=${checkout.id}`);
+    await guest.context.close();
+
+    // The app shows the same ids
+    await page.goto(`/app/projects/${projectId}`);
+    await expect(page.getByRole('article', { name: 'Comment by Dana' }).filter({ hasText: 'The pay button is hidden.' })).toContainText('Comment #2');
+});
+
 test('the app lists, filters and manages a project\'s comments', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
     await setAccess(page, projectId, 'Anyone with the link');

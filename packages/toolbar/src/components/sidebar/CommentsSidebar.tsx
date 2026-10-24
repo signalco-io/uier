@@ -1,24 +1,35 @@
 import React, { useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Divider } from '@signalco/ui-primitives/Divider';
+import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Collapse } from '@signalco/ui-primitives/Collapse';
+import { Search } from '@signalco/ui-icons';
 import { CommentsSidebarHeader } from './CommentsSidebarHeader';
-import { CommentsSidebarFilter } from './CommentsSidebarFilter';
 import { CommentsSidebarCommentsList } from './CommentsSidebarCommentsList';
-import { CommentsFilter } from './CommentsFilter';
+import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
 
+// One element for every render: the kit's input wraps itself anew (and loses the focus) when its
+// decorator changes
+const searchIcon = <Search size={16} aria-hidden="true" className="ml-3 shrink-0 text-muted-foreground" />;
+
 export type CommentsSidebarProps = {
-    /** The status shown first (a link to a done comment opens the inbox on "Done") */
-    initialStatus?: NonNullable<CommentsFilter['status']>;
+    /**
+     * The status and search. Kept while the inbox is closed (see CommentsGlobal), so it opens
+     * again as it was; a link to a done comment opens it on "Done".
+     */
+    filter: CommentsFilter;
+    onFilterChange: (filter: CommentsFilter) => void;
     onClose: () => void;
-    rootElement?: HTMLElement;
+    /** Closes the inbox and opens the thread on its pin */
+    onShowOnPage: (commentId: string) => void;
 };
 
-export function CommentsSidebar({ initialStatus, onClose, rootElement }: CommentsSidebarProps) {
-    const [filterOpen, setFilterOpen] = useState<boolean>(false);
-    const [filter, setFilter] = useState<CommentsFilter>({ status: initialStatus });
+/**
+ * The inbox: the comments of this page and of the site's other pages, searched and filtered by
+ * status
+ */
+export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage }: CommentsSidebarProps) {
     const [hidding, setHidding] = useState<boolean>(false);
 
     const handleClose = () => {
@@ -35,6 +46,15 @@ export function CommentsSidebar({ initialStatus, onClose, rootElement }: Comment
         }
     };
 
+    // Escape in a search with text clears it (and the inbox stays open); in an empty one it closes the inbox
+    const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape' && filter.keywords) {
+            e.stopPropagation();
+            e.preventDefault();
+            setFilter({ ...filter, keywords: '' });
+        }
+    };
+
     return (
         <InkScope>
             <aside
@@ -47,30 +67,28 @@ export function CommentsSidebar({ initialStatus, onClose, rootElement }: Comment
                     hidding ? 'animate-out' : 'animate-in',
                 )}>
                 <Stack className="h-full">
-                    <div className="px-4 py-3">
+                    <Stack spacing={1.5} className="px-4 py-3">
                         <CommentsSidebarHeader
-                            filterOpen={filterOpen}
-                            status={filter?.status ?? 'unresolved'}
+                            status={filter.status}
                             onStatusChange={(status) => setFilter({ ...filter, status })}
-                            onToggleFilter={() => setFilterOpen(!filterOpen)}
                             onClose={handleClose} />
-                    </div>
-                    {/* Mounted only when open: the collapsed filter still exposes its (unlabelled) inputs */}
-                    {filterOpen && (
-                        <Collapse appear={filterOpen}>
-                            <Divider />
-                            <div className="p-3">
-                                <CommentsSidebarFilter
-                                    filter={filter}
-                                    onFilterChange={setFilter}
-                                    rootElement={rootElement} />
-                            </div>
-                        </Collapse>
-                    )}
+                        {/* With a decorator the kit's focus ring is on the box, which never has the focus itself */}
+                        <Input
+                            type="search"
+                            aria-label="Search comments"
+                            placeholder="Search comments"
+                            autoComplete="off"
+                            fullWidth
+                            startDecorator={searchIcon}
+                            className="focus-within:ring-2 focus-within:ring-ring"
+                            value={filter.keywords ?? ''}
+                            onChange={(e) => setFilter({ ...filter, keywords: e.target.value })}
+                            onKeyDown={handleSearchKeyDown} />
+                    </Stack>
                     <Divider />
                     {/* Focusable so the list can be scrolled with the keyboard */}
                     <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto rounded-b-2xl p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                        <CommentsSidebarCommentsList status={filter?.status ?? 'unresolved'} />
+                        <CommentsSidebarCommentsList filter={filter} onShowOnPage={onShowOnPage} />
                     </div>
                 </Stack>
             </aside>

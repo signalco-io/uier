@@ -3,6 +3,7 @@ import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_LIST_COMMENTS } from '../comments/limits';
+import { withinListResponseSize } from '../comments/dto';
 import { projectOrigins } from '../app/projects';
 import { appBaseUrl } from '../app/request';
 import { KnownPageLinks } from '../../knownPages';
@@ -77,16 +78,23 @@ export async function createReviewSession({ request, project }: ReviewApiContext
 
 const listQuerySchema = z.object({ path: pathSchema });
 
+/** `?path=/x`: the comments of the page; `?scope=site`: of every page (the toolbar's inbox) */
 export async function listReviewComments({ request, project, actor }: ReviewApiContext) {
-    const query = listQuerySchema.safeParse({ path: new URL(request.url).searchParams.get('path') ?? '' });
-    if (!query.success)
-        throw apiErrors.invalidRequest('"path" is required and must start with "/".');
+    const params = new URL(request.url).searchParams;
+    let path: string | undefined;
+    if (params.get('scope') !== 'site') {
+        const query = listQuerySchema.safeParse({ path: params.get('path') ?? '' });
+        if (!query.success)
+            throw apiErrors.invalidRequest('"path" is required and must start with "/".');
+        path = query.data.path;
+    }
 
-    const comments = (await listProjectComments(project, actor, query.data.path)).slice(0, MAX_LIST_COMMENTS);
+    const comments = (await listProjectComments(project, actor, path)).slice(0, MAX_LIST_COMMENTS);
     const names = await authorNames(comments);
-    return Response.json(comments
+    // As many as fit into the comments API's response size
+    return Response.json(withinListResponseSize(comments
         .map(comment => toReviewCommentDto(comment, actor, names))
-        .filter(Boolean));
+        .filter(Boolean)));
 }
 
 const createSchema = createCommentSchema.extend({ authorName: guestNameSchema.optional() });

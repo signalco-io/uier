@@ -103,6 +103,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
             <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <StateBadge resolved={comment.resolved} />
+                    {comment.number !== undefined && (
+                        <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
+                            <span className="sr-only">Comment </span>#{comment.number}
+                        </span>
+                    )}
                     {comment.kind !== 'comment' && (
                         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium">
                             {kindLabels[comment.kind]}

@@ -110,6 +110,8 @@ export type CommentItem = {
     id: string;
     path: string;
     position: CommentItemPosition;
+    /** Public id, numbered per site (`#12`); missing on old comments */
+    number?: number;
     /** `feedback` and `bug` have a `page` position */
     kind: CommentKind;
     thread: CommentItemThread;

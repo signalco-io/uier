@@ -79,6 +79,8 @@ export type DbComment = {
     /** Page path without query string and without a trailing slash (except "/") */
     path: string;
     position: DbCommentPosition;
+    /** Public id, numbered per domain (`#12`); missing on old documents */
+    number?: number;
     /** Missing on old documents: `comment` */
     kind?: DbCommentKind;
     thread: { items: DbThreadItem[] };
@@ -105,3 +107,30 @@ export type DbCounter = {
     count: number;
     ttl: number;
 };
+
+/**
+ * The domain's comment numbers (`DbComment.number`): one document per domain, incremented
+ * atomically. No `ttl` of its own (and no `path`, so comment queries never match it).
+ */
+export type DbSequence = {
+    /** {@link commentSequenceId} */
+    id: string;
+    domain: string;
+    type: 'sequence';
+    count: number;
+};
+
+/**
+ * Id of the comment numbers' sequence. Not an id the API accepts (`isValidId`: no `$`), so no
+ * comment route can read, change or delete it.
+ */
+export const commentSequenceId = '$sequence_comments';
+
+/**
+ * Whether a document of the comments container is a comment. Rate-limit counters and the
+ * sequence share its partitions; they have no `path`.
+ */
+export function isCommentDocument(document: object): boolean {
+    const { path, type } = document as { path?: unknown; type?: unknown };
+    return typeof path === 'string' && type !== 'counter' && type !== 'sequence';
+}
