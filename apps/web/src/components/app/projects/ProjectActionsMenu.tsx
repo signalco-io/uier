@@ -10,12 +10,12 @@ import {
     DropdownMenuTrigger
 } from '@signalco/ui-primitives/Menu';
 import { showNotification } from '@signalco/ui-notifications';
-import { Check, Code, MoreHorizontal, Settings, Undo } from '@signalco/ui-icons';
-import { KnownPageLinks } from '../../../knownPages';
+import { Check, Code, MoreHorizontal, People, Settings, Undo } from '@signalco/ui-icons';
+import { KnownPageLinks, KnownPages } from '../../../knownPages';
 import type { ProjectStatus } from '../../../lib/app/model';
 import { setProjectStatusAction } from './actions';
 
-/** More actions of a project (admins): settings, install, mark as done or reopen */
+/** More actions of a project (admins): invite people, settings, install, mark as done or reopen */
 export function ProjectActionsMenu({ projectId, projectName, status }: { projectId: string; projectName: string; status: ProjectStatus }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
@@ -38,6 +38,9 @@ export function ProjectActionsMenu({ projectId, projectName, status }: { project
                 </IconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+                <DropdownMenuItem href={`${KnownPages.AppInviteUser}?project=${projectId}`} startDecorator={<People className="size-4" />}>
+                    Invite people
+                </DropdownMenuItem>
                 <DropdownMenuItem href={KnownPageLinks.projectSettings(projectId)} startDecorator={<Settings className="size-4" />}>
                     Settings
                 </DropdownMenuItem>

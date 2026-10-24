@@ -123,6 +123,10 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   invited people (review link sign-in, "Sign in" for others), guests with names, comments off, other sites
   refused (CORS), and the app's comment list, board, filters, private comments, assignees, edit, delete,
   usage and links to comments.
+- **Desktop Chrome** and **Mobile Chrome** run users and invitations
+  ([`users.spec.ts`](apps/web/e2e/users.spec.ts)): a commenter invited to one project and an invited admin,
+  single-use links, replaced and revoked invitations, the users list and its project filter, and deleting a
+  member (their toolbar asks them to sign in again).
 - **Desktop Chrome** and **Mobile Chrome** also run the app ([`app.spec.ts`](apps/web/e2e/app.spec.ts)):
   sign-in (single-use links, redirects back), onboarding and the install guide, review links, done and
   reopened projects, project settings, billing and the account page, with axe checks on every page.
@@ -175,6 +179,16 @@ actions that check the session and the role every time.
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
     targets.
+- **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
+  and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
+  delete people (the last admin stays) and revoke invitations. A deleted member's review token stops
+  working at once, because the review API checks the membership on every request.
+  - Invite `/app/users/invite` (also "Invite" on a project): the email, the role and, for commenters, the
+    selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
+    stored only as a SHA-256 hash; 50 invitations per workspace per day). Inviting the same address again
+    replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
+    in (their account is created on first use), adds them to the workspace and opens the project's review
+    link, or the projects when the invitation has no project.
 - **Billing** (`/app/billing`): the pricing promise `brand.pricing`, word for word like the landing page:
   every feature available today is free and stays free.
 

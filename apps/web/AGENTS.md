@@ -11,9 +11,9 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in pages, `(shell)/` signed-in pages (projects, settings, billing, account), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `integration.ts` (embed snippets, CSP sources) |
-| `src/components/app/` | app UI: `PageHeader`/`Section`, forms and server actions per area (`projects/`, `comments/`, `shell/`) |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages, `(shell)/` signed-in pages (projects, settings, users, billing, account), `review/[projectId]` review links |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/components/app/` | app UI: `PageHeader`/`Section`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`) |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), routes |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |

@@ -1,9 +1,7 @@
-import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
-import { cspSources, embedScript } from '../src/lib/app/integration';
+import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { commentBubble, commentBubbles, newVisitor, openThread, toolbar } from './support/toolbar';
@@ -13,47 +11,21 @@ import { commentBubble, commentBubbles, newVisitor, openThread, toolbar } from '
 // install guide's "Advanced" section lists. The project's "who can comment" setting is enforced by
 // the review API (app/api/review) and shown by the toolbar.
 
-let site: Server;
+let site: Awaited<ReturnType<typeof startReviewedSite>>;
 let sitePort: number;
-let apiBaseUrl: string;
 
 /** `http://<label>.localhost:<port>`: a loopback origin that is another site than the app on 127.0.0.1 */
 function siteOrigin(label = 'reviewed') {
-    return `http://${label}.localhost:${sitePort}`;
+    return site.origin(label);
 }
 
 test.beforeAll(async ({ baseURL }) => {
-    apiBaseUrl = new URL(baseURL!).origin;
-    const csp = [
-        'default-src \'self\'',
-        ...cspSources(apiBaseUrl).map(({ directive, sources }) => `${directive} 'self' ${sources.join(' ')}`)
-    ].join('; ');
-
-    // /<project code>/<page>: a page of the reviewed site with the project's embed script
-    site = createServer((request, response) => {
-        const [, projectId = '', ...pagePath] = (request.url ?? '/').split('?')[0]!.split('/');
-        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': csp });
-        response.end(`<!doctype html>
-<html lang="en">
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Reviewed site</title>
-</head>
-<body>
-    <main>
-        <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
-        <p>A page on a site under review. Every plan includes the toolbar.</p>
-    </main>
-    ${embedScript(apiBaseUrl, projectId)}
-</body>
-</html>`);
-    });
-    await new Promise<void>(resolve => site.listen(0, resolve));
-    sitePort = (site.address() as AddressInfo).port;
+    site = await startReviewedSite(new URL(baseURL!).origin);
+    sitePort = Number(new URL(site.origin()).port);
 });
 
 test.afterAll(async () => {
-    await new Promise(resolve => site.close(resolve));
+    await site.close();
 });
 
 /** Fails the test when the page reports a CSP violation (the install guide's sources must be enough) */
