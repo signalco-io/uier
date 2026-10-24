@@ -3,7 +3,7 @@ import { brand } from '@uier/brand';
 import { isLocalRuntime } from '../comments/environment';
 import { ipRateLimitBucket, isLoopbackIp } from '../comments/visitor';
 
-/** The Vercel environment of this deployment (inlined at build time, see next.config.ts), if any */
+/** The environment of this deployment (inlined at build time by the deploy workflow, see next.config.ts), if any */
 export function deploymentEnvironment(): 'production' | 'preview' | undefined {
     const value = process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV;
     return value === 'production' || value === 'preview' ? value : undefined;
@@ -13,8 +13,8 @@ export function deploymentEnvironment(): 'production' | 'preview' | undefined {
  * Base URL for links the app sends (emails) and redirects to: `UIER_BASE_URL` when set, uier.io in
  * production, otherwise the request's host (previews and local development). On Vercel the Host
  * header decides which deployment serves a request, so it always names this deployment; anywhere
- * else (self-hosting behind a proxy) a forged Host could point sign-in links to another site, so
- * `UIER_BASE_URL` is required there.
+ * else (a build without UIER_DEPLOYMENT_ENV, self-hosting behind a proxy) a forged Host could point
+ * sign-in links to another site, so `UIER_BASE_URL` is required there.
  */
 export async function appBaseUrl() {
     const configured = process.env.UIER_BASE_URL?.trim();
@@ -22,8 +22,8 @@ export async function appBaseUrl() {
         return configured.replace(/\/+$/, '');
     if (deploymentEnvironment() === 'production')
         return brand.url;
-    if (!process.env.VERCEL && !isLocalRuntime())
-        throw new Error('UIER_BASE_URL is required outside Vercel and local development.');
+    if (deploymentEnvironment() !== 'preview' && !isLocalRuntime())
+        throw new Error('UIER_BASE_URL is required outside Vercel deployments and local development.');
 
     const requestHeaders = await headers();
     const host = requestHeaders.get('host');

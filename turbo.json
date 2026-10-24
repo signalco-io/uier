@@ -12,7 +12,7 @@
                 "public/robots.txt",
                 "public/toolbar.js"
             ],
-            "env": ["SITE_URL"]
+            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV"]
         },
         "typecheck": {
             "dependsOn": ["^build"],
