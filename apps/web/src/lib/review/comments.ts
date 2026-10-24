@@ -3,7 +3,7 @@ import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits } from '../comments/rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import type { CreateCommentInput } from '../comments/validation';
@@ -171,6 +171,14 @@ export async function createProjectComment(request: Request, project: DbProject,
     };
     await store.create(comment);
     return comment;
+}
+
+/**
+ * Rewrite suggestions call a paid AI model: limited per reviewer and per project in the project's
+ * partition, and per IP and in total across the app (the same counters as `POST /api/rewrite`)
+ */
+export async function enforceProjectRewriteLimits(request: Request, project: DbProject, actor: ProjectActor) {
+    await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request) });
 }
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string }) {

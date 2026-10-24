@@ -1,5 +1,5 @@
 import { getCommentsStore } from '../repo/commentsStore';
-import { consume } from '../comments/rateLimits';
+import { APP_COUNTERS_PARTITION, consume } from '../comments/rateLimits';
 import { sendEmail } from '../email/send';
 import { signInEmail } from '../email/templates';
 import { KnownPages } from '../../knownPages';
@@ -14,8 +14,6 @@ export const SIGN_IN_LINK_TTL_SECONDS = 15 * 60;
 const HOUR = 60 * 60;
 const SIGN_IN_EMAILS_PER_ADDRESS = 5;
 const SIGN_IN_EMAILS_PER_IP = 20;
-/** Rate-limit counters of the app live in the comments container under this partition */
-export const APP_COUNTERS_PARTITION = 'app';
 
 const signInPk = (tokenHash: string) => `sign-in:${tokenHash}` as const;
 

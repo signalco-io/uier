@@ -24,7 +24,7 @@ import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import { destructiveTextClassName } from '../PageHeader';
 import { DateTime } from './DateTime';
-import { deviceLabels } from './commentLabels';
+import { deviceLabels, kindLabels } from './commentLabels';
 import {
     deleteCommentAction,
     editCommentAction,
@@ -105,7 +105,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                     <StateBadge resolved={comment.resolved} />
                     {comment.kind !== 'comment' && (
                         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium">
-                            {comment.kind === 'bug' ? 'Bug report' : 'Feedback'}
+                            {kindLabels[comment.kind]}
                         </span>
                     )}
                     {comment.private && (

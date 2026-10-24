@@ -54,6 +54,8 @@ export function getCommentsErrorMessage(error: unknown) {
                 return 'This comment no longer exists.';
             case 'invalid_request':
                 return invalidRequestMessage(error.message);
+            case 'unavailable':
+                return 'Suggestions are not available right now. You can still write your own.';
             case 'network_error':
                 return 'Can\'t reach uier right now. Check your connection and try again.';
         }

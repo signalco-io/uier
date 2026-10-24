@@ -7,14 +7,15 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { orderBy } from '@signalco/js';
 import { useComments } from '../hooks/useComments';
 import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
-import { newCommentDraftKey, useDrafts } from '../hooks/useDrafts';
+import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
-import { CommentComposer } from './CommentComposer';
+import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
+import { RewriteSuggestions } from './RewriteSuggestions';
 import { CommentDraft, CommentItem, commentTextMaxLength, floatingShadowClassName } from './@types/Comments';
 
 // Bubble (CommentIcon) half size and its minimal distance from the left and right window edges
@@ -58,7 +59,13 @@ export function CommentBubble(props: CommentBubbleProps) {
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
-    const draftKey = commentItem ? commentItem.id : newCommentDraftKey;
+    // A rewrite suggestion: the suggested text for the selected text, instead of a comment
+    const rewriting = props.draft?.kind === 'rewrite';
+    const selectedText = props.draft?.position.type === 'text' ? props.draft.position.text : undefined;
+    const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : newCommentDraftKey);
+    const newLabel = rewriting ? 'New rewrite suggestion' : 'New comment';
+    // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
+    const composerRef = useRef<CommentComposerHandle>(null);
 
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const drafts = useDrafts();
@@ -86,13 +93,14 @@ export function CommentBubble(props: CommentBubbleProps) {
             : undefined;
         const created = await create.mutateAsync({
             position: draft.position,
+            kind: rewriting ? 'rewrite' : undefined,
             text,
             quotedText: quotedText || undefined,
             // The viewport as it is when the comment is posted
             device: getDeviceInfo()
         });
         drafts.delete(draftKey);
-        announce('Comment posted');
+        announce(rewriting ? 'Suggestion posted' : 'Comment posted');
         onCreated?.(created);
     };
 
@@ -100,8 +108,10 @@ export function CommentBubble(props: CommentBubbleProps) {
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             mutation.reset();
-            // A new comment with text stays on the page as a draft pin; reopening it brings the text back
-            if (creating && !drafts.get(draftKey)?.trim().length) {
+            // A new comment with text stays on the page as a draft pin; reopening it brings the text
+            // back. A rewrite whose text is still the selected text has nothing to keep.
+            const text = drafts.get(draftKey)?.trim();
+            if (creating && (!text?.length || (rewriting && text === selectedText?.trim()))) {
                 onCanceled?.();
             }
         }
@@ -160,7 +170,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         type="button"
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
                         aria-label={creating
-                            ? 'New comment'
+                            ? newLabel
                             : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}${textMissing ? '. The commented text is no longer on the page' : ''}`}
                         onFocus={handleFocus}
                         className={cx(
@@ -182,10 +192,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                         </span>
                     </button>
                 )}
-                aria-label={creating ? 'New comment' : 'Comment thread'}
+                aria-label={creating ? newLabel : 'Comment thread'}
                 // Bounded by the space the window has left, so the reply box always stays visible
                 className={cx(
-                    'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col overflow-hidden rounded-xl',
+                    'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
+                    // A rewrite (text box and suggestions) scrolls as a whole: when it is clipped, the
+                    // browser would scroll the page to show the caret, and the popover follows its pin
+                    rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
                     floatingShadowClassName
                 )}
                 sideOffset={-32}
@@ -216,17 +229,25 @@ export function CommentBubble(props: CommentBubbleProps) {
                 )}
                 <div className="shrink-0">
                     <CommentComposer
-                        label={creating ? 'Comment' : 'Reply'}
-                        placeholder={creating ? 'Leave feedback...' : 'Reply...'}
-                        submitLabel={creating ? 'Post comment' : 'Post reply'}
+                        ref={composerRef}
+                        label={rewriting ? 'Suggested text' : (creating ? 'Comment' : 'Reply')}
+                        placeholder={rewriting ? 'Your version of the text...' : (creating ? 'Leave feedback...' : 'Reply...')}
+                        submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
                         draftKey={draftKey}
-                        quote={props.draft?.position.type === 'text' ? props.draft.position.text : undefined}
+                        quote={selectedText}
                         autoFocus
                         pending={mutation.isPending}
                         error={mutation.error}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
                 </div>
+                {rewriting && selectedText && (
+                    <div className="shrink-0">
+                        <RewriteSuggestions
+                            text={selectedText}
+                            onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
+                    </div>
+                )}
             </Popper>
         </>
     );

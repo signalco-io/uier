@@ -23,8 +23,11 @@ export type DbCommentPage = {
 
 export type DbCommentPosition = DbCommentPoint | DbCommentSelection | DbCommentPage;
 
-/** A comment on the page (pinned), general feedback or a bug report (`page` position) */
-export type DbCommentKind = 'comment' | 'feedback' | 'bug';
+/**
+ * A comment on the page (pinned), general feedback or a bug report (`page` position), or a rewrite
+ * suggestion for selected text (its first item is the suggested text, `quotedText` the original)
+ */
+export type DbCommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
 
 export type DbDeviceSize = 'desktop' | 'tablet' | 'mobile';
 

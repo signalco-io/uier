@@ -12,6 +12,7 @@ export type ApiErrorCode =
     | 'too_large'
     | 'unsupported_media_type'
     | 'rate_limited'
+    | 'unavailable'
     | 'server_error'
     /** Project comments: the project turned comments off */
     | 'comments_disabled'
@@ -51,7 +52,8 @@ export const apiErrors = {
     unsupportedMediaType: () => new ApiError(415, 'unsupported_media_type', 'Request body must be sent as application/json.'),
     rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason),
     commentsDisabled: () => new ApiError(403, 'comments_disabled', 'Comments are turned off for this project.'),
-    signInRequired: () => new ApiError(401, 'sign_in_required', 'Sign in to see and leave comments on this project.')
+    signInRequired: () => new ApiError(401, 'sign_in_required', 'Sign in to see and leave comments on this project.'),
+    unavailable: (message: string) => new ApiError(503, 'unavailable', message)
 };
 
 export function errorResponse(error: unknown) {

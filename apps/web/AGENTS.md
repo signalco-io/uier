@@ -20,6 +20,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
+| `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
 | `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
@@ -124,8 +125,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
-  Mobile Chrome). Outside CI a server that already answers on that port is reused, `pnpm dev`
-  included, so stop it or pick another `PORT` to test the build.
+  Mobile Chrome). A server that already answers on that port is never reused (the run fails), so
+  stop `pnpm dev` or pick another `PORT`. Rewrite suggestions go to `e2e/support/anthropicStub.ts`
+  on `PORT + 1000`, never to the real API.
 - Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`

@@ -100,9 +100,16 @@ export default function PrivacyPolicyPage() {
                 the name you gave. Signing out in the toolbar removes them.
             </p>
 
+            <h3>Rewrite suggestions</h3>
+            <p>
+                When you ask for rewrite suggestions for selected text, that text and your instruction (if you
+                give one) are sent to Anthropic, whose Claude model writes the suggestions. We do not store the
+                request; only a suggestion you post is saved, like any comment.
+            </p>
+
             <h3>Rate limits and bot protection</h3>
             <p>
-                To stop spam we count new comments and replies per visitor and per IP address (an IPv4 address,
+                To stop spam we count new comments, replies and rewrite requests per visitor and per IP address (an IPv4 address,
                 or the /64 network of an IPv6 address), and new comments per page. A counter is stored under a keyed hash, not under
                 the address itself, and is deleted shortly after its time window ends: after about an hour, or
                 about a day for the count per page. Comments never contain your IP address.
@@ -128,8 +135,8 @@ export default function PrivacyPolicyPage() {
             <h2>Why we use it</h2>
             <ul>
                 <li>
-                    To post your comments and show them to other visitors, as you asked by posting them: the
-                    performance of the service you use (Article 6(1)(b) GDPR).
+                    To post your comments and show them to other visitors, as you asked by posting them, and to
+                    suggest rewrites when you ask for them: the performance of the service you use (Article 6(1)(b) GDPR).
                 </li>
                 <li>
                     To sign you in to the app, keep your account, workspace and projects, and send the invitations
@@ -153,10 +160,11 @@ export default function PrivacyPolicyPage() {
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
                 </li>
+                <li>Rewrite suggestions: Anthropic receives the selected text and your instruction to write them.</li>
                 <li>DNS: Cloudflare answers DNS queries for {brand.domain}. It does not see the pages you visit.</li>
             </ul>
             <p>
-                These providers process the data on our behalf. Microsoft and Vercel are US companies; where data
+                These providers process the data on our behalf. Microsoft, Vercel and Anthropic are US companies; where data
                 leaves the European Economic Area, it is protected by the safeguards in their data processing
                 terms, such as the European Commission&rsquo;s standard contractual clauses. We share data with no
                 one else unless the law requires it.

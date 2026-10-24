@@ -2,13 +2,25 @@ import type { CommentsStore } from '../repo/commentsStore';
 import { keyedHash } from './environment';
 import { apiErrors } from './http';
 import {
+    APP_REWRITES_WINDOW_SECONDS,
+    DOMAIN_REWRITES_WINDOW_SECONDS,
     PAGE_COMMENTS_WINDOW_SECONDS,
+    RATE_LIMIT_APP_REWRITES,
+    RATE_LIMIT_DOMAIN_REWRITES,
+    RATE_LIMIT_IP_REWRITES,
+    RATE_LIMIT_VISITOR_REWRITES,
     RATE_LIMIT_IP_WRITES,
     RATE_LIMIT_PAGE_COMMENTS,
     RATE_LIMIT_VISITOR_COMMENTS,
     RATE_LIMIT_VISITOR_REPLIES,
     RATE_LIMIT_WINDOW_SECONDS
 } from './limits';
+
+/**
+ * Counters that are not about one site live in the comments container under this partition: the
+ * app's sign-in emails and invitations, and the app-wide rewrite limits.
+ */
+export const APP_COUNTERS_PARTITION = 'app';
 
 export type RateLimitSubject = {
     domain: string;
@@ -71,4 +83,31 @@ export async function enforceReplyLimits(store: CommentsStore, subject: RateLimi
         { key: `visitor-replies:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REPLIES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyReplies },
         ...ipLimit(subject, tooManyReplies)
     ]);
+}
+
+const tooManyRewrites = 'You are asking for suggestions too quickly. Please try again later.';
+
+export type RewriteLimitSubject = {
+    /** The site's partition: the request's domain, or `project:<code>` */
+    domain: string;
+    /** The visitor or reviewer; missing for a visitor without the `uier_visitor` cookie (not counted per visitor) */
+    authorId?: string;
+    /** IPv4 address or IPv6 /64; missing when the IP limit doesn't apply (local loopback requests) */
+    ipBucket?: string;
+};
+
+/**
+ * Rewrite suggestions call a paid AI model. Counted per visitor (in the site's partition), per IP
+ * (app-wide), per site (the site's partition) and in total (app-wide), so many sites or projects
+ * don't add up to more. From the narrowest to the widest: a request a limit rejects counts against
+ * none of the later ones, so one visitor or address can't use up a site's or the app's day, and the
+ * app's total counts only requests that get to the model.
+ */
+export async function enforceRewriteLimits(store: CommentsStore, subject: RewriteLimitSubject) {
+    if (subject.authorId)
+        await consume(store, subject.domain, { key: `visitor-rewrites:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyRewrites });
+    if (subject.ipBucket)
+        await consume(store, APP_COUNTERS_PARTITION, { key: `rewrites-ip:${subject.ipBucket}`, limit: RATE_LIMIT_IP_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyRewrites });
+    await consume(store, subject.domain, { key: 'domain-rewrites', limit: RATE_LIMIT_DOMAIN_REWRITES, windowSeconds: DOMAIN_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions for this site have reached their limit for today. Please try again tomorrow.' });
+    await consume(store, APP_COUNTERS_PARTITION, { key: 'rewrites', limit: RATE_LIMIT_APP_REWRITES, windowSeconds: APP_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions have reached their limit for today. Please try again tomorrow.' });
 }

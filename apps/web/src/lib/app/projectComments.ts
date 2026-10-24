@@ -66,7 +66,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         id: comment.id,
         url: `${origin}${path === '/' ? '/' : path}`,
         path,
-        kind: comment.kind === 'feedback' || comment.kind === 'bug' ? comment.kind : 'comment',
+        kind: comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment',
         device: size && deviceSizes.includes(size) ? size : undefined,
         createdAt: comment.createdAt,
         resolved: comment.resolved === true,

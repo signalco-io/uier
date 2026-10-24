@@ -7,6 +7,7 @@ import {
     newVisitor,
     openLanding,
     openThread,
+    selectText,
     selectionToolbar
 } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
@@ -23,25 +24,6 @@ type Box = { x: number; y: number; width: number; height: number };
 async function openFaqAnswer(page: Page) {
     await page.getByText(faqQuestion, { exact: true }).click();
     await expect(page.getByRole('main').getByText(selectedText, { exact: false })).toBeVisible();
-}
-
-/** Selects `text` in the page (inside one text node) like a reviewer would */
-async function selectText(page: Page, text: string) {
-    await page.evaluate((text) => {
-        const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            const index = node.textContent?.indexOf(text) ?? -1;
-            if (index >= 0) {
-                const range = document.createRange();
-                range.setStart(node, index);
-                range.setEnd(node, index + text.length);
-                window.getSelection()?.removeAllRanges();
-                window.getSelection()?.addRange(range);
-                return;
-            }
-        }
-        throw new Error(`"${text}" is not on the page`);
-    }, text);
 }
 
 /** Viewport box of `text` on the page */

@@ -4,7 +4,7 @@ import type { Browser, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
-import { commentBubble, commentBubbles, newVisitor, openThread, toolbar } from './support/toolbar';
+import { commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
 // The review flow of a project (issue #34): a reviewed site on another origin embeds the toolbar
 // with the project's script from the install guide, and sends the Content-Security-Policy the
@@ -193,6 +193,62 @@ test('the toolbar works only on the project\'s own sites', async ({ page, reques
         data: { path: '/', position: { type: 'point', selector: 'body>main>h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Hi', authorName: 'Eve' }
     });
     expect(write.status()).toBe(403);
+});
+
+test('rewrite suggestions on the project\'s site go through the review API', async ({ page, request, browser }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setAccess(page, projectId, 'Anyone with the link');
+
+    // The guest's toolbar asks the project's review API (the e2e server's model is a stub)
+    const guest = await anonymousVisitor(browser, testInfo);
+    await guest.page.goto(`${siteOrigin()}/${projectId}/?toolbar-code=${projectId}`);
+    await expect(guest.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+    await selectText(guest.page, 'Every plan includes the toolbar.');
+    await selectionToolbar(guest.page).getByRole('button', { name: 'Rewrite' }).click();
+    const draft = guest.page.getByRole('dialog', { name: 'New rewrite suggestion' });
+    // The name typed first stays when a suggestion replaces the text
+    await draft.getByRole('textbox', { name: 'Your name' }).fill('Dana');
+    const suggestRequest = guest.page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === `/api/review/${projectId}/rewrite`);
+    await draft.getByRole('button', { name: 'Suggest', exact: true }).click();
+    await suggestRequest;
+    await draft.getByRole('group', { name: 'Suggestions' }).getByRole('button', { name: 'Second suggestion.' }).click();
+    await expect(draft.getByRole('textbox', { name: 'Suggested text' })).toHaveValue('Second suggestion.');
+    await expect(draft.getByRole('textbox', { name: 'Your name' })).toHaveValue('Dana');
+    await draft.getByRole('button', { name: 'Post suggestion' }).click();
+    await expect(openThread(guest.page).getByText('Suggested rewrite', { exact: true })).toBeVisible();
+    await guest.context.close();
+
+    // The app shows it as a suggested rewrite of the quoted text
+    await page.goto(`/app/projects/${projectId}`);
+    const card = page.getByRole('article', { name: 'Comment by Dana' });
+    await expect(card).toContainText('Suggested rewrite');
+    await expect(card).toContainText('Every plan includes the toolbar.');
+    await expect(card).toContainText('Second suggestion.');
+
+    // The same checks as the project's comments: its sites, a reviewer, comments on
+    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const suggest = async (data: unknown, requestHeaders: Record<string, string> = headers) =>
+        await request.post(`/api/review/${projectId}/rewrite`, { headers: requestHeaders, data });
+    const answered = await suggest({ text: 'Every plan includes the toolbar.', instruction: 'Shorter' });
+    expect(answered.status()).toBe(200);
+    expect(await answered.json()).toEqual({ suggestions: ['First suggestion (Shorter).', 'Second suggestion (Shorter).', 'Third suggestion (Shorter).'] });
+    expect(answered.headers()['access-control-allow-origin']).toBe(siteOrigin());
+    const failed = await suggest({ text: 'Every plan includes the toolbar.', instruction: '[stub:fail]' });
+    expect(failed.status()).toBe(503);
+    expect((await failed.json()).error).toBe('unavailable');
+    expect((await suggest({})).status()).toBe(400);
+    expect((await suggest({ text: 'Hi' }, { Origin: siteOrigin() })).status()).toBe(400);
+    expect((await suggest({ text: 'Hi' }, { ...headers, Origin: siteOrigin('elsewhere') })).status()).toBe(403);
+    const preflight = await request.fetch(`/api/review/${projectId}/rewrite`, {
+        method: 'OPTIONS',
+        headers: { Origin: siteOrigin(), 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type,x-uier-visitor' }
+    });
+    expect(preflight.headers()['access-control-allow-methods']).toBe('POST');
+
+    await setAccess(page, projectId, 'Comments off');
+    const off = await suggest({ text: 'Hi' });
+    expect(off.status()).toBe(403);
+    expect((await off.json()).error).toBe('comments_disabled');
 });
 
 test('the app lists, filters and manages a project\'s comments', async ({ page, request }) => {

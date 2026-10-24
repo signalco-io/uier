@@ -137,6 +137,15 @@ error boundary, so one bad comment never breaks the toolbar.
   cancels). The element under the pointer gets a dashed accent outline, drawn by the toolbar over it (the
   page's own styles are not touched, and the toolbar's controls are never outlined); a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).
+- Rewrite suggestions: select text, then **Rewrite**. The text box starts as the selected text, to edit into
+  your version; **Suggest** (optionally with an instruction such as "shorter") asks `POST /api/rewrite` for AI
+  suggestions, and picking one replaces the text as if it was typed (Ctrl/Cmd+Z brings yours back; a guest's
+  name stays). **Post suggestion** saves a comment with `kind: "rewrite"`, shown as "Suggested rewrite" with the
+  original quoted. Suggestions are offered for selections of up to 1000 characters (what a comment holds). When
+  the model declines, the toolbar says "No suggestions for this text."; when suggestions are not available (no
+  API key, `503`) or limited (`429`), it says so, and your own version still works. Closing an unchanged rewrite
+  leaves nothing behind. The selected text toolbar (Add comment, Rewrite) is one Tab stop; the arrow keys, Home
+  and End move between its buttons.
 - Text comments: select text, then **Add comment** in the toolbar that appears next to the selection. The
   comment stores the selected text and where it is: the start and end elements and character offsets in
   all of their text (so text after a link or bold words inside a paragraph is found again).

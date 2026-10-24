@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiErrors, parseJsonBody } from '../comments/http';
-import { createCommentSchema, isValidId, pathSchema, replySchema } from '../comments/validation';
+import { createCommentSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
+import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_LIST_COMMENTS } from '../comments/limits';
 import { projectOrigins } from '../app/projects';
 import { appBaseUrl } from '../app/request';
@@ -9,6 +10,7 @@ import { assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } 
 import {
     createProjectComment,
     deleteProjectCommentItem,
+    enforceProjectRewriteLimits,
     getProjectComment,
     listProjectComments,
     replyToProjectComment,
@@ -115,6 +117,18 @@ export async function updateReviewComment(context: ReviewApiContext, { id }: { i
     const { resolved } = await parseJsonBody(request, updateSchema);
     assertWriter(actor);
     return await commentResponse(context, await setProjectCommentResolved(project, actor, commentId(id), resolved));
+}
+
+/** POST /api/review/<code>/rewrite: rewrite suggestions for selected text, for those who can comment */
+export async function suggestReviewRewrites({ request, project, actor }: ReviewApiContext) {
+    assertWriter(actor);
+    const input = await parseJsonBody(request, rewriteRequestSchema);
+    // Before the limits count the request
+    if (!isRewriteConfigured())
+        throw apiErrors.unavailable('Rewrite suggestions are not available here.');
+
+    await enforceProjectRewriteLimits(request, project, actor);
+    return Response.json({ suggestions: await suggestRewrites(input.text, input.instruction) });
 }
 
 /** DELETE of the comment (its first item) or of one reply */

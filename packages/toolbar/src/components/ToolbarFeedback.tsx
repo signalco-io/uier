@@ -17,7 +17,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { floatingShadowClassName } from './@types/Comments';
 
-type FeedbackKind = keyof typeof commentKindLabels;
+type FeedbackKind = 'feedback' | 'bug';
 
 const kinds: { value: FeedbackKind; placeholder: string; submitLabel: string; sent: string }[] = [
     { value: 'feedback', placeholder: 'What works well, what could be better?', submitLabel: 'Send feedback', sent: 'Feedback sent' },

@@ -21,6 +21,12 @@ export const destructiveTextClassName = 'text-[hsl(var(--destructive))] dark:tex
  */
 export const floatingShadowClassName = 'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)]';
 
+/**
+ * The blue focus ring of an input (BRAND.md) for the UI kit's `Input`: its `className` and its
+ * `focus-visible` ring go on a wrapper around the `<input>`, which never has the focus itself
+ */
+export const inputFocusRingClassName = 'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background';
+
 export type CommentPoint = {
     type: 'point';
     selector: string;
@@ -49,8 +55,11 @@ export type CommentAnchor = CommentPoint | CommentSelection;
 
 export type CommentItemPosition = CommentAnchor | CommentPage;
 
-/** A comment pinned to the page, general feedback or a bug report */
-export type CommentKind = 'comment' | 'feedback' | 'bug';
+/**
+ * A comment pinned to the page, general feedback or a bug report, or a rewrite suggestion for
+ * selected text (its first message is the suggested text, the quote the original)
+ */
+export type CommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
 
 export type CommentAuthor = {
     /** Display name, `Guest XXXX` for anonymous visitors */
@@ -125,6 +134,8 @@ export type CommentItem = {
 /** A comment that is being written and is not saved yet (the device is read when it is posted) */
 export type CommentDraft = {
     position: CommentAnchor;
+    /** A rewrite suggestion for the selected text, instead of a comment */
+    kind?: 'comment' | 'rewrite';
 }
 
 export type CommentsGlobalProps = {

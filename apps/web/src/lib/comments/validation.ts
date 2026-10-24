@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
     MAX_DEVICE_LABEL_LENGTH,
+    MAX_REWRITE_INSTRUCTION_LENGTH,
     MAX_PATH_LENGTH,
     MAX_PIXEL_RATIO,
     MAX_QUOTED_TEXT_LENGTH,
@@ -40,12 +41,17 @@ function withoutBidiControls(text: string) {
     return text.replace(bidiControls, '').trim();
 }
 
-export const textSchema = z.string()
-    .transform(withoutBidiControls)
-    .pipe(z.string()
-        .min(1)
-        .max(MAX_TEXT_LENGTH)
-        .refine(text => visibleCharacter.test(text), 'Text must contain visible characters'));
+/** Trimmed text without bidirectional overrides, with at least one visible character */
+function textOf(maxLength: number) {
+    return z.string()
+        .transform(withoutBidiControls)
+        .pipe(z.string()
+            .min(1)
+            .max(maxLength)
+            .refine(text => visibleCharacter.test(text), 'Text must contain visible characters'));
+}
+
+export const textSchema = textOf(MAX_TEXT_LENGTH);
 const quotedTextSchema = z.string()
     .transform(withoutBidiControls)
     .pipe(z.string().max(MAX_QUOTED_TEXT_LENGTH))
@@ -95,8 +101,11 @@ export const pagePositionSchema = z.object({
 
 export const positionSchema = z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema, pagePositionSchema]);
 
-/** Feedback and bug reports are about the page (`page` position); comments are pinned to it */
-export const kindSchema = z.enum(['comment', 'feedback', 'bug']);
+/**
+ * Feedback and bug reports are about the page (`page` position); comments are pinned to it, and
+ * rewrite suggestions (the suggested text) to the selected text they would replace
+ */
+export const kindSchema = z.enum(['comment', 'feedback', 'bug', 'rewrite']);
 
 const windowDimensionSchema = z.int().min(0).max(MAX_WINDOW_DIMENSION);
 const deviceLabelSchema = z.string().trim().max(MAX_DEVICE_LABEL_LENGTH)
@@ -118,8 +127,28 @@ export const createCommentSchema = z.object({
     quotedText: quotedTextSchema.optional(),
     device: deviceSchema.optional()
 }).refine(
-    input => (input.kind === 'comment') === (input.position.type !== 'page'),
-    { path: ['position'], message: 'Comments are pinned to an element or text; feedback and bug reports are about the page' });
+    input => {
+        switch (input.kind) {
+            case 'feedback':
+            case 'bug': return input.position.type === 'page';
+            case 'rewrite': return input.position.type === 'text';
+            default: return input.position.type !== 'page';
+        }
+    },
+    { path: ['position'], message: 'Comments are pinned to an element or text, rewrite suggestions to text; feedback and bug reports are about the page' });
+
+/**
+ * `POST /api/rewrite`: selected page text and an optional instruction ("shorter", "friendlier").
+ * The text is at most what a rewrite comment holds (its quoted original and its suggested text).
+ */
+export const rewriteRequestSchema = z.object({
+    text: textOf(MAX_TEXT_LENGTH),
+    instruction: z.string()
+        .transform(withoutBidiControls)
+        .pipe(z.string().max(MAX_REWRITE_INSTRUCTION_LENGTH))
+        .transform(text => text.length ? text : undefined)
+        .optional()
+});
 
 export const replySchema = z.object({
     text: textSchema

@@ -1,5 +1,5 @@
 import { SVGProps } from 'react';
-import { Bug } from '@signalco/ui-icons';
+import { Bug, Replace } from '@signalco/ui-icons';
 import type { CommentKind } from './@types/Comments';
 
 /** Lucide's heart (the UI kit has no heart icon), drawn like the kit's icons next to it */
@@ -24,16 +24,19 @@ export function HeartIcon({ size = 24, ...rest }: SVGProps<SVGSVGElement> & { si
 
 export const commentKindLabels: Record<Exclude<CommentKind, 'comment'>, string> = {
     feedback: 'Feedback',
-    bug: 'Bug report'
+    bug: 'Bug report',
+    rewrite: 'Suggested rewrite'
 };
 
 export function CommentKindIcon({ kind, size = 16 }: { kind: Exclude<CommentKind, 'comment'>; size?: number }) {
-    return kind === 'bug'
-        ? <Bug size={size} aria-hidden="true" />
-        : <HeartIcon size={size} />;
+    switch (kind) {
+        case 'bug': return <Bug size={size} aria-hidden="true" />;
+        case 'rewrite': return <Replace size={size} aria-hidden="true" />;
+        default: return <HeartIcon size={size} />;
+    }
 }
 
-/** "Feedback" or "Bug report" above the first message of a thread; nothing for pinned comments */
+/** "Feedback", "Bug report" or "Suggested rewrite" above the first message of a thread; nothing for comments */
 export function CommentKindLabel({ kind }: { kind: CommentKind }) {
     if (kind === 'comment') {
         return null;

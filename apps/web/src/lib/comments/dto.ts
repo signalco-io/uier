@@ -42,7 +42,7 @@ export type VisitorDto = {
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
-const commentKinds: readonly DbCommentKind[] = ['comment', 'feedback', 'bug'];
+const commentKinds: readonly DbCommentKind[] = ['comment', 'feedback', 'bug', 'rewrite'];
 
 function optionalString(value: unknown) {
     return typeof value === 'string' ? value : undefined;
