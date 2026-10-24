@@ -1,7 +1,8 @@
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { Typography } from '@signalco/ui-primitives/Typography';
 
-// A static example of an open comment thread, as the review layer shows it on a page.
+// A static example of an open comment thread, as the review layer shows it on a page: guest names
+// with their code as the avatar, "You" for your own messages, and the quoted text of a text comment.
 // Threads follow the system theme (paper in light, surface in dark); see BRAND.md.
 export function ReviewThreadDemo() {
     return (
@@ -13,18 +14,17 @@ export function ReviewThreadDemo() {
                 <div className="flex flex-col gap-3.5 px-4 py-3.5">
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                            <Avatar size="sm">M</Avatar>
-                            <span className="text-[13px] font-medium">Mia</span>
+                            <Avatar size="sm" aria-hidden="true" className="font-semibold">3F</Avatar>
+                            <span className="text-[13px] font-medium">Guest 3F2A</span>
                             <span className="font-mono text-[11px] text-muted-foreground">2h</span>
                         </div>
                         <div className="rounded-r-md border-l-2 border-tertiary bg-muted px-2.5 py-0.5 text-[13px] text-muted-foreground">on the page.</div>
                         <Typography level="body2">Will first-time visitors get what “the page” means before they scroll? “on the site” might land faster.</Typography>
-                        <span className="font-mono text-[10px] text-muted-foreground">Chrome 142 · 1440×900 · macOS</span>
                     </div>
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                            <Avatar size="sm">J</Avatar>
-                            <span className="text-[13px] font-medium">Jon</span>
+                            <Avatar size="sm" aria-hidden="true" className="font-semibold">9C</Avatar>
+                            <span className="text-[13px] font-medium">You</span>
                             <span className="font-mono text-[11px] text-muted-foreground">35m</span>
                         </div>
                         <Typography level="body2">The line right under it says “live website”. Keeping it, it is the whole point.</Typography>

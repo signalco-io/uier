@@ -14,6 +14,8 @@ export const brand = {
     description: 'Review any live website by leaving comments directly on it. Every comment stays pinned to the element it is about, with the browser and viewport it was left from.',
     shortDescription: 'Review any live website by leaving comments directly on it.',
     pronunciation: 'you-eye-er',
+    /** The pricing promise, word for word wherever pricing comes up (landing page, terms, the app's billing) */
+    pricing: 'Every feature available today is free and will stay free forever. If we introduce pricing, it will apply only to new features users want.',
     /** Sibling of signalco.io; the UI kit and the minimal theme come from there. */
     parent: { name: 'signalco', url: 'https://signalco.io' },
     repository: 'https://github.com/signalco-io/uier',

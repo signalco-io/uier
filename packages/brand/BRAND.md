@@ -39,6 +39,9 @@ Three principles decide most questions:
 - One-line description: *Review any live website by leaving comments directly on it.*
 - Longer: *Review any live website by leaving comments directly on it. Every comment stays
   pinned to the element it is about, with the browser and viewport it was left from.*
+- Pricing promise (`brand.pricing`), word for word wherever pricing comes up: *Every feature
+  available today is free and will stay free forever. If we introduce pricing, it will apply only to
+  new features users want.* Never show prices, tiers, trials or limits that do not exist.
 - Sentence case everywhere. No Title Case headings, no ALL CAPS labels, no exclamation marks.
 - Short sentences, concrete nouns. Say what happens ("The comment stays attached to that
   element"), not how it feels ("seamless", "powerful", "delightful").
