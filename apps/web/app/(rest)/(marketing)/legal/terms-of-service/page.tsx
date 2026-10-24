@@ -50,7 +50,7 @@ export default function TermsOfServicePage() {
             <h2>Open source</h2>
             <p>
                 The {brand.name} source code is published at <a href={brand.repository}>{brand.repository.replace('https://', '')}</a> under
-                its own licenses (<a href={`${brand.repository}#license`}>AGPL-3.0 and MIT</a>). These terms
+                its own licenses (AGPL-3.0 and MIT, see <a href={KnownPages.OpenSource}>open source</a>). These terms
                 do not limit the rights those licenses give you.
             </p>
 

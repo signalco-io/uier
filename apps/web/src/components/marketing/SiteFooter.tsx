@@ -18,6 +18,8 @@ export function SiteFooter() {
                 {
                     header: 'Resources',
                     ctas: [
+                        { label: 'Open source', href: KnownPages.OpenSource },
+                        { label: 'Security', href: KnownPages.Security },
                         { label: 'Brand', href: KnownPages.Brand },
                         { label: 'GitHub', href: brand.social.github }
                     ]
