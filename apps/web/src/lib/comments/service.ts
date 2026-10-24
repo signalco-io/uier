@@ -1,17 +1,20 @@
 import { nanoid } from 'nanoid';
 import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
+import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { toCommentDto, type CommentDto } from './dto';
-import { apiErrors, type CommentsApiContext } from './http';
+import { isLocalRuntime } from './environment';
+import { apiErrors, writerId, type CommentsApiContext } from './http';
 import {
     COMMENT_TTL_SECONDS,
     MAX_LIST_COMMENTS,
+    MAX_LIST_RESPONSE_BYTES,
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
 import { enforceNewCommentLimits, enforceReplyLimits, type RateLimitSubject } from './rateLimits';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
-import { hashIp, isLoopbackIp, resolveClientIp } from './visitor';
+import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
 
 const MAX_UPDATE_ATTEMPTS = 8;
 
@@ -19,30 +22,32 @@ function nowIso() {
     return new Date().toISOString();
 }
 
-/** 90 days; preview deployments keep comments as long as their container default (7 days) */
+/**
+ * 90 days in the production container. Any other container (`comments-preview`) keeps its own,
+ * shorter default TTL: a per-item ttl would override it.
+ */
 function commentTtlSeconds() {
-    return process.env.VERCEL_ENV === 'preview' ? PREVIEW_COMMENT_TTL_SECONDS : COMMENT_TTL_SECONDS;
+    return commentsContainerName() === DEFAULT_COMMENTS_CONTAINER_NAME ? COMMENT_TTL_SECONDS : undefined;
 }
 
 /**
- * IP used for rate limiting. Outside of Vercel (local development and e2e tests) loopback
- * requests are not IP limited, so all local test visitors don't share a single bucket.
+ * IP bucket used for rate limiting. Locally (development and e2e tests) loopback requests are not
+ * IP limited, so all local test visitors don't share a single bucket.
  */
-function rateLimitIpHash(request: Request, domain: string) {
-    const onVercel = Boolean(process.env.VERCEL);
+function rateLimitIpBucket(request: Request) {
     const ip = resolveClientIp(request);
     if (!ip)
-        return onVercel ? hashIp('unknown', domain) : undefined;
-    if (!onVercel && isLoopbackIp(ip))
+        return isLocalRuntime() ? undefined : 'unknown';
+    if (isLocalRuntime() && isLoopbackIp(ip))
         return undefined;
-    return hashIp(ip, domain);
+    return ipRateLimitBucket(ip);
 }
 
-function rateLimitSubject({ request, domain, visitor }: CommentsApiContext): RateLimitSubject {
+function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
     return {
-        domain,
-        authorId: visitor.authorId,
-        ipHash: rateLimitIpHash(request, domain)
+        domain: context.domain,
+        authorId: writerId(context),
+        ipBucket: rateLimitIpBucket(context.request)
     };
 }
 
@@ -92,14 +97,25 @@ async function updateComment(
         await new Promise(resolve => setTimeout(resolve, 10 * (attempt + 1) + Math.random() * 25));
     }
 
-    throw new Error(`Comment ${id} update failed after ${MAX_UPDATE_ATTEMPTS} concurrent modification attempts`);
+    throw apiErrors.conflict();
 }
 
+/** The page's newest comments, as many as fit into {@link MAX_LIST_RESPONSE_BYTES} */
 export async function listComments(context: CommentsApiContext, path: string) {
     const comments = await getCommentsStore().list(context.domain, path, MAX_LIST_COMMENTS);
-    return comments
-        .map(comment => toCommentDto(comment, context.visitor.authorId))
-        .filter(comment => comment !== null);
+    const dtos: CommentDto[] = [];
+    let bytes = 2;
+    for (const comment of comments) {
+        const dto = toCommentDto(comment, context.visitor.authorId);
+        if (!dto)
+            continue;
+
+        bytes += Buffer.byteLength(JSON.stringify(dto)) + 1;
+        if (bytes > MAX_LIST_RESPONSE_BYTES)
+            break;
+        dtos.push(dto);
+    }
+    return dtos;
 }
 
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
@@ -113,7 +129,6 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         text: input.text,
         quotedText: input.quotedText,
         authorId: subject.authorId,
-        ipHash: subject.ipHash,
         createdAt: now
     };
     const comment: DbComment = {
@@ -125,7 +140,6 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         device: compactDevice(input.device),
         resolved: false,
         authorId: subject.authorId,
-        ipHash: subject.ipHash,
         createdAt: now,
         updatedAt: now,
         ttl: commentTtlSeconds()
@@ -143,29 +157,22 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 
     await enforceReplyLimits(store, subject);
 
-    const updated = await updateComment(store, context.domain, id, comment => {
-        const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
-        if (items.length >= MAX_THREAD_ITEMS)
-            throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
+    const now = nowIso();
+    const result = await store.appendThreadItem(context.domain, id, {
+        id: `item_${nanoid()}`,
+        text: input.text,
+        authorId: subject.authorId,
+        createdAt: now
+    }, MAX_THREAD_ITEMS, now);
+    if (result === 'not_found')
+        throw apiErrors.notFound();
+    if (result === 'full')
+        throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
 
-        const now = nowIso();
-        return {
-            ...comment,
-            thread: {
-                ...comment.thread,
-                items: [...items, {
-                    id: `item_${nanoid()}`,
-                    text: input.text,
-                    authorId: subject.authorId,
-                    ipHash: subject.ipHash,
-                    createdAt: now
-                }]
-            },
-            updatedAt: now
-        };
-    });
-
-    return toDto(updated, context);
+    const stored = await store.get(context.domain, id);
+    if (!stored)
+        throw apiErrors.notFound();
+    return toDto(stored.comment, context);
 }
 
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {

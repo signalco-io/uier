@@ -7,7 +7,7 @@ import type { APIRequestContext, APIResponse } from '@playwright/test';
 // of its own, so tests don't affect each other (or the landing page).
 
 type VisitorOptions = {
-    /** Client IP as reported by the proxy (loopback requests are not IP rate limited outside of Vercel) */
+    /** Client IP as reported by the proxy (loopback requests are not IP rate limited when running locally) */
     ip?: string;
     headers?: Record<string, string>;
 };
@@ -30,14 +30,15 @@ const test = base.extend<{ newVisitor: (options?: VisitorOptions) => Promise<API
     }
 });
 
-const pointPosition = { type: 'point', selector: 'main h1', xNormal: 0.5, yNormal: 0.25 };
+// Selectors in the form the toolbar creates them (`getElementSelector` from @signalco/js)
+const pointPosition = { type: 'point', selector: 'body>main>h1,#hero>h1', xNormal: 0.5, yNormal: 0.25 };
 const selectionPosition = {
     type: 'text',
     text: 'leaving comments',
-    startSelector: 'main p',
+    startSelector: 'main>section.hero>p:nth-of-type(2)',
     startOffset: 38,
     startType: 'text',
-    endSelector: 'main p',
+    endSelector: 'main>section.hero>p:nth-of-type(2)',
     endOffset: 54,
     endType: 'text'
 };
@@ -66,6 +67,13 @@ function uniqueIp() {
     return `198.${18 + Math.floor(Math.random() * 2)}.${octet()}.${octet()}`;
 }
 
+/** A random IPv6 /64 from 2001:db8::/32 (documentation range); returns a function for addresses in it */
+function uniqueIpv6Network() {
+    const group = () => Math.floor(Math.random() * 0xffff).toString(16);
+    const prefix = `2001:db8:${group()}:${group()}`;
+    return (host: number) => `${prefix}:${host.toString(16)}::${group()}`;
+}
+
 async function createComment(visitor: APIRequestContext, path: string, data: Record<string, unknown> = {}) {
     return await visitor.post('/api/comments', {
         data: { path, position: pointPosition, text: 'The heading could use a subtitle.', ...data }
@@ -86,9 +94,10 @@ async function listComments(visitor: APIRequestContext, path: string) {
 async function expectError(response: APIResponse, status: number, error: string) {
     expect(response.status(), await response.text()).toBe(status);
     const body = await response.json() as Record<string, unknown>;
-    expect(Object.keys(body).sort()).toEqual(['error', 'message']);
+    expect(Object.keys(body).sort()).toEqual(error === 'rate_limited' ? ['error', 'message', 'reason'] : ['error', 'message']);
     expect(body.error).toBe(error);
     expect(typeof body.message).toBe('string');
+    return body;
 }
 
 function visitorCookie(response: APIResponse) {
@@ -103,7 +112,7 @@ test('create, list, reply, resolve and delete a comment', async ({ newVisitor })
     const author = await newVisitor();
     const visitor = await newVisitor();
 
-    const comment = await created(await createComment(author, path, { text: '  Nice page!  ' }));
+    const comment = await created(await createComment(author, path, { text: '  Nice page\u202e!  ' }));
     expect(Object.keys(comment).sort()).toEqual(commentKeys);
     expect(comment).toMatchObject({ path, position: pointPosition, resolved: false, isMine: true });
     expect(comment.id).toMatch(/^comment_/);
@@ -111,6 +120,7 @@ test('create, list, reply, resolve and delete a comment', async ({ newVisitor })
     expect(comment.thread.items).toHaveLength(1);
     const [firstItem] = comment.thread.items;
     expect(Object.keys(firstItem!).sort()).toEqual(['author', 'createdAt', 'id', 'text']);
+    // Trimmed, bidirectional overrides removed
     expect(firstItem).toMatchObject({ text: 'Nice page!', author: { isMe: true } });
     expect(firstItem!.id).toMatch(/^item_/);
     expect(firstItem!.author.name).toMatch(/^Guest [0-9A-F]{4}$/);
@@ -235,10 +245,20 @@ test('responses never contain author ids, IP hashes or device details', async ({
 });
 
 test('anonymous visitor cookie', async ({ newVisitor }) => {
+    const path = uniquePagePath();
     const visitor = await newVisitor();
-    const first = await visitor.get('/api/comments', { params: { path: '/' } });
-    expect(first.headers()['cache-control']).toBe('no-store');
 
+    // Reading never places a cookie, and nothing is "mine" without one
+    const read = await visitor.get('/api/comments', { params: { path } });
+    expect(read.headers()['cache-control']).toBe('no-store');
+    expect(visitorCookie(read)).toBeUndefined();
+
+    // Neither does a rejected write
+    expect(visitorCookie(await createComment(visitor, path, { text: '' }))).toBeUndefined();
+
+    // The first successful write does
+    const first = await createComment(visitor, path);
+    expect(first.status()).toBe(201);
     const cookie = visitorCookie(first);
     expect(cookie).toMatch(/^uier_visitor=[A-Za-z0-9_-]{43}; /);
     const attributes = cookie!.split('; ').slice(1);
@@ -247,13 +267,36 @@ test('anonymous visitor cookie', async ({ newVisitor }) => {
     expect(attributes).not.toContain('Secure');
 
     // Known visitors keep their identity
-    const second = await visitor.get('/api/comments', { params: { path: '/' } });
+    const second = await createComment(visitor, path);
     expect(visitorCookie(second)).toBeUndefined();
+    expect((await listComments(visitor, path)).map(comment => comment.isMine)).toEqual([true, true]);
+    expect((await listComments(await newVisitor(), path)).map(comment => comment.isMine)).toEqual([false, false]);
 
     // Secure behind an HTTPS proxy
     const httpsVisitor = await newVisitor({ headers: { 'X-Forwarded-Proto': 'https' } });
-    const httpsCookie = visitorCookie(await httpsVisitor.get('/api/comments', { params: { path: '/' } }));
+    const httpsCookie = visitorCookie(await createComment(httpsVisitor, path));
     expect(httpsCookie?.split('; ')).toContain('Secure');
+});
+
+test('writes must be same-origin JSON', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+    const body = JSON.stringify({ path, position: pointPosition, text: 'Hello' });
+
+    // Content types a cross-site form or `fetch` could send without a CORS preflight
+    for (const contentType of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data']) {
+        await expectError(await visitor.post('/api/comments', { headers: { 'Content-Type': contentType }, data: body }), 415, 'unsupported_media_type');
+    }
+
+    await expectError(await createComment(await newVisitor({ headers: { Origin: 'https://evil.example' } }), path), 403, 'forbidden');
+    await expectError(await createComment(await newVisitor({ headers: { 'Sec-Fetch-Site': 'cross-site' } }), path), 403, 'forbidden');
+    const comment = await created(await createComment(visitor, path));
+    await expectError(await (await newVisitor({ headers: { Origin: 'null' } })).post(`/api/comments/${comment.id}/replies`, { data: { text: 'Hi' } }), 403, 'forbidden');
+
+    // Same origin (the toolbar on this site)
+    const origin = new URL(test.info().project.use.baseURL!).origin;
+    await created(await createComment(await newVisitor({ headers: { Origin: origin, 'Sec-Fetch-Site': 'same-origin' } }), path));
+    expect(await listComments(visitor, path)).toHaveLength(2);
 });
 
 test('requests are validated', async ({ newVisitor }) => {
@@ -270,7 +313,17 @@ test('requests are validated', async ({ newVisitor }) => {
         { path: `/${'x'.repeat(512)}` },
         { position: { ...pointPosition, xNormal: 1.5 } },
         { position: { ...pointPosition, yNormal: '0.5' } },
+        { text: '\u200b\u2060' },
+        { text: '\u3164' },
+        { text: '\u202e' },
         { position: { ...pointPosition, selector: 'x'.repeat(1025) } },
+        // Selectors the toolbar never creates (and some no browser can parse)
+        { position: { ...pointPosition, selector: 'main))((' } },
+        { position: { ...pointPosition, selector: 'main h1' } },
+        { position: { ...pointPosition, selector: '#1abc' } },
+        { position: { ...pointPosition, selector: 'a[href^="javascript"]' } },
+        { position: { ...pointPosition, selector: 'main>h1,' } },
+        { position: { ...selectionPosition, endSelector: 'p:has(a)' } },
         { position: { ...selectionPosition, startOffset: 1.5 } },
         { position: { ...selectionPosition, text: 'x'.repeat(2001) } },
         { position: { type: 'area' } },
@@ -312,7 +365,7 @@ test('concurrent replies are all kept', async ({ newVisitor }) => {
     const author = await newVisitor();
     const comment = await created(await createComment(author, path));
 
-    const repliers = await Promise.all(Array.from({ length: 8 }, () => newVisitor()));
+    const repliers = await Promise.all(Array.from({ length: 20 }, () => newVisitor()));
     await Promise.all(repliers.map(async (replier, index) =>
         await created(await replier.post(`/api/comments/${comment.id}/replies`, { data: { text: `Reply ${index}` } }))));
 
@@ -320,9 +373,22 @@ test('concurrent replies are all kept', async ({ newVisitor }) => {
     expect(stored!.thread.items.map(item => item.text).sort()).toEqual(['The heading could use a subtitle.', ...repliers.map((_, index) => `Reply ${index}`)].sort());
 });
 
+test('a thread holds at most 50 messages', async ({ newVisitor }) => {
+    const author = await newVisitor();
+    const comment = await created(await createComment(author, uniquePagePath()));
+    // Two repliers, each below their own limit of 30 replies an hour
+    const repliers = [await newVisitor(), await newVisitor()];
+    for (let i = 0; i < 49; i++) {
+        await created(await repliers[i % 2]!.post(`/api/comments/${comment.id}/replies`, { data: { text: `Reply ${i}` } }));
+    }
+    const full = await expectError(await author.post(`/api/comments/${comment.id}/replies`, { data: { text: 'One more' } }), 400, 'invalid_request');
+    expect(full.message).toContain('full');
+});
+
 test.describe('rate limits', () => {
-    async function expectRateLimited(response: APIResponse) {
-        await expectError(response, 429, 'rate_limited');
+    async function expectRateLimited(response: APIResponse, reason: 'too_fast' | 'page_full' = 'too_fast') {
+        const body = await expectError(response, 429, 'rate_limited');
+        expect(body.reason).toBe(reason);
         expect(Number(response.headers()['retry-after'])).toBeGreaterThan(0);
     }
 
@@ -368,24 +434,37 @@ test.describe('rate limits', () => {
         await created(await createComment(await newVisitor({ ip: uniqueIp() }), path));
     });
 
-    test('300 unresolved comments per page', async ({ newVisitor }) => {
+    test('30 writes per IPv6 /64 and hour', async ({ newVisitor }) => {
+        const address = uniqueIpv6Network();
         const path = uniquePagePath();
-        // 30 visitors x 10 comments (each visitor's own limit)
-        const authors = await Promise.all(Array.from({ length: 30 }, async (_, v) => {
-            const visitor = await newVisitor();
-            const comments: CommentDto[] = [];
+        // 3 visitors, each from its own address in the same /64: 10 comments each
+        for (let v = 0; v < 3; v++) {
+            const visitor = await newVisitor({ ip: address(v) });
             for (let i = 0; i < 10; i++) {
-                comments.push(await created(await createComment(visitor, path, { text: `Comment ${v}.${i}` })));
+                await created(await createComment(visitor, path, { text: `Comment ${v}.${i}` }));
             }
-            return { visitor, comments };
+        }
+
+        await expectRateLimited(await createComment(await newVisitor({ ip: address(3) }), path));
+        // IPv4-mapped addresses count as IPv4
+        await created(await createComment(await newVisitor({ ip: `::ffff:${uniqueIp()}` }), path));
+    });
+
+    test('100 new comments per page and day', async ({ newVisitor }) => {
+        const path = uniquePagePath();
+        // 10 visitors x 10 comments (each visitor's own limit)
+        await Promise.all(Array.from({ length: 10 }, async (_, v) => {
+            const visitor = await newVisitor();
+            for (let i = 0; i < 10; i++) {
+                await created(await createComment(visitor, path, { text: `Comment ${v}.${i}` }));
+            }
         }));
 
         const latecomer = await newVisitor();
-        await expectRateLimited(await createComment(latecomer, path));
-
-        // Resolving a comment frees up a place
-        const { visitor: author, comments } = authors[0]!;
-        expect((await author.patch(`/api/comments/${comments[0]!.id}`, { data: { resolved: true } })).status()).toBe(200);
-        await created(await createComment(latecomer, path));
+        await expectRateLimited(await createComment(latecomer, path), 'page_full');
+        // Replies and other pages are not affected
+        const [comment] = await listComments(latecomer, path);
+        await created(await latecomer.post(`/api/comments/${comment!.id}/replies`, { data: { text: 'Reply' } }));
+        await created(await createComment(latecomer, uniquePagePath()));
     });
 });

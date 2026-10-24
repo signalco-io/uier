@@ -30,10 +30,43 @@ export function normalizePath(path: string) {
     return withoutTrailingSlash.length ? withoutTrailingSlash : '/';
 }
 
-const textSchema = z.string().trim().min(1).max(MAX_TEXT_LENGTH);
-const quotedTextSchema = z.string().trim().max(MAX_QUOTED_TEXT_LENGTH)
+// Bidirectional overrides and isolates can reorder how the rest of a comment reads
+const bidiControls = /[\u202a-\u202e\u2066-\u2069]/g;
+// At least one character that is not whitespace, a control or format character (zero-width
+// spaces and joiners) or one of the blank Hangul fillers / Braille pattern
+const visibleCharacter = /[^\p{White_Space}\p{Cc}\p{Cf}\u115f\u1160\u3164\uffa0\u2800]/u;
+
+function withoutBidiControls(text: string) {
+    return text.replace(bidiControls, '').trim();
+}
+
+const textSchema = z.string()
+    .transform(withoutBidiControls)
+    .pipe(z.string()
+        .min(1)
+        .max(MAX_TEXT_LENGTH)
+        .refine(text => visibleCharacter.test(text), 'Text must contain visible characters'));
+const quotedTextSchema = z.string()
+    .transform(withoutBidiControls)
+    .pipe(z.string().max(MAX_QUOTED_TEXT_LENGTH))
     .transform(text => text.length ? text : undefined);
-const selectorSchema = z.string().min(1).max(MAX_SELECTOR_LENGTH);
+
+/*
+ * Selectors as the toolbar creates them (`getElementSelector` from @signalco/js): a comma-separated
+ * list of `>`-chains of `#id` or `tag[.class][:nth-of-type(n)]`, identifiers escaped with a
+ * backslash. Anything else (which `querySelector` could choke on in every visitor's browser) is
+ * rejected.
+ */
+const escapedCharacter = '\\\\[^\\u0000-\\u001f\\u007f]';
+const identifier = `-{0,2}(?:[A-Za-z_]|${escapedCharacter})(?:[A-Za-z0-9_-]|${escapedCharacter})*`;
+const compound = `(?:#${identifier}|[A-Za-z][A-Za-z0-9-]*(?:\\.${identifier})?(?::nth-of-type\\([1-9][0-9]{0,5}\\))?)`;
+const complex = `${compound}(?:>${compound})*`;
+const selectorPattern = new RegExp(`^${complex}(?:,${complex})*$`, 'u');
+
+const selectorSchema = z.string()
+    .min(1)
+    .max(MAX_SELECTOR_LENGTH)
+    .refine(selector => selectorPattern.test(selector), 'Selector is not supported');
 const normalSchema = z.number().min(0).max(1);
 const offsetSchema = z.int().min(0).max(MAX_SELECTION_OFFSET);
 const nodeTypeSchema = z.enum(['text', 'element']);
@@ -47,7 +80,7 @@ export const pointPositionSchema = z.object({
 
 export const selectionPositionSchema = z.object({
     type: z.literal('text'),
-    text: z.string().min(1).max(MAX_SELECTION_TEXT_LENGTH),
+    text: z.string().transform(withoutBidiControls).pipe(z.string().min(1).max(MAX_SELECTION_TEXT_LENGTH)),
     startSelector: selectorSchema,
     startOffset: offsetSchema,
     startType: nodeTypeSchema,

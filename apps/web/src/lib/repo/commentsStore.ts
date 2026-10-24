@@ -1,5 +1,6 @@
-import type { DbComment } from '../db/schema';
+import type { DbComment, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
+import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
 import { getMemoryCommentsStore } from './memoryCommentsStore';
 
@@ -10,6 +11,7 @@ export type StoredComment = {
 };
 
 export type ReplaceResult = 'ok' | 'conflict' | 'not_found';
+export type AppendResult = 'ok' | 'full' | 'not_found';
 
 /**
  * Persistence of comments. All operations are scoped to a single domain (the Cosmos partition key),
@@ -24,29 +26,28 @@ export type CommentsStore = {
     replace(comment: DbComment, etag: string): Promise<ReplaceResult>;
     /** Returns `false` when the comment does not exist */
     delete(domain: string, id: string): Promise<boolean>;
+    /** Atomically appends a thread item unless the thread already has `maxItems` items */
+    appendThreadItem(domain: string, id: string, item: DbThreadItem, maxItems: number, updatedAt: string): Promise<AppendResult>;
 
-    /** Number of unresolved comments on the page */
-    countUnresolved(domain: string, path: string): Promise<number>;
-    /** `createdAt` of comments created by the author since `since` */
-    commentTimestampsByAuthor(domain: string, authorId: string, since: string): Promise<string[]>;
-    /** `createdAt` of replies (thread items except the first one) created by the author since `since` */
-    replyTimestampsByAuthor(domain: string, authorId: string, since: string): Promise<string[]>;
-    /** `createdAt` of all thread items (comments + replies) created from the IP since `since` */
-    writeTimestampsByIp(domain: string, ipHash: string, since: string): Promise<string[]>;
+    /**
+     * Atomically adds one to the counter `id` unless it already reached `limit`. Returns `false`
+     * (and changes nothing) when the limit is reached. The counter expires after `ttlSeconds`.
+     */
+    incrementCounter(domain: string, id: string, limit: number, ttlSeconds: number): Promise<boolean>;
 };
 
 let warnedAboutMemoryStore = false;
 
 /**
- * Cosmos DB when `COSMOSDB_CONNECTION_STRING` is set; otherwise (local development, e2e tests,
- * non-production deployments) an in-memory store. Production requires Cosmos DB.
+ * Cosmos DB when `COSMOSDB_CONNECTION_STRING` is set. Locally (`next dev`, e2e tests) without it,
+ * an in-memory store. Anywhere else a missing connection string is an error.
  */
 export function getCommentsStore(): CommentsStore {
     if (isCosmosConfigured())
         return createCosmosCommentsStore();
 
-    if (process.env.VERCEL_ENV === 'production')
-        throw new Error('COSMOSDB_CONNECTION_STRING is required in production.');
+    if (!isLocalRuntime())
+        throw new Error('COSMOSDB_CONNECTION_STRING is required outside local development.');
 
     if (!warnedAboutMemoryStore) {
         warnedAboutMemoryStore = true;

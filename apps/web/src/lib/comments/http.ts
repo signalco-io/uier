@@ -8,13 +8,20 @@ export type ApiErrorCode =
     | 'forbidden'
     | 'bot_detected'
     | 'not_found'
+    | 'conflict'
     | 'too_large'
+    | 'unsupported_media_type'
     | 'rate_limited'
     | 'server_error';
+
+/** Why a request was rate limited: the visitor (or their network) writes too fast, or the page had enough comments today */
+export type RateLimitReason = 'too_fast' | 'page_full';
 
 export type ApiErrorBody = {
     error: ApiErrorCode;
     message: string;
+    /** Only with `rate_limited` */
+    reason?: RateLimitReason;
 };
 
 export class ApiError extends Error {
@@ -22,7 +29,8 @@ export class ApiError extends Error {
         readonly status: number,
         readonly code: ApiErrorCode,
         message: string,
-        readonly retryAfterSeconds?: number
+        readonly retryAfterSeconds?: number,
+        readonly reason?: RateLimitReason
     ) {
         super(message);
         this.name = 'ApiError';
@@ -34,8 +42,10 @@ export const apiErrors = {
     forbidden: (message = 'Only the author can do this.') => new ApiError(403, 'forbidden', message),
     botDetected: () => new ApiError(403, 'bot_detected', 'Automated requests are not allowed. Please try again from your browser.'),
     notFound: (message = 'Comment not found.') => new ApiError(404, 'not_found', message),
+    conflict: () => new ApiError(409, 'conflict', 'The comment changed while saving. Please try again.', 1),
     tooLarge: () => new ApiError(413, 'too_large', `Request body is too large (maximum ${MAX_BODY_BYTES} bytes).`),
-    rateLimited: (message: string, retryAfterSeconds: number) => new ApiError(429, 'rate_limited', message, retryAfterSeconds)
+    unsupportedMediaType: () => new ApiError(415, 'unsupported_media_type', 'Request body must be sent as application/json.'),
+    rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason)
 };
 
 function errorResponse(error: unknown) {
@@ -43,7 +53,7 @@ function errorResponse(error: unknown) {
         const headers = new Headers();
         if (error.retryAfterSeconds !== undefined)
             headers.set('Retry-After', String(error.retryAfterSeconds));
-        return Response.json({ error: error.code, message: error.message } satisfies ApiErrorBody, { status: error.status, headers });
+        return Response.json({ error: error.code, message: error.message, reason: error.reason } satisfies ApiErrorBody, { status: error.status, headers });
     }
 
     console.error('[comments] Unhandled error', error);
@@ -100,8 +110,15 @@ async function readBodyText(request: Request) {
     }
 }
 
-/** Reads (max {@link MAX_BODY_BYTES}) and validates a JSON body. Unknown fields are stripped. */
+/**
+ * Reads (max {@link MAX_BODY_BYTES}) and validates a JSON body. Unknown fields are stripped.
+ * Only `application/json` is accepted: other types could be sent cross-site without a CORS preflight.
+ */
 export async function parseJsonBody<TSchema extends z.ZodType>(request: Request, schema: TSchema): Promise<z.output<TSchema>> {
+    const contentType = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+    if (contentType !== 'application/json')
+        throw apiErrors.unsupportedMediaType();
+
     const text = await readBodyText(request);
     let json: unknown;
     try {
@@ -122,19 +139,50 @@ export type CommentsApiContext = {
     visitor: Visitor;
 };
 
+function isWrite(request: Request) {
+    return request.method !== 'GET' && request.method !== 'HEAD';
+}
+
 /**
- * Wraps a comments API route handler: resolves the domain and the anonymous visitor (setting the
- * visitor cookie when missing), maps errors to `{ error, message }` responses and disables caching.
+ * Writes are accepted only from pages on the API's own origin (the toolbar on this site). Until a
+ * deliberate CORS policy for customer sites exists, cross-site writes are rejected.
+ */
+function assertSameOrigin(request: Request, domain: string) {
+    const crossSite = apiErrors.forbidden('Cross-site requests are not allowed.');
+    if (request.headers.get('sec-fetch-site') === 'cross-site')
+        throw crossSite;
+
+    const origin = request.headers.get('origin');
+    if (origin === null)
+        return;
+
+    let originHost: string;
+    try {
+        originHost = new URL(origin).host.toLowerCase();
+    } catch {
+        throw crossSite;
+    }
+    if (originHost !== domain)
+        throw crossSite;
+}
+
+/**
+ * Wraps a comments API route handler: resolves the domain and the anonymous visitor, maps errors to
+ * `{ error, message }` responses and disables caching. The visitor cookie is created only by a
+ * successful write, so reading comments never places a cookie.
  */
 export function commentsApiHandler<TParams extends Record<string, string> = Record<string, never>>(
     handler: (context: CommentsApiContext, params: TParams) => Promise<Response>
 ) {
     return async (request: Request, routeContext: { params: Promise<TParams> }) => {
-        const visitor = resolveVisitor(request);
+        const write = isWrite(request);
+        const visitor = resolveVisitor(request, write);
 
         let response: Response;
         try {
             const domain = resolveDomain(request);
+            if (write)
+                assertSameOrigin(request, domain);
             response = await handler({ request, domain, visitor }, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);
@@ -142,7 +190,7 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
 
         const headers = new Headers(response.headers);
         headers.set('Cache-Control', 'no-store');
-        if (visitor.setCookie)
+        if (visitor.setCookie && response.ok)
             headers.append('Set-Cookie', visitor.setCookie);
 
         return new Response(response.body, {
@@ -151,4 +199,11 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
             headers
         });
     };
+}
+
+/** The visitor's author id; writes always have one (`resolveVisitor` creates it) */
+export function writerId(context: CommentsApiContext) {
+    if (!context.visitor.authorId)
+        throw new Error('Writes need a visitor identity');
+    return context.visitor.authorId;
 }

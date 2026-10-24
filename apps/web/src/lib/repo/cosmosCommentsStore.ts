@@ -1,7 +1,7 @@
 import type { SqlParameter } from '@azure/cosmos';
-import type { DbComment } from '../db/schema';
+import type { DbComment, DbCounter } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
-import type { CommentsStore, ReplaceResult, StoredComment } from './commentsStore';
+import type { AppendResult, CommentsStore, ReplaceResult, StoredComment } from './commentsStore';
 
 function errorCode(error: unknown) {
     return typeof error === 'object' && error !== null && 'code' in error
@@ -75,31 +75,54 @@ export function createCosmosCommentsStore(): CommentsStore {
                 throw error;
             }
         },
-        async countUnresolved(domain, path) {
-            const [count] = await queryAll<number>(
-                domain,
-                `SELECT VALUE COUNT(1) FROM c WHERE c.domain = @domain AND ${pathFilter} AND (NOT IS_BOOL(c.resolved) OR c.resolved = false)`,
-                pathParameters(path));
-            return count ?? 0;
+        async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
+            try {
+                // Conditional patch: atomic, so concurrent replies never overwrite each other
+                await cosmosDataContainerComments().item(id, domain).patch<DbComment>({
+                    condition: `FROM c WHERE ARRAY_LENGTH(c.thread.items) < ${maxItems}`,
+                    operations: [
+                        { op: 'add', path: '/thread/items/-', value: item },
+                        { op: 'set', path: '/updatedAt', value: updatedAt }
+                    ]
+                });
+                return 'ok';
+            } catch (error) {
+                const code = errorCode(error);
+                if (code === 412)
+                    return 'full';
+                if (code === 404)
+                    return 'not_found';
+                throw error;
+            }
         },
-        async commentTimestampsByAuthor(domain, authorId, since) {
-            return await queryAll<string>(
-                domain,
-                'SELECT VALUE c.createdAt FROM c WHERE c.domain = @domain AND c.authorId = @authorId AND c.createdAt >= @since',
-                [{ name: '@authorId', value: authorId }, { name: '@since', value: since }]);
-        },
-        async replyTimestampsByAuthor(domain, authorId, since) {
-            // Every write to a comment bumps `updatedAt`, so older comments can be skipped via the index
-            return await queryAll<string>(
-                domain,
-                'SELECT VALUE i.createdAt FROM c JOIN i IN c.thread.items WHERE c.domain = @domain AND c.updatedAt >= @since AND i.authorId = @authorId AND i.createdAt >= @since AND i.id != c.thread.items[0].id',
-                [{ name: '@authorId', value: authorId }, { name: '@since', value: since }]);
-        },
-        async writeTimestampsByIp(domain, ipHash, since) {
-            return await queryAll<string>(
-                domain,
-                'SELECT VALUE i.createdAt FROM c JOIN i IN c.thread.items WHERE c.domain = @domain AND c.updatedAt >= @since AND i.ipHash = @ipHash AND i.createdAt >= @since',
-                [{ name: '@ipHash', value: ipHash }, { name: '@since', value: since }]);
+        async incrementCounter(domain, id, limit, ttlSeconds) {
+            const container = cosmosDataContainerComments();
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    await container.item(id, domain).patch<DbCounter>({
+                        condition: `FROM c WHERE c.count < ${limit}`,
+                        operations: [{ op: 'incr', path: '/count', value: 1 }]
+                    });
+                    return true;
+                } catch (error) {
+                    const code = errorCode(error);
+                    if (code === 412)
+                        return false;
+                    if (code !== 404)
+                        throw error;
+                }
+
+                // First write in this window: create the counter (409 = created concurrently, patch again)
+                try {
+                    await container.items.create<DbCounter>({ id, domain, type: 'counter', count: 1, ttl: ttlSeconds });
+                    return limit > 0;
+                } catch (error) {
+                    if (errorCode(error) !== 409)
+                        throw error;
+                }
+            }
+
+            throw new Error(`Counter ${id} could not be updated`);
         }
     };
 }

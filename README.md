@@ -151,7 +151,7 @@ trailing slash).
 
 | Request | Body | Response |
 | --- | --- | --- |
-| `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200), resolved ones included (`resolved: true`) |
+| `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
 | `POST /api/comments` | `{ path, position, text, quotedText?, device? }` | `201` the new comment |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
@@ -159,50 +159,69 @@ trailing slash).
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. Deleting the first item deletes the comment (`204`, author of the comment only) |
 
 Errors are `{ "error": "<code>", "message": "..." }`: `400 invalid_request`, `403 forbidden` (not the
-author), `403 bot_detected`, `404 not_found`, `413 too_large`, `429 rate_limited` (with `Retry-After` in
-seconds) and `500 server_error`. Unknown fields are ignored; ids, authors and timestamps are always set by the
-server. Responses never contain author ids, IP hashes, the TTL or device details other than the coarse size
+author, or a cross-site request), `403 bot_detected`, `404 not_found`, `409 conflict` (retry), `413 too_large`,
+`415 unsupported_media_type` (writes must be `application/json`), `429 rate_limited` (with `Retry-After` in
+seconds and `reason`: `too_fast` or `page_full`) and `500 server_error`. Writes are accepted only from the API's
+own origin (a cross-site `Origin` or `Sec-Fetch-Site: cross-site` gets `403`). Unknown fields are ignored; ids,
+authors and timestamps are always set by the server. Selectors must have the form the toolbar creates
+(`#id` or `tag.class:nth-of-type(n)` joined by `>`), so a stored comment can't break `querySelector` in
+visitors' browsers. Responses never contain author ids, IP hashes, the TTL or device details other than the coarse size
 (`desktop`/`tablet`/`mobile`). Texts are shown as plain text only (no markdown, no links).
 
-**Anonymous identity.** Every `/api/comments` response sets the `uier_visitor` cookie when it is missing:
-32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere except
-plain http on a loopback host (local development and tests). Comments store only `authorId = sha256(token)`, never the token. Visitors are shown as
-`Guest <first 4 hex characters of the author id>` (stable per visitor) and as "You" for their own items; the
-API returns `isMine` / `author.isMe` so only the author sees the resolve and delete actions.
+**Anonymous identity.** The first successful write sets the `uier_visitor` cookie (reading comments never
+does): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
+except plain http on a loopback host (local development and tests). Comments store only
+`authorId = sha256(token)`, never the token. Visitors are shown as `Guest XXXX` (4 hex characters of an HMAC of
+the author id with a server key, so a name can't be forged offline) and as "You" for their own items; the API
+returns `isMine` / `author.isMe` so only the author sees the resolve and delete actions. The server key is
+derived from `COSMOSDB_CONNECTION_STRING`; rotating the Cosmos DB key changes every guest name and nothing else.
 
-**Limits** (all in [`limits.ts`](apps/web/src/lib/comments/limits.ts); rate limits are sliding one-hour windows
-counted from the stored comments, per domain):
+**Limits** (all in [`limits.ts`](apps/web/src/lib/comments/limits.ts)). Rate limits are fixed windows per domain,
+counted atomically in small counter documents (`type: 'counter'`, id = HMAC of the subject and window, expiring
+shortly after the window) in the comments container, so concurrent requests can't exceed them and comments
+carry no IP-derived data:
 
 | Limit | Value |
 | --- | --- |
 | Request body | 16 KB (`413`) |
-| Comment / reply text | 1-1000 characters after trimming; quoted text up to 1000 |
+| Comment / reply text | 1-1000 characters after trimming, at least one visible character; bidirectional override characters are removed; quoted text up to 1000 |
 | Path / selectors / selected text | 512 / 1024 / 2000 characters |
-| Thread | 100 messages |
+| Thread | 50 messages (replies are appended atomically) |
 | New comments per visitor | 10 per hour |
 | Replies per visitor | 30 per hour |
-| Writes per IP (`sha256(ip + ':' + domain)`, never returned) | 30 per hour |
-| Unresolved comments per page | 300 |
+| Writes per IP (an IPv4 address or an IPv6 /64) | 30 per hour |
+| New comments per page | 100 per day (`reason: page_full`) |
 
 **Bot protection: [Vercel BotID](https://vercel.com/docs/botid)** (basic mode, no captcha).
 [`instrumentation-client.ts`](apps/web/instrumentation-client.ts) attaches the BotID challenge to the page's
 same-origin `POST`/`PATCH`/`DELETE` requests to `/api/comments*`, and every write handler calls `checkBotId()`
 first (`403 bot_detected` for bots). `withBotId` in `next.config.ts` proxies BotID's scripts through this origin,
-so the CSP needs no changes. BotID only verifies requests on Vercel: locally, in e2e tests and when
-self-hosted every request is treated as human; `UIER_BOTID_DEV_BYPASS=BAD-BOT` (ignored on Vercel) simulates a
-bot to test the `bot_detected` path.
+so the CSP needs no changes. BotID verifies every write except when the app runs locally: `next dev`, or
+`UIER_LOCAL=1` (set by `playwright.config.ts` for `next start`; never set it on a deployment). Locally every
+request is treated as human and `UIER_BOTID_DEV_BYPASS=BAD-BOT` simulates a bot to test the `bot_detected`
+path. Anything else fails closed: a deployment where BotID can't verify (for example without the project's OIDC
+token) rejects writes with `500`.
 
-**Retention.** Comments carry a Cosmos DB per-item `ttl`: they expire **90 days** after their last change
-(7 days on preview deployments). The `comments` container has `defaultTtl: -1` (TTL enabled, nothing expires
-without its own `ttl`).
+**Retention.** Comments in the `comments` container carry a Cosmos DB per-item `ttl`: they expire **90 days**
+after their last change. The container has `defaultTtl: -1` (TTL enabled, nothing expires without its own
+`ttl`). Comments in `comments-preview` have no per-item `ttl` and expire with the container default (7 days).
 
 **Storage.**
 
 | Environment | Store |
 | --- | --- |
-| Vercel production | Cosmos DB container `comments` (`COSMOSDB_CONNECTION_STRING`, `COSMOSDB_COMMENTS_CONTAINER=comments`); a missing connection string is an error |
+| Vercel production | Cosmos DB container `comments` (`COSMOSDB_CONNECTION_STRING`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
 | Vercel preview (pull requests) | Cosmos DB container `comments-preview` in the same database (secondary account key, `defaultTtl` 7 days) |
-| Local development, e2e tests | In memory, when `COSMOSDB_CONNECTION_STRING` is not set |
+| Local development, e2e tests | In memory, when `COSMOSDB_CONNECTION_STRING` is not set (`next dev`, or `UIER_LOCAL=1`) |
+
+Outside local development a missing `COSMOSDB_CONNECTION_STRING` is an error (`500`), never a silent in-memory
+store. The preview variables exist once `pulumi up` has run on `main`, so the comments API of a pull request
+that is opened before that returns `500`.
+
+The secondary key that previews use is an account key: it can read and write the production `comments`
+container too. Only `COSMOSDB_COMMENTS_CONTAINER` keeps previews on `comments-preview`. Previews are behind
+Vercel authentication and fork pull requests are not deployed; regenerate the secondary key after any
+suspicious preview.
 
 `COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). Both variables are managed by Pulumi
 (see [Infrastructure](#infrastructure)).
@@ -220,8 +239,8 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
    ```
 
    (`domain` is the host the comment was posted on, e.g. `uier.io`; other useful filters:
-   `CONTAINS(c.thread.items[0].text, 'spam')`, `c.authorId = '<authorId of a known abusive comment>'`,
-   `c.ipHash = '<ipHash>'`.)
+   `CONTAINS(c.thread.items[0].text, 'spam')`, `c.authorId = '<authorId of a known abusive comment>'`.
+   Rate-limit counters are in the same container (`c.type = 'counter'`, no `path`) and expire by themselves.)
 3. Open the document and **Delete** it to remove the whole comment, or remove the offending entry from
    `thread.items` and **Update** to remove a single reply. Changes are visible immediately (the API does
    not cache).

@@ -1,5 +1,5 @@
 import type { DbComment } from '../db/schema';
-import type { CommentsStore, ReplaceResult, StoredComment } from './commentsStore';
+import type { AppendResult, CommentsStore, ReplaceResult, StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
@@ -11,8 +11,14 @@ type MemoryEntry = {
     modifiedAt: number;
 };
 
+type MemoryCounter = {
+    count: number;
+    expiresAt: number;
+};
+
 type MemoryState = {
     domains: Map<string, Map<string, MemoryEntry>>;
+    counters: Map<string, MemoryCounter>;
     version: number;
 };
 
@@ -20,7 +26,7 @@ type MemoryState = {
 const globalForStore = globalThis as typeof globalThis & { __uierCommentsMemoryStore?: MemoryState };
 
 function state() {
-    return globalForStore.__uierCommentsMemoryStore ??= { domains: new Map(), version: 0 };
+    return globalForStore.__uierCommentsMemoryStore ??= { domains: new Map(), counters: new Map(), version: 0 };
 }
 
 function isExpired(entry: MemoryEntry, now: number) {
@@ -51,14 +57,6 @@ function clone<T>(value: T): T {
 
 function pathMatches(docPath: string, path: string) {
     return docPath === path || docPath.startsWith(`${path}?`);
-}
-
-function isUnresolved(comment: DbComment) {
-    return comment.resolved !== true;
-}
-
-function sinceFilter(since: string) {
-    return (createdAt: string | undefined): createdAt is string => typeof createdAt === 'string' && createdAt >= since;
 }
 
 export function getMemoryCommentsStore(): CommentsStore {
@@ -102,36 +100,37 @@ export function getMemoryCommentsStore(): CommentsStore {
         async delete(domain, id) {
             return domainEntries(domain).delete(id);
         },
-        async countUnresolved(domain, path) {
-            let count = 0;
-            for (const { comment } of domainEntries(domain).values()) {
-                if (pathMatches(comment.path, path) && isUnresolved(comment))
-                    count++;
+        async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
+            const entries = domainEntries(domain);
+            const entry = entries.get(id);
+            if (!entry)
+                return 'not_found';
+            if (entry.comment.thread.items.length >= maxItems)
+                return 'full';
+
+            const comment: DbComment = {
+                ...entry.comment,
+                thread: { ...entry.comment.thread, items: [...entry.comment.thread.items, clone(item)] },
+                updatedAt
+            };
+            entries.set(id, { comment, version: ++state().version, modifiedAt: Date.now() });
+            return 'ok';
+        },
+        async incrementCounter(domain, id, limit, ttlSeconds) {
+            const counters = state().counters;
+            const key = `${domain}/${id}`;
+            const now = Date.now();
+            for (const [counterKey, counter] of counters) {
+                if (counter.expiresAt <= now)
+                    counters.delete(counterKey);
             }
-            return count;
-        },
-        async commentTimestampsByAuthor(domain, authorId, since) {
-            const inWindow = sinceFilter(since);
-            return [...domainEntries(domain).values()]
-                .filter(({ comment }) => comment.authorId === authorId)
-                .map(({ comment }) => comment.createdAt)
-                .filter(inWindow);
-        },
-        async replyTimestampsByAuthor(domain, authorId, since) {
-            const inWindow = sinceFilter(since);
-            return [...domainEntries(domain).values()]
-                .flatMap(({ comment }) => comment.thread.items.slice(1))
-                .filter(item => item.authorId === authorId)
-                .map(item => item.createdAt)
-                .filter(inWindow);
-        },
-        async writeTimestampsByIp(domain, ipHash, since) {
-            const inWindow = sinceFilter(since);
-            return [...domainEntries(domain).values()]
-                .flatMap(({ comment }) => comment.thread.items)
-                .filter(item => item.ipHash === ipHash)
-                .map(item => item.createdAt)
-                .filter(inWindow);
+
+            const counter = counters.get(key) ?? { count: 0, expiresAt: now + ttlSeconds * 1000 };
+            if (counter.count >= limit)
+                return false;
+
+            counters.set(key, { ...counter, count: counter.count + 1 });
+            return true;
         }
     };
 }

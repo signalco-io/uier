@@ -35,8 +35,6 @@ export type DbThreadItem = {
     quotedText?: string;
     /** sha256 of the visitor token (missing on old documents) */
     authorId?: string;
-    /** sha256(ip + ':' + domain) - for IP rate limiting only, never returned */
-    ipHash?: string;
     /** ISO 8601, server time (missing on old documents) */
     createdAt?: string;
 };
@@ -54,11 +52,22 @@ export type DbComment = {
     resolved?: boolean;
     /** sha256 of the visitor token (missing on old documents) */
     authorId?: string;
-    /** For IP rate limiting only, never returned */
-    ipHash?: string;
     /** ISO 8601, server time (missing on old documents) */
     createdAt?: string;
     updatedAt?: string;
     /** Seconds; Cosmos DB per-item TTL (requires container defaultTtl = -1 or a positive default) */
     ttl?: number;
+};
+
+/**
+ * A rate-limit counter for one subject and time window (comments/rateLimits.ts). Stored in the
+ * comments container with a short TTL; it has no `path`, so comment queries never match it.
+ */
+export type DbCounter = {
+    /** `counter_<keyed hash of the subject and window>` */
+    id: string;
+    domain: string;
+    type: 'counter';
+    count: number;
+    ttl: number;
 };

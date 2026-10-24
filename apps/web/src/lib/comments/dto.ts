@@ -63,14 +63,14 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
     return null;
 }
 
-function toAuthorDto(authorId: string | undefined, visitorAuthorId: string): CommentAuthorDto {
+function toAuthorDto(authorId: string | undefined, visitorAuthorId: string | undefined): CommentAuthorDto {
     return {
         name: displayName(authorId),
         isMe: Boolean(authorId) && authorId === visitorAuthorId
     };
 }
 
-function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string): CommentThreadItemDto {
+function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined): CommentThreadItemDto {
     return {
         id: String(item.id),
         text: optionalString(item.text) ?? '',
@@ -84,7 +84,7 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string): CommentTh
  * Public representation of a comment. Never contains author ids, IP hashes, TTL or device details
  * other than the coarse size. Returns `null` for (old) documents that can't be represented.
  */
-export function toCommentDto(comment: DbComment, visitorAuthorId: string): CommentDto | null {
+export function toCommentDto(comment: DbComment, visitorAuthorId: string | undefined): CommentDto | null {
     const position = toPositionDto(comment.position);
     if (!position)
         return null;

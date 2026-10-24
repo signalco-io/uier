@@ -1,7 +1,7 @@
 import { type Container, CosmosClient, type Database } from '@azure/cosmos';
 
 const DATA_DATABASE_NAME = 'uierdata';
-const DEFAULT_COMMENTS_CONTAINER_NAME = 'comments';
+export const DEFAULT_COMMENTS_CONTAINER_NAME = 'comments';
 
 let client: CosmosClient | null = null;
 let dataDb: Database | null = null;

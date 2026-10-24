@@ -1,4 +1,5 @@
 import { checkBotId } from 'botid/server';
+import { isLocalRuntime } from './environment';
 import { apiErrors } from './http';
 
 type BotIdVerdict = 'HUMAN' | 'BAD-BOT' | 'GOOD-BOT';
@@ -7,12 +8,8 @@ const verdicts: readonly BotIdVerdict[] = ['HUMAN', 'BAD-BOT', 'GOOD-BOT'];
 
 let warnedAboutLocalMode = false;
 
-function isRunningOnVercel() {
-    return Boolean(process.env.VERCEL);
-}
-
 /**
- * Outside of Vercel only: lets tests simulate a BotID verdict, e.g. `UIER_BOTID_DEV_BYPASS=BAD-BOT`.
+ * Local runtime only: lets tests simulate a BotID verdict, e.g. `UIER_BOTID_DEV_BYPASS=BAD-BOT`.
  * Defaults to `HUMAN`, like BotID's own development mode.
  */
 function localVerdict(): BotIdVerdict {
@@ -23,14 +20,14 @@ function localVerdict(): BotIdVerdict {
 /**
  * Vercel BotID (basic mode) for all write requests. The client side is `instrumentation-client.ts`.
  *
- * On Vercel BotID always performs the real classification (`checkBotId()`). Outside of Vercel
- * (`next dev`, `next start` in e2e tests, self-hosting) there is no BotID backend to verify against,
- * so - like BotID's documented development mode - requests are treated as human unless
- * `UIER_BOTID_DEV_BYPASS` says otherwise. (Calling `checkBotId()` there would only log a
- * misconfiguration error for every request that doesn't come from the instrumented page.)
+ * BotID always performs the real classification (`checkBotId()`), unless the app runs locally
+ * (`next dev`, or `next start` with `UIER_LOCAL=1` in the e2e tests, see `isLocalRuntime`). There
+ * is no BotID backend to verify against locally, so - like BotID's documented development mode -
+ * requests are treated as human unless `UIER_BOTID_DEV_BYPASS` says otherwise. Anything else, such
+ * as a deployment without Vercel's system environment variables, fails closed.
  */
 export async function assertNotBot() {
-    if (isRunningOnVercel()) {
+    if (!isLocalRuntime()) {
         const verification = await checkBotId();
         if (verification.isBot)
             throw apiErrors.botDetected();
@@ -39,7 +36,7 @@ export async function assertNotBot() {
 
     if (!warnedAboutLocalMode) {
         warnedAboutLocalMode = true;
-        console.warn('[comments] Not running on Vercel - BotID verification is skipped (UIER_BOTID_DEV_BYPASS can simulate a verdict).');
+        console.warn('[comments] Running locally - BotID verification is skipped (UIER_BOTID_DEV_BYPASS can simulate a verdict).');
     }
 
     if (localVerdict() === 'BAD-BOT')

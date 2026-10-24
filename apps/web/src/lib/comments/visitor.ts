@@ -1,10 +1,14 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { isLocalRuntime, keyedHash } from './environment';
 import { VISITOR_COOKIE_MAX_AGE_SECONDS, VISITOR_COOKIE_NAME, VISITOR_TOKEN_BYTES } from './limits';
 
 export type Visitor = {
-    /** sha256(token) hex - stored with comments; the raw token is never stored or returned */
-    authorId: string;
-    /** `Set-Cookie` value when the visitor did not have a (valid) cookie yet */
+    /**
+     * sha256(token) hex - stored with comments; the raw token is never stored or returned.
+     * Missing on reads by a visitor who never wrote anything (no cookie yet).
+     */
+    authorId?: string;
+    /** `Set-Cookie` value for a new identity (sent only with a successful write) */
     setCookie?: string;
 };
 
@@ -39,7 +43,7 @@ function isLoopbackHostname(hostname: string) {
 
 /** `Secure` everywhere except plain http on a loopback host (local development and tests) */
 function shouldUseSecureCookie(request: Request) {
-    if (process.env.VERCEL)
+    if (!isLocalRuntime())
         return true;
 
     const url = new URL(request.url);
@@ -60,11 +64,17 @@ function serializeVisitorCookie(token: string, secure: boolean) {
     ].join('; ');
 }
 
-/** Resolves the anonymous visitor from the `uier_visitor` cookie, creating a new identity when missing or invalid */
-export function resolveVisitor(request: Request): Visitor {
+/**
+ * Resolves the anonymous visitor from the `uier_visitor` cookie. A new identity is created only
+ * for writes (`createIfMissing`), so reading comments never places a cookie.
+ */
+export function resolveVisitor(request: Request, createIfMissing: boolean): Visitor {
     const token = readCookie(request, VISITOR_COOKIE_NAME);
     if (token && tokenPattern.test(token))
         return { authorId: sha256Hex(token) };
+
+    if (!createIfMissing)
+        return {};
 
     const newToken = randomBytes(VISITOR_TOKEN_BYTES).toString('base64url');
     return {
@@ -73,23 +83,66 @@ export function resolveVisitor(request: Request): Visitor {
     };
 }
 
-/** Client IP: first `x-forwarded-for` entry, then `x-real-ip` (both set by Vercel) */
+/** Client IP: Vercel's `x-vercel-forwarded-for`, then the first `x-forwarded-for` entry, then `x-real-ip` */
 export function resolveClientIp(request: Request) {
-    const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-    if (forwardedFor)
-        return forwardedFor;
+    for (const header of ['x-vercel-forwarded-for', 'x-forwarded-for']) {
+        const ip = request.headers.get(header)?.split(',')[0]?.trim();
+        if (ip)
+            return ip;
+    }
     return request.headers.get('x-real-ip')?.trim() || undefined;
 }
 
 export function isLoopbackIp(ip: string) {
-    return ip === '::1' || ip.startsWith('127.') || ip === '::ffff:127.0.0.1';
+    return ip === '::1' || ip.startsWith('127.') || ip.toLowerCase() === '::ffff:127.0.0.1';
 }
 
-/** sha256(ip + ':' + domain) - used for IP rate limiting only and never returned */
-export function hashIp(ip: string, domain: string) {
-    return sha256Hex(`${ip}:${domain}`);
+/** The eight 16-bit groups of an IPv6 address as hex strings, or `null` when it can't be parsed */
+function ipv6Groups(ip: string) {
+    const address = ip.replace(/^\[|\]$/g, '').split('%')[0] ?? '';
+    const [head = '', tail, ...rest] = address.split('::');
+    if (rest.length)
+        return null;
+
+    const toGroups = (part: string) => part ? part.split(':') : [];
+    const headGroups = toGroups(head);
+    const tailGroups = toGroups(tail ?? '');
+
+    // An embedded IPv4 address (e.g. 64:ff9b::192.0.2.1) takes two groups
+    const last = tailGroups.length ? tailGroups : headGroups;
+    const ipv4 = last.at(-1)?.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ipv4) {
+        const [a, b, c, d] = ipv4.slice(1).map(Number) as [number, number, number, number];
+        last.splice(-1, 1, ((a << 8) | b).toString(16), ((c << 8) | d).toString(16));
+    }
+
+    const missing = 8 - headGroups.length - tailGroups.length;
+    if (tail === undefined ? missing !== 0 : missing < 1)
+        return null;
+
+    const groups = [...headGroups, ...Array<string>(tail === undefined ? 0 : missing).fill('0'), ...tailGroups];
+    return groups.every(group => /^[0-9a-f]{1,4}$/i.test(group))
+        ? groups.map(group => group.toLowerCase().replace(/^0+(?=.)/, ''))
+        : null;
 }
 
+/**
+ * The address a rate limit applies to: an IPv4 address, or the /64 network of an IPv6 address
+ * (one subscriber usually gets a whole /64, so single IPv6 addresses are free to rotate).
+ */
+export function ipRateLimitBucket(ip: string) {
+    const mappedIpv4 = ip.match(/^(?:::ffff:)?(\d+\.\d+\.\d+\.\d+)$/i)?.[1];
+    if (mappedIpv4)
+        return mappedIpv4;
+
+    const groups = ipv6Groups(ip);
+    return groups ? `${groups.slice(0, 4).join(':')}::/64` : ip.toLowerCase();
+}
+
+/**
+ * "Guest XXXX" from a keyed hash of the author id, so a matching cookie can't be computed offline
+ * to impersonate another visitor's name.
+ */
 export function displayName(authorId: string | undefined) {
-    return authorId ? `Guest ${authorId.slice(0, 4).toUpperCase()}` : 'Guest';
+    return authorId ? `Guest ${keyedHash('name', authorId).slice(0, 4).toUpperCase()}` : 'Guest';
 }

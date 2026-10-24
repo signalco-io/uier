@@ -20,9 +20,11 @@ export default defineConfig({
         timeout: 120 * 1000,
         reuseExistingServer: !process.env.CI,
         env: {
+            // Local runtime: BotID is skipped and the in-memory store is allowed (src/lib/comments/environment.ts)
+            UIER_LOCAL: '1',
             // The comments API uses its in-memory store, never a database configured in .env.local
             COSMOSDB_CONNECTION_STRING: '',
-            // Not on Vercel, BotID treats every request as human unless this simulates another verdict
+            // Locally BotID treats every request as human unless this simulates another verdict
             UIER_BOTID_DEV_BYPASS: '',
         },
     },
