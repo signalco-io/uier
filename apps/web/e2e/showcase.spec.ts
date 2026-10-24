@@ -297,6 +297,67 @@ test('a stored comment that can not be placed does not break the toolbar', async
     await context.close();
 });
 
+test('deleting a comment others replied to keeps their replies', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const a = await newVisitor(browser, testInfo);
+    const author = a.page;
+    await openLanding(author, origin, { dismissHint: true });
+    const created = await postComment(author, {
+        position: { type: 'point', selector: 'main>section>div>div>h1', xNormal: 0.5, yNormal: 0.5 },
+        text: 'The heading could use a subtitle.'
+    });
+    expect(created.status).toBe(201);
+
+    // Visitor B replies
+    const b = await newVisitor(browser, testInfo);
+    const visitor = b.page;
+    await openLanding(visitor, origin, { dismissHint: true });
+    expect(await postReply(visitor, created.body.id!, 'Agreed, +1')).toBe(201);
+
+    // The author deletes the comment; the confirmation says the replies stay
+    await author.reload();
+    await commentBubble(author, 2).click();
+    await openThread(author).getByRole('button', { name: 'More options for your comment' }).click();
+    const options = author.getByRole('dialog', { name: 'Comment options' });
+    await expect(options.getByRole('button', { name: 'Delete...' })).toBeFocused();
+    await options.getByRole('button', { name: 'Delete...' }).click();
+    await expect(options).toContainText('Delete this comment? Its text is removed. The replies stay.');
+    await expect(options.getByRole('button', { name: 'Delete', exact: true })).toBeFocused();
+    await expectNoAxeViolations(author);
+    await options.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(options).toBeHidden();
+
+    // The thread stays open: a placeholder without actions, B's reply under it
+    const authorThread = openThread(author);
+    await expect(authorThread.getByText('Comment deleted', { exact: true })).toBeVisible();
+    await expect(authorThread.getByText('The heading could use a subtitle.')).toHaveCount(0);
+    await expect(authorThread.getByText('Agreed, +1')).toBeVisible();
+    await expect(authorThread.getByRole('button', { name: /^(More options|Resolve|Reopen)/ })).toHaveCount(0);
+    await expect(authorThread.getByRole('group', { name: 'Messages' })).toBeFocused();
+    await expect(author.getByRole('status').filter({ hasText: 'Comment deleted' })).toBeAttached();
+    // The pin counts messages, not the placeholder
+    await expect(commentBubble(author, 1)).toBeVisible();
+    await expectNoAxeViolations(author);
+
+    // Visitor B sees the placeholder; deleting the last reply takes the thread with it
+    await visitor.reload();
+    await commentBubble(visitor, 1).click();
+    const visitorThread = openThread(visitor);
+    await expect(visitorThread.getByText('Comment deleted', { exact: true })).toBeVisible();
+    await expect(visitorThread.getByText('You', { exact: true })).toBeVisible();
+    await visitorThread.getByRole('button', { name: 'More options for your reply' }).click();
+    const replyOptions = visitor.getByRole('dialog', { name: 'Reply options' });
+    await replyOptions.getByRole('button', { name: 'Delete...' }).click();
+    await expect(replyOptions).toContainText('Delete this reply? It is the last message, so the thread is removed too.');
+    await replyOptions.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(commentBubbles(visitor)).toHaveCount(0);
+    await expect(visitor.getByRole('status').filter({ hasText: 'Reply deleted' })).toBeAttached();
+    expect(await pageCommentIds(visitor)).toEqual([]);
+
+    await a.context.close();
+    await b.context.close();
+});
+
 test('a long thread keeps its reply box inside the window', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);

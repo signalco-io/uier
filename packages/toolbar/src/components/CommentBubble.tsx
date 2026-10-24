@@ -67,7 +67,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const lastRect = orderBy(selectionRects, r => r.bottom).at(-1);
     const { create, reply } = useComments();
     const mutation = creating ? create : reply;
-    const messagesCount = commentItem?.thread.items.length ?? 0;
+    // A deleted first item ("Comment deleted") is not a message
+    const messagesCount = commentItem?.thread.items.filter(item => !item.deleted).length ?? 0;
 
     const handleSubmit = async (text: string) => {
         if (props.commentItem) {

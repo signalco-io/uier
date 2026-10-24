@@ -54,6 +54,17 @@ export type CommentItemThreadItem = {
     author: CommentAuthor;
     /** ISO 8601, missing on old comments */
     createdAt?: string;
+    deleted?: undefined;
+} | CommentItemDeletedThreadItem;
+
+/**
+ * The first item after its author deleted it while others had replied: the thread stays and the
+ * item shows as "Comment deleted". It has no text and no author.
+ */
+export type CommentItemDeletedThreadItem = {
+    id: string;
+    deleted: true;
+    createdAt?: string;
 }
 
 export type CommentItemThread = {
@@ -80,7 +91,10 @@ export type CommentItem = {
     /** Only the coarse device size is returned */
     device?: { size?: CommentDeviceSize };
     resolved: boolean;
-    /** Whether the current visitor wrote this comment (only the author can resolve or delete it) */
+    /**
+     * Whether the current visitor wrote this comment (only the author can resolve or delete it).
+     * Always `false` once the author deleted the first item.
+     */
     isMine: boolean;
     createdAt?: string;
 }

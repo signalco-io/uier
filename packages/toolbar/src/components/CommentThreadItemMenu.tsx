@@ -12,29 +12,20 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 
 type CommentThreadItemMenuProps = {
-    /** The whole comment (its first item) or one reply */
+    /** The comment (its first item) or one reply */
     kind: 'comment' | 'reply';
-    /** Replies deleted together with the comment */
-    repliesCount?: number;
+    /** The confirmation question, saying what deleting does (e.g. "Delete this comment and your 2 replies?") */
+    confirmText: string;
     disabled?: boolean;
     onDelete: () => void;
 };
 
-function confirmText(kind: CommentThreadItemMenuProps['kind'], repliesCount: number) {
-    if (kind === 'reply') {
-        return 'Delete this reply?';
-    }
-    return repliesCount > 0
-        ? `Delete this comment and its ${repliesCount} ${repliesCount === 1 ? 'reply' : 'replies'}?`
-        : 'Delete this comment?';
-}
-
 /**
  * Options of a thread item. A popover (instead of the UI kit's dropdown menu, which always
  * portals into the page's body) so it renders inside the toolbar's shadow root.
- * Deleting asks first: deleting a comment also deletes the replies of other visitors.
+ * Deleting asks first, with `confirmText`: it can take the visitor's replies or the whole thread with it.
  */
-export function CommentThreadItemMenu({ kind, repliesCount = 0, disabled, onDelete }: CommentThreadItemMenuProps) {
+export function CommentThreadItemMenu({ kind, confirmText, disabled, onDelete }: CommentThreadItemMenuProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
@@ -88,7 +79,7 @@ export function CommentThreadItemMenu({ kind, repliesCount = 0, disabled, onDele
             {...contentProps}>
             {confirming ? (
                 <Stack spacing={1} className="p-2">
-                    <p className="m-0 text-sm text-foreground">{confirmText(kind, repliesCount)}</p>
+                    <p className="m-0 text-sm text-foreground">{confirmText}</p>
                     <Row spacing={1} justifyContent="end">
                         <Button variant="plain" size="sm" onClick={() => handleOpenChange(false)}>
                             Cancel
