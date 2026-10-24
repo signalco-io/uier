@@ -204,7 +204,7 @@ Dependencies are kept current by [Renovate](https://github.com/apps/renovate) (i
 `signalco-io` organization; see [`renovate.json`](renovate.json)). It waits until an npm release is one day
 old - the same `minimumReleaseAge` pnpm enforces on install - and automerges selected minor/patch updates.
 
-Also recommended: a ruleset on `main` requiring the **`CI OK`** status check, and "Allow auto-merge".
+A ruleset on `main` requires a pull request with a passing **`CI OK`** check and blocks force pushes and deletions; "Allow auto-merge" is enabled on the repository.
 
 ## Contributing
 
