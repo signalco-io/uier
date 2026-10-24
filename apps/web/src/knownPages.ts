@@ -1,5 +1,6 @@
 export const KnownPages = {
     Landing: '/',
+    HowItWorks: '/#how-it-works',
     App: '/app',
     Brand: '/brand',
 

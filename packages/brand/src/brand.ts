@@ -17,6 +17,18 @@ export const brand = {
     /** Sibling of signalco.io; the UI kit and the minimal theme come from there. */
     parent: { name: 'signalco', url: 'https://signalco.io' },
     repository: 'https://github.com/signalco-io/uier',
+    issues: 'https://github.com/signalco-io/uier/issues',
+    /** uier has no mailboxes of its own: these are signalco's (listed on signalco.io/contact). */
+    contact: {
+        email: 'contact@signalco.io',
+        security: 'security@signalco.io',
+        privacy: 'gdpr@signalco.io'
+    },
+    /** Public profiles. uier has no social accounts of its own; X is signalco's. */
+    social: {
+        github: 'https://github.com/signalco-io/uier',
+        x: 'https://x.com/signalco_io'
+    },
     colors: {
         paper: '#FFFFFF',
         ink: '#0A0A0A',
