@@ -12,7 +12,8 @@ export function SiteFooter() {
                 {
                     header: 'Product',
                     ctas: [
-                        { label: 'How it works', href: KnownPages.HowItWorks }
+                        { label: 'How it works', href: KnownPages.HowItWorks },
+                        { label: 'Status', href: KnownPages.Status }
                     ]
                 },
                 {
