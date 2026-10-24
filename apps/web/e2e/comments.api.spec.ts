@@ -506,6 +506,8 @@ test('rewrite suggestions: the model\'s answer, filtered', async ({ newVisitor }
 
     // A declined request, or an answer cut off at max_tokens: no suggestions, not an outage
     expect(await suggestions(await suggest({ text: 'Review any live website.', instruction: '[stub:refuse]' }))).toEqual([]);
+    // After a fallback, the answer is the text that follows the hand-over
+    expect(await suggestions(await suggest({ text: 'Review any live website.', instruction: '[stub:fallback]' }))).toEqual(['After the fallback.']);
     expect(await suggestions(await suggest({ text: '[stub:truncate] Review any live website.' }))).toEqual([]);
     // The API failing (also on the retry) is
     await expectError(await suggest({ text: 'Review any live website.', instruction: '[stub:fail]' }), 503, 'unavailable');

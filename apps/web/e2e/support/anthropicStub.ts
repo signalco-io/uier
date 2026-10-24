@@ -8,7 +8,9 @@ import { createServer } from 'node:http';
 //
 // A marker in the selected text or the instruction picks the answer:
 //   [stub:fail]      the API fails (500, retried once)          -> 503 unavailable
-//   [stub:refuse]    the request is declined (stop "refusal")    -> 200 { suggestions: [] }
+//   [stub:refuse]    the request is declined (stop "refusal"), with partial suggestions -> 200 { suggestions: [] }
+//   [stub:fallback]  a model declined and the fallback model answered: only the text after the
+//                    `fallback` block is the answer                                -> its suggestions
 //   [stub:truncate]  the answer is cut off (stop "max_tokens")   -> 200 { suggestions: [] }
 //   [stub:filter]    duplicates, the original, an empty and a too long suggestion -> left out
 // Without one: "First suggestion.", "Second suggestion.", "Third suggestion." (with the instruction
@@ -97,8 +99,20 @@ function reply(selected: string, instruction: string | undefined): { status: num
     const markers = `${selected}\n${instruction ?? ''}`;
     if (markers.includes('[stub:fail]'))
         return { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'Stub: the API failed.' } } };
-    if (markers.includes('[stub:refuse]'))
-        return { status: 200, body: message([], 'refusal', { type: 'refusal', category: 'cyber', explanation: 'Stub: declined.' }) };
+    if (markers.includes('[stub:refuse]')) {
+        // Text that reads as suggestions: only the stop reason says they must not be used
+        return { status: 200, body: message([{ type: 'text', text: JSON.stringify({ suggestions: ['Declined suggestion.'] }) }], 'refusal', { type: 'refusal', category: 'cyber', explanation: 'Stub: declined.' }) };
+    }
+    if (markers.includes('[stub:fallback]')) {
+        return {
+            status: 200,
+            body: message([
+                { type: 'text', text: JSON.stringify({ suggestions: ['Before the fallback.'] }) },
+                { type: 'fallback', from: { model: expected.model }, to: { model: 'claude-fallback-stub' }, trigger: { type: 'refusal', category: 'cyber' } },
+                { type: 'text', text: JSON.stringify({ suggestions: ['After the fallback.'] }) }
+            ], 'end_turn')
+        };
+    }
     if (markers.includes('[stub:truncate]'))
         return { status: 200, body: message([{ type: 'text', text: '{"suggestions":["Cut off' }], 'max_tokens') };
     if (markers.includes('[stub:filter]')) {

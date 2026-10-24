@@ -97,22 +97,17 @@ export type RewriteLimitSubject = {
 };
 
 /**
- * Rewrite suggestions call a paid AI model. Counted per visitor and per site in the site's
- * partition, then per IP and in total in the app-wide partition, so many sites or projects don't
- * add up to more. Checked before the model call; the app-wide budget last, so it counts only
- * requests that get to the model.
+ * Rewrite suggestions call a paid AI model. Counted per visitor (in the site's partition), per IP
+ * (app-wide), per site (the site's partition) and in total (app-wide), so many sites or projects
+ * don't add up to more. From the narrowest to the widest: a request a limit rejects counts against
+ * none of the later ones, so one visitor or address can't use up a site's or the app's day, and the
+ * app's total counts only requests that get to the model.
  */
 export async function enforceRewriteLimits(store: CommentsStore, subject: RewriteLimitSubject) {
-    await consumeAll(store, subject.domain, [
-        ...(subject.authorId
-            ? [{ key: `visitor-rewrites:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast' as const, message: tooManyRewrites }]
-            : []),
-        { key: 'domain-rewrites', limit: RATE_LIMIT_DOMAIN_REWRITES, windowSeconds: DOMAIN_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions for this site have reached their limit for today. Please try again tomorrow.' }
-    ]);
-    await consumeAll(store, APP_COUNTERS_PARTITION, [
-        ...(subject.ipBucket
-            ? [{ key: `rewrites-ip:${subject.ipBucket}`, limit: RATE_LIMIT_IP_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast' as const, message: tooManyRewrites }]
-            : []),
-        { key: 'rewrites', limit: RATE_LIMIT_APP_REWRITES, windowSeconds: APP_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions have reached their limit for today. Please try again tomorrow.' }
-    ]);
+    if (subject.authorId)
+        await consume(store, subject.domain, { key: `visitor-rewrites:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyRewrites });
+    if (subject.ipBucket)
+        await consume(store, APP_COUNTERS_PARTITION, { key: `rewrites-ip:${subject.ipBucket}`, limit: RATE_LIMIT_IP_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyRewrites });
+    await consume(store, subject.domain, { key: 'domain-rewrites', limit: RATE_LIMIT_DOMAIN_REWRITES, windowSeconds: DOMAIN_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions for this site have reached their limit for today. Please try again tomorrow.' });
+    await consume(store, APP_COUNTERS_PARTITION, { key: 'rewrites', limit: RATE_LIMIT_APP_REWRITES, windowSeconds: APP_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions have reached their limit for today. Please try again tomorrow.' });
 }

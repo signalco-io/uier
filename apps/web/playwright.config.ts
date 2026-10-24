@@ -24,7 +24,7 @@ export default defineConfig({
             command: 'node e2e/support/anthropicStub.ts',
             url: anthropicStubUrl,
             timeout: 30 * 1000,
-            reuseExistingServer: !process.env.CI,
+            reuseExistingServer: false,
             env: {
                 PORT: String(anthropicStubPort),
                 ANTHROPIC_STUB_API_KEY: anthropicStubApiKey,
@@ -34,10 +34,11 @@ export default defineConfig({
             // Tests run against the production build (`pnpm build` runs first via turbo).
             // Not `pnpm start`: that pins port 4004, the server has to listen on PORT.
             command: `pnpm exec next start -p ${PORT}`,
-            // Outside CI a server already answering on PORT is reused instead of started
             url: baseURL,
             timeout: 120 * 1000,
-            reuseExistingServer: !process.env.CI,
+            // Never reused: a server already on PORT (`pnpm dev`, an older build, another worktree's
+            // run) would be tested instead, maybe with a real Anthropic API key. The run fails; set PORT.
+            reuseExistingServer: false,
             env: {
                 // Local runtime: BotID is skipped and the in-memory store is allowed (src/lib/comments/environment.ts)
                 UIER_LOCAL: '1',
