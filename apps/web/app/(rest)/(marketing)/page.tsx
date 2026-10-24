@@ -4,7 +4,6 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { Pin } from '@uier/brand/Pin';
 import { Mark } from '@uier/brand/Mark';
-import { Footer1 } from '../../../src/components/marketing/Footer1';
 import { ReviewThreadDemo } from '../../../src/components/marketing/ReviewThreadDemo';
 import { KnownPages } from '../../../src/knownPages';
 import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
@@ -52,10 +51,8 @@ const features = [
 
 export default function LandingPage() {
     return (
-        // The showcase toolbar pill sits at the bottom of the window (bottom 16px, 48px tall): the
-        // padding lets the end of the page scroll clear of it, and the scroll padding keeps focused
-        // links from scrolling underneath it
-        <main className="pb-24 [:root:has(&)]:scroll-pb-24">
+        // The footer comes from the marketing layout, which also keeps the end of the page clear of the toolbar
+        <main>
             <section className="flex flex-wrap items-start gap-12 py-12 md:py-20">
                 <div className="flex min-w-0 flex-[1_1_560px] flex-col items-start gap-5">
                     <div className="relative inline-block pr-12">
@@ -98,27 +95,6 @@ export default function LandingPage() {
                 ))}
             </section>
 
-            <Footer1
-                features={[
-                    {
-                        header: 'Product',
-                        ctas: [
-                            { label: 'uier', href: KnownPages.App },
-                            { label: 'Brand', href: KnownPages.Brand },
-                            { label: 'GitHub', href: brand.repository }
-                        ]
-                    },
-                    {
-                        header: 'Legal',
-                        ctas: [
-                            { label: 'Privacy Policy', href: KnownPages.LegalPrivacyPolicy },
-                            { label: 'Terms of Service', href: KnownPages.LegalTermsOfService },
-                            { label: 'Cookie Policy', href: KnownPages.LegalCookiePolicy },
-                            { label: 'Acceptable Use Policy', href: KnownPages.LegalAcceptableUsePolicy },
-                            { label: 'SLA', href: KnownPages.LegalSla }
-                        ]
-                    }
-                ]} />
             {/* Showcase: the real uier toolbar runs on the landing page and anyone can leave public feedback */}
             <ToolbarScript mode="showcase" />
         </main>
