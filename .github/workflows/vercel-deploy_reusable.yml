@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Builds apps/web with the Vercel CLI and deploys the prebuilt output to the
+# "uier" Vercel project (deployments come from here, not from Vercel's Git integration).
+#
+# Callers must grant the job that calls this workflow: contents: read
+
+name: "Vercel deploy (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      production:
+        description: "Deploy to production (uier.io). When false, a preview deployment is created."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      VERCEL_TOKEN:
+        required: true
+    outputs:
+      url:
+        description: "Deployment URL"
+        value: ${{ jobs.deploy.outputs.url }}
+
+env:
+  VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn # team "signalco"
+  VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc # project "uier" (managed by Pulumi, infra/)
+  VERCEL_TELEMETRY_DISABLED: "1"
+  # renovate: datasource=npm depName=vercel
+  VERCEL_CLI_VERSION: "65.2.0"
+
+jobs:
+  deploy:
+    name: "vercel ${{ inputs.production && 'production' || 'preview' }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Pinned to the exact release: the floating v6 tag (v6.0.10) predates pnpm v12 support.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Vercel CLI
+        run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Pull Vercel project settings and environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ENVIRONMENT: ${{ inputs.production && 'production' || 'preview' }}
+        run: vercel pull --yes --environment="$VERCEL_ENVIRONMENT"
+
+      # The project's rootDirectory is owned by Pulumi (infra/). A stale value (e.g. the
+      # pre-split "web/apps/uier") means `pulumi up` has not run for this repo layout yet.
+      - name: Check Vercel project root directory
+        run: |
+          root_directory="$(jq -r '.settings.rootDirectory // ""' .vercel/project.json)"
+          if [ "$root_directory" != "apps/web" ]; then
+            echo "::error title=Vercel project not migrated::Project rootDirectory is '${root_directory}', expected 'apps/web'. Run the Deploy workflow (pulumi up) on main first."
+            exit 1
+          fi
+
+      # `vercel build` needs no token: it uses the settings and env pulled above.
+      - name: Build
+        env:
+          PRODUCTION: ${{ inputs.production }}
+        run: |
+          if [ "$PRODUCTION" = "true" ]; then
+            vercel build --prod
+          else
+            vercel build
+          fi
+
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRODUCTION: ${{ inputs.production }}
+        run: |
+          if [ "$PRODUCTION" = "true" ]; then
+            url="$(vercel deploy --prebuilt --prod)"
+          else
+            url="$(vercel deploy --prebuilt)"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          TARGET: ${{ inputs.production && 'Production' || 'Preview' }}
+        run: |
+          {
+            echo "### ${TARGET} deployment"
+            echo
+            echo "- Deployment: ${DEPLOYMENT_URL}"
+            if [ "$TARGET" = "Production" ]; then
+              echo "- Production domain: https://uier.io"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# main -> stack uier-production + Vercel production (uier.io)
+#
+# Infrastructure always goes first: the Vercel project (rootDirectory, env vars, domains)
+# is managed by Pulumi and has to be up to date before `vercel pull` / `vercel build`.
+
+name: "Deploy"
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "*.md"
+      - "LICENSE"
+      - "renovate.json"
+      - ".github/ISSUE_TEMPLATE/**"
+  workflow_dispatch:
+
+# One deploy at a time; never cancel a running deploy.
+# A newer push replaces a deploy that is still waiting; infra and web always deploy in full,
+# so the newest commit carries everything the replaced one would have deployed.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  infra:
+    name: "Infra (pulumi up)"
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/pulumi_reusable.yml
+    with:
+      command: up
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  web:
+    name: "Web (Vercel deploy)"
+    needs: infra
+    permissions:
+      contents: read
+    uses: ./.github/workflows/vercel-deploy_reusable.yml
+    with:
+      production: true
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

@@ -1,0 +1,164 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended"
+    ],
+    "minimumReleaseAge": "1 day",
+    "internalChecksFilter": "strict",
+    "packageRules": [
+        {
+            "description": "pnpm (pnpm-workspace minimumReleaseAge default) refuses npm versions younger than 1 day; wait the same before opening update PRs",
+            "matchDatasources": [
+                "npm"
+            ],
+            "minimumReleaseAge": "1 day"
+        },
+        {
+            "description": "Pin exact versions of npm dependencies",
+            "rangeStrategy": "pin",
+            "matchManagers": [
+                "npm"
+            ],
+            "matchPackageNames": [
+                "*"
+            ]
+        },
+        {
+            "description": "Keep ranges for engines and peer dependencies",
+            "matchDepTypes": [
+                "engines",
+                "peerDependencies"
+            ],
+            "rangeStrategy": "auto",
+            "matchManagers": [
+                "npm"
+            ]
+        },
+        {
+            "description": "Automerge minor/patch updates of tooling and low-risk dependencies",
+            "automerge": true,
+            "matchUpdateTypes": [
+                "minor",
+                "patch",
+                "pin",
+                "digest"
+            ],
+            "matchManagers": [
+                "npm",
+                "custom.regex"
+            ],
+            "matchPackageNames": [
+                "@axe-core/playwright",
+                "@enterwell/react-hooks",
+                "@playwright/test",
+                "@pulumi/azure-native",
+                "@pulumi/cloudflare",
+                "@pulumi/pulumi",
+                "@types/color",
+                "@types/node",
+                "@types/react",
+                "@types/react-dom",
+                "@vercel/analytics",
+                "autoprefixer",
+                "pnpm",
+                "postcss",
+                "postcss-preset-env",
+                "sass",
+                "sharp",
+                "tsup",
+                "turbo",
+                "typescript",
+                "vercel"
+            ]
+        },
+        {
+            "description": "Automerge minor/patch updates of GitHub Actions",
+            "automerge": true,
+            "matchManagers": [
+                "github-actions"
+            ],
+            "matchUpdateTypes": [
+                "minor",
+                "patch",
+                "digest"
+            ]
+        },
+        {
+            "description": "Release @signalco UI kit packages together",
+            "groupName": "signalco UI kit",
+            "matchManagers": [
+                "npm"
+            ],
+            "matchPackageNames": [
+                "@signalco/**"
+            ]
+        },
+        {
+            "description": "infra/ is a standalone pnpm project with its own lockfile: keep its updates in separate PRs",
+            "matchFileNames": [
+                "infra/**"
+            ],
+            "additionalBranchPrefix": "infra-",
+            "semanticCommitScope": "infra"
+        },
+        {
+            "description": "Pulumi SDK and providers in one PR",
+            "groupName": "pulumi",
+            "matchManagers": [
+                "npm"
+            ],
+            "matchFileNames": [
+                "infra/**"
+            ],
+            "matchPackageNames": [
+                "@pulumi/**",
+                "@pulumiverse/**",
+                "@checkly/pulumi"
+            ]
+        },
+        {
+            "description": "The Pulumi CLI pinned in pulumi_reusable.yml is released together with the @pulumi/pulumi SDK: update it in the same infra pulumi PR",
+            "matchManagers": [
+                "custom.regex"
+            ],
+            "matchPackageNames": [
+                "@pulumi/pulumi"
+            ],
+            "groupName": "pulumi",
+            "additionalBranchPrefix": "infra-",
+            "semanticCommitScope": "infra"
+        },
+        {
+            "description": "Stay on the Node.js 24 runtime (.nvmrc, engines, @types/node, Vercel nodeVersion in infra/src/vercel.ts); move all of them to the next major together, by hand",
+            "matchPackageNames": [
+                "@types/node",
+                "node"
+            ],
+            "allowedVersions": "24.x"
+        },
+        {
+            "description": "Keep the pnpm version (root and infra/ packageManager) in sync in one PR",
+            "matchPackageNames": [
+                "pnpm"
+            ],
+            "additionalBranchPrefix": "",
+            "semanticCommitScope": "deps"
+        }
+    ],
+    "customManagers": [
+        {
+            "description": "Versions pinned in workflow files, annotated with '# renovate: datasource=<datasource> depName=<name>' on the line above",
+            "customType": "regex",
+            "managerFilePatterns": [
+                "/^\\.github/workflows/[^/]+\\.ya?ml$/"
+            ],
+            "matchStrings": [
+                "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*[A-Za-z0-9_-]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+            ]
+        }
+    ],
+    "dependencyDashboard": true,
+    "prHourlyLimit": 6,
+    "platformAutomerge": true,
+    "platformCommit": "enabled"
+}
