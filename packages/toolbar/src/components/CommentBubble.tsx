@@ -1,23 +1,30 @@
 'use client';
 
-import { useContext, useState } from 'react';
-import { Stack } from '@signalco/ui-primitives/Stack';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { orderBy } from '@signalco/js';
 import { useComments } from '../hooks/useComments';
-import { useCommentItemRects } from '../hooks/useCommentItemRects';
+import { resolveAnchorElement, useCommentItemRects } from '../hooks/useCommentItemRects';
+import { newCommentDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
-import { CommentDraft, CommentItem, commentTextMaxLength } from './@types/Comments';
+import { useAnnounce } from './Announcer';
+import { CommentDraft, CommentItem, commentTextMaxLength, floatingShadowClassName } from './@types/Comments';
 
 // Bubble (CommentIcon) half size and its minimal distance from the left and right window edges
 const bubbleHalfSize = 16;
 const bubbleWindowMargin = 4;
+
+/**
+ * Space the thread popover keeps from the window edges. The bottom leaves room for the toolbar
+ * pill (bottom-4, 48px tall), so the reply box is never underneath it.
+ */
+const popoverCollisionPadding = { top: 8, left: 8, right: 8, bottom: 80 };
 
 /** Keeps the bubble inside the window horizontally, e.g. for text that ends at the right edge on mobile */
 function bubbleLeft(rect: DOMRect | undefined) {
@@ -27,8 +34,14 @@ function bubbleLeft(rect: DOMRect | undefined) {
     return max > min ? Math.min(Math.max(left, min), max) : left;
 }
 
+function prefersReducedMotion() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 type CommentBubbleProps = {
-    defaultOpen?: boolean;
+    /** Moves the keyboard focus to the bubble once it is on the page (a comment that was just posted) */
+    autoFocus?: boolean;
+    onAutoFocused?: () => void;
     onCreated?: (comment: CommentItem) => void;
     onCanceled?: () => void;
     className?: string;
@@ -40,12 +53,16 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { defaultOpen, onCreated, onCanceled, className } = props;
+    const { autoFocus, onAutoFocused, onCreated, onCanceled, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
+    const draftKey = commentItem ? commentItem.id : newCommentDraftKey;
 
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const drafts = useDrafts();
+    const announce = useAnnounce();
+    const triggerRef = useRef<HTMLButtonElement>(null);
     const selectionRects = useCommentItemRects(position);
     const lastRect = orderBy(selectionRects, r => r.bottom).at(-1);
     const { create, reply } = useComments();
@@ -55,6 +72,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const handleSubmit = async (text: string) => {
         if (props.commentItem) {
             await reply.mutateAsync({ commentId: props.commentItem.id, text });
+            drafts.delete(draftKey);
+            announce('Reply posted');
             return;
         }
 
@@ -68,18 +87,47 @@ export function CommentBubble(props: CommentBubbleProps) {
             quotedText: quotedText || undefined,
             device: draft.device
         });
+        drafts.delete(draftKey);
+        announce('Comment posted');
         onCreated?.(created);
     };
 
-    const [open, setOpen] = useState(creating || Boolean(defaultOpen));
+    const [open, setOpen] = useState(creating);
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             mutation.reset();
-            if (creating) {
+            // A new comment with text stays on the page as a draft pin; reopening it brings the text back
+            if (creating && !drafts.get(draftKey)?.trim().length) {
                 onCanceled?.();
             }
         }
         setOpen(open);
+    };
+
+    const handleDiscard = () => {
+        mutation.reset();
+        onCanceled?.();
+    };
+
+    // A comment that was just posted gets the focus (its draft popover, which had it, is gone)
+    const hasRect = Boolean(lastRect);
+    useEffect(() => {
+        if (autoFocus && hasRect) {
+            triggerRef.current?.focus();
+            onAutoFocused?.();
+        }
+    }, [autoFocus, hasRect, onAutoFocused]);
+
+    // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
+    const handleFocus = () => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (!rect || (rect.top >= 0 && rect.bottom <= window.innerHeight)) {
+            return;
+        }
+        resolveAnchorElement(position)?.scrollIntoView({
+            block: 'center',
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth'
+        });
     };
 
     // The commented element is not on the page (anymore), e.g. a different layout on this device
@@ -96,10 +144,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                 container={rootElement}
                 trigger={(
                     <button
+                        ref={triggerRef}
                         type="button"
+                        data-uier-comment={commentItem?.id ?? newCommentDraftKey}
                         aria-label={creating
                             ? 'New comment'
                             : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
+                        onFocus={handleFocus}
                         className={cx(
                             'fixed z-[48] hover:z-[49] cursor-pointer rounded-full',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -114,41 +165,51 @@ export function CommentBubble(props: CommentBubbleProps) {
                         <CommentIcon aria-hidden="true" className="hover:scale-110 hover:brightness-75" />
                         <span
                             aria-hidden="true"
-                            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-semibold text-white">
+                            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums text-white">
                             {creating ? '' : messagesCount}
                         </span>
                     </button>
                 )}
                 aria-label={creating ? 'New comment' : 'Comment thread'}
-                className="overflow-hidden"
+                // Bounded by the space the window has left, so the reply box always stays visible
+                className={cx(
+                    'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col overflow-hidden rounded-xl',
+                    floatingShadowClassName
+                )}
                 sideOffset={-32}
                 align="start"
                 alignOffset={32}
                 open={open}
                 onOpenChange={handleOpenChange}
+                // Passed through to the Radix popover content (the Popper's own value is derived from the offsets)
+                {...{ collisionPadding: popoverCollisionPadding }}
             >
-                <Stack>
-                    {commentItem && (
-                        <>
-                            {/* Focusable so the thread can be scrolled with the keyboard */}
-                            <div
-                                tabIndex={0}
-                                className="max-h-96 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                                <CommentThread commentItem={commentItem} />
-                            </div>
-                            <Divider />
-                        </>
-                    )}
+                {commentItem && (
+                    <>
+                        {/* Focusable so the thread can be scrolled with the keyboard */}
+                        <div
+                            tabIndex={0}
+                            aria-label="Messages"
+                            role="group"
+                            className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                            <CommentThread commentItem={commentItem} />
+                        </div>
+                        <Divider className="shrink-0" />
+                    </>
+                )}
+                <div className="shrink-0">
                     <CommentComposer
                         label={creating ? 'Comment' : 'Reply'}
                         placeholder={creating ? 'Leave feedback...' : 'Reply...'}
                         submitLabel={creating ? 'Post comment' : 'Post reply'}
+                        draftKey={draftKey}
                         quote={props.draft?.position.type === 'text' ? props.draft.position.text : undefined}
                         autoFocus
                         pending={mutation.isPending}
                         error={mutation.error}
-                        onSubmit={handleSubmit} />
-                </Stack>
+                        onSubmit={handleSubmit}
+                        onDiscard={creating ? handleDiscard : undefined} />
+                </div>
             </Popper>
         </>
     );

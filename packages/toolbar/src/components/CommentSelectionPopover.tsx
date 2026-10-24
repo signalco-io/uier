@@ -6,7 +6,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { Comment } from '@signalco/ui-icons';
 import { orderBy } from '@signalco/js';
 import { useResizeObserver } from '@enterwell/react-hooks';
-import { popoverWidth, popoverWindowMargin } from './@types/Comments';
+import { floatingShadowClassName, popoverWidth, popoverWindowMargin } from './@types/Comments';
 
 export function CommentSelectionPopover({ rects, onCreate }: { rects: DOMRect[]; onCreate: () => void; }) {
     const [popoverHeight, setPopoverHeight] = useState(0);
@@ -26,7 +26,7 @@ export function CommentSelectionPopover({ rects, onCreate }: { rects: DOMRect[];
         <div
             ref={resizeObserverRef}
             className={cx(
-                'absolute bg-card border rounded-full p-1 -translate-x-1/2'
+                'absolute z-[52] bg-card border rounded-full p-1 -translate-x-1/2', floatingShadowClassName
             )}
             style={{ left: leftFixed, top: topFixed }}>
             <div>

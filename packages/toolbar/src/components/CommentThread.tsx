@@ -41,7 +41,7 @@ export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
                     variant="plain"
                     className="rounded-none text-muted-foreground"
                     onClick={() => setExpanded(true)}>
-                    Show all ({restComments.length} more)...
+                    Show {restComments.length} more {restComments.length === 1 ? 'reply' : 'replies'}
                 </Button>
             )}
             {threadLastItem && (

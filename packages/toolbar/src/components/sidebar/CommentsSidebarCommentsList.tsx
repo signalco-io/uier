@@ -1,6 +1,7 @@
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
 import { CommentThread } from '../CommentThread';
+import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { useComments } from '../../hooks/useComments';
 import { CommentsFilter } from './CommentsFilter';
@@ -31,9 +32,11 @@ export function CommentsSidebarCommentsList({ status }: { status: NonNullable<Co
                 </div>
             )}
             {filteredComments?.map((commentItem) => (
-                <div className="rounded-xl border bg-card" key={commentItem.id}>
-                    <CommentThread commentItem={commentItem} />
-                </div>
+                <CommentErrorBoundary key={commentItem.id} commentId={commentItem.id}>
+                    <div className="rounded-xl border bg-card">
+                        <CommentThread commentItem={commentItem} />
+                    </div>
+                </CommentErrorBoundary>
             ))}
         </Stack>
     );

@@ -6,7 +6,7 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { Check, Undo } from '@signalco/ui-icons';
-import { Timeago } from '@signalco/ui/Timeago';
+import { CommentTime } from './CommentTime';
 import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
@@ -60,8 +60,8 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                         {isMe ? 'You' : authorName}
                     </Typography>
                     {createdAt && (
-                        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                            <Timeago date={createdAt} />
+                        <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                            <CommentTime date={createdAt} />
                         </span>
                     )}
                 </Row>
@@ -79,6 +79,8 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     )}
                     {canDelete && (
                         <CommentThreadItemMenu
+                            kind={first ? 'comment' : 'reply'}
+                            repliesCount={first ? Math.max(comment.thread.items.length - 1, 0) : 0}
                             disabled={pending}
                             onDelete={handleDelete} />
                     )}
