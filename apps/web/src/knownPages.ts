@@ -1,7 +1,10 @@
 export const KnownPages = {
     Landing: '/',
     HowItWorks: '/#how-it-works',
-    App: '/app',
+    Features: '/#features',
+    GetStarted: '/#get-started',
+    Pricing: '/#pricing',
+    Faq: '/#faq',
     Brand: '/brand',
     OpenSource: '/open-source',
     Security: '/security',

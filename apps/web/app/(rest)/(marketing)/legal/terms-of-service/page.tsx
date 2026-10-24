@@ -26,8 +26,7 @@ export default function TermsOfServicePage() {
 
             <h2>Price</h2>
             <p>
-                {brand.name} is free. Every feature available today is free and will stay free forever. If we
-                introduce pricing, it will apply only to new features users want.
+                {brand.name} is free. {brand.pricing}
             </p>
 
             <h2>Your comments</h2>

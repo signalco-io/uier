@@ -15,7 +15,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
-| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
+| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
@@ -52,8 +52,24 @@ that the assets (favicon, icons, manifest, OG image) are served, and that it pas
 Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
 review layer is shown on the page itself (`ReviewThreadDemo` and `<Pin />`), one solid
 "Get started" and one outlined secondary action, no badges above the headline.
-`e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" link and the footer line
-through the brand constants; update the test when you change those on purpose.
+
+Sections, in order, each with an `h2` whose id the navigation and footer link to (`KnownPages`):
+how it works (`#how-it-works`), features (`#features`), get started (`#get-started`), pricing
+(`#pricing`, `LandingPricing`) and questions (`#faq`, `LandingFaq`, native `<details>`).
+
+- **Only what the toolbar does today.** Every step, feature and answer describes behaviour you can
+  try on the page (check `packages/toolbar` before adding one). Not claimed, because it is not
+  true yet: using uier on your own site (#53), a domain-wide inbox, search in the inbox, showing
+  the device of a comment.
+- **Get started** goes to `#get-started`, which starts the one supported flow: leaving a comment
+  with the showcase toolbar on this page. Point it at the app (and update the test) once
+  onboarding exists.
+- **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
+  or limits. The app's billing must use the same constant.
+
+`e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" links, the sections, the
+pricing copy, the FAQ keyboard behaviour and the footer line through the brand constants; update
+the test when you change those on purpose.
 
 ## Footer
 
