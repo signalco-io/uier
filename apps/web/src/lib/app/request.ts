@@ -3,28 +3,33 @@ import { brand } from '@uier/brand';
 import { isLocalRuntime } from '../comments/environment';
 import { ipRateLimitBucket, isLoopbackIp } from '../comments/visitor';
 
+/** The Vercel environment of this deployment (inlined at build time, see next.config.ts), if any */
+export function deploymentEnvironment(): 'production' | 'preview' | undefined {
+    const value = process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV;
+    return value === 'production' || value === 'preview' ? value : undefined;
+}
+
 /**
- * Base URL for links the app sends (emails) and redirects to: uier.io in production, the
- * deployment URL on previews, `UIER_BASE_URL` when set. Only local development derives it from the
- * request's Host header (anywhere else a forged Host could point sign-in links to another site).
+ * Base URL for links the app sends (emails) and redirects to: `UIER_BASE_URL` when set, uier.io in
+ * production, otherwise the request's host (previews and local development). On Vercel the Host
+ * header decides which deployment serves a request, so it always names this deployment; anywhere
+ * else (self-hosting behind a proxy) a forged Host could point sign-in links to another site, so
+ * `UIER_BASE_URL` is required there.
  */
 export async function appBaseUrl() {
     const configured = process.env.UIER_BASE_URL?.trim();
     if (configured)
         return configured.replace(/\/+$/, '');
-    if (process.env.VERCEL_ENV === 'production')
+    if (deploymentEnvironment() === 'production')
         return brand.url;
-
-    const vercelUrl = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
-    if (vercelUrl)
-        return `https://${vercelUrl}`;
-
-    if (!isLocalRuntime())
+    if (!process.env.VERCEL && !isLocalRuntime())
         throw new Error('UIER_BASE_URL is required outside Vercel and local development.');
 
     const requestHeaders = await headers();
-    const host = requestHeaders.get('host') ?? 'localhost:4004';
-    const protocol = requestHeaders.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'http';
+    const host = requestHeaders.get('host');
+    if (!host)
+        throw new Error('The request has no Host header.');
+    const protocol = requestHeaders.get('x-forwarded-proto')?.split(',')[0]?.trim() || (isLocalRuntime() ? 'http' : 'https');
     return `${protocol}://${host}`;
 }
 
