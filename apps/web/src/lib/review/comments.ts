@@ -3,7 +3,7 @@ import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits } from '../comments/rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import type { CreateCommentInput } from '../comments/validation';
@@ -171,6 +171,14 @@ export async function createProjectComment(request: Request, project: DbProject,
     };
     await store.create(comment);
     return comment;
+}
+
+/** Rewrite suggestions call an AI model: limited per reviewer, per IP and per project */
+export async function enforceProjectRewriteLimits(request: Request, project: DbProject, actor: ProjectActor) {
+    const authorId = actorAuthorId(actor);
+    if (!authorId)
+        throw apiErrors.invalidRequest('Comments need a visitor id.');
+    await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request) });
 }
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string }) {

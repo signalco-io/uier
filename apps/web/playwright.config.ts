@@ -29,6 +29,8 @@ export default defineConfig({
             COSMOSDB_ENDPOINT: '',
             // Locally BotID treats every request as human unless this simulates another verdict
             UIER_BOTID_DEV_BYPASS: '',
+            // Rewrite suggestions are never requested from the real API (the tests mock them)
+            ANTHROPIC_API_KEY: '',
         },
     },
     use: {

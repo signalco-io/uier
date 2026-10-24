@@ -11,7 +11,8 @@ It manages:
   variables (production: `COSMOSDB_CONNECTION_STRING` with the primary key and `comments`,
   preview: the managed identity below and `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
-  variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`;
+  variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
+  suggestions) when the stack secret `anthropicApiKey` is set (`pulumi config set anthropicApiKey --secret`);
 - the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
 - the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
   containers `comments` and `comments-preview` partitioned by `/domain`, `app` and

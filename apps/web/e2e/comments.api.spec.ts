@@ -459,6 +459,41 @@ test('feedback and bug reports are about the page', async ({ newVisitor }) => {
     await expectError(await createComment(visitor, path, { position: page, kind: 'praise' }), 400, 'invalid_request');
 });
 
+test('rewrite suggestions are pinned to the text they would replace', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+
+    const rewrite = await created(await createComment(visitor, path, {
+        kind: 'rewrite',
+        position: selectionPosition,
+        quotedText: 'leaving comments',
+        text: 'commenting'
+    }));
+    expect(rewrite).toMatchObject({ kind: 'rewrite', position: selectionPosition });
+    expect(rewrite.thread.items[0]).toMatchObject({ text: 'commenting', quotedText: 'leaving comments' });
+
+    // Only on selected text
+    await expectError(await createComment(visitor, path, { kind: 'rewrite', text: 'Shorter' }), 400, 'invalid_request');
+    await expectError(await createComment(visitor, path, { kind: 'rewrite', position: { type: 'page' }, text: 'Shorter' }), 400, 'invalid_request');
+});
+
+test('rewrite suggestions: validated, and unavailable without an API key', async ({ newVisitor }) => {
+    const visitor = await newVisitor();
+    const suggest = async (data: unknown, headers?: Record<string, string>) =>
+        await (headers ? await newVisitor({ headers }) : visitor).post('/api/rewrite', { data });
+
+    // The e2e server has no ANTHROPIC_API_KEY (playwright.config.ts): valid requests get 503
+    await expectError(await suggest({ text: 'Review any live website.' }), 503, 'unavailable');
+    await expectError(await suggest({ text: 'Review any live website.', instruction: 'Shorter' }), 503, 'unavailable');
+
+    await expectError(await suggest({}), 400, 'invalid_request');
+    await expectError(await suggest({ text: '   ' }), 400, 'invalid_request');
+    await expectError(await suggest({ text: 'x'.repeat(2001) }), 400, 'invalid_request');
+    await expectError(await suggest({ text: 'Fine', instruction: 'x'.repeat(301) }), 400, 'invalid_request');
+    await expectError(await visitor.post('/api/rewrite', { headers: { 'Content-Type': 'text/plain' }, data: '{"text":"Hi"}' }), 415, 'unsupported_media_type');
+    await expectError(await suggest({ text: 'Hi' }, { Origin: 'https://evil.example' }), 403, 'forbidden');
+});
+
 test('visitor: guest name and signing out', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();

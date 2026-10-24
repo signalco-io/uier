@@ -3,6 +3,7 @@ import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { useComments } from '../hooks/useComments';
+import { newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
 import { CommentToolbar } from './CommentToolbar';
@@ -15,7 +16,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
 import type { CommentsFilter } from './sidebar/CommentsFilter';
-import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength } from './@types/Comments';
+import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength, commentTextMaxLength } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
 function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement | undefined) {
@@ -104,6 +105,7 @@ export function CommentsGlobal({
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { query: commentItems } = useComments();
+    const drafts = useDrafts();
     const allComments = commentItems.data;
     const unresolvedComments = useMemo(
         () => sortByDocumentPosition((allComments ?? []).filter(c => !c.resolved)),
@@ -125,12 +127,17 @@ export function CommentsGlobal({
         }
     };
 
-    const startDraft = (position: CommentDraft['position']) => {
+    const startDraft = (position: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
         closeHintForUse();
         draftKeyRef.current += 1;
+        // A rewrite starts from the selected text (when it fits a comment's length)
+        if (kind === 'rewrite' && position.type === 'text') {
+            drafts.set(newRewriteDraftKey, position.text.length <= commentTextMaxLength ? position.text : '');
+        }
         setCreatingComment({
             key: draftKeyRef.current,
-            position
+            position,
+            kind
         });
     };
 
@@ -245,14 +252,14 @@ export function CommentsGlobal({
 
     const creatingSelectionRects = useCommentItemRects(creatingCommentSelection);
 
-    const handleCreateComment = () => {
+    const handleCreateComment = (kind: CommentDraft['kind']) => {
         if (!creatingCommentSelection) {
             return;
         }
 
         const position = creatingCommentSelection;
         setCreatingCommentSelection(undefined);
-        startDraft(position);
+        startDraft(position, kind);
     };
 
     const handleCreateCommentPoint = (commentPoint: CommentPoint) => {
@@ -365,7 +372,8 @@ export function CommentsGlobal({
             {creatingSelectionRects?.length > 0 && (
                 <CommentSelectionPopover
                     rects={creatingSelectionRects}
-                    onCreate={handleCreateComment} />
+                    onCreate={() => handleCreateComment('comment')}
+                    onRewrite={() => handleCreateComment('rewrite')} />
             )}
             {creatingCommentPoint && (
                 <CommentPointOverlay onPoint={handleCreateCommentPoint} />

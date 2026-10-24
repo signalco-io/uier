@@ -4,13 +4,21 @@ import { useState } from 'react';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Row } from '@signalco/ui-primitives/Row';
-import { Comment } from '@signalco/ui-icons';
+import { Comment, Replace } from '@signalco/ui-icons';
 import { orderBy } from '@signalco/js';
 import { useResizeObserver } from '@enterwell/react-hooks';
 import { floatingShadowClassName, popoverWidth, popoverWindowMargin } from './@types/Comments';
 
+type CommentSelectionPopoverProps = {
+    rects: DOMRect[];
+    /** Add comment: a comment about the selected text */
+    onCreate: () => void;
+    /** Rewrite: suggested text to replace the selected text */
+    onRewrite: () => void;
+};
+
 /** The toolbar for selected page text: below the selection, or above it near the window's bottom */
-export function CommentSelectionPopover({ rects, onCreate }: { rects: DOMRect[]; onCreate: () => void; }) {
+export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentSelectionPopoverProps) {
     const [popoverHeight, setPopoverHeight] = useState(0);
     const resizeObserverRef = useResizeObserver((_, entry) => {
         setPopoverHeight(entry.contentRect.height);
@@ -40,6 +48,13 @@ export function CommentSelectionPopover({ rects, onCreate }: { rects: DOMRect[];
                     onClick={onCreate}
                     startDecorator={<Comment />}>
                     Add comment
+                </Button>
+                <Button
+                    variant="plain"
+                    className="gap-2 rounded-full"
+                    onClick={onRewrite}
+                    startDecorator={<Replace />}>
+                    Rewrite
                 </Button>
             </Row>
         </div>

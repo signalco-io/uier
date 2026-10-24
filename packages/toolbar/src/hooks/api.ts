@@ -14,6 +14,7 @@ export type CommentsApiErrorCode =
     | 'not_found'
     | 'too_large'
     | 'rate_limited'
+    | 'unavailable'
     | 'server_error'
     /** A project's comments: the project turned comments off */
     | 'comments_disabled'

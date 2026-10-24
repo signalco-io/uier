@@ -37,6 +37,14 @@ export const RATE_LIMIT_IP_WRITES = 30;
 export const PAGE_COMMENTS_WINDOW_SECONDS = DAY;
 export const RATE_LIMIT_PAGE_COMMENTS = 100;
 
+/** Rewrite suggestions (an AI model call each): per visitor and IP per hour, per domain per day */
+export const RATE_LIMIT_VISITOR_REWRITES = 20;
+export const RATE_LIMIT_IP_REWRITES = 40;
+export const DOMAIN_REWRITES_WINDOW_SECONDS = DAY;
+export const RATE_LIMIT_DOMAIN_REWRITES = 300;
+/** Longest instruction a reviewer can give with a rewrite request */
+export const MAX_REWRITE_INSTRUCTION_LENGTH = 300;
+
 /** Retention of anonymous comments (Cosmos DB per-item TTL, counted from the last modification) */
 export const COMMENT_TTL_SECONDS = 90 * DAY;
 /** Retention in the `comments-preview` container (its default TTL; a per-item ttl would override it) */

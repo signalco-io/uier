@@ -2,7 +2,11 @@ import type { CommentsStore } from '../repo/commentsStore';
 import { keyedHash } from './environment';
 import { apiErrors } from './http';
 import {
+    DOMAIN_REWRITES_WINDOW_SECONDS,
     PAGE_COMMENTS_WINDOW_SECONDS,
+    RATE_LIMIT_DOMAIN_REWRITES,
+    RATE_LIMIT_IP_REWRITES,
+    RATE_LIMIT_VISITOR_REWRITES,
     RATE_LIMIT_IP_WRITES,
     RATE_LIMIT_PAGE_COMMENTS,
     RATE_LIMIT_VISITOR_COMMENTS,
@@ -70,5 +74,18 @@ export async function enforceReplyLimits(store: CommentsStore, subject: RateLimi
     await consumeAll(store, subject.domain, [
         { key: `visitor-replies:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REPLIES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyReplies },
         ...ipLimit(subject, tooManyReplies)
+    ]);
+}
+
+const tooManyRewrites = 'You are asking for suggestions too quickly. Please try again later.';
+
+/** Rewrite suggestions call an AI model: per visitor, per IP and, so one site can't use them all, per domain */
+export async function enforceRewriteLimits(store: CommentsStore, subject: RateLimitSubject) {
+    await consumeAll(store, subject.domain, [
+        { key: `visitor-rewrites:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyRewrites },
+        ...(subject.ipBucket
+            ? [{ key: `ip-rewrites:${subject.ipBucket}`, limit: RATE_LIMIT_IP_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast' as const, message: tooManyRewrites }]
+            : []),
+        { key: 'domain-rewrites', limit: RATE_LIMIT_DOMAIN_REWRITES, windowSeconds: DOMAIN_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions for this site have reached their limit for today. Please try again tomorrow.' }
     ]);
 }

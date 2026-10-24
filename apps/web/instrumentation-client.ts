@@ -7,6 +7,7 @@ initBotId({
         { path: '/api/comments', method: 'POST' },
         { path: '/api/comments/*', method: 'POST' },
         { path: '/api/comments/*', method: 'PATCH' },
-        { path: '/api/comments/*', method: 'DELETE' }
+        { path: '/api/comments/*', method: 'DELETE' },
+        { path: '/api/rewrite', method: 'POST' }
     ]
 });

@@ -1,4 +1,4 @@
-import { getStack, interpolate } from '@pulumi/pulumi';
+import { Config, getStack, interpolate } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectDomain, ProjectEnvironmentVariable } from '@pulumiverse/vercel';
 import { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
@@ -272,6 +272,20 @@ const up = async () => {
         targets: ['production'],
         sensitive: false,
     }, envVarOptions);
+
+    // Rewrite suggestions in the toolbar (apps/web/src/lib/rewrite/suggest.ts) call the Anthropic API.
+    // Its key is a stack secret set by hand: `pulumi config set anthropicApiKey --secret` (asks for it). Without
+    // it no variable is created and the toolbar says suggestions are not available. Production only.
+    const anthropicApiKey = new Config().getSecret('anthropicApiKey');
+    if (anthropicApiKey) {
+        new ProjectEnvironmentVariable('vercel-uier-env-anthropic', {
+            projectId: app.projectId,
+            key: 'ANTHROPIC_API_KEY',
+            value: anthropicApiKey,
+            targets: ['production'],
+            sensitive: true,
+        }, envVarOptions);
+    }
 };
 
 export default up;

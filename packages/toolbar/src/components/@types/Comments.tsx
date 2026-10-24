@@ -49,8 +49,11 @@ export type CommentAnchor = CommentPoint | CommentSelection;
 
 export type CommentItemPosition = CommentAnchor | CommentPage;
 
-/** A comment pinned to the page, general feedback or a bug report */
-export type CommentKind = 'comment' | 'feedback' | 'bug';
+/**
+ * A comment pinned to the page, general feedback or a bug report, or a rewrite suggestion for
+ * selected text (its first message is the suggested text, the quote the original)
+ */
+export type CommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
 
 export type CommentAuthor = {
     /** Display name, `Guest XXXX` for anonymous visitors */
@@ -125,6 +128,8 @@ export type CommentItem = {
 /** A comment that is being written and is not saved yet (the device is read when it is posted) */
 export type CommentDraft = {
     position: CommentAnchor;
+    /** A rewrite suggestion for the selected text, instead of a comment */
+    kind?: 'comment' | 'rewrite';
 }
 
 export type CommentsGlobalProps = {

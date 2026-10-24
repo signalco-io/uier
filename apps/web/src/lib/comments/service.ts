@@ -43,7 +43,7 @@ function rateLimitIpBucket(request: Request) {
     return ipRateLimitBucket(ip);
 }
 
-function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
+export function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
     return {
         domain: context.domain,
         authorId: writerId(context),

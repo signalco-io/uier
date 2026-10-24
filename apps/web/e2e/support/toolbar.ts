@@ -74,3 +74,22 @@ export async function addToolbarScript(page: Page) {
         document.head.appendChild(script);
     }));
 }
+
+/** Selects `text` in the page (inside one text node) like a reviewer would */
+export async function selectText(page: Page, text: string) {
+    await page.evaluate((text) => {
+        const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const index = node.textContent?.indexOf(text) ?? -1;
+            if (index >= 0) {
+                const range = document.createRange();
+                range.setStart(node, index);
+                range.setEnd(node, index + text.length);
+                window.getSelection()?.removeAllRanges();
+                window.getSelection()?.addRange(range);
+                return;
+            }
+        }
+        throw new Error(`"${text}" is not on the page`);
+    }, text);
+}

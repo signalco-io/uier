@@ -3,6 +3,9 @@ import { createContext, PropsWithChildren, useContext, useRef } from 'react';
 /** Key of the text of a comment that is not saved yet; replies use the comment's id */
 export const newCommentDraftKey = 'new';
 
+/** Key of the suggested text of a rewrite that is not posted yet (it starts as the selected text) */
+export const newRewriteDraftKey = 'new-rewrite';
+
 /** Key of the text of feedback or a bug report that is not sent yet */
 export const feedbackDraftKey = 'feedback';
 
