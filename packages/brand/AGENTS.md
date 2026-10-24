@@ -12,7 +12,7 @@ both consume it, and [uier.io/brand](https://uier.io/brand) renders from it.
 | --- | --- | --- |
 | `BRAND.md` | the guidelines: name, voice, logo, colour, type, shape, review layer, marketing | humans and agents |
 | `tokens.css` | CSS variables (HSL triplets) that override the signalco minimal theme; `:root, :host` and `.dark` | `apps/web/app/global.css`, `packages/toolbar/src/index.css` |
-| `src/brand.ts` | `brand` constants (name, tagline, copy, hex mirrors, radii, fonts), `MARK_PATH`, `PIN_PATH`, `GEIST_FONTS_URL` | metadata, manifest, OG image, toolbar |
+| `src/brand.ts` | `brand` constants (name, tagline, copy, links, contact addresses, hex mirrors, radii, fonts), `MARK_PATH`, `PIN_PATH`, `GEIST_FONTS_URL` | metadata, manifest, OG image, footer, toolbar |
 | `src/Mark.tsx` | `<Mark />`, the mark as inline SVG in `currentColor` | nav, footer, brand page |
 | `src/Logo.tsx` | `<Logo />`, mark + wordmark lockup (inline styles, shadow-DOM safe) | nav, footer, brand page |
 | `src/Pin.tsx` | `<Pin count />`, the product pin with a white ring and thread count | landing, brand page |
@@ -40,5 +40,5 @@ bundles it directly. It has no build step.
 - Add a second colour system, a component library or Tailwind classes to the components here
   (they render inside the toolbar's shadow root where no utility classes exist; use inline styles).
 - Put copy that belongs to one page into `brand.ts`; it holds only the brand-level strings
-  (name, tagline, descriptions, pronunciation, links).
+  (name, tagline, descriptions, pronunciation, links, contact addresses).
 - Redraw the mark or the pin anywhere else. Import `MARK_PATH` / `PIN_PATH` or the components.

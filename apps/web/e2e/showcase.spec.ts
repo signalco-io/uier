@@ -418,7 +418,7 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await expect(instruction).toHaveCount(0);
 
     // Keyboard: focus a page element, then Add comment pins the comment to it
-    await page.getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
     await add.focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
@@ -473,7 +473,7 @@ test('rate limit messages tell a full page from a fast visitor', async ({ browse
         });
     });
 
-    await page.getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });

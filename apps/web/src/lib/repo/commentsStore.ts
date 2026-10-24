@@ -43,19 +43,19 @@ export type CommentsStore = {
 let warnedAboutMemoryStore = false;
 
 /**
- * Cosmos DB when `COSMOSDB_CONNECTION_STRING` is set. Locally (`next dev`, e2e tests) without it,
- * an in-memory store. Anywhere else a missing connection string is an error.
+ * Cosmos DB when `COSMOSDB_CONNECTION_STRING` or `COSMOSDB_ENDPOINT` is set (see `db/client.ts`).
+ * Locally (`next dev`, e2e tests) without either, an in-memory store. Anywhere else that is an error.
  */
 export function getCommentsStore(): CommentsStore {
     if (isCosmosConfigured())
         return createCosmosCommentsStore();
 
     if (!isLocalRuntime())
-        throw new Error('COSMOSDB_CONNECTION_STRING is required outside local development.');
+        throw new Error('COSMOSDB_CONNECTION_STRING or COSMOSDB_ENDPOINT is required outside local development.');
 
     if (!warnedAboutMemoryStore) {
         warnedAboutMemoryStore = true;
-        console.warn('[comments] COSMOSDB_CONNECTION_STRING is not set - using an in-memory comments store (data is lost on restart).');
+        console.warn('[comments] Cosmos DB is not configured - using an in-memory comments store (data is lost on restart).');
     }
 
     return getMemoryCommentsStore();
