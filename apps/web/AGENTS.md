@@ -56,7 +56,9 @@ through the brand constants; update the test when you change those on purpose.
 ## Testing
 
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
-  against `next start` on port 4004; Desktop and Mobile Chrome).
+  against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
+  Mobile Chrome). Outside CI a server that already answers on that port is reused, `pnpm dev`
+  included, so stop it or pick another `PORT` to test the build.
 - Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
 - The comments API needs `COSMOSDB_CONNECTION_STRING` in `.env.local`; the marketing pages do not.

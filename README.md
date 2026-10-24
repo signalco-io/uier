@@ -91,7 +91,7 @@ Run from the repository root (each one runs the matching script in every package
 | `pnpm dev` | Run the website (port 4004) and the toolbar watch build + server (port 4005) |
 | `pnpm build` | Production build of the toolbar, then the website (which copies the toolbar to `apps/web/public/toolbar.js`) |
 | `pnpm typecheck` | TypeScript checks |
-| `pnpm test` | Playwright end-to-end tests of `apps/web` against the built app (`next start` on port 4004, in-memory comments store) |
+| `pnpm test` | Playwright end-to-end tests of `apps/web` against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
 | `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
 
 Before the first `pnpm test`, install the Playwright browser:
@@ -99,6 +99,16 @@ Before the first `pnpm test`, install the Playwright browser:
 ```bash
 pnpm -C apps/web exec playwright install --with-deps chromium
 ```
+
+The tests start their own server on port 4004. To use another port, for example to run them in two worktrees
+at once or while `pnpm dev` holds 4004, set `PORT`:
+
+```bash
+PORT=4104 pnpm test
+```
+
+Outside CI, a server that already answers on that port is reused rather than started, so stop `pnpm dev` or
+pick a free port to test the production build.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.config.ts)):
 
@@ -108,8 +118,8 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
   comments, a second visitor who can reply but not resolve or delete, review mode on other pages. Each of
-  these tests opens the site on an origin of its own (`<random>.localhost:4004`), so its comments are
-  isolated from the other tests.
+  these tests opens the site on an origin of its own (`<random>.localhost:4004`, on the test port), so its
+  comments are isolated from the other tests.
 
 Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
 (`api.vercel.com`), so they need network access.
