@@ -173,12 +173,12 @@ export async function createProjectComment(request: Request, project: DbProject,
     return comment;
 }
 
-/** Rewrite suggestions call an AI model: limited per reviewer, per IP and per project */
+/**
+ * Rewrite suggestions call a paid AI model: limited per reviewer and per project in the project's
+ * partition, and per IP and in total across the app (the same counters as `POST /api/rewrite`)
+ */
 export async function enforceProjectRewriteLimits(request: Request, project: DbProject, actor: ProjectActor) {
-    const authorId = actorAuthorId(actor);
-    if (!authorId)
-        throw apiErrors.invalidRequest('Comments need a visitor id.');
-    await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request) });
+    await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request) });
 }
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string }) {

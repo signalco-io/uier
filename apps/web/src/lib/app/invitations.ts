@@ -1,12 +1,11 @@
 import { nanoid } from 'nanoid';
 import { getCommentsStore } from '../repo/commentsStore';
-import { consume } from '../comments/rateLimits';
+import { APP_COUNTERS_PARTITION, consume } from '../comments/rateLimits';
 import { sendEmail } from '../email/send';
 import { invitationEmail } from '../email/templates';
 import { KnownPages } from '../../knownPages';
 import { getAppStore, updateDoc } from './store';
 import { appBaseUrl } from './request';
-import { APP_COUNTERS_PARTITION } from './signIn';
 import { isRandomToken, randomToken, sha256Hex } from './tokens';
 import { findOrCreateUser, findUserByEmail } from './users';
 import { getMember, getWorkspace } from './workspaces';

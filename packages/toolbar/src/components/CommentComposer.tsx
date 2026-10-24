@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -11,7 +11,7 @@ import { Send } from '@signalco/ui-icons';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
-import { commentTextMaxLength, destructiveTextClassName } from './@types/Comments';
+import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 import { useProjectViewer } from '../project/ProjectGate';
 import { getGuestName, setGuestName } from '../project/projectSession';
 
@@ -29,7 +29,16 @@ function thresholdIndex(length: number) {
     return announceThresholds.filter(t => length >= t).length;
 }
 
+export type CommentComposerHandle = {
+    /**
+     * Replaces the text as if it was typed: the text box stays (with a guest's name and the undo
+     * history, so Ctrl/Cmd+Z brings the earlier text back) and gets the focus
+     */
+    replaceText: (text: string) => void;
+};
+
 type CommentComposerProps = {
+    ref?: Ref<CommentComposerHandle>;
     /** Accessible name of the text box */
     label: string;
     placeholder: string;
@@ -52,7 +61,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -77,6 +86,27 @@ export function CommentComposer({ label, placeholder, submitLabel, draftKey, quo
             drafts.delete(draftKey);
         }
     };
+
+    useImperativeHandle(ref, () => ({
+        replaceText: (value: string) => {
+            const textarea = textareaRef.current;
+            if (!textarea) {
+                return;
+            }
+            textarea.focus();
+            textarea.select();
+            // Like typing it: the change is an input event (onChange keeps the drafts in sync) and
+            // one step in the text box's undo history
+            const inserted = value.length
+                ? document.execCommand('insertText', false, value)
+                : document.execCommand('delete');
+            if (!inserted || textarea.value !== value) {
+                // Without execCommand: no undo step
+                setText(value);
+                textarea.setSelectionRange(value.length, value.length);
+            }
+        }
+    }));
 
     useEffect(() => {
         if (!autoFocus) {
@@ -176,6 +206,7 @@ export function CommentComposer({ label, placeholder, submitLabel, draftKey, quo
                             maxLength={guestNameMaxLength}
                             autoComplete="name"
                             placeholder="Shown with your comments"
+                            className={inputFocusRingClassName}
                             fullWidth />
                         {nameMissing && (
                             <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>Enter your name to comment.</p>

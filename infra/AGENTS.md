@@ -12,7 +12,7 @@ It manages:
   preview: the managed identity below and `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
   variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
-  suggestions) when the stack secret `anthropicApiKey` is set (`pulumi config set anthropicApiKey --secret`);
+  suggestions) when the repository secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
 - the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
 - the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
   containers `comments` and `comments-preview` partitioned by `/domain`, `app` and
@@ -37,7 +37,8 @@ The toolbar bundle needs no infrastructure of its own: the web app serves it at
   replace one fails on purpose. Do not remove `protect` to make a change go through.
 - No credentials in config or code: Pulumi, the state backend and the secrets provider use
   the current Azure login (GitHub OIDC in CI, `az login` locally); Vercel and Cloudflare tokens
-  come from `VERCEL_API_TOKEN` and `CLOUDFLARE_API_TOKEN`.
+  come from `VERCEL_API_TOKEN` and `CLOUDFLARE_API_TOKEN`, the Anthropic key from `ANTHROPIC_API_KEY`
+  (repository secrets passed in by `.github/workflows/pulumi_reusable.yml`).
 - Pulumi runs the compiled `dist/index.js` (`typescript: false`), so build before a preview:
   `pnpm preview` does both.
 - Keep the Pulumi CLI version pinned in `.github/workflows/pulumi_reusable.yml` equal to

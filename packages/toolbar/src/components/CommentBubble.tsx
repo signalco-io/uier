@@ -9,7 +9,7 @@ import { useComments } from '../hooks/useComments';
 import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
-import { CommentComposer } from './CommentComposer';
+import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
@@ -64,8 +64,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const selectedText = props.draft?.position.type === 'text' ? props.draft.position.text : undefined;
     const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : newCommentDraftKey);
     const newLabel = rewriting ? 'New rewrite suggestion' : 'New comment';
-    // Picking a suggestion replaces the text box's text (a new text box reads it from the drafts)
-    const [composerKey, setComposerKey] = useState(0);
+    // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
+    const composerRef = useRef<CommentComposerHandle>(null);
 
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const drafts = useDrafts();
@@ -229,7 +229,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 )}
                 <div className="shrink-0">
                     <CommentComposer
-                        key={composerKey}
+                        ref={composerRef}
                         label={rewriting ? 'Suggested text' : (creating ? 'Comment' : 'Reply')}
                         placeholder={rewriting ? 'Your version of the text...' : (creating ? 'Leave feedback...' : 'Reply...')}
                         submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
@@ -245,10 +245,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                     <div className="shrink-0">
                         <RewriteSuggestions
                             text={selectedText}
-                            onPick={(suggestion) => {
-                                drafts.set(draftKey, suggestion.slice(0, commentTextMaxLength));
-                                setComposerKey(key => key + 1);
-                            }} />
+                            onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
                     </div>
                 )}
             </Popper>

@@ -137,9 +137,12 @@ export const createCommentSchema = z.object({
     },
     { path: ['position'], message: 'Comments are pinned to an element or text, rewrite suggestions to text; feedback and bug reports are about the page' });
 
-/** `POST /api/rewrite`: selected page text and an optional instruction ("shorter", "friendlier") */
+/**
+ * `POST /api/rewrite`: selected page text and an optional instruction ("shorter", "friendlier").
+ * The text is at most what a rewrite comment holds (its quoted original and its suggested text).
+ */
 export const rewriteRequestSchema = z.object({
-    text: textOf(MAX_SELECTION_TEXT_LENGTH),
+    text: textOf(MAX_TEXT_LENGTH),
     instruction: z.string()
         .transform(withoutBidiControls)
         .pipe(z.string().max(MAX_REWRITE_INSTRUCTION_LENGTH))

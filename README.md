@@ -204,7 +204,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`), a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `DELETE .../replies/<itemId>` | replies, done (`resolved`), deleting |
-| `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (rate limited per project) |
+| `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
   visitor id (`X-Uier-Visitor`) and the name they give. No cookies: the API is another site than the
@@ -300,14 +300,14 @@ trailing slash).
 | Request | Body | Response |
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
-| `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device? }` | `201` the new comment. `kind` is `comment` (default; `position` is a point or a text selection), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
+| `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device? }` | `201` the new comment. `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
 | `DELETE /api/visitor` | | `204`; signs out: removes the `uier_visitor` cookie (never creates one) |
-| `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key |
+| `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
 
 **Deleting.** One visitor can't delete what others wrote:
 
@@ -334,8 +334,8 @@ visitors' browsers. Responses never contain author ids, IP hashes, the TTL or de
 (`desktop`/`tablet`/`mobile`) and the viewport the comment was left from (`windowSize`, `[width, height]` in CSS
 pixels, read when it is posted). Texts are shown as plain text only (no markdown, no links).
 
-**Anonymous identity.** The first successful write sets the `uier_visitor` cookie (reading comments never
-does): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
+**Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
+for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
 except plain http on a loopback host (local development and tests). Comments store only
 `authorId = sha256(token)`, never the token. Visitors are shown as `Guest XXXX` (4 hex characters of an HMAC of
 the author id with a server key, so a name can't be forged offline) and as "You" for their own items; the API
@@ -360,7 +360,7 @@ carry no IP-derived data:
 | Replies per visitor | 30 per hour |
 | Writes per IP (an IPv4 address or an IPv6 /64) | 30 per hour |
 | New comments per page | 100 per day (`reason: page_full`) |
-| Rewrite suggestions | 20 per visitor and 40 per IP per hour, 300 per domain per day; selected text up to 2000 characters, instruction up to 300 |
+| Rewrite suggestions | 20 per visitor (with the cookie) or project reviewer per hour, 300 per domain or project per day; app-wide, whatever the site: 40 per IP per hour and 1000 per day; selected text and each suggestion up to 1000 characters (what a rewrite comment holds), instruction up to 300 |
 
 **Bot protection: [Vercel BotID](https://vercel.com/docs/botid)** (basic mode, no captcha).
 [`instrumentation-client.ts`](apps/web/instrumentation-client.ts) attaches the BotID challenge to the page's
@@ -406,14 +406,22 @@ toolbar: `POST /api/review/<code>/rewrite`) ([`src/lib/rewrite/suggest.ts`](apps
 SDK: model `claude-opus-5-5` at `low` effort, a JSON schema for the answer (`{ suggestions: string[] }`), and the
 server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`), which retries a
 request a safety classifier declines on Anthropic's recommended model. The selected text and the instruction are
-treated as content, never as instructions. Nothing about a request is stored; a suggestion the reviewer posts is
-saved as a comment with `kind: "rewrite"` (its text is the suggested text, `quotedText` the original).
+treated as content, never as instructions. Each call has `max_tokens: 4096` and a hard 1000-character limit per
+suggestion in its prompt; longer suggestions, duplicates and the original are left out, never cut. A request the
+model still declines gives no suggestions (`200`, the toolbar says "No suggestions for this text."); a failure, or
+no answer within 45 seconds (both attempts), is `503 unavailable`. The limits (above) are checked before the model
+is called: per visitor and per site or project, and app-wide per IP and per day (counters in the `app`
+partition), so more sites or projects never add up to more. Nothing about a request is stored and no cookie is
+set; a suggestion the reviewer posts is saved as a comment with `kind: "rewrite"` (its text is the suggested
+text, `quotedText` the original).
 
-The SDK reads `ANTHROPIC_API_KEY`. In production Pulumi sets it from the stack secret `anthropicApiKey` (set it
-once with `pulumi config set anthropicApiKey --secret` in `infra/`, which asks for the key, and let CI apply it); without the
-secret no variable is created. Previews, local development and the e2e tests have no key (`playwright.config.ts`
-clears it): the endpoint answers `503 unavailable` and the toolbar says suggestions are not available, while the
-reviewer's own rewrite still works. Set `ANTHROPIC_API_KEY` in `apps/web/.env.local` to try them locally.
+The SDK reads `ANTHROPIC_API_KEY`. In production Pulumi sets it from the repository secret `ANTHROPIC_API_KEY`
+(the Pulumi workflow passes it in like the Vercel and Cloudflare tokens); without the secret no variable is
+created. Previews and local development have no key: the endpoint answers `503 unavailable` and the toolbar says
+suggestions are not available, while the reviewer's own rewrite still works. Set `ANTHROPIC_API_KEY` in
+`apps/web/.env.local` to try them locally. The e2e tests point the app at a stand-in for the API
+([`e2e/support/anthropicStub.ts`](apps/web/e2e/support/anthropicStub.ts), started by `playwright.config.ts` on
+`PORT + 1000`), which checks each request and answers with canned suggestions.
 
 ### Removing abusive comments
 
@@ -462,7 +470,7 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
   `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`.
   The app's data container is `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`); only production gets the
   email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
-  suggestions) once the stack secret `anthropicApiKey` is set,
+  suggestions) once the repository secret `ANTHROPIC_API_KEY` is set,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
   both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself,
 - the Azure resource group `uier-production8b2f56d6` (Pulumi logical name `uier-production`) with a
@@ -539,6 +547,7 @@ Repository secrets:
 | `AZURE_STORAGE_ACCOUNT` | Pulumi state backend `azblob://states` (no account key: access is granted by Azure RBAC) |
 | `VERCEL_TOKEN` | Vercel CLI deployments and the Pulumi Vercel provider (`VERCEL_API_TOKEN`); scoped to the signalco team |
 | `CLOUDFLARE_API_TOKEN` | Pulumi Cloudflare provider; DNS edit permission on the `uier.io` zone |
+| `ANTHROPIC_API_KEY` | Optional: production's `ANTHROPIC_API_KEY` on Vercel (rewrite suggestions), set by Pulumi; until it is set suggestions are not available |
 
 The Entra ID app **uier GitHub Deployment** needs federated credentials (issuer
 `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`) for the subjects below.

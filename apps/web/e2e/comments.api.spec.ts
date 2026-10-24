@@ -477,21 +477,73 @@ test('rewrite suggestions are pinned to the text they would replace', async ({ n
     await expectError(await createComment(visitor, path, { kind: 'rewrite', position: { type: 'page' }, text: 'Shorter' }), 400, 'invalid_request');
 });
 
-test('rewrite suggestions: validated, and unavailable without an API key', async ({ newVisitor }) => {
+// Rewrite suggestions: the e2e server calls a stand-in for the Anthropic API
+// (e2e/support/anthropicStub.ts). It checks the request and answers "First suggestion." and so on;
+// markers in the text or the instruction make it fail, decline or answer with suggestions to filter.
+
+async function suggestions(response: APIResponse) {
+    expect(response.status(), await response.text()).toBe(200);
+    const body = await response.json() as { suggestions: string[] };
+    expect(Object.keys(body)).toEqual(['suggestions']);
+    return body.suggestions;
+}
+
+test('rewrite suggestions: the model\'s answer, filtered', async ({ newVisitor }) => {
+    const visitor = await newVisitor();
+    const suggest = async (data: unknown) => await visitor.post('/api/rewrite', { data });
+
+    const answer = await suggest({ text: 'Review any live website.', instruction: 'Shorter' });
+    expect(await suggestions(answer)).toEqual(['First suggestion (Shorter).', 'Second suggestion (Shorter).', 'Third suggestion (Shorter).']);
+    // Asking for suggestions never sets the visitor cookie (only a comment or reply does)
+    expect(visitorCookie(answer)).toBeUndefined();
+    expect(await suggestions(await suggest({ text: '  Review any live website.  ', instruction: '   ' })))
+        .toEqual(['First suggestion.', 'Second suggestion.', 'Third suggestion.']);
+
+    // Duplicates, the original text, empty suggestions and ones longer than a comment's 1000
+    // characters are left out (never cut), and at most three are kept
+    expect(await suggestions(await suggest({ text: '[stub:filter] Review any live website.' })))
+        .toEqual(['Same text.', 'y'.repeat(1000), 'Third.']);
+
+    // A declined request, or an answer cut off at max_tokens: no suggestions, not an outage
+    expect(await suggestions(await suggest({ text: 'Review any live website.', instruction: '[stub:refuse]' }))).toEqual([]);
+    expect(await suggestions(await suggest({ text: '[stub:truncate] Review any live website.' }))).toEqual([]);
+    // The API failing (also on the retry) is
+    await expectError(await suggest({ text: 'Review any live website.', instruction: '[stub:fail]' }), 503, 'unavailable');
+});
+
+test('rewrite suggestions: validated', async ({ newVisitor }) => {
     const visitor = await newVisitor();
     const suggest = async (data: unknown, headers?: Record<string, string>) =>
         await (headers ? await newVisitor({ headers }) : visitor).post('/api/rewrite', { data });
 
-    // The e2e server has no ANTHROPIC_API_KEY (playwright.config.ts): valid requests get 503
-    await expectError(await suggest({ text: 'Review any live website.' }), 503, 'unavailable');
-    await expectError(await suggest({ text: 'Review any live website.', instruction: 'Shorter' }), 503, 'unavailable');
-
+    // Selected text up to what a rewrite comment holds (1000 characters, like its quoted original)
+    expect(await suggestions(await suggest({ text: 'x'.repeat(1000) }))).toHaveLength(3);
+    await expectError(await suggest({ text: 'x'.repeat(1001) }), 400, 'invalid_request');
     await expectError(await suggest({}), 400, 'invalid_request');
     await expectError(await suggest({ text: '   ' }), 400, 'invalid_request');
-    await expectError(await suggest({ text: 'x'.repeat(2001) }), 400, 'invalid_request');
     await expectError(await suggest({ text: 'Fine', instruction: 'x'.repeat(301) }), 400, 'invalid_request');
     await expectError(await visitor.post('/api/rewrite', { headers: { 'Content-Type': 'text/plain' }, data: '{"text":"Hi"}' }), 415, 'unsupported_media_type');
     await expectError(await suggest({ text: 'Hi' }, { Origin: 'https://evil.example' }), 403, 'forbidden');
+});
+
+test('rewrite suggestions: limited per visitor once the visitor has the cookie', async ({ newVisitor }) => {
+    const limit = 20;
+    const suggest = async (visitor: APIRequestContext) => await visitor.post('/api/rewrite', { data: { text: 'Review any live website.' } });
+
+    // Without the cookie there is no visitor to count (the IP, site and app-wide limits still apply)
+    const cookieless = await newVisitor();
+    for (let i = 0; i <= limit; i++)
+        expect(visitorCookie(await suggest(cookieless))).toBeUndefined();
+    expect(await suggestions(await suggest(cookieless))).toHaveLength(3);
+
+    // A visitor who commented: 20 per hour
+    const visitor = await newVisitor();
+    await created(await createComment(visitor, uniquePagePath()));
+    for (let i = 0; i < limit; i++)
+        expect(await suggestions(await suggest(visitor))).toHaveLength(3);
+    const limited = await suggest(visitor);
+    expect((await expectError(limited, 429, 'rate_limited')).reason).toBe('too_fast');
+    expect(Number(limited.headers()['retry-after'])).toBeGreaterThan(0);
 });
 
 test('visitor: guest name and signing out', async ({ newVisitor }) => {

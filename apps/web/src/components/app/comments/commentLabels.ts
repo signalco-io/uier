@@ -1,9 +1,16 @@
-import type { DbDeviceSize } from '../../../lib/db/schema';
+import type { DbCommentKind, DbDeviceSize } from '../../../lib/db/schema';
 
 export const deviceLabels: Record<DbDeviceSize, string> = {
     desktop: 'Desktop',
     tablet: 'Tablet',
     mobile: 'Mobile'
+};
+
+/** The chip of a comment that is not a plain comment (the same words as the toolbar's) */
+export const kindLabels: Record<Exclude<DbCommentKind, 'comment'>, string> = {
+    feedback: 'Feedback',
+    bug: 'Bug report',
+    rewrite: 'Suggested rewrite'
 };
 
 export type PeopleFilter = 'all' | 'assigned' | 'mine';

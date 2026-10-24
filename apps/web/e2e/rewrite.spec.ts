@@ -12,8 +12,8 @@ import {
 import { expectNoAxeViolations } from './accessibility';
 
 // Rewrite suggestions for selected text: the reviewer's own text, or one of the AI suggestions.
-// The e2e server has no Anthropic API key, so the suggestions are mocked here; without the mock
-// the real endpoint answers 503 ("not available").
+// The e2e server asks a stand-in for the Anthropic API (e2e/support/anthropicStub.ts); the first
+// test mocks the endpoint to choose the suggestions, the second makes the stub fail.
 
 const selected = 'Review any live website by leaving comments directly on it.';
 
@@ -86,7 +86,8 @@ test('rewrite: without suggestions the reviewer writes their own', async ({ brow
     await selectText(page, selected);
     await selectionToolbar(page).getByRole('button', { name: 'Rewrite' }).click();
     const draft = page.getByRole('dialog', { name: 'New rewrite suggestion' });
-    // The real endpoint: no API key on the e2e server
+    // The real endpoint, with an instruction that makes the stub's API fail
+    await draft.getByRole('textbox', { name: 'Instruction for suggestions' }).fill('[stub:fail]');
     await draft.getByRole('button', { name: 'Suggest', exact: true }).click();
     await expect(draft.getByRole('alert')).toHaveText('Suggestions are not available right now. You can still write your own.');
 
@@ -104,6 +105,39 @@ test('rewrite: without suggestions the reviewer writes their own', async ({ brow
     await page.keyboard.press('Escape');
     await expect(draft).toBeHidden();
     await expect(page.getByRole('button', { name: 'New rewrite suggestion' })).toHaveCount(0);
+
+    await context.close();
+});
+
+test('rewrite: the selected text toolbar is one Tab stop, arrows move between its buttons', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    await selectText(page, selected);
+    const toolbar = selectionToolbar(page);
+    const addComment = toolbar.getByRole('button', { name: 'Add comment' });
+    const rewrite = toolbar.getByRole('button', { name: 'Rewrite' });
+    await expect(addComment).toHaveAttribute('tabindex', '0');
+    await expect(rewrite).toHaveAttribute('tabindex', '-1');
+
+    await addComment.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(rewrite).toBeFocused();
+    await expect(rewrite).toHaveAttribute('tabindex', '0');
+    await expect(addComment).toHaveAttribute('tabindex', '-1');
+    await page.keyboard.press('ArrowRight');
+    await expect(addComment).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(rewrite).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(addComment).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(rewrite).toBeFocused();
+
+    // Enter on the focused button: the rewrite composer
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'New rewrite suggestion' })).toBeVisible();
 
     await context.close();
 });

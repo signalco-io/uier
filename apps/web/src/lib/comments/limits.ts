@@ -37,11 +37,32 @@ export const RATE_LIMIT_IP_WRITES = 30;
 export const PAGE_COMMENTS_WINDOW_SECONDS = DAY;
 export const RATE_LIMIT_PAGE_COMMENTS = 100;
 
-/** Rewrite suggestions (an AI model call each): per visitor and IP per hour, per domain per day */
+/**
+ * Rewrite suggestions: each request is a paid AI model call (rateLimits.ts, enforceRewriteLimits).
+ * Counted in the site's partition (the request's domain, or `project:<code>`): per visitor per hour,
+ * only for a visitor who already has the `uier_visitor` cookie (asking for suggestions never sets
+ * it) or a project reviewer, and per site per day.
+ */
 export const RATE_LIMIT_VISITOR_REWRITES = 20;
-export const RATE_LIMIT_IP_REWRITES = 40;
 export const DOMAIN_REWRITES_WINDOW_SECONDS = DAY;
 export const RATE_LIMIT_DOMAIN_REWRITES = 300;
+/**
+ * Counted app-wide (the fixed counters partition, APP_COUNTERS_PARTITION), so more sites or
+ * projects never add up to more: per IP per hour, whatever the site...
+ */
+export const RATE_LIMIT_IP_REWRITES = 40;
+/**
+ * ...and a budget for the whole app per day, whatever the sites, projects and addresses. With
+ * REWRITE_MAX_OUTPUT_TOKENS it caps what suggestions can cost in a day.
+ */
+export const APP_REWRITES_WINDOW_SECONDS = DAY;
+export const RATE_LIMIT_APP_REWRITES = 1000;
+/**
+ * Output tokens of one model call (`max_tokens`): three suggestions of at most MAX_TEXT_LENGTH
+ * characters (about 250 tokens each in English, about 1000 in Chinese or Japanese), the JSON
+ * around them and the short thinking at low effort, with some headroom.
+ */
+export const REWRITE_MAX_OUTPUT_TOKENS = 4096;
 /** Longest instruction a reviewer can give with a rewrite request */
 export const MAX_REWRITE_INSTRUCTION_LENGTH = 300;
 

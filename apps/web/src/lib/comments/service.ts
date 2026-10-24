@@ -12,7 +12,7 @@ import {
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
-import { enforceNewCommentLimits, enforceReplyLimits, type RateLimitSubject } from './rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
 
@@ -43,10 +43,22 @@ function rateLimitIpBucket(request: Request) {
     return ipRateLimitBucket(ip);
 }
 
-export function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
+function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
     return {
         domain: context.domain,
         authorId: writerId(context),
+        ipBucket: rateLimitIpBucket(context.request)
+    };
+}
+
+/**
+ * Rewrite requests never create the visitor identity, so the visitor is counted only when the
+ * `uier_visitor` cookie is already there; the IP, site and app-wide limits always apply.
+ */
+export function rewriteLimitSubject(context: CommentsApiContext): RewriteLimitSubject {
+    return {
+        domain: context.domain,
+        authorId: context.visitor.authorId,
         ipBucket: rateLimitIpBucket(context.request)
     };
 }

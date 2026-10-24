@@ -5,10 +5,13 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
+import { cx } from '@signalco/ui-primitives/cx';
 import { AI } from '@signalco/ui-icons';
+import { CommentsApiError } from '../hooks/api';
 import { useRewriteSuggestions } from '../hooks/useRewriteSuggestions';
-import { CommentsErrorMessage } from './CommentsErrorMessage';
+import { CommentsErrorMessage, retryAfterText } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
+import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 
 // The API's limit (MAX_REWRITE_INSTRUCTION_LENGTH)
 const instructionMaxLength = 300;
@@ -22,7 +25,8 @@ type RewriteSuggestionsProps = {
 
 /**
  * AI suggestions for a rewrite (under the rewrite's text box): an optional instruction, "Suggest",
- * and the suggestions to pick from. The reviewer's own text never depends on them.
+ * and the suggestions to pick from. The reviewer's own text never depends on them. Offered only
+ * for selections that fit a comment (a rewrite comment quotes the original whole).
  */
 export function RewriteSuggestions({ text, onPick }: RewriteSuggestionsProps) {
     const [instruction, setInstruction] = useState('');
@@ -45,6 +49,18 @@ export function RewriteSuggestions({ text, onPick }: RewriteSuggestionsProps) {
         }
     };
 
+    if (text.trim().length > commentTextMaxLength) {
+        return (
+            <p className="m-0 border-t bg-card px-3 py-3 text-sm text-muted-foreground">
+                Suggestions work on selections of up to {commentTextMaxLength} characters.
+            </p>
+        );
+    }
+
+    const rateLimited = suggest.error instanceof CommentsApiError && suggest.error.code === 'rate_limited'
+        ? suggest.error
+        : undefined;
+
     return (
         <Stack spacing={1} className="border-t bg-card px-3 py-3">
             <form onSubmit={handleSubmit}>
@@ -55,7 +71,7 @@ export function RewriteSuggestions({ text, onPick }: RewriteSuggestionsProps) {
                         value={instruction}
                         maxLength={instructionMaxLength}
                         onChange={(event) => setInstruction(event.target.value)}
-                        className="min-w-0 flex-1" />
+                        className={cx('min-w-0 flex-1', inputFocusRingClassName)} />
                     <Button
                         type="submit"
                         variant="outlined"
@@ -66,7 +82,13 @@ export function RewriteSuggestions({ text, onPick }: RewriteSuggestionsProps) {
                     </Button>
                 </Row>
             </form>
-            <CommentsErrorMessage error={suggest.error} />
+            {rateLimited
+                ? (
+                    <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>
+                        No more suggestions for now. Try again {retryAfterText(rateLimited.retryAfter)}. You can still write your own.
+                    </p>
+                )
+                : <CommentsErrorMessage error={suggest.error} />}
             {suggest.isSuccess && !suggestions.length && (
                 <p className="m-0 text-sm text-muted-foreground">No suggestions for this text.</p>
             )}

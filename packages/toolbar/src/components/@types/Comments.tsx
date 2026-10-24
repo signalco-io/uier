@@ -21,6 +21,12 @@ export const destructiveTextClassName = 'text-[hsl(var(--destructive))] dark:tex
  */
 export const floatingShadowClassName = 'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)]';
 
+/**
+ * The blue focus ring of an input (BRAND.md) for the UI kit's `Input`: its `className` and its
+ * `focus-visible` ring go on a wrapper around the `<input>`, which never has the focus itself
+ */
+export const inputFocusRingClassName = 'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background';
+
 export type CommentPoint = {
     type: 'point';
     selector: string;

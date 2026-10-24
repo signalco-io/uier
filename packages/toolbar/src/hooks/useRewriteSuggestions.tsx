@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { apiRequest, required } from './api';
+import { commentTextMaxLength } from '../components/@types/Comments';
 
 // A project's toolbar asks the review API, which applies the project's "who can comment" setting
 const rewriteApiUrl = toolbarConfig.project
@@ -19,8 +20,9 @@ async function suggestRewrites({ text, instruction }: RewriteRequest) {
         method: 'POST',
         body: { text, instruction: instruction?.trim() || undefined }
     }));
+    // A suggestion that would not fit a comment whole is left out, never cut (the API does the same)
     return Array.isArray(result.suggestions)
-        ? result.suggestions.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+        ? result.suggestions.filter((s): s is string => typeof s === 'string' && s.trim().length > 0 && s.length <= commentTextMaxLength)
         : [];
 }
 
