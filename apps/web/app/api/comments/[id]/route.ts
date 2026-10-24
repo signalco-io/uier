@@ -15,12 +15,15 @@ export const PATCH = commentsApiHandler<Params>(async (context, { id }) => {
     return Response.json(await updateCommentResolved(context, id, input));
 });
 
-// DELETE /api/comments/{id} - author only
+// DELETE /api/comments/{id} - author only. 204 when the comment was deleted, or 200 with the
+// comment that stays because other visitors replied (its first item is then a placeholder).
 export const DELETE = commentsApiHandler<Params>(async (context, { id }) => {
     await assertNotBot();
     if (!isValidId(id))
         throw apiErrors.notFound();
 
-    await deleteComment(context, id);
-    return new Response(null, { status: 204 });
+    const comment = await deleteComment(context, id);
+    return comment
+        ? Response.json(comment)
+        : new Response(null, { status: 204 });
 });

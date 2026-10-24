@@ -1,7 +1,7 @@
 import type { SqlParameter } from '@azure/cosmos';
 import type { DbComment, DbCounter } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
-import type { AppendResult, CommentsStore, ReplaceResult, StoredComment } from './commentsStore';
+import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
 function errorCode(error: unknown) {
     return typeof error === 'object' && error !== null && 'code' in error
@@ -50,7 +50,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         async create(comment) {
             await cosmosDataContainerComments().items.create<DbComment>(comment);
         },
-        async replace(comment, etag): Promise<ReplaceResult> {
+        async replace(comment, etag): Promise<ConditionalWriteResult> {
             try {
                 await cosmosDataContainerComments().item(comment.id, comment.domain).replace<DbComment>(comment, {
                     accessCondition: { type: 'IfMatch', condition: etag }
@@ -65,13 +65,18 @@ export function createCosmosCommentsStore(): CommentsStore {
                 throw error;
             }
         },
-        async delete(domain, id) {
+        async delete(domain, id, etag): Promise<ConditionalWriteResult> {
             try {
-                await cosmosDataContainerComments().item(id, domain).delete();
-                return true;
+                await cosmosDataContainerComments().item(id, domain).delete({
+                    accessCondition: { type: 'IfMatch', condition: etag }
+                });
+                return 'ok';
             } catch (error) {
-                if (errorCode(error) === 404)
-                    return false;
+                const code = errorCode(error);
+                if (code === 412)
+                    return 'conflict';
+                if (code === 404)
+                    return 'not_found';
                 throw error;
             }
         },

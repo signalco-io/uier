@@ -1,5 +1,5 @@
 import type { DbComment } from '../db/schema';
-import type { AppendResult, CommentsStore, ReplaceResult, StoredComment } from './commentsStore';
+import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
@@ -86,7 +86,7 @@ export function getMemoryCommentsStore(): CommentsStore {
 
             entries.set(comment.id, { comment: clone(comment), version: ++state().version, modifiedAt: Date.now() });
         },
-        async replace(comment, etag): Promise<ReplaceResult> {
+        async replace(comment, etag): Promise<ConditionalWriteResult> {
             const entries = domainEntries(comment.domain);
             const entry = entries.get(comment.id);
             if (!entry)
@@ -97,8 +97,16 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.set(comment.id, { comment: clone(comment), version: ++state().version, modifiedAt: Date.now() });
             return 'ok';
         },
-        async delete(domain, id) {
-            return domainEntries(domain).delete(id);
+        async delete(domain, id, etag): Promise<ConditionalWriteResult> {
+            const entries = domainEntries(domain);
+            const entry = entries.get(id);
+            if (!entry)
+                return 'not_found';
+            if (String(entry.version) !== etag)
+                return 'conflict';
+
+            entries.delete(id);
+            return 'ok';
         },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
             const entries = domainEntries(domain);

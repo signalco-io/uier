@@ -10,7 +10,8 @@ export type StoredComment = {
     etag: string;
 };
 
-export type ReplaceResult = 'ok' | 'conflict' | 'not_found';
+/** Result of a write that only applies to the version that was read (`etag`) */
+export type ConditionalWriteResult = 'ok' | 'conflict' | 'not_found';
 export type AppendResult = 'ok' | 'full' | 'not_found';
 
 /**
@@ -23,9 +24,12 @@ export type CommentsStore = {
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
     /** Replaces the comment only when it was not changed since it was read (`etag`) */
-    replace(comment: DbComment, etag: string): Promise<ReplaceResult>;
-    /** Returns `false` when the comment does not exist */
-    delete(domain: string, id: string): Promise<boolean>;
+    replace(comment: DbComment, etag: string): Promise<ConditionalWriteResult>;
+    /**
+     * Deletes the comment only when it was not changed since it was read (`etag`), so a reply
+     * appended in the meantime is never deleted with it
+     */
+    delete(domain: string, id: string, etag: string): Promise<ConditionalWriteResult>;
     /** Atomically appends a thread item unless the thread already has `maxItems` items */
     appendThreadItem(domain: string, id: string, item: DbThreadItem, maxItems: number, updatedAt: string): Promise<AppendResult>;
 

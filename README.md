@@ -103,13 +103,13 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.config.ts)):
 
 - **API** - [`comments.api.spec.ts`](apps/web/e2e/comments.api.spec.ts): the comments API with separate
-  request contexts as separate visitors (ownership, validation, `413`, path filtering, DTO contents, cookie
-  flags, rate limits).
+  request contexts as separate visitors (ownership, deleting threads others replied to, validation, `413`,
+  path filtering, DTO contents, cookie flags, rate limits).
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
-  comments, a second visitor who can reply but not resolve or delete, review mode on other pages. Each of
-  these tests opens the site on an origin of its own (`<random>.localhost:4004`), so its comments are
-  isolated from the other tests.
+  comments, a second visitor who can reply but not resolve or delete, a deleted comment whose replies stay,
+  review mode on other pages. Each of these tests opens the site on an origin of its own
+  (`<random>.localhost:4004`), so its comments are isolated from the other tests.
 
 Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
 (`api.vercel.com`), so they need network access.
@@ -155,8 +155,22 @@ trailing slash).
 | `POST /api/comments` | `{ path, position, text, quotedText?, device? }` | `201` the new comment |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
-| `DELETE /api/comments/{id}` | | `204`; author only |
-| `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. Deleting the first item deletes the comment (`204`, author of the comment only) |
+| `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
+| `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
+
+**Deleting.** One visitor can't delete what others wrote:
+
+- The first item, when other visitors replied: the thread stays. The item becomes a placeholder,
+  `{ "id", "deleted": true, "createdAt" }`, shown as "Comment deleted"; its text and quoted text are removed
+  from the database, not just hidden, and so are the comment's author and device details. Position, resolved
+  state and every reply (the author's own included) stay, and anyone can still reply. Without an author nobody
+  can resolve, reopen or delete the thread any more (`isMine` is `false`, `403`).
+- The first item, without other visitors' replies: the whole comment is deleted, with the author's own replies.
+- A reply: removed. When only the placeholder would be left, the whole comment is deleted (`204`).
+
+Every write applies only to the version of the comment it was decided on (Cosmos DB `If-Match` on the `_etag`,
+a version check in the in-memory store) and is retried on a conflict, so a reply that arrives while the author
+deletes is either kept (the thread stays) or rejected with `404`, never lost or brought back.
 
 Errors are `{ "error": "<code>", "message": "..." }`: `400 invalid_request`, `403 forbidden` (not the
 author, or a cross-site request), `403 bot_detected`, `404 not_found`, `409 conflict` (retry), `413 too_large`,
@@ -242,8 +256,8 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
    `CONTAINS(c.thread.items[0].text, 'spam')`, `c.authorId = '<authorId of a known abusive comment>'`.
    Rate-limit counters are in the same container (`c.type = 'counter'`, no `path`) and expire by themselves.)
 3. Open the document and **Delete** it to remove the whole comment, or remove the offending entry from
-   `thread.items` and **Update** to remove a single reply. Changes are visible immediately (the API does
-   not cache).
+   `thread.items` and **Update** to remove a single reply. If only a deleted first item (`deletedAt`) would be
+   left, delete the document instead. Changes are visible immediately (the API does not cache).
 
 ## Infrastructure
 

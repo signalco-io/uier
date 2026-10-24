@@ -13,6 +13,13 @@ export type CommentThreadItemDto = {
     quotedText?: string;
     author: CommentAuthorDto;
     createdAt?: string;
+} | CommentDeletedThreadItemDto;
+
+/** The first item after its author deleted it while others had replied: no text and no author */
+export type CommentDeletedThreadItemDto = {
+    id: string;
+    deleted: true;
+    createdAt?: string;
 };
 
 export type CommentDto = {
@@ -71,6 +78,9 @@ function toAuthorDto(authorId: string | undefined, visitorAuthorId: string | und
 }
 
 function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined): CommentThreadItemDto {
+    if (typeof item.deletedAt === 'string')
+        return { id: String(item.id), deleted: true, createdAt: optionalString(item.createdAt) };
+
     return {
         id: String(item.id),
         text: optionalString(item.text) ?? '',

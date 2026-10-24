@@ -50,7 +50,8 @@ type CommentDto = {
     id: string;
     path: string;
     position: Record<string, unknown>;
-    thread: { items: { id: string; text: string; quotedText?: string; author: { name: string; isMe: boolean }; createdAt?: string }[] };
+    // A deleted first item has only `id`, `deleted` and `createdAt`
+    thread: { items: { id: string; text: string; quotedText?: string; author: { name: string; isMe: boolean }; createdAt?: string; deleted?: true }[] };
     device?: { size?: string };
     resolved: boolean;
     isMine: boolean;
@@ -176,6 +177,132 @@ test('only the author can resolve or delete a comment', async ({ newVisitor }) =
     const deleted = await author.delete(`/api/comments/${comment.id}/replies/${firstItemId}`);
     expect(deleted.status()).toBe(204);
     expect(await listComments(author, path)).toEqual([]);
+});
+
+test('deleting a comment others replied to keeps the thread', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const author = await newVisitor();
+    const replier = await newVisitor();
+    const comment = await created(await createComment(author, path, {
+        position: selectionPosition,
+        text: 'This sentence is hard to read.',
+        quotedText: 'leaving comments directly on it'
+    }));
+    const firstItem = comment.thread.items[0]!;
+    const othersReply = (await created(await replier.post(`/api/comments/${comment.id}/replies`, { data: { text: 'I like it' } }))).thread.items[1]!;
+    const ownReply = (await created(await author.post(`/api/comments/${comment.id}/replies`, { data: { text: 'Fair enough' } }))).thread.items[2]!;
+
+    // The author deletes the comment: its text goes, the thread and every reply stay
+    const response = await author.delete(`/api/comments/${comment.id}`);
+    expect(response.status(), await response.text()).toBe(200);
+    const kept = await response.json() as CommentDto;
+    expect(Object.keys(kept).sort()).toEqual(commentKeys);
+    // Nobody owns the thread any more; the position (and the selected page text in it) stays
+    expect(kept).toMatchObject({ id: comment.id, path, position: selectionPosition, resolved: false, isMine: false });
+    const [placeholder, ...replies] = kept.thread.items;
+    expect(placeholder).toEqual({ id: firstItem.id, deleted: true, createdAt: firstItem.createdAt });
+    expect(replies.map(item => [item.id, item.text, item.author.isMe])).toEqual([
+        [othersReply.id, 'I like it', false],
+        [ownReply.id, 'Fair enough', true]
+    ]);
+
+    // Every visitor sees the placeholder; the text and quoted text are not returned to anyone
+    const [seenByReplier] = await listComments(replier, path);
+    expect(seenByReplier).toMatchObject({ id: comment.id, isMine: false });
+    expect(seenByReplier!.thread.items[0]).toEqual(placeholder);
+    for (const visitor of [author, replier]) {
+        const listed = JSON.stringify(await listComments(visitor, path));
+        expect(listed).not.toContain('hard to read');
+        expect(listed).not.toContain('directly on it');
+    }
+
+    // Nobody can resolve or delete the thread now, or delete the placeholder
+    for (const visitor of [author, replier]) {
+        await expectError(await visitor.patch(`/api/comments/${comment.id}`, { data: { resolved: true } }), 403, 'forbidden');
+        await expectError(await visitor.delete(`/api/comments/${comment.id}`), 403, 'forbidden');
+        await expectError(await visitor.delete(`/api/comments/${comment.id}/replies/${firstItem.id}`), 403, 'forbidden');
+    }
+
+    // Anyone can still reply
+    const third = await newVisitor();
+    const thirdReply = (await created(await third.post(`/api/comments/${comment.id}/replies`, { data: { text: 'Same here' } }))).thread.items[3]!;
+
+    // Replies are deleted by their authors only; the last one takes the thread with it
+    await expectError(await replier.delete(`/api/comments/${comment.id}/replies/${ownReply.id}`), 403, 'forbidden');
+    for (const [visitor, item] of [[author, ownReply], [third, thirdReply]] as const) {
+        const deleted = await visitor.delete(`/api/comments/${comment.id}/replies/${item.id}`);
+        expect(deleted.status()).toBe(200);
+        expect((await deleted.json() as CommentDto).thread.items[0]).toEqual(placeholder);
+    }
+    const last = await replier.delete(`/api/comments/${comment.id}/replies/${othersReply.id}`);
+    expect(last.status()).toBe(204);
+    expect(await listComments(author, path)).toEqual([]);
+    await expectError(await replier.post(`/api/comments/${comment.id}/replies`, { data: { text: 'Hello?' } }), 404, 'not_found');
+});
+
+test('deleting a comment without other visitors\' replies deletes it with the author\'s replies', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const author = await newVisitor();
+    const comment = await created(await createComment(author, path));
+    await created(await author.post(`/api/comments/${comment.id}/replies`, { data: { text: 'One more thing' } }));
+
+    const deleted = await author.delete(`/api/comments/${comment.id}/replies/${comment.thread.items[0]!.id}`);
+    expect(deleted.status()).toBe(204);
+    expect(await listComments(author, path)).toEqual([]);
+    await expectError(await author.post(`/api/comments/${comment.id}/replies`, { data: { text: 'Hello?' } }), 404, 'not_found');
+});
+
+test('a thread keeps its resolved state when its comment is deleted', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const author = await newVisitor();
+    const replier = await newVisitor();
+    const comment = await created(await createComment(author, path));
+    await created(await replier.post(`/api/comments/${comment.id}/replies`, { data: { text: 'Done' } }));
+    expect((await author.patch(`/api/comments/${comment.id}`, { data: { resolved: true } })).status()).toBe(200);
+
+    const deleted = await author.delete(`/api/comments/${comment.id}`);
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toMatchObject({ resolved: true, isMine: false });
+    // Without an author nobody can reopen it
+    await expectError(await author.patch(`/api/comments/${comment.id}`, { data: { resolved: false } }), 403, 'forbidden');
+    expect(await listComments(replier, path)).toMatchObject([{ id: comment.id, resolved: true }]);
+});
+
+test('a reply sent while the author deletes the comment is never lost or brought back', async ({ newVisitor }) => {
+    for (let round = 0; round < 5; round++) {
+        const path = uniquePagePath();
+        const author = await newVisitor();
+        const comment = await created(await createComment(author, path));
+        const repliers = await Promise.all(Array.from({ length: 5 }, () => newVisitor()));
+
+        const [deleted, ...replies] = await Promise.all([
+            author.delete(`/api/comments/${comment.id}`),
+            ...repliers.map((replier, index) => replier.post(`/api/comments/${comment.id}/replies`, { data: { text: `Reply ${index}` } }))
+        ]);
+        const saved: string[] = [];
+        for (const [index, reply] of replies.entries()) {
+            if (reply.status() === 201) {
+                saved.push(`Reply ${index}`);
+            } else {
+                await expectError(reply, 404, 'not_found');
+            }
+        }
+
+        const stored = await listComments(author, path);
+        if (deleted.status() === 204) {
+            // Deleted before any reply was saved: the replies found nothing to attach to
+            expect(saved).toEqual([]);
+            expect(stored).toEqual([]);
+        } else {
+            // A reply was saved first: the thread stays, with every reply
+            expect(deleted.status(), await deleted.text()).toBe(200);
+            expect(saved).toHaveLength(repliers.length);
+            expect(stored).toHaveLength(1);
+            const [placeholder, ...rest] = stored[0]!.thread.items;
+            expect(placeholder).toMatchObject({ id: comment.thread.items[0]!.id, deleted: true });
+            expect(rest.map(item => item.text).sort()).toEqual(saved.sort());
+        }
+    }
 });
 
 test('unknown comments are not found', async ({ newVisitor }) => {
