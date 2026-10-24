@@ -26,6 +26,7 @@ export default defineConfig({
             UIER_LOCAL: '1',
             // The comments API uses its in-memory store, never a database configured in .env.local
             COSMOSDB_CONNECTION_STRING: '',
+            COSMOSDB_ENDPOINT: '',
             // Locally BotID treats every request as human unless this simulates another verdict
             UIER_BOTID_DEV_BYPASS: '',
         },

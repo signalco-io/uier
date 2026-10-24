@@ -77,9 +77,9 @@ pnpm dev
 - Open the app on `localhost` (not `127.0.0.1`): the development toolbar build always talks to the local
   comments API on http://localhost:4004/api/comments, never to uier.io.
 
-The comments API needs no database locally: without `COSMOSDB_CONNECTION_STRING` it keeps comments in
-memory (lost on restart; one warning in the server log). To use a real Cosmos DB (an emulator or your own
-serverless account), copy [`apps/web/.env.example`](apps/web/.env.example) to `apps/web/.env.local` and set
+The comments API needs no database locally: without `COSMOSDB_CONNECTION_STRING` (or `COSMOSDB_ENDPOINT`) it
+keeps comments in memory (lost on restart; one warning in the server log). To use a real Cosmos DB (an emulator
+or your own serverless account), copy [`apps/web/.env.example`](apps/web/.env.example) to `apps/web/.env.local` and set
 the variables there.
 
 ### Commands
@@ -184,7 +184,8 @@ except plain http on a loopback host (local development and tests). Comments sto
 `authorId = sha256(token)`, never the token. Visitors are shown as `Guest XXXX` (4 hex characters of an HMAC of
 the author id with a server key, so a name can't be forged offline) and as "You" for their own items; the API
 returns `isMine` / `author.isMe` so only the author sees the resolve and delete actions. The server key is
-derived from `COSMOSDB_CONNECTION_STRING`; rotating the Cosmos DB key changes every guest name and nothing else.
+`UIER_COMMENTS_SECRET`, a random value Pulumi sets separately for production and previews (locally a fixed
+development key); changing it changes every guest name and nothing else.
 
 **Limits** (all in [`limits.ts`](apps/web/src/lib/comments/limits.ts)). Rate limits are fixed windows per domain,
 counted atomically in small counter documents (`type: 'counter'`, id = HMAC of the subject and window, expiring
@@ -220,21 +221,24 @@ after their last change. The container has `defaultTtl: -1` (TTL enabled, nothin
 
 | Environment | Store |
 | --- | --- |
-| Vercel production | Cosmos DB container `comments` (`COSMOSDB_CONNECTION_STRING`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
-| Vercel preview (pull requests) | Cosmos DB container `comments-preview` in the same database (secondary account key, `defaultTtl` 7 days) |
-| Local development, e2e tests | In memory, when `COSMOSDB_CONNECTION_STRING` is not set (`next dev`, or `UIER_LOCAL=1`) |
+| Vercel production | Cosmos DB container `comments` (account key: `COSMOSDB_CONNECTION_STRING`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
+| Vercel preview (pull requests) | Cosmos DB container `comments-preview` in the same database (`defaultTtl` 7 days), no account key: Microsoft Entra ID with the deployment's Vercel OIDC token (`COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `COSMOSDB_COMMENTS_CONTAINER=comments-preview`) |
+| Local development, e2e tests | In memory, when neither `COSMOSDB_CONNECTION_STRING` nor `COSMOSDB_ENDPOINT` is set (`next dev`, or `UIER_LOCAL=1`) |
 
-Outside local development a missing `COSMOSDB_CONNECTION_STRING` is an error (`500`), never a silent in-memory
-store. The preview variables exist once `pulumi up` has run on `main`, so the comments API of a pull request
-that is opened before that returns `500`.
+Outside local development a missing Cosmos DB configuration or `UIER_COMMENTS_SECRET` is an error (`500`), never
+a silent in-memory store. The preview variables exist once `pulumi up` has run on `main`, so the comments API of
+a preview deployed before that returns `500`.
 
-The secondary key that previews use is an account key: it can read and write the production `comments`
-container too. Only `COSMOSDB_COMMENTS_CONTAINER` keeps previews on `comments-preview`. Previews are behind
-Vercel authentication and fork pull requests are not deployed; regenerate the secondary key after any
-suspicious preview.
+Previews can't reach production comments. They get no account key: they authenticate as a user-assigned
+managed identity that trusts only the OIDC token of this Vercel project's preview deployments, and its only
+Cosmos DB role (the built-in Data Contributor) is scoped to the `comments-preview` container. Any other
+container answers `403`, whatever `COSMOSDB_COMMENTS_CONTAINER` says. The trust follows the token's claims
+(team issuer `https://oidc.vercel.com/signalco`, subject `owner:signalco:project:uier:environment:preview`):
+renaming the Vercel team or project, or switching the project to the global issuer, stops preview access until
+[`infra/src/index.ts`](infra/src/index.ts) is updated.
 
-`COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). Both variables are managed by Pulumi
-(see [Infrastructure](#infrastructure)).
+`COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). All of these variables are managed by
+Pulumi (see [Infrastructure](#infrastructure)).
 
 ### Removing abusive comments
 
@@ -261,13 +265,17 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
 **`organization/uier/uier-production`**. It manages:
 
 - the Vercel project **`uier`** (`prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc`, root directory `apps/web`, Node.js 24,
-  function region `dub1`), its domain `uier.io` and the comments API variables: `COSMOSDB_CONNECTION_STRING`
-  (production: the Cosmos DB account's primary key, preview: its secondary key) and
-  `COSMOSDB_COMMENTS_CONTAINER` (production: `comments`, preview: `comments-preview`),
+  function region `dub1`), its domain `uier.io` and the comments API variables: production gets
+  `COSMOSDB_CONNECTION_STRING` (the Cosmos DB account's primary key) and `COSMOSDB_COMMENTS_CONTAINER=comments`,
+  preview gets `COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` (the managed identity below) and
+  `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`,
 - the Cloudflare DNS record for `uier.io`,
 - the Azure resource group `uier-production8b2f56d6` (Pulumi logical name `uier-production`) with a
   serverless Cosmos DB account (database `uierdata`, containers `comments` with per-item TTL enabled
-  (`defaultTtl: -1`) and `comments-preview` (`defaultTtl` 7 days), both partitioned by `/domain`).
+  (`defaultTtl: -1`) and `comments-preview` (`defaultTtl` 7 days), both partitioned by `/domain`) and the
+  user-assigned managed identity `uier-preview-cosmos...` of preview deployments: a federated identity
+  credential for the Vercel OIDC token of the project's preview deployments and a Cosmos DB data plane role
+  assignment (built-in Data Contributor) on the `comments-preview` container.
 
 State lives in the self-managed backend `azblob://states` (storage account `sastate2a61d506`) and stack
 secrets are encrypted with the Azure Key Vault key `vault-pulumib5f713d9/pulumi-backend`. Nothing in the
@@ -349,6 +357,10 @@ and these role assignments:
 | Contributor | resource group `uier-production8b2f56d6` |
 | Key Vault Crypto User | key `pulumi-backend` in `vault-pulumib5f713d9` |
 | Storage Blob Data Contributor | container `states` in `sastate2a61d506` |
+
+Contributor on the resource group also covers the preview managed identity, its federated credential and the
+Cosmos DB data plane role assignment (`Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments/write` is a
+Cosmos DB control plane action, not a `Microsoft.Authorization` one, which Contributor excludes).
 
 The workflows do not use GitHub deployment environments; adding `environment:` to a job that logs into Azure
 changes its OIDC subject to `repo:signalco-io@89613566/uier@1432139886:environment:<name>`.

@@ -5,9 +5,15 @@ standalone pnpm project (own `package.json` and lockfile), deliberately outside 
 so web development never installs Pulumi dependencies.
 
 It manages the Vercel project `uier` (root directory `apps/web`, Node 24, region `dub1`, the
-`uier.io` domain, the production `COSMOSDB_CONNECTION_STRING`), the Cloudflare DNS record for
+`uier.io` domain, the comments API environment variables), the Cloudflare DNS record for
 `uier.io`, and the Azure resource group with a serverless Cosmos DB account (database
-`uierdata`, container `comments` partitioned by `/domain`).
+`uierdata`, containers `comments` and `comments-preview` partitioned by `/domain`).
+
+Production reaches Cosmos DB with the account's primary key. Preview deployments get no account
+key: they use a user-assigned managed identity that trusts the Vercel OIDC token of the project's
+preview deployments (federated identity credential) and has the built-in Data Contributor role on
+`comments-preview` only. Never give previews a connection string again; the federated credential
+hardcodes the Vercel team slug, project name and team issuer mode, so update it when those change.
 
 ## Rules
 

@@ -34,8 +34,8 @@ The [README](README.md) covers setup, commands, infrastructure and CI/CD in full
 - **Conventional Commits** (`feat:`, `fix:`, `chore(deps):` ...) and pull requests against
   `main`. `main` is production: every push deploys (`pulumi up`, then Vercel).
 - Do not run `pulumi up` locally and do not change protected infrastructure; CI applies infra.
-- Secrets never go in the repo. `COSMOSDB_CONNECTION_STRING` lives in Vercel (set by Pulumi)
-  and in your local `apps/web/.env.local`.
+- Secrets never go in the repo. `COSMOSDB_CONNECTION_STRING` and `UIER_COMMENTS_SECRET` live in
+  Vercel (set by Pulumi); a local connection string goes in `apps/web/.env.local`.
 
 ## Commands (repository root)
 
