@@ -86,9 +86,13 @@ jobs:
           fi
 
       # `vercel build` needs no token: it uses the settings and env pulled above.
+      # UIER_DEPLOYMENT_ENV: the project exposes no Vercel system variables (VERCEL_ENV, VERCEL_URL)
+      # to the build or its functions, so the app learns production or preview from here; next.config.ts
+      # inlines it (apps/web/src/lib/app/request.ts, `deploymentEnvironment()`).
       - name: Build
         env:
           PRODUCTION: ${{ inputs.production }}
+          UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
         run: |
           if [ "$PRODUCTION" = "true" ]; then
             vercel build --prod

@@ -7,11 +7,11 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
-    // The Vercel environment (production or preview), inlined at build time: `vercel build` sets
-    // VERCEL_ENV, but the project does not expose system variables to its functions at runtime.
-    // Read it with `deploymentEnvironment()` (src/lib/app/request.ts).
+    // The deployment environment (production or preview), inlined at build time: the deploy
+    // workflow sets UIER_DEPLOYMENT_ENV for `vercel build` (the project exposes no Vercel system
+    // variables). Read it with `deploymentEnvironment()` (src/lib/app/request.ts).
     env: {
-        UIER_DEPLOYMENT_ENV: process.env.VERCEL_ENV ?? ''
+        UIER_DEPLOYMENT_ENV: process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV || ''
     },
     reactCompiler: true,
     // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
