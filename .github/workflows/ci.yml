@@ -64,13 +64,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Next.js build cache
-        uses: actions/cache@v6
-        with:
-          path: apps/web/.next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/app/**', 'apps/web/src/**', 'packages/toolbar/src/**', 'packages/brand/**') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+      # No .next/cache cache: Turbopack production builds don't use it, and CI never runs on main,
+      # so PRs had nothing to restore while saving it cost seconds at the end of every run.
 
       # Pinned to the exact release: the floating v6 tag (v6.0.10) predates pnpm v12 support.
       - name: Setup pnpm
@@ -91,9 +86,13 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Tests run headless, so only the headless shell is needed (not full Chromium). No --with-deps:
+      # the runner image ships Google Chrome, so its system libraries are already installed, and the
+      # apt step took most of this step's time. If they ever go missing, Playwright fails at launch
+      # with "Host system is missing dependencies"; add --with-deps back then.
       - name: Install Playwright browsers
         working-directory: apps/web
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --only-shell chromium
 
       - name: End-to-end tests
         run: pnpm test
