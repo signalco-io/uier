@@ -120,12 +120,11 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
   comments, a second visitor who can reply but not resolve or delete, a deleted comment whose replies stay,
-  review mode on other pages. Review links, the review session, the toolbar's controls (collapse, profile,
-  options, sign out) and its style isolation are in [`review.spec.ts`](apps/web/e2e/review.spec.ts). Each of
-  these tests opens the site on an origin of its own
-  (`<random>.localhost:4004`, on the test port), so its comments are isolated from the other tests.
-  [`embed.spec.ts`](apps/web/e2e/embed.spec.ts) loads `/toolbar.js` on a reviewed site on another origin (a
-  small server on `reviewed.localhost`).
+  review mode on other pages. Review links, the review session and the toolbar's controls (collapse, profile,
+  options, sign out) are in [`review.spec.ts`](apps/web/e2e/review.spec.ts). Each of these tests opens the site
+  on an origin of its own (`<random>.localhost:4004`, on the test port), so its comments are isolated from the
+  other tests. [`embed.spec.ts`](apps/web/e2e/embed.spec.ts) loads `/toolbar.js` on a reviewed site on another
+  origin (a small server on `reviewed.localhost`) and checks that it leaves that site's styles alone.
 
 Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
 (`api.vercel.com`), so they need network access.

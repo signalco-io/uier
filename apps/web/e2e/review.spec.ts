@@ -114,7 +114,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expect(page.getByRole('button', { name: 'Options' })).toHaveCount(0);
 
     // The first comment gives the visitor a guest name
-    await page.getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
@@ -145,48 +145,4 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expect(openThread(page).getByRole('button', { name: 'Resolve' })).toHaveCount(0);
 
     await context.close();
-});
-
-/** Computed styles of a few of the page's elements */
-async function pageStyles(page: Page) {
-    return await page.evaluate(() => ['html', 'body', 'h1', 'p', 'a', 'button'].map(selector => {
-        const element = document.querySelector(selector);
-        if (!element) {
-            return null;
-        }
-        const style = getComputedStyle(element);
-        return [...style].map(property => `${property}: ${style.getPropertyValue(property)}`);
-    }));
-}
-
-test('the toolbar mounts in its shadow root and leaves the page\'s styles alone', async ({ page }) => {
-    await page.goto('/brand?review=true');
-    const before = await pageStyles(page);
-    const documentStyles = await page.evaluate(() => document.styleSheets.length + document.adoptedStyleSheets.length);
-
-    await addToolbarScript(page);
-    await expect(toolbar(page)).toBeVisible();
-    await page.getByRole('button', { name: 'Profile' }).click();
-    await expect(page.getByRole('dialog', { name: 'Profile' })).toBeVisible();
-
-    expect(await pageStyles(page)).toEqual(before);
-    const mounted = await page.evaluate(() => {
-        const host = document.getElementById('uier-toolbar');
-        return {
-            styleSheets: document.styleSheets.length + document.adoptedStyleSheets.length,
-            // Everything is in the shadow root: no children in the page, the CSS is inside
-            hostChildren: host?.children.length,
-            shadowStyles: host?.shadowRoot?.querySelectorAll('style').length,
-            // The popover renders into the shadow root as well
-            dialogsInPage: document.querySelectorAll('[role="dialog"]').length,
-            dialogsInShadowRoot: host?.shadowRoot?.querySelectorAll('[role="dialog"]').length
-        };
-    });
-    expect(mounted).toEqual({
-        styleSheets: documentStyles,
-        hostChildren: 0,
-        shadowStyles: 1,
-        dialogsInPage: 0,
-        dialogsInShadowRoot: 1
-    });
 });

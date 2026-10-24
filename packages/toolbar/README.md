@@ -114,7 +114,7 @@ error boundary, so one bad comment never breaks the toolbar.
 - `src/index.tsx` mounts the toolbar into an open shadow root on `<div id="uier-toolbar">` (open so
   assistive technologies, accessibility checks and end-to-end tests can reach it; the page's own scripts
   and styles can't change it by accident either way). Everything, popovers included, renders inside it and
-  the toolbar adds no styles to the page (`apps/web/e2e/review.spec.ts` checks the page's computed styles).
+  the toolbar adds no styles to the page (`apps/web/e2e/embed.spec.ts` checks a reviewed site's computed styles).
 - Styles are compiled with Tailwind CSS v4 (`src/index.css`, `postcss.config.mjs`) and inlined into
   `dist/index.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`).
 - Colors come from `@uier/brand/tokens.css`. The pill, the pins and the inbox sidebar are always ink
