@@ -43,13 +43,14 @@ const selectionPosition = {
     endType: 'text'
 };
 
-const commentKeys = ['createdAt', 'id', 'isMine', 'path', 'position', 'resolved', 'thread'];
+const commentKeys = ['createdAt', 'id', 'isMine', 'kind', 'path', 'position', 'resolved', 'thread'];
 const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'windowSize', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
 
 type CommentDto = {
     id: string;
     path: string;
     position: Record<string, unknown>;
+    kind: string;
     // A deleted first item has only `id`, `deleted` and `createdAt`
     thread: { items: { id: string; text: string; quotedText?: string; author: { name: string; isMe: boolean }; createdAt?: string; deleted?: true }[] };
     device?: { size?: string };
@@ -115,7 +116,7 @@ test('create, list, reply, resolve and delete a comment', async ({ newVisitor })
 
     const comment = await created(await createComment(author, path, { text: '  Nice page\u202e!  ' }));
     expect(Object.keys(comment).sort()).toEqual(commentKeys);
-    expect(comment).toMatchObject({ path, position: pointPosition, resolved: false, isMine: true });
+    expect(comment).toMatchObject({ path, position: pointPosition, kind: 'comment', resolved: false, isMine: true });
     expect(comment.id).toMatch(/^comment_/);
     expect(Date.parse(comment.createdAt ?? '')).not.toBeNaN();
     expect(comment.thread.items).toHaveLength(1);
@@ -403,6 +404,37 @@ test('anonymous visitor cookie', async ({ newVisitor }) => {
     const httpsVisitor = await newVisitor({ headers: { 'X-Forwarded-Proto': 'https' } });
     const httpsCookie = visitorCookie(await createComment(httpsVisitor, path));
     expect(httpsCookie?.split('; ')).toContain('Secure');
+});
+
+test('feedback and bug reports are about the page', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+    const page = { type: 'page' };
+
+    const bug = await created(await createComment(visitor, path, { position: page, kind: 'bug', text: 'The footer links go nowhere.' }));
+    expect(bug).toMatchObject({ position: page, kind: 'bug', resolved: false, isMine: true });
+    const feedback = await created(await createComment(visitor, path, {
+        position: { ...page, selector: 'main' },
+        kind: 'feedback',
+        text: 'Love the pins.',
+        device: { size: 'desktop' }
+    }));
+    expect(feedback).toMatchObject({ position: page, kind: 'feedback', device: { size: 'desktop' } });
+
+    // Retained: listed with the page's comments, kind and text included
+    expect((await listComments(visitor, path)).map(c => [c.kind, c.thread.items[0]!.text])).toEqual([
+        ['feedback', 'Love the pins.'],
+        ['bug', 'The footer links go nowhere.']
+    ]);
+
+    // Anyone can reply, like on any thread
+    await created(await (await newVisitor()).post(`/api/comments/${bug.id}/replies`, { data: { text: 'Fixed in the next release.' } }));
+
+    // Comments are pinned; feedback and bug reports are not
+    await expectError(await createComment(visitor, path, { position: page }), 400, 'invalid_request');
+    await expectError(await createComment(visitor, path, { position: page, kind: 'comment' }), 400, 'invalid_request');
+    await expectError(await createComment(visitor, path, { kind: 'bug' }), 400, 'invalid_request');
+    await expectError(await createComment(visitor, path, { position: page, kind: 'praise' }), 400, 'invalid_request');
 });
 
 test('visitor: guest name and signing out', async ({ newVisitor }) => {

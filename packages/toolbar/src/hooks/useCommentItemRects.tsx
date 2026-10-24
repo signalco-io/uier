@@ -28,9 +28,11 @@ export function resolveAnchorElement(position: CommentItemPosition | null | unde
         return null;
     }
 
-    return position.type === 'text'
-        ? safeQuerySelector(position.startSelector)
-        : safeQuerySelector(position.selector);
+    switch (position.type) {
+        case 'text': return safeQuerySelector(position.startSelector);
+        case 'point': return safeQuerySelector(position.selector);
+        default: return null;
+    }
 }
 
 /** Largest valid range offset in the node: characters in text nodes, children in elements */
@@ -105,7 +107,8 @@ function textRects(position: Extract<CommentItemPosition, { type: 'text' }>): DO
 
 /**
  * Viewport rectangles of a stored comment position: one 1x1 rect for a point comment, the line
- * boxes of the range for a text comment. Never throws; an unresolvable position has no rects.
+ * boxes of the range for a text comment. Never throws; an unresolvable position (and feedback
+ * about the whole page) has no rects.
  */
 export function getCommentItemRects(position: CommentItemPosition | null | undefined): DOMRect[] {
     if (!position) {
@@ -113,9 +116,11 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
     }
 
     try {
-        return position.type === 'text'
-            ? textRects(position)
-            : pointRects(position);
+        switch (position.type) {
+            case 'text': return textRects(position);
+            case 'point': return pointRects(position);
+            default: return [];
+        }
     } catch (error) {
         console.warn('uier: Could not place a comment on this page', error);
         return [];

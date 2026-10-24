@@ -11,6 +11,7 @@ import { CommentIcon } from './CommentIcon';
 import { InkScope } from './InkScope';
 import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
+import { ToolbarFeedback } from './ToolbarFeedback';
 import { commentsListMaxLength } from './@types/Comments';
 
 type CommentToolbarProps = {
@@ -33,6 +34,8 @@ type CommentToolbarProps = {
     /** `fromKeyboard` is set when the button was activated with the keyboard (Enter or Space) */
     onAddPointComment: (fromKeyboard: boolean) => void;
     onShowSidebar: () => void;
+    /** The feedback dialog opened */
+    onFeedbackOpen?: () => void;
     onToggleHint?: () => void;
     onCollapsedChange: (collapsed: boolean) => void;
     /** Ends the review (`review` mode) */
@@ -49,7 +52,7 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, onAddPointComment, onShowSidebar, onToggleHint, onCollapsedChange, onExitReview
+    addButtonRef, inboxButtonRef, hintButtonRef, onAddPointComment, onShowSidebar, onFeedbackOpen, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
     const capped = commentsCountCapped || commentsCount >= commentsListMaxLength;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
@@ -129,6 +132,7 @@ export function CommentToolbar({
                                 onClick={handleAddClick}>
                                 <CommentIcon icon="add" size={24} variant="outlined" aria-hidden="true" />
                             </IconButton>
+                            <ToolbarFeedback onOpen={onFeedbackOpen} />
                             <IconButton
                                 ref={inboxButtonRef}
                                 variant="plain"

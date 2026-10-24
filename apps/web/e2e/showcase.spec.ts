@@ -440,6 +440,63 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await context.close();
 });
 
+test('feedback and bug reports from the toolbar', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    const sendFeedback = page.getByRole('button', { name: 'Send feedback' });
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    const type = dialog.getByRole('group', { name: 'Type' });
+    const feedbackType = type.getByRole('button', { name: 'Feedback' });
+    const bugType = type.getByRole('button', { name: 'Bug report' });
+
+    // A bug report
+    await sendFeedback.click();
+    await expect(feedbackType).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByRole('textbox', { name: 'Feedback' })).toBeFocused();
+    await bugType.click();
+    await expect(bugType).toHaveAttribute('aria-pressed', 'true');
+    await expect(feedbackType).toHaveAttribute('aria-pressed', 'false');
+    const bugDescription = dialog.getByRole('textbox', { name: 'Bug report' });
+    await bugDescription.fill('The footer links go nowhere.');
+    await expectNoAxeViolations(page);
+    await bugDescription.press('Enter');
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Bug report sent' })).toBeAttached();
+    // About the page: in the inbox, no pin
+    await expect(page.getByRole('button', { name: 'Inbox, 1 comment' })).toBeVisible();
+    await expect(commentBubbles(page)).toHaveCount(0);
+
+    // Feedback (the heart)
+    await sendFeedback.click();
+    await feedbackType.click();
+    await dialog.getByRole('textbox', { name: 'Feedback' }).fill('Love the pins.');
+    await dialog.getByRole('button', { name: 'Send feedback' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+
+    // Both are kept with their type and description
+    const saved = await page.evaluate(async () => {
+        const response = await fetch('/api/comments?path=/');
+        return (await response.json() as { kind: string; position: { type: string }; thread: { items: { text: string }[] } }[])
+            .map(comment => [comment.kind, comment.position.type, comment.thread.items[0]?.text]);
+    });
+    expect(saved).toEqual([
+        ['feedback', 'page', 'Love the pins.'],
+        ['bug', 'page', 'The footer links go nowhere.']
+    ]);
+    await page.reload();
+    await page.getByRole('button', { name: 'Inbox, 2 comments' }).click();
+    const sidebar = page.getByRole('complementary', { name: 'Comments' });
+    await expect(sidebar.getByText('Bug report', { exact: true })).toBeVisible();
+    await expect(sidebar.getByText('The footer links go nowhere.')).toBeVisible();
+    await expect(sidebar.getByText('Feedback', { exact: true })).toBeVisible();
+    await expect(sidebar.getByText('Love the pins.')).toBeVisible();
+
+    await context.close();
+});
+
 test('rate limit messages tell a full page from a fast visitor', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);

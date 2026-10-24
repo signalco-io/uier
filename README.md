@@ -240,7 +240,7 @@ trailing slash).
 | Request | Body | Response |
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
-| `POST /api/comments` | `{ path, position, text, quotedText?, device? }` | `201` the new comment |
+| `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device? }` | `201` the new comment. `kind` is `comment` (default; `position` is a point or a text selection), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |

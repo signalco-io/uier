@@ -105,6 +105,10 @@ export function CommentsGlobal({
     const unresolvedComments = useMemo(
         () => sortByDocumentPosition((allComments ?? []).filter(c => !c.resolved)),
         [allComments]);
+    // Feedback and bug reports are about the whole page: in the inbox, without a pin
+    const pinnedComments = useMemo(
+        () => unresolvedComments.filter(c => c.position.type !== 'page'),
+        [unresolvedComments]);
     // The API lists at most this many comments; the page can have more
     const commentsCountCapped = (allComments?.length ?? 0) >= commentsListMaxLength;
 
@@ -294,9 +298,9 @@ export function CommentsGlobal({
     return (
         <>
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
-            {unresolvedComments.length > 0 && (
+            {pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">
-                    {unresolvedComments.map((commentItem) => (
+                    {pinnedComments.map((commentItem) => (
                         <CommentErrorBoundary key={commentItem.id} commentId={commentItem.id}>
                             <CommentBubble
                                 commentItem={commentItem}
@@ -347,6 +351,10 @@ export function CommentsGlobal({
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
                 onShowSidebar={() => setSidebarOpen(true)}
+                onFeedbackOpen={() => {
+                    setCreatingCommentPoint(false);
+                    closeHintForUse();
+                }}
                 onToggleHint={() => hintOpen ? handleDismissHint(false) : setHintOpen(true)}
                 onCollapsedChange={handleCollapsedChange}
                 onExitReview={onExitReview} />

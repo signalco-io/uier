@@ -39,7 +39,18 @@ export type CommentSelection = {
     endType: 'text' | 'element';
 }
 
-export type CommentItemPosition = CommentPoint | CommentSelection;
+/** Feedback about the page as a whole (feedback and bug reports): no pin */
+export type CommentPage = {
+    type: 'page';
+};
+
+/** Where a comment is pinned: an element (point) or selected text */
+export type CommentAnchor = CommentPoint | CommentSelection;
+
+export type CommentItemPosition = CommentAnchor | CommentPage;
+
+/** A comment pinned to the page, general feedback or a bug report */
+export type CommentKind = 'comment' | 'feedback' | 'bug';
 
 export type CommentAuthor = {
     /** Display name, `Guest XXXX` for anonymous visitors */
@@ -88,6 +99,8 @@ export type CommentItem = {
     id: string;
     path: string;
     position: CommentItemPosition;
+    /** `feedback` and `bug` have a `page` position */
+    kind: CommentKind;
     thread: CommentItemThread;
     /** Only the coarse device size is returned */
     device?: { size?: CommentDeviceSize };
@@ -102,7 +115,7 @@ export type CommentItem = {
 
 /** A comment that is being written and is not saved yet */
 export type CommentDraft = {
-    position: CommentItemPosition;
+    position: CommentAnchor;
     device?: CommentDeviceInfo;
 }
 

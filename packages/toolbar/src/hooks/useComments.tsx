@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
-import { CommentDeviceInfo, CommentItem, CommentItemPosition } from '../components/@types/Comments';
+import { CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
 import { apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey } from './api';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
@@ -16,6 +16,8 @@ function commentUrl(commentId: string) {
 
 export type CreateCommentInput = {
     position: CommentItemPosition;
+    /** `comment` (default) for pinned comments; `feedback` and `bug` with a `page` position */
+    kind?: CommentKind;
     text: string;
     quotedText?: string;
     device?: CommentDeviceInfo;
@@ -26,10 +28,10 @@ async function getComments(path: string) {
     return Array.isArray(comments) ? comments : [];
 }
 
-async function createComment(path: string, { position, text, quotedText, device }: CreateCommentInput) {
+async function createComment(path: string, { position, kind, text, quotedText, device }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { path, position, text, quotedText, device }
+        body: { path, position, kind, text, quotedText, device }
     }));
 }
 

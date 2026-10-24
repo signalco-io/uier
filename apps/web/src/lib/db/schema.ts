@@ -16,7 +16,15 @@ export type DbCommentSelection = {
     endType: 'text' | 'element';
 };
 
-export type DbCommentPosition = DbCommentPoint | DbCommentSelection;
+/** Feedback about the page as a whole (feedback and bug reports), not pinned to an element */
+export type DbCommentPage = {
+    type: 'page';
+};
+
+export type DbCommentPosition = DbCommentPoint | DbCommentSelection | DbCommentPage;
+
+/** A comment on the page (pinned), general feedback or a bug report (`page` position) */
+export type DbCommentKind = 'comment' | 'feedback' | 'bug';
 
 export type DbDeviceSize = 'desktop' | 'tablet' | 'mobile';
 
@@ -53,6 +61,8 @@ export type DbComment = {
     /** Page path without query string and without a trailing slash (except "/") */
     path: string;
     position: DbCommentPosition;
+    /** Missing on old documents: `comment` */
+    kind?: DbCommentKind;
     thread: { items: DbThreadItem[] };
     device?: DbCommentDevice;
     resolved?: boolean;

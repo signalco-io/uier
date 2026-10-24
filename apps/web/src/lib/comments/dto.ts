@@ -1,4 +1,4 @@
-import type { DbComment, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { displayName } from './visitor';
 import { normalizePath } from './validation';
 
@@ -26,6 +26,7 @@ export type CommentDto = {
     id: string;
     path: string;
     position: DbCommentPosition;
+    kind: DbCommentKind;
     thread: { items: CommentThreadItemDto[] };
     device?: { size?: DbDeviceSize };
     resolved: boolean;
@@ -40,6 +41,7 @@ export type VisitorDto = {
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
+const commentKinds: readonly DbCommentKind[] = ['comment', 'feedback', 'bug'];
 
 function optionalString(value: unknown) {
     return typeof value === 'string' ? value : undefined;
@@ -71,6 +73,10 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
             endOffset: typeof value.endOffset === 'number' ? value.endOffset : 0,
             endType: value.endType === 'element' ? 'element' : 'text'
         };
+    }
+
+    if (value.type === 'page') {
+        return { type: 'page' };
     }
 
     return null;
@@ -113,6 +119,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         id: comment.id,
         path: normalizePath(optionalString(comment.path) ?? '/'),
         position,
+        kind: commentKinds.find(kind => kind === comment.kind) ?? 'comment',
         thread: {
             items: items
                 .filter(item => typeof item === 'object' && item !== null && item.id != null)
