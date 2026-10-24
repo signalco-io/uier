@@ -51,7 +51,9 @@ attributes or from `window.uierConfig`, set before the script:
 anonymous visitors with its HttpOnly `uier_visitor` cookie. Comments are public: every visitor sees the
 unresolved comments of the page (`?path=` is `location.pathname` without a trailing slash) and can reply.
 Only the author of a comment can resolve, reopen or delete it, and only the author of a reply can delete
-that reply (the API returns `isMine` / `author.isMe`). Texts are limited to 1000 characters. API errors
+that reply (the API returns `isMine` / `author.isMe`). When others replied, deleting a comment keeps the
+thread: its first item comes back as `{ deleted: true }` and shows as "Comment deleted", without author or
+actions. Deleting asks first and says what will go. Texts are limited to 1000 characters. API errors
 (`rate_limited`, `too_large`, `bot_detected`, ...) are shown as friendly inline messages
 (`src/components/CommentsErrorMessage.tsx`); a `rate_limited` body's `reason` tells a full page
 (`page_full`) from a visitor who sends too fast (`too_fast`, also when `reason` is missing), and

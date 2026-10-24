@@ -73,21 +73,24 @@ function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
 
 /**
  * Read-modify-write with optimistic concurrency (Cosmos etag / If-Match), retried on conflicts, so
- * concurrent replies or deletes never overwrite each other.
+ * concurrent replies or deletes never overwrite each other. `update` returns the new comment, or
+ * `null` to delete it; either is written only if the comment is still the version it was given.
  */
-async function updateComment(
+async function updateComment<T extends DbComment | null>(
     store: CommentsStore,
     domain: string,
     id: string,
-    update: (comment: DbComment) => DbComment
-) {
+    update: (comment: DbComment) => T
+): Promise<T> {
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
         const stored = await store.get(domain, id);
         if (!stored)
             throw apiErrors.notFound();
 
         const updated = update(stored.comment);
-        const result = await store.replace(updated, stored.etag);
+        const result = updated
+            ? await store.replace(updated, stored.etag)
+            : await store.delete(domain, id, stored.etag);
         if (result === 'ok')
             return updated;
         if (result === 'not_found')
@@ -184,51 +187,93 @@ export async function updateCommentResolved(context: CommentsApiContext, id: str
     return toDto(updated, context);
 }
 
-export async function deleteComment(context: CommentsApiContext, id: string) {
-    const store = getCommentsStore();
-    const stored = await store.get(context.domain, id);
-    if (!stored)
-        throw apiErrors.notFound();
+function threadItems(comment: DbComment) {
+    return Array.isArray(comment.thread?.items) ? comment.thread.items : [];
+}
 
-    assertCommentAuthor(stored.comment, context);
-    if (!await store.delete(context.domain, id))
-        throw apiErrors.notFound();
+function isDeletedItem(item: DbThreadItem) {
+    return typeof item.deletedAt === 'string';
 }
 
 /**
- * Deletes a thread item. Deleting the first item deletes the whole comment (returns `null`),
- * otherwise returns the updated comment.
+ * The comment without its first item, or `null` when the whole comment goes. Author of the comment
+ * only.
+ *
+ * When other visitors replied, their replies stay: the first item becomes a placeholder ("Comment
+ * deleted") without its text, quoted text and author, and the comment loses its author and device
+ * details, so nobody can resolve or delete the thread any more. Without other visitors' replies the
+ * comment is deleted, with the author's own replies.
+ */
+function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbComment | null {
+    assertCommentAuthor(comment, context);
+
+    const [first, ...replies] = threadItems(comment);
+    if (!first || replies.every(reply => reply.authorId === comment.authorId))
+        return null;
+
+    const now = nowIso();
+    const placeholder: DbThreadItem = { id: first.id, text: '', deletedAt: now };
+    if (first.createdAt)
+        placeholder.createdAt = first.createdAt;
+
+    const updated: DbComment = {
+        ...comment,
+        thread: { ...comment.thread, items: [placeholder, ...replies] },
+        updatedAt: now
+    };
+    delete updated.authorId;
+    delete updated.device;
+    return updated;
+}
+
+/**
+ * The comment without one of its replies, or `null` when only the placeholder of a deleted first
+ * item would be left. Author of the reply only.
+ */
+function withoutReply(comment: DbComment, itemId: string, context: CommentsApiContext): DbComment | null {
+    const items = threadItems(comment);
+    const reply = items.find(item => item.id === itemId);
+    if (!reply)
+        throw apiErrors.notFound('Reply not found.');
+    if (!reply.authorId || reply.authorId !== context.visitor.authorId)
+        throw apiErrors.forbidden('Only the author of the reply can delete it.');
+
+    const remaining = items.filter(item => item !== reply);
+    if (remaining.every(isDeletedItem))
+        return null;
+
+    return {
+        ...comment,
+        thread: { ...comment.thread, items: remaining },
+        updatedAt: nowIso()
+    };
+}
+
+/**
+ * Deletes the comment's first item (see {@link withoutFirstItem}). Returns `null` when the whole
+ * comment was deleted, otherwise the comment that stays.
+ */
+export async function deleteComment(context: CommentsApiContext, id: string): Promise<CommentDto | null> {
+    const updated = await updateComment(getCommentsStore(), context.domain, id,
+        comment => withoutFirstItem(comment, context));
+    return updated ? toDto(updated, context) : null;
+}
+
+/**
+ * Deletes a thread item: the first item as {@link deleteComment}, a reply with
+ * {@link withoutReply}. Returns `null` when the whole comment was deleted, otherwise the updated
+ * comment.
  */
 export async function deleteThreadItem(context: CommentsApiContext, id: string, itemId: string): Promise<CommentDto | null> {
-    const store = getCommentsStore();
-    const stored = await store.get(context.domain, id);
-    if (!stored)
-        throw apiErrors.notFound();
-
-    const items = Array.isArray(stored.comment.thread?.items) ? stored.comment.thread.items : [];
-    const itemIndex = items.findIndex(item => item.id === itemId);
-    if (itemIndex < 0)
-        throw apiErrors.notFound('Reply not found.');
-
-    if (itemIndex === 0) {
-        await deleteComment(context, id);
-        return null;
-    }
-
-    const updated = await updateComment(store, context.domain, id, comment => {
-        const currentItems = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
-        const item = currentItems.find(i => i.id === itemId);
-        if (!item)
+    const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
+        const itemIndex = threadItems(comment).findIndex(item => item.id === itemId);
+        if (itemIndex < 0)
             throw apiErrors.notFound('Reply not found.');
-        if (!item.authorId || item.authorId !== context.visitor.authorId)
-            throw apiErrors.forbidden('Only the author of the reply can delete it.');
 
-        return {
-            ...comment,
-            thread: { ...comment.thread, items: currentItems.filter(i => i !== item) },
-            updatedAt: nowIso()
-        };
+        return itemIndex === 0
+            ? withoutFirstItem(comment, context)
+            : withoutReply(comment, itemId, context);
     });
 
-    return toDto(updated, context);
+    return updated ? toDto(updated, context) : null;
 }

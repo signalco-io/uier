@@ -31,10 +31,10 @@ configuration: [README.md](README.md).
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about; the point-mode instruction (`role="status"`) |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line), keeps drafts |
-| `components/CommentThreadItemMenu.tsx` | item options (delete, with a confirmation) |
+| `components/CommentThreadItemMenu.tsx` | item options (delete, with a confirmation that says what goes; the copy is in `CommentThreadItem.tsx`) |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...) |
-| `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted") |
+| `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted", "Comment deleted", "Reply deleted") |
 | `components/ShowcaseHint.tsx` | the first-run hint (showcase mode) |
 | `components/CommentIcon.tsx` | the pin shape, from `PIN_PATH` in `@uier/brand` |
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`) |

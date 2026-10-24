@@ -141,11 +141,12 @@ async function resolveComment({ commentId, resolved }: { commentId: string; reso
 }
 
 async function deleteComment(commentId: string) {
-    await request<void>(commentUrl(commentId), { method: 'DELETE' });
+    // 204 when the comment is gone, or 200 with the thread that stays because others replied
+    return await request<CommentItem>(commentUrl(commentId), { method: 'DELETE' });
 }
 
 async function deleteReply({ commentId, itemId }: { commentId: string; itemId: string }) {
-    // 204, or 200 with the updated comment
+    // 200 with the updated comment, or 204 when the whole comment is gone
     return await request<CommentItem>(`${commentUrl(commentId)}/replies/${encodeURIComponent(itemId)}`, {
         method: 'DELETE'
     });
@@ -171,7 +172,7 @@ export function useComments(): {
     create: UseMutationResult<CommentItem, Error, CreateCommentInput, unknown>;
     reply: UseMutationResult<CommentItem, Error, { commentId: string; text: string }, unknown>;
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
-    delete: UseMutationResult<void, Error, string, unknown>;
+    delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
 } {
     const { path } = useContext(CommentsBootstrapperContext);
@@ -185,6 +186,9 @@ export function useComments(): {
 
     const handleCommentChanged = (comment: CommentItem) => {
         updateCachedComments(client, path, (comments) => withComment(comments, comment));
+    };
+    const handleCommentDeleted = (commentId: string) => {
+        updateCachedComments(client, path, (comments) => comments.filter(c => c.id !== commentId));
     };
     const handleSettled = () => {
         // Also picks up other visitors' changes; the comment is gone on `not_found`
@@ -209,25 +213,16 @@ export function useComments(): {
         onSettled: handleSettled
     });
 
+    // Deletes return the comment when its thread stays, nothing when the whole comment is gone
     const remove = useMutation({
         mutationFn: deleteComment,
-        onSuccess: (_, commentId) => {
-            updateCachedComments(client, path, (comments) => comments.filter(c => c.id !== commentId));
-        },
+        onSuccess: (comment, commentId) => comment ? handleCommentChanged(comment) : handleCommentDeleted(commentId),
         onSettled: handleSettled
     });
 
     const removeReply = useMutation({
         mutationFn: deleteReply,
-        onSuccess: (comment, { commentId, itemId }) => {
-            if (comment) {
-                handleCommentChanged(comment);
-            } else {
-                updateCachedComments(client, path, (comments) => comments.map(c => c.id === commentId
-                    ? { ...c, thread: { ...c.thread, items: c.thread.items.filter(i => i.id !== itemId) } }
-                    : c));
-            }
-        },
+        onSuccess: (comment, { commentId }) => comment ? handleCommentChanged(comment) : handleCommentDeleted(commentId),
         onSettled: handleSettled
     });
 

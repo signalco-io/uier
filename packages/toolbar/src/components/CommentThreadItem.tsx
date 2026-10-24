@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -10,6 +11,7 @@ import { CommentTime } from './CommentTime';
 import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
+import { useAnnounce } from './Announcer';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
 
 function parseDate(value: string | undefined) {
@@ -24,16 +26,46 @@ function avatarText(name: string) {
     return (guestCode ?? name[0] ?? '?').toUpperCase();
 }
 
+/**
+ * What deleting does, the same way the API decides it (apps/web/src/lib/comments/service.ts):
+ * the first item takes the visitor's own replies with it, but when others replied only its text
+ * goes and the thread stays; the last reply under a deleted first item takes the thread with it.
+ */
+function deleteConfirmText(comment: CommentItem, first: boolean | undefined) {
+    const [firstItem, ...replies] = comment.thread.items;
+    if (!first) {
+        return firstItem?.deleted && replies.length === 1
+            ? 'Delete this reply? It is the last message, so the thread is removed too.'
+            : 'Delete this reply?';
+    }
+
+    if (replies.some(reply => reply.deleted || !reply.author?.isMe)) {
+        return 'Delete this comment? Its text is removed. The replies stay.';
+    }
+    return replies.length > 0
+        ? `Delete this comment and your ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}?`
+        : 'Delete this comment?';
+}
+
 export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
     const { resolve, delete: deleteComment, deleteReply } = useComments();
+    const announce = useAnnounce();
+    const rootRef = useRef<HTMLDivElement>(null);
+
+    // The author deleted it after others replied: a placeholder, without author or actions
+    if (threadItem.deleted) {
+        return (
+            <Typography level="body1" className="text-sm text-muted-foreground">Comment deleted</Typography>
+        );
+    }
+
     const { text } = threadItem;
     const quote: string | undefined = threadItem.quotedText;
     const authorName = threadItem.author?.name || 'Guest';
     const isMe = Boolean(threadItem.author?.isMe);
     const createdAt = parseDate(threadItem.createdAt);
 
-    // Only the author may resolve or delete a comment (deleting the first item deletes the
-    // whole comment), and only the author of a reply may delete it
+    // Only the author may resolve or delete a comment, and only the author of a reply may delete it
     const canResolve = Boolean(first && comment.isMine);
     const canDelete = first ? comment.isMine : isMe;
     const pending = resolve.isPending || deleteComment.isPending || deleteReply.isPending;
@@ -43,16 +75,29 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
         resolve.mutate({ commentId: comment.id, resolved: !comment.resolved });
     };
 
-    const handleDelete = () => {
-        if (first) {
-            deleteComment.mutate(comment.id);
-        } else {
-            deleteReply.mutate({ commentId: comment.id, itemId: threadItem.id });
+    const handleDelete = async () => {
+        // The item's menu had the focus and goes away; the thread's messages list (in the popover
+        // or the inbox) takes it, if it is still there
+        const list = rootRef.current?.closest<HTMLElement>('[tabindex="0"]');
+        try {
+            if (first) {
+                await deleteComment.mutateAsync(comment.id);
+            } else {
+                await deleteReply.mutateAsync({ commentId: comment.id, itemId: threadItem.id });
+            }
+        } catch {
+            // Shown below the item
+            return;
+        }
+
+        announce(first ? 'Comment deleted' : 'Reply deleted');
+        if (list?.isConnected) {
+            list.focus();
         }
     };
 
     return (
-        <Stack spacing={1}>
+        <Stack ref={rootRef} spacing={1}>
             <Row spacing={1} justifyContent="space-between">
                 <Row spacing={1} className="min-w-0">
                     <Avatar size="sm" aria-hidden="true" className="shrink-0 font-semibold">{avatarText(authorName)}</Avatar>
@@ -80,7 +125,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     {canDelete && (
                         <CommentThreadItemMenu
                             kind={first ? 'comment' : 'reply'}
-                            repliesCount={first ? Math.max(comment.thread.items.length - 1, 0) : 0}
+                            confirmText={deleteConfirmText(comment, first)}
                             disabled={pending}
                             onDelete={handleDelete} />
                     )}

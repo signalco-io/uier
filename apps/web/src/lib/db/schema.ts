@@ -37,6 +37,12 @@ export type DbThreadItem = {
     authorId?: string;
     /** ISO 8601, server time (missing on old documents) */
     createdAt?: string;
+    /**
+     * ISO 8601, server time. Set on the first item when its author deleted it after other visitors
+     * replied: the item stays as a placeholder ("Comment deleted"), its text is empty and its quoted
+     * text and author are removed.
+     */
+    deletedAt?: string;
 };
 
 export type DbComment = {

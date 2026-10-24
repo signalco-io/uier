@@ -6,7 +6,8 @@ import { isValidId } from '../../../../../../src/lib/comments/validation';
 type Params = { id: string, itemId: string };
 
 // DELETE /api/comments/{id}/replies/{itemId} - author of the item only.
-// 200 with the updated comment, or 204 when the first item (= the whole comment) was deleted.
+// 200 with the updated comment, or 204 when the whole comment was deleted: its first item without
+// other visitors' replies (as DELETE /api/comments/{id}), or the last reply under a deleted first item.
 export const DELETE = commentsApiHandler<Params>(async (context, { id, itemId }) => {
     await assertNotBot();
     if (!isValidId(id) || !isValidId(itemId))
