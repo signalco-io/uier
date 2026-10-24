@@ -7,6 +7,8 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 const nextConfig: NextConfig = {
     reactStrictMode: true,
     reactCompiler: true,
+    // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
+    transpilePackages: ['@uier/brand'],
     images: {
         dangerouslyAllowSVG: true,
         contentSecurityPolicy: 'default-src \'self\'; script-src \'none\'; sandbox;',

@@ -1,0 +1,67 @@
+# apps/web - agent guide
+
+The uier.io website and comments API. Next.js 16 App Router, React 19 (React Compiler on),
+Tailwind CSS v4 with the signalco minimal theme preset, deployed to Vercel. Runs on
+http://localhost:4004 with `pnpm dev` from the repository root.
+
+## Layout
+
+| Path | What |
+| --- | --- |
+| `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
+| `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `layout.tsx` (nav + container) |
+| `app/(rest)/(app)/` | the signed-in app shell (`/app`) |
+| `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
+| `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
+| `src/components/marketing/` | landing sections (`Footer1` vendored from signalco, `ReviewThreadDemo`) |
+| `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
+| `src/knownPages.ts` | every route the site links to; add new pages here |
+| `src/lib/secureHeaders.ts`, `next.config.ts` | CSP and security headers (Google Fonts and Vercel are the only external origins) |
+| `e2e/` | Playwright tests (landing, brand page, headers, axe accessibility) |
+| `public/` | icons rendered by `pnpm -C packages/brand icons`, `favicon.svg` copied from `packages/brand/assets` |
+
+## Styling rules
+
+- Use the UI kit's semantic utilities: `bg-background`, `text-foreground`, `text-muted-foreground`,
+  `text-secondary-foreground`, `border-border` (`border` alone), `bg-muted`, `bg-primary`.
+  Brand-only tokens are `hsl(var(--brand-accent))`, `--brand-accent-text`, `--brand-selection`,
+  `--brand-success`, `--brand-warning`. No raw hex in components (the two dark/light logo panels
+  on the brand page are the deliberate exception: they must stay black and white in both themes).
+- Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
+  `rounded-3xl` 24, `rounded-full`. Borders over shadows; only floating surfaces get the shadow
+  from `BRAND.md`.
+- Fonts: `font-sans` is Geist, `font-mono` is Geist Mono (variables set on `<html>`). Weights
+  400/500/600 only.
+- Logo: `<Logo />` from `@uier/brand/Logo` (nav, footer), `<Mark />`, `<Pin />`. The pin is the
+  only filled icon; everything else is a 1.75-stroke outline.
+- `@uier/brand` is TypeScript source; it is in `transpilePackages` in `next.config.ts` and in a
+  `@source` line in `global.css` so Tailwind sees its class names.
+
+## The brand page (`/brand`)
+
+It is the live reference for the brand and must keep rendering from `@uier/brand` and the UI
+kit (no screenshots, no copied values). When you add a brand token, component style or asset,
+add it to the page in the matching section. `e2e/brand.spec.ts` checks that the page renders,
+that the assets (favicon, icons, manifest, OG image) are served, and that it passes axe.
+
+## Landing page
+
+Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
+review layer is shown on the page itself (`ReviewThreadDemo` and `<Pin />`), one solid
+"Get started" and one outlined secondary action, no badges above the headline.
+`e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" link and the footer line
+through the brand constants; update the test when you change those on purpose.
+
+## Testing
+
+- `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
+  against `next start` on port 4004; Desktop and Mobile Chrome).
+- Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
+  test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
+- The comments API needs `COSMOSDB_CONNECTION_STRING` in `.env.local`; the marketing pages do not.
+
+## Toolbar in development
+
+`app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with
+`?review=true` (for example `/brand?review=true`) to see the real toolbar on top of it.

@@ -1,0 +1,33 @@
+{
+    "name": "@uier/brand",
+    "description": "uier brand - design tokens, logo components, constants and assets (the single source of truth for the brand)",
+    "homepage": "https://uier.io/brand",
+    "version": "0.0.0",
+    "private": true,
+    "license": "MIT",
+    "type": "module",
+    "engines": {
+        "node": "24.x"
+    },
+    "exports": {
+        ".": "./src/index.ts",
+        "./tokens.css": "./tokens.css",
+        "./Mark": "./src/Mark.tsx",
+        "./Logo": "./src/Logo.tsx",
+        "./Pin": "./src/Pin.tsx",
+        "./assets/*": "./assets/*"
+    },
+    "scripts": {
+        "icons": "node scripts/render-icons.mjs",
+        "typecheck": "tsc --noEmit"
+    },
+    "peerDependencies": {
+        "react": "^19.0.0"
+    },
+    "devDependencies": {
+        "@types/react": "19.3.0",
+        "react": "19.3.1",
+        "sharp": "0.35.5",
+        "typescript": "7.0.2"
+    }
+}

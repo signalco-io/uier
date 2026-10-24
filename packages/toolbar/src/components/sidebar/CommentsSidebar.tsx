@@ -27,7 +27,7 @@ export function CommentsSidebar({ onClose, rootElement }: CommentsSidebarProps) 
 
     return (
         <div className={cx(
-            'fixed inset-y-4 right-4 w-80 rounded-2xl border bg-black shadow-lg transition-opacity z-50',
+            'fixed inset-y-4 right-4 w-80 rounded-2xl border border-neutral-800 bg-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.16)] transition-opacity z-50',
             'slide-in-from-right-5 fade-in ease-in-out slide-out-to-right-5 fade-out',
             hidding ? 'animate-out' : 'animate-in',
         )}>

@@ -1,5 +1,6 @@
 // Vendored from @signalco/cms-components-marketing (signalco monorepo sources): the published
 // npm build (0.1.2) bundles Next.js' CommonJS next/link and breaks App Router prerendering.
+// Adjusted for the uier brand: lockup instead of a text logo, short copyright line.
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Link } from '@signalco/ui-primitives/Link';
@@ -7,6 +8,8 @@ import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Container } from '@signalco/ui-primitives/Container';
 import { SectionData } from '@signalco/cms-core/SectionData';
+import { brand } from '@uier/brand';
+import { Logo } from '@uier/brand/Logo';
 import { Ctas2 } from './Ctas2';
 
 /**
@@ -16,7 +19,7 @@ import { Ctas2 } from './Ctas2';
  * @param props The props for the Footer1 component
  * @returns A React component
  */
-export function Footer1({ tagline, asset, features, ctas }: SectionData) {
+export function Footer1({ asset, features, ctas }: SectionData) {
     const sectionsFeatures = features?.filter(section => section.ctas?.length && section.tagline !== 'SystemStatus');
     const systemStatusFeature = features?.find(section => section.tagline === 'SystemStatus');
 
@@ -49,7 +52,7 @@ export function Footer1({ tagline, asset, features, ctas }: SectionData) {
                     )}
                     <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
                         <Stack className="items-center md:items-start" alignItems="center">
-                            {asset}
+                            {asset ?? <Logo size={16} />}
                         </Stack>
                         <Ctas2 ctas={ctas} />
                     </div>
@@ -58,7 +61,9 @@ export function Footer1({ tagline, asset, features, ctas }: SectionData) {
                         <div>
                             {systemStatusFeature?.asset}
                         </div>
-                        <Typography level="body3">Copyright © {new Date().getFullYear()} {tagline}. All rights reserved.</Typography>
+                        <Typography level="body3">
+                            © {new Date().getFullYear()} {brand.name} · <Link href={brand.parent.url}>A {brand.parent.name} project</Link>
+                        </Typography>
                     </div>
                 </Stack>
             </Container>

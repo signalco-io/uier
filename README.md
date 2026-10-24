@@ -16,6 +16,7 @@ This repository contains:
 | --- | --- | --- | --- |
 | [`apps/web`](apps/web) | `@uier/web` | uier.io website and `/api/comments` API (Next.js, Cosmos DB) | AGPL-3.0-only |
 | [`packages/toolbar`](packages/toolbar) | `@uier/toolbar` | Review/comments toolbar bundled with tsup and mounted into a shadow DOM | MIT |
+| [`packages/brand`](packages/brand) | `@uier/brand` | The brand: design tokens, logo components, constants, assets and [`BRAND.md`](packages/brand/BRAND.md) | MIT |
 | [`infra`](infra) | `@uier/infra` | Pulumi program for project `uier` (standalone pnpm project, own lockfile) | MIT |
 | [`.github/workflows`](.github/workflows) | | CI, preview and deployment workflows | |
 
@@ -24,6 +25,22 @@ The root is a pnpm + [Turborepo](https://turborepo.com) workspace containing onl
 so web development and web CI never install Pulumi dependencies.
 
 The shared UI kit (`@signalco/ui`, `@signalco/ui-primitives`, `@signalco/cms-core`, ...) is consumed from npm.
+
+Working with AI coding agents? Start at [`AGENTS.md`](AGENTS.md); every package has its own.
+
+## Brand
+
+The uier brand lives in the repository, not in a design tool:
+
+- [`packages/brand/BRAND.md`](packages/brand/BRAND.md) is the written guide (name, voice, logo, colour,
+  type, shape, the review layer).
+- [`packages/brand`](packages/brand) implements it: `tokens.css` (CSS variables the web app and the toolbar
+  load after the UI kit theme), `brand.ts` (constants), `<Logo />`, `<Mark />`, `<Pin />` and the SVG assets.
+- [uier.io/brand](https://uier.io/brand) (`/brand` locally) renders all of it from that code, so it always
+  shows the brand as it ships.
+
+Change a value in `packages/brand`, update `BRAND.md`, re-render icons with `pnpm -C packages/brand icons`
+if the mark changed, and check `/brand`.
 
 ## Prerequisites
 
@@ -71,6 +88,7 @@ Run from the repository root (each one runs the matching script in every package
 | `pnpm build` | Production build of the website and the toolbar |
 | `pnpm typecheck` | TypeScript checks |
 | `pnpm test` | Playwright end-to-end tests of `apps/web` against the built app (`next start` on port 4004) |
+| `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
 
 Before the first `pnpm test`, install the Playwright browser:
 

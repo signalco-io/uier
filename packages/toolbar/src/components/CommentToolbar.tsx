@@ -15,7 +15,7 @@ type CommentToolbarProps = {
 
 export function CommentToolbar({ creatingPointComment, onAddPointComment, onShowSidebar, onExitReview }: CommentToolbarProps) {
     return (
-        <div className="fixed bottom-4 left-1/2 z-[51] -translate-x-1/2 rounded-full border bg-black p-1">
+        <div className="fixed bottom-4 left-1/2 z-[51] -translate-x-1/2 rounded-full border border-neutral-800 bg-black p-1 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
             <Row>
                 <IconButton
                     title="Add comment"
