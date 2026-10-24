@@ -1,4 +1,5 @@
 import type { ToolbarMode } from '../../config';
+import type { ReviewSession } from '../../review';
 
 export const popoverWidth = 288;
 export const popoverWindowMargin = 8;
@@ -107,6 +108,9 @@ export type CommentDraft = {
 
 export type CommentsGlobalProps = {
     mode: ToolbarMode;
-    reviewParamKey?: string;
+    /** The review this page is part of (`review` mode, see review.ts) */
+    review?: ReviewSession | null;
     rootElement?: HTMLElement;
+    /** Ends the review and removes the toolbar from the page (`review` mode only) */
+    onExitReview?: () => void;
 }

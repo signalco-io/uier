@@ -11,6 +11,10 @@
     },
     "exports": {
         ".": "./dist/index.js",
+        "./react": {
+            "types": "./src/react.ts",
+            "default": "./dist/react.js"
+        },
         "./index.css": "./dist/index.css"
     },
     "scripts": {
@@ -41,5 +45,8 @@
         "tailwindcss-animate": "1.0.7",
         "tsup": "9.0.0",
         "typescript": "7.0.2"
+    },
+    "peerDependencies": {
+        "react": "^19.0.0"
     }
 }

@@ -166,17 +166,23 @@ function assertSameOrigin(request: Request, domain: string) {
         throw crossSite;
 }
 
+export type CommentsApiHandlerOptions = {
+    /** Whether a write creates the visitor identity when there is none (default `true`); not for signing out */
+    createVisitor?: boolean;
+};
+
 /**
  * Wraps a comments API route handler: resolves the domain and the anonymous visitor, maps errors to
  * `{ error, message }` responses and disables caching. The visitor cookie is created only by a
  * successful write, so reading comments never places a cookie.
  */
 export function commentsApiHandler<TParams extends Record<string, string> = Record<string, never>>(
-    handler: (context: CommentsApiContext, params: TParams) => Promise<Response>
+    handler: (context: CommentsApiContext, params: TParams) => Promise<Response>,
+    { createVisitor = true }: CommentsApiHandlerOptions = {}
 ) {
     return async (request: Request, routeContext: { params: Promise<TParams> }) => {
         const write = isWrite(request);
-        const visitor = resolveVisitor(request, write);
+        const visitor = resolveVisitor(request, write && createVisitor);
 
         let response: Response;
         try {

@@ -1,8 +1,10 @@
 # packages/toolbar - agent guide
 
 The review toolbar: one classic-script bundle (`dist/index.js`, an IIFE with the CSS inlined) that a
-site includes and that mounts the comments UI into an open shadow root, when the page URL has
-`?review=true` (`review` mode) or always (`showcase` mode, the uier.io landing page). Embedding and
+site includes and that mounts the comments UI into an open shadow root, when the page is opened with
+a review link (`?toolbar-code=<project code>` or `?review=true`, `review` mode; the review then lasts
+for the tab, `src/review.ts`) or always (`showcase` mode, the uier.io landing page). `dist/react.js`
+is the React component that adds the script (`@uier/toolbar/react`, `src/react.ts`). Embedding and
 configuration: [README.md](README.md).
 
 ## How it is built
@@ -22,13 +24,15 @@ configuration: [README.md](README.md).
   else the toolbar script's origin, else the build-time `__UIER_API_URL__` (`tsup.config.ts`; the
   dev build always uses http://localhost:4004).
 - `process.env` is stubbed to `{}` because `next/link` (pulled in by the UI kit) reads it.
+- "Exit review" unmounts the React root and removes `#uier-toolbar` (`index.tsx`).
 
 ## Components
 
 | File | What |
 | --- | --- |
 | `components/CommentsGlobal.tsx` | top level: pins (in page order), point mode and its keyboard path, selection handling, focus after posting, the first-run hint |
-| `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about; the point-mode instruction (`role="status"`) |
+| `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
+| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest name) and the options (view project, exit review, sign out) popovers |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line), keeps drafts |
 | `components/CommentThreadItemMenu.tsx` | item options (delete, with a confirmation that says what goes; the copy is in `CommentThreadItem.tsx`) |
@@ -39,7 +43,7 @@ configuration: [README.md](README.md).
 | `components/CommentIcon.tsx` | the pin shape, from `PIN_PATH` in `@uier/brand` |
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`) |
 | `components/sidebar/` | the inbox sidebar (ink, radius 16) |
-| `hooks/useComments.tsx` | React Query hooks against the comments API |
+| `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys) |
 | `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles; never throws (invalid selectors, out-of-range offsets) |
 | `hooks/useDrafts.tsx` | unsent comment and reply texts, so closing a popover does not lose them |
 
@@ -67,5 +71,6 @@ configuration: [README.md](README.md).
 - `pnpm -C packages/toolbar build` produces the production bundle; `pnpm typecheck` checks it.
 - End-to-end tests run the built toolbar on the landing page: `apps/web/e2e/showcase.spec.ts`
   (desktop and mobile, with axe checks), and on a reviewed site on another origin:
-  `apps/web/e2e/embed.spec.ts`. Also check the add-comment, reply, resolve and inbox
+  `apps/web/e2e/embed.spec.ts`; review links and the pill's controls are in
+  `apps/web/e2e/review.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.

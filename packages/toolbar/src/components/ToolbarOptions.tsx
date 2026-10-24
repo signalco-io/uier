@@ -1,0 +1,152 @@
+'use client';
+
+import { useContext, useRef, useState } from 'react';
+import { Popper } from '@signalco/ui-primitives/Popper';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { Button } from '@signalco/ui-primitives/Button';
+import { Stack } from '@signalco/ui-primitives/Stack';
+import { Row } from '@signalco/ui-primitives/Row';
+import { cx } from '@signalco/ui-primitives/cx';
+import { Close, ExternalLink, LogOut, MoreHorizontal } from '@signalco/ui-icons';
+import { useVisitor } from '../hooks/useVisitor';
+import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { CommentsErrorMessage } from './CommentsErrorMessage';
+import { useAnnounce } from './Announcer';
+import { floatingShadowClassName } from './@types/Comments';
+
+type ToolbarOptionsProps = {
+    /** The project in the uier app, when the review link had a project code */
+    projectUrl?: string;
+    /** Ends the review (`review` mode) */
+    onExitReview?: () => void;
+};
+
+/**
+ * The toolbar's options: view the project, exit the review, sign out. Only the options that
+ * apply are listed; without any, there is no options button.
+ */
+export function ToolbarOptions({ projectUrl, onExitReview }: ToolbarOptionsProps) {
+    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const { query: visitor, signOut } = useVisitor();
+    const announce = useAnnounce();
+    const [open, setOpen] = useState(false);
+    const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+    const confirmRef = useRef<HTMLButtonElement>(null);
+    const name = visitor.data?.name;
+
+    const handleOpenChange = (next: boolean) => {
+        setOpen(next);
+        if (!next) {
+            setConfirmingSignOut(false);
+            signOut.reset();
+        }
+    };
+
+    const handleAskSignOut = () => {
+        setConfirmingSignOut(true);
+        // After the confirmation renders
+        window.setTimeout(() => confirmRef.current?.focus(), 0);
+    };
+
+    const handleSignOut = async () => {
+        try {
+            await signOut.mutateAsync();
+            handleOpenChange(false);
+            announce('Signed out');
+        } catch {
+            // Shown below
+        }
+    };
+
+    const handleExitReview = () => {
+        handleOpenChange(false);
+        onExitReview?.();
+    };
+
+    if (!projectUrl && !onExitReview && !name) {
+        return null;
+    }
+
+    return (
+        <Popper
+            container={rootElement}
+            open={open}
+            onOpenChange={handleOpenChange}
+            side="top"
+            sideOffset={12}
+            align="end"
+            aria-label="Options"
+            className={cx('w-auto min-w-48 max-w-72 rounded-xl p-1', floatingShadowClassName)}
+            trigger={(
+                <IconButton
+                    variant="plain"
+                    className="rounded-full"
+                    title="Options"
+                    aria-label="Options">
+                    <MoreHorizontal />
+                </IconButton>
+            )}>
+            {confirmingSignOut ? (
+                <Stack spacing={1} className="p-2">
+                    <p className="m-0 text-sm text-foreground">
+                        Sign out of uier in this browser? You get a new guest name and can no longer
+                        resolve or delete the comments you left as {name}.
+                    </p>
+                    <CommentsErrorMessage error={signOut.error} />
+                    <Row spacing={1} justifyContent="end">
+                        <Button variant="plain" size="sm" onClick={() => handleOpenChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            ref={confirmRef}
+                            variant="outlined"
+                            size="sm"
+                            loading={signOut.isPending}
+                            onClick={handleSignOut}>
+                            Sign out
+                        </Button>
+                    </Row>
+                </Stack>
+            ) : (
+                <Stack>
+                    {projectUrl && (
+                        <Button
+                            variant="plain"
+                            size="sm"
+                            fullWidth
+                            className="justify-start"
+                            href={projectUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startDecorator={<ExternalLink size={16} />}
+                            onClick={() => handleOpenChange(false)}>
+                            View project
+                        </Button>
+                    )}
+                    {onExitReview && (
+                        <Button
+                            variant="plain"
+                            size="sm"
+                            fullWidth
+                            className="justify-start"
+                            startDecorator={<Close size={16} />}
+                            onClick={handleExitReview}>
+                            Exit review
+                        </Button>
+                    )}
+                    {name && (
+                        <Button
+                            variant="plain"
+                            size="sm"
+                            fullWidth
+                            className="justify-start"
+                            startDecorator={<LogOut size={16} />}
+                            onClick={handleAskSignOut}>
+                            Sign out...
+                        </Button>
+                    )}
+                </Stack>
+            )}
+        </Popper>
+    );
+}

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
 import {
+    addToolbarScript,
     commentBubble,
     commentBubbles,
     isolatedOrigin,
@@ -175,21 +176,6 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await a.context.close();
     await b.context.close();
 });
-
-/**
- * Adds the toolbar script like a site would. Not `page.addScriptTag`: it fails on the CSP
- * report for the Google Fonts stylesheet the toolbar adds (blocked here, the toolbar then uses
- * system-ui).
- */
-async function addToolbarScript(page: Page) {
-    await page.evaluate(() => new Promise<void>((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = '/toolbar.js';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('The toolbar script did not load'));
-        document.head.appendChild(script);
-    }));
-}
 
 test('other pages: the toolbar keeps its review mode (?review=true)', async ({ page }) => {
     // Embedded without data-uier-mode, like on a reviewed customer site

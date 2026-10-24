@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useId, useRef } from 'react';
+import React, { RefObject, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Typography } from '@signalco/ui-primitives/Typography';
@@ -32,6 +32,8 @@ export function rememberShowcaseHintDismissed() {
 type ShowcaseHintProps = {
     /** `id` of the hint (the "About uier" button controls it) */
     id?: string;
+    /** The button the hint's arrow points at (Add comment) */
+    pointAtRef?: RefObject<HTMLElement | null>;
     /** `hadFocus` is set when the keyboard focus was inside the hint */
     onDismiss: (hadFocus: boolean) => void;
 };
@@ -40,10 +42,23 @@ type ShowcaseHintProps = {
  * First-run hint shown above the toolbar pill in showcase mode. Rendered after the pill, so
  * forward Tab from "About uier" reaches it.
  */
-export function ShowcaseHint({ id, onDismiss }: ShowcaseHintProps) {
+export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
     const titleId = useId();
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const hintRef = useRef<HTMLElement>(null);
+
+    // The arrow points at the middle of the button, wherever it is in the pill
+    const [arrowLeft, setArrowLeft] = useState<number>();
+    useLayoutEffect(() => {
+        const update = () => {
+            const target = pointAtRef?.current?.getBoundingClientRect();
+            const hint = hintRef.current?.getBoundingClientRect();
+            setArrowLeft(target && hint ? target.left + target.width / 2 - hint.left : undefined);
+        };
+        update();
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, [pointAtRef]);
 
     const handleDismiss = () => {
         const root = hintRef.current?.getRootNode() as Document | ShadowRoot | undefined;
@@ -98,10 +113,13 @@ export function ShowcaseHint({ id, onDismiss }: ShowcaseHintProps) {
                     </Button>
                 </Row>
             </Stack>
-            {/* Points at the + (Add comment) button: the first of the pill's three 36px buttons, 36px left of its centre */}
-            <span
-                aria-hidden="true"
-                className="absolute -bottom-1.5 left-[calc(50%-36px)] size-3 -translate-x-1/2 rotate-45 border-b border-r bg-popover" />
+            {/* Points at the + (Add comment) button */}
+            {arrowLeft !== undefined && (
+                <span
+                    aria-hidden="true"
+                    className="absolute -bottom-1.5 size-3 -translate-x-1/2 rotate-45 border-b border-r bg-popover"
+                    style={{ left: arrowLeft }} />
+            )}
         </section>
     );
 }

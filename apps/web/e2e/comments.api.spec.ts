@@ -405,6 +405,35 @@ test('anonymous visitor cookie', async ({ newVisitor }) => {
     expect(httpsCookie?.split('; ')).toContain('Secure');
 });
 
+test('visitor: guest name and signing out', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+
+    // No guest name before the first write, and asking for it doesn't create an identity
+    const before = await visitor.get('/api/visitor');
+    expect(before.status()).toBe(200);
+    expect(before.headers()['cache-control']).toBe('no-store');
+    expect(await before.json()).toEqual({ name: null });
+    expect(visitorCookie(before)).toBeUndefined();
+
+    const comment = await created(await createComment(visitor, path));
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ name: comment.thread.items[0]!.author.name });
+
+    // Signing out removes the cookie; the comment stays but is no longer the visitor's
+    const signOut = await visitor.delete('/api/visitor');
+    expect(signOut.status()).toBe(204);
+    expect(visitorCookie(signOut)?.split('; ')).toEqual(expect.arrayContaining(['uier_visitor=', 'Path=/', 'Max-Age=0', 'HttpOnly', 'SameSite=Lax']));
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ name: null });
+    expect((await listComments(visitor, path)).map(c => c.isMine)).toEqual([false]);
+
+    // Signing out never creates an identity
+    expect(visitorCookie(await visitor.delete('/api/visitor'))).toMatch(/^uier_visitor=; /);
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ name: null });
+
+    // Other sites can't sign anyone out
+    await expectError(await (await newVisitor({ headers: { Origin: 'https://evil.example' } })).delete('/api/visitor'), 403, 'forbidden');
+});
+
 test('writes must be same-origin JSON', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();

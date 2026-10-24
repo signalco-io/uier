@@ -14,6 +14,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/(rest)/(app)/` | the signed-in app shell (`/app`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
+| `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
 | `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
@@ -119,4 +120,5 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 ## Toolbar in development
 
 `app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with
-`?review=true` (for example `/brand?review=true`) to see the real toolbar on top of it.
+`?review=true` (for example `/brand?review=true`) to see the real toolbar on top of it. The landing
+page embeds it with the toolbar's React component (`@uier/toolbar/react`, see `ToolbarScript`).

@@ -53,15 +53,20 @@ function shouldUseSecureCookie(request: Request) {
     return !(protocol === 'http' && isLoopbackHostname(hostname));
 }
 
-function serializeVisitorCookie(token: string, secure: boolean) {
+function serializeVisitorCookie(token: string, secure: boolean, maxAgeSeconds = VISITOR_COOKIE_MAX_AGE_SECONDS) {
     return [
         `${VISITOR_COOKIE_NAME}=${token}`,
         'Path=/',
-        `Max-Age=${VISITOR_COOKIE_MAX_AGE_SECONDS}`,
+        `Max-Age=${maxAgeSeconds}`,
         'HttpOnly',
         'SameSite=Lax',
         ...(secure ? ['Secure'] : [])
     ].join('; ');
+}
+
+/** `Set-Cookie` value that removes the visitor cookie from the browser (signing out) */
+export function expiredVisitorCookie(request: Request) {
+    return serializeVisitorCookie('', shouldUseSecureCookie(request), 0);
 }
 
 /**
