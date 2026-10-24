@@ -17,7 +17,8 @@ let secret: Buffer | null = null;
 /**
  * Server-side key for guest names and rate-limit counter ids, so neither can be computed (or
  * reversed) without it: `UIER_COMMENTS_SECRET`, a random value Pulumi sets for each Vercel target.
- * Changing it changes guest names, nothing else. Locally a fixed development key is used.
+ * The app signs its session tokens with keys derived from it too (src/lib/app/tokens.ts). Changing it
+ * changes guest names and signs everyone out of the app. Locally a fixed development key is used.
  */
 function serverSecret() {
     if (secret == null) {

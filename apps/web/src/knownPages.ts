@@ -10,9 +10,27 @@ export const KnownPages = {
     Security: '/security',
     Status: '/status',
 
+    App: '/app',
+    AppSignIn: '/app/sign-in',
+    AppSignInConfirm: '/app/sign-in/confirm',
+    AppProjects: '/app/projects',
+    AppNewProject: '/app/projects/new',
+    AppBilling: '/app/billing',
+    AppAccount: '/app/account',
+
     LegalPrivacyPolicy: '/legal/privacy-policy',
     LegalTermsOfService: '/legal/terms-of-service',
     LegalCookiePolicy: '/legal/cookie-policy',
     LegalAcceptableUsePolicy: '/legal/acceptable-use-policy',
     LegalSla: '/legal/sla'
+} as const;
+
+/** Pages with a parameter */
+export const KnownPageLinks = {
+    project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
+    projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
+    projectInstall: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/install`,
+    /** Opens a project URL in review mode, signed in (see app/review) */
+    projectReview: (projectId: string, url?: string) =>
+        `/app/review/${encodeURIComponent(projectId)}${url ? `?url=${encodeURIComponent(url)}` : ''}`
 } as const;

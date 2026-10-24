@@ -4,11 +4,12 @@ import { LegalDocument } from '../../../../../src/components/legal/LegalDocument
 import { KnownPages } from '../../../../../src/knownPages';
 
 // Every cookie and storage key the site sets. Keep in sync with VISITOR_COOKIE_NAME
-// (src/lib/comments/limits.ts) and the toolbar's storage keys (packages/toolbar).
+// (src/lib/comments/limits.ts), the app's cookies (src/lib/app/session.ts, src/lib/app/context.ts)
+// and the toolbar's storage keys (packages/toolbar).
 
 export const metadata: Metadata = {
     title: 'Cookie policy',
-    description: `The one cookie and the browser storage ${brand.domain} uses, and why.`
+    description: `The cookies and the browser storage ${brand.domain} uses, and why.`
 };
 
 const items = [
@@ -17,6 +18,20 @@ const items = [
         type: 'Cookie (first party, HttpOnly)',
         when: 'Your first comment or reply',
         purpose: 'Recognises your comments, so only you can resolve or delete them. Holds a random token; the server stores only its hash.',
+        duration: 'One year'
+    },
+    {
+        name: 'uier_session',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You sign in to the app',
+        purpose: 'Keeps you signed in. Holds a signed token with your account id; signing out removes it.',
+        duration: '30 days'
+    },
+    {
+        name: 'uier_workspace',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You switch to another workspace in the app',
+        purpose: 'Remembers which workspace the app shows.',
         duration: 'One year'
     },
     {
@@ -39,7 +54,7 @@ export default function CookiePolicyPage() {
     return (
         <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="24 October 2026">
             <p>
-                {brand.domain} uses one cookie and two keys in your browser&rsquo;s local storage. None of them is set
+                {brand.domain} uses three cookies and two keys in your browser&rsquo;s local storage. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
             </p>
 
@@ -63,9 +78,9 @@ export default function CookiePolicyPage() {
                 ))}
             </ul>
             <p>
-                All three are needed for something you chose to do, so we do not ask for consent first.
-                The <code>uier_visitor</code> cookie is <code>HttpOnly</code> (scripts on the page cannot read
-                it), <code>Secure</code> and <code>SameSite=Lax</code>.
+                All of them are needed for something you chose to do, so we do not ask for consent first.
+                The cookies are <code>HttpOnly</code> (scripts on the page cannot read them), <code>Secure</code>
+                and <code>SameSite=Lax</code>.
             </p>
 
             <h2>Third parties</h2>
@@ -82,7 +97,7 @@ export default function CookiePolicyPage() {
                 the <code>uier_visitor</code> cookie, the server can no longer tell that your earlier comments are
                 yours: you will not be able to resolve or delete them, and your next comment starts a new guest
                 name. They stay public until they expire 90 days after their last change, or until you ask us to
-                remove them.
+                remove them. If you delete the <code>uier_session</code> cookie, you are signed out of the app.
             </p>
 
             <h2>Contact</h2>
