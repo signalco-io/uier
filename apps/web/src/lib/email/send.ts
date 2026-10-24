@@ -1,5 +1,6 @@
 import { EmailClient, KnownEmailSendStatus } from '@azure/communication-email';
 import { isLocalRuntime } from '../comments/environment';
+import { deploymentEnvironment } from '../app/request';
 
 export type EmailMessage = {
     to: string;
@@ -22,7 +23,7 @@ export class EmailNotConfiguredError extends Error {
  * and have their own data, so a shown sign-in link only opens preview accounts).
  */
 export function showsEmailLinksOnPage() {
-    return isLocalRuntime() || process.env.VERCEL_ENV === 'preview';
+    return isLocalRuntime() || deploymentEnvironment() === 'preview';
 }
 
 let client: EmailClient | null = null;
