@@ -1,8 +1,8 @@
-import Script from 'next/script';
+import { UierToolbar } from '@uier/toolbar/react';
 
 /**
  * - `showcase`: always mounted, anyone can leave public feedback (the landing page)
- * - `review`: mounted only when the page URL has `?review=true`
+ * - `review`: mounted when the page is opened with a review link (`?toolbar-code=...` or `?review=true`)
  */
 export type ToolbarMode = 'showcase' | 'review';
 
@@ -17,17 +17,12 @@ export const toolbarScriptSrc = isDevelopment
     : '/toolbar.js';
 
 /**
- * Embeds the uier toolbar exactly like a customer site would:
- * `<script src="/toolbar.js" data-uier-mode="showcase"></script>`.
+ * Embeds the uier toolbar with its React component (`@uier/toolbar/react`), exactly like a
+ * customer site would. It adds `<script src="/toolbar.js" data-uier-mode="showcase">` to the page.
  *
  * The toolbar reads its configuration from its own script tag and calls the comments API on the
- * script's origin (this app). `next/script` also loads it after client-side navigation.
+ * script's origin (this app). It stays mounted across client-side navigation.
  */
 export function ToolbarScript({ mode }: { mode: ToolbarMode }) {
-    return (
-        <Script
-            src={toolbarScriptSrc}
-            data-uier-mode={mode}
-            strategy="afterInteractive" />
-    );
+    return <UierToolbar src={toolbarScriptSrc} mode={mode} />;
 }

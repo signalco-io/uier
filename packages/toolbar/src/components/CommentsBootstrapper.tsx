@@ -17,11 +17,12 @@ const queryClient = new QueryClient({
 
 export function CommentsBootstrapper({
     mode,
-    reviewParamKey,
-    rootElement
+    review = null,
+    rootElement,
+    onExitReview
 }: CommentsGlobalProps) {
     const path = usePagePath();
-    const context = useMemo(() => ({ rootElement, mode, path }), [rootElement, mode, path]);
+    const context = useMemo(() => ({ rootElement, mode, review, path }), [rootElement, mode, review, path]);
 
     return (
         <CommentsBootstrapperContext.Provider value={context}>
@@ -30,8 +31,9 @@ export function CommentsBootstrapper({
                     <DraftsProvider>
                         <CommentsGlobal
                             mode={mode}
-                            reviewParamKey={reviewParamKey}
-                            rootElement={rootElement} />
+                            review={review}
+                            rootElement={rootElement}
+                            onExitReview={onExitReview} />
                     </DraftsProvider>
                 </AnnouncerProvider>
             </QueryClientProvider>

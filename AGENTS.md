@@ -6,7 +6,7 @@ its own `AGENTS.md` with the details that matter there; read the one for the fol
 ## What this is
 
 uier ([uier.io](https://uier.io)) lets people review a live website by leaving comments
-directly on the page. A toolbar is injected into the reviewed page (closed shadow DOM),
+directly on the page. A toolbar is injected into the reviewed page (its own shadow root),
 comments are pinned to elements or selected text and stored per domain.
 
 | Path | Package | What | Guide |

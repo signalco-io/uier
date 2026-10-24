@@ -50,3 +50,18 @@ export async function openLanding(page: Page, origin: string, { dismissHint = fa
         await expect(showcaseHint(page)).toBeHidden();
     }
 }
+
+/**
+ * Adds the toolbar script like a site would (review mode: no `data-uier-mode`). Not
+ * `page.addScriptTag`: it fails on the CSP report for the Google Fonts stylesheet the toolbar
+ * adds (blocked here, the toolbar then uses system-ui).
+ */
+export async function addToolbarScript(page: Page) {
+    await page.evaluate(() => new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/toolbar.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('The toolbar script did not load'));
+        document.head.appendChild(script);
+    }));
+}

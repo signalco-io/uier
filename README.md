@@ -73,7 +73,9 @@ pnpm dev
 
 - On the landing page (http://localhost:4004/) the toolbar runs in **showcase** mode: always mounted,
   with the first-run hint.
-- On every other page it runs in **review** mode and mounts only when the URL has `?review=true`.
+- On every other page it runs in **review** mode and mounts only when the page is opened with a review link
+  (`?toolbar-code=<project code>` or `?review=true`, e.g. http://localhost:4004/brand?review=true); the review
+  then continues in that tab until "Exit review".
 - Open the app on `localhost` (not `127.0.0.1`): the development toolbar build always talks to the local
   comments API on http://localhost:4004/api/comments, never to uier.io.
 
@@ -118,7 +120,9 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
   comments, a second visitor who can reply but not resolve or delete, a deleted comment whose replies stay,
-  review mode on other pages. Each of these tests opens the site on an origin of its own
+  review mode on other pages. Review links, the review session, the toolbar's controls (collapse, profile,
+  options, sign out) and its style isolation are in [`review.spec.ts`](apps/web/e2e/review.spec.ts). Each of
+  these tests opens the site on an origin of its own
   (`<random>.localhost:4004`, on the test port), so its comments are isolated from the other tests.
   [`embed.spec.ts`](apps/web/e2e/embed.spec.ts) loads `/toolbar.js` on a reviewed site on another origin (a
   small server on `reviewed.localhost`).
@@ -134,7 +138,8 @@ The landing page (`/`) embeds the toolbar the same way a customer site would, in
 <script src="/toolbar.js" data-uier-mode="showcase"></script>
 ```
 
-([`ToolbarScript`](apps/web/src/components/toolbar/ToolbarScript.tsx), rendered with `next/script`). The toolbar
+([`ToolbarScript`](apps/web/src/components/toolbar/ToolbarScript.tsx), which renders the toolbar's React component
+`<UierToolbar mode="showcase" />` from `@uier/toolbar/react`). The toolbar
 is always mounted there and shows a dismissible first-run hint; anonymous visitors can leave point comments,
 text-selection comments and replies. **Feedback is public**: every visitor sees every unresolved comment on
 the page and can reply to it. Embedding options and the toolbar's modes are described in
@@ -194,6 +199,8 @@ trailing slash).
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
+| `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
+| `DELETE /api/visitor` | | `204`; signs out: removes the `uier_visitor` cookie (never creates one) |
 
 **Deleting.** One visitor can't delete what others wrote:
 
@@ -224,7 +231,9 @@ does): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=315
 except plain http on a loopback host (local development and tests). Comments store only
 `authorId = sha256(token)`, never the token. Visitors are shown as `Guest XXXX` (4 hex characters of an HMAC of
 the author id with a server key, so a name can't be forged offline) and as "You" for their own items; the API
-returns `isMine` / `author.isMe` so only the author sees the resolve and delete actions. The server key is
+returns `isMine` / `author.isMe` so only the author sees the resolve and delete actions. Signing out in the
+toolbar (`DELETE /api/visitor`) removes the cookie: the comments stay, and that browser gets a new identity with
+its next write. The server key is
 `UIER_COMMENTS_SECRET`, a random value Pulumi sets separately for production and previews (locally a fixed
 development key); changing it changes every guest name and nothing else.
 

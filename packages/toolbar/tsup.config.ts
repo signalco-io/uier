@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { defineConfig } from 'tsup';
 
-export default defineConfig(({ env }) => ({
+export default defineConfig(({ env }) => [{
     entry: ['./src/index.tsx'],
     // The bundle is embedded with a classic <script> tag (it reads `document.currentScript`,
     // see src/config.ts), so it is wrapped in an IIFE to keep its variables out of the page's
@@ -33,4 +33,14 @@ export default defineConfig(({ env }) => ({
         const injected = js.replace(/__uier_toolbar_css__/g, () => css);
         writeFileSync('./dist/index.js', injected);
     }
-}));
+}, {
+    // `@uier/toolbar/react` (src/react.ts): the React component that adds the script above to a page.
+    // An ES module for bundlers; React comes from the site.
+    entry: { react: './src/react.ts' },
+    format: ['esm'],
+    outExtension: () => ({ js: '.js' }),
+    platform: 'browser',
+    external: ['react'],
+    // A client component in React Server Components apps (Next.js App Router)
+    banner: { js: '\'use client\';' }
+}]);

@@ -3,8 +3,8 @@ import { GEIST_FONTS_URL } from '@uier/brand';
 import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
+import { endReviewSession, resolveReviewSession, ReviewSession } from './review';
 
-const reviewParamKey = 'review';
 const containerId = 'uier-toolbar';
 
 /**
@@ -30,7 +30,7 @@ function ensureBrandFont() {
     }
 }
 
-function MountOnPage(mode: ToolbarMode) {
+function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     // The script can be included more than once (or re-run by client-side navigation)
     if (document.getElementById(containerId)) {
         console.debug('uier-toolbar: Already mounted');
@@ -67,10 +67,23 @@ function MountOnPage(mode: ToolbarMode) {
 
     // Run React
     const root = createRoot(shadowDomContainer);
+
+    // "Exit review": the review ends for this tab and the toolbar leaves the page
+    const handleExitReview = () => {
+        endReviewSession();
+        darkScheme.removeEventListener('change', applyScheme);
+        // After the click that asked for it has been handled
+        window.setTimeout(() => {
+            root.unmount();
+            container.remove();
+        }, 0);
+    };
+
     root.render(<CommentsBootstrapper
         mode={mode}
+        review={review}
         rootElement={shadowDomContainer}
-        reviewParamKey={reviewParamKey} />);
+        onExitReview={mode === 'review' ? handleExitReview : undefined} />);
 }
 
 function whenBodyReady(callback: () => void) {
@@ -83,12 +96,12 @@ function whenBodyReady(callback: () => void) {
 
 if (toolbarConfig.mode === 'showcase') {
     console.debug('uier-toolbar: Showcase mode, mounting...');
-    whenBodyReady(() => MountOnPage('showcase'));
+    whenBodyReady(() => MountOnPage('showcase', null));
 } else {
-    console.debug('uier-toolbar: Checking review param...');
-    const urlInReview = new URL(window.location.href).searchParams.get(reviewParamKey) === 'true';
-    if (urlInReview) {
+    console.debug('uier-toolbar: Checking for a review link...');
+    const review = resolveReviewSession();
+    if (review) {
         console.debug('uier-toolbar: In review, mounting...');
-        whenBodyReady(() => MountOnPage('review'));
+        whenBodyReady(() => MountOnPage('review', review));
     }
 }

@@ -35,7 +35,38 @@ attributes or from `window.uierConfig`, set before the script:
 | Mode | `data-uier-mode` | `mode` | `review` |
 | API base URL | `data-uier-api-url` | `apiUrl` | origin of the script URL |
 
-- `review` mode mounts the toolbar only when the page URL contains `?review=true`.
+### React
+
+`@uier/toolbar/react` (`src/react.ts`, built to `dist/react.js`) adds the same script tag from a React app.
+Render it once, for example in the root layout; it renders nothing itself:
+
+```tsx
+import { UierToolbar } from '@uier/toolbar/react';
+
+<UierToolbar />                                   // review mode, https://uier.io/toolbar.js
+<UierToolbar mode="showcase" src="/toolbar.js" /> // how the uier.io landing page embeds it
+```
+
+Props: `mode` (`review` or `showcase`), `src` (script URL, default `https://uier.io/toolbar.js`) and `apiUrl`.
+The package is part of this repository and not published to npm yet.
+
+### Review links
+
+In `review` mode the toolbar mounts only when the page is opened with a review link:
+
+| Link | Review |
+| --- | --- |
+| `https://example.com/any/page?toolbar-code=<project code>` | a project's review link; the code (letters, digits, `-`, `_`, up to 64) identifies the project in the uier app, and "View project" opens it (`<API base URL>/app/projects/<code>`) |
+| `https://example.com/any/page?review=true` | a review without a project |
+
+The review then lasts for the browser tab (`sessionStorage`, key `uier:review`): it continues on the site's
+other pages, including full page loads without the parameter, until the reviewer chooses **Exit review**,
+which removes the toolbar and the review parameters from the address. A code that is not a valid project
+code starts nothing. Comments are stored per domain either way (`src/review.ts`).
+
+### Modes
+
+- `review` mode mounts the toolbar only for a review (see above).
 - `showcase` mode (the uier landing page) always mounts it and shows a dismissible first-run hint above the
   toolbar (dismissal is remembered in `localStorage`, key `uier:showcase-hint-dismissed`; the "About uier"
   button shows it again). The hint also closes, and stays closed, once the visitor starts a comment.
@@ -65,6 +96,11 @@ error boundary, so one bad comment never breaks the toolbar.
 
 ## Using it
 
+- The pill sits at the bottom centre: add comment, inbox, profile, options and collapse. **Collapse** shrinks it
+  to the uier mark (with the unread count); the state is kept for the tab (`uier:toolbar-collapsed`).
+- **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
+  (review links with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
+  first: the comments stay, but this browser can no longer resolve or delete them).
 - Point comments: the + button starts point mode (an instruction shows above the pill, Esc cancels), then
   a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).
@@ -76,8 +112,9 @@ error boundary, so one bad comment never breaks the toolbar.
 ## UI and styles
 
 - `src/index.tsx` mounts the toolbar into an open shadow root on `<div id="uier-toolbar">` (open so
-  assistive technologies, accessibility checks and end-to-end tests can reach it). Nothing else is
-  rendered into the page, except the highlight of commented text.
+  assistive technologies, accessibility checks and end-to-end tests can reach it; the page's own scripts
+  and styles can't change it by accident either way). Everything, popovers included, renders inside it and
+  the toolbar adds no styles to the page (`apps/web/e2e/review.spec.ts` checks the page's computed styles).
 - Styles are compiled with Tailwind CSS v4 (`src/index.css`, `postcss.config.mjs`) and inlined into
   `dist/index.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`).
 - Colors come from `@uier/brand/tokens.css`. The pill, the pins and the inbox sidebar are always ink
@@ -88,6 +125,6 @@ error boundary, so one bad comment never breaks the toolbar.
 
 ## Scripts
 
-- `pnpm build` - production bundle in `dist/index.js` (CSS included)
+- `pnpm build` - production bundle in `dist/index.js` (CSS included) and the React component in `dist/react.js`
 - `pnpm dev` - rebuild on change and serve `dist` on http://localhost:4005 (loaded by `apps/web` in development)
 - `pnpm typecheck` - type check with `tsc`

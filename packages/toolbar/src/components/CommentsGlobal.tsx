@@ -13,6 +13,7 @@ import { CommentBubble } from './CommentBubble';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { getDeviceInfo } from './info/getDeviceInfo';
+import { toolbarConfig } from '../config';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength } from './@types/Comments';
 
 // Selection text limit of the comments API
@@ -51,6 +52,29 @@ function sortByDocumentPosition(comments: CommentItem[]) {
     });
 }
 
+const collapsedStorageKey = 'uier:toolbar-collapsed';
+
+/** Whether the visitor collapsed the toolbar earlier in this tab (storage can be unavailable) */
+function readCollapsed() {
+    try {
+        return window.sessionStorage.getItem(collapsedStorageKey) === 'true';
+    } catch {
+        return false;
+    }
+}
+
+function rememberCollapsed(collapsed: boolean) {
+    try {
+        if (collapsed) {
+            window.sessionStorage.setItem(collapsedStorageKey, 'true');
+        } else {
+            window.sessionStorage.removeItem(collapsedStorageKey);
+        }
+    } catch {
+        // Not remembered, the toolbar is expanded on the next page
+    }
+}
+
 type CommentDraftState = CommentDraft & {
     /** New for every draft, so a new draft opens its popover again */
     key: number;
@@ -58,12 +82,14 @@ type CommentDraftState = CommentDraft & {
 
 export function CommentsGlobal({
     mode,
-    reviewParamKey = 'review',
-    rootElement
+    review,
+    rootElement,
+    onExitReview
 }: CommentsGlobalProps) {
     const [creatingCommentSelection, setCreatingCommentSelection] = useState<CommentSelection>();
     const [creatingComment, setCreatingComment] = useState<CommentDraftState>();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [collapsed, setCollapsed] = useState(readCollapsed);
     const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
     const [focusCommentId, setFocusCommentId] = useState<string>();
     const hintId = useId();
@@ -250,11 +276,20 @@ export function CommentsGlobal({
         inboxButtonRef.current?.focus();
     };
 
-    const handleExitReview = () => {
-        const url = new URL(window.location.href);
-        url.searchParams.delete(reviewParamKey);
-        window.history.replaceState({}, '', url.toString());
+    const handleCollapsedChange = (next: boolean) => {
+        rememberCollapsed(next);
+        setCollapsed(next);
+        if (next) {
+            // The + button and the hint that points at it are hidden
+            setCreatingCommentPoint(false);
+            closeHintForUse();
+        }
     };
+
+    // The project of the review link, in the uier app
+    const projectUrl = review?.projectCode
+        ? `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(review.projectCode)}`
+        : undefined;
 
     return (
         <>
@@ -301,20 +336,23 @@ export function CommentsGlobal({
             <CommentToolbar
                 mode={mode}
                 creatingPointComment={creatingCommentPoint}
+                collapsed={collapsed}
                 commentsCount={unresolvedComments.length}
                 commentsCountCapped={commentsCountCapped}
                 hintOpen={hintOpen}
                 hintId={hintId}
+                projectUrl={projectUrl}
                 addButtonRef={addButtonRef}
                 inboxButtonRef={inboxButtonRef}
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
                 onShowSidebar={() => setSidebarOpen(true)}
                 onToggleHint={() => hintOpen ? handleDismissHint(false) : setHintOpen(true)}
-                onExitReview={handleExitReview} />
+                onCollapsedChange={handleCollapsedChange}
+                onExitReview={onExitReview} />
             {/* After the pill, so forward Tab from "About uier" reaches it */}
-            {mode === 'showcase' && hintOpen && (
-                <ShowcaseHint id={hintId} onDismiss={handleDismissHint} />
+            {mode === 'showcase' && hintOpen && !collapsed && (
+                <ShowcaseHint id={hintId} pointAtRef={addButtonRef} onDismiss={handleDismissHint} />
             )}
         </>
     );

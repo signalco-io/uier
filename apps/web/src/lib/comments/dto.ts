@@ -33,6 +33,12 @@ export type CommentDto = {
     createdAt?: string;
 };
 
+/** `GET /api/visitor` */
+export type VisitorDto = {
+    /** The visitor's guest name (`Guest XXXX`), `null` before their first comment or reply */
+    name: string | null;
+};
+
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
 
 function optionalString(value: unknown) {

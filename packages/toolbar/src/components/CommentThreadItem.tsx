@@ -20,7 +20,7 @@ function parseDate(value: string | undefined) {
     return Number.isNaN(date.valueOf()) ? undefined : date;
 }
 
-function avatarText(name: string) {
+export function avatarText(name: string) {
     // `Guest 1A2B` -> `1A`, so different visitors are easier to tell apart
     const guestCode = /^Guest ([0-9A-F]{2})/i.exec(name)?.[1];
     return (guestCode ?? name[0] ?? '?').toUpperCase();
