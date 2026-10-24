@@ -11,7 +11,11 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/` | the signed-in app shell (`/app`) |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in pages, `(shell)/` signed-in pages (projects, settings, billing, account), `review/[projectId]` review links |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `integration.ts` (embed snippets, CSP sources) |
+| `src/components/app/` | app UI: `PageHeader`/`Section`, forms and server actions per area (`projects/`, `shell/`) |
+| `src/lib/email/` | email through Azure Communication Services and the templates |
+| `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
@@ -103,6 +107,17 @@ repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them sayi
 `/status` (dynamic) and `/api/status` render `getServiceStatus()` from `src/lib/status`: only what
 those checks measure, at request time. Do not add uptime percentages, history or services that are
 not checked. A new service gets a real check there first. `e2e/status.spec.ts` covers both.
+
+## The app
+
+- Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
+  `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
+  document from the current workspace.
+- Forms use `useActionState` with `actionResult()` (expected failures become `{ ok: false, error }`)
+  and controlled inputs, so React's reset after an action never drops what was typed.
+- Links the app sends or redirects to come from `appBaseUrl()`, never from the Host header.
+- Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
+  helpers in `e2e/support/app.ts` sign in that way.
 
 ## Testing
 

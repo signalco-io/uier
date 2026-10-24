@@ -17,7 +17,7 @@ export type RateLimitSubject = {
     ipBucket?: string;
 };
 
-type Limit = {
+export type Limit = {
     /** What is counted, e.g. `visitor-comments:<authorId>` */
     key: string;
     limit: number;
@@ -30,7 +30,7 @@ type Limit = {
  * Counts one write against the limit in the current fixed window. The counter document's id is a
  * keyed hash, so it reveals neither the visitor nor the IP address.
  */
-async function consume(store: CommentsStore, domain: string, { key, limit, windowSeconds, reason, message }: Limit) {
+export async function consume(store: CommentsStore, domain: string, { key, limit, windowSeconds, reason, message }: Limit) {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const window = Math.floor(nowSeconds / windowSeconds);
     const id = `counter_${keyedHash('rate-limit', `${key}:${windowSeconds}:${window}`).slice(0, 40)}`;

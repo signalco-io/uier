@@ -3,8 +3,9 @@ import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
 
-// Describes what the site and the comments API actually do (apps/web/src/lib/comments, README
-// "Comments API"). Change this page when what is collected, where it is stored or for how long changes.
+// Describes what the site, the comments API and the app actually do (apps/web/src/lib/comments,
+// apps/web/src/lib/app, README "Comments API" and "The app"). Change this page when what is collected,
+// where it is stored or for how long changes.
 
 export const metadata: Metadata = {
     title: 'Privacy policy',
@@ -23,9 +24,13 @@ export default function PrivacyPolicyPage() {
             <h2>In short</h2>
             <ul>
                 <li>Reading the site sets no cookies and stores nothing in your browser.</li>
-                <li>Comments you leave with the toolbar are public. Anyone who opens the page can read them.</li>
-                <li>Comments are deleted automatically 90 days after their last change.</li>
-                <li>We do not ask for your name or email address, show ads, sell data or follow you to other sites.</li>
+                <li>Comments you leave with the toolbar on {brand.domain} are public. Anyone who opens the page can read them.</li>
+                <li>Those comments are deleted automatically 90 days after their last change.</li>
+                <li>
+                    Commenting on {brand.domain} needs no account. If you sign in to the {brand.name} app, we store your
+                    email address and name to sign you in and show who you work with.
+                </li>
+                <li>We do not show ads, sell data or follow you to other sites.</li>
             </ul>
 
             <h2>What we collect</h2>
@@ -53,6 +58,20 @@ export default function PrivacyPolicyPage() {
                 lets the server recognise your comments, so only you can resolve or delete them. We store a hash of
                 the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
+            </p>
+
+            <h3>Your account in the app</h3>
+            <p>When you sign in to the {brand.name} app at {brand.domain}/app, we store:</p>
+            <ul>
+                <li>your email address, and the name shown with your work (it starts as the part of your email before the @, and you can change it);</li>
+                <li>when your account was created;</li>
+                <li>your workspace and the projects in it: their names, the site addresses you add and their settings.</li>
+            </ul>
+            <p>
+                To sign you in, we email you a link. We store only a hash of the token in the link, and delete it when
+                you use it or after 15 minutes. Signing in sets the <code>uier_session</code> cookie, which keeps
+                you signed in; the <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has the details. We count
+                sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>
 
             <h3>Rate limits and bot protection</h3>
@@ -87,6 +106,10 @@ export default function PrivacyPolicyPage() {
                     performance of the service you use (Article 6(1)(b) GDPR).
                 </li>
                 <li>
+                    To sign you in to the app and keep your account, workspace and projects: the performance of
+                    the service you use (Article 6(1)(b) GDPR).
+                </li>
+                <li>
                     To protect {brand.name} from spam and abuse with rate limits, bot protection and request logs:
                     our legitimate interest in a safe service (Article 6(1)(f) GDPR).
                 </li>
@@ -98,7 +121,8 @@ export default function PrivacyPolicyPage() {
 
             <h2>Where it is stored and who processes it</h2>
             <ul>
-                <li>Comments and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
+                <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
+                <li>Sign-in emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
@@ -116,7 +140,9 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>Comments and replies: 90 days after their last change, then they are deleted automatically. You can delete your own earlier in the toolbar.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
-                <li>The <code>uier_visitor</code> cookie: one year after it is set.</li>
+                <li>Your account, workspace and projects: until you ask us to delete them.</li>
+                <li>Sign-in links: until you use them, at most 15 minutes.</li>
+                <li>The <code>uier_visitor</code> cookie: one year after it is set. The <code>uier_session</code> cookie: 30 days after you sign in.</li>
                 <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>
             </ul>
 
@@ -125,8 +151,8 @@ export default function PrivacyPolicyPage() {
                 You can ask us for a copy of your data, to correct or delete it, to restrict or object to how we use
                 it, and to receive it in a portable format. You can delete your own comments and replies with the
                 toolbar at any time. For anything else, email <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>.
-                Comments are anonymous, so tell us the page and the comment you mean: we have no other way to link
-                a comment to you.
+                Comments on {brand.domain} are anonymous, so tell us the page and the comment you mean: we have no
+                other way to link a comment to you. For your app account, write from the email address you sign in with.
             </p>
             <p>You can also complain to the data protection authority where you live or work.</p>
 

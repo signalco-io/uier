@@ -37,10 +37,12 @@ test('a review link starts a review for the tab; Exit review ends it', async ({ 
     await expect(viewProject).toHaveAttribute('href', `${new URL(baseURL!).origin}/app/projects/demo-project_1`);
     await expect(viewProject).toHaveAttribute('target', '_blank');
     await expectNoAxeViolations(page);
-    // Opens the project in a new tab (the app's project pages come with the app)
+    // Opens the project in a new tab: the app, which asks a signed-out reviewer to sign in first
     const projectPage = page.waitForEvent('popup');
     await viewProject.click();
-    expect(new URL((await projectPage).url()).pathname).toBe('/app/projects/demo-project_1');
+    const projectUrl = new URL((await projectPage).url());
+    expect(projectUrl.pathname).toBe('/app/sign-in');
+    expect(projectUrl.searchParams.get('next')).toBe('/app/projects/demo-project_1');
     await expect(options(page)).toBeHidden();
 
     // The review goes on on other pages of the site, in this tab

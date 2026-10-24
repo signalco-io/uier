@@ -79,10 +79,13 @@ pnpm dev
 - Open the app on `localhost` (not `127.0.0.1`): the development toolbar build always talks to the local
   comments API on http://localhost:4004/api/comments, never to uier.io.
 
-The comments API needs no database locally: without `COSMOSDB_CONNECTION_STRING` (or `COSMOSDB_ENDPOINT`) it
-keeps comments in memory (lost on restart; one warning in the server log). To use a real Cosmos DB (an emulator
-or your own serverless account), copy [`apps/web/.env.example`](apps/web/.env.example) to `apps/web/.env.local` and set
-the variables there.
+The comments API and the app need no database locally: without `COSMOSDB_CONNECTION_STRING` (or
+`COSMOSDB_ENDPOINT`) they keep their data in memory (lost on restart; one warning in the server log). To use a
+real Cosmos DB (an emulator or your own serverless account), copy [`apps/web/.env.example`](apps/web/.env.example)
+to `apps/web/.env.local` and set the variables there.
+
+No email is sent locally either: the sign-in page shows the link it would have emailed
+("Open the sign-in link"), so http://localhost:4004/app works with any address.
 
 ### Commands
 
@@ -114,6 +117,9 @@ pick a free port to test the production build.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.config.ts)):
 
+- **Desktop Chrome** and **Mobile Chrome** also run the app ([`app.spec.ts`](apps/web/e2e/app.spec.ts)):
+  sign-in (single-use links, redirects back), onboarding and the install guide, review links, done and
+  reopened projects, project settings, billing and the account page, with axe checks on every page.
 - **API** - [`comments.api.spec.ts`](apps/web/e2e/comments.api.spec.ts): the comments API with separate
   request contexts as separate visitors (ownership, deleting threads others replied to, validation, `413`,
   path filtering, DTO contents, cookie flags, rate limits).
@@ -128,6 +134,47 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
 
 Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
 (`api.vercel.com`), so they need network access.
+
+## The app (`/app`)
+
+The signed-in app at [uier.io/app](https://uier.io/app) ("Get started" on the landing page), in
+[`apps/web/app/(rest)/(app)`](apps/web/app/(rest)/(app)) with its logic in
+[`apps/web/src/lib/app`](apps/web/src/lib/app). Pages are server components; changes go through server
+actions that check the session and the role every time.
+
+- **Sign in** (`/app/sign-in`): no passwords. The app emails a single-use link (valid for 15 minutes, stored
+  only as a SHA-256 hash); the first sign-in creates the account. Opening the link shows a "Continue"
+  button, because email scanners open links before people do. The session is an HttpOnly `uier_session`
+  cookie with a signed token (30 days; the key is derived from the server secret, like the guest names).
+  Sign-in emails are limited to 5 per address and 20 per IP per hour. Signed-out visits to an app page go
+  to sign in and come back afterwards (`proxy.ts`, `?next=`).
+- **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
+  members belong to a workspace; with more than one workspace the account menu switches between them.
+- **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
+  then staging or preview addresses), its status (active or done) and who can comment. The project code
+  (12 lowercase letters and digits) is public: it is in the embed script.
+  - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
+    (the script, where to paste it on common platforms, and the CSP sources in "Advanced").
+  - Details `/app/projects/<code>` (review links for every address) and settings
+    `/app/projects/<code>/settings` (who can comment, addresses, project code and embed script, name, done).
+  - Review links `/app/review/<code>?url=<page>` check access and redirect to the page with the toolbar's
+    review link parameter `?toolbar-code=<code>`; only addresses of the project are redirect targets.
+- **Billing** (`/app/billing`): the pricing promise `brand.pricing`, word for word like the landing page:
+  every feature available today is free and stays free.
+
+Data lives in the Cosmos DB container `app` (`app-preview` on previews), partition key `/pk`:
+
+| Document (`type`) | `pk` | `id` |
+| --- | --- | --- |
+| `user` | `user:<id>` | `u_<nanoid>` |
+| `user-email` (unique email -> user) | `email:<email>` | the email |
+| `sign-in` (pending link, `ttl` 15 min) | `sign-in:<hash>` | SHA-256 of the token |
+| `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>`, `member_<userId>`, the project code |
+| `project-ref` (code -> workspace) | `project:<code>` | the project code |
+
+Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
+set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
+(`UIER_BASE_URL` overrides both); never the request's Host header.
 
 ## Landing page showcase and public feedback
 
