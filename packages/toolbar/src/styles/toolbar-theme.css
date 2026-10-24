@@ -9,7 +9,9 @@
 @layer base {
     [data-uier-root] {
         color: hsl(var(--foreground));
-        font-family: Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+        /* Geist from next/font when the host is uier.io itself (its CSP blocks Google Fonts), else the
+           Google Fonts Geist that index.tsx loads */
+        font-family: var(--font-geist-sans, Geist), system-ui, -apple-system, "Segoe UI", sans-serif;
         font-feature-settings: "rlig" 1, "calt" 1;
         font-size: 1rem;
         font-style: normal;

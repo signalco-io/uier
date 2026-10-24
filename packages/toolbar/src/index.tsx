@@ -11,9 +11,13 @@ const containerId = 'uier-toolbar';
  * Loads Geist into the reviewed page so the toolbar can use it (BRAND.md, "Typography").
  * `@font-face` rules inside a shadow root are not applied reliably, so the stylesheet goes into
  * the host document instead. If the host's CSP blocks it the toolbar falls back to system-ui.
+ * uier.io already has Geist through next/font (`--font-geist-sans`, used by toolbar-theme.css).
  */
 function ensureBrandFont() {
     try {
+        if (getComputedStyle(document.documentElement).getPropertyValue('--font-geist-sans').trim()) {
+            return;
+        }
         if (document.querySelector(`link[href="${GEIST_FONTS_URL}"]`)) {
             return;
         }

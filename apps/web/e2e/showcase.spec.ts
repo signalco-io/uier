@@ -240,7 +240,7 @@ test('a stored comment that can not be placed does not break the toolbar', async
         { type: 'point', selector: 'main))((', xNormal: 0.5, yNormal: 0.5 },
         // Offsets past the end of the element and of the text: `Range.setStart` / `setEnd` throw
         { type: 'text', text: 'x', startSelector: 'main', startOffset: 99999, startType: 'element', endSelector: 'main', endOffset: 99999, endType: 'element' },
-        { type: 'text', text: 'x', startSelector: 'main p', startOffset: 99999, startType: 'text', endSelector: 'main p', endOffset: 99999, endType: 'text' }
+        { type: 'text', text: 'x', startSelector: 'main>section>div>p', startOffset: 99999, startType: 'text', endSelector: 'main>section>div>p', endOffset: 99999, endType: 'text' }
     ];
     const rejected: typeof broken = [];
     for (const position of broken) {
@@ -251,7 +251,7 @@ test('a stored comment that can not be placed does not break the toolbar', async
             rejected.push(position);
         }
     }
-    expect((await postComment(page, { position: { type: 'point', selector: 'main h1', xNormal: 0.5, yNormal: 0.5 }, text: 'A valid comment' })).status).toBe(201);
+    expect((await postComment(page, { position: { type: 'point', selector: 'main>section>div>div>h1', xNormal: 0.5, yNormal: 0.5 }, text: 'A valid comment' })).status).toBe(201);
 
     // Positions the API refused are added to the list response, like comments stored before it validated them
     if (rejected.length) {
@@ -302,9 +302,9 @@ test('a long thread keeps its reply box inside the window', async ({ browser }, 
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, origin, { dismissHint: true });
 
-    // Under the description paragraph, about halfway down the first screen
+    // Under the description paragraph (selectors take the toolbar's form, see validation.ts), about halfway down the first screen
     const created = await postComment(page, {
-        position: { type: 'point', selector: 'main p', xNormal: 0.5, yNormal: 1 },
+        position: { type: 'point', selector: 'main>section>div>p', xNormal: 0.5, yNormal: 1 },
         text: 'A long comment. '.repeat(60).trim()
     });
     expect(created.status).toBe(201);
