@@ -3,6 +3,7 @@ import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_LIST_COMMENTS } from '../comments/limits';
+import { withinListResponseSize } from '../comments/dto';
 import { projectOrigins } from '../app/projects';
 import { appBaseUrl } from '../app/request';
 import { KnownPageLinks } from '../../knownPages';
@@ -90,9 +91,10 @@ export async function listReviewComments({ request, project, actor }: ReviewApiC
 
     const comments = (await listProjectComments(project, actor, path)).slice(0, MAX_LIST_COMMENTS);
     const names = await authorNames(comments);
-    return Response.json(comments
+    // As many as fit into the comments API's response size
+    return Response.json(withinListResponseSize(comments
         .map(comment => toReviewCommentDto(comment, actor, names))
-        .filter(Boolean));
+        .filter(Boolean)));
 }
 
 const createSchema = createCommentSchema.extend({ authorName: guestNameSchema.optional() });

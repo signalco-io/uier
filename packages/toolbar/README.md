@@ -188,8 +188,10 @@ error boundary, so one bad comment never breaks the toolbar.
   **This page** and, in a review, the site's **Other pages** (`?scope=site`), newest first.
   **Open**, **Done** and **All** filter by status, and the search box matches messages, quoted text, guest
   names, page paths and public ids. A thread shows its first and last message; **Show all** shows the rest.
-  **Show on page** opens an open comment's thread on its pin; a comment on another page links to its thread
-  there (`?uier-comment=`). The showcase runs on the landing page only, so it has no other pages.
+  **Show on page** (only while the comment's pin can be placed) opens an open comment's thread on its pin; a
+  comment on another page links to its thread there (`?uier-comment=`, always on this site). The status and
+  search are kept while the inbox is closed; Escape clears a search first. The showcase runs on the landing
+  page only, so it has no other pages.
 
 ## UI and styles
 

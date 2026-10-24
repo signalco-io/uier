@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Page path as the comments API stores it: no query string, no trailing slash (except "/").
+ * Page path as the comments API stores it: no query string, no trailing slash (except "/"). One
+ * leading slash: the API refuses paths that start with "//" (a browser reads them as another site).
  */
 export function normalizePath(pathname: string) {
-    const trimmed = pathname.replace(/\/+$/, '');
+    const trimmed = pathname.replace(/^\/{2,}/, '/').replace(/\/+$/, '');
     return trimmed.length ? trimmed : '/';
 }
 

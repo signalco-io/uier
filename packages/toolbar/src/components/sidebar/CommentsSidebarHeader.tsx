@@ -31,7 +31,8 @@ export function CommentsSidebarHeader({ status, onStatusChange, onClose }: Comme
                             variant="plain"
                             aria-pressed={status === s.value}
                             className={cx(
-                                'rounded-sm',
+                                // Touch targets are never below 44 px (BRAND.md)
+                                'rounded-sm pointer-coarse:h-11 pointer-coarse:min-w-11',
                                 status === s.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
                             )}
                             onClick={() => onStatusChange(s.value)}>

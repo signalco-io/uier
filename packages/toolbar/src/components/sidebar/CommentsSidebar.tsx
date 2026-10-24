@@ -6,7 +6,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Search } from '@signalco/ui-icons';
 import { CommentsSidebarHeader } from './CommentsSidebarHeader';
 import { CommentsSidebarCommentsList } from './CommentsSidebarCommentsList';
-import { CommentsFilter, CommentsStatusFilter } from './CommentsFilter';
+import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
 
 // One element for every render: the kit's input wraps itself anew (and loses the focus) when its
@@ -14,8 +14,12 @@ import { InkScope } from '../InkScope';
 const searchIcon = <Search size={16} aria-hidden="true" className="ml-3 shrink-0 text-muted-foreground" />;
 
 export type CommentsSidebarProps = {
-    /** The status shown first (a link to a done comment opens the inbox on "Done") */
-    initialStatus?: CommentsStatusFilter;
+    /**
+     * The status and search. Kept while the inbox is closed (see CommentsGlobal), so it opens
+     * again as it was; a link to a done comment opens it on "Done".
+     */
+    filter: CommentsFilter;
+    onFilterChange: (filter: CommentsFilter) => void;
     onClose: () => void;
     /** Closes the inbox and opens the thread on its pin */
     onShowOnPage: (commentId: string) => void;
@@ -25,8 +29,7 @@ export type CommentsSidebarProps = {
  * The inbox: the comments of this page and of the site's other pages, searched and filtered by
  * status
  */
-export function CommentsSidebar({ initialStatus = 'unresolved', onClose, onShowOnPage }: CommentsSidebarProps) {
-    const [filter, setFilter] = useState<CommentsFilter>({ status: initialStatus });
+export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage }: CommentsSidebarProps) {
     const [hidding, setHidding] = useState<boolean>(false);
 
     const handleClose = () => {
@@ -40,6 +43,15 @@ export function CommentsSidebar({ initialStatus = 'unresolved', onClose, onShowO
         if (e.key === 'Escape') {
             e.stopPropagation();
             handleClose();
+        }
+    };
+
+    // Escape in a search with text clears it (and the inbox stays open); in an empty one it closes the inbox
+    const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape' && filter.keywords) {
+            e.stopPropagation();
+            e.preventDefault();
+            setFilter({ ...filter, keywords: '' });
         }
     };
 
@@ -70,7 +82,8 @@ export function CommentsSidebar({ initialStatus = 'unresolved', onClose, onShowO
                             startDecorator={searchIcon}
                             className="focus-within:ring-2 focus-within:ring-ring"
                             value={filter.keywords ?? ''}
-                            onChange={(e) => setFilter({ ...filter, keywords: e.target.value })} />
+                            onChange={(e) => setFilter({ ...filter, keywords: e.target.value })}
+                            onKeyDown={handleSearchKeyDown} />
                     </Stack>
                     <Divider />
                     {/* Focusable so the list can be scrolled with the keyboard */}

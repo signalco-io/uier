@@ -302,6 +302,9 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
     const pricing = await post(`/${projectId}/pricing`, 'Show yearly prices.');
     const checkout = await post(`/${projectId}/checkout`, 'The pay button is hidden.');
     expect([pricing.number, checkout.number]).toEqual([1, 2]);
+    // The numbers' sequence document is in the project's partition too, out of reach
+    const sequence = await request.patch(`/api/review/${projectId}/comments/${encodeURIComponent('$sequence_comments')}`, { headers, data: { resolved: true } });
+    expect(sequence.status()).toBe(404);
 
     // Every page of the project, newest first
     const site = await request.get(`/api/review/${projectId}/comments?scope=site`, { headers });

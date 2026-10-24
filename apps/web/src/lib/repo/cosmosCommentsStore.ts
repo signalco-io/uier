@@ -1,5 +1,5 @@
 import type { SqlParameter } from '@azure/cosmos';
-import type { DbComment, DbCounter, DbSequence } from '../db/schema';
+import { commentSequenceId, isCommentDocument, type DbComment, type DbCounter, type DbSequence } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
@@ -51,7 +51,8 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async get(domain, id): Promise<StoredComment | null> {
             const response = await cosmosDataContainerComments().item(id, domain).read<Record<string, unknown>>();
-            if (!response.resource || !response.etag)
+            // The partition's counters and sequence are not comments
+            if (!response.resource || !response.etag || !isCommentDocument(response.resource))
                 return null;
             return { comment: withoutSystemProperties(response.resource), etag: response.etag };
         },
@@ -110,7 +111,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async nextCommentNumber(domain) {
             const container = cosmosDataContainerComments();
-            const id = 'sequence_comments';
+            const id = commentSequenceId;
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                     const { resource } = await container.item(id, domain).patch<DbSequence>({

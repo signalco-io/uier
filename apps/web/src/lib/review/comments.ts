@@ -6,7 +6,7 @@ import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
-import type { CreateCommentInput } from '../comments/validation';
+import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, type ProjectActor } from './actor';
 
@@ -79,6 +79,14 @@ function compactDevice(device: CreateCommentInput['device']): DbCommentDevice | 
     return Object.keys(compacted).length ? compacted : undefined;
 }
 
+/**
+ * The stored comment. Ids the server never gives out (the app's actions get theirs from the
+ * browser) are not found, like the partition's documents that are not comments.
+ */
+async function getStoredComment(store: CommentsStore, partition: string, id: string) {
+    return isValidId(id) ? await store.get(partition, id) : null;
+}
+
 /** Read-modify-write with optimistic concurrency; `update` returns `null` to delete the comment */
 async function updateComment<T extends DbComment | null>(
     store: CommentsStore,
@@ -87,7 +95,7 @@ async function updateComment<T extends DbComment | null>(
     update: (comment: DbComment) => T
 ): Promise<T> {
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
-        const stored = await store.get(partition, id);
+        const stored = await getStoredComment(store, partition, id);
         if (!stored)
             throw apiErrors.notFound();
 
@@ -123,7 +131,7 @@ export async function listProjectComments(project: DbProject, actor: ProjectActo
 }
 
 export async function getProjectComment(project: DbProject, actor: ProjectActor, id: string) {
-    const stored = await getCommentsStore().get(projectPartition(project.id), id);
+    const stored = await getStoredComment(getCommentsStore(), projectPartition(project.id), id);
     return stored ? visibleOrThrow(stored.comment, actor) : null;
 }
 
@@ -189,7 +197,7 @@ export async function replyToProjectComment(request: Request, project: DbProject
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
-    const stored = await store.get(partition, id);
+    const stored = await getStoredComment(store, partition, id);
     if (!stored)
         throw apiErrors.notFound();
     visibleOrThrow(stored.comment, actor);

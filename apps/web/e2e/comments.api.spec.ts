@@ -371,6 +371,23 @@ test('comments are numbered per site, and listed for the whole site', async ({ n
 
     // Any other scope is a page's list, which needs a path
     await expectError(await site.get('/api/comments', { params: { scope: 'everything' } }), 400, 'invalid_request');
+
+    // The numbers' sequence document shares the partition, but no route reaches it
+    const sequence = `/api/comments/${encodeURIComponent('$sequence_comments')}`;
+    await expectError(await site.patch(sequence, { data: { resolved: true } }), 404, 'not_found');
+    await expectError(await site.delete(sequence), 404, 'not_found');
+    await expectError(await site.post(`${sequence}/replies`, { data: { text: 'Hi' } }), 404, 'not_found');
+    await expectError(await site.patch('/api/comments/sequence_comments', { data: { resolved: true } }), 404, 'not_found');
+    expect((await created(await createComment(site, '/c', { text: 'Fifth' }))).number).toBe(5);
+});
+
+test('a comment\'s path stays on its site', async ({ newVisitor }) => {
+    const visitor = await newVisitor();
+    // A browser reads `//host` and `/\host` as another site: a link to such a comment would leave this one
+    for (const path of ['//evil.example/login', '/\\evil.example/login', '/a\\b']) {
+        await expectError(await createComment(visitor, path), 400, 'invalid_request');
+        await expectError(await visitor.get('/api/comments', { params: { path } }), 400, 'invalid_request');
+    }
 });
 
 test('responses never contain author ids, IP hashes or device details beyond size and viewport', async ({ newVisitor }) => {

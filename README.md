@@ -317,10 +317,12 @@ trailing slash).
 | `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
 
 **Public ids.** Every new comment gets a `number`, counted per domain (per project for a project's comments)
-from 1 and shown as `#12` in the toolbar and the app. One sequence document per partition (`type: 'sequence'`, id `sequence_comments`, no `ttl` of its own) is incremented
-atomically when a comment is created; a sequence that is gone (the preview container expires idle items)
-starts again after the highest number stored. Numbers are never used twice, deleted comments leave gaps,
-and comments from before numbering have none.
+from 1 and shown as `#12` in the toolbar and the app. One sequence document per partition (`type: 'sequence'`,
+id `$sequence_comments`, which no route accepts, no `path` and no `ttl` of its own) is incremented atomically
+when a comment is created. Numbers are not reused while the sequence document exists. When it is gone (the
+preview container expires idle items, or it was deleted), numbering continues after the highest number still
+stored, so a deleted comment's number can come back. Numbers count every comment, private and deleted ones
+included, so gaps are normal; comments from before numbering have none.
 
 **Deleting.** One visitor can't delete what others wrote:
 
@@ -450,7 +452,9 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
 
    (`domain` is the host the comment was posted on, e.g. `uier.io`; other useful filters:
    `CONTAINS(c.thread.items[0].text, 'spam')`, `c.authorId = '<authorId of a known abusive comment>'`.
-   Rate-limit counters are in the same container (`c.type = 'counter'`, no `path`) and expire by themselves.)
+   Rate-limit counters are in the same container (`c.type = 'counter'`, no `path`) and expire by themselves.
+   So is each partition's comment numbers' sequence (`c.type = 'sequence'`, id `$sequence_comments`): do not
+   delete it, or numbering continues after the highest number still stored.)
 3. Open the document and **Delete** it to remove the whole comment, or remove the offending entry from
    `thread.items` and **Update** to remove a single reply. If only a deleted first item (`deletedAt`) would be
    left, delete the document instead. Changes are visible immediately (the API does not cache).

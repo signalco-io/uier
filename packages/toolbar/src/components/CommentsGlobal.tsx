@@ -12,10 +12,11 @@ import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentPointOverlay } from './CommentPointOverlay';
 import { CommentBubble } from './CommentBubble';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
+import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
-import type { CommentsStatusFilter } from './sidebar/CommentsFilter';
+import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength, commentTextMaxLength } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
@@ -90,12 +91,15 @@ export function CommentsGlobal({
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
-    // The thread to open once its pin is on the page: a comment that was just posted, or the one
-    // a comment link (`?uier-comment=`) points at
-    const [openCommentId, setOpenCommentId] = useState<string>();
+    // The thread to open once its pin is on the page: a comment that was just posted, the one a
+    // comment link (`?uier-comment=`) points at, or "Show on page" in the inbox (`fromInbox`)
+    const [openComment, setOpenComment] = useState<{ id: string; fromInbox?: boolean }>();
+    const openCommentId = openComment?.id;
     const [linkedCommentId] = useState(takeLinkedCommentId);
     const linkHandledRef = useRef(false);
-    const [sidebarStatus, setSidebarStatus] = useState<CommentsStatusFilter>('unresolved');
+    // The inbox's status and search, kept while it is closed
+    const [sidebarFilter, setSidebarFilter] = useState<CommentsFilter>({ status: 'unresolved' });
+    const announce = useAnnounce();
     const hintId = useId();
     const addButtonRef = useRef<HTMLButtonElement>(null);
     const inboxButtonRef = useRef<HTMLButtonElement>(null);
@@ -279,17 +283,18 @@ export function CommentsGlobal({
         setCreatingCommentPoint((curr) => !curr);
     };
 
+    /** Opens the inbox on the status of a comment it should show (and without a search that could hide it) */
     const showInSidebar = (status: CommentsStatusFilter) => {
-        setSidebarStatus(status);
+        setSidebarFilter({ status });
         setSidebarOpen(true);
     };
 
     // A posted comment shows its thread
     const handleCreated = (comment: CommentItem) => {
         setCreatingComment(undefined);
-        setOpenCommentId(comment.id);
+        setOpenComment({ id: comment.id });
     };
-    const handleAutoOpened = useCallback(() => setOpenCommentId(undefined), []);
+    const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
 
     // A comment link opens the thread on its pin; done threads and feedback have no pin, the
     // inbox shows them
@@ -305,31 +310,38 @@ export function CommentsGlobal({
         if (linked.resolved || linked.position.type === 'page') {
             showInSidebar(linked.resolved ? 'resolved' : 'unresolved');
         } else {
-            setOpenCommentId(linked.id);
+            setOpenComment({ id: linked.id });
         }
     }, [allComments, linkedCommentId]);
 
-    // When the thread's pin can't be placed on this page (the element is gone), the inbox shows it
+    // When the thread's pin can't be placed on this page (the element is gone or hidden), the inbox
+    // shows it. "Show on page" goes back to the inbox as it was and says why.
     useEffect(() => {
-        if (!openCommentId) {
+        if (!openComment) {
             return;
         }
         const timeout = window.setTimeout(() => {
-            setOpenCommentId(undefined);
-            showInSidebar('unresolved');
+            setOpenComment(undefined);
+            if (openComment.fromInbox) {
+                setSidebarOpen(true);
+                announce('This comment\'s place is not on the page right now.');
+            } else {
+                showInSidebar('unresolved');
+            }
         }, 1000);
         return () => window.clearTimeout(timeout);
-    }, [openCommentId]);
+    }, [openComment]);
 
     const handleCloseSidebar = () => {
         setSidebarOpen(false);
         inboxButtonRef.current?.focus();
     };
 
-    // "Show on page" in the inbox: the thread opens on its pin (and takes the focus)
+    // "Show on page" in the inbox (only while the pin can be placed): the thread opens on its pin
+    // (and takes the focus)
     const handleShowOnPage = (commentId: string) => {
         setSidebarOpen(false);
-        setOpenCommentId(commentId);
+        setOpenComment({ id: commentId, fromInbox: true });
     };
 
     const handleCollapsedChange = (next: boolean) => {
@@ -388,7 +400,8 @@ export function CommentsGlobal({
             )}
             {sidebarOpen && (
                 <CommentsSidebar
-                    initialStatus={sidebarStatus}
+                    filter={sidebarFilter}
+                    onFilterChange={setSidebarFilter}
                     onClose={handleCloseSidebar}
                     onShowOnPage={handleShowOnPage} />
             )}
@@ -406,7 +419,7 @@ export function CommentsGlobal({
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
                 sidebarOpen={sidebarOpen}
-                onToggleSidebar={() => sidebarOpen ? setSidebarOpen(false) : showInSidebar('unresolved')}
+                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
                 onFeedbackOpen={() => {
                     setCreatingCommentPoint(false);
                     closeHintForUse();

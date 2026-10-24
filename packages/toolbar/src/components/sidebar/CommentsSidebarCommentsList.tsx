@@ -1,4 +1,4 @@
-import { ReactNode, useContext, useId } from 'react';
+import { ReactNode, useContext, useEffect, useId, useState } from 'react';
 import { UseQueryResult } from '@tanstack/react-query';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -10,9 +10,13 @@ import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { useComments, useSiteComments } from '../../hooks/useComments';
+import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { commentLink } from '../../review';
 import { CommentItem, commentsListMaxLength } from '../@types/Comments';
 import { CommentsFilter, matchesFilter } from './CommentsFilter';
+
+/** How long the search waits after the last keystroke before it announces the count */
+const countAnnouncementDelayMs = 500;
 
 function emptyText(filter: CommentsFilter) {
     if (filter.keywords?.trim()) {
@@ -91,6 +95,30 @@ function CommentsGroup({ title, query, comments, filter, renderPlace, note }: Co
     );
 }
 
+/**
+ * "Show on page" for an open comment of this page, only while its pin can be placed (the same
+ * placement as the pin: nothing for an element that is gone or hidden on this device)
+ */
+function ShowOnPage({ comment, onShowOnPage }: { comment: CommentItem; onShowOnPage: (commentId: string) => void }) {
+    const { rects } = useCommentPlacement(comment.position);
+    if (!rects.length) {
+        return null;
+    }
+
+    return (
+        <div className="px-2 pt-1">
+            <Button
+                size="xs"
+                variant="plain"
+                className="text-muted-foreground pointer-coarse:h-11"
+                startDecorator={<MapPin size={14} aria-hidden="true" />}
+                onClick={() => onShowOnPage(comment.id)}>
+                Show on page
+            </Button>
+        </div>
+    );
+}
+
 type CommentsSidebarCommentsListProps = {
     filter: CommentsFilter;
     onShowOnPage: (commentId: string) => void;
@@ -115,6 +143,21 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
     const siteCapped = (siteQuery.data?.length ?? 0) >= commentsListMaxLength;
     const searching = Boolean(filter.keywords?.trim());
 
+    // The count is announced once the typing stopped and every group has loaded, so screen readers
+    // don't hear a count for every keystroke, or one without the other pages
+    const loading = pageQuery.isPending || (withOtherPages && siteQuery.isPending);
+    const countMessage = searching
+        ? `${countText((pageComments?.length ?? 0) + (otherComments?.length ?? 0))} found`
+        : '';
+    const [announcedCount, setAnnouncedCount] = useState('');
+    useEffect(() => {
+        if (loading) {
+            return;
+        }
+        const timeout = window.setTimeout(() => setAnnouncedCount(countMessage), countAnnouncementDelayMs);
+        return () => window.clearTimeout(timeout);
+    }, [countMessage, filter.keywords, loading]);
+
     return (
         <Stack spacing={3}>
             <CommentsGroup
@@ -123,16 +166,7 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
                 comments={pageComments}
                 filter={filter}
                 renderPlace={(comment) => !comment.resolved && comment.position.type !== 'page' && (
-                    <div className="px-2 pt-1">
-                        <Button
-                            size="xs"
-                            variant="plain"
-                            className="text-muted-foreground"
-                            startDecorator={<MapPin size={14} aria-hidden="true" />}
-                            onClick={() => onShowOnPage(comment.id)}>
-                            Show on page
-                        </Button>
-                    </div>
+                    <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
                 )} />
             {withOtherPages && (
                 <CommentsGroup
@@ -142,10 +176,10 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
                     filter={filter}
                     note={siteCapped ? 'Older comments are not listed.' : undefined}
                     renderPlace={(comment) => (
-                        // Opens the thread on its page (`?uier-comment=`), in the review
+                        // Opens the thread on its page (`?uier-comment=`), in the review; always on this site
                         <a
                             href={commentLink(comment, review)}
-                            className="flex min-w-0 items-center gap-1 rounded-t-xl px-4 pt-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                            className="flex min-w-0 items-center gap-1 rounded-t-xl px-4 pt-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring pointer-coarse:min-h-11">
                             <span className="sr-only">Open on </span>
                             <span className="truncate font-mono">{comment.path}</span>
                             <ArrowUpRight size={14} aria-hidden="true" className="shrink-0" />
@@ -154,7 +188,7 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
             )}
             {/* Always there, so screen readers announce the count when a search changes it */}
             <div role="status" className="sr-only">
-                {searching && `${countText((pageComments?.length ?? 0) + (otherComments?.length ?? 0))} found`}
+                {announcedCount}
             </div>
         </Stack>
     );

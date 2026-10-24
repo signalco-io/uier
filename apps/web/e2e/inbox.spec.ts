@@ -31,10 +31,10 @@ async function api(page: Page, method: 'POST' | 'PATCH', url: string, body: unkn
     }, { method, url, body });
 }
 
-async function comment(page: Page, path: string, text: string, { replies = [] as string[], resolved = false } = {}) {
+async function comment(page: Page, path: string, text: string, { replies = [] as string[], resolved = false, selector = 'main' } = {}) {
     const saved = await api(page, 'POST', '/api/comments', {
         path,
-        position: { type: 'point', selector: 'main', xNormal: 0.5, yNormal: 0.1 },
+        position: { type: 'point', selector, xNormal: 0.5, yNormal: 0.1 },
         text
     });
     for (const reply of replies) {
@@ -52,7 +52,7 @@ async function expectListed(group: Locator, ids: string[]) {
         articles.map(article => article.getAttribute('aria-label')))).toEqual(ids);
 }
 
-test('inbox: this page and other pages, searched and filtered by status', async ({ browser }, testInfo) => {
+test('inbox: this page and other pages, searched and filtered by status', async ({ browser, request }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
     await page.goto(`${origin}/brand?review=true`);
@@ -60,12 +60,29 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await expect(toolbar(page)).toBeVisible();
 
     const subtitle = await comment(page, '/brand', 'The heading could use a subtitle.', { replies: ['First reply.', 'Second reply.', 'Third reply.'] });
-    await comment(page, '/brand', 'Name the colours.', { resolved: true });
+    const colours = await comment(page, '/brand', 'Name the colours.', { resolved: true });
     const policy = await comment(page, '/security', 'Link the security policy.', { replies: ['Where?', 'In the footer.', 'Added it there.'] });
     await comment(page, '/security', 'Old contact address.', { resolved: true });
     const feedback = await api(page, 'POST', '/api/comments', { path: '/brand', kind: 'feedback', position: { type: 'page' }, text: 'Love the tokens table.' });
+    // A comment on selected text: the quote is searched too
+    const quote = await api(page, 'POST', '/api/comments', {
+        path: '/security',
+        position: { type: 'text', text: 'Report a vulnerability', startSelector: 'main', startOffset: 0, startType: 'text', endOffset: 22, endType: 'text' },
+        text: 'Make this a link.',
+        quotedText: 'Report a vulnerability'
+    });
+    await api(page, 'PATCH', `/api/comments/${quote.id}`, { resolved: true });
     // Numbered per site, in the order they were posted
-    expect([subtitle.number, policy.number, feedback.number]).toEqual([1, 3, 5]);
+    expect([subtitle.number, policy.number, feedback.number, quote.number]).toEqual([1, 3, 5, 6]);
+
+    // Another visitor (own cookie, same site) replies to the done comment: their guest name is searched too
+    const otherReply = await request.post(`/api/comments/${colours.id}/replies`, {
+        headers: { Host: new URL(origin).host },
+        data: { text: 'Blue and ink.' }
+    });
+    expect(otherReply.status(), await otherReply.text()).toBe(201);
+    const guestName = (await otherReply.json() as { thread: { items: { author: { name: string } }[] } }).thread.items.at(-1)!.author.name;
+    expect(guestName).toMatch(/^Guest [0-9a-f]{4}$/i);
 
     await page.reload();
     await addToolbarScript(page);
@@ -99,6 +116,9 @@ test('inbox: this page and other pages, searched and filtered by status', async 
         for (const text of hidden) {
             await expect(card.getByText(text)).toBeVisible();
         }
+        // The button is gone: the focus is on the first message it showed
+        await expect(card.locator('[tabindex="-1"]')).toBeFocused();
+        await expect(card.locator('[tabindex="-1"]')).toContainText(hidden[0]);
     }
 
     // The other page's comment links to its thread there, in the review
@@ -107,9 +127,9 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await animationsFinished(sidebar);
     await expectNoAxeViolations(page);
 
-    // Search: messages, pages and public ids, in both groups
+    // Search: pages, messages and public ids, in both groups ("/security" is only in the page path)
     const search = sidebar.getByRole('searchbox', { name: 'Search comments' });
-    await search.fill('security');
+    await search.fill('/security');
     await expect(thisPage).toContainText('No matches');
     await expectListed(otherPages, ['Comment #3']);
     await expect(sidebar.getByRole('status').filter({ hasText: '1 comment found' })).toBeAttached();
@@ -118,29 +138,44 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await expectListed(thisPage, ['Comment #1']);
     await search.fill('#5');
     await expectListed(thisPage, ['Comment #5']);
+    // Escape clears a search first, and the inbox stays
+    await search.press('Escape');
+    await expect(search).toHaveValue('');
+    await expect(sidebar).toBeVisible();
+    await expectListed(thisPage, ['Comment #5', 'Comment #1']);
+    await search.fill('#5');
     await expect(otherPages).toContainText('No matches');
 
     // Status: done comments, then all of them, still searched
     await search.fill('');
     await sidebar.getByRole('button', { name: 'Done', exact: true }).click();
     await expectListed(thisPage, ['Comment #2']);
-    await expectListed(otherPages, ['Comment #4']);
+    await expectListed(otherPages, ['Comment #6', 'Comment #4']);
     await expect(otherPages.getByRole('article', { name: 'Comment #4' })).toContainText('Status: Done');
     await search.fill('contact');
     await expect(thisPage).toContainText('No matches');
     await expectListed(otherPages, ['Comment #4']);
+    // Only in the quoted text, then only in another visitor's guest name
+    await search.fill('vulnerability');
+    await expect(thisPage).toContainText('No matches');
+    await expectListed(otherPages, ['Comment #6']);
+    await search.fill(guestName);
+    await expectListed(thisPage, ['Comment #2']);
+    await expect(otherPages).toContainText('No matches');
     await sidebar.getByRole('button', { name: 'All', exact: true }).click();
     await search.fill('');
     await expectListed(thisPage, ['Comment #5', 'Comment #2', 'Comment #1']);
-    await expectListed(otherPages, ['Comment #4', 'Comment #3']);
+    await expectListed(otherPages, ['Comment #6', 'Comment #4', 'Comment #3']);
 
-    // The Inbox button closes it again
+    // The Inbox button closes it again; it opens as it was
     await inbox.click();
     await expect(sidebar).toBeHidden();
     await expect(inbox).toHaveAttribute('aria-expanded', 'false');
+    await inbox.click();
+    await expect(sidebar.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expectListed(otherPages, ['Comment #6', 'Comment #4', 'Comment #3']);
 
     // Show on page: the inbox closes and the thread opens on its pin
-    await inbox.click();
     await thisPage.getByRole('article', { name: 'Comment #1' }).getByRole('button', { name: 'Show on page' }).click();
     await expect(sidebar).toBeHidden();
     await expect(openThread(page).getByText('The heading could use a subtitle.')).toBeVisible();
@@ -149,7 +184,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
 
     // The link goes to the other page, where the thread opens
     await inbox.click();
-    await otherPages.getByRole('link', { name: 'Open on /security' }).click();
+    await policyCard.getByRole('link', { name: 'Open on /security' }).click();
     await page.waitForURL(url => url.pathname === '/security');
     await addToolbarScript(page);
     await expect(openThread(page).getByText('Link the security policy.')).toBeVisible();
@@ -171,6 +206,34 @@ test('inbox: the showcase lists this page only', async ({ browser }, testInfo) =
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByText('Pinned on the landing page.')).toBeVisible();
     await expect(sidebar.getByRole('region', { name: 'Other pages' })).toHaveCount(0);
     await expect(sidebar.getByText('Somewhere else.')).toHaveCount(0);
+
+    await context.close();
+});
+
+test('inbox: a comment\'s link never leaves the site', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await page.goto(`${origin}/brand?review=true`);
+    await addToolbarScript(page);
+    await expect(toolbar(page)).toBeVisible();
+
+    // The API refuses such paths; a stored one (from before) still can't lead away
+    const sneaky = {
+        id: 'comment_sneaky',
+        number: 7,
+        path: '/\\evil.example/login',
+        position: { type: 'point', selector: 'main', xNormal: 0.5, yNormal: 0.5 },
+        kind: 'comment',
+        thread: { items: [{ id: 'item_sneaky', text: 'The new design is here.', author: { name: 'Guest 1A2B', isMe: false } }] },
+        resolved: false,
+        isMine: false
+    };
+    await page.route('**/api/comments?scope=site', route => route.fulfill({ json: [sneaky] }));
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const link = page.getByRole('complementary', { name: 'Comments' }).getByRole('article', { name: 'Comment #7' }).getByRole('link');
+    const href = await link.getAttribute('href');
+    expect(new URL(href!).origin).toBe(origin);
+    expect(new URL(href!).searchParams.get('uier-comment')).toBe('comment_sneaky');
 
     await context.close();
 });

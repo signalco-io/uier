@@ -1,6 +1,7 @@
 import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { displayName } from './visitor';
 import { normalizePath } from './validation';
+import { MAX_LIST_RESPONSE_BYTES } from './limits';
 
 export type CommentAuthorDto = {
     name: string;
@@ -146,4 +147,20 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         isMine: Boolean(authorId) && authorId === visitorAuthorId,
         createdAt: optionalString(comment.createdAt)
     };
+}
+
+/**
+ * The first comments that fit into {@link MAX_LIST_RESPONSE_BYTES} as a JSON array: the lists of
+ * the comments API and of a project's review API
+ */
+export function withinListResponseSize<T>(comments: T[]): T[] {
+    const fitting: T[] = [];
+    let bytes = 2;
+    for (const comment of comments) {
+        bytes += Buffer.byteLength(JSON.stringify(comment)) + 1;
+        if (bytes > MAX_LIST_RESPONSE_BYTES)
+            break;
+        fitting.push(comment);
+    }
+    return fitting;
 }

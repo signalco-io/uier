@@ -2,13 +2,12 @@ import { nanoid } from 'nanoid';
 import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
-import { toCommentDto, type CommentDto } from './dto';
+import { toCommentDto, withinListResponseSize, type CommentDto } from './dto';
 import { isLocalRuntime } from './environment';
 import { apiErrors, writerId, type CommentsApiContext } from './http';
 import {
     COMMENT_TTL_SECONDS,
     MAX_LIST_COMMENTS,
-    MAX_LIST_RESPONSE_BYTES,
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
@@ -124,19 +123,9 @@ export async function listComments(context: CommentsApiContext, path: string | n
     const comments = path === null
         ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
         : await store.list(context.domain, path, MAX_LIST_COMMENTS);
-    const dtos: CommentDto[] = [];
-    let bytes = 2;
-    for (const comment of comments) {
-        const dto = toCommentDto(comment, context.visitor.authorId);
-        if (!dto)
-            continue;
-
-        bytes += Buffer.byteLength(JSON.stringify(dto)) + 1;
-        if (bytes > MAX_LIST_RESPONSE_BYTES)
-            break;
-        dtos.push(dto);
-    }
-    return dtos;
+    return withinListResponseSize(comments
+        .map(comment => toCommentDto(comment, context.visitor.authorId))
+        .filter((dto): dto is CommentDto => Boolean(dto)));
 }
 
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
