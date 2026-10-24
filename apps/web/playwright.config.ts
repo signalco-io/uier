@@ -14,8 +14,10 @@ export default defineConfig({
     testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
     outputDir: 'test-results/',
     webServer: {
-        // Tests run against the production build (`pnpm build` runs first via turbo)
-        command: 'pnpm start',
+        // Tests run against the production build (`pnpm build` runs first via turbo).
+        // Not `pnpm start`: that pins port 4004, the server has to listen on PORT.
+        command: `pnpm exec next start -p ${PORT}`,
+        // Outside CI a server already answering on PORT is reused instead of started
         url: baseURL,
         timeout: 120 * 1000,
         reuseExistingServer: !process.env.CI,
