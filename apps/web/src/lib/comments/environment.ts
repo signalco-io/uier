@@ -16,16 +16,18 @@ let secret: Buffer | null = null;
 
 /**
  * Server-side key for guest names and rate-limit counter ids, so neither can be computed (or
- * reversed) without it. Derived from the Cosmos DB connection string, which only the server has;
- * rotating the Cosmos key changes guest names, nothing else.
+ * reversed) without it: `UIER_COMMENTS_SECRET`, a random value Pulumi sets for each Vercel target.
+ * Changing it changes guest names, nothing else. Locally a fixed development key is used.
  */
 function serverSecret() {
     if (secret == null) {
-        const connectionString = process.env.COSMOSDB_CONNECTION_STRING;
-        if (!connectionString && !isLocalRuntime())
-            throw new Error('COSMOSDB_CONNECTION_STRING is required outside local development.');
+        const value = process.env.UIER_COMMENTS_SECRET;
+        if (!value && !isLocalRuntime())
+            throw new Error('UIER_COMMENTS_SECRET is required outside local development.');
+        if (value && value.length < 32)
+            throw new Error('UIER_COMMENTS_SECRET must be at least 32 characters.');
 
-        secret = createHmac('sha256', connectionString || 'uier-local-development')
+        secret = createHmac('sha256', value || 'uier-local-development')
             .update('uier comments v1')
             .digest();
     }

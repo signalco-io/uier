@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@azure/cosmos": "4.10.1",
+    "@azure/identity": "4.14.0",
     "@signalco/cms-core": "0.1.1",
     "@signalco/js": "0.1.0",
     "@signalco/ui": "0.2.10",
@@ -28,6 +29,7 @@
     "@tanstack/react-query-devtools": "5.104.5",
     "@uier/brand": "workspace:*",
     "@vercel/analytics": "2.0.1",
+    "@vercel/oidc": "4.0.3",
     "botid": "1.5.11",
     "geist": "1.8.2",
     "nanoid": "6.0.2",
