@@ -108,7 +108,17 @@ error boundary, so one bad comment never breaks the toolbar.
   cancels). The element under the pointer gets a dashed accent outline, drawn by the toolbar over it (the
   page's own styles are not touched, and the toolbar's controls are never outlined); a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).
-- Text comments: select text, then "Comment...".
+- Text comments: select text, then **Add comment** in the toolbar that appears next to the selection. The
+  comment stores the selected text and where it is: the start and end elements and character offsets in
+  all of their text (so text after a link or bold words inside a paragraph is found again).
+- Restoring: pins are placed at their elements and commented text is tinted; clicking the tint opens the
+  thread too. Positions are measured again when the page scrolls (also inside scrollable elements),
+  resizes or changes (`hooks/useLayoutVersion.ts`). When the stored offsets no longer point at the text,
+  it is searched for (ignoring whitespace) in its element, then its ancestors. When it is not on the page
+  anymore, a fallback pin goes on the closest element that still is, and the thread says so. Anchors that
+  are hidden (e.g. in a closed `<details>`) get no pin until they are shown.
+- Every comment saves the device size and viewport when it is posted (`getDeviceInfo`); the thread shows
+  them under the first message ("Desktop · 1280×720").
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
+import type { Browser, BrowserContext, Locator, Page, TestInfo } from '@playwright/test';
 
 // The toolbar renders into an open shadow root (#uier-toolbar); Playwright locators pierce it.
 
@@ -8,6 +8,15 @@ export const showcaseHint = (page: Page) => page.getByRole('region', { name: 'Tr
 export const commentBubbles = (page: Page) => page.getByRole('button', { name: /^Comment, \d+ messages?$/ });
 export const commentBubble = (page: Page, messages: number) =>
     page.getByRole('button', { name: `Comment, ${messages} ${messages === 1 ? 'message' : 'messages'}`, exact: true });
+/** Waits for the element's animations (a popover fading in) to finish, e.g. before an axe check */
+export async function animationsFinished(locator: Locator) {
+    await locator.evaluate(async (element) => {
+        await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished));
+    });
+}
+
+/** The toolbar shown for selected page text */
+export const selectionToolbar = (page: Page) => page.getByRole('toolbar', { name: 'Selected text' });
 /** Comment thread popover (only one is open at a time) */
 export const openThread = (page: Page) => page.getByRole('dialog');
 

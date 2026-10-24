@@ -47,9 +47,10 @@ export default function PrivacyPolicyPage() {
                 <li>an author id: a hash of the random token in your <code>uier_visitor</code> cookie.</li>
             </ul>
             <p>
-                Other visitors see the text, the time, the device size and a guest name such as
-                &ldquo;Guest 3F2A&rdquo;, derived from the author id. They never see the author id, your browser,
-                operating system or window size. Comments are public, so do not put personal information in them.
+                Other visitors see the text, the time, the device size, the window size (so a reviewer can see
+                the page as you saw it) and a guest name such as &ldquo;Guest 3F2A&rdquo;, derived from the author
+                id. They never see the author id, your browser, operating system or pixel ratio. Comments are
+                public, so do not put personal information in them.
             </p>
 
             <h3>The visitor cookie</h3>

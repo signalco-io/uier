@@ -102,8 +102,8 @@ export type CommentItem = {
     /** `feedback` and `bug` have a `page` position */
     kind: CommentKind;
     thread: CommentItemThread;
-    /** Only the coarse device size is returned */
-    device?: { size?: CommentDeviceSize };
+    /** The coarse device size and the viewport (width, height) it was left from */
+    device?: { size?: CommentDeviceSize; windowSize?: [number, number] };
     resolved: boolean;
     /**
      * Whether the current visitor wrote this comment (only the author can resolve or delete it).
@@ -113,10 +113,9 @@ export type CommentItem = {
     createdAt?: string;
 }
 
-/** A comment that is being written and is not saved yet */
+/** A comment that is being written and is not saved yet (the device is read when it is posted) */
 export type CommentDraft = {
     position: CommentAnchor;
-    device?: CommentDeviceInfo;
 }
 
 export type CommentsGlobalProps = {

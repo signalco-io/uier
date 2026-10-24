@@ -28,7 +28,8 @@ export type CommentDto = {
     position: DbCommentPosition;
     kind: DbCommentKind;
     thread: { items: CommentThreadItemDto[] };
-    device?: { size?: DbDeviceSize };
+    /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
+    device?: { size?: DbDeviceSize; windowSize?: [number, number] };
     resolved: boolean;
     isMine: boolean;
     createdAt?: string;
@@ -82,6 +83,18 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
     return null;
 }
 
+function toWindowSize(value: unknown): [number, number] | undefined {
+    return Array.isArray(value) && value.length === 2 && value.every(n => typeof n === 'number' && Number.isFinite(n))
+        ? [value[0] as number, value[1] as number]
+        : undefined;
+}
+
+function toDeviceDto(device: DbComment['device']): CommentDto['device'] {
+    const size = device?.size && deviceSizes.includes(device.size) ? device.size : undefined;
+    const windowSize = toWindowSize(device?.windowSize);
+    return size || windowSize ? { size, windowSize } : undefined;
+}
+
 function toAuthorDto(authorId: string | undefined, visitorAuthorId: string | undefined): CommentAuthorDto {
     return {
         name: displayName(authorId),
@@ -104,7 +117,8 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
 
 /**
  * Public representation of a comment. Never contains author ids, IP hashes, TTL or device details
- * other than the coarse size. Returns `null` for (old) documents that can't be represented.
+ * other than the coarse size and the viewport size. Returns `null` for (old) documents that can't
+ * be represented.
  */
 export function toCommentDto(comment: DbComment, visitorAuthorId: string | undefined): CommentDto | null {
     const position = toPositionDto(comment.position);
@@ -113,7 +127,6 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
 
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const authorId = optionalString(comment.authorId);
-    const size = comment.device?.size;
 
     return {
         id: comment.id,
@@ -125,7 +138,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
                 .filter(item => typeof item === 'object' && item !== null && item.id != null)
                 .map(item => toThreadItemDto(item, visitorAuthorId))
         },
-        device: size && deviceSizes.includes(size) ? { size } : undefined,
+        device: toDeviceDto(comment.device),
         resolved: comment.resolved === true,
         isMine: Boolean(authorId) && authorId === visitorAuthorId,
         createdAt: optionalString(comment.createdAt)

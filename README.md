@@ -125,7 +125,8 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   path filtering, DTO contents, cookie flags, rate limits).
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
-  comments (the hover outline, the thread that opens after posting), a second visitor who can reply but not
+  comments (the hover outline, the thread that opens after posting; text anchors, restored highlights, fallback
+  pins and the viewport are in [`anchors.spec.ts`](apps/web/e2e/anchors.spec.ts)), a second visitor who can reply but not
   resolve or delete, Done and comment links, a deleted comment whose replies stay,
   review mode on other pages. Review links, the review session and the toolbar's controls (collapse, profile,
   options, sign out) are in [`review.spec.ts`](apps/web/e2e/review.spec.ts). Each of these tests opens the site
@@ -271,7 +272,8 @@ own origin (a cross-site `Origin` or `Sec-Fetch-Site: cross-site` gets `403`). U
 authors and timestamps are always set by the server. Selectors must have the form the toolbar creates
 (`#id` or `tag.class:nth-of-type(n)` joined by `>`), so a stored comment can't break `querySelector` in
 visitors' browsers. Responses never contain author ids, IP hashes, the TTL or device details other than the coarse size
-(`desktop`/`tablet`/`mobile`). Texts are shown as plain text only (no markdown, no links).
+(`desktop`/`tablet`/`mobile`) and the viewport the comment was left from (`windowSize`, `[width, height]` in CSS
+pixels, read when it is posted). Texts are shown as plain text only (no markdown, no links).
 
 **Anonymous identity.** The first successful write sets the `uier_visitor` cookie (reading comments never
 does): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
