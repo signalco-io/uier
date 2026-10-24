@@ -21,40 +21,28 @@ const up = async () => {
     const app = nextJsApp('uier', 'uier', 'apps/web', protect);
 
     // Configure domain name
-    new ProjectDomain('vercel-uier-domain', {
+    const domain = new ProjectDomain('vercel-uier-domain', {
         projectId: app.projectId,
         domain: 'uier.io',
     });
     dnsRecord('vercel-uier', '@', '76.76.21.21', 'A', protect);
 
+    // www.uier.io only redirects to uier.io (permanently, keeping the path and query).
+    // Not protected: it serves no content and can be recreated at any time.
+    new ProjectDomain('vercel-uier-domain-www', {
+        projectId: app.projectId,
+        domain: 'www.uier.io',
+        redirect: domain.domain,
+        redirectStatusCode: 308,
+    });
+    dnsRecord('vercel-uier-www', 'www', 'cname.vercel-dns.com', 'CNAME', false);
+
     // Azure
     const resourceGroupName = `uier-${stack}`;
     const resourceGroup = new ResourceGroup(resourceGroupName, {}, { protect });
 
-    // TODO: Create Static files storage
-    // (createStorageAccount lived in signalco infra/packages/pulumi/src/azure/createStorageAccount.ts)
-    // const staticFilesStorage = createStorageAccount(
-    //     resourceGroup,
-    //     'static',
-    //     true, // protect
-    // );
-
-    // TODO: Create CDN for status files storage
-    // (Profile, Endpoint, SkuName from '@pulumi/azure-native/cdn/index.js')
-    // const cdnProfile = new Profile('uier-staticcndprofile', {
-    //     resourceGroupName: resourceGroup.name,
-    //     sku: {
-    //         name: SkuName.Standard_Microsoft,
-    //     },
-    //     profileName: 'uier-staticFiles-cdn',
-    // });
-    // new Endpoint('uier-staticFiles', {
-    //     resourceGroupName: resourceGroup.name,
-    //     profileName: cdnProfile.name,
-    //     origins: [
-
-    //     ],
-    // });
+    // The toolbar bundle needs no storage account or CDN of its own: the web app serves it at
+    // https://uier.io/toolbar.js and Vercel's CDN caches it (apps/web/next.config.ts).
 
     // Create an Azure Cosmos DB Account for SQL API
     // Aliases: @pulumi/azure-native 2.x named this module `documentdb`; state written by 2.x
