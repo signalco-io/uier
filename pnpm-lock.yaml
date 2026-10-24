@@ -275,6 +275,9 @@ importers:
       babel-plugin-react-compiler:
         specifier: 1.0.0
         version: 1.0.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       next-sitemap:
         specifier: 4.2.3
         version: 4.2.3(next@16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))

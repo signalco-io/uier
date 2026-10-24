@@ -15,7 +15,7 @@ import { useAnnounce } from './Announcer';
 import { floatingShadowClassName } from './@types/Comments';
 
 type ToolbarOptionsProps = {
-    /** The project in the uier app, when the review link had a project code */
+    /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
     projectUrl?: string;
     /** Ends the review (`review` mode) */
     onExitReview?: () => void;

@@ -8,20 +8,25 @@ feedback pinned to an element (point comments) or to selected text.
 The bundle (`dist/index.js`) is a classic script (an IIFE, so nothing leaks into the page's globals).
 The web app serves it at `/toolbar.js`; the production URL is `https://uier.io/toolbar.js`, served from
 Vercel's CDN (caching and updates: the root README, [`/toolbar.js`](../../README.md#toolbarjs)). A reviewed
-site embeds it with:
+site embeds it with its project's script tag from the uier app's install guide:
 
 ```html
-<script src="https://uier.io/toolbar.js" defer></script>
+<script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
 ```
 
-and opens a page with `?review=true` to start the toolbar. The uier.io landing page uses showcase mode:
+and the toolbar starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
+app gives out, or `?review=true` ([Review links](#review-links)). The comments and settings that apply are
+those of the script's project, `data-uier-project` ([Projects](#projects)). The uier.io landing page uses
+showcase mode and no project:
 
 ```html
 <script src="https://uier.io/toolbar.js" data-uier-mode="showcase" defer></script>
 ```
 
-The comments API does not accept requests from other sites yet
-([#53](https://github.com/signalco-io/uier/issues/53)): there the toolbar starts but can't load or post comments.
+Without a project, comments are stored per domain through `/api/comments`, which does not accept requests
+from other sites yet ([#53](https://github.com/signalco-io/uier/issues/53)): there the toolbar starts but
+can't load or post comments. A script tag without a project, opened with `?review=true`, is for uier.io
+itself and local development.
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:
@@ -44,12 +49,14 @@ Render it once, for example in the root layout; it renders nothing itself:
 ```tsx
 import { UierToolbar } from '@uier/toolbar/react';
 
-<UierToolbar />                                   // review mode, https://uier.io/toolbar.js
+<UierToolbar project="<project code>" />          // a reviewed site: review mode, https://uier.io/toolbar.js
 <UierToolbar mode="showcase" src="/toolbar.js" /> // how the uier.io landing page embeds it
 ```
 
-Props: `mode` (`review` or `showcase`), `src` (script URL, default `https://uier.io/toolbar.js`) and `apiUrl`.
-The package is part of this repository and not published to npm yet.
+Props: `mode` (`review` or `showcase`), `project` (`data-uier-project`), `src` (script URL, default
+`https://uier.io/toolbar.js`) and `apiUrl`. A reviewed site passes its project code from the app's install
+guide; without it, comments can't load or post there (see above). The package is part of this repository
+and not published to npm yet.
 
 ### Review links
 
@@ -57,13 +64,19 @@ In `review` mode the toolbar mounts only when the page is opened with a review l
 
 | Link | Review |
 | --- | --- |
-| `https://example.com/any/page?toolbar-code=<project code>` | a project's review link; the code (letters, digits, `-`, `_`, up to 64) identifies the project in the uier app, and "View project" opens it (`<API base URL>/app/projects/<code>`) |
-| `https://example.com/any/page?review=true` | a review without a project |
+| `https://example.com/any/page?toolbar-code=<project code>` | a project's review link, as the uier app makes them (the code: letters, digits, `-`, `_`, up to 64) |
+| `https://example.com/any/page?review=true` | a review link without a project code |
+
+A review link only starts the review. The project whose comments and settings apply is the script tag's
+`data-uier-project`; the app's links carry the same code (`?toolbar-code=<data-uier-project>`), and
+`?review=true` on a project's site reviews that project too. "View project" opens the reviewed project in
+the app (`<API base URL>/app/projects/<code>`): the script's project, else the link's code. Without a
+project in the script tag, comments are stored per domain.
 
 The review then lasts for the browser tab (`sessionStorage`, key `uier:review`): it continues on the site's
 other pages, including full page loads without the parameter, until the reviewer chooses **Exit review**,
 which removes the toolbar and the review parameters from the address. A code that is not a valid project
-code starts nothing (`src/review.ts`). Without a project in the script tag, comments are stored per domain.
+code starts nothing (`src/review.ts`).
 
 ### Projects
 
@@ -85,6 +98,10 @@ With a project the toolbar uses the review API, `<API base URL>/api/review/<proj
   guest's name (`uier:guest-name`); a random visitor id (`uier:visitor`, sent as `X-Uier-Visitor`) recognises
   their comments. No cookies are used: the API is on another site than the reviewed one.
 - **Comments off**: the pill says "Comments are turned off for this project".
+
+On a site that is not one of the project's addresses, the pill says "uier can't open this project here". In
+`review` mode each of these pills also has **Exit review** (an X button), so a reviewer who can't comment
+can still end the review.
 
 Members mark any comment done; the author and the project's admins delete it (the API returns
 `permissions` and `canDelete`, and the thread shows only those actions). The profile shows the member's
@@ -128,7 +145,7 @@ error boundary, so one bad comment never breaks the toolbar.
 - The pill sits at the bottom centre: add comment, feedback, inbox, profile, options and collapse. **Collapse** shrinks it
   to the uier mark (with the unread count); the state is kept for the tab (`uier:toolbar-collapsed`).
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
-  (review links with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
+  (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them).
 - Feedback and bug reports: the megaphone opens a dialog to choose feedback (heart) or a bug report (bug) and
   describe it. It is saved as a comment of that `kind` about the whole page (`position: { type: 'page' }`):

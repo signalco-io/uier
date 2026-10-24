@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import {
     animationsFinished,
     commentBubble,
@@ -73,6 +73,84 @@ async function expectHighlightOnText(page: Page, text: string) {
     }).toBe('on the text');
 }
 
+type PinAnchor = { text: string } | { selector: string; xNormal: number; yNormal: number };
+
+/**
+ * The pin is centred 16px below and right of its anchor (CommentBubble.tsx), and kept 20px inside
+ * the window horizontally: a text comment's last line, a point comment's point (a 1px box at
+ * `xNormal`, `yNormal` of its element)
+ */
+async function expectPinAt(page: Page, pin: Locator, anchor: PinAnchor) {
+    await expect.poll(async () => {
+        const box = await pin.boundingBox();
+        const expected = await page.evaluate((anchor) => {
+            let rects: DOMRect[] = [];
+            if ('text' in anchor) {
+                const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+                for (let node = walker.nextNode(); node && !rects.length; node = walker.nextNode()) {
+                    const index = node.textContent?.indexOf(anchor.text) ?? -1;
+                    if (index >= 0) {
+                        const range = document.createRange();
+                        range.setStart(node, index);
+                        range.setEnd(node, index + anchor.text.length);
+                        rects = [...range.getClientRects()];
+                    }
+                }
+            } else {
+                const element = [...document.querySelector(anchor.selector)!.getClientRects()].at(-1)!;
+                rects = [new DOMRect(element.left + element.width * anchor.xNormal, element.top + element.height * anchor.yNormal, 1, 1)];
+            }
+            const last = rects.reduce((lowest, rect) => rect.bottom >= lowest.bottom ? rect : lowest);
+            const right = document.documentElement.clientWidth - 20;
+            return { x: Math.min(Math.max(last.right + 16, 20), right), y: last.bottom + 16 };
+        }, anchor);
+        if (!box) {
+            return 'no pin';
+        }
+        const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        return Math.abs(centre.x - expected.x) <= 2 && Math.abs(centre.y - expected.y) <= 2
+            ? 'at its anchor'
+            : `off: ${JSON.stringify({ centre, expected })}`;
+    }).toBe('at its anchor');
+}
+
+/** Scrolls the page with the mouse wheel and waits until it moved and stopped (the wheel scrolls smoothly) */
+async function scrollPage(page: Page, deltaY: number) {
+    const before = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, deltaY);
+    let previous = before;
+    await expect.poll(async () => {
+        const current = await page.evaluate(() => window.scrollY);
+        const stopped = current > before && current === previous;
+        previous = current;
+        return stopped ? 'scrolled' : `scrollY ${current}, was ${before}`;
+    }, { intervals: [100] }).toBe('scrolled');
+}
+
+/** A selector of the element in the form the toolbar stores (validation.ts): `tag:nth-of-type(n)` from `body` */
+async function selectorOf(locator: Locator) {
+    return await locator.evaluate((element) => {
+        const parts: string[] = [];
+        for (let node: Element | null = element; node && node !== document.documentElement; node = node.parentElement) {
+            const sameTag = [...node.parentElement!.children].filter(sibling => sibling.tagName === node!.tagName);
+            parts.unshift(`${node.tagName.toLowerCase()}:nth-of-type(${sameTag.indexOf(node) + 1})`);
+        }
+        return parts.join('>');
+    });
+}
+
+/** Creates a comment on `/` through the API from the page (visitor cookie and BotID headers) */
+async function postComment(page: Page, body: Record<string, unknown>) {
+    return await page.evaluate(async (body) => {
+        const response = await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: '/', ...body })
+        });
+        return { status: response.status, id: response.ok ? (await response.json() as { id: string }).id : undefined };
+    }, body);
+}
+
 test('text comments: the selection toolbar, the saved anchor and its highlight', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
@@ -99,7 +177,7 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
     await page.evaluate(() => window.getSelection()?.removeAllRanges());
 
     // Saved with its text anchor: the offset counts all of the paragraph's text
-    const [saved] = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { position: Record<string, unknown> }[]);
+    const [saved] = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { id: string; position: Record<string, unknown> }[]);
     const paragraphText = await page.getByRole('main').getByText(selectedText, { exact: false }).textContent();
     expect(saved?.position).toMatchObject({
         type: 'text',
@@ -110,20 +188,37 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
     });
     await expectHighlightOnText(page, selectedText);
 
-    // Restored after a reload (once the answer is open again), after scrolling and resizing
+    // And a point comment on the question above the text, 3/4 across and 1/4 down
+    const point = { type: 'point', selector: await selectorOf(page.getByText(faqQuestion, { exact: true })), xNormal: 0.75, yNormal: 0.25 };
+    const pointComment = await postComment(page, { position: point, text: 'Is it one tag for every page?' });
+    expect(pointComment.status).toBe(201);
+    const textPin = page.locator(`[data-uier-comment="${saved!.id}"]`);
+    const pointPin = page.locator(`[data-uier-comment="${pointComment.id}"]`);
+
+    // Restored after a reload (once the answer is open again), after scrolling and resizing: the
+    // tint stays on the text, the pins next to their text and element
+    const expectAnchored = async () => {
+        await expectHighlightOnText(page, selectedText);
+        await expectPinAt(page, textPin, { text: selectedText });
+        await expectPinAt(page, pointPin, point);
+    };
     await page.reload();
     await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
     await openFaqAnswer(page);
-    await expectHighlightOnText(page, selectedText);
-    await expect(commentBubble(page, 1)).toBeInViewport();
-    await page.mouse.wheel(0, 120);
-    await expectHighlightOnText(page, selectedText);
+    await expectAnchored();
+    await expect(textPin).toBeInViewport();
+    await expect(pointPin).toBeInViewport();
+    // Waits for the smooth scroll to end: a resize during it would leave the text out of the window
+    await scrollPage(page, 120);
+    await expectAnchored();
     const viewport = page.viewportSize()!;
     await page.setViewportSize({ width: viewport.width - 80, height: viewport.height - 60 });
-    await expectHighlightOnText(page, selectedText);
+    await expectAnchored();
 
     // Clicking the highlighted text opens the thread (the first tint: the text may wrap on narrow screens)
-    const tint = await page.locator('[data-uier-highlight]').first().boundingBox();
+    const firstTint = page.locator('[data-uier-highlight]').first();
+    await expect(firstTint).toBeInViewport();
+    const tint = await firstTint.boundingBox();
     await page.mouse.click(tint!.x + tint!.width / 2, tint!.y + tint!.height / 2);
     await expect(thread.getByText('Which parts, exactly?')).toBeVisible();
     await expect(thread.locator('blockquote')).toHaveText(selectedText);
@@ -132,18 +227,6 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
 
     await context.close();
 });
-
-/** Creates a comment on `/` through the API from the page (visitor cookie and BotID headers) */
-async function postComment(page: Page, body: Record<string, unknown>) {
-    return await page.evaluate(async (body) => {
-        const response = await fetch('/api/comments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: '/', ...body })
-        });
-        return response.status;
-    }, body);
-}
 
 test('text that moved is found again; text that is gone keeps a fallback pin', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
@@ -154,16 +237,16 @@ test('text that moved is found again; text that is gone keeps a fallback pin', a
     const anchor = { type: 'text', startSelector: paragraph, startType: 'text', endSelector: paragraph, endType: 'text' };
 
     // Offsets that no longer match (the page changed): the text is found in the paragraph
-    expect(await postComment(page, {
+    expect((await postComment(page, {
         position: { ...anchor, text: 'leaving comments directly', startOffset: 0, endOffset: 5 },
         text: 'Moved words'
-    })).toBe(201);
+    })).status).toBe(201);
     // Text that is not on the page anymore
-    expect(await postComment(page, {
+    expect((await postComment(page, {
         position: { ...anchor, text: 'A sentence that was edited away', startOffset: 0, endOffset: 31 },
         quotedText: 'A sentence that was edited away',
         text: 'Gone words'
-    })).toBe(201);
+    })).status).toBe(201);
     await page.reload();
 
     await expectHighlightOnText(page, 'leaving comments directly');

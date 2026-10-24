@@ -3,9 +3,11 @@
 The review toolbar: one classic-script bundle (`dist/index.js`, an IIFE with the CSS inlined) that a
 site includes and that mounts the comments UI into an open shadow root, when the page is opened with
 a review link (`?toolbar-code=<project code>` or `?review=true`, `review` mode; the review then lasts
-for the tab, `src/review.ts`) or always (`showcase` mode, the uier.io landing page). `dist/react.js`
-is the React component that adds the script (`@uier/toolbar/react`, `src/react.ts`). Embedding and
-configuration: [README.md](README.md).
+for the tab, `src/review.ts`) or always (`showcase` mode, the uier.io landing page). The link only
+starts the review: the project whose comments apply is the script's `data-uier-project`
+(`src/config.ts`). `dist/react.js` is the React component that adds the script
+(`@uier/toolbar/react`, `src/react.ts`, with a `project` prop). Embedding and configuration:
+[README.md](README.md).
 
 ## How it is built
 
@@ -24,7 +26,8 @@ configuration: [README.md](README.md).
   else the toolbar script's origin, else the build-time `__UIER_API_URL__` (`tsup.config.ts`; the
   dev build always uses http://localhost:4004).
 - `process.env` is stubbed to `{}` because `next/link` (pulled in by the UI kit) reads it.
-- "Exit review" unmounts the React root and removes `#uier-toolbar` (`index.tsx`).
+- "Exit review" unmounts the React root and removes `#uier-toolbar` (`index.tsx`). It is in the
+  options and, when a project's reviewer can't comment, on the notice pill (`project/ProjectGate.tsx`).
 
 ## Components
 
@@ -49,7 +52,7 @@ configuration: [README.md](README.md).
 | `components/info/` | `getDeviceInfo` (read when a comment is posted) and `CommentDeviceMeta` ("Desktop · 1280×720") |
 | `components/sidebar/` | the inbox sidebar (ink, radius 16) |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API |
-| `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, sign in, or comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
+| `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
 | `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, a fallback pin when it is gone, nothing for hidden anchors; never throws (invalid selectors, out-of-range offsets) |
 | `hooks/useLayoutVersion.ts` | one shared "measure again" signal: scroll (capture), resize, size and DOM changes of the page |
 | `hooks/useDrafts.tsx` | unsent comment and reply texts, so closing a popover does not lose them |
@@ -79,5 +82,8 @@ configuration: [README.md](README.md).
 - End-to-end tests run the built toolbar on the landing page: `apps/web/e2e/showcase.spec.ts`
   (desktop and mobile, with axe checks), and on a reviewed site on another origin:
   `apps/web/e2e/embed.spec.ts`; review links and the pill's controls are in
-  `apps/web/e2e/review.spec.ts`. Also check the add-comment, reply, resolve and inbox
+  `apps/web/e2e/review.spec.ts`; a project's site (the script tag, the React component, the
+  notices and their Exit review) is in `apps/web/e2e/project-review.spec.ts`; pins and
+  highlights after a reload, a scroll and a resize are in `apps/web/e2e/anchors.spec.ts`. Also
+  check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.

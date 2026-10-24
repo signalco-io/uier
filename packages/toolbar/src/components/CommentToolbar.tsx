@@ -26,7 +26,7 @@ type CommentToolbarProps = {
     hintOpen?: boolean;
     /** `id` of the first-run hint, while it is open */
     hintId?: string;
-    /** The project in the uier app, when the review link had a project code */
+    /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
     projectUrl?: string;
     addButtonRef?: Ref<HTMLButtonElement>;
     inboxButtonRef?: Ref<HTMLButtonElement>;

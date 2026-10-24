@@ -253,15 +253,19 @@ the page and can reply to it. Embedding options and the toolbar's modes are desc
 
 ### `/toolbar.js`
 
-The production URL of the toolbar is **`https://uier.io/toolbar.js`**. A reviewed site embeds it with:
+The production URL of the toolbar is **`https://uier.io/toolbar.js`**. A reviewed site embeds it with its
+project's script tag from the app's install guide:
 
 ```html
-<script src="https://uier.io/toolbar.js" defer></script>
+<script src="https://uier.io/toolbar.js" data-uier-project="<project code>" defer></script>
 ```
 
-and the toolbar starts on its pages opened with `?review=true` (review mode, the default; options in
-[`packages/toolbar/README.md`](packages/toolbar/README.md#embedding)). It calls the comments API on the origin of
-its own script URL, so a preview deployment's landing page talks to that preview's API.
+and the toolbar starts on its pages opened with a review link, `?toolbar-code=<project code>` (the links the app
+gives out) or `?review=true` (review mode, the default; options in
+[`packages/toolbar/README.md`](packages/toolbar/README.md#embedding)). The link only starts the review: the
+project whose comments apply is the script's `data-uier-project`, so `?review=true` on a project's site reviews
+that project too, "View project" included. It calls the API on the origin of its own script URL, so a preview
+deployment's landing page talks to that preview's API.
 
 `pnpm build` in `apps/web` first copies the production bundle of `@uier/toolbar` (a workspace devDependency,
 built before the web app through Turborepo's `^build`) to `apps/web/public/toolbar.js`
