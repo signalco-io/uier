@@ -8,11 +8,17 @@ It manages:
 
 - the Vercel project `uier` (root directory `apps/web`, Node 24, region `dub1`) with the
   domains `uier.io` and `www.uier.io` (a `308` redirect to `uier.io`), and the comments API
-  variables `COSMOSDB_CONNECTION_STRING` and `COSMOSDB_COMMENTS_CONTAINER` (production:
-  primary key and `comments`, preview: secondary key and `comments-preview`);
+  variables (production: `COSMOSDB_CONNECTION_STRING` with the primary key and `comments`,
+  preview: the managed identity below and `comments-preview`, each its own `UIER_COMMENTS_SECRET`);
 - the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
 - the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
   containers `comments` and `comments-preview`, both partitioned by `/domain`).
+
+Preview deployments get no account key: they use a user-assigned managed identity that trusts
+the Vercel OIDC token of the project's preview deployments (federated identity credential) and
+has the built-in Data Contributor role on `comments-preview` only. Never give previews a
+connection string again; the federated credential hardcodes the Vercel team slug, project name
+and team issuer mode, so update it when those change.
 
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.

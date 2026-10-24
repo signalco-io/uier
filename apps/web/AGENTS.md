@@ -68,7 +68,10 @@ Labels are sentence case. `e2e/footer.spec.ts` checks the footer on every public
   included, so stop it or pick another `PORT` to test the build.
 - Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
-- The comments API needs `COSMOSDB_CONNECTION_STRING` in `.env.local`; the marketing pages do not.
+- Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
+  points it at a real Cosmos DB. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
+  from Pulumi: production an account key, previews Entra ID with the Vercel OIDC token
+  (`src/lib/db/client.ts`), scoped to the `comments-preview` container.
 
 ## Toolbar in development
 
