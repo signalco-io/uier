@@ -96,11 +96,14 @@ error boundary, so one bad comment never breaks the toolbar.
 
 ## Using it
 
-- The pill sits at the bottom centre: add comment, inbox, profile, options and collapse. **Collapse** shrinks it
+- The pill sits at the bottom centre: add comment, feedback, inbox, profile, options and collapse. **Collapse** shrinks it
   to the uier mark (with the unread count); the state is kept for the tab (`uier:toolbar-collapsed`).
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
   (review links with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them).
+- Feedback and bug reports: the megaphone opens a dialog to choose feedback (heart) or a bug report (bug) and
+  describe it. It is saved as a comment of that `kind` about the whole page (`position: { type: 'page' }`):
+  no pin, but it is counted and listed in the inbox like any thread.
 - Point comments: the + button starts point mode (an instruction shows above the pill, Esc cancels), then
   a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).

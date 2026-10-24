@@ -89,7 +89,14 @@ export const selectionPositionSchema = z.object({
     endType: nodeTypeSchema
 });
 
-export const positionSchema = z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema]);
+export const pagePositionSchema = z.object({
+    type: z.literal('page')
+});
+
+export const positionSchema = z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema, pagePositionSchema]);
+
+/** Feedback and bug reports are about the page (`page` position); comments are pinned to it */
+export const kindSchema = z.enum(['comment', 'feedback', 'bug']);
 
 const windowDimensionSchema = z.int().min(0).max(MAX_WINDOW_DIMENSION);
 const deviceLabelSchema = z.string().trim().max(MAX_DEVICE_LABEL_LENGTH)
@@ -106,10 +113,13 @@ export const deviceSchema = z.object({
 export const createCommentSchema = z.object({
     path: pathSchema,
     position: positionSchema,
+    kind: kindSchema.default('comment'),
     text: textSchema,
     quotedText: quotedTextSchema.optional(),
     device: deviceSchema.optional()
-});
+}).refine(
+    input => (input.kind === 'comment') === (input.position.type !== 'page'),
+    { path: ['position'], message: 'Comments are pinned to an element or text; feedback and bug reports are about the page' });
 
 export const replySchema = z.object({
     text: textSchema

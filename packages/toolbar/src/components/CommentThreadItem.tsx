@@ -12,6 +12,7 @@ import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
+import { CommentKindLabel } from './CommentKindLabel';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
 
 function parseDate(value: string | undefined) {
@@ -131,6 +132,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     )}
                 </Row>
             </Row>
+            {first && <CommentKindLabel kind={comment.kind} />}
             {Boolean(quote?.length) && (
                 <blockquote className="m-0 line-clamp-4 border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm text-secondary-foreground">
                     {quote}

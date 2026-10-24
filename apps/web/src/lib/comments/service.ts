@@ -139,6 +139,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         domain: context.domain,
         path: input.path,
         position: input.position,
+        kind: input.kind,
         thread: { items: [firstItem] },
         device: compactDevice(input.device),
         resolved: false,
