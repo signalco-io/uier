@@ -23,6 +23,9 @@ next-env.d.ts
 apps/web/public/sitemap*.xml
 apps/web/public/robots.txt
 
+# Toolbar bundle copied from packages/toolbar on build (apps/web/scripts/copy-toolbar.mjs)
+apps/web/public/toolbar.js
+
 # Testing (Playwright)
 coverage/
 test-results/

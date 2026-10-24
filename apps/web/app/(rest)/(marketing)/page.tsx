@@ -7,6 +7,7 @@ import { Mark } from '@uier/brand/Mark';
 import { Footer1 } from '../../../src/components/marketing/Footer1';
 import { ReviewThreadDemo } from '../../../src/components/marketing/ReviewThreadDemo';
 import { KnownPages } from '../../../src/knownPages';
+import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 
 // Copy and layout follow packages/brand/BRAND.md ("Marketing and metadata"): the tagline is the
 // headline, the review layer is shown on the page itself instead of a screenshot.
@@ -51,7 +52,10 @@ const features = [
 
 export default function LandingPage() {
     return (
-        <main>
+        // The showcase toolbar pill sits at the bottom of the window (bottom 16px, 48px tall): the
+        // padding lets the end of the page scroll clear of it, and the scroll padding keeps focused
+        // links from scrolling underneath it
+        <main className="pb-24 [:root:has(&)]:scroll-pb-24">
             <section className="flex flex-wrap items-start gap-12 py-12 md:py-20">
                 <div className="flex min-w-0 flex-[1_1_560px] flex-col items-start gap-5">
                     <div className="relative inline-block pr-12">
@@ -115,6 +119,8 @@ export default function LandingPage() {
                         ]
                     }
                 ]} />
+            {/* Showcase: the real uier toolbar runs on the landing page and anyone can leave public feedback */}
+            <ToolbarScript mode="showcase" />
         </main>
     );
 }

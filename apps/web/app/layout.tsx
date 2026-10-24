@@ -1,4 +1,3 @@
-import Script from 'next/script';
 import { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
@@ -7,6 +6,7 @@ import './global.css';
 import { Analytics } from '@vercel/analytics/react';
 import { ClientProvider } from '../src/components/providers/ClientProvider';
 import { AuthProvider } from '../src/components/providers/AuthProvider';
+import { DevReviewToolbarScript } from '../src/components/toolbar/DevReviewToolbarScript';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -20,8 +20,8 @@ export default function RootLayout({ children }: {
                     <ClientProvider>
                         {children}
                         <Analytics />
-                        {/* Review toolbar from the local packages/toolbar dev server (`pnpm dev`) */}
-                        {isDevelopment && <Script src="http://localhost:4005/index.js" />}
+                        {/* Review toolbar from the local packages/toolbar dev server (`pnpm dev`); the landing page embeds it in showcase mode */}
+                        {isDevelopment && <DevReviewToolbarScript />}
                     </ClientProvider>
                 </AuthProvider>
             </body>

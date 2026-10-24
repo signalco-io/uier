@@ -1,9 +1,16 @@
 import { type Container, CosmosClient, type Database } from '@azure/cosmos';
 
+const DATA_DATABASE_NAME = 'uierdata';
+export const DEFAULT_COMMENTS_CONTAINER_NAME = 'comments';
+
 let client: CosmosClient | null = null;
 let dataDb: Database | null = null;
 
 let commentsContainer: Container | null = null;
+
+export function isCosmosConfigured() {
+    return Boolean(process.env.COSMOSDB_CONNECTION_STRING);
+}
 
 function cosmosClient() {
     if (client == null) {
@@ -18,9 +25,14 @@ function cosmosClient() {
 }
 
 function cosmosDataDb() {
-    return dataDb = dataDb ?? cosmosClient().database('uierdata');
+    return dataDb = dataDb ?? cosmosClient().database(DATA_DATABASE_NAME);
+}
+
+/** Comments container: `COSMOSDB_COMMENTS_CONTAINER` (e.g. `comments-preview` on preview deployments), default `comments` */
+export function commentsContainerName() {
+    return process.env.COSMOSDB_COMMENTS_CONTAINER?.trim() || DEFAULT_COMMENTS_CONTAINER_NAME;
 }
 
 export function cosmosDataContainerComments() {
-    return commentsContainer = commentsContainer ?? cosmosDataDb().container('comments');
+    return commentsContainer = commentsContainer ?? cosmosDataDb().container(commentsContainerName());
 }

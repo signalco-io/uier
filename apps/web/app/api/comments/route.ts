@@ -1,33 +1,20 @@
-import { createComment, getComments, updateComment } from '../../../src/lib/repo/commentsRepo';
+import { assertNotBot } from '../../../src/lib/comments/botProtection';
+import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../src/lib/comments/http';
+import { createComment, listComments } from '../../../src/lib/comments/service';
+import { createCommentSchema, describeValidationError, pathSchema } from '../../../src/lib/comments/validation';
 
-export async function GET(request: Request) {
-    const domain = request.headers.get('host');
-    if (!domain)
-        return new Response('Couldn\'t resolve domain', { status: 402 });
+// GET /api/comments?path=/x - all comments on the page (newest first)
+export const GET = commentsApiHandler(async (context) => {
+    const path = pathSchema.safeParse(new URL(context.request.url).searchParams.get('path'));
+    if (!path.success)
+        throw apiErrors.invalidRequest(describeValidationError(path.error, 'path'));
 
-    const comments = await getComments(domain);
-    return Response.json(comments);
-}
+    return Response.json(await listComments(context, path.data));
+});
 
-export async function POST(request: Request) {
-    const domain = request.headers.get('host');
-    if (!domain)
-        return new Response('Couldn\'t resolve domain', { status: 402 });
-
-    const comment = await request.json() as {
-        id?: string,
-        path: string,
-        position: object, // TODO: Types
-        thread: object, // TODO: Types
-        device?: object, // TODO: Types
-        resolved?: boolean
-    };
-
-    if (comment.id) {
-        await updateComment(domain, comment.id, comment);
-        return Response.json({ id: comment.id });
-    } else {
-        const id = await createComment({ domain, ...comment });
-        return Response.json({ id }, { status: 201 });
-    }
-}
+// POST /api/comments - create a comment { path, position, text, quotedText?, device? }
+export const POST = commentsApiHandler(async (context) => {
+    await assertNotBot();
+    const input = await parseJsonBody(context.request, createCommentSchema);
+    return Response.json(await createComment(context, input), { status: 201 });
+});

@@ -3,59 +3,96 @@
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@signalco/ui-primitives/Menu';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { Check, MoreHorizontal } from '@signalco/ui-icons';
-import { Timeago } from '@signalco/ui/Timeago';
-import { DeviceInfo } from './info/DeviceInfo';
+import { Check, Undo } from '@signalco/ui-icons';
+import { CommentTime } from './CommentTime';
+import { useComments } from '../hooks/useComments';
+import { CommentThreadItemMenu } from './CommentThreadItemMenu';
+import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
 
-export function CommentThreadItem({ comment, threadItem, first, onDone }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; onDone?: () => void; }) {
+function parseDate(value: string | undefined) {
+    if (!value) return undefined;
+    const date = new Date(value);
+    return Number.isNaN(date.valueOf()) ? undefined : date;
+}
+
+function avatarText(name: string) {
+    // `Guest 1A2B` -> `1A`, so different visitors are easier to tell apart
+    const guestCode = /^Guest ([0-9A-F]{2})/i.exec(name)?.[1];
+    return (guestCode ?? name[0] ?? '?').toUpperCase();
+}
+
+export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
+    const { resolve, delete: deleteComment, deleteReply } = useComments();
     const { text } = threadItem;
     const quote: string | undefined = threadItem.quotedText;
-    const author = 'Guest';//comment.author;
-    const avatarFallback = author[0]?.toUpperCase() ?? '';
+    const authorName = threadItem.author?.name || 'Guest';
+    const isMe = Boolean(threadItem.author?.isMe);
+    const createdAt = parseDate(threadItem.createdAt);
+
+    // Only the author may resolve or delete a comment (deleting the first item deletes the
+    // whole comment), and only the author of a reply may delete it
+    const canResolve = Boolean(first && comment.isMine);
+    const canDelete = first ? comment.isMine : isMe;
+    const pending = resolve.isPending || deleteComment.isPending || deleteReply.isPending;
+    const error = resolve.error ?? deleteComment.error ?? deleteReply.error;
+
+    const handleResolve = () => {
+        resolve.mutate({ commentId: comment.id, resolved: !comment.resolved });
+    };
+
+    const handleDelete = () => {
+        if (first) {
+            deleteComment.mutate(comment.id);
+        } else {
+            deleteReply.mutate({ commentId: comment.id, itemId: threadItem.id });
+        }
+    };
 
     return (
         <Stack spacing={1}>
             <Row spacing={1} justifyContent="space-between">
-                <Row spacing={0.5}>
-                    <Avatar size="sm">{avatarFallback}</Avatar>
-                    <Typography className="text-sm text-foreground">{author}</Typography>
-                    {/* TODO Enable when we fix device info UI */}
-                    {/* {first && (
-                        <DeviceInfo device={comment.device} />
-                    )} */}
-                    {/* TODO Enable when we have this info */}
-                    {/* <span className="text-sm text-secondary-foreground">
-                        <Timeago format="nano" date={new Date()} />
-                    </span> */}
+                <Row spacing={1} className="min-w-0">
+                    <Avatar size="sm" aria-hidden="true" className="shrink-0 font-semibold">{avatarText(authorName)}</Avatar>
+                    <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
+                        {isMe ? 'You' : authorName}
+                    </Typography>
+                    {createdAt && (
+                        <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                            <CommentTime date={createdAt} />
+                        </span>
+                    )}
                 </Row>
-                <Row>
-                    {first && (
-                        <IconButton size="xs" variant="plain" title="Mark as Done" onClick={onDone}>
-                            <Check />
+                <Row className="shrink-0">
+                    {canResolve && (
+                        <IconButton
+                            size="xs"
+                            variant="plain"
+                            title={comment.resolved ? 'Reopen' : 'Resolve'}
+                            aria-label={comment.resolved ? 'Reopen' : 'Resolve'}
+                            disabled={pending}
+                            onClick={handleResolve}>
+                            {comment.resolved ? <Undo /> : <Check />}
                         </IconButton>
                     )}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <IconButton size="xs" variant="plain" title="More options...">
-                                <MoreHorizontal />
-                            </IconButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {canDelete && (
+                        <CommentThreadItemMenu
+                            kind={first ? 'comment' : 'reply'}
+                            repliesCount={first ? Math.max(comment.thread.items.length - 1, 0) : 0}
+                            disabled={pending}
+                            onDelete={handleDelete} />
+                    )}
                 </Row>
             </Row>
             {Boolean(quote?.length) && (
-                <div className="border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm">
+                <blockquote className="m-0 line-clamp-4 border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm text-secondary-foreground">
                     {quote}
-                </div>
+                </blockquote>
             )}
-            <Typography level="body1">{text}</Typography>
+            <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{text}</Typography>
+            <CommentsErrorMessage error={error} />
         </Stack>
     );
 }

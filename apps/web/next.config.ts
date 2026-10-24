@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { withBotId } from 'botid/next/config';
 import { createSecureHeaders } from 'next-secure-headers';
 import { combineSecureHeaders, knownSecureHeadersExternalUrls } from './src/lib/secureHeaders';
 
@@ -41,8 +42,20 @@ const nextConfig: NextConfig = {
                         : []),
                 ]
             ))
+        }, {
+            // Toolbar bundle (packages/toolbar, copied to public/ by scripts/copy-toolbar.mjs).
+            // The URL is not versioned, so it is cached briefly (not immutable). Customer sites
+            // will embed it from uier.io, so any origin may load it.
+            source: '/toolbar.js',
+            headers: [
+                { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+                { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600' },
+                { key: 'Access-Control-Allow-Origin', value: '*' },
+            ]
         }];
     },
 };
 
-export default nextConfig;
+// BotID (comments API bot protection): proxies the BotID challenge scripts through this origin, so they are
+// covered by `script-src 'self'` / `connect-src 'self'`. Vercel also routes them automatically.
+export default withBotId(nextConfig);
