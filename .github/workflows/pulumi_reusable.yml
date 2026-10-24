@@ -40,6 +40,11 @@ jobs:
     concurrency:
       group: ${{ inputs.command == 'up' && 'pulumi-uier-production-up' || format('pulumi-uier-production-{0}-{1}', inputs.command, github.run_id) }}
       cancel-in-progress: false
+    env:
+      # Pinned: otherwise the action uses whatever Pulumi CLI the runner image ships. CLI and SDK are
+      # released together; keep this equal to @pulumi/pulumi in infra/package.json (Renovate groups them).
+      # renovate: datasource=npm depName=@pulumi/pulumi
+      PULUMI_VERSION: "3.272.0"
     # No job-level `defaults.run.working-directory: infra`: the first step runs before checkout,
     # when infra/ does not exist yet, so each step that needs infra/ sets it itself.
     steps:
@@ -84,6 +89,18 @@ jobs:
         working-directory: infra
         run: pnpm build
 
+      # pulumi/actions skips its download (~12s) when the `pulumi` on PATH already satisfies
+      # pulumi-version, and installs into ~/.pulumi/bin otherwise, which is what gets cached here.
+      # Plugins are not cached: they download in about a second, faster than restoring them.
+      - name: Cache Pulumi CLI
+        uses: actions/cache@v6
+        with:
+          path: ~/.pulumi/bin
+          key: ${{ runner.os }}-pulumi-cli-${{ env.PULUMI_VERSION }}
+
+      - name: Add Pulumi CLI to PATH
+        run: echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
       - name: Azure login (OIDC)
         uses: azure/login@v3
         with:
@@ -94,10 +111,7 @@ jobs:
       - name: Pulumi ${{ inputs.command }}
         uses: pulumi/actions@v7
         with:
-          # Pinned: otherwise the action uses whatever Pulumi CLI the runner image ships. CLI and SDK are
-          # released together; keep this equal to @pulumi/pulumi in infra/package.json (Renovate groups them).
-          # renovate: datasource=npm depName=@pulumi/pulumi
-          pulumi-version: 3.272.0
+          pulumi-version: ${{ env.PULUMI_VERSION }}
           command: ${{ inputs.command }}
           stack-name: organization/uier/uier-production
           work-dir: infra

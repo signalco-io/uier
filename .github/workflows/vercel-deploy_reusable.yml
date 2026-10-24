@@ -53,8 +53,21 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # The CLI is installed into its own prefix so the whole install can be cached (~12s otherwise).
+      # Deploys on main save it, so PR previews restore it from there.
+      - name: Cache Vercel CLI
+        id: vercel-cli-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.vercel-cli
+          key: ${{ runner.os }}-vercel-cli-${{ env.VERCEL_CLI_VERSION }}-node${{ hashFiles('.nvmrc') }}
+
       - name: Install Vercel CLI
-        run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
+        if: steps.vercel-cli-cache.outputs.cache-hit != 'true'
+        run: npm install --global --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Add Vercel CLI to PATH
+        run: echo "$HOME/.vercel-cli/bin" >> "$GITHUB_PATH"
 
       - name: Pull Vercel project settings and environment
         env:
