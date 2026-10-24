@@ -18,7 +18,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
 | `src/lib/secureHeaders.ts`, `next.config.ts` | CSP and security headers (Google Fonts and Vercel are the only external origins) |
-| `e2e/` | Playwright tests (landing, brand page, headers, axe accessibility) |
+| `e2e/` | Playwright tests (landing, brand page, headers, axe accessibility, the toolbar on another origin) |
 | `public/` | icons rendered by `pnpm -C packages/brand icons`, `favicon.svg` copied from `packages/brand/assets` |
 
 ## Styling rules
