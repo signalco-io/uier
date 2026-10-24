@@ -1,0 +1,14 @@
+# infra/ is a standalone pnpm project with its own pnpm-lock.yaml. It is deliberately not part of
+# the root workspace (which only covers apps/* and packages/*), so web CI never installs Pulumi.
+# This file makes infra/ its own workspace root: pnpm stops looking for a parent workspace here.
+packages: []
+
+allowBuilds:
+  # postinstall only prints a version-scheme warning; not needed at runtime.
+  protobufjs: false
+
+peerDependencyRules:
+  allowedVersions:
+    # @pulumi/pulumi declares an optional peer on typescript <7 for its ts-node integration.
+    # Pulumi.yaml sets `typescript: false` and runs the prebuilt dist/index.js, so TS 7 is fine.
+    '@pulumi/pulumi>typescript': '7'

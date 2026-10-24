@@ -1,3 +1,9 @@
 name: uier
-runtime: nodejs
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+    # The program is compiled ahead of time (`pnpm build` -> dist/index.js, the package.json "main"),
+    # so Pulumi must not load ts-node. TypeScript 7 does not expose the compiler API ts-node needs.
+    typescript: false
 description: uier.io infrastructure
