@@ -16,7 +16,7 @@ type CommentsSidebarHeaderProps = {
 
 const statuses = [
     { value: 'unresolved', label: 'Open' },
-    { value: 'resolved', label: 'Resolved' }
+    { value: 'resolved', label: 'Done' }
 ] as const;
 
 export function CommentsSidebarHeader({ filterOpen, status, onStatusChange, onClose, onToggleFilter }: CommentsSidebarHeaderProps) {

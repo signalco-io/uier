@@ -4,9 +4,7 @@ import { useRef } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { Check, Undo } from '@signalco/ui-icons';
 import { CommentTime } from './CommentTime';
 import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';
@@ -49,7 +47,7 @@ function deleteConfirmText(comment: CommentItem, first: boolean | undefined) {
 }
 
 export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
-    const { resolve, delete: deleteComment, deleteReply } = useComments();
+    const { delete: deleteComment, deleteReply } = useComments();
     const announce = useAnnounce();
     const rootRef = useRef<HTMLDivElement>(null);
 
@@ -66,15 +64,11 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     const isMe = Boolean(threadItem.author?.isMe);
     const createdAt = parseDate(threadItem.createdAt);
 
-    // Only the author may resolve or delete a comment, and only the author of a reply may delete it
-    const canResolve = Boolean(first && comment.isMine);
+    // Only the author may delete a comment, and only the author of a reply may delete it (the
+    // status is changed in the thread's header, CommentThreadHeader.tsx)
     const canDelete = first ? comment.isMine : isMe;
-    const pending = resolve.isPending || deleteComment.isPending || deleteReply.isPending;
-    const error = resolve.error ?? deleteComment.error ?? deleteReply.error;
-
-    const handleResolve = () => {
-        resolve.mutate({ commentId: comment.id, resolved: !comment.resolved });
-    };
+    const pending = deleteComment.isPending || deleteReply.isPending;
+    const error = deleteComment.error ?? deleteReply.error;
 
     const handleDelete = async () => {
         // The item's menu had the focus and goes away; the thread's messages list (in the popover
@@ -112,17 +106,6 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     )}
                 </Row>
                 <Row className="shrink-0">
-                    {canResolve && (
-                        <IconButton
-                            size="xs"
-                            variant="plain"
-                            title={comment.resolved ? 'Reopen' : 'Resolve'}
-                            aria-label={comment.resolved ? 'Reopen' : 'Resolve'}
-                            disabled={pending}
-                            onClick={handleResolve}>
-                            {comment.resolved ? <Undo /> : <Check />}
-                        </IconButton>
-                    )}
                     {canDelete && (
                         <CommentThreadItemMenu
                             kind={first ? 'comment' : 'reply'}

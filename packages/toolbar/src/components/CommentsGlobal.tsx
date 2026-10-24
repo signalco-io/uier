@@ -14,6 +14,8 @@ import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { toolbarConfig } from '../config';
+import { takeLinkedCommentId } from '../review';
+import type { CommentsFilter } from './sidebar/CommentsFilter';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength } from './@types/Comments';
 
 // Selection text limit of the comments API
@@ -91,7 +93,12 @@ export function CommentsGlobal({
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
-    const [focusCommentId, setFocusCommentId] = useState<string>();
+    // The thread to open once its pin is on the page: a comment that was just posted, or the one
+    // a comment link (`?uier-comment=`) points at
+    const [openCommentId, setOpenCommentId] = useState<string>();
+    const [linkedCommentId] = useState(takeLinkedCommentId);
+    const linkHandledRef = useRef(false);
+    const [sidebarStatus, setSidebarStatus] = useState<NonNullable<CommentsFilter['status']>>('unresolved');
     const hintId = useId();
     const addButtonRef = useRef<HTMLButtonElement>(null);
     const inboxButtonRef = useRef<HTMLButtonElement>(null);
@@ -256,24 +263,47 @@ export function CommentsGlobal({
         setCreatingCommentPoint((curr) => !curr);
     };
 
+    const showInSidebar = (status: NonNullable<CommentsFilter['status']>) => {
+        setSidebarStatus(status);
+        setSidebarOpen(true);
+    };
+
+    // A posted comment shows its thread
     const handleCreated = (comment: CommentItem) => {
         setCreatingComment(undefined);
-        setFocusCommentId(comment.id);
+        setOpenCommentId(comment.id);
     };
-    const handleAutoFocused = useCallback(() => setFocusCommentId(undefined), []);
+    const handleAutoOpened = useCallback(() => setOpenCommentId(undefined), []);
 
-    // The new comment's pin takes the focus once it is placed; if it can't be placed on this
-    // page, the focus goes back to Add comment instead of the page
+    // A comment link opens the thread on its pin; done threads and feedback have no pin, the
+    // inbox shows them
     useEffect(() => {
-        if (!focusCommentId) {
+        if (!linkedCommentId || linkHandledRef.current || !allComments) {
+            return;
+        }
+        linkHandledRef.current = true;
+        const linked = allComments.find(c => c.id === linkedCommentId);
+        if (!linked) {
+            return;
+        }
+        if (linked.resolved || linked.position.type === 'page') {
+            showInSidebar(linked.resolved ? 'resolved' : 'unresolved');
+        } else {
+            setOpenCommentId(linked.id);
+        }
+    }, [allComments, linkedCommentId]);
+
+    // When the thread's pin can't be placed on this page (the element is gone), the inbox shows it
+    useEffect(() => {
+        if (!openCommentId) {
             return;
         }
         const timeout = window.setTimeout(() => {
-            setFocusCommentId(undefined);
-            addButtonRef.current?.focus();
+            setOpenCommentId(undefined);
+            showInSidebar('unresolved');
         }, 1000);
         return () => window.clearTimeout(timeout);
-    }, [focusCommentId]);
+    }, [openCommentId]);
 
     const handleCloseSidebar = () => {
         setSidebarOpen(false);
@@ -304,8 +334,8 @@ export function CommentsGlobal({
                         <CommentErrorBoundary key={commentItem.id} commentId={commentItem.id}>
                             <CommentBubble
                                 commentItem={commentItem}
-                                autoFocus={focusCommentId === commentItem.id}
-                                onAutoFocused={handleAutoFocused} />
+                                autoOpen={openCommentId === commentItem.id}
+                                onAutoOpened={handleAutoOpened} />
                         </CommentErrorBoundary>
                     ))}
                 </section>
@@ -333,6 +363,7 @@ export function CommentsGlobal({
             )}
             {sidebarOpen && (
                 <CommentsSidebar
+                    initialStatus={sidebarStatus}
                     onClose={handleCloseSidebar}
                     rootElement={rootElement}
                 />
@@ -350,7 +381,7 @@ export function CommentsGlobal({
                 inboxButtonRef={inboxButtonRef}
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
-                onShowSidebar={() => setSidebarOpen(true)}
+                onShowSidebar={() => showInSidebar('unresolved')}
                 onFeedbackOpen={() => {
                     setCreatingCommentPoint(false);
                     closeHintForUse();

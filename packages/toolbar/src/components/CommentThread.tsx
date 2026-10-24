@@ -3,6 +3,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { Button } from '@signalco/ui-primitives/Button';
 import { CommentThreadItem } from './CommentThreadItem';
+import { CommentThreadHeader } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 
 export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
@@ -15,6 +16,9 @@ export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
 
     return (
         <Stack className="py-2">
+            <div className="px-4 pb-1 pt-2">
+                <CommentThreadHeader comment={commentItem} />
+            </div>
             {threadFistItem && (
                 <>
                     <div className="px-4 py-2 pb-3">

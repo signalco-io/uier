@@ -18,7 +18,7 @@ import { expectNoAxeViolations } from './accessibility';
 const options = (page: Page) => page.getByRole('dialog', { name: 'Options' });
 
 async function openOptions(page: Page) {
-    await page.getByRole('button', { name: 'Options' }).click();
+    await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page)).toBeVisible();
     return options(page);
 }
@@ -113,7 +113,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await page.keyboard.press('Escape');
     await expect(profile).toBeHidden();
     // Nothing to sign out of yet, and the landing page has no review to exit
-    await expect(page.getByRole('button', { name: 'Options' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Options', exact: true })).toHaveCount(0);
 
     // The first comment gives the visitor a guest name
     await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
@@ -141,10 +141,43 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
 
     // The comment stays, but this browser can no longer resolve it
     expect((await context.cookies()).map(cookie => cookie.name)).not.toContain('uier_visitor');
-    await expect(page.getByRole('button', { name: 'Options' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Options', exact: true })).toHaveCount(0);
     await commentBubble(page, 1).click();
     await expect(openThread(page).getByText(name, { exact: true })).toBeVisible();
-    await expect(openThread(page).getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+    await expect(openThread(page).getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
+
+    await context.close();
+});
+
+test('a comment link in a review carries the review link', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+    await page.goto(`${origin}/brand?toolbar-code=demo-project_1`);
+    await addToolbarScript(page);
+    await expect(toolbar(page)).toBeVisible();
+    const id = await page.evaluate(async () => {
+        const response = await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: '/brand', position: { type: 'point', selector: 'main', xNormal: 0.5, yNormal: 0 }, text: 'Show the tokens first.' })
+        });
+        return (await response.json() as { id: string }).id;
+    });
+
+    await page.reload();
+    await addToolbarScript(page);
+    await commentBubble(page, 1).click();
+    await openThread(page).getByRole('button', { name: 'Copy link' }).click();
+    const link = await page.evaluate(async () => await navigator.clipboard.readText());
+    expect(link).toBe(`${origin}/brand?toolbar-code=demo-project_1&uier-comment=${id}`);
+
+    // Followed in a new tab (no review yet): the toolbar starts and opens the thread
+    const other = await context.newPage();
+    await other.goto(link);
+    await addToolbarScript(other);
+    await expect(openThread(other).getByText('Show the tokens first.')).toBeVisible();
+    expect(new URL(other.url()).search).toBe('?toolbar-code=demo-project_1');
 
     await context.close();
 });

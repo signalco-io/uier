@@ -34,7 +34,8 @@ configuration: [README.md](README.md).
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
 | `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest name) and the options (view project, exit review, sign out) popovers |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
-| `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form |
+| `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; `CommentThreadHeader.tsx` is the status, Mark as done / Reopen and Copy link (`?uier-comment=`, `src/review.ts`) |
+| `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line), keeps drafts |
 | `components/CommentThreadItemMenu.tsx` | item options (delete, with a confirmation that says what goes; the copy is in `CommentThreadItem.tsx`) |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |

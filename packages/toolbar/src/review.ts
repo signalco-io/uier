@@ -96,3 +96,34 @@ export function endReviewSession() {
         window.history.replaceState(window.history.state, '', url.toString());
     }
 }
+
+/** `?uier-comment=<comment id>`: a link to one comment ("Copy link"), opens its thread */
+export const commentLinkParamKey = 'uier-comment';
+
+/**
+ * Link to a comment on its page of this site. In a review it carries the review link too, so the
+ * toolbar opens for whoever follows it; showcase pages need none.
+ */
+export function commentLink(comment: { id: string; path: string }, review: ReviewSession | null | undefined) {
+    const url = new URL(comment.path, window.location.origin);
+    if (review?.projectCode) {
+        url.searchParams.set(toolbarCodeParamKey, review.projectCode);
+    } else if (review) {
+        url.searchParams.set(reviewParamKey, 'true');
+    }
+    url.searchParams.set(commentLinkParamKey, comment.id);
+    return url.toString();
+}
+
+/** The comment the page was opened for (`?uier-comment=`); the parameter is removed from the address */
+export function takeLinkedCommentId() {
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get(commentLinkParamKey);
+    if (id === null) {
+        return undefined;
+    }
+
+    url.searchParams.delete(commentLinkParamKey);
+    window.history.replaceState(window.history.state, '', url.toString());
+    return /^[A-Za-z0-9_.:-]{1,128}$/.test(id) ? id : undefined;
+}
