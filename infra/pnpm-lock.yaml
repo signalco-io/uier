@@ -175,6 +175,9 @@ importers:
       '@pulumi/pulumi':
         specifier: 3.272.0
         version: 3.272.0(typescript@7.0.2)
+      '@pulumi/random':
+        specifier: 4.21.4
+        version: 4.21.4(typescript@7.0.2)
       '@pulumiverse/vercel':
         specifier: 5.21.1
         version: 5.21.1(typescript@7.0.2)
@@ -439,6 +442,9 @@ packages:
         optional: true
       typescript:
         optional: true
+
+  '@pulumi/random@4.21.4':
+    resolution: {integrity: sha512-CKWWZDfIZxdIB8/Xax5IqqGQNyPEdT8TFwJwooK4saU6kU0ozdmrySZ9jt8U1thlYIQTaYitP9EeMBnPbVK+1g==}
 
   '@pulumiverse/vercel@5.21.1':
     resolution: {integrity: sha512-71U6crBOSJhadkneN7KLgsRhcUyR4+M2drkqJFQOA6PRFG78D68qYnKpMg8YXmDl94pB1hBM/SCA1SGVxFsjng==}
@@ -1516,6 +1522,14 @@ snapshots:
       typescript: 7.0.2
     transitivePeerDependencies:
       - supports-color
+
+  '@pulumi/random@4.21.4(typescript@7.0.2)':
+    dependencies:
+      '@pulumi/pulumi': 3.272.0(typescript@7.0.2)
+    transitivePeerDependencies:
+      - supports-color
+      - ts-node
+      - typescript
 
   '@pulumiverse/vercel@5.21.1(typescript@7.0.2)':
     dependencies:

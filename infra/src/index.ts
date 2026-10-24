@@ -1,7 +1,9 @@
-import { getStack } from '@pulumi/pulumi';
+import { getStack, interpolate } from '@pulumi/pulumi';
+import { RandomBytes } from '@pulumi/random';
 import { ProjectDomain, ProjectEnvironmentVariable } from '@pulumiverse/vercel';
 import { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
-import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, DatabaseAccountOfferType, listDatabaseAccountConnectionStringsOutput } from '@pulumi/azure-native/cosmosdb/index.js';
+import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlResourceSqlRoleAssignment, DatabaseAccountOfferType, listDatabaseAccountConnectionStringsOutput } from '@pulumi/azure-native/cosmosdb/index.js';
+import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
 
@@ -18,7 +20,10 @@ const up = async () => {
     // (`pulumi state unprotect` or `protect: false` in its own deploy) when that is really intended.
     const protect = true;
 
-    const app = nextJsApp('uier', 'uier', 'apps/web', protect);
+    // Vercel team slug and project name: the claims of the project's OIDC tokens (see below).
+    const vercelTeamSlug = 'signalco';
+    const vercelProjectName = 'uier';
+    const app = nextJsApp('uier', vercelProjectName, 'apps/web', protect);
 
     // Configure domain name
     new ProjectDomain('vercel-uier-domain', {
@@ -84,17 +89,10 @@ const up = async () => {
         resourceGroupName: resourceGroup.name,
         accountName: cosmosDbAccount.name,
     });
+    // Production only. Preview deployments get no account key (an account key can read and write
+    // every container); they use the managed identity below.
     const cosmosPrimaryConnectionString = cosmosConnectionStrings
         .apply(keys => keys.connectionStrings?.at(0)?.connectionString ?? '');
-    // PR preview deployments use the secondary read-write key of the same account. It can be
-    // regenerated (Azure portal -> Cosmos DB account -> Keys) to revoke their access without
-    // touching production, which uses the primary key.
-    const cosmosSecondaryConnectionString = cosmosConnectionStrings.apply((keys) => {
-        const secondary = keys.connectionStrings?.find(c => c.keyKind === 'Secondary' && c.type === 'Sql');
-        if (!secondary?.connectionString)
-            throw new Error(`Cosmos DB account "${cosmosAccountName}" returned no secondary SQL connection string.`);
-        return secondary.connectionString;
-    });
 
     // Create a SQL Database within the Cosmos DB Account
     const sqlDatabase = new SqlResourceSqlDatabase(databaseName, {
@@ -136,9 +134,42 @@ const up = async () => {
     // Comments written by PR preview deployments: 7 days, as long as items carry no longer `ttl`.
     const commentsPreviewContainer = sqlContainer('comments-preview', 7 * 24 * 60 * 60);
 
+    // Preview deployments reach Cosmos DB as this managed identity, without a key: it trusts the
+    // Vercel OIDC token of the project's preview deployments (workload identity federation) and its
+    // only Cosmos DB role is on the `comments-preview` container.
+    const previewIdentity = new UserAssignedIdentity('uier-preview-cosmos', {
+        resourceGroupName: resourceGroup.name,
+        location: resourceGroup.location,
+    });
+    // The project uses Vercel's team issuer mode (Project settings -> Security -> OIDC Federation);
+    // `sub` and the default `aud` follow https://vercel.com/docs/oidc/reference. Renaming the team or
+    // the project, or switching to the global issuer (`https://oidc.vercel.com`), changes the claims:
+    // Entra ID then rejects the token and the preview comments API fails (500) until this is updated.
+    new FederatedIdentityCredential('vercel-uier-preview', {
+        resourceGroupName: resourceGroup.name,
+        resourceName: previewIdentity.name,
+        issuer: `https://oidc.vercel.com/${vercelTeamSlug}`,
+        subject: `owner:${vercelTeamSlug}:project:${vercelProjectName}:environment:preview`,
+        audiences: [`https://vercel.com/${vercelTeamSlug}`],
+    });
+    // Cosmos DB data plane RBAC: "Cosmos DB Built-in Data Contributor" (items and queries, no database
+    // or container management) on `comments-preview` only. The assignment id is an arbitrary fixed GUID.
+    new SqlResourceSqlRoleAssignment('uierdb-preview-comments-contributor', {
+        resourceGroupName: resourceGroup.name,
+        accountName: cosmosDbAccount.name,
+        roleAssignmentId: '4d692441-6767-45ee-a826-e326f532a48c',
+        roleDefinitionId: interpolate`${cosmosDbAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002`,
+        principalId: previewIdentity.principalId,
+        scope: interpolate`${cosmosDbAccount.id}/dbs/${sqlDatabase.name}/colls/${commentsPreviewContainer.name}`,
+    });
+
+    // Key for guest names and rate-limit counter ids (apps/web/src/lib/comments/environment.ts), one
+    // per target so previews know nothing about production. Replacing one changes that target's guest names.
+    const commentsSecret = (name: string) => new RandomBytes(name, { length: 32 }).base64;
+
     // Assign app environment variables
-    // Production and preview deployments get separate variables (same keys, disjoint targets):
-    // the production ones stay untouched, and the preview ones point at their own container.
+    // Production and preview deployments get separate variables (disjoint targets): production uses
+    // the primary key, previews the managed identity and their own container.
     // Vercel allows one variable per key and target, so a replace of the new variables (a changed
     // `key` or `sensitive`) has to delete the old one first; variables apply to new deployments only.
     const envVarOptions = { deleteBeforeReplace: true };
@@ -161,13 +192,36 @@ const up = async () => {
         // A container name, not a secret ("Config" in the Vercel dashboard).
         sensitive: false,
     }, envVarOptions);
-    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-preview', {
+    new ProjectEnvironmentVariable('vercel-uier-env-comments-secret', {
         projectId: app.projectId,
-        key: 'COSMOSDB_CONNECTION_STRING',
-        value: cosmosSecondaryConnectionString,
-        targets: ['preview'],
+        key: 'UIER_COMMENTS_SECRET',
+        value: commentsSecret('uier-comments-secret'),
+        targets: ['production'],
         // "Secret" in the Vercel dashboard: write-only, only deployments can read it.
         sensitive: true,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-endpoint-preview', {
+        projectId: app.projectId,
+        key: 'COSMOSDB_ENDPOINT',
+        value: cosmosDbAccount.documentEndpoint,
+        targets: ['preview'],
+        sensitive: false,
+    }, envVarOptions);
+    // Tenant and client id of the managed identity: identifiers, not credentials (only a preview
+    // deployment's OIDC token gets a token for them).
+    new ProjectEnvironmentVariable('vercel-uier-env-azure-tenant-preview', {
+        projectId: app.projectId,
+        key: 'AZURE_TENANT_ID',
+        value: previewIdentity.tenantId,
+        targets: ['preview'],
+        sensitive: false,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-azure-client-preview', {
+        projectId: app.projectId,
+        key: 'AZURE_CLIENT_ID',
+        value: previewIdentity.clientId,
+        targets: ['preview'],
+        sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container-preview', {
         projectId: app.projectId,
@@ -175,6 +229,13 @@ const up = async () => {
         value: commentsPreviewContainer.name,
         targets: ['preview'],
         sensitive: false,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-comments-secret-preview', {
+        projectId: app.projectId,
+        key: 'UIER_COMMENTS_SECRET',
+        value: commentsSecret('uier-comments-secret-preview'),
+        targets: ['preview'],
+        sensitive: true,
     }, envVarOptions);
 };
 
