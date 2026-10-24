@@ -10,11 +10,12 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `layout.tsx` (nav, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `layout.tsx` (nav, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/` | the signed-in app shell (`/app`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
 | `src/components/marketing/` | `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
+| `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
 | `src/lib/secureHeaders.ts`, `next.config.ts` | CSP and security headers (Google Fonts and Vercel are the only external origins) |
@@ -59,6 +60,17 @@ Every public page gets `SiteFooter` from the marketing layout; pages do not rend
 Contact and social destinations come from `brand.contact` / `brand.social` in `@uier/brand`
 (signalco's addresses and X account: uier has none of its own), routes from `src/knownPages.ts`.
 Labels are sentence case. `e2e/footer.spec.ts` checks the footer on every public page and its links.
+
+## Legal documents
+
+`/legal/privacy-policy`, `/legal/terms-of-service`, `/legal/cookie-policy`,
+`/legal/acceptable-use-policy` and `/legal/sla` describe what the site actually does: what the
+comments API stores, the `uier_visitor` cookie, rate limits, BotID, Vercel Web Analytics, where data
+is stored and for how long. When you change any of that (a new cookie or storage key, a new
+third party, a different retention), update the matching document and its effective date in the
+same pull request. The SLA states that there are no service commitments; do not add uptime targets
+or credits before they are decided. `e2e/legal.spec.ts` checks each document, the legal navigation
+and the footer links.
 
 ## Testing
 
