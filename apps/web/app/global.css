@@ -1,4 +1,15 @@
-@import '@signalco/ui-themes-minimal/styles';
+@import 'tailwindcss';
+@import '../src/styles/tailwind-v3-compat.css';
+@import '../src/styles/signalco-theme.css';
+
+/* JS preset from @signalco/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
+@config '../tailwind.config.js';
+
+/* The UI kit ships precompiled class names; node_modules is not scanned automatically */
+@source '../node_modules/@signalco/ui/dist';
+@source '../node_modules/@signalco/ui-primitives/dist';
+@source '../node_modules/@signalco/ui-notifications/dist';
+@source '../node_modules/@signalco/cms-core/dist';
 
 html, body, #__next {
   height: 100%;

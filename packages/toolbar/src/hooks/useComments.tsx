@@ -1,16 +1,19 @@
 import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CommentItem } from '../components/@types/Comments';
 
+// Set at build time (tsup.config.ts): uier.io, or the local web app for `pnpm dev`
+const commentsApiUrl = `${__UIER_API_URL__}/api/comments`;
+
 // TODO: Call API
 async function getComments() {
-    const response = await fetch('https://uier.io/api/comments');
+    const response = await fetch(commentsApiUrl);
     const comments = await response.json() as CommentItem[];
     return comments.filter(c => !c.resolved);
 }
 
 // TODO: Call API
 async function upsertComment(comment: CommentItem) {
-    const response = await fetch('http://uier.io/api/comments', {
+    const response = await fetch(commentsApiUrl, {
         method: 'POST',
         body: JSON.stringify({
             id: comment.id,

@@ -1,42 +1,44 @@
 {
     "name": "@uier/toolbar",
+    "description": "uier review toolbar - comments overlay injected into reviewed pages (shadow DOM)",
+    "homepage": "https://uier.io",
     "version": "0.0.0",
     "private": true,
     "license": "MIT",
     "type": "module",
+    "engines": {
+        "node": "24.x"
+    },
     "exports": {
-        ".": "./dist/index.ts",
+        ".": "./dist/index.js",
         "./index.css": "./dist/index.css"
     },
     "scripts": {
         "dev:build": "tsup --watch ./src --env.NODE_ENV development",
-        "dev:serve": "pnpm dlx serve dist -l 4005",
-        "dev": "pnpm run /^dev:.*/",
-        "build": "tsup --minify --env.NODE_ENV production"
+        "dev:serve": "serve dist -l 4005",
+        "dev": "pnpm run \"/^dev:.*/\"",
+        "build": "tsup --minify --env.NODE_ENV production",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
         "@enterwell/react-hooks": "0.7.0",
-        "@signalco/hooks": "workspace:*",
-        "@signalco/js": "workspace:*",
-        "@signalco/tsconfig": "workspace:*",
-        "@signalco/ui": "workspace:*",
-        "@signalco/ui-icons": "workspace:*",
-        "@signalco/ui-primitives": "workspace:*",
-        "@signalco/ui-themes-minimal": "workspace:*",
-        "@tanstack/react-query": "5.90.5",
-        "@types/node": "22.19.1",
-        "@types/react": "19.2.2",
-        "@types/react-dom": "19.2.2",
-        "autoprefixer": "10.4.21",
-        "postcss": "8.5.6",
-        "postcss-preset-env": "10.4.0",
-        "react": "19.2.0",
-        "react-dom": "19.2.0",
-        "react-timeago": "7.2.0",
-        "sass": "1.93.3",
-        "tailwindcss": "3.4.18",
+        "@signalco/hooks": "0.2.1",
+        "@signalco/js": "0.1.0",
+        "@signalco/ui": "0.2.10",
+        "@signalco/ui-icons": "0.2.2",
+        "@signalco/ui-primitives": "0.6.5",
+        "@signalco/ui-themes-minimal": "0.1.3",
+        "@tailwindcss/postcss": "4.3.3",
+        "@tanstack/react-query": "5.104.5",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "postcss": "8.5.31",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+        "serve": "14.2.6",
+        "tailwindcss": "4.3.3",
         "tailwindcss-animate": "1.0.7",
-        "tsup": "8.5.0",
-        "typescript": "5.9.3"
+        "tsup": "9.0.0",
+        "typescript": "7.0.2"
     }
 }

@@ -1,0 +1,26 @@
+{
+  "name": "uier-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "uier - website, review toolbar and infrastructure",
+  "homepage": "https://uier.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signalco-io/uier.git"
+  },
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --ui tui",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "2.11.10"
+  }
+}

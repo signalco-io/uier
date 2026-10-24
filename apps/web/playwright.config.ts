@@ -1,34 +1,34 @@
-import path from 'path'
-import type { PlaywrightTestConfig } from '@playwright/test';
-import { devices } from '@playwright/test';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { defineConfig, devices } from '@playwright/test';
 
-const PORT = process.env.PORT || 4004
-const baseURL = `http://127.0.0.1:${PORT}`
+const PORT = process.env.PORT || 4004;
+const baseURL = `http://127.0.0.1:${PORT}`;
 
-const config: PlaywrightTestConfig = {
+export default defineConfig({
     retries: 2,
     timeout: 30 * 1000,
-    testDir: path.join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
+    testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
     outputDir: 'test-results/',
     webServer: {
+        // Tests run against the production build (`pnpm build` runs first via turbo)
         command: 'pnpm start',
         url: baseURL,
-        timeout: 120 * 1000
+        timeout: 120 * 1000,
+        reuseExistingServer: !process.env.CI,
     },
     use: {
         headless: true,
         viewport: { width: 1280, height: 720 },
         baseURL,
-        trace: 'retry-with-trace',
+        trace: 'on-first-retry',
         video: 'off'
     },
     projects: [
         {
-            name: 'Desktop Edge',
+            name: 'Desktop Chrome',
             use: {
-                ...devices['Desktop Edge'],
+                ...devices['Desktop Chrome'],
             },
         },
         {
@@ -38,5 +38,4 @@ const config: PlaywrightTestConfig = {
             },
         }
     ],
-};
-export default config;
+});

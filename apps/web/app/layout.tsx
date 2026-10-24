@@ -5,6 +5,8 @@ import { Analytics } from '@vercel/analytics/react';
 import { ClientProvider } from '../src/components/providers/ClientProvider';
 import { AuthProvider } from '../src/components/providers/AuthProvider';
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export default function RootLayout({ children }: {
     children: React.ReactNode;
 }) {
@@ -15,7 +17,8 @@ export default function RootLayout({ children }: {
                     <ClientProvider>
                         {children}
                         <Analytics />
-                        <Script src="http://localhost:4005/index.js" />
+                        {/* Review toolbar from the local packages/toolbar dev server (`pnpm dev`) */}
+                        {isDevelopment && <Script src="http://localhost:4005/index.js" />}
                     </ClientProvider>
                 </AuthProvider>
             </body>
