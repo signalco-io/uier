@@ -325,15 +325,23 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
   that keeps the path and query) and the comments API variables: production gets `COSMOSDB_CONNECTION_STRING`
   (the Cosmos DB account's primary key) and `COSMOSDB_COMMENTS_CONTAINER=comments`, preview gets
   `COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` (the managed identity below) and
-  `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`,
+  `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`.
+  The app's data container is `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`); only production gets the
+  email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
   both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself,
 - the Azure resource group `uier-production8b2f56d6` (Pulumi logical name `uier-production`) with a
   serverless Cosmos DB account (database `uierdata`, containers `comments` with per-item TTL enabled
-  (`defaultTtl: -1`) and `comments-preview` (`defaultTtl` 7 days), both partitioned by `/domain`) and the
+  (`defaultTtl: -1`) and `comments-preview` (`defaultTtl` 7 days), both partitioned by `/domain`; the app's
+  `app` (`defaultTtl: -1`) and `app-preview` (`defaultTtl` 7 days), both partitioned by `/pk`) and the
   user-assigned managed identity `uier-preview-cosmos...` of preview deployments: a federated identity
-  credential for the Vercel OIDC token of the project's preview deployments and a Cosmos DB data plane role
-  assignment (built-in Data Contributor) on the `comments-preview` container.
+  credential for the Vercel OIDC token of the project's preview deployments and Cosmos DB data plane role
+  assignments (built-in Data Contributor) on the `comments-preview` and `app-preview` containers,
+- Azure Communication Services Email for the app's sign-in links and invitations (`infra/src/email.ts`): an
+  email service with an **Azure-managed sender domain** (`DoNotReply@<id>.azurecomm.net`), linked to a
+  communication service. Unlike a `uier.io` domain it needs no DNS records and no manual verification before
+  it can be linked, so one `pulumi up` gives a working sender; its sending limits are low. Moving to a
+  verified `uier.io` sender needs its DNS records and a one-time verification in the Azure portal first.
 
 State lives in the self-managed backend `azblob://states` (storage account `sastate2a61d506`) and stack
 secrets are encrypted with the Azure Key Vault key `vault-pulumib5f713d9/pulumi-backend`. Nothing in the

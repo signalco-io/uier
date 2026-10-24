@@ -6,6 +6,7 @@ import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlRe
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
+import { acsEmail } from './email.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -99,7 +100,7 @@ const up = async () => {
     // are kept): -1 = items never expire by default, only items with their own `ttl` field do;
     // a positive value = every item expires that many seconds after its last write unless its own
     // `ttl` says otherwise (a per-item `ttl` always overrides the container default).
-    const sqlContainer = (containerName: string, defaultTtl: number) =>
+    const sqlContainer = (containerName: string, defaultTtl: number, partitionKeyPath = '/domain') =>
         new SqlResourceSqlContainer(`dbcontainer-${containerName}`, {
             resourceGroupName: resourceGroup.name,
             accountName: cosmosDbAccount.name,
@@ -109,7 +110,7 @@ const up = async () => {
                 id: containerName,
                 partitionKey: {
                     kind: 'Hash',
-                    paths: ['/domain'],
+                    paths: [partitionKeyPath],
                 },
                 defaultTtl,
             },
@@ -121,6 +122,11 @@ const up = async () => {
     const commentsContainer = sqlContainer('comments', -1);
     // Comments written by PR preview deployments: 7 days, as long as items carry no longer `ttl`.
     const commentsPreviewContainer = sqlContainer('comments-preview', 7 * 24 * 60 * 60);
+    // The app's own data (users, workspaces, projects, invitations, sign-in links), partitioned by the
+    // generic `/pk` (apps/web/src/lib/app/model.ts). Short-lived items (sign-in links) carry a `ttl`.
+    const appContainer = sqlContainer('app', -1, '/pk');
+    // App data written by PR preview deployments: 7 days after the last write.
+    const appPreviewContainer = sqlContainer('app-preview', 7 * 24 * 60 * 60, '/pk');
 
     // Preview deployments reach Cosmos DB as this managed identity, without a key: it trusts the
     // Vercel OIDC token of the project's preview deployments (workload identity federation) and its
@@ -150,6 +156,19 @@ const up = async () => {
         principalId: previewIdentity.principalId,
         scope: interpolate`${cosmosDbAccount.id}/dbs/${sqlDatabase.name}/colls/${commentsPreviewContainer.name}`,
     });
+    // The same role on `app-preview`, the previews' app data (another fixed GUID)
+    new SqlResourceSqlRoleAssignment('uierdb-preview-app-contributor', {
+        resourceGroupName: resourceGroup.name,
+        accountName: cosmosDbAccount.name,
+        roleAssignmentId: 'b1d5c0b8-6f0e-4b7a-9a43-2f6c0f1e7d35',
+        roleDefinitionId: interpolate`${cosmosDbAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002`,
+        principalId: previewIdentity.principalId,
+        scope: interpolate`${cosmosDbAccount.id}/dbs/${sqlDatabase.name}/colls/${appPreviewContainer.name}`,
+    });
+
+    // Email (sign-in links and invitations), production only: like the account key, the email key
+    // stays out of previews (they show sign-in links on the page instead, apps/web/src/lib/email/send.ts).
+    const email = acsEmail('uier', resourceGroup);
 
     // Key for guest names and rate-limit counter ids (apps/web/src/lib/comments/environment.ts), one
     // per target so previews know nothing about production. Replacing one changes that target's guest names.
@@ -224,6 +243,34 @@ const up = async () => {
         value: commentsSecret('uier-comments-secret-preview'),
         targets: ['preview'],
         sensitive: true,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-app-container', {
+        projectId: app.projectId,
+        key: 'COSMOSDB_APP_CONTAINER',
+        value: appContainer.name,
+        targets: ['production'],
+        sensitive: false,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-cosmos-app-container-preview', {
+        projectId: app.projectId,
+        key: 'COSMOSDB_APP_CONTAINER',
+        value: appPreviewContainer.name,
+        targets: ['preview'],
+        sensitive: false,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-acs', {
+        projectId: app.projectId,
+        key: 'ACS_CONNECTION_STRING',
+        value: email.connectionString,
+        targets: ['production'],
+        sensitive: true,
+    }, envVarOptions);
+    new ProjectEnvironmentVariable('vercel-uier-env-email-sender', {
+        projectId: app.projectId,
+        key: 'UIER_EMAIL_SENDER',
+        value: email.senderAddress,
+        targets: ['production'],
+        sensitive: false,
     }, envVarOptions);
 };
 
