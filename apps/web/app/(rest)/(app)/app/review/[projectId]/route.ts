@@ -6,8 +6,9 @@ import { reviewTarget } from '@/src/lib/app/review';
 export const dynamic = 'force-dynamic';
 
 /**
- * A review link: `/app/review/<project>?url=<page>`. Checks that the signed-in person may review
- * the project and sends them to the page with the toolbar turned on (`?toolbar-code=`).
+ * A review link: `/app/review/<project>?url=<page>&comment=<id>`. Checks that the signed-in person
+ * may review the project and sends them to the page with the toolbar turned on (`?toolbar-code=`)
+ * and signed in.
  */
 export async function GET(request: Request, { params }: RouteContext<'/app/review/[projectId]'>) {
     const { projectId } = await params;
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: RouteContext<'/app/revie
         return NextResponse.redirect(signIn);
     }
 
-    const target = await reviewTarget(context, projectId, requestUrl.searchParams.get('url'));
+    const target = await reviewTarget(context, projectId, requestUrl.searchParams.get('url'), requestUrl.searchParams.get('comment'));
     if (!target)
         return new Response('This project does not exist, or you do not have access to it.', { status: 404 });
 

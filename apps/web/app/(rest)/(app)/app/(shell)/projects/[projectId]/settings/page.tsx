@@ -8,6 +8,9 @@ import { appBaseUrl } from '@/src/lib/app/request';
 import { embedScript } from '@/src/lib/app/integration';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
 import { CopyBlock } from '@/src/components/app/CopyBlock';
+import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
+import { listProjectMembers } from '@/src/lib/app/members';
+import { DateTime } from '@/src/components/app/comments/DateTime';
 import { ProjectAccessForm, ProjectNameForm, ProjectStatusButton, ProjectUrlsForm } from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
@@ -20,6 +23,20 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
     const project = await getProject(context.workspace.id, projectId);
     if (!project)
         notFound();
+
+    const [comments, members] = await Promise.all([
+        loadProjectComments(context, project),
+        listProjectMembers(context.workspace.id, project.id)
+    ]);
+    const usage = projectUsage(comments);
+    const usageRows = [
+        { label: 'Comments', value: usage.comments },
+        { label: 'Open', value: usage.open },
+        { label: 'Done', value: usage.done },
+        { label: 'Replies', value: usage.replies },
+        { label: 'Pages with comments', value: usage.pages },
+        { label: 'People with access', value: members.length }
+    ];
 
     return (
         <div className="max-w-3xl">
@@ -44,6 +61,19 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
                         <CopyBlock value={embedScript(await appBaseUrl(), project.id)} label="Copy the embed script" />
                     </div>
                     <Button href={KnownPageLinks.projectInstall(project.id)} variant="outlined" className="self-start">Install guide</Button>
+                </Section>
+                <Section id="usage" title="Usage" description="Everything is included; nothing here is limited by a plan.">
+                    <dl className="m-0 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {usageRows.map(row => (
+                            <div key={row.label} className="flex flex-col gap-1 rounded-xl border p-4">
+                                <dt className="text-sm text-muted-foreground">{row.label}</dt>
+                                <dd className="m-0 text-2xl font-semibold tabular-nums tracking-[-0.02em]">{row.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                    {usage.lastCommentAt && (
+                        <p className="m-0 text-sm text-muted-foreground">Last comment <DateTime value={usage.lastCommentAt} /></p>
+                    )}
                 </Section>
                 <Section id="general" title="General">
                     <ProjectNameForm projectId={project.id} name={project.name} />

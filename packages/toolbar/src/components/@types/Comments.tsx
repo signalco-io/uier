@@ -66,6 +66,8 @@ export type CommentItemThreadItem = {
     author: CommentAuthor;
     /** ISO 8601, missing on old comments */
     createdAt?: string;
+    /** Project comments: whether the reviewer may delete this item (its author or an admin) */
+    canDelete?: boolean;
     deleted?: undefined;
 } | CommentItemDeletedThreadItem;
 
@@ -111,6 +113,13 @@ export type CommentItem = {
      */
     isMine: boolean;
     createdAt?: string;
+    /**
+     * Project comments: what the reviewer may do. Members can mark any comment done; the author
+     * and the workspace admins can delete it. Without it, only the author can (`isMine`).
+     */
+    permissions?: { resolve: boolean; delete: boolean };
+    /** Project comments: only workspace admins and the author see it */
+    private?: boolean;
 }
 
 /** A comment that is being written and is not saved yet (the device is read when it is posted) */

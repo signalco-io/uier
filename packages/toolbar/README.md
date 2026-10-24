@@ -34,6 +34,7 @@ attributes or from `window.uierConfig`, set before the script:
 | --- | --- | --- | --- |
 | Mode | `data-uier-mode` | `mode` | `review` |
 | API base URL | `data-uier-api-url` | `apiUrl` | origin of the script URL |
+| Project | `data-uier-project` | `project` | none (comments per domain) |
 
 ### React
 
@@ -62,7 +63,35 @@ In `review` mode the toolbar mounts only when the page is opened with a review l
 The review then lasts for the browser tab (`sessionStorage`, key `uier:review`): it continues on the site's
 other pages, including full page loads without the parameter, until the reviewer chooses **Exit review**,
 which removes the toolbar and the review parameters from the address. A code that is not a valid project
-code starts nothing. Comments are stored per domain either way (`src/review.ts`).
+code starts nothing (`src/review.ts`). Without a project in the script tag, comments are stored per domain.
+
+### Projects
+
+The uier app's install guide gives each project its script tag, with the project code:
+
+```html
+<script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
+```
+
+With a project the toolbar uses the review API, `<API base URL>/api/review/<project>`, instead of
+`/api/comments`. The project's "who can comment" setting applies (`src/project/`):
+
+- **Invited people**: the pill says "Sign in to see and leave comments". Sign in opens the project's review
+  link on uier (`/app/review/<project>?url=<this page>`), which signs the reviewer in and comes back with
+  `?toolbar-code=<project>&uier-token=<single-use code>`. The toolbar exchanges the code for a review token
+  right away and removes it from the address. The token is kept in the site's `localStorage`
+  (`uier:review-token:<project>`, 30 days) and sent as `Authorization: Bearer`.
+- **Anyone with the link** (guests): anyone with a review link comments. The first comment asks for the
+  guest's name (`uier:guest-name`); a random visitor id (`uier:visitor`, sent as `X-Uier-Visitor`) recognises
+  their comments. No cookies are used: the API is on another site than the reviewed one.
+- **Comments off**: the pill says "Comments are turned off for this project".
+
+Members mark any comment done; the author and the project's admins delete it (the API returns
+`permissions` and `canDelete`, and the thread shows only those actions). The profile shows the member's
+account name or the guest's name; Sign out forgets the token, name and visitor id on this site.
+`?uier-comment=<comment id>` (from "Link to comment" in the app) opens that comment's thread. The API only
+answers the project's own site addresses (CORS), so the script works only on those sites. Sites with a
+Content-Security-Policy add the sources from the install guide's "Advanced" section.
 
 ### Modes
 

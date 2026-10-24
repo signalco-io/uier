@@ -5,12 +5,18 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
+import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Send } from '@signalco/ui-icons';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { commentTextMaxLength, destructiveTextClassName } from './@types/Comments';
+import { useProjectViewer } from '../project/ProjectGate';
+import { getGuestName, setGuestName } from '../project/projectSession';
+
+/** Longest guest name the review API accepts */
+const guestNameMaxLength = 80;
 
 // Show the character counter when the text gets close to the limit
 const counterThreshold = commentTextMaxLength - 100;
@@ -55,6 +61,12 @@ export function CommentComposer({ label, placeholder, submitLabel, draftKey, quo
     const announce = useAnnounce();
     const [text, setTextState] = useState(() => drafts.get(draftKey) ?? '');
     const trimmedText = text.trim();
+    // Guests of a project tag their comments with their name, asked once and kept on this site
+    const { needsName } = useProjectViewer();
+    const [savedName, setSavedName] = useState(() => needsName ? getGuestName() : undefined);
+    const askName = needsName && !savedName;
+    const [name, setName] = useState('');
+    const [nameMissing, setNameMissing] = useState(false);
     const showCounter = text.length >= counterThreshold;
 
     const setText = (value: string) => {
@@ -114,6 +126,14 @@ export function CommentComposer({ label, placeholder, submitLabel, draftKey, quo
         if (!trimmedText.length || pending) {
             return;
         }
+        if (askName) {
+            if (!name.trim().length) {
+                setNameMissing(true);
+                return;
+            }
+            setGuestName(name);
+            setSavedName(name.trim());
+        }
 
         try {
             await onSubmit(trimmedText);
@@ -142,6 +162,25 @@ export function CommentComposer({ label, placeholder, submitLabel, draftKey, quo
                     <blockquote className="m-0 line-clamp-3 border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm text-secondary-foreground">
                         {quote}
                     </blockquote>
+                )}
+                {askName && (
+                    <>
+                        <Input
+                            label="Your name"
+                            name="authorName"
+                            value={name}
+                            onChange={(e) => {
+                                setName(e.target.value);
+                                setNameMissing(false);
+                            }}
+                            maxLength={guestNameMaxLength}
+                            autoComplete="name"
+                            placeholder="Shown with your comments"
+                            fullWidth />
+                        {nameMissing && (
+                            <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>Enter your name to comment.</p>
+                        )}
+                    </>
                 )}
                 <textarea
                     ref={textareaRef}

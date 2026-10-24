@@ -44,9 +44,11 @@ export function ToolbarProfile() {
                     </Typography>
                 </Row>
                 <Typography level="body2" className="text-secondary-foreground">
-                    {name
-                        ? 'You comment as a guest. The name stays with this browser until you sign out.'
-                        : 'You have not commented yet. Your first comment or reply gives you a guest name.'}
+                    {query.data?.member
+                        ? 'You are signed in to uier. Your comments show your account name.'
+                        : name
+                            ? 'You comment as a guest. The name stays with this browser until you sign out.'
+                            : 'You have not commented yet. Your first comment or reply gives you a guest name.'}
                 </Typography>
             </Stack>
         </Popper>

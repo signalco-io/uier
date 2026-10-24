@@ -3,7 +3,8 @@ import { brand } from '@uier/brand';
 import { KnownPages } from '../../knownPages';
 import { InlineLink } from './ContentPage';
 
-// Answers only what the product does today (the toolbar on uier.io); see BRAND.md, "Tagline and voice".
+// Answers only what the product does today (the toolbar on uier.io, projects for your own sites in the
+// app); see BRAND.md, "Tagline and voice".
 // Native <details> disclosures: keyboard (Enter/Space) and screen readers work without script, and
 // find-in-page searches the closed answers too.
 
@@ -14,15 +15,15 @@ const questions: { question: string; answer: ReactNode }[] = [
     },
     {
         question: `Can I use ${brand.name} on my own website?`,
-        answer: <>Not yet. Today {brand.name} runs on {brand.domain}, so you can try everything it does on this page. Support for your own sites is being built in the open on <InlineLink href={brand.repository}>GitHub</InlineLink>.</>
+        answer: <>Yes. Create a project in the <InlineLink href={KnownPages.App}>{brand.name} app</InlineLink>, add one script tag to your site and open a review link. You choose who can comment: the people you invite, or anyone with the link.</>
     },
     {
         question: 'Do I need an account?',
-        answer: <>No. You comment as a guest. Your first comment sets a cookie that lets you resolve and delete your own comments, and only yours.</>
+        answer: <>Not on this page: here you comment as a guest. Your first comment sets a cookie that lets you resolve and delete your own comments, and only yours. To review your own site you sign in with your email; there is no password.</>
     },
     {
         question: 'Who can see my comments?',
-        answer: <>Everyone who opens the page: comments here are public. You show up as a guest name such as &ldquo;Guest 3F2A&rdquo;. Do not post personal information.</>
+        answer: <>On this page, everyone who opens it: comments here are public. You show up as a guest name such as &ldquo;Guest 3F2A&rdquo;. Do not post personal information. On your own site the project decides: only the people you invite, or anyone with the review link.</>
     },
     {
         question: 'What is saved with a comment?',
@@ -30,7 +31,7 @@ const questions: { question: string; answer: ReactNode }[] = [
     },
     {
         question: 'How long are comments kept?',
-        answer: <>90 days after their last change, then they are deleted automatically. You can delete your own comments at any time.</>
+        answer: <>Comments on this page: 90 days after their last change, then they are deleted automatically. Comments in your projects stay until you delete them. You can delete your own comments at any time.</>
     },
     {
         question: 'What does it cost?',

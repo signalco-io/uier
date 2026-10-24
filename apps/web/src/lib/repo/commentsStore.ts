@@ -21,6 +21,8 @@ export type AppendResult = 'ok' | 'full' | 'not_found';
 export type CommentsStore = {
     /** Comments for the page, newest first. Also matches old documents whose path still contains a query string. */
     list(domain: string, path: string, limit: number): Promise<DbComment[]>;
+    /** Every comment of the partition (all pages), newest first */
+    listAll(domain: string, limit: number): Promise<DbComment[]>;
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
     /** Replaces the comment only when it was not changed since it was read (`etag`) */

@@ -90,15 +90,21 @@ test('review links open the project\'s own sites with the toolbar turned on', as
     const projectId = await createProject(page, { urls: ['https://example.com', 'https://staging.example.com'] });
     const request = page.request;
 
+    // The target, without the single-use review code the toolbar exchanges for a review token
     const location = async (query: string) => {
         const response = await request.get(`/app/review/${projectId}${query}`, { maxRedirects: 0 });
         expect(response.status()).toBe(307);
-        return response.headers()['location'];
+        const target = new URL(response.headers()['location'] ?? '');
+        expect(target.searchParams.get('uier-token')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        target.searchParams.delete('uier-token');
+        return target.toString();
     };
 
     expect(await location('')).toBe(`https://example.com/?toolbar-code=${projectId}`);
     expect(await location(`?url=${encodeURIComponent('https://staging.example.com/pricing?plan=1')}`))
         .toBe(`https://staging.example.com/pricing?plan=1&toolbar-code=${projectId}`);
+    expect(await location('?comment=comment_abc123'))
+        .toBe(`https://example.com/?toolbar-code=${projectId}&uier-comment=comment_abc123`);
     // Another site is never a redirect target
     expect(await location(`?url=${encodeURIComponent('https://evil.example.net/')}`)).toBe(`https://example.com/?toolbar-code=${projectId}`);
 

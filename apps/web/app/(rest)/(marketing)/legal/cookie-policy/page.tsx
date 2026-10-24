@@ -83,6 +83,18 @@ export default function CookiePolicyPage() {
                 and <code>SameSite=Lax</code>.
             </p>
 
+            <h2>On sites that use {brand.name}</h2>
+            <p>
+                When you review a site that embeds the {brand.name} toolbar for a project, the toolbar keeps these keys
+                in that site&rsquo;s local storage. They are set only once you open a review link or comment, and the
+                toolbar&rsquo;s Sign out removes them.
+            </p>
+            <ul className="flex flex-col gap-2 text-sm">
+                <li><code>uier:review-token:&lt;project&gt;</code>: keeps you signed in to the project on that site (30 days).</li>
+                <li><code>uier:visitor</code>: a random id that recognises a guest&rsquo;s comments, so only they can delete them.</li>
+                <li><code>uier:guest-name</code>: the name a guest comments under.</li>
+            </ul>
+
             <h2>Third parties</h2>
             <p>
                 Vercel Web Analytics, which counts page views, and Vercel BotID, which checks that comments come

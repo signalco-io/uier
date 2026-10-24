@@ -69,6 +69,13 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .slice(0, limit)
                 .map(clone);
         },
+        async listAll(domain, limit) {
+            return [...domainEntries(domain).values()]
+                .map(entry => entry.comment)
+                .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+                .slice(0, limit)
+                .map(clone);
+        },
         async get(domain, id): Promise<StoredComment | null> {
             const entry = domainEntries(domain).get(id);
             return entry ? { comment: clone(entry.comment), etag: String(entry.version) } : null;

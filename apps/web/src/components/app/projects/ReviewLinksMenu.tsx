@@ -21,14 +21,17 @@ export function ReviewLinksMenu({ projectId, urls, size = 'md' }: { projectId: s
     if (!mainUrl)
         return null;
 
+    // Not links: Next.js would prefetch them, and a review link redirects to the site with a
+    // single-use code (app/review), which must only be minted when someone opens it
+    const open = (url: string) => window.open(KnownPageLinks.projectReview(projectId, url), '_blank', 'noopener');
+
     if (urls.length === 1) {
         return (
             <Button
-                href={KnownPageLinks.projectReview(projectId, mainUrl)}
-                target="_blank"
                 variant="outlined"
                 size={size}
-                endDecorator={<ExternalLink className="size-4" />}>
+                endDecorator={<ExternalLink className="size-4" />}
+                onClick={() => open(mainUrl)}>
                 Open review
             </Button>
         );
@@ -46,8 +49,7 @@ export function ReviewLinksMenu({ projectId, urls, size = 'md' }: { projectId: s
                 {urls.map((url, index) => (
                     <DropdownMenuItem
                         key={url}
-                        // The kit's `href` items can't open a new tab
-                        onSelect={() => window.open(KnownPageLinks.projectReview(projectId, url), '_blank', 'noopener')}
+                        onSelect={() => open(url)}
                         endDecorator={<ExternalLink className="size-4 shrink-0" />}>
                         <span className="flex min-w-0 flex-col">
                             <span className="truncate font-mono text-[13px]">{displayUrl(url)}</span>

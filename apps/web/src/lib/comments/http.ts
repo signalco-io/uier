@@ -12,7 +12,11 @@ export type ApiErrorCode =
     | 'too_large'
     | 'unsupported_media_type'
     | 'rate_limited'
-    | 'server_error';
+    | 'server_error'
+    /** Project comments: the project turned comments off */
+    | 'comments_disabled'
+    /** Project comments: only signed-in members with access can do this */
+    | 'sign_in_required';
 
 /** Why a request was rate limited: the visitor (or their network) writes too fast, or the page had enough comments today */
 export type RateLimitReason = 'too_fast' | 'page_full';
@@ -45,10 +49,12 @@ export const apiErrors = {
     conflict: () => new ApiError(409, 'conflict', 'The comment changed while saving. Please try again.', 1),
     tooLarge: () => new ApiError(413, 'too_large', `Request body is too large (maximum ${MAX_BODY_BYTES} bytes).`),
     unsupportedMediaType: () => new ApiError(415, 'unsupported_media_type', 'Request body must be sent as application/json.'),
-    rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason)
+    rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason),
+    commentsDisabled: () => new ApiError(403, 'comments_disabled', 'Comments are turned off for this project.'),
+    signInRequired: () => new ApiError(401, 'sign_in_required', 'Sign in to see and leave comments on this project.')
 };
 
-function errorResponse(error: unknown) {
+export function errorResponse(error: unknown) {
     if (error instanceof ApiError) {
         const headers = new Headers();
         if (error.retryAfterSeconds !== undefined)

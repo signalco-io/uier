@@ -1,6 +1,7 @@
 import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
-import { apiRequest, commentsQueryKeyPrefix, visitorQueryKey } from './api';
+import { apiRequest, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey } from './api';
+import { forgetProjectReviewer, getGuestName } from '../project/projectSession';
 
 const visitorApiUrl = `${toolbarConfig.apiUrl}/api/visitor`;
 
@@ -8,14 +9,28 @@ const visitorApiUrl = `${toolbarConfig.apiUrl}/api/visitor`;
 export type Visitor = {
     /** Guest name (`Guest XXXX`), `null` before the visitor's first comment or reply */
     name: string | null;
+    /** A project's member, signed in to uier (their account name) */
+    member?: boolean;
 };
 
 async function getVisitor(): Promise<Visitor> {
+    // A project's reviewer: a member (review token) or a guest with the name they gave
+    if (toolbarConfig.project) {
+        const info = await apiRequest<{ viewer?: { kind?: string; name?: string } }>(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`);
+        return info?.viewer?.kind === 'member'
+            ? { name: info.viewer.name ?? null, member: true }
+            : { name: getGuestName() ?? null };
+    }
+
     const visitor = await apiRequest<Visitor>(visitorApiUrl);
     return { name: typeof visitor?.name === 'string' ? visitor.name : null };
 }
 
 async function signOut() {
+    if (toolbarConfig.project) {
+        forgetProjectReviewer();
+        return;
+    }
     await apiRequest<void>(visitorApiUrl, { method: 'DELETE' });
 }
 
@@ -37,8 +52,9 @@ export function useVisitor(): {
         mutationFn: signOut,
         onSuccess: () => {
             client.setQueryData<Visitor>(visitorQueryKey, { name: null });
-            // Nothing is "mine" anymore
+            // Nothing is "mine" anymore; a project asks again who the reviewer is
             client.invalidateQueries({ queryKey: commentsQueryKeyPrefix });
+            client.invalidateQueries({ queryKey: projectViewerQueryKey });
         }
     });
 

@@ -39,6 +39,10 @@ function deleteConfirmText(comment: CommentItem, first: boolean | undefined) {
             : 'Delete this reply?';
     }
 
+    // An admin of a project deleting someone else's comment removes the whole thread
+    if (!comment.isMine) {
+        return replies.length > 0 ? 'Delete this comment and its replies?' : 'Delete this comment?';
+    }
     if (replies.some(reply => reply.deleted || !reply.author?.isMe)) {
         return 'Delete this comment? Its text is removed. The replies stay.';
     }
@@ -67,7 +71,8 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
 
     // Only the author may delete a comment, and only the author of a reply may delete it (the
     // status is changed in the thread's header, CommentThreadHeader.tsx)
-    const canDelete = first ? comment.isMine : isMe;
+    // In a project the API says what the reviewer may do (admins delete others' comments too)
+    const canDelete = first ? (comment.permissions?.delete ?? comment.isMine) : (threadItem.canDelete ?? isMe);
     const pending = deleteComment.isPending || deleteReply.isPending;
     const error = deleteComment.error ?? deleteReply.error;
 
@@ -110,6 +115,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     {canDelete && (
                         <CommentThreadItemMenu
                             kind={first ? 'comment' : 'reply'}
+                            own={isMe}
                             confirmText={deleteConfirmText(comment, first)}
                             disabled={pending}
                             onDelete={handleDelete} />

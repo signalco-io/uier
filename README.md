@@ -117,6 +117,12 @@ pick a free port to test the production build.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.config.ts)):
 
+- **Desktop Chrome** and **Mobile Chrome** run a project's review flow
+  ([`project-review.spec.ts`](apps/web/e2e/project-review.spec.ts)) on a reviewed site on another origin that
+  embeds the install guide's script and sends exactly the CSP sources it lists (any CSP violation fails):
+  invited people (review link sign-in, "Sign in" for others), guests with names, comments off, other sites
+  refused (CORS), and the app's comment list, board, filters, private comments, assignees, edit, delete,
+  usage and links to comments.
 - **Desktop Chrome** and **Mobile Chrome** also run the app ([`app.spec.ts`](apps/web/e2e/app.spec.ts)):
   sign-in (single-use links, redirects back), onboarding and the install guide, review links, done and
   reopened projects, project settings, billing and the account page, with axe checks on every page.
@@ -157,12 +163,46 @@ actions that check the session and the role every time.
   (12 lowercase letters and digits) is public: it is in the embed script.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
     (the script, where to paste it on common platforms, and the CSP sources in "Advanced").
-  - Details `/app/projects/<code>` (review links for every address) and settings
-    `/app/projects/<code>/settings` (who can comment, addresses, project code and embed script, name, done).
-  - Review links `/app/review/<code>?url=<page>` check access and redirect to the page with the toolbar's
-    review link parameter `?toolbar-code=<code>`; only addresses of the project are redirect targets.
+  - Details `/app/projects/<code>`: review links for every address, the guest link (in guest mode) and the
+    project's **comments**, as a list or a board (Open / Done), filtered by people (all, assigned to me,
+    opened by me) and page (relative URLs). Each comment shows its page URL, the device size it came from,
+    when it was created, its author, assignee, replies and state, with Done, Link to comment and Assign;
+    the author or an admin edits and deletes it, and only admins make it private.
+  - Settings `/app/projects/<code>/settings`: who can comment (invited people, anyone with the link, or
+    comments off), addresses, project code and embed script, usage (comments, open, done, replies, pages,
+    people with access), name, done.
+  - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
+    toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
+    (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
+    targets.
 - **Billing** (`/app/billing`): the pricing promise `brand.pricing`, word for word like the landing page:
   every feature available today is free and stays free.
+
+### Review API (a project's toolbar)
+
+A project's toolbar (`data-uier-project`, see the [toolbar README](packages/toolbar/README.md)) runs on the
+customer's site and calls `/api/review/<code>` on uier.io, implemented in
+[`apps/web/src/lib/review`](apps/web/src/lib/review). The routes mirror the comments API:
+
+| Request | What |
+| --- | --- |
+| `GET /api/review/<code>` | the project (name, who can comment), the reviewer and whether they can comment, the sign-in URL |
+| `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
+| `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`), a new comment (`authorName` from guests) |
+| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `DELETE .../replies/<itemId>` | replies, done (`resolved`), deleting |
+
+- **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
+  visitor id (`X-Uier-Visitor`) and the name they give. No cookies: the API is another site than the
+  reviewed one.
+- **Who can comment** is enforced here: `403 comments_disabled` when comments are off, `401
+  sign_in_required` for anyone but members when the project is for invited people.
+- **CORS**: only the project's own site addresses get `Access-Control-Allow-Origin` (no credentials);
+  requests from any other origin get `403`.
+- **Permissions**: members mark any comment done, the author and the workspace admins delete it, private
+  comments are listed only to admins and their author. Comments carry `permissions` and `canDelete`.
+- Comments live in the comments container under the partition `project:<code>`, with the site's origin,
+  the author (`user:<id>` for members) and no TTL. The same rate limits as the comments API apply; BotID
+  does not (it only covers same-origin requests).
 
 Data lives in the Cosmos DB container `app` (`app-preview` on previews), partition key `/pk`:
 
@@ -173,6 +213,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `sign-in` (pending link, `ttl` 15 min) | `sign-in:<hash>` | SHA-256 of the token |
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>`, `member_<userId>`, the project code |
 | `project-ref` (code -> workspace) | `project:<code>` | the project code |
+| `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |
 
 Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
@@ -226,11 +267,13 @@ an `ETag`). The URL is not versioned, so it is cached briefly and never `immutab
 
 Every reviewed site always runs the latest toolbar; there are no pinned versions yet.
 
-**On other sites** the toolbar mounts and calls `https://uier.io/api/comments`
-([`embed.spec.ts`](apps/web/e2e/embed.spec.ts)), but the comments API does not accept cross-origin requests
-yet: it sends no CORS headers, BotID only protects requests from the same origin and the `uier_visitor` cookie
-is not sent cross-site. Until [#53](https://github.com/signalco-io/uier/issues/53) is done, comments only work on
-uier.io itself.
+**On other sites** the toolbar needs a project: with the project's script tag (`data-uier-project`, from the
+app's install guide) it uses the [review API](#review-api-a-projects-toolbar), which answers CORS for the
+project's own addresses and identifies reviewers with headers instead of cookies
+([`project-review.spec.ts`](apps/web/e2e/project-review.spec.ts)). Without a project it mounts and calls
+`https://uier.io/api/comments` ([`embed.spec.ts`](apps/web/e2e/embed.spec.ts)), which does not accept
+cross-origin requests: it sends no CORS headers, BotID only protects requests from the same origin and the
+`uier_visitor` cookie is not sent cross-site ([#53](https://github.com/signalco-io/uier/issues/53)).
 
 ### Comments API
 

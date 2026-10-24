@@ -4,8 +4,12 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { Settings } from '@signalco/ui-icons';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProject, reviewUrl } from '@/src/lib/app/projects';
+import { loadProjectComments } from '@/src/lib/app/projectComments';
+import { listProjectMembers } from '@/src/lib/app/members';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
+import { CopyBlock } from '@/src/components/app/CopyBlock';
+import { parseCommentsQuery, ProjectComments } from '@/src/components/app/comments/ProjectComments';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
@@ -16,12 +20,18 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
     return { title: project?.name ?? 'Project' };
 }
 
-export default async function ProjectPage({ params }: PageProps<'/app/projects/[projectId]'>) {
+export default async function ProjectPage({ params, searchParams }: PageProps<'/app/projects/[projectId]'>) {
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+
+    const [comments, members] = await Promise.all([
+        loadProjectComments(context, project),
+        listProjectMembers(context.workspace.id, project.id)
+    ]);
+    const query = parseCommentsQuery(await searchParams);
 
     return (
         <>
@@ -49,12 +59,27 @@ export default async function ProjectPage({ params }: PageProps<'/app/projects/[
                         )}
                     </>
                 )} />
-            <Section id="comments" title="Comments" description="Comments left on the site with the toolbar show up here.">
-                <p className="m-0 text-sm text-muted-foreground">
-                    No comments yet. Add the script to the site, then open a review link and pin the first comment.
-                </p>
-                <Button href={KnownPageLinks.projectInstall(project.id)} variant="outlined" className="self-start">Install the script</Button>
-            </Section>
+            <div className="flex flex-col gap-6">
+                {project.access === 'guests' && project.urls[0] && (
+                    <Section
+                        id="share"
+                        title="Guest link"
+                        description="Anyone with this link can comment as a guest. They are asked for their name.">
+                        <CopyBlock value={reviewUrl(project.urls[0], project.id)} label="Copy the guest link" />
+                    </Section>
+                )}
+                <Section id="comments" title="Comments" description="Comments left on the site with the toolbar.">
+                    <ProjectComments
+                        projectId={project.id}
+                        comments={comments}
+                        query={query}
+                        userId={context.user.id}
+                        assignees={members.map(({ member, name }) => ({ userId: member.userId, name }))} />
+                    {!comments.length && (
+                        <Button href={KnownPageLinks.projectInstall(project.id)} variant="outlined" className="self-start">Install the script</Button>
+                    )}
+                </Section>
+            </div>
         </>
     );
 }
