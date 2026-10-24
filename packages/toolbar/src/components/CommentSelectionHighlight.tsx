@@ -19,7 +19,7 @@ export function CommentSelectionHighlight({
                 <div
                     key={i}
                     className={cx(
-                        'fixed select-none bg-red-400 opacity-40 pointer-events-none',
+                        'fixed select-none bg-[hsl(var(--brand-selection))] pointer-events-none',
                         className
                     )}
                     style={{

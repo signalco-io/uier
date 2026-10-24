@@ -1,6 +1,7 @@
 export const KnownPages = {
     Landing: '/',
     App: '/app',
+    Brand: '/brand',
 
     LegalPrivacyPolicy: '/legal/privacy-policy',
     LegalTermsOfService: '/legal/terms-of-service',

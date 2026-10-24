@@ -1,23 +1,14 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
-
-export async function assertAccessibility(page: Page, url: string) {
-    await page.goto(url);
-    await page.waitForTimeout(1000);
-    const accessibilityScanResults = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag21aaa'])
-        .analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
-}
+import { brand } from '@uier/brand';
+import { assertAccessibility } from './accessibility';
 
 test('landing page renders', async ({ page }) => {
     const response = await page.goto('/');
     expect(response?.status()).toBe(200);
-    await expect(page).toHaveTitle('uier');
-    await expect(page.getByRole('heading', { level: 1, name: 'uier' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Get Started' })).toHaveAttribute('href', '/app');
-    await expect(page.getByText(/Copyright © \d{4} uier\. All rights reserved\./)).toBeVisible();
+    await expect(page).toHaveTitle(`${brand.name} · ${brand.tagline}`);
+    await expect(page.getByRole('heading', { level: 1, name: brand.tagline })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/app');
+    await expect(page.getByText(new RegExp(`© \\d{4} ${brand.name}`))).toBeVisible();
 });
 
 test('landing page sends security headers', async ({ request }) => {
