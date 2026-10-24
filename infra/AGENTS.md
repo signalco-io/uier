@@ -4,10 +4,18 @@ The Pulumi program for project `uier`, stack `organization/uier/uier-production`
 standalone pnpm project (own `package.json` and lockfile), deliberately outside the workspace
 so web development never installs Pulumi dependencies.
 
-It manages the Vercel project `uier` (root directory `apps/web`, Node 24, region `dub1`, the
-`uier.io` domain, the production `COSMOSDB_CONNECTION_STRING`), the Cloudflare DNS record for
-`uier.io`, and the Azure resource group with a serverless Cosmos DB account (database
-`uierdata`, container `comments` partitioned by `/domain`).
+It manages:
+
+- the Vercel project `uier` (root directory `apps/web`, Node 24, region `dub1`) with the
+  domains `uier.io` and `www.uier.io` (a `308` redirect to `uier.io`), and the comments API
+  variables `COSMOSDB_CONNECTION_STRING` and `COSMOSDB_COMMENTS_CONTAINER` (production:
+  primary key and `comments`, preview: secondary key and `comments-preview`);
+- the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
+- the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
+  containers `comments` and `comments-preview`, both partitioned by `/domain`).
+
+The toolbar bundle needs no infrastructure of its own: the web app serves it at
+`https://uier.io/toolbar.js` from Vercel's CDN.
 
 ## Rules
 

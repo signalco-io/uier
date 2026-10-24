@@ -275,10 +275,12 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
 **`organization/uier/uier-production`**. It manages:
 
 - the Vercel project **`uier`** (`prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc`, root directory `apps/web`, Node.js 24,
-  function region `dub1`), its domain `uier.io` and the comments API variables: `COSMOSDB_CONNECTION_STRING`
+  function region `dub1`), its domains `uier.io` and `www.uier.io` (a permanent `308` redirect to `uier.io`
+  that keeps the path and query) and the comments API variables: `COSMOSDB_CONNECTION_STRING`
   (production: the Cosmos DB account's primary key, preview: its secondary key) and
   `COSMOSDB_COMMENTS_CONTAINER` (production: `comments`, preview: `comments-preview`),
-- the Cloudflare DNS record for `uier.io`,
+- the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
+  both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself,
 - the Azure resource group `uier-production8b2f56d6` (Pulumi logical name `uier-production`) with a
   serverless Cosmos DB account (database `uierdata`, containers `comments` with per-item TTL enabled
   (`defaultTtl: -1`) and `comments-preview` (`defaultTtl` 7 days), both partitioned by `/domain`).
