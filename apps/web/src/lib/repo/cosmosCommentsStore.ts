@@ -41,6 +41,14 @@ export function createCosmosCommentsStore(): CommentsStore {
                 [...pathParameters(path), { name: '@limit', value: limit }]);
             return resources.map(withoutSystemProperties);
         },
+        async listAll(domain, limit) {
+            // Rate-limit counters share the partition; they have no `path`
+            const resources = await queryAll<Record<string, unknown>>(
+                domain,
+                'SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path) ORDER BY c.createdAt DESC',
+                [{ name: '@limit', value: limit }]);
+            return resources.map(withoutSystemProperties);
+        },
         async get(domain, id): Promise<StoredComment | null> {
             const response = await cosmosDataContainerComments().item(id, domain).read<Record<string, unknown>>();
             if (!response.resource || !response.etag)

@@ -30,7 +30,14 @@ export const KnownPageLinks = {
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
     projectInstall: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/install`,
-    /** Opens a project URL in review mode, signed in (see app/review) */
-    projectReview: (projectId: string, url?: string) =>
-        `/app/review/${encodeURIComponent(projectId)}${url ? `?url=${encodeURIComponent(url)}` : ''}`
+    /** Opens a project URL in review mode, signed in, optionally at a comment (see app/review) */
+    projectReview: (projectId: string, url?: string, commentId?: string) => {
+        const query = new URLSearchParams();
+        if (url)
+            query.set('url', url);
+        if (commentId)
+            query.set('comment', commentId);
+        const search = query.toString();
+        return `/app/review/${encodeURIComponent(projectId)}${search ? `?${search}` : ''}`;
+    }
 } as const;

@@ -2,7 +2,7 @@
  * Toolbar configuration, read synchronously while the toolbar script runs.
  *
  * Embed the toolbar with a classic script tag:
- *     <script src="https://uier.io/toolbar.js" data-uier-mode="showcase" defer></script>
+ *     <script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
  * or configure it before the script runs:
  *     <script>window.uierConfig = { mode: 'showcase', apiUrl: 'https://uier.io' };</script>
  */
@@ -17,11 +17,18 @@ export type ToolbarConfig = {
     mode: ToolbarMode;
     /** Base URL of the uier comments API (origin, optional path prefix), without a trailing slash */
     apiUrl: string;
+    /**
+     * The uier project code (from the app's install guide). With a project, comments belong to the
+     * project and its access settings apply (`/api/review/<project>`); without one, to the domain
+     * (`/api/comments`, the uier.io showcase).
+     */
+    project?: string;
 };
 
 export type ToolbarWindowConfig = {
     mode?: string;
     apiUrl?: string;
+    project?: string;
 };
 
 declare global {
@@ -40,12 +47,17 @@ function getToolbarScript(): HTMLScriptElement | null {
 
     // Module scripts have no `currentScript`; fall back to the tag that configures the toolbar
     return typeof document !== 'undefined'
-        ? document.querySelector<HTMLScriptElement>('script[data-uier-mode]')
+        ? document.querySelector<HTMLScriptElement>('script[data-uier-project], script[data-uier-mode]')
         : null;
 }
 
 function readMode(value: string | undefined): ToolbarMode | undefined {
     return value === 'showcase' || value === 'review' ? value : undefined;
+}
+
+function readProject(value: string | undefined) {
+    const project = value?.trim();
+    return project && /^[0-9a-z]{12}$/.test(project) ? project : undefined;
 }
 
 function trimTrailingSlash(url: string) {
@@ -86,7 +98,8 @@ export function readToolbarConfig(): ToolbarConfig {
 
     return {
         mode,
-        apiUrl: trimTrailingSlash(apiUrl)
+        apiUrl: trimTrailingSlash(apiUrl),
+        project: readProject(script?.dataset.uierProject) ?? readProject(windowConfig?.project)
     };
 }
 

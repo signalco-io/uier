@@ -6,6 +6,8 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsGlobalProps } from './@types/Comments';
 import { AnnouncerProvider } from './Announcer';
 import { DraftsProvider } from '../hooks/useDrafts';
+import { toolbarConfig } from '../config';
+import { ProjectGate } from '../project/ProjectGate';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -29,11 +31,22 @@ export function CommentsBootstrapper({
             <QueryClientProvider client={queryClient}>
                 <AnnouncerProvider>
                     <DraftsProvider>
-                        <CommentsGlobal
-                            mode={mode}
-                            review={review}
-                            rootElement={rootElement}
-                            onExitReview={onExitReview} />
+                        {toolbarConfig.project ? (
+                            // A project's comments: only when the project lets this reviewer comment
+                            <ProjectGate>
+                                <CommentsGlobal
+                                    mode={mode}
+                                    review={review}
+                                    rootElement={rootElement}
+                                    onExitReview={onExitReview} />
+                            </ProjectGate>
+                        ) : (
+                            <CommentsGlobal
+                                mode={mode}
+                                review={review}
+                                rootElement={rootElement}
+                                onExitReview={onExitReview} />
+                        )}
                     </DraftsProvider>
                 </AnnouncerProvider>
             </QueryClientProvider>

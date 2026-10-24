@@ -27,6 +27,10 @@ export default function PrivacyPolicyPage() {
                 <li>Comments you leave with the toolbar on {brand.domain} are public. Anyone who opens the page can read them.</li>
                 <li>Those comments are deleted automatically 90 days after their last change.</li>
                 <li>
+                    Comments in a project, on a site that uses {brand.name}, are visible only to the people the
+                    project allows, and stay until they are deleted.
+                </li>
+                <li>
                     Commenting on {brand.domain} needs no account. If you sign in to the {brand.name} app, we store your
                     email address and name to sign you in and show who you work with.
                 </li>
@@ -73,6 +77,21 @@ export default function PrivacyPolicyPage() {
                 you use it or after 15 minutes. Signing in sets the <code>uier_session</code> cookie, which keeps
                 you signed in; the <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has the details. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
+            </p>
+
+            <h3>Comments in projects</h3>
+            <p>
+                When you comment with the toolbar on a site that uses a {brand.name} project, we store the same
+                details as for comments above, and the address of the site you commented on. Members comment
+                under their account name, guests under the name they give. Who sees the comments is the
+                project&rsquo;s choice: its members, or anyone with its review link. A comment an admin makes
+                private is visible only to the project&rsquo;s admins and its author. Members can assign comments
+                to each other and mark them done.
+            </p>
+            <p>
+                On that site, the toolbar keeps in the browser&rsquo;s local storage a review token while you are
+                signed in to the project, or, as a guest, a random visitor id that recognises your comments and
+                the name you gave. Signing out in the toolbar removes them.
             </p>
 
             <h3>Rate limits and bot protection</h3>
@@ -142,6 +161,7 @@ export default function PrivacyPolicyPage() {
                 <li>Comments and replies: 90 days after their last change, then they are deleted automatically. You can delete your own earlier in the toolbar.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
+                <li>Comments in projects: until their author or a project admin deletes them.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>The <code>uier_visitor</code> cookie: one year after it is set. The <code>uier_session</code> cookie: 30 days after you sign in.</li>
                 <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>

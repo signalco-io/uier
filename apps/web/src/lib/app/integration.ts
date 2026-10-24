@@ -19,7 +19,9 @@ export function nextJsSnippet(baseUrl: string, projectId: string) {
 
 /**
  * Content-Security-Policy sources the toolbar needs on a site that sends a CSP: the script and the
- * API from uier, its inline styles (a stylesheet inside its shadow root) and the Geist web font.
+ * API from uier, its inline styles (a stylesheet inside its shadow root), the pin cursor of point
+ * mode (an inline SVG image) and the Geist web font. e2e/review.spec.ts runs the toolbar on a site
+ * with exactly these sources and fails on any CSP violation.
  */
 export function cspSources(baseUrl: string) {
     const origin = new URL(baseUrl).origin;
@@ -27,6 +29,7 @@ export function cspSources(baseUrl: string) {
         { directive: 'script-src', sources: [origin] },
         { directive: 'connect-src', sources: [origin] },
         { directive: 'style-src', sources: ['\'unsafe-inline\'', 'https://fonts.googleapis.com'] },
+        { directive: 'img-src', sources: ['data:'] },
         { directive: 'font-src', sources: ['https://fonts.gstatic.com'] }
     ];
 }

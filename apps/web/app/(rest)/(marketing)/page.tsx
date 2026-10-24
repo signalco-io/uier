@@ -7,7 +7,6 @@ import { Mark } from '@uier/brand/Mark';
 import { ReviewThreadDemo } from '../../../src/components/marketing/ReviewThreadDemo';
 import { LandingPricing } from '../../../src/components/marketing/LandingPricing';
 import { LandingFaq } from '../../../src/components/marketing/LandingFaq';
-import { InlineLink } from '../../../src/components/marketing/ContentPage';
 import { KnownPages } from '../../../src/knownPages';
 import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 
@@ -160,9 +159,10 @@ export default function LandingPage() {
                     <div className="flex flex-col gap-2 rounded-2xl border p-8">
                         <h3 className="text-base font-semibold">On your own site</h3>
                         <p className="text-sm leading-relaxed text-muted-foreground">
-                            Not available yet: for now, comments work on {brand.domain} only. Support for your own
-                            sites is being built in the open. Follow it on <InlineLink href={brand.repository}>GitHub</InlineLink>.
+                            Create a project for your site, add one script tag and share a review link. Only the people
+                            you invite can comment, or anyone with the link: you choose.
                         </p>
+                        <Button variant="outlined" href={KnownPages.App} className="mt-2 self-start">Create a project</Button>
                     </div>
                 </div>
             </section>

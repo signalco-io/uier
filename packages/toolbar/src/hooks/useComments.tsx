@@ -4,11 +4,20 @@ import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
 import { apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey } from './api';
+import { getGuestName } from '../project/projectSession';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
-// Same origin as the toolbar script, or explicitly configured (see src/config.ts)
-const commentsApiUrl = `${toolbarConfig.apiUrl}/api/comments`;
+// Same origin as the toolbar script, or explicitly configured (see src/config.ts). A project's
+// comments are in the review API, which applies the project's "who can comment" setting.
+const commentsApiUrl = toolbarConfig.project
+    ? `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/comments`
+    : `${toolbarConfig.apiUrl}/api/comments`;
+
+/** Guests of a project tag their comments with their name (see project/ProjectGate.tsx) */
+function guestAuthorName() {
+    return toolbarConfig.project ? getGuestName() : undefined;
+}
 
 function commentUrl(commentId: string) {
     return `${commentsApiUrl}/${encodeURIComponent(commentId)}`;
@@ -31,14 +40,14 @@ async function getComments(path: string) {
 async function createComment(path: string, { position, kind, text, quotedText, device }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { path, position, kind, text, quotedText, device }
+        body: { path, position, kind, text, quotedText, device, authorName: guestAuthorName() }
     }));
 }
 
 async function replyToComment({ commentId, text }: { commentId: string; text: string }) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies`, {
         method: 'POST',
-        body: { text }
+        body: { text, authorName: guestAuthorName() }
     }));
 }
 

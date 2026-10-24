@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 const included = [
     'Projects for every site you review, with staging and other addresses',
     'Comments pinned to elements and to selected text, with replies',
-    'Browser, system and viewport saved with every comment'
+    'Browser, system and viewport saved with every comment',
+    'Comments for invited people only, or guests who give their name',
+    'Comment lists and boards with filters, assignees and private comments'
 ];
 
 export default function BillingPage() {

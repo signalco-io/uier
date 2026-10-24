@@ -40,7 +40,7 @@ function withoutBidiControls(text: string) {
     return text.replace(bidiControls, '').trim();
 }
 
-const textSchema = z.string()
+export const textSchema = z.string()
     .transform(withoutBidiControls)
     .pipe(z.string()
         .min(1)

@@ -14,6 +14,8 @@ import { destructiveTextClassName, floatingShadowClassName } from './@types/Comm
 type CommentThreadItemMenuProps = {
     /** The comment (its first item) or one reply */
     kind: 'comment' | 'reply';
+    /** Whether the reviewer wrote it (an admin of a project can delete others' items too) */
+    own?: boolean;
     /** The confirmation question, saying what deleting does (e.g. "Delete this comment and your 2 replies?") */
     confirmText: string;
     disabled?: boolean;
@@ -25,7 +27,7 @@ type CommentThreadItemMenuProps = {
  * portals into the page's body) so it renders inside the toolbar's shadow root.
  * Deleting asks first, with `confirmText`: it can take the visitor's replies or the whole thread with it.
  */
-export function CommentThreadItemMenu({ kind, confirmText, disabled, onDelete }: CommentThreadItemMenuProps) {
+export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete }: CommentThreadItemMenuProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
@@ -71,7 +73,7 @@ export function CommentThreadItemMenu({ kind, confirmText, disabled, onDelete }:
                     size="xs"
                     variant="plain"
                     title="More options"
-                    aria-label={`More options for your ${kind}`}
+                    aria-label={`More options for ${own ? 'your' : 'this'} ${kind}`}
                     disabled={disabled}>
                     <MoreHorizontal />
                 </IconButton>

@@ -47,7 +47,8 @@ configuration: [README.md](README.md).
 | `components/CommentSelectionPopover.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment |
 | `components/info/` | `getDeviceInfo` (read when a comment is posted) and `CommentDeviceMeta` ("Desktop · 1280×720") |
 | `components/sidebar/` | the inbox sidebar (ink, radius 16) |
-| `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys) |
+| `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API |
+| `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, sign in, or comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
 | `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, a fallback pin when it is gone, nothing for hidden anchors; never throws (invalid selectors, out-of-range offsets) |
 | `hooks/useLayoutVersion.ts` | one shared "measure again" signal: scroll (capture), resize, size and DOM changes of the page |
 | `hooks/useDrafts.tsx` | unsent comment and reply texts, so closing a popover does not lose them |

@@ -64,8 +64,9 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
             <Row spacing={1} justifyContent="space-between">
                 <CommentStatusBadge done={done} />
                 <Row spacing={0.5} className="shrink-0">
-                    {/* Only the author changes the status (the API enforces it too) */}
-                    {comment.isMine && (
+                    {/* Only the author changes the status (the API enforces it too); in a project,
+                        every member can (the API's `permissions`) */}
+                    {(comment.permissions?.resolve ?? comment.isMine) && (
                         <Button
                             size="xs"
                             variant="plain"

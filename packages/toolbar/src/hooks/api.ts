@@ -1,3 +1,6 @@
+import { toolbarConfig } from '../config';
+import { projectHeaders } from '../project/projectSession';
+
 // Requests to the uier API (comments, visitor) and the query keys of its data
 
 /**
@@ -12,6 +15,10 @@ export type CommentsApiErrorCode =
     | 'too_large'
     | 'rate_limited'
     | 'server_error'
+    /** A project's comments: the project turned comments off */
+    | 'comments_disabled'
+    /** A project's comments: only signed-in members with access can do this */
+    | 'sign_in_required'
     | 'network_error';
 
 export type CommentsRateLimitReason = 'too_fast' | 'page_full';
@@ -55,9 +62,14 @@ export async function apiRequest<T>(url: string, init?: { method?: 'GET' | 'POST
     try {
         response = await fetch(url, {
             method: init?.method ?? 'GET',
-            // Anonymous visitor identity is the API's HttpOnly `uier_visitor` cookie
-            credentials: 'include',
-            headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+            // Anonymous visitor identity is the API's HttpOnly `uier_visitor` cookie. A project's
+            // reviewers are identified by headers instead: the API is on another site than the
+            // reviewed one, where its cookies would be third-party cookies.
+            credentials: toolbarConfig.project ? 'omit' : 'include',
+            headers: {
+                ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+                ...(toolbarConfig.project ? projectHeaders() : {})
+            },
             body: hasBody ? JSON.stringify(init.body) : undefined
         });
     } catch (error) {
@@ -101,3 +113,6 @@ export function required<T>(value: T | undefined): T {
 export const commentsQueryKeyPrefix = ['comments'] as const;
 
 export const visitorQueryKey = ['visitor'] as const;
+
+/** A project's reviewer and settings (project/ProjectGate.tsx) */
+export const projectViewerQueryKey = ['project-viewer'] as const;

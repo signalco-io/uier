@@ -13,9 +13,9 @@ import { expectNoAxeViolations } from './accessibility';
 
 // Text comments, restoring pins and highlights, and the viewport saved with a comment
 
-// In the FAQ, after the interpolated "uier" and "uier.io": not the paragraph's first text node
+// In the FAQ, after the "uier app" link: not the paragraph's first text node
 const faqQuestion = 'Can I use uier on my own website?';
-const selectedText = 'try everything it does';
+const selectedText = 'add one script tag to your site';
 
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -140,8 +140,8 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
     await page.setViewportSize({ width: viewport.width - 80, height: viewport.height - 60 });
     await expectHighlightOnText(page, selectedText);
 
-    // Clicking the highlighted text opens the thread
-    const tint = await highlightBox(page);
+    // Clicking the highlighted text opens the thread (the first tint: the text may wrap on narrow screens)
+    const tint = await page.locator('[data-uier-highlight]').first().boundingBox();
     await page.mouse.click(tint!.x + tint!.width / 2, tint!.y + tint!.height / 2);
     await expect(thread.getByText('Which parts, exactly?')).toBeVisible();
     await expect(thread.locator('blockquote')).toHaveText(selectedText);

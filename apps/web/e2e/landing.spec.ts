@@ -86,11 +86,12 @@ test('FAQ answers open and close with the keyboard', async ({ page }) => {
     await ownSite.locator('summary').focus();
     await page.keyboard.press('Enter');
     await expect(ownSite).toHaveAttribute('open', '');
-    await expect(ownSite.getByText(/^Not yet\./)).toBeVisible();
+    await expect(ownSite.getByText(/^Yes\./)).toBeVisible();
 
     // A link in an open answer is the next stop for Tab
     await page.keyboard.press('Tab');
-    await expect(ownSite.getByRole('link', { name: 'GitHub' })).toBeFocused();
+    await expect(ownSite.getByRole('link', { name: 'uier app' })).toBeFocused();
+    await expect(ownSite.getByRole('link', { name: 'uier app' })).toHaveAttribute('href', '/app');
 
     await ownSite.locator('summary').focus();
     await page.keyboard.press('Enter');
