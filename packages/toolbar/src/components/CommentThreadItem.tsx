@@ -137,7 +137,16 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             confirmText={deleteConfirmText(comment, first)}
                             disabled={pending}
                             onDelete={canDelete ? handleDelete : undefined}
-                            onEdit={canEdit ? () => { edit.reset(); drafts.setDetails(editDraftKey, { originalText: text }); drafts.set(editDraftKey, text); setEditing({ originalText: text }); } : undefined} />
+                            onEdit={canEdit ? () => {
+                                edit.reset();
+                                const existing = drafts.details(editDraftKey);
+                                const snapshot = existing && typeof existing.originalText === 'string' ? existing : undefined;
+                                if (!snapshot) {
+                                    drafts.setDetails(editDraftKey, { originalText: text });
+                                    if (!existing) drafts.set(editDraftKey, text);
+                                }
+                                setEditing({ originalText: snapshot?.originalText ?? text });
+                            } : undefined} />
                     )}
                 </Row>
             </Row>

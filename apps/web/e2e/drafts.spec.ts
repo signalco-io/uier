@@ -190,7 +190,7 @@ test('a failed reviewer lookup offers retry before restoring the authorized draf
     await context.close();
 });
 
-test('inline and pin replies share text and stay locked through the same pending send', async ({ browser }, info) => {
+test('inline and pin composers share edit/reply drafts and pending state', async ({ browser }, info) => {
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     const comment = await page.evaluate(async () => (await fetch('/api/comments', {
@@ -207,6 +207,20 @@ test('inline and pin replies share text and stay locked through the same pending
     await expect(inline).toBeVisible();
     await page.locator(`[data-uier-comment="${comment.id}"]`).click();
     const pin = page.getByRole('textbox', { name: 'Reply', exact: true });
+    const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
+    await thread.getByRole('button', { name: 'More options for your comment' }).click();
+    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await thread.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Keep the same edit from either surface');
+    await page.keyboard.press('Escape');
+    await expect(thread).toBeHidden();
+    const inlineThread = page.getByRole('region', { name: 'Headline comment thread' });
+    await inlineThread.getByRole('button', { name: 'More options for your comment' }).click();
+    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await expect(inlineThread.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveValue('Keep the same edit from either surface');
+    await inlineThread.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(inlineThread.getByRole('button', { name: 'More options for your comment' })).toBeFocused();
+    await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+    await page.locator(`[data-uier-comment="${comment.id}"]`).click();
     await pin.fill('Send from either composer');
     await expect(inline).toHaveValue('Send from either composer');
     let posts = 0;
