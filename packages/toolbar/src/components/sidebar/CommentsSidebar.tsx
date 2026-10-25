@@ -1,3 +1,4 @@
+import { SelectItems } from '@signalco/ui-primitives/SelectItems';
 import React, { useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Divider } from '@signalco/ui-primitives/Divider';
@@ -34,7 +35,7 @@ export type CommentsSidebarProps = {
  * status
  */
 export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage }: CommentsSidebarProps) {
-    const { isMember } = useProjectViewer();
+    const { isMember, environment, environmentOptions, setEnvironment, environmentLabel } = useProjectViewer();
     const { data: activity } = useActivitySummary();
     const unread = activity?.unread ?? 0;
     const [hidding, setHidding] = useState<boolean>(false);
@@ -69,13 +70,17 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                 className={cx(hidding
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
                     : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
-                <Stack className="h-full">
-                    <Stack spacing={1.5} className="px-4 py-3">
+                <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                    <Stack spacing={1.5} className="shrink-0 px-4 py-3">
                         <CommentsSidebarHeader
                             counts={{ unresolved: activity?.open ?? 0, resolved: activity?.done ?? 0, all: activity?.total ?? 0 }}
                             status={filter.status}
                             onStatusChange={(status) => setFilter({ ...filter, status })}
                             onClose={handleClose} />
+                        {setEnvironment && <Stack spacing={1}>
+                            <p className="m-0 text-xs text-muted-foreground">Reviewing {environmentLabel ?? window.location.origin}. New feedback stays here.</p>
+                            <EnvironmentSelect value={environment} options={environmentOptions ?? []} onChange={setEnvironment} />
+                        </Stack>}
                         {/* With a decorator the kit's focus ring is on the box, which never has the focus itself */}
                         <Input
                             type="search"
@@ -96,12 +101,20 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         </Button>
                     </Stack>
                     <Divider />
-                    {/* Focusable so the list can be scrolled with the keyboard */}
-                    <div tabIndex={0} className="min-h-0 flex-1 overflow-y-auto rounded-b-2xl p-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                    {/* Filters and comments share a scroll area, including short keyboard/orientation viewports. */}
+                    <div className="shrink-0 p-3">
                         <CommentsSidebarCommentsList filter={filter} onShowOnPage={onShowOnPage} />
                     </div>
                 </Stack>
             </DockablePanel>
         </InkScope>
     );
+}
+
+
+function EnvironmentSelect({ value, options, onChange }: { value?: string; options: { id: string; label: string }[]; onChange: (value: string) => void }) {
+    const [container, setContainer] = useState<HTMLDivElement | null>(null);
+    return <div ref={setContainer} className="dark"><SelectItems container={container ?? undefined} label="Environment" value={value} onValueChange={onChange}
+        items={[...options.map(item => ({ value: item.id, label: item.label })),
+            { value: 'all', label: 'All environments' }, { value: 'removed', label: 'Removed addresses' }, { value: 'unknown', label: 'Source not recorded' }]} /></div>;
 }

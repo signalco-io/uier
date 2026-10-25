@@ -29,6 +29,7 @@ export type CommentDto = {
     id: string;
     path: string;
     position: DbCommentPosition;
+    anchorContext?: DbComment['anchorContext'];
     /** Public id, numbered per domain (`#12`); missing on old comments */
     number?: number;
     /** A screenshot of the commented part of the page (`GET .../comments/<id>/screenshot`), in pixels */
@@ -146,6 +147,12 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         id: comment.id,
         path: commentPath(comment),
         position,
+        ...(comment.anchorContext ? { anchorContext: {
+            original: toPositionDto(comment.anchorContext.original) ?? position,
+            previous: toPositionDto(comment.anchorContext.previous) ?? position,
+            revision: String(comment.anchorContext.revision), changedAt: String(comment.anchorContext.changedAt),
+            changes: Number(comment.anchorContext.changes)
+        } } : {}),
         number: typeof comment.number === 'number' && Number.isInteger(comment.number) ? comment.number : undefined,
         screenshot: comment.screenshot && Number.isInteger(comment.screenshot.width) && Number.isInteger(comment.screenshot.height)
             ? { width: comment.screenshot.width, height: comment.screenshot.height, ...(comment.screenshot.revision ? { revision: comment.screenshot.revision } : {}) }

@@ -47,6 +47,11 @@ export default function PrivacyPolicyPage() {
                     owner can additionally choose non-sensitive query fields and hash routes that identify a view.
                     Tracking, review activation and recognized credential fields are excluded; unapproved query fields are not stored.
                 </li>
+                <li>
+                    if you or an allowed editor reattach a comment, the new position, original and immediately
+                    previous anchors (including selected text), last change time and change count. This context
+                    follows the comment&rsquo;s visibility and retention. Reattachment keeps messages and saved images;
+                </li>
                 <li>when it was posted or edited, and the time in your browser when feedback capture started;</li>
                 <li>
                     details about the device it came from: its size (desktop, tablet or mobile), the window
@@ -99,12 +104,13 @@ export default function PrivacyPolicyPage() {
                 the details.
             </p>
 
+            <p>Project feedback keeps its recorded source origin. Removing a site address does not delete its feedback or move it to another site. The inbox environment filter is saved in browser storage until you clear site data; app filters stay in the page URL.</p>
             <h3>Your account in the app</h3>
             <p>When you sign in to the {brand.name} app at {brand.domain}/app, we store:</p>
             <ul>
                 <li>your email address, and the name shown with your work (it starts as the part of your email before the @, and you can change it);</li>
                 <li>when your account was created;</li>
-                <li>your workspace and the projects in it: their names, the site addresses you add and their settings.</li>
+                <li>your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.</li>
             </ul>
             <p>
                 To sign you in, we email you a link. We store only a hash of the token in the link, and delete it when
@@ -171,6 +177,25 @@ export default function PrivacyPolicyPage() {
                 add notification cookies or store guest email addresses in your browser.
             </p>
 
+            <h3>Coding tool access</h3>
+            <p>
+                You can create a named credential in Account to let a coding tool access selected projects
+                and operations as your account. We store its hash, your account and workspace ids, name,
+                project selection, scopes and expiry in Cosmos DB. The credential expires after 30 days
+                when created in the app and can be revoked immediately. We do not store the credential itself.
+                Replies and activity record your identity and the credential’s name and id, so other reviewers
+                can recognize changes made through your coding tool. These records stay with the feedback.
+                Request counters expire after two minutes. Retry receipts contain hashes and feedback ids
+                and expire after 30 days.
+            </p>
+            <p>
+                Only the access you explicitly grant is available, subject to your current membership and
+                private feedback permissions. The client you choose receives the feedback and any screenshots
+                you authorize; its own terms and retention rules apply to copies it receives. Revocation prevents
+                further access but cannot remove copies already received by that client. MCP requests use the
+                scoped credential and rate limits instead of the browser’s BotID challenge.
+            </p>
+
             <h3>Rewrite suggestions</h3>
             <p>
                 When you ask for rewrite suggestions for selected text, that text and your instruction (if you
@@ -186,7 +211,7 @@ export default function PrivacyPolicyPage() {
                 about a day for the count per page. Comments never contain your IP address.
             </p>
             <p>
-                Requests that post, change or delete comments are checked by Vercel BotID, which runs a challenge
+                Browser requests that post, change or delete comments are checked by Vercel BotID, which runs a challenge
                 in your browser and inspects the request to tell people from bots.
                 On reviewed sites this challenge runs in an empty frame on {brand.domain}. It returns a signed
                 proof tied to the reviewed site, project and reviewer, valid for five minutes and kept only
@@ -250,6 +275,7 @@ export default function PrivacyPolicyPage() {
                 <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
                 <li>Member read cursors: until removed with the account or project on request. Guest read cursors: one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
+                <li>Coding tool credentials: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>

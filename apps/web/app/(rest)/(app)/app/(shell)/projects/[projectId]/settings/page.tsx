@@ -8,7 +8,10 @@ import { listProjectMembers } from '@/src/lib/app/members';
 import { notificationPreference } from '@/src/lib/notifications/preferences';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
-import { ProjectAccessForm, ProjectEmailsButton, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { configuredEnvironments } from '@/src/lib/app/environments';
+import {
+    ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
+} from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
     title: 'Project settings'
@@ -44,8 +47,10 @@ function ProjectSetup({ project }: { project: DbProject }) {
     return (
         <>
             <ProjectNameForm projectId={project.id} name={project.name} />
+            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} />
             <ProjectAccessForm projectId={project.id} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />
+            <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
             <ProjectPageStateForm projectId={project.id} policy={project.pageState} />
         </>
     );

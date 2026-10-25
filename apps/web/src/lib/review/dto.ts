@@ -1,3 +1,4 @@
+import { feedbackSource, type FeedbackSource } from '../app/environments';
 import { readActivity } from '../comments/activity';
 import type { DbComment, DbThreadItem } from '../db/schema';
 import { toCommentDto, type CommentDto } from '../comments/dto';
@@ -31,9 +32,9 @@ export async function authorNames(comments: DbComment[]) {
 }
 
 /** An item's author name: the member's name, the guest's name, or "Guest" */
-export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName'>, names: Map<string, string>) {
+export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName' | 'agent'>, names: Map<string, string>) {
     if (item.authorId?.startsWith(memberPrefix))
-        return names.get(item.authorId.slice(memberPrefix.length)) ?? 'Former member';
+        return `${names.get(item.authorId.slice(memberPrefix.length)) ?? 'Former member'}${item.agent ? ` via ${item.agent.name}` : ''}`;
     return item.authorName || 'Guest';
 }
 
@@ -46,6 +47,7 @@ export function messageMentions(item: DbThreadItem, names: Map<string, string>) 
 }
 
 export type ReviewCommentDto = CommentDto & {
+    source?: FeedbackSource;
     assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean };
     private: boolean;
     reproduction?: ReproductionContext;
@@ -58,7 +60,7 @@ export type ReviewCommentDto = CommentDto & {
  * A project comment for the toolbar: the public comment shape (`CommentDto`) with project names
  * and permissions. Detailed reproduction context is member-only; author ids are never exposed.
  */
-export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0, participants = names): ReviewCommentDto | null {
+export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0, participants = names, project?: DbProject): ReviewCommentDto | null {
     const authorId = actorAuthorId(actor);
     const dto = toCommentDto(comment, authorId);
     if (!dto)
@@ -67,6 +69,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        ...(project ? { source: feedbackSource(project, comment.origin) } : {}),
         activity: readActivity(comment, authorId, readSequence),
         ...(actor.kind === 'member' ? { reproduction: toReproductionContext(comment, origins) } : {}),
         private: comment.private === true,

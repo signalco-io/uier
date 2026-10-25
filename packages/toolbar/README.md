@@ -165,7 +165,8 @@ error boundary, so one bad comment never breaks the toolbar.
   at their current positions; unsent comment and reply text is kept. The state is kept for the tab
   (`uier:toolbar-collapsed`), including after navigation and reload. The inbox keeps its state; **Show on page**
   expands the toolbar before opening a comment's pin.
-- Drag the **Move toolbar** handle with a mouse or touch to reposition the pill, including while collapsed.
+- Drag the **Move toolbar** handle with a mouse or touch to reposition the pill. Collapsed, the pill has no
+  separate handle: drag the mark itself (a click still expands it).
   Arrow keys move it (Shift moves farther), Home resets it, and Options offers **Reset toolbar position** after
   a move. The centre is saved per site/browser in `localStorage` (`uier:toolbar-position:v1`), then clamped to
   the visible viewport on resize, orientation changes and on-screen keyboard changes. Controls remain
@@ -200,9 +201,18 @@ error boundary, so one bad comment never breaks the toolbar.
 - Restoring: pins are placed at their elements and commented text is tinted; clicking the tint opens the
   thread too. Positions are measured again when the page scrolls (also inside scrollable elements),
   resizes or changes (`hooks/useLayoutVersion.ts`). When the stored offsets no longer point at the text,
-  it is searched for (ignoring whitespace) in its element, then its ancestors. When it is not on the page
-  anymore, a fallback pin goes on the closest element that still is, and the thread says so. Anchors that
-  are hidden (e.g. in a closed `<details>`) get no pin until they are shown.
+  it is searched for across the page, ignoring whitespace and excluding scripts and the review layer.
+  Only a unique text match is restored. Threads explain exact/restored, hidden, missing and ambiguous
+  anchors. Missing/ambiguous anchors have no fallback pin; every thread remains searchable in the inbox.
+  Hidden targets (e.g. a closed `<details>` or a responsive layout) get no pin until shown.
+- Reattach comment: the author or a workspace admin can choose a new element (pointer/touch or focus
+  and Enter) or selected text on the same reviewed page. Review the candidate and Confirm anchor, or
+  Cancel/Escape to keep the saved anchor. Collapse cancels choosing and hides annotations. The shared
+  dockable panel keeps the inbox side; toolbar movement stays available. A successful change keeps the
+  thread, quotes, screenshot, author and status. Anchor details retain the original and immediately
+  previous anchor, last change time and count; they follow the thread's visibility and retention.
+  Revision checks reject stale choices; access/selector/page/project/origin checks run on the server.
+  Cross-page migration and automatic AI relocation are not supported.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
   There is no camera button or preview while writing. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and

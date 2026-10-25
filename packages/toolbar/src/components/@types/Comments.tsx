@@ -117,11 +117,13 @@ export type CommentDeviceInfo = {
 export type CommentActivity = { sequence: number; lastOtherSequence: number; readSequence: number; unread: boolean };
 
 export type CommentItem = {
+    source?: { environment: string; label: string; origin?: string; available: boolean };
     notifications?: { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
     activity?: CommentActivity;
     id: string;
     path: string;
     position: CommentItemPosition;
+    anchorContext?: { original: CommentItemPosition; previous: CommentItemPosition; revision: string; changedAt: string; changes: number };
     /** Public id, numbered per site (`#12`); missing on old comments */
     number?: number;
     /** A screenshot of the commented part of the page, in pixels (the image is fetched separately) */

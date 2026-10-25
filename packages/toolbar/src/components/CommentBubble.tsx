@@ -82,8 +82,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const drafts = useDrafts();
     const announce = useAnnounce();
     const triggerRef = useRef<HTMLButtonElement>(null);
-    // A text comment whose text is gone gets its pin on the closest element that is still there
-    const { rects: placementRects, textMissing } = useCommentPlacement(position);
+    // Missing, ambiguous and hidden anchors have no pin; their threads stay in the inbox
+    const { rects: placementRects } = useCommentPlacement(position);
     const lastRect = orderBy(placementRects, r => r.bottom).at(-1);
     const { create, reply } = useComments();
     const capture = useRef<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> } | undefined>(undefined);
@@ -213,7 +213,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             ? newLabel
                             : sending
                                 ? 'Comment, sending'
-                                : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}${textMissing ? '. The commented text is no longer on the page' : ''}`}
+                                : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
                         onFocus={handleFocus}
                         className={cx(
                             'fixed z-[48] hover:z-[49] cursor-pointer rounded-full pointer-coarse:p-1.5',
@@ -254,11 +254,6 @@ export function CommentBubble(props: CommentBubbleProps) {
             >
                 {commentItem && (
                     <>
-                        {textMissing && (
-                            <p className="m-0 shrink-0 px-4 pt-3 text-xs text-muted-foreground">
-                                The commented text is no longer on the page.
-                            </p>
-                        )}
                         {/* Focusable so the thread can be scrolled with the keyboard */}
                         <div
                             tabIndex={0}

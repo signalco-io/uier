@@ -36,7 +36,7 @@ const controls = [
     },
     {
         title: 'Bot protection and rate limits',
-        text: 'Writes require Vercel BotID verification. On reviewed sites, an empty frame on uier’s origin verifies the browser and returns a proof valid for five minutes, bound to the site, project and reviewer. New comments and replies have rate limits with atomic counters.'
+        text: 'Browser writes require Vercel BotID verification. Coding tool writes require an expiring, revocable credential scoped to selected projects and operations, with current membership and private feedback checks on every request. On reviewed sites, an empty frame on uier’s origin verifies the browser and returns a proof valid for five minutes, bound to the site, project and reviewer. New comments and replies have rate limits with atomic counters.'
     },
     {
         title: 'Strict input, plain output',

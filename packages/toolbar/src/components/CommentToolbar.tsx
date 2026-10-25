@@ -4,6 +4,7 @@ import React, { Ref, useEffect, useRef } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Divider } from '@signalco/ui-primitives/Divider';
+import { cx } from '@signalco/ui-primitives/cx';
 import { Down, Drag, Inbox, Info } from '@signalco/ui-icons';
 import { Mark } from '@uier/brand';
 import type { ToolbarMode } from '../config';
@@ -118,21 +119,28 @@ export function CommentToolbar({
                 aria-label="uier feedback"
                 style={{ ...movement.style, width: 'max-content' }}
                 className="fixed z-[51]">
+                {/* Collapsed, the pill never overflows: no scroll container, so the unread count is not clipped */}
                 <div
                     role="group"
                     aria-label="uier feedback toolbar"
-                    className="flex max-w-full items-center overflow-x-auto rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
-                    <IconButton ref={moveRef} variant="plain" className="shrink-0 rounded-full" aria-label="Move toolbar"
-                        title="Drag to move. Use arrow keys to move; Home resets position."
-                        {...movement.handle} onKeyDown={movement.onKeyDown}><Drag /></IconButton>
+                    className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', !collapsed && 'overflow-x-auto')}>
+                    {!collapsed && (
+                        <IconButton ref={moveRef} variant="plain" className="shrink-0 rounded-full" aria-label="Move toolbar"
+                            title="Drag to move. Use arrow keys to move; Home resets position."
+                            {...movement.handle} onKeyDown={movement.onKeyDown}><Drag /></IconButton>
+                    )}
                     {collapsed ? (
+                        // No separate handle: the mark itself drags the pill, a click expands it
                         <IconButton
                             ref={expandButtonRef}
                             variant="plain"
                             className="relative rounded-full"
-                            title="Expand toolbar"
+                            title="Expand toolbar. Drag to move."
                             aria-label={commentsLabel ? `Expand toolbar, ${commentsLabel}` : 'Expand toolbar'}
-                            onClick={() => handleCollapsedChange(false)}>
+                            {...movement.handle}
+                            style={{ touchAction: 'none', cursor: movement.dragging ? 'grabbing' : undefined }}
+                            onKeyDown={movement.onKeyDown}
+                            onClick={() => { if (!movement.wasDragged()) handleCollapsedChange(false); }}>
                             <Mark size={20} />
                             {badge}
                         </IconButton>

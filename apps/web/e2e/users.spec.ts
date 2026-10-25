@@ -23,8 +23,8 @@ test.afterAll(async () => {
 async function adminWithProjects(page: Page) {
     const adminEmail = uniqueEmail('admin');
     await signIn(page, adminEmail);
-    const alpha = await createProject(page, { urls: [site.origin('alpha')], name: 'Alpha' });
-    const beta = await createProject(page, { urls: [site.origin('beta')], name: 'Beta' });
+    const alpha = await createProject(page, { urls: [site.origin('alpha')], name: 'Alpha', clientName: 'Alpha client' });
+    const beta = await createProject(page, { urls: [site.origin('beta')], name: 'Beta', clientName: 'Private beta client' });
     return { adminEmail, alpha, beta };
 }
 
@@ -114,6 +114,10 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.goto('/app/projects');
     await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Alpha' })).toBeVisible();
     await expect(commenter.page.getByRole('link', { name: 'Beta' })).toHaveCount(0);
+    await commenter.page.getByRole('combobox', { name: 'Client', exact: true }).click();
+    await expect(commenter.page.getByRole('option', { name: 'Alpha client', exact: true })).toBeVisible();
+    await expect(commenter.page.getByRole('option', { name: 'Private beta client', exact: true })).toHaveCount(0);
+    await commenter.page.keyboard.press('Escape');
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
     await expect(commenter.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Users' })).toHaveCount(0);
     await commenter.page.goto(`/app/projects/${alpha}/settings`);

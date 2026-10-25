@@ -187,14 +187,15 @@ test.describe('dark theme and reduced motion', () => {
         await expect(commentBubbles(page)).toHaveCount(2);
         await page.reload();
         await expect(commentBubbles(page)).toHaveCount(2);
-        // Hidden anchors suppress pins; missing text/element degrades safely to a fallback.
+        // Hidden and missing anchors keep details in the inbox without unrelated fallback pins.
         await page.locator('main p').evaluate(element => { (element as HTMLElement).style.display = 'none'; });
         await expect(commentBubbles(page)).toHaveCount(0);
         await page.locator('main p').evaluate(element => element.remove());
-        await expect(page.getByRole('button', { name: /The commented text is no longer on the page$/ })).toHaveCount(2);
-        await page.locator(`[data-uier-comment="${savedIds[0]}"]`).click();
-        await expect(thread(page)).toContainText('Clarify what is included.');
-        await animationsFinished(thread(page));
+        await expect(commentBubbles(page)).toHaveCount(0);
+        await page.getByRole('button', { name: /^Inbox/ }).click();
+        const inbox = page.getByRole('complementary', { name: 'Comments' });
+        await expect(inbox.getByText('Target is missing from this page.')).toHaveCount(2);
+        await expect(inbox).toContainText('Clarify what is included.');
         await expectNoAxeViolations(page);
         await page.screenshot({ path: testInfo.outputPath('launch-dark.png') });
     });

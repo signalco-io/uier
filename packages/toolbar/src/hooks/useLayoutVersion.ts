@@ -65,6 +65,9 @@ function subscribe(listener: () => void) {
     };
 }
 
+/** Shared measurement version, also used to avoid repeating text searches within one frame. */
+export function getLayoutVersion() { return version; }
+
 /** Changes after the page scrolled, the window was resized or the page changed */
 export function useLayoutVersion() {
     return useSyncExternalStore(subscribe, () => version);

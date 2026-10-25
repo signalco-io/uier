@@ -6,13 +6,14 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Link, Undo } from '@signalco/ui-icons';
+import { Check, Copy, Link, Undo } from '@signalco/ui-icons';
 import { useComments } from '../hooks/useComments';
 import { commentLink } from '../review';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
+import { CopyIssueResult, useCopyIssue } from './CopyIssue';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
 export function CommentStatusBadge({ done }: { done: boolean }) {
@@ -37,6 +38,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const done = comment.resolved;
+    const issue = useCopyIssue(comment.id);
 
     const handleStatus = async () => {
         try {
@@ -49,6 +51,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
 
     const handleCopyLink = async () => {
         const link = commentLink(comment, review);
+        if (!link) return;
         try {
             await navigator.clipboard.writeText(link);
             setUncopiedLink(undefined);
@@ -84,17 +87,32 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                             {done ? 'Reopen' : 'Mark as done'}
                         </Button>
                     )}
-                    {/* A comment on its way has no link yet */}
-                    {!comment.pending && <IconButton
+                    {/* A comment on its way has no link or issue yet */}
+                    {!comment.pending && <>
+                    <IconButton
                         size="xs"
                         variant="plain"
-                        title="Copy link"
+                        title="Copy issue"
+                        aria-label="Copy issue"
+                        aria-busy={issue.pending}
+                        disabled={issue.pending}
+                        onClick={issue.copy}>
+                        <Copy size={16} />
+                    </IconButton>
+                    <IconButton
+                        size="xs"
+                        variant="plain"
+                        disabled={comment.source?.available === false}
+                        title={comment.source?.available === false ? 'Original source unavailable' : 'Copy link'}
                         aria-label="Copy link"
                         onClick={handleCopyLink}>
                         <Link size={16} />
-                    </IconButton>}
+                    </IconButton>
+                    </>}
                 </Row>
             </Row>
+            <CopyIssueResult state={issue} />
+            {comment.source && <p className="m-0 break-words text-xs text-muted-foreground">{comment.source.label}{comment.source.origin && comment.source.origin !== comment.source.label ? ` · ${comment.source.origin}` : ''}{!comment.source.available ? ' · Original source unavailable' : ''}</p>}
             <CommentsErrorMessage error={resolve.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">

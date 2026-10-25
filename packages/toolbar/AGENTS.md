@@ -49,7 +49,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/ShowcaseHint.tsx` | the first-run hint (showcase mode) |
 | `components/CommentIcon.tsx` | the pin shape, from `PIN_PATH` in `@uier/brand` |
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`), clickable for saved comments |
-| `components/CommentSelectionPopover.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite |
+| `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite; ink and the pill's height (36 px buttons), the add-comment pin and the custom rewrite icon (text lines and a pencil) |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
 | `components/info/` | `getDeviceInfo` (read when feedback/capture starts) and `CommentDeviceMeta` (coarse device/viewport for everyone, expandable/copyable original reproduction details only when the API supplies the member-only `reproduction` field) |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx` | automatic screenshots: the region of a new comment, drawn from the page without the toolbar (`modern-screenshot`, the scroll as a negative margin so fixed elements stay, fonts inlined), encoded under the API's limits; capture starts from the feedback event, restored/reopened drafts refresh it without persisting images, and saved thumbnails expand in a shadow-root popover |
@@ -60,7 +60,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `project/verification.ts` | cross-origin writes get a BotID proof through the API's `/review-verification` frame (no cookies); checks message origin and source, caches the proof in memory for under five minutes, fails closed |
 | `project/installationCheck.ts` | explicit `uier-check` nonce flow: public configuration/status reports to the install page, bounded lifetime, browser CSP evidence, read API and verification proof; never posts a test comment or sends tokens in a diagnostic report |
 | `pageState.ts`, `hooks/usePagePath.tsx` | shared browser/server canonical identity (pathname by default; approved query fields and optional hash routes), SPA history/hash subscriptions with cleanup and a fallback; exported as `@uier/toolbar/page-state` |
-| `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, a fallback pin when it is gone, nothing for hidden anchors; never throws (invalid selectors, out-of-range offsets) |
+| `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, explicit exact/restored/hidden/missing/ambiguous states; no pin for missing/ambiguous/hidden anchors; never throws (invalid selectors, out-of-range offsets) |
 | `hooks/useLayoutVersion.ts` | one shared "measure again" signal: scroll (capture), resize, size and DOM changes of the page |
 | `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | shared pointer/touch handles, visible viewport bounds, toolbar position and reusable panel docking; versioned browser-local preferences and keyboard alternatives |
 | `hooks/useDrafts.tsx` | seven-day browser-local text/anchor/edit snapshots scoped to API/project/authorized reviewer/canonical page/item; `draftStorage.ts` handles expiry, discard, sign-out clearing, blocked storage and stable submission identities; captures stay in memory and refresh on reopen |
@@ -121,3 +121,27 @@ Never infer recipients from display names or reveal account ids in guest DTOs.
 - `useActivitySummary` provides full unread/Open/Done counts separately from bounded text lists.
   The unread inbox requests `scope=site&unread=true`, including old threads outside the newest list.
   Refresh and mutation paths must invalidate the activity summary as well as page/site lists.
+
+## Anchor recovery
+
+`CommentAnchorDetails` explains resolution and exposes author/admin reattachment in thread details.
+`CommentsGlobal` reuses the point overlay and selection offsets, with a dockable confirm/cancel panel
+and compact instructions while choosing. The saved thread is changed only after confirmation; collapse
+cancels choosing. Anchor updates use `PATCH .../anchor`, the saved page key and expected revision.
+Keep original and previous context, and never invent fallback pins for missing or ambiguous targets.
+`e2e/reattach*.spec.ts` covers recovery, access, races, layout changes and light/dark accessibility.
+
+- Project review info supplies environment labels and explicit alias groups. Pins always use the
+  current environment; inbox lists and activity use the visible saved Environment selection.
+  Scope query keys by that selection and reviewer. A thread's server-provided `source` owns its
+  original link; missing/removed sources have no executable link. Keep foreign-environment items
+  out of This page/Show on page even when paths match. Direct links override saved filters for the
+  visit. Filter preferences use the versioned `uier:environment:v1:` key and contain no credentials.
+
+## Feedback export
+
+`components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
+Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model and deterministic
+formatter for toolbar/app and future integrations. Authorization and private-field projection
+belong on the server; never format a raw document or browser location for export. See
+[the shared contract](../../docs/feedback-context.md).

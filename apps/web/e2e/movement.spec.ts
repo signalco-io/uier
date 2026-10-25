@@ -30,6 +30,18 @@ async function expectInsideViewport(page: Page) {
     }).toBe(true);
 }
 
+/** The pill re-centres once its new width is measured (after collapsing); drag only once it is still. */
+async function settledBox(locator: Locator) {
+    let last = '';
+    await expect.poll(async () => {
+        const box = JSON.stringify(await locator.boundingBox());
+        const settled = box === last;
+        last = box;
+        return settled;
+    }).toBe(true);
+    return JSON.parse(last) as { x: number; y: number; width: number; height: number };
+}
+
 test('toolbar moves with mouse or touch, persists and stays reachable after collapse and resize', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     const origin = isolatedOrigin(testInfo);
@@ -43,12 +55,21 @@ test('toolbar moves with mouse or touch, persists and stays reachable after coll
     const stored = await page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'));
     expect(stored).not.toBeNull();
     await page.getByRole('button', { name: 'Collapse toolbar' }).click();
-    await expect(handle).toBeVisible();
+    // Collapsed, the mark is the handle: dragging it moves the pill without expanding it
+    await expect(handle).toHaveCount(0);
+    const expand = page.getByRole('button', { name: 'Expand toolbar' });
+    const collapsedBefore = await settledBox(toolbar(page));
+    await drag(page, expand, { x: 200, y: 200 }, Boolean(testInfo.project.use.hasTouch));
+    await expect.poll(async () => (await toolbar(page).boundingBox())!.x).not.toBe(collapsedBefore.x);
+    await expect(page.getByRole('button', { name: 'Collapse toolbar' })).toHaveCount(0);
     await expectInsideViewport(page);
-    await page.getByRole('button', { name: 'Expand toolbar' }).click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'))).not.toBe(stored);
+    const movedCollapsed = await page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'));
+    await expand.click();
+    await expect(page.getByRole('button', { name: 'Collapse toolbar' })).toBeVisible();
     await page.reload();
     await expect(handle).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'))).toBe(stored);
+    expect(await page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'))).toBe(movedCollapsed);
     await page.setViewportSize({ width: 320, height: 480 });
     await expectInsideViewport(page);
     await page.getByRole('button', { name: 'Options', exact: true }).click();

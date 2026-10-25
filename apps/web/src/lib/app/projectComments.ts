@@ -1,3 +1,4 @@
+import { feedbackSource, environmentFilter, type FeedbackSource } from './environments';
 import { readActivity, type ReadActivity } from '../comments/activity';
 import { loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
@@ -37,6 +38,7 @@ export type ProjectCommentMessage = {
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    source: FeedbackSource;
     following?: boolean;
     activity?: ReadActivity;
     id: string;
@@ -85,9 +87,11 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 
     const myId = actor.kind === 'member' ? `user:${actor.userId}` : undefined;
     const path = commentPath(comment);
-    const origin = comment.origin ?? projectOrigins(project)[0] ?? '';
+    const source = feedbackSource(project, comment.origin);
+    const origin = source.origin ?? '';
     const size = comment.device?.size;
     return {
+        source,
         activity: readActivity(comment, myId, readSequence),
         id: comment.id,
         url: `${origin}${path === '/' ? '/' : path}`,
@@ -131,9 +135,9 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string) {
     const actor = appActor(context);
-    const comments = await listProjectComments(project, actor);
+    const comments = await listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined);
     const [names, members, reads] = await Promise.all([authorNames(comments), listProjectMembers(project.workspaceId, project.id), loadReadSequences(`project:${project.id}`, `user:${context.user.id}`)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
     const views = comments

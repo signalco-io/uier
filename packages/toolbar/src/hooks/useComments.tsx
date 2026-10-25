@@ -1,3 +1,4 @@
+import { useProjectViewer } from '../project/ProjectGate';
 import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
@@ -120,8 +121,8 @@ function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
     showErrorToast(notSent[kind], /kept/.test(reason) ? reason : `${reason} Your text is kept.`);
 }
 
-async function getComments(path: string, client: QueryClient) {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}`);
+async function getComments(path: string, client: QueryClient, environment?: string) {
+    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), comment => comment.path === path);
 }
 
@@ -163,6 +164,8 @@ async function deleteReply({ commentId, itemId }: { commentId: string; itemId: s
     });
 }
 
+export type ReattachInput = { commentId: string; path: string; position: import('../components/@types/Comments').CommentAnchor; expectedRevision: string | null };
+
 type EditMessageInput = { commentId: string; itemId: string; text: string; expectedText: string; mentions?: Mention[] };
 async function editMessage({ commentId, itemId, text, expectedText, mentions }: EditMessageInput) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies/${encodeURIComponent(itemId)}`, {
@@ -170,13 +173,13 @@ async function editMessage({ commentId, itemId, text, expectedText, mentions }: 
     }));
 }
 
-async function getSiteComments(client: QueryClient, unreadOnly: boolean) {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site${unreadOnly ? '&unread=true' : ''}`);
+async function getSiteComments(client: QueryClient, unreadOnly: boolean, environment?: string) {
+    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
 }
 
-export function commentsQueryKey(path: string) {
-    return [...commentsQueryKeyPrefix, path] as const;
+export function commentsQueryKey(path: string, environment?: string, reviewer?: string) {
+    return [...commentsQueryKeyPrefix, path, environment ?? 'current', reviewer ?? 'public'] as const;
 }
 
 /** The comments of every page of the site (paths always start with "/", so this key is not a page's) */
@@ -195,10 +198,11 @@ function updateAllCachedComments(client: QueryClient, update: (comments: Comment
 
 /** The comments of every page of the site, for the inbox (fetched while `enabled`) */
 export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryResult<CommentItem[], Error> {
+    const { environment, draftScope } = useProjectViewer();
     const client = useQueryClient();
     return useQuery({
-        queryKey: unreadOnly ? [...commentsQueryKeyPrefix, 'site-unread'] : siteCommentsQueryKey,
-        queryFn: () => authorizedList(client, () => getSiteComments(client, unreadOnly)),
+        queryKey: [...(unreadOnly ? [...commentsQueryKeyPrefix, 'site-unread'] : siteCommentsQueryKey), environment ?? 'current', draftScope ?? 'public'],
+        queryFn: () => authorizedList(client, () => getSiteComments(client, unreadOnly, environment)),
         refetchOnMount: 'always',
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
@@ -217,15 +221,17 @@ export function useComments(refreshOnMount = false): {
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
     assign: UseMutationResult<CommentItem, Error, { commentId: string; assigneeId: string | null }, unknown>;
     edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
+    reattach: UseMutationResult<CommentItem, Error, ReattachInput, unknown>;
 } {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
     const drafts = useDrafts();
-    const queryKey = commentsQueryKey(path);
+    const { currentEnvironment, draftScope } = useProjectViewer();
+    const queryKey = commentsQueryKey(path, currentEnvironment, draftScope);
 
     const query = useQuery({
         queryKey,
-        queryFn: () => authorizedList(client, () => getComments(path, client)),
+        queryFn: () => authorizedList(client, () => getComments(path, client, currentEnvironment)),
         // Only the review layer refreshes on navigation. New pin/header observers reuse it.
         refetchOnMount: refreshOnMount ? 'always' : false,
         refetchOnWindowFocus: false,
@@ -335,6 +341,14 @@ export function useComments(refreshOnMount = false): {
     });
     const edit = useMutation({ mutationFn: editMessage, onSuccess: handleCommentChanged, onSettled: handleSettled });
 
+    const reattach = useMutation({
+        mutationFn: ({ commentId, ...body }: ReattachInput) => authorizedList(client,
+            () => apiRequest<CommentItem>(`${commentUrl(commentId)}/anchor`, { method: 'PATCH', body }).then(required)),
+        onMutate: () => currentReviewerRevision(),
+        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
+        onSettled: handleSettled
+    });
+
     // Deletes return the comment when its thread stays, nothing when the whole comment is gone
     const remove = useMutation({
         mutationFn: deleteComment,
@@ -355,6 +369,7 @@ export function useComments(refreshOnMount = false): {
         reply,
         resolve,
         edit,
+        reattach,
         assign,
         delete: remove,
         deleteReply: removeReply
@@ -372,14 +387,14 @@ function reconcileReads(client: QueryClient, comments: CommentItem[]) {
     });
 }
 
-async function authorizedList(client: QueryClient, load: () => Promise<CommentItem[]>) {
+async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
     try { return await load(); }
     catch (error) {
         if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
             // React Query retains stale data on error. Purge it before showing an access notice.
             client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
             client.removeQueries({ queryKey: ['screenshot'] });
-            client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+            client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, open: 0, done: 0, total: 0 });
             if (toolbarConfig.project) void client.invalidateQueries({ queryKey: projectViewerQueryKey });
         }
         throw error;
@@ -448,16 +463,17 @@ export { activityQueryKey };
 export type ActivitySummary = { unread: number; open: number; done: number; total: number };
 
 export function useActivitySummary() {
+    const { environment, draftScope } = useProjectViewer();
     const client = useQueryClient();
     return useQuery({
-        queryKey: activityQueryKey,
+        queryKey: [...activityQueryKey, environment ?? 'current', draftScope ?? 'public'],
         queryFn: async () => {
-            try { return required(await apiRequest<ActivitySummary>(`${commentsApiUrl}/activity`)); }
+            try { return required(await apiRequest<ActivitySummary>(`${commentsApiUrl}/activity${environment ? `?environment=${encodeURIComponent(environment)}` : ''}`)); }
             catch (error) {
                 if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
                     client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
                     client.removeQueries({ queryKey: ['screenshot'] });
-                    client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+                    client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, open: 0, done: 0, total: 0 });
                 }
                 throw error;
             }

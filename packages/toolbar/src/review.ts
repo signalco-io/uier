@@ -104,14 +104,18 @@ export function endReviewSession() {
 export const commentLinkParamKey = 'uier-comment';
 
 /**
- * Link to a comment on its page of this site. In a review it carries the review link too, so the
+ * Link to a comment on its recorded, server-authorized source. In a review it carries the review link too, so the
  * toolbar opens for whoever follows it; showcase pages need none.
  *
  * Always on this page's origin: the stored path only replaces the path, so a path like `//host` or
  * `/\host` (which a browser would read as another site) can't lead away.
  */
-export function commentLink(comment: { id: string; path: string }, review: ReviewSession | null | undefined) {
-    const url = new URL(storedPagePath(comment.path, 1), window.location.origin);
+export function commentLink(comment: { id: string; path: string; source?: { origin?: string; available: boolean } }, review: ReviewSession | null | undefined) {
+    if (comment.source && !comment.source.available) return undefined;
+    const origin = comment.source?.origin ?? window.location.origin;
+    const parsed = new URL(origin);
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== origin) return undefined;
+    const url = new URL(storedPagePath(comment.path, 1), origin);
     if (review?.projectCode) {
         url.searchParams.set(toolbarCodeParamKey, review.projectCode);
     } else if (review) {

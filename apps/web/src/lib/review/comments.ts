@@ -1,8 +1,13 @@
+import { reattachAnchor } from '../comments/reattachAnchor';
+import type { ReattachAnchorInput } from '../comments/validation';
+import { projectOrigins } from '../app/projects';
+
+import type { OriginFilter } from '../repo/originFilter';
 import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { moveMentions } from '@uier/toolbar/mentions';
 import { withNotificationEvent } from '../notifications/events';
-import { commitNewSubmission, commitReplySubmission, recoverSubmission, submission } from '../comments/submissions';
+import { commitChangeSubmission, commitNewSubmission, commitReplySubmission, recoverSubmission, submission, type Submission } from '../comments/submissions';
 import { withEditedThreadItem } from '../comments/editing';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/schema';
@@ -140,12 +145,12 @@ function visibleOrThrow(comment: DbComment, actor: ProjectActor) {
 }
 
 /** Comments of one page, or of every page (`path` undefined), that the actor can see */
-export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string) {
+export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter) {
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     const comments = path === undefined
-        ? await store.listAll(partition, MAX_PROJECT_COMMENTS)
-        : await store.list(partition, path, MAX_PROJECT_COMMENTS);
+        ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter)
+        : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter);
     return comments.filter(comment => canSeeComment(comment, actor));
 }
 
@@ -270,11 +275,12 @@ export async function replyToProjectComment(request: Request, project: DbProject
     const itemId = `item_${nanoid()}`;
     if (attempt) return await commitReplySubmission(store, attempt, id, {
         id: itemId, text: input.text, authorId,
+        ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
         mentions: input.mentions, createdAt: now
     }, comment => visibleOrThrow(comment, actor), async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
-        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions));
+        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined);
     });
     return await updateComment(store, partition, id, async comment => {
         visibleOrThrow(comment, actor);
@@ -292,20 +298,26 @@ export async function replyToProjectComment(request: Request, project: DbProject
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>) {
-    return await updateComment(getCommentsStore(), projectPartition(project.id), id, async comment => {
+async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission) {
+    const authorize = (comment: DbComment) => {
         visibleOrThrow(comment, actor);
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
+    };
+    const apply = async (comment: DbComment) => {
+        authorize(comment);
         return { ...await change(comment), updatedAt: nowIso() };
-    });
+    };
+    if (attempt) return commitChangeSubmission(getCommentsStore(), attempt, id, authorize, apply);
+    return await updateComment(getCommentsStore(), projectPartition(project.id), id, apply);
 }
 
-export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean) {
+export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean, idempotencyKey?: string) {
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
         comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
-            { ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened'));
+            { ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
+        submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved }));
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
@@ -322,7 +334,7 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
 }
 
 /** One assignment service for the app and toolbar; access is always checked here. */
-export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null) {
+export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null, idempotencyKey?: string) {
     return await changeComment(project, actor, id,
         () => actor.kind === 'member',
         async (comment) => {
@@ -332,8 +344,8 @@ export async function setProjectCommentAssignee(project: DbProject, actor: Proje
             const updated = { ...withThreadActivity(comment, actorAuthorId(actor)!), assigneeId: assigneeId ?? undefined };
             if (!assigneeId) delete updated.assigneeId;
             const recipients = [...new Set([comment.assigneeId, assigneeId].filter((id): id is string => Boolean(id)).map(id => `user:${id}`))];
-            return withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', nowIso(), recipients);
-        });
+            return withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined);
+        }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'assignment', id, assigneeId }));
 }
 
 /** Edits the text of the comment (its first item) */
@@ -421,4 +433,14 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
     });
     await forgetScreenshot(store, partition, id, hadScreenshot, updated);
     return updated;
+}
+
+export async function reattachProjectAnchor(project: DbProject, actor: ProjectActor, id: string, origin: string, input: ReattachAnchorInput) {
+    assertWriter(actor);
+    if (!projectOrigins(project).includes(origin)) throw apiErrors.forbidden('Open the reviewed page to change its anchor.');
+    return reattachAnchor(getCommentsStore(), projectPartition(project.id), id, input, comment => {
+        visibleOrThrow(comment, actor);
+        if (!canEditComment(comment, actor)) throw apiErrors.forbidden();
+        if (comment.origin !== origin) throw apiErrors.forbidden('Choose a target on the original reviewed site.');
+    });
 }

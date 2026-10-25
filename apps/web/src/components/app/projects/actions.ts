@@ -11,6 +11,7 @@ import {
     defaultProjectName,
     getProject,
     projectAccessModes,
+    projectClientNameSchema,
     projectNameSchema,
     projectPageStateSchema,
     projectUrlsSchema,
@@ -18,6 +19,25 @@ import {
     type ProjectUpdate
 } from '../../../lib/app/projects';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
+import { configuredEnvironments } from '../../../lib/app/environments';
+
+const environmentSchema = z.array(z.object({
+    origin: z.string().max(512),
+    label: z.string().trim().max(60),
+    group: z.string().trim().max(60).regex(/^[\p{L}\p{N} ._-]*$/u, 'Use letters, numbers, spaces, dots, dashes or underscores for an alias group.')
+})).max(20);
+
+export async function updateProjectEnvironmentsAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return actionResult(async () => {
+        const { context, project } = await adminProject(formData.get('projectId'));
+        const input = environmentSchema.parse(JSON.parse(String(formData.get('environments') ?? '[]')));
+        const origins = configuredEnvironments(project).map(item => item.origin);
+        if (input.length !== origins.length || new Set(input.map(item => item.origin)).size !== origins.length || input.some(item => !origins.includes(item.origin)))
+            throw new UserFacingError('The site addresses changed. Reload settings before saving environments.');
+        await updateProject(context.workspace.id, project.id, { environments: input.map(item => ({ ...item, label: item.label || item.origin, group: item.group || undefined })) });
+        revalidatePath('/app', 'layout');
+    }, 'The environments are saved.');
+}
 
 /** Every non-empty `url` field of the form */
 function formUrls(formData: FormData) {
@@ -46,7 +66,8 @@ export async function createProjectAction(_: ActionState, formData: FormData): P
         const urls = projectUrlsSchema.parse(formUrls(formData));
         const nameInput = String(formData.get('name') ?? '').trim();
         const name = projectNameSchema.parse(nameInput || defaultProjectName(urls[0]!));
-        return await createProject(context, { name, urls });
+        const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
+        return await createProject(context, { name, urls, clientName });
     });
     if (!result?.ok)
         return result;
@@ -59,6 +80,12 @@ export async function updateProjectNameAction(_: ActionState, formData: FormData
     return await actionResult(async () => {
         await saveProject(formData.get('projectId'), { name: projectNameSchema.parse(formData.get('name') ?? '') });
     }, 'The name is saved.');
+}
+
+export async function updateProjectClientNameAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        await saveProject(formData.get('projectId'), { clientName: projectClientNameSchema.parse(formData.get('clientName') ?? '') });
+    }, 'The client name is saved.');
 }
 
 export async function updateProjectUrlsAction(_: ActionState, formData: FormData): Promise<ActionState> {

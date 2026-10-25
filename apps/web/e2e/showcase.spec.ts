@@ -379,7 +379,7 @@ test('a long thread keeps its reply box inside the window', async ({ browser }, 
 
     // Under the description paragraph (selectors take the toolbar's form, see validation.ts), about halfway down the first screen
     const created = await postComment(page, {
-        position: { type: 'point', selector: 'main>section>div>p', xNormal: 0.5, yNormal: 1 },
+        position: { type: 'point', selector: 'main>section:nth-of-type(1)>div>p', xNormal: 0.5, yNormal: 1 },
         text: 'A long comment. '.repeat(60).trim()
     });
     expect(created.status).toBe(201);

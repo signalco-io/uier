@@ -12,12 +12,12 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { Section } from '../PageHeader';
-import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
-import { setProjectStatusAction, updateProjectAccessAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
-import { updateProjectPageStateAction } from './actions';
+import { setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
+import { updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
 import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 
@@ -56,6 +56,25 @@ export function ProjectNameForm({ projectId, name }: { projectId: string; name: 
                         required
                         maxLength={MAX_PROJECT_NAME_LENGTH}
                         className="max-w-md" />
+                </Field>
+            </form>
+        </Section>
+    );
+}
+
+export function ProjectClientNameForm({ projectId, clientName }: { projectId: string; clientName?: string }) {
+    const formId = useId();
+    const [state, formAction, pending] = useActionState(updateProjectClientNameAction, null);
+    const [value, setValue] = useState(clientName ?? '');
+    return (
+        <Section id="client" title="Client" description="An optional name for the client this project is for. Leave it blank to remove it."
+            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+            <form id={formId} action={formAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <Field>
+                    <FieldLabel htmlFor={`${formId}-client`}>Client name (optional)</FieldLabel>
+                    <Input id={`${formId}-client`} name="clientName" value={value}
+                        onChange={event => setValue(event.target.value)} maxLength={MAX_CLIENT_NAME_LENGTH} className="max-w-md" />
                 </Field>
             </form>
         </Section>
@@ -175,6 +194,30 @@ export function ProjectPageStateForm({ projectId, policy }: { projectId: string;
                     <FieldLabel htmlFor={`${formId}-hash`}>Use hash routes (#/page or #!/page)</FieldLabel>
                 </Field>
                 <p className="m-0 text-sm text-muted-foreground">Existing comments keep their original view. Older path-only comments remain on that base page and in the site inbox.</p>
+            </FieldGroup>
+        </form>
+    </Section>;
+}
+
+
+export function ProjectEnvironmentsForm({ projectId, environments }: { projectId: string; environments: import('../../../lib/app/environments').ProjectEnvironment[] }) {
+    const formId = useId();
+    const [values, setValues] = useState(environments.map(item => ({ ...item, label: item.label === item.origin ? '' : item.label, group: item.group ?? '' })));
+    const [state, action, pending] = useActionState(updateProjectEnvironmentsAction, null);
+    return <Section id="environments" title="Environments" description="Each origin has separate feedback. Use the same alias group only for equivalent sites that should share feedback."
+        footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+        <form id={formId} action={action} onResetCapture={event => { event.preventDefault(); event.stopPropagation(); }}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="environments" value={JSON.stringify(values)} />
+            <FieldGroup>
+                {values.map((item, index) => <fieldset key={item.origin} className="flex flex-col gap-3 rounded-xl border p-4">
+                    <legend className="max-w-full truncate px-1 font-mono text-xs">{item.origin}</legend>
+                    <Field><FieldLabel htmlFor={`${formId}-${index}-label`}>Environment label for {item.origin}</FieldLabel>
+                        <Input id={`${formId}-${index}-label`} value={item.label} maxLength={60} onChange={event => setValues(current => current.map((value, i) => i === index ? { ...value, label: event.target.value } : value))} placeholder="Production, staging or preview" /></Field>
+                    <Field><FieldLabel htmlFor={`${formId}-${index}-group`}>Alias group for {item.origin}</FieldLabel>
+                        <Input id={`${formId}-${index}-group`} value={item.group} maxLength={60} onChange={event => setValues(current => current.map((value, i) => i === index ? { ...value, group: event.target.value } : value))} placeholder="Leave empty to isolate" /></Field>
+                </fieldset>)}
+                <FieldDescription>Addresses on the same origin share feedback. Grouped aliases share matching page views. Original sources and links stay unchanged. Removed addresses and feedback without a recorded source remain in the history filters.</FieldDescription>
             </FieldGroup>
         </form>
     </Section>;

@@ -143,8 +143,8 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   path filtering, DTO contents, cookie flags, rate limits).
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
-  comments (the hover outline, the thread that opens after posting; text anchors, restored highlights, fallback
-  pins and the viewport are in [`anchors.spec.ts`](apps/web/e2e/anchors.spec.ts)), a second visitor who can reply but not
+  comments (the hover outline, the thread that opens after posting; text anchors, restored highlights, missing-anchor
+  recovery and the viewport are in [`anchors.spec.ts`](apps/web/e2e/anchors.spec.ts)), a second visitor who can reply but not
   resolve or delete, Done and comment links, a deleted comment whose replies stay,
   review mode on other pages. Review links, the review session and the toolbar's controls (collapse, profile,
   options, sign out) are in [`review.spec.ts`](apps/web/e2e/review.spec.ts). Each of these tests opens the site
@@ -180,7 +180,11 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   between them.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
-  active or done projects as cards with their open comments, who can comment and review links. The project
+  active or done projects as cards with their open comments, who can comment and review links.
+  An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
+  in settings. It appears in project details and cards. The client filter sits beside Active/Done,
+  offers All clients and No client, and stays selected in the URL across status changes and reloads.
+  Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
     (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
@@ -198,8 +202,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
     Reports check the window, origin and a temporary nonce; no tokens, reviewer identity or page content are reported.
   - Settings `/app/projects/<code>/settings`: everyone mutes or unmutes their own project emails there. Admins
-    also set the name, who can comment (invited people, anyone with the link, or comments off), addresses,
-    meaningful page-state fields, and see usage (comments, open, done, replies, pages, people with access) and done.
+    also set the name, optional client name, who can comment (invited people, anyone with the link, or comments
+    off), addresses, meaningful page-state fields, and see usage (comments, open, done, replies, pages, people
+    with access) and done.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
@@ -254,6 +259,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
+| `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
@@ -402,6 +408,7 @@ trailing slash).
 | `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](#screenshots)). `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
+| `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
@@ -809,8 +816,8 @@ local storage: do not type secrets into feedback. If storage is blocked or full,
 in memory and the composer explains that the page must stay open.
 
 Images and device details are never persisted with drafts. Automatic capture is refreshed on
-reopen/reload, using the restored anchor and the current page/viewport. A missing anchor uses the
-existing fallback placement; failed capture never blocks text. Composers show no image preview.
+reopen/reload, using the restored anchor and the current page/viewport. Capture uses the resolved anchor
+when available; failed capture never blocks text. Composers show no image preview.
 Saved screenshots keep their expandable thumbnail behavior.
 
 Create/reply requests from the toolbar carry a random `idempotencyKey`, kept with the draft.
@@ -871,3 +878,132 @@ authorized mutation and record recipients through the shared notification outbox
 `GET .../comments/activity` returns authorized `{ unread, open, done, total }` counts without message
 text or actor ids. `GET .../comments?scope=site&unread=true` selects unread threads from the full
 activity projection before fetching a bounded content batch. Both use the same private/access checks.
+
+### Missing anchors and reattachment
+
+Thread details distinguish exact positions, uniquely restored text, temporarily hidden targets, missing
+targets and ambiguous matches. Text with several possible matches is never silently moved to the first.
+Missing/ambiguous/hidden targets have no page pin; comments remain searchable/reachable in the inbox.
+Authors and workspace admins can choose a new element or text on the same saved page and confirm or
+cancel. Pointer/touch and keyboard element selection are supported. The existing dockable panel and
+movable toolbar retain their positions; collapse cancels selection and hides page annotations.
+
+Reattachment updates only the position and `anchorContext` (original and immediately previous anchors,
+last change time, count and revision). Messages, original quotes, screenshots, authors and status stay
+unchanged. Context has the same visibility and retention as its comment; no new browser storage or
+external processing is added. Server checks enforce partition/project, author/admin permission, saved
+page key, original allowed origin and existing selector/offset limits. ETag retries retain concurrent
+replies/status changes and recheck authorization; anchor revisions reject stale choices. No cross-page
+migration or AI relocation is provided.
+
+### Feedback environments
+
+Project settings → Environments labels each configured **origin** (scheme, host and port).
+Addresses with different paths on one origin share an environment. Different origins are isolated
+by default, including older unlabeled projects: their origin is the label. Admins can set an
+identical, case-sensitive alias group on equivalent origins to share feedback for matching canonical
+page views. A label alone never groups addresses. Grouping changes the view; it does not copy or
+migrate comments, change permission checks, or rewrite their source origins.
+
+The toolbar's pins follow the current environment or explicit alias group. Its inbox has a visible
+Environment filter and a deliberate All environments view. Counts/unread and bounded lists use the
+same server-side scope. Selecting another environment changes the inbox, while new feedback is
+still recorded on the site being reviewed. The filter is saved on that site for the API, project
+and reviewer in `uier:environment:v1:<api>:<project>:<reviewer>` until browser data is cleared.
+App filters are retained in the URL and survive reload. The app initially shows the main origin's
+environment; the toolbar initially shows its current origin. Invalid/stale selections fall back to
+that default. Direct comment links open the original configured origin and stored safe query/hash
+state, even when aliases share feedback. Reattachment still requires the original reviewed origin. Opening a direct link overrides an old toolbar filter for
+that visit. Notifications also retain the original source: unavailable sources link members to feedback history and give guests notification controls instead of a replacement site.
+An allowed site that no longer responds can still fail at the browser; uier does not
+proxy or provision previews.
+
+Removed addresses remain searchable through Removed addresses or All environments, with the
+recorded origin and disabled page links. Comments without a recorded origin remain in Source not
+recorded or All environments; no current address is inferred for them. Re-adding the same origin
+makes its links available again. Existing access, private-feedback and screenshot checks apply to
+every scope. Environment isolation is a feedback view, not a separate membership boundary within
+a project. No data migration or hosting changes are performed.
+
+### Copy feedback as an issue
+
+Saved thread details in the toolbar and app offer **Copy issue**: exact saved feedback, quotes,
+anchor, permitted links, original permitted browser context, discussion and protected screenshot
+references in one Markdown packet. Clipboard failures offer selectable Markdown. This is an explicit
+export; it does not publish to a tracker. The shared versioned model and access rules are documented
+in [Feedback context](docs/feedback-context.md).
+
+### Coding tool access (MCP)
+
+In **Account → Coding agents**, give a credential a name, select up to 20 projects in the current
+workspace, and choose operations. Read feedback is selected initially; screenshots, replies,
+status changes and assignments each need an explicit scope. The app issues a 30-day credential,
+shows the secret once, and lets its owner revoke it from any workspace. Store it outside source
+control in the environment of your chosen client. Only a SHA-256 hash and the grant metadata are
+stored. Removal of membership/project access and private visibility changes apply on the next
+request. Public project codes, guest ids, review links and app cookies cannot authorize MCP.
+
+The endpoint is `https://uier.io/api/mcp` (use your local/preview origin while testing). It uses the
+[official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server),
+stateless JSON responses, and a manually configured `Authorization: Bearer <credential>` header.
+OAuth login/discovery and clients that require OAuth are not supported. For a compatible Codex
+client, set `UIER_MCP_TOKEN` in its environment and add this to the client's configuration:
+
+```toml
+[mcp_servers.uier]
+url = "https://uier.io/api/mcp"
+bearer_token_env_var = "UIER_MCP_TOKEN"
+```
+
+[Codex documents this environment-based bearer configuration](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers).
+The credential belongs to the named human account. It grants no additional project or private
+feedback rights. Its selected projects do not expand when new projects are created.
+
+| Tool | Scope | Behavior |
+| --- | --- | --- |
+| `list_projects` | `feedback:read` | Selected projects still accessible to the owner |
+| `list_feedback` | `feedback:read` | Visible feedback search and status filter within the latest 1000 threads |
+| `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
+| `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
+| `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the credential name |
+| `set_feedback_status` | `feedback:status` | Resolve/reopen using the app's permission checks |
+| `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
+
+`get_feedback` returns `{ actingAs, contentTrust, context, markdown, screenshotResource? }`.
+`context` and `markdown` come directly from the same authorized project export service as Copy
+issue, using the shared [version 1 feedback context contract](docs/feedback-context.md). The MCP
+resource reference supplements its protected web image link when image access was granted.
+Deleted first-message evidence is unavailable through both the packet and screenshot resource.
+
+Screenshot references are `uier://projects/{projectId}/feedback/{commentId}/screenshot` resources.
+Use MCP `resources/read` with `screenshots:read` to retrieve the saved image; current feedback
+visibility is checked again. References never contain a credential or create a public image URL.
+Clients control whether images/text they retrieve are sent to their own model provider. Revoking
+access cannot retract data already received by a client.
+
+Responses mark feedback as `contentTrust: "untrusted"`; server instructions also identify text,
+anchors, names and images as untrusted content. Clients must treat them as data and keep changes
+user-initiated. The connector cannot edit code, run commands or deploy. A supported workflow is:
+ask the client to read selected feedback, approve a code fix in the coding tool, then explicitly
+approve its reply and status update. Tool annotations identify reads and mutations, but annotations
+are hints, not an approval system. Reading does not acknowledge inbox unread activity.
+
+List tools accept `limit` (1–25, default 20) and numeric `cursor` (default 0), returning `nextCursor`
+or `null`. Cursors are offsets in current results, so concurrent additions can shift a page. Search
+is bounded to the latest 1000 threads; use known ids to read older feedback. Requests are limited
+to 16 KiB and 120 per user per minute. Thread/image sizes retain existing review validation limits.
+No server sessions or long-running streams are retained; GET/DELETE return 405 after authentication.
+
+Every mutation requires an `idempotencyKey` (16–128 letters, numbers, `_` or `-`). Generate one per
+intended action and reuse the same key and exact input after a timeout. Atomic 30-day receipts
+prevent duplicate replies and prevent old status/assignment retries from overwriting subsequent
+changes. Reusing a key with different input returns a conflict. Do not retry an old intention with
+a new key automatically; confirm it with the user again. Tool errors include stable error codes;
+rate limits include retry guidance. Credential errors return HTTP 401, invalid origins HTTP 403.
+Replies retain the human author and credential attribution; status/assignment outbox events retain
+the same attribution and use existing unread and notification rules. No notification bypass is added.
+
+`e2e/mcp.api.spec.ts` uses the official SDK client for the read/fix/reply/status path and adversarial
+isolation, image, expiry, revocation, membership and retry checks. `e2e/mcp.spec.ts` connects that
+client to a credential created in the real Account UI, verifies light/dark accessibility and revokes
+access on the existing connection. This feature does not close the separate MVP launch audit #90.

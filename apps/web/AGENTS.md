@@ -130,6 +130,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
   `projects/[projectId]/layout.tsx`; its pages render the tab content.
+- Client names are optional project labels (`clientName`), not address/environment configuration or client entities.
+  `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit is 80 characters.
+  The list builds client choices only after `listVisibleProjects` and preserves the client/status query filters.
+  Client names belong to the signed-in app, not the public review project DTO.
 - Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
   `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
   document from the current workspace.
@@ -210,3 +214,47 @@ expose identity metadata only to members. App and toolbar must share these check
 - Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
   threads, so badge counts do not inherit text-list limits. Unread content is selected before
   applying response limits. Preserve legacy author-only projections and private-thread filtering.
+
+## Anchor updates
+
+`PATCH /api/comments/<id>/anchor` and the matching project review route validate selectors with the
+existing schemas and call `comments/reattachAnchor.ts`. It enforces the saved page key and anchor revision
+on each ETag retry; project updates also require author/admin rights and the original allowed origin.
+Retain the original and immediately previous position plus change time/count in `anchorContext`, without
+actor identifiers. DTOs allowlist its fields. It follows comment visibility and retention; no image or
+message is replaced. Keep the privacy policy and toolbar guide aligned with this context.
+
+- `src/lib/app/environments.ts` owns origin labels, explicit alias groups and historical-source
+  fallback. Apply `environmentFilter` before storage limits and before activity/unread selection;
+  Cosmos and memory stores share `repo/originFilter.ts`. Do not infer missing origins or retarget
+  removed sources. App direct-comment redirects load the authorized stored thread and retain its
+  permitted original source plus canonical saved page state. Environment filters never grant access.
+
+## Feedback export
+
+The public and review `comments/:id/context` routes and the app `copyIssueAction` read fresh
+authorized feedback. `src/lib/review/feedbackContext.ts` is the common project service;
+`src/lib/comments/feedbackContext.ts` projects filtered DTOs into the shared
+`@uier/toolbar/feedback-context` model. Keep public/guest browser restrictions, deleted evidence
+redaction, canonical page state and protected screenshot references intact. The complete packet
+contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
+work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
+
+## Authenticated MCP connector
+
+`/api/mcp` is stateless Streamable HTTP using the official MCP SDK. `src/lib/mcp/` owns scoped
+credentials and tools. Account settings creates 30-day named credentials, read-only by default,
+with explicit project selection; raw secrets are shown once and only hashes are stored. Never
+accept cookies, review tokens, project codes or guest ids as MCP authentication. Recheck current
+membership, scopes and private visibility for each request and screenshot resource read.
+
+Tools reuse review services. Replies and status/assignment events retain the human author plus
+credential attribution. All mutations require a stable idempotency key and share atomic submission
+receipts; do not implement retry deduplication in process memory. Reads never acknowledge unread
+activity. Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
+to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
+contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
+produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
+its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
+and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
+light/dark accessibility. This connector does not prove #90 launch acceptance.

@@ -1,3 +1,4 @@
+import { useProjectViewer } from '../../project/ProjectGate';
 import { ReactNode, useContext, useEffect, useId, useState } from 'react';
 import { UseQueryResult } from '@tanstack/react-query';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -136,9 +137,12 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
     const siteQuery = useSiteComments(withOtherPages, Boolean(filter.unread));
     const { data: activity } = useActivitySummary();
 
-    const pageComments = (filter.unread ? siteQuery.data?.filter(c => c.path === path) : pageQuery.data)?.filter(c => matchesFilter(c, filter));
+    const { environment, currentEnvironment } = useProjectViewer();
+    const isCurrentPage = (comment: CommentItem) => comment.path === path && (!comment.source || comment.source.environment === currentEnvironment);
+    const showCurrent = !environment || environment === 'all' || environment === currentEnvironment;
+    const pageComments = showCurrent ? (filter.unread ? siteQuery.data?.filter(isCurrentPage) : pageQuery.data)?.filter(c => matchesFilter(c, filter)) : [];
     const otherComments = withOtherPages
-        ? siteQuery.data?.filter(c => c.path !== path && matchesFilter(c, filter))
+        ? siteQuery.data?.filter(c => !isCurrentPage(c) && matchesFilter(c, filter))
         : undefined;
     // The API lists the site's newest comments only
     const siteCapped = (filter.unread ? activity?.unread ?? 0 : activity?.total ?? 0) > (siteQuery.data?.length ?? 0) || (siteQuery.data?.length ?? 0) >= commentsListMaxLength;
@@ -176,8 +180,8 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
                     comments={otherComments}
                     filter={filter}
                     note={siteCapped ? 'Older comments are not listed.' : undefined}
-                    renderPlace={(comment) => (
-                        // Opens the thread on its page (`?uier-comment=`), in the review; always on this site
+                    renderPlace={(comment) => comment.source?.available === false ? <p className="m-0 px-4 pt-3 font-mono text-xs text-muted-foreground">{comment.path} · Original source unavailable</p> : (
+                        // Opens the thread on its original permitted origin, including grouped aliases.
                         <a
                             href={commentLink(comment, review)}
                             className="flex min-w-0 items-center gap-1 rounded-t-xl px-4 pt-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring pointer-coarse:min-h-11">

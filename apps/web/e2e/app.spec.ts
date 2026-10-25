@@ -108,8 +108,10 @@ test('review links open the project\'s own sites with the toolbar turned on', as
     expect(await location('')).toBe(`https://example.com/?toolbar-code=${projectId}`);
     expect(await location(`?url=${encodeURIComponent('https://staging.example.com/pricing?plan=1')}`))
         .toBe(`https://staging.example.com/pricing?plan=1&toolbar-code=${projectId}`);
-    expect(await location('?comment=comment_abc123'))
-        .toBe(`https://example.com/?toolbar-code=${projectId}&uier-comment=comment_abc123`);
+    // A missing comment has no known original source and must not be retargeted to the main site.
+    const missing = await request.get(`/app/review/${projectId}?comment=comment_abc123`, { maxRedirects: 0 });
+    expect(missing.status()).toBe(404);
+    expect(await missing.text()).toContain('original site address may have been removed');
     // Another site is never a redirect target
     expect(await location(`?url=${encodeURIComponent('https://evil.example.net/')}`)).toBe(`https://example.com/?toolbar-code=${projectId}`);
 

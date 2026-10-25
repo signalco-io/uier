@@ -5,7 +5,7 @@ import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { memberCanAccessProject } from './workspaces';
 import type { AppContext } from './context';
-import { MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
+import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 
 const MAX_URL_LENGTH = 512;
@@ -71,6 +71,12 @@ export const projectNameSchema = z.string().trim()
     .min(1, 'Enter a project name.')
     .max(MAX_PROJECT_NAME_LENGTH, `Use at most ${MAX_PROJECT_NAME_LENGTH} characters.`);
 
+/** Blank input clears the optional label; repeated whitespace is not part of a client name. */
+export const projectClientNameSchema = z.string()
+    .transform(value => value.replace(/\s+/g, ' ').trim())
+    .pipe(z.string().max(MAX_CLIENT_NAME_LENGTH, `Use at most ${MAX_CLIENT_NAME_LENGTH} characters for the client name.`))
+    .transform(value => value || undefined);
+
 /** `https://www.example.com/app` -> `example.com` */
 export function defaultProjectName(url: string) {
     const { hostname } = new URL(url);
@@ -80,6 +86,25 @@ export function defaultProjectName(url: string) {
 /** Origins the project's sites run on; the review API accepts requests only from these */
 export function projectOrigins(project: Pick<DbProject, 'urls'>) {
     return [...new Set(project.urls.map(url => new URL(url).origin))];
+}
+
+/** Same-origin embeds have no cross-origin context; retain their configured API origin too. */
+export function projectReviewOrigin(project: Pick<DbProject, 'urls'>, request: Request, siteOrigin?: string) {
+    const origins = projectOrigins(project);
+    if (siteOrigin && origins.includes(siteOrigin)) return siteOrigin;
+    const requestUrl = new URL(request.url);
+    let own = requestUrl.origin;
+    // Next can use an internal hostname in request.url. Match the browser-facing host,
+    // with the same protocol handling as review CORS, against configured origins only.
+    const host = request.headers.get('host');
+    if (host) {
+        const protocol = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || requestUrl.protocol.slice(0, -1);
+        try {
+            const candidate = new URL(`${protocol}://${host}`);
+            if (!candidate.username && !candidate.password) own = candidate.origin;
+        } catch { /* Invalid hosts cannot add a project origin. */ }
+    }
+    return origins.includes(own) ? own : origins[0];
 }
 
 /** The toolbar's review link parameter (packages/toolbar/src/review.ts) */
@@ -125,7 +150,7 @@ export async function getVisibleProject(context: AppContext, projectId: string) 
     return project && memberCanAccessProject(context.member, project.id) ? project : null;
 }
 
-export async function createProject(context: AppContext, { name, urls }: { name: string; urls: string[] }) {
+export async function createProject(context: AppContext, { name, urls, clientName }: { name: string; urls: string[]; clientName?: string }) {
     const store = getAppStore();
     const now = new Date().toISOString();
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -140,6 +165,7 @@ export async function createProject(context: AppContext, { name, urls }: { name:
             pk: workspacePk(context.workspace.id),
             workspaceId: context.workspace.id,
             name,
+            ...(clientName ? { clientName } : {}),
             urls,
             status: 'active',
             access: 'invited',
@@ -155,7 +181,9 @@ export async function createProject(context: AppContext, { name, urls }: { name:
 
 export type ProjectUpdate = Partial<{
     pageState: PageStatePolicy;
+    environments: import('./environments').ProjectEnvironment[];
     name: string;
+    clientName: string | undefined;
     urls: string[];
     status: ProjectStatus;
     access: ProjectAccess;
