@@ -8,6 +8,7 @@ import { CommentsSidebarHeader } from './CommentsSidebarHeader';
 import { CommentsSidebarCommentsList } from './CommentsSidebarCommentsList';
 import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
+import { DockablePanel } from '../DockablePanel';
 
 // One element for every render: the kit's input wraps itself anew (and loses the focus) when its
 // decorator changes
@@ -57,15 +58,8 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
 
     return (
         <InkScope>
-            <aside
-                aria-label="Comments"
-                onKeyDown={handleKeyDown}
-                className={cx(
-                    // Leaves room for the toolbar pill (bottom center) where the sidebar would cover it
-                    'fixed top-4 bottom-20 lg:bottom-4 right-4 left-4 sm:left-auto sm:w-80 rounded-2xl border bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)] transition-opacity z-50',
-                    'slide-in-from-right-5 fade-in ease-in-out slide-out-to-right-5 fade-out',
-                    hidding ? 'animate-out' : 'animate-in',
-                )}>
+            <DockablePanel id="inbox" label="Comments" onKeyDown={handleKeyDown}
+                className={cx('transition-opacity', hidding ? 'animate-out fade-out' : 'animate-in fade-in')}>
                 <Stack className="h-full">
                     <Stack spacing={1.5} className="px-4 py-3">
                         <CommentsSidebarHeader
@@ -91,7 +85,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         <CommentsSidebarCommentsList filter={filter} onShowOnPage={onShowOnPage} />
                     </div>
                 </Stack>
-            </aside>
+            </DockablePanel>
         </InkScope>
     );
 }

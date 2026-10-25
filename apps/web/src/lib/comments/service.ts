@@ -4,7 +4,7 @@ import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/cl
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { toCommentDto, withinListResponseSize, type CommentDto } from './dto';
 import { isLocalRuntime } from './environment';
-import { apiErrors, writerId, type CommentsApiContext } from './http';
+import { ApiError, apiErrors, writerId, type CommentsApiContext } from './http';
 import {
     COMMENT_TTL_SECONDS,
     MAX_LIST_COMMENTS,
@@ -142,6 +142,18 @@ export function screenshotInfo(screenshot: ParsedScreenshot): DbCommentScreensho
     return { contentType: screenshot.contentType, width: screenshot.width, height: screenshot.height, bytes: screenshot.data.length };
 }
 
+/** Image limits do not block automatic feedback text. */
+export async function availableScreenshot(store: CommentsStore, domain: string, screenshot: ParsedScreenshot | undefined) {
+    if (!screenshot) return undefined;
+    try {
+        await enforceScreenshotLimits(store, domain);
+        return screenshot;
+    } catch (error) {
+        if (error instanceof ApiError && error.code === 'rate_limited') return undefined;
+        throw error;
+    }
+}
+
 /**
  * Stores the comment and its screenshot (a document of its own, written first, with the comment's
  * `ttl`). When the comment can't be written, the screenshot goes again.
@@ -163,7 +175,15 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
     };
     if (comment.ttl !== undefined)
         document.ttl = comment.ttl;
-    await store.createScreenshot(document);
+    try {
+        await store.createScreenshot(document);
+    } catch (error) {
+        console.warn('[comments] Screenshot storage failed; saving feedback without an image', error);
+        await store.deleteScreenshot(comment.domain, comment.id).catch(() => undefined);
+        delete comment.screenshot;
+        await store.create(comment);
+        return;
+    }
     try {
         await store.create(comment);
     } catch (error) {
@@ -195,8 +215,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
     await enforceNewCommentLimits(store, subject, input.path);
-    if (input.screenshot)
-        await enforceScreenshotLimits(store, context.domain);
+    const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
 
     const now = nowIso();
     const firstItem: DbThreadItem = {
@@ -222,10 +241,10 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         updatedAt: now,
         ttl: commentTtlSeconds()
     };
-    if (input.screenshot)
-        comment.screenshot = screenshotInfo(input.screenshot);
+    if (screenshot)
+        comment.screenshot = screenshotInfo(screenshot);
 
-    await createWithScreenshot(store, comment, input.screenshot);
+    await createWithScreenshot(store, comment, screenshot);
     return toDto(comment, context);
 }
 

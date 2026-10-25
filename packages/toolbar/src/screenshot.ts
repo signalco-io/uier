@@ -1,6 +1,6 @@
 /**
  * Screenshots of the commented part of the page, taken in the reviewer's browser when they post a
- * comment (optional, issue #32).
+ * comment (automatic, issue #81).
  *
  * The page is drawn the way the browser shows it (`modern-screenshot` renders a copy of the DOM
  * through an SVG `foreignObject`, so the page's own CSS applies), without the toolbar. Only what
@@ -310,7 +310,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             height: view.height,
             scale,
             backgroundColor: pageBackground(),
-            filter: node => node !== exclude,
+            filter: node => node !== exclude && !(node instanceof Element && node.hasAttribute('data-uier-thread')),
             // The scroll position as a margin, not a transform: fixed and sticky elements stay put.
             // `<html>` is not the page's root in the copy: its overflow would clip it.
             style: { marginTop: `${-scroll.y}px`, marginLeft: `${-scroll.x}px`, overflow: 'visible' },
@@ -343,20 +343,19 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
     return encode(crop);
 }
 
-/**
- * Opens an image (a data URL) full size in a new tab. Through a `blob:` URL: browsers don't open
- * `data:` URLs in a tab, and a page's CSP may not let it fetch one.
- */
-export function openImageInNewTab(dataUrl: string) {
-    const [header = '', base64 = ''] = dataUrl.split(',', 2);
-    const type = /^data:([^;]+)/.exec(header)?.[1] ?? 'image/png';
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
+/** Start once from the feedback event, keep the promise with the draft, and never block text on failure. */
+export async function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined): Promise<string | undefined> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+        const capture = captureScreenshot(commentRegion(position), toolbarHost(rootElement));
+        return await Promise.race([
+            capture.then(image => image.dataUrl),
+            new Promise<undefined>(resolve => { timeout = setTimeout(resolve, 15_000); })
+        ]);
+    } catch (error) {
+        console.warn('uier: Automatic screenshot capture failed', error);
+        return undefined;
+    } finally {
+        clearTimeout(timeout);
     }
-    const url = URL.createObjectURL(new Blob([bytes], { type }));
-    window.open(url, '_blank', 'noopener');
-    // Long enough for the new tab to load it
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

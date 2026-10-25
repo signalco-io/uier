@@ -286,7 +286,9 @@ links still start review mode; the signed-in app does not automatically publish 
 
 Collapsing the toolbar hides on-page comment pins, text highlights, comment popovers and inline threads, leaving the page
 free to browse and select text. Expanding restores annotations at their current positions and retains unsent
-comment and reply text. Collapse is remembered for the tab across navigation and reload; the inbox retains
+comment and reply text. Drag the toolbar handle to move it, or use arrow keys; Home and Reset toolbar position
+restore its default. The inbox and future dockable panels share mouse/touch side switching and per-panel saved sides.
+Collapse is remembered for the tab across navigation and reload; the inbox retains
 its state, and **Show on page** expands the toolbar to open the requested comment.
 
 The production URL of the toolbar is **`https://uier.io/toolbar.js`**. A reviewed site embeds it with its
@@ -455,12 +457,17 @@ Pulumi (see [Infrastructure](#infrastructure)).
 
 ### Screenshots
 
-A new comment or feedback can take an optional screenshot of the part of the page it is about
-([#32](https://github.com/signalco-io/uier/issues/32)). The toolbar takes it in the reviewer's browser when they
-ask for it ([`packages/toolbar/src/screenshot.ts`](packages/toolbar/src/screenshot.ts), with
-[`modern-screenshot`](https://github.com/qq15725/modern-screenshot)): the page as it is in the window, drawn from
-its DOM and CSS without the toolbar, cut to the comment's element or text with some room around it (the whole
-window for feedback and bug reports), as WebP (JPEG where the browser can't make WebP) of at most 480 KB.
+Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
+([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
+Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
+image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
+capture. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.
+
+The toolbar draws the capture in the reviewer's browser
+([`packages/toolbar/src/screenshot.ts`](packages/toolbar/src/screenshot.ts), with
+[`modern-screenshot`](https://github.com/qq15725/modern-screenshot)), without the toolbar or inline review threads,
+cut to the element/text with some room around it (the window for page feedback), as WebP (JPEG where unavailable)
+of at most 480 KB.
 Images, fonts and stylesheets from other sites that don't allow it (CORS, or the site's CSP `connect-src`),
 images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
 `backdrop-filter` come out empty or plain.
@@ -599,7 +606,7 @@ Prefer letting CI apply changes (`pulumi up`) - see below.
 | [`ci.yml`](.github/workflows/ci.yml) | pull requests, manual | Web: typecheck, build, Playwright e2e and a Vercel preview deployment (URL in the job summary). Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
 | [`deploy.yml`](.github/workflows/deploy.yml) | push to `main`, manual | `pulumi up` first, then build and deploy the website to Vercel production (`uier.io`). |
 | [`pulumi_reusable.yml`](.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
-| [`vercel-deploy_reusable.yml`](.github/workflows/vercel-deploy_reusable.yml) | called | `vercel pull`, `vercel build`, `vercel deploy --prebuilt`. |
+| [`vercel-deploy_reusable.yml`](.github/workflows/vercel-deploy_reusable.yml) | called | `vercel pull`, `vercel build`, `vercel deploy --prebuilt --archive=tgz` (reduces file uploads). |
 
 - **`main`** is the only long-lived branch and is production: every push runs `pulumi up` and a Vercel
   *production* deployment served on `uier.io`.

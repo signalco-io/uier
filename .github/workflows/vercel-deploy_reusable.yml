@@ -106,10 +106,11 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PRODUCTION: ${{ inputs.production }}
         run: |
+          # Archive prebuilt output to avoid Vercel's per-file upload rate limit.
           if [ "$PRODUCTION" = "true" ]; then
-            url="$(vercel deploy --prebuilt --prod)"
+            url="$(vercel deploy --prebuilt --archive=tgz --prod)"
           else
-            url="$(vercel deploy --prebuilt)"
+            url="$(vercel deploy --prebuilt --archive=tgz)"
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
 

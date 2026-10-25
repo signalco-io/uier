@@ -50,9 +50,10 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>an author id: a hash of the random token in your <code>uier_visitor</code> cookie;</li>
                 <li>
-                    if you add one, a screenshot of the part of the page the comment is about. The toolbar takes it in
-                    your browser, as the page looks to you, so it shows whatever the page shows there. Nothing is sent
-                    until you post the comment, and you can remove the screenshot before you do.
+                    a screenshot of the part of the page the comment is about, when capture succeeds. Capture starts
+                    automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
+                    include what is visible in that part of the page. The image is sent only when you post the feedback;
+                    discarding an unsent comment saves no image. Replies keep the original screenshot.
                 </li>
             </ul>
             <p>

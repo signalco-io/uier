@@ -42,6 +42,27 @@ const items = [
         duration: 'Until you clear your browser data'
     },
     {
+        name: 'uier:toolbar-position:v1',
+        type: 'Local storage',
+        when: 'You move the toolbar',
+        purpose: 'Remembers its position on this site. Reset toolbar position removes it.',
+        duration: 'Until reset or you clear your browser data'
+    },
+    {
+        name: 'uier:panel-side:v1:<panel>',
+        type: 'Local storage',
+        when: 'You move a panel to the other side',
+        purpose: 'Remembers the preferred side for each panel on this site.',
+        duration: 'Until you clear your browser data'
+    },
+    {
+        name: 'uier:review and uier:toolbar-collapsed',
+        type: 'Session storage',
+        when: 'You start a review or collapse the toolbar',
+        purpose: 'Keeps the review active and remembers whether page comments are hidden in this tab.',
+        duration: 'For the browser tab'
+    },
+    {
         name: 'theme',
         type: 'Local storage',
         when: 'You switch the theme on the brand page or in the app',
@@ -54,7 +75,7 @@ export default function CookiePolicyPage() {
     return (
         <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 October 2026">
             <p>
-                {brand.domain} uses three cookies and two keys in your browser&rsquo;s local storage. None of them is set
+                {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
             </p>
 
@@ -96,6 +117,11 @@ export default function CookiePolicyPage() {
                 <li><code>uier:visitor</code>: a random id that recognises a guest&rsquo;s comments, so only they can delete them.</li>
                 <li><code>uier:guest-name</code>: the name a guest comments under.</li>
             </ul>
+
+            <p>
+                Toolbar position and panel-side preferences are also stored on reviewed sites. Signing out removes
+                the identity keys listed above; movement preferences remain until you reset them or clear site data.
+            </p>
 
             <h2>Third parties</h2>
             <p>

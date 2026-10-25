@@ -20,6 +20,7 @@ import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
+import { captureCommentScreenshot } from '../screenshot';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength, commentTextMaxLength } from './@types/Comments';
 
@@ -147,7 +148,8 @@ export function CommentsGlobal({
         setCreatingComment({
             key: draftKeyRef.current,
             position,
-            kind
+            kind,
+            screenshot: captureCommentScreenshot(position, rootElement)
         });
     };
 
@@ -307,7 +309,8 @@ export function CommentsGlobal({
     };
 
     // A posted comment shows its thread
-    const handleCreated = (comment: CommentItem) => {
+    const handleCreated = (comment: CommentItem, draftKey: number) => {
+        if (draftKeyRef.current !== draftKey) return;
         setCreatingComment(undefined);
         setOpenComment({ id: comment.id });
     };
@@ -412,8 +415,8 @@ export function CommentsGlobal({
                 <CommentErrorBoundary key={`new-${creatingComment.key}`}>
                     <CommentBubble
                         draft={creatingComment}
-                        onCreated={handleCreated}
-                        onCanceled={() => setCreatingComment(undefined)} />
+                        onCreated={comment => handleCreated(comment, creatingComment.key)}
+                        onCanceled={() => setCreatingComment(current => current?.key === creatingComment.key ? undefined : current)} />
                 </CommentErrorBoundary>
             )}
             {!collapsed && creatingCommentSelection && (
@@ -452,6 +455,11 @@ export function CommentsGlobal({
                 onAddPointComment={handleAddPointComment}
                 sidebarOpen={sidebarOpen}
                 onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                onMoveStart={() => {
+                    setCreatingCommentPoint(false);
+                    setCreatingCommentSelection(undefined);
+                    closeHintForUse();
+                }}
                 onFeedbackOpen={() => {
                     setCreatingCommentPoint(false);
                     closeHintForUse();

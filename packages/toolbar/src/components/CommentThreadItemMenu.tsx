@@ -67,7 +67,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
             onOpenChange={handleOpenChange}
             align="end"
             aria-label={kind === 'comment' ? 'Comment options' : 'Reply options'}
-            className={cx('w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName)}
+            className={cx('z-[70] w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName)}
             trigger={(
                 <IconButton
                     size="xs"

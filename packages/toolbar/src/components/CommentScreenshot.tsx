@@ -1,32 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type SVGProps } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { Popper } from '@signalco/ui-primitives/Popper';
+import { Button } from '@signalco/ui-primitives/Button';
+import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useQuery } from '@tanstack/react-query';
 import { getCommentScreenshot } from '../hooks/useComments';
 import { screenshotQueryKey } from '../hooks/api';
-import { openImageInNewTab } from '../screenshot';
 import type { CommentItem } from './@types/Comments';
-
-/** Lucide's camera (the UI kit has none) */
-export function CameraIcon({ size = 24, ...rest }: SVGProps<SVGSVGElement> & { size?: number }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.75}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            {...rest}>
-            <path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" />
-            <circle cx="12" cy="13" r="3" />
-        </svg>
-    );
-}
 
 export const screenshotAlt = 'Screenshot of the commented part of the page';
 
@@ -58,6 +39,8 @@ function useSeen<T extends Element>() {
  */
 export function CommentScreenshot({ comment }: { comment: CommentItem }) {
     const size = comment.screenshot;
+    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const [open, setOpen] = useState(false);
     const [placeholderRef, seen] = useSeen<HTMLDivElement>();
     const { data, isError } = useQuery({
         queryKey: screenshotQueryKey(comment.id),
@@ -67,7 +50,7 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
         retry: 1
     });
     if (!size) {
-        return null;
+        return <p className="m-0 text-xs text-muted-foreground">No screenshot available.</p>;
     }
 
     if (isError) {
@@ -76,24 +59,28 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
 
     return data
         ? (
-            <button
-                type="button"
-                title="Open the screenshot full size"
-                className="block w-full cursor-zoom-in rounded-md p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                onClick={() => openImageInNewTab(data)}>
-                <img
-                    src={data}
-                    width={size.width}
-                    height={size.height}
-                    alt={screenshotAlt}
-                    className="block h-auto max-h-80 w-full rounded-md border object-contain object-left-top" />
-            </button>
+            <Popper
+                container={rootElement}
+                open={open}
+                onOpenChange={setOpen}
+                aria-label="Screenshot"
+                className="z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3"
+                trigger={(
+                    <Button variant="plain" className="block h-auto w-24 cursor-zoom-in p-0" aria-label={screenshotAlt} title="Expand screenshot">
+                        <img src={data} width={size.width} height={size.height} alt={screenshotAlt}
+                            className="block h-16 w-24 rounded-md border object-contain" />
+                    </Button>
+                )}>
+                <Button variant="plain" size="sm" className="self-end" onClick={() => setOpen(false)}>Close screenshot</Button>
+                <img src={data} width={size.width} height={size.height} alt="Expanded screenshot"
+                    className="block min-h-0 w-full object-contain" />
+            </Popper>
         )
         : (
             <div
                 ref={placeholderRef}
                 aria-hidden="true"
-                className="w-full max-h-80 animate-pulse rounded-md border bg-muted"
+                className="h-16 w-24 animate-pulse rounded-md border bg-muted"
                 style={{ aspectRatio: `${size.width} / ${size.height}` }} />
         );
 }

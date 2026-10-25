@@ -11,7 +11,9 @@ export const commentBubble = (page: Page, messages: number) =>
 /** Waits for the element's animations (a popover fading in) to finish, e.g. before an axe check */
 export async function animationsFinished(locator: Locator) {
     await locator.evaluate(async (element) => {
-        await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished));
+        await Promise.allSettled(element.getAnimations({ subtree: true })
+            .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+            .map(animation => animation.finished));
     });
 }
 

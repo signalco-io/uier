@@ -181,8 +181,7 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     const draft = guest.page.getByRole('dialog', { name: 'New comment' });
     await draft.getByRole('textbox', { name: 'Your name' }).fill('Dana');
     await draft.getByRole('textbox', { name: 'Comment' }).fill('The price is hard to find.');
-    await draft.getByRole('button', { name: 'Add a screenshot' }).click();
-    await expect(draft.getByRole('img', { name: 'Screenshot to send with the comment' })).toBeVisible();
+    await expect(draft.getByRole('img')).toHaveCount(0);
     await draft.getByRole('button', { name: 'Post comment' }).click();
 
     // The thread fetches it from the review API (with the reviewer's headers, as a data: image)
@@ -208,8 +207,15 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     const appImage = card.getByRole('img', { name: 'Screenshot of the commented part of the page' });
     await expect(appImage).toBeVisible();
     await expect.poll(async () => await appImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(comment!.screenshot!.width);
-    await expect(card.getByRole('link', { name: 'Screenshot of the commented part of the page' }))
-        .toHaveAttribute('href', `/app/projects/${projectId}/comments/${comment!.id}/screenshot`);
+    const thumbnail = card.getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    expect((await thumbnail.boundingBox())!.width).toBeLessThanOrEqual(100);
+    await thumbnail.click();
+    const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    await expect(expanded.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
+    await expectNoAxeViolations(page);
+    await expanded.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(expanded).toBeHidden();
+    await expect(thumbnail).toBeFocused();
 });
 
 for (const layout of ['html-scroll', 'body-hidden']) {
@@ -233,8 +239,8 @@ for (const layout of ['html-scroll', 'body-hidden']) {
 
         // Without waiting for the lazy image
         const started = Date.now();
-        await draft.getByRole('button', { name: 'Add a screenshot' }).click();
-        const preview = draft.getByRole('img', { name: 'Screenshot to send with the comment' });
+        await draft.getByRole('button', { name: 'Post comment' }).click();
+        const preview = guest.page.getByRole('dialog', { name: 'Comment thread' }).getByRole('img', { name: 'Screenshot of the commented part of the page' });
         await expect(preview).toBeVisible();
         expect(Date.now() - started).toBeLessThan(5_000);
 

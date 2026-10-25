@@ -140,6 +140,8 @@ export type CommentDraft = {
     position: CommentAnchor;
     /** A rewrite suggestion for the selected text, instead of a comment */
     kind?: 'comment' | 'rewrite';
+    /** Started when the feedback began; retained through collapse and awaited before posting. */
+    screenshot?: Promise<string | undefined>;
 }
 
 export type CommentsGlobalProps = {
