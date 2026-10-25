@@ -11,6 +11,8 @@ export const reviewTokenParam = 'uier-token';
 const reviewTokenKey = (project: string) => `uier:review-token:${project}`;
 const visitorKey = 'uier:visitor';
 const guestNameKey = 'uier:guest-name';
+const pendingCodeKey = `uier:review-code:v1:${toolbarConfig.apiUrl}:${toolbarConfig.project}`;
+const signInDisabledKey = `uier:auto-sign-in-disabled:${toolbarConfig.apiUrl}:${toolbarConfig.project}`;
 
 function read(key: string) {
     try {
@@ -59,11 +61,32 @@ function takeUrlParam(name: string) {
 }
 
 // Read while the script runs, before the page's own router can rewrite the URL
-const initialReviewCode = toolbarConfig.project ? takeUrlParam(reviewTokenParam) : undefined;
+const initialReviewCode = toolbarConfig.project ? new URL(window.location.href).searchParams.get(reviewTokenParam) : undefined;
+if (initialReviewCode && /^[A-Za-z0-9_-]{43}$/.test(initialReviewCode)) {
+    // Persist before removing it: a host's own SSO redirect can unload this page during verification.
+    try { window.sessionStorage.setItem(pendingCodeKey, JSON.stringify({ code: initialReviewCode, expiresAt: Date.now() + 10 * 60_000 })); } catch { /* Memory fallback below. */ }
+}
+if (toolbarConfig.project) takeUrlParam(reviewTokenParam);
 
 /** The single-use code of the review link this page was opened with (once) */
 export function consumeReviewCode() {
-    return initialReviewCode;
+    try {
+        const pending = JSON.parse(window.sessionStorage.getItem(pendingCodeKey) ?? 'null');
+        if (pending && typeof pending.code === 'string' && /^[A-Za-z0-9_-]{43}$/.test(pending.code) && pending.expiresAt > Date.now()) return pending.code as string;
+        window.sessionStorage.removeItem(pendingCodeKey);
+    } catch { /* Blocked storage: use this page's code. */ }
+    return initialReviewCode ?? undefined;
+}
+
+export function clearReviewCode() {
+    try { window.sessionStorage.removeItem(pendingCodeKey); } catch { /* No stored handoff. */ }
+}
+
+export const backgroundSignInDisabled = () => readKey(signInDisabledKey) === '1';
+
+/** Only a successfully exchanged, authenticated link overrides toolbar sign-out. */
+export function enableBackgroundSignIn() {
+    writeKey(signInDisabledKey, undefined);
 }
 
 export function getReviewToken() {
@@ -91,6 +114,8 @@ export function getVisitorToken(persist = Boolean(toolbarConfig.project)) {
 /** Signs the reviewer out of the project on this site: the review token, guest name and visitor id go */
 export function forgetProjectReviewer() {
     setReviewToken(undefined);
+    clearReviewCode();
+    if (toolbarConfig.project) writeKey(signInDisabledKey, '1');
     writeKey(guestNameKey, undefined);
     writeKey(visitorKey, undefined);
 }

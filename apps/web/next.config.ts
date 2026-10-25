@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
     },
     async headers() {
         return [{
-            source: '/((?!review-verification$).*)',
+            source: '/((?!review-(?:verification|session)$).*)',
             headers: createSecureHeaders(combineSecureHeaders(
                 ['uier.io'],
                 false,
@@ -49,9 +49,9 @@ const nextConfig: NextConfig = {
                 ]
             ))
         }, {
-            // This empty BotID bridge is the only frameable page. It returns results only to
-            // the requesting parent; the server checks that origin against the project's sites.
-            source: '/review-verification',
+            // Empty verification/session bridges return results only to the requesting parent;
+            // the server checks that origin against the project's sites.
+            source: '/review-:bridge(verification|session)',
             headers: createSecureHeaders({
                 ...combineSecureHeaders(['uier.io'], false, isDevelopment, [
                     knownSecureHeadersExternalUrls.vercel,

@@ -23,7 +23,7 @@ async function hostClicks(page: Page) {
     return await page.evaluate(start => performance.getEntriesByName('host-click-to-frame').slice(start).map(entry => entry.duration), start);
 }
 
-test('inactive review and a 100-thread inbox stay within measured bundle, request and host-interaction budgets', async ({ page, browser, request }, testInfo) => {
+test('inactive review and a 100-thread inbox stay within measured bundle, request and host-interaction budgets', async ({ page, browser, request, baseURL }, testInfo) => {
     await signIn(page, uniqueEmail('launch-budget'));
     const projectId = await createProject(page, { urls: [site.origin()], name: 'Launch budgets' });
     await setProjectAccess(page, projectId, 'Anyone with the link');
@@ -81,7 +81,8 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         // A fixed observation window, not a claim about an entire idle session.
         await guest.page.waitForTimeout(1200);
         const inactiveRequests = [...requests];
-        expect(inactiveRequests).toEqual([]);
+        // The only inactive API work is the single, bounded background account check.
+        expect(inactiveRequests).toEqual([{ path: `${new URL(baseURL!).hostname}/api/review/${projectId}/sso`, method: 'POST' }]);
         expect(bundle.raw).toBeLessThan(750_000);
         expect(bundle.gzip).toBeLessThan(220_000);
 

@@ -279,8 +279,13 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' }))
         .toHaveAttribute('href', '/app/projects/uier00000001');
     await page.goto('/app/projects/uier00000001');
+    // This local feedback has a loopback origin, outside the public project's production environment.
+    await page.getByRole('combobox', { name: 'Environment', exact: true }).click();
+    await page.getByRole('option', { name: 'All environments', exact: true }).click();
     await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Who can comment', exact: true })).toHaveCount(0);
 
     const second = await newVisitor(browser, testInfo);
     await signIn(second.page, uniqueEmail('feedback-other'), { from: new URL('/app/sign-in', page.url()).href });
@@ -310,6 +315,7 @@ test('the account page saves the name and signs out', async ({ page }) => {
 
     await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/app\/sign-in$/);
+    expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_review_sso')).toBe(false);
     await page.goto('/app/projects');
     await expect(page).toHaveURL(/\/app\/sign-in\?next=/);
 });

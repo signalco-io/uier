@@ -58,7 +58,7 @@ still downloaded and parsed when a review is inactive; absence of a toolbar does
 - Bundle limits are **750,000 raw bytes / 220,000 gzip bytes**. The audited baseline is approximately
   671 KB raw / 196 KB gzip / 165 KB Brotli before the #102 integration, with limited regression headroom. Compression is
   calculated from the built bytes, not a claim about CDN transfer encoding, cache hits or wire size.
-- An inactive review must make **zero review API/font requests** in the load plus eight host clicks
+- An inactive project review may make **one background session POST**, and **zero comment API/font requests**, in the load plus eight host clicks
   and a **1,200 ms observation window**. This is a short deterministic guard, not an all-day idle
   measurement.
 - Opening the 100-thread inbox may perform at most **four comment-list GETs**. Fewer than all
