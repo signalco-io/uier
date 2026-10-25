@@ -90,6 +90,11 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 
 ## Working on it
 
+- Project threads expose `ThreadNotifications`: member follow/unfollow and project mute, or an
+  optional guest **Email me replies** flow after posting. Email is never a comment requirement.
+  Subscription writes use the review API's existing identity, CORS and verification checks; guest
+  addresses are verified by an explicit button on uier.io. Do not store addresses in browser storage.
+
 - `pnpm dev` at the repository root rebuilds on change and serves `dist/` on
   http://localhost:4005; the web app loads it in development. Open
   http://localhost:4004/?review=true (or any page, e.g. `/brand?review=true`).

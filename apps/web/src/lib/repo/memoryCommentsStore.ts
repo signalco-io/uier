@@ -73,6 +73,10 @@ function pathMatches(comment: DbComment, path: string) {
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
+        async listNotificationPending() {
+            return [...state().domains.keys()].flatMap(domainComments)
+                .filter(comment => comment.notificationPending && comment.projectId).map(clone);
+        },
         async list(domain, path, limit) {
             return domainComments(domain)
                 .filter(comment => pathMatches(comment, path))

@@ -36,6 +36,12 @@ async function queryAll<T>(domain: string, query: string, parameters: SqlParamet
 
 export function createCosmosCommentsStore(): CommentsStore {
     return {
+        async listNotificationPending() {
+            const { resources } = await cosmosDataContainerComments().items.query<Record<string, unknown>>({
+                query: 'SELECT * FROM c WHERE c.notificationPending = true AND IS_DEFINED(c.projectId) AND IS_DEFINED(c.path)'
+            }).fetchAll();
+            return resources.map(withoutSystemProperties);
+        },
         async list(domain, path, limit) {
             const resources = await queryAll<Record<string, unknown>>(
                 domain,

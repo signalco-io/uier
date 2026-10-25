@@ -155,6 +155,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## Testing
 
+Review notifications live in `src/lib/notifications/`. Event metadata is part of the same comment
+write as the shared unread activity cursor. Never send email from a toolbar client or detached
+promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-backed worker with
+the existing production configuration. Dispatch rechecks access, private visibility, subscription,
+mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
+`docs/review-notifications.md` for the event/delivery contract and failure evidence.
+
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
   Mobile Chrome). A server that already answers on that port is never reused (the run fails), so
