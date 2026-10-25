@@ -16,7 +16,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
     const available = first && !first.deleted;
     const position = dto.position;
     const r = dto.reproduction;
-    const summary = available ? first.text?.replace(/[\p{Cc}\p{Cf}\s]+/gu, ' ').trim().slice(0, 100) : 'Deleted feedback';
+    const summary = available ? first.text?.replace(/[\p{Cc}\p{Cf}\s]+/gu, ' ').trim().slice(0, 100) : first?.deleted ? 'Deleted feedback' : 'Unavailable feedback';
     const context: FeedbackContext = {
         schemaVersion: 1, contentTrust: 'untrusted',
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },

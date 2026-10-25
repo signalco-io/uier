@@ -7,7 +7,7 @@ import { useAnnounce } from './Announcer';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 
 /** Fetch on every explicit copy, so removed/private items cannot be exported from a stale cache. */
-export function CopyIssue({ commentId }: { commentId: string }) {
+export function useCopyIssue(commentId: string) {
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<unknown>();
     const [manual, setManual] = useState<string>();
@@ -28,10 +28,13 @@ export function CopyIssue({ commentId }: { commentId: string }) {
         } catch (error) { setError(error); }
         finally { setPending(false); }
     };
+    return { pending, error, manual, copied, copy, close: () => setManual(undefined) };
+}
+
+export function CopyIssueResult({ state }: { state: ReturnType<typeof useCopyIssue> }) {
+    const { copied, error, manual } = state;
+    if (!copied && !error && manual === undefined) return null;
     return <div className="flex min-w-0 flex-col gap-2">
-        <Button variant="plain" size="xs" className="self-start pointer-coarse:min-h-11" disabled={pending} onClick={copy}>
-            {pending ? 'Preparing issue…' : 'Copy issue'}
-        </Button>
         {copied && <p role="status" className="m-0 text-xs text-muted-foreground">Issue copied.</p>}
         <CommentsErrorMessage error={error} />
         {manual !== undefined && <>
@@ -40,7 +43,7 @@ export function CopyIssue({ commentId }: { commentId: string }) {
                 <textarea readOnly value={manual} onFocus={event => event.currentTarget.select()}
                     className="max-h-64 min-h-40 w-full rounded-md border border-input bg-background p-2 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </label>
-            <Button variant="plain" size="xs" className="self-start" onClick={() => setManual(undefined)}>Close copy text</Button>
+            <Button variant="plain" size="xs" className="self-start" onClick={state.close}>Close copy text</Button>
         </>}
     </div>;
 }

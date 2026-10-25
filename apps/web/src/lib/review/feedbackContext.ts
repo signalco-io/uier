@@ -13,11 +13,12 @@ import { authorNames, toReviewCommentDto } from './dto';
 export async function projectFeedbackExport(project: DbProject, actor: ProjectActor, id: string, siteOrigin: string | undefined, baseUrl: string) {
     const comment = await getProjectComment(project, actor, id);
     if (!comment) throw apiErrors.notFound();
-    const dto = toReviewCommentDto(comment, actor, await authorNames([comment]), projectOrigins(project));
+    const origins = projectOrigins(project);
+    const dto = toReviewCommentDto(comment, actor, await authorNames([comment]), origins);
     if (!dto) throw apiErrors.notFound();
     // Guests see only the source they are currently reviewing, never other configured addresses
     // or the member-only browser context. Removed sources do not fall back to another environment.
-    const allowedOrigins = actor.kind === 'member' ? projectOrigins(project) : siteOrigin ? [siteOrigin] : [];
+    const allowedOrigins = actor.kind === 'member' ? origins : siteOrigin && origins.includes(siteOrigin) ? [siteOrigin] : [];
     const pageUrl = toReproductionContext(comment, allowedOrigins).url;
     const screenshot = dto.screenshot ? await getCommentsStore().getScreenshot(comment.domain, comment.id) : null;
     let commentUrl: string | undefined;

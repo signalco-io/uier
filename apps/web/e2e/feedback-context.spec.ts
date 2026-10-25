@@ -78,6 +78,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await page.evaluate(() => { (window as unknown as { rejectClipboard: boolean }).rejectClipboard = true; });
             await card.getByRole('button', { name: 'Copy issue', exact: true }).click();
             await expect(card.getByRole('textbox', { name: 'Issue Markdown' })).toHaveValue(copied);
+            await card.getByRole('textbox', { name: 'Issue Markdown' }).scrollIntoViewIfNeeded();
             await expectNoAxeViolations(page);
             await page.screenshot({ path: testInfo.outputPath(`app-copy-${colorScheme}.png`) });
         } finally { await site.close(); }
