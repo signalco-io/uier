@@ -881,3 +881,78 @@ anchor, permitted links, original permitted browser context, discussion and prot
 references in one Markdown packet. Clipboard failures offer selectable Markdown. This is an explicit
 export; it does not publish to a tracker. The shared versioned model and access rules are documented
 in [Feedback context](docs/feedback-context.md).
+
+### Coding tool access (MCP)
+
+In **Account → Coding agents**, give a credential a name, select up to 20 projects in the current
+workspace, and choose operations. Read feedback is selected initially; screenshots, replies,
+status changes and assignments each need an explicit scope. The app issues a 30-day credential,
+shows the secret once, and lets its owner revoke it from any workspace. Store it outside source
+control in the environment of your chosen client. Only a SHA-256 hash and the grant metadata are
+stored. Removal of membership/project access and private visibility changes apply on the next
+request. Public project codes, guest ids, review links and app cookies cannot authorize MCP.
+
+The endpoint is `https://uier.io/api/mcp` (use your local/preview origin while testing). It uses the
+[official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server),
+stateless JSON responses, and a manually configured `Authorization: Bearer <credential>` header.
+OAuth login/discovery and clients that require OAuth are not supported. For a compatible Codex
+client, set `UIER_MCP_TOKEN` in its environment and add this to the client's configuration:
+
+```toml
+[mcp_servers.uier]
+url = "https://uier.io/api/mcp"
+bearer_token_env_var = "UIER_MCP_TOKEN"
+```
+
+[Codex documents this environment-based bearer configuration](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers).
+The credential belongs to the named human account. It grants no additional project or private
+feedback rights. Its selected projects do not expand when new projects are created.
+
+| Tool | Scope | Behavior |
+| --- | --- | --- |
+| `list_projects` | `feedback:read` | Selected projects still accessible to the owner |
+| `list_feedback` | `feedback:read` | Visible feedback search and status filter within the latest 1000 threads |
+| `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
+| `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
+| `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the credential name |
+| `set_feedback_status` | `feedback:status` | Resolve/reopen using the app's permission checks |
+| `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
+
+`get_feedback` returns `{ actingAs, contentTrust, context, markdown, screenshotResource? }`.
+`context` and `markdown` come directly from the same authorized project export service as Copy
+issue, using the shared [version 1 feedback context contract](docs/feedback-context.md). The MCP
+resource reference supplements its protected web image link when image access was granted.
+Deleted first-message evidence is unavailable through both the packet and screenshot resource.
+
+Screenshot references are `uier://projects/{projectId}/feedback/{commentId}/screenshot` resources.
+Use MCP `resources/read` with `screenshots:read` to retrieve the saved image; current feedback
+visibility is checked again. References never contain a credential or create a public image URL.
+Clients control whether images/text they retrieve are sent to their own model provider. Revoking
+access cannot retract data already received by a client.
+
+Responses mark feedback as `contentTrust: "untrusted"`; server instructions also identify text,
+anchors, names and images as untrusted content. Clients must treat them as data and keep changes
+user-initiated. The connector cannot edit code, run commands or deploy. A supported workflow is:
+ask the client to read selected feedback, approve a code fix in the coding tool, then explicitly
+approve its reply and status update. Tool annotations identify reads and mutations, but annotations
+are hints, not an approval system. Reading does not acknowledge inbox unread activity.
+
+List tools accept `limit` (1–25, default 20) and numeric `cursor` (default 0), returning `nextCursor`
+or `null`. Cursors are offsets in current results, so concurrent additions can shift a page. Search
+is bounded to the latest 1000 threads; use known ids to read older feedback. Requests are limited
+to 16 KiB and 120 per user per minute. Thread/image sizes retain existing review validation limits.
+No server sessions or long-running streams are retained; GET/DELETE return 405 after authentication.
+
+Every mutation requires an `idempotencyKey` (16–128 letters, numbers, `_` or `-`). Generate one per
+intended action and reuse the same key and exact input after a timeout. Atomic 30-day receipts
+prevent duplicate replies and prevent old status/assignment retries from overwriting subsequent
+changes. Reusing a key with different input returns a conflict. Do not retry an old intention with
+a new key automatically; confirm it with the user again. Tool errors include stable error codes;
+rate limits include retry guidance. Credential errors return HTTP 401, invalid origins HTTP 403.
+Replies retain the human author and credential attribution; status/assignment outbox events retain
+the same attribution and use existing unread and notification rules. No notification bypass is added.
+
+`e2e/mcp.api.spec.ts` uses the official SDK client for the read/fix/reply/status path and adversarial
+isolation, image, expiry, revocation, membership and retry checks. `e2e/mcp.spec.ts` connects that
+client to a credential created in the real Account UI, verifies light/dark accessibility and revokes
+access on the existing connection. This feature does not close the separate MVP launch audit #90.

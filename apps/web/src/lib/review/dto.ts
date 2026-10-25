@@ -31,9 +31,9 @@ export async function authorNames(comments: DbComment[]) {
 }
 
 /** An item's author name: the member's name, the guest's name, or "Guest" */
-export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName'>, names: Map<string, string>) {
+export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName' | 'agent'>, names: Map<string, string>) {
     if (item.authorId?.startsWith(memberPrefix))
-        return names.get(item.authorId.slice(memberPrefix.length)) ?? 'Former member';
+        return `${names.get(item.authorId.slice(memberPrefix.length)) ?? 'Former member'}${item.agent ? ` via ${item.agent.name}` : ''}`;
     return item.authorName || 'Guest';
 }
 

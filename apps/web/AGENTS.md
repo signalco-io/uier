@@ -223,3 +223,22 @@ authorized feedback. `src/lib/review/feedbackContext.ts` is the common project s
 redaction, canonical page state and protected screenshot references intact. The complete packet
 contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
 work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
+
+## Authenticated MCP connector
+
+`/api/mcp` is stateless Streamable HTTP using the official MCP SDK. `src/lib/mcp/` owns scoped
+credentials and tools. Account settings creates 30-day named credentials, read-only by default,
+with explicit project selection; raw secrets are shown once and only hashes are stored. Never
+accept cookies, review tokens, project codes or guest ids as MCP authentication. Recheck current
+membership, scopes and private visibility for each request and screenshot resource read.
+
+Tools reuse review services. Replies and status/assignment events retain the human author plus
+credential attribution. All mutations require a stable idempotency key and share atomic submission
+receipts; do not implement retry deduplication in process memory. Reads never acknowledge unread
+activity. Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
+to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
+contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
+produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
+its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
+and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
+light/dark accessibility. This connector does not prove #90 launch acceptance.

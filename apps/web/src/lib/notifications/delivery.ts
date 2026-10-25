@@ -21,7 +21,7 @@ export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
-export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[] };
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource };
 
 export type NotificationDelivery = AppDoc & {
     type: 'notification-delivery'; projectId: string; threadId: string; actorId: string; userId?: string;
