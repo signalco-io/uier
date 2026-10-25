@@ -323,6 +323,12 @@ cold starts: it preserves replies, status and numbers. Production feedback previ
 Previews use only their configured preview containers. Local subdomains keep independent, unseeded
 partitions for testing.
 
+Every uier account automatically joins this workspace as a commenter of the feedback project.
+Existing accounts are enrolled by a one-time, resumable provisioning backfill; sign-in and app
+requests also ensure membership. Existing team admins keep their roles. This grants project access
+directly, with no invitation email or acceptance step, and keeps each person's current workspace
+and new-user onboarding as the default. Switch to the **uier** workspace to view the project.
+
 The hero's `data-uier-thread="comment_uier_headline"` slot renders a live thread in an open shadow
 root, sharing the toolbar's components, queries and anonymous visitor cookie. Both hero pins and the
 text highlight come from stored comments. The inbox includes other public pages. Explicit review
@@ -333,6 +339,10 @@ The app's **Give feedback** button (sidebar, above the account) opens the same t
 people's private projects, so on the public project every comment on an `/app` page is **private**: only its
 author and the uier team (the public project's admins, in the app) see it, in both comments APIs, whichever
 toolbar left it. Comments the team makes private there are hidden from other visitors as well.
+On uier's own pages the signed-in app session takes precedence over a guest cookie or visitor header:
+the toolbar profile, comments, replies, drafts and read state use the account identity and current
+display name. Signed-out visitors retain their guest identity; earlier guest feedback is not claimed
+by signing in. Account sign-out remains in the app's account menu.
 
 ### `/toolbar.js`
 

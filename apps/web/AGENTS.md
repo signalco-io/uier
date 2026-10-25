@@ -197,6 +197,14 @@ script's `data-uier-project` decides the project, and `?review=true` there revie
 (`e2e/project-review.spec.ts`). The marketing layout embeds the toolbar with its React component
 (`@uier/toolbar/react`, see `ToolbarScript`).
 
+Every account joins `w_uier_public` as a commenter scoped to the feedback project. Provisioning
+backfills existing accounts with a durable receipt; account creation/sign-in and app context ensure
+membership afterwards without email invitations. Preserve existing admins and the user's selected
+workspace; this membership must not suppress their own workspace/onboarding. On the public project's
+same-origin comments API, `uier_session` takes precedence over guest identity. Store `user:<id>` just
+as the review API does, resolve current account names for DTOs, and keep private app feedback
+author-only in the public API. Guest comments are not automatically reassigned on sign-in.
+
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
 expose identity metadata only to members. App and toolbar must share these checks.

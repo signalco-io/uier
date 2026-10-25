@@ -45,7 +45,8 @@ export type CommentDto = {
 /** `GET /api/visitor` */
 export type VisitorDto = {
     draftScope?: string;
-    /** The visitor's guest name (`Guest XXXX`), `null` before their first comment or reply */
+    member?: boolean;
+    /** Current account name, or the guest name (`Guest XXXX`); `null` before a guest's first write */
     name: string | null;
 };
 
@@ -115,15 +116,18 @@ function toAuthorDto(authorId: string | undefined, visitorAuthorId: string | und
     };
 }
 
-function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined): CommentThreadItemDto {
+function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined, names: Map<string, string>): CommentThreadItemDto {
     if (typeof item.deletedAt === 'string')
         return { id: String(item.id), deleted: true, createdAt: optionalString(item.createdAt) };
 
+    const authorId = optionalString(item.authorId);
     return {
         id: String(item.id),
         text: optionalString(item.text) ?? '',
         quotedText: optionalString(item.quotedText),
-        author: { ...toAuthorDto(optionalString(item.authorId), visitorAuthorId), ...(item.authorName ? { name: item.authorName } : {}) },
+        author: { ...toAuthorDto(authorId, visitorAuthorId), ...(authorId?.startsWith('user:')
+            ? { name: names.get(authorId.slice('user:'.length)) ?? 'Former member' }
+            : item.authorName ? { name: item.authorName } : {}) },
         createdAt: optionalString(item.createdAt),
         editedAt: optionalString(item.editedAt)
     };
@@ -134,7 +138,7 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
  * other than the coarse size and the viewport size. Returns `null` for (old) documents that can't
  * be represented.
  */
-export function toCommentDto(comment: DbComment, visitorAuthorId: string | undefined): CommentDto | null {
+export function toCommentDto(comment: DbComment, visitorAuthorId: string | undefined, names = new Map<string, string>()): CommentDto | null {
     const position = toPositionDto(comment.position);
     if (!position)
         return null;
@@ -154,7 +158,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         thread: {
             items: items
                 .filter(item => typeof item === 'object' && item !== null && item.id != null)
-                .map(item => toThreadItemDto(item, visitorAuthorId))
+                .map(item => toThreadItemDto(item, visitorAuthorId, names))
         },
         device: toDeviceDto(comment.device),
         resolved: comment.resolved === true,

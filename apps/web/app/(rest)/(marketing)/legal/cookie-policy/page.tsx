@@ -38,7 +38,7 @@ const items = [
         name: 'uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
-        purpose: 'Keeps you signed in. Holds a signed token with your account id; signing out removes it.',
+        purpose: 'Keeps you signed in and identifies your feedback on uier.io by your account name, taking precedence over a guest identity. Holds a signed token with your account id; signing out in the app removes it.',
         duration: '30 days'
     },
     {

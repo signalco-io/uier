@@ -14,6 +14,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { floatingShadowClassName } from './@types/Comments';
+import { toolbarConfig } from '../config';
 
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -36,6 +37,9 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
     const [confirmingSignOut, setConfirmingSignOut] = useState(false);
     const confirmRef = useRef<HTMLButtonElement>(null);
     const name = visitor.data?.name;
+    // Account sessions on uier's own pages are managed by the app's account menu. Clearing a
+    // guest cookie here would leave that account signed in while claiming to have signed it out.
+    const canSignOut = Boolean(name && (!visitor.data?.member || toolbarConfig.project));
 
     const handleOpenChange = (next: boolean) => {
         setOpen(next);
@@ -142,7 +146,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                             {mode === 'feedback' ? 'Close toolbar' : 'Exit review'}
                         </Button>
                     )}
-                    {name && (
+                    {canSignOut && (
                         <Button
                             variant="plain"
                             size="sm"

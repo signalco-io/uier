@@ -291,6 +291,7 @@ export function useCommentsRefresh(expanded: boolean) {
             refreshing = true;
             try {
                 if (toolbarConfig.project) await client.invalidateQueries({ queryKey: projectViewerQueryKey });
+                else await client.invalidateQueries({ queryKey: visitorQueryKey }, { cancelRefetch: false });
                 await Promise.all([
                     client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active' }, { cancelRefetch: false }),
                     client.invalidateQueries({ queryKey: activityQueryKey }, { cancelRefetch: false })
