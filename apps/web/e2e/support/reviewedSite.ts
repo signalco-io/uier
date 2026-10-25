@@ -58,6 +58,17 @@ export async function startReviewedSite(apiBaseUrl: string) {
 
     const server = createServer((request, response) => {
         const url = new URL(request.url ?? '/', 'http://reviewed.localhost');
+        if (url.pathname === '/host-probe.js') {
+            response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+            response.end(`const probe = document.querySelector('#host-probe');
+                probe.addEventListener('click', (event) => {
+                    probe.dataset.clicks = String(Number(probe.dataset.clicks || 0) + 1);
+                    requestAnimationFrame(() => {
+                        performance.measure('host-click-to-frame', { start: event.timeStamp, end: performance.now() });
+                    });
+                });`);
+            return;
+        }
         if (url.pathname === '/react-app.js') {
             buildReactApp().then((script) => {
                 response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
@@ -95,11 +106,16 @@ export async function startReviewedSite(apiBaseUrl: string) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
     ${layout ? `<style>${layout}</style>` : ''}
+    ${url.searchParams.has('host-probe') ? `<style>
+        body { color: rgb(30, 40, 50); font-family: monospace; text-transform: uppercase; letter-spacing: 3px; }
+        button { background: rgb(220, 230, 240) !important; color: rgb(30, 40, 50) !important; border-radius: 0 !important; }
+    </style>` : ''}
 </head>
 <body>
     <main>
         <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
         <p>A page on a site under review. Every plan includes the toolbar.</p>
+        ${url.searchParams.has('host-probe') ? '<button id="host-probe" type="button">Host interaction</button><input aria-label="Host input"><script src="/host-probe.js" defer></script>' : ''}
         ${layout ? Array.from({ length: 40 }, (_, i) => `<p id="row-${i + 1}">Row ${i + 1}: every plan includes the toolbar, and this row is here to make the page long.</p>`).join('') : ''}
         ${layout ? '<img loading="lazy" src="/lazy-image.png" width="40" height="40" alt="">' : ''}
     </main>
@@ -114,6 +130,8 @@ export async function startReviewedSite(apiBaseUrl: string) {
     return {
         /** `http://<label>.localhost:<port>` */
         origin: (label = 'reviewed') => `http://${label}.localhost:${port}`,
+        /** A separate server/port without wildcard DNS, for Firefox and WebKit engine checks. */
+        loopbackOrigin: `http://127.0.0.1:${port}`,
         close: () => new Promise<void>(resolve => server.close(() => resolve()))
     };
 }

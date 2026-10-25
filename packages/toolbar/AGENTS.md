@@ -85,6 +85,8 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 - Capture starts automatically for new feedback. Image selection and redaction happen after saving,
   outside draft/idempotency storage. Saved thumbnails expand by click, tap or keyboard; failed image
   replacement retains feedback and reports the error. Keep the API's revision check on replacements.
+- Coarse pointers get a 44 px minimum button hit area from `styles/toolbar-theme.css`, including
+  compact UI-kit movement and thread controls. Preserve this when changing toolbar/panel layouts.
 
 ## Working on it
 

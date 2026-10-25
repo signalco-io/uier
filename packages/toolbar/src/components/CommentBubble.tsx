@@ -31,8 +31,9 @@ const popoverCollisionPadding = { top: 8, left: 8, right: 8, bottom: 80 };
 /** Keeps the bubble inside the window horizontally, e.g. for text that ends at the right edge on mobile */
 function bubbleLeft(rect: DOMRect | undefined) {
     const left = (rect?.right ?? 0) + 16;
-    const min = bubbleHalfSize + bubbleWindowMargin;
-    const max = document.documentElement.clientWidth - bubbleHalfSize - bubbleWindowMargin;
+    const halfHitArea = window.matchMedia('(pointer: coarse)').matches ? 22 : bubbleHalfSize;
+    const min = halfHitArea + bubbleWindowMargin;
+    const max = document.documentElement.clientWidth - halfHitArea - bubbleWindowMargin;
     return max > min ? Math.min(Math.max(left, min), max) : left;
 }
 
@@ -175,7 +176,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}${textMissing ? '. The commented text is no longer on the page' : ''}`}
                         onFocus={handleFocus}
                         className={cx(
-                            'fixed z-[48] hover:z-[49] cursor-pointer rounded-full',
+                            'fixed z-[48] hover:z-[49] cursor-pointer rounded-full pointer-coarse:p-1.5',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className
                         )}

@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { animationsFinished, showcaseHint, toolbar } from './support/toolbar';
 
 export async function expectNoAxeViolations(page: Page) {
     const accessibilityScanResults = await new AxeBuilder({ page })
@@ -11,6 +12,10 @@ export async function expectNoAxeViolations(page: Page) {
 
 export async function assertAccessibility(page: Page, url: string) {
     await page.goto(url);
-    await page.waitForTimeout(1000);
+    // These public pages mount the showcase asynchronously. Scan the final hint colours,
+    // rather than racing its entrance animation after an arbitrary one-second delay.
+    await expect(toolbar(page)).toBeVisible();
+    const hint = showcaseHint(page);
+    if (await hint.count()) await animationsFinished(hint);
     await expectNoAxeViolations(page);
 }

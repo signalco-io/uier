@@ -161,6 +161,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   on `PORT + 1000`, never to the real API.
 - Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
+- `e2e/launch.spec.ts` combines installation, owner/guest discussion, routes, capture, recovery and
+  keyboard movement. `PLAYWRIGHT_CROSS_BROWSER=1` adds focused Firefox/WebKit launch projects;
+  install those engines first. `launch-performance.spec.ts` attaches the 100-thread measurements.
+  Keep `docs/mvp-launch-verification.md` honest about pending dependency, hosted and physical-device
+  evidence; passing local fixtures alone must not close the launch gate.
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
   points it at a real Cosmos DB. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
   from Pulumi: production an account key, previews Entra ID with the Vercel OIDC token
