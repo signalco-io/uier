@@ -1,5 +1,5 @@
 import { useProjectViewer } from '../../project/ProjectGate';
-import { ReactNode, useContext, useEffect, useId, useState } from 'react';
+import { ReactNode, useContext, useDeferredValue, useEffect, useId, useState } from 'react';
 import { UseQueryResult } from '@tanstack/react-query';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -18,6 +18,12 @@ import { CommentsFilter, matchesFilter } from './CommentsFilter';
 
 /** How long the search waits after the last keystroke before it announces the count */
 const countAnnouncementDelayMs = 500;
+
+/**
+ * Threads a group renders with the inbox; the rest follow in a background render React splits into
+ * short slices, so a long inbox opens without one long task (e2e/launch-performance.spec.ts)
+ */
+const firstThreads = 20;
 
 function emptyText(filter: CommentsFilter) {
     if (filter.keywords?.trim()) {
@@ -50,6 +56,7 @@ type CommentsGroupProps = {
 function CommentsGroup({ title, query, comments, filter, renderPlace, note }: CommentsGroupProps) {
     const headingId = useId();
     const { error, isPending, refetch } = query;
+    const shownCount = useDeferredValue(comments?.length ?? 0, Math.min(comments?.length ?? 0, firstThreads));
 
     let content: ReactNode;
     if (isPending) {
@@ -66,7 +73,7 @@ function CommentsGroup({ title, query, comments, filter, renderPlace, note }: Co
     } else {
         content = (
             <Stack spacing={1}>
-                {comments.map((comment) => (
+                {comments.slice(0, shownCount).map((comment) => (
                     <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
                         <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="rounded-xl border bg-card">
                             {renderPlace(comment)}
