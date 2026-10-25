@@ -1,6 +1,6 @@
 import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
+import { storedPagePath } from '@uier/toolbar/page-state';
 import { displayName } from './visitor';
-import { normalizePath } from './validation';
 import { MAX_LIST_RESPONSE_BYTES } from './limits';
 
 export type CommentAuthorDto = {
@@ -52,6 +52,11 @@ const commentKinds: readonly DbCommentKind[] = ['comment', 'feedback', 'bug', 'r
 
 function optionalString(value: unknown) {
     return typeof value === 'string' ? value : undefined;
+}
+
+/** The stored view contract remains stable; old comments retain pathname-only links. */
+export function commentPath(comment: Pick<DbComment, 'path' | 'pageStateVersion'>) {
+    return storedPagePath(optionalString(comment.path) ?? '/', comment.pageStateVersion);
 }
 
 /** Copies only the known position fields (old documents may contain anything) */
@@ -137,7 +142,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
 
     return {
         id: comment.id,
-        path: normalizePath(optionalString(comment.path) ?? '/'),
+        path: commentPath(comment),
         position,
         number: typeof comment.number === 'number' && Number.isInteger(comment.number) ? comment.number : undefined,
         screenshot: comment.screenshot && Number.isInteger(comment.screenshot.width) && Number.isInteger(comment.screenshot.height)

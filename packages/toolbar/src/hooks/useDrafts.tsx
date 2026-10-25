@@ -1,4 +1,5 @@
-import { createContext, PropsWithChildren, useContext, useRef } from 'react';
+import { createContext, PropsWithChildren, useContext, useMemo, useRef } from 'react';
+import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 
 /** Key of the text of a comment that is not saved yet; replies use the comment's id */
 export const newCommentDraftKey = 'new';
@@ -9,7 +10,7 @@ export const newRewriteDraftKey = 'new-rewrite';
 /** Key of the text of feedback or a bug report that is not sent yet */
 export const feedbackDraftKey = 'feedback';
 
-type Drafts = Map<string, string>;
+type Drafts = { get: (key: string) => string | undefined; set: (key: string, value: string) => void; delete: (key: string) => void };
 
 const DraftsContext = createContext<Drafts>(new Map());
 
@@ -18,9 +19,18 @@ const DraftsContext = createContext<Drafts>(new Map());
  * popover closes (outside click, Escape) and comes back when it opens again.
  */
 export function DraftsProvider({ children }: PropsWithChildren) {
-    const drafts = useRef<Drafts>(new Map());
+    const { path } = useContext(CommentsBootstrapperContext);
+    const values = useRef(new Map<string, string>());
+    const drafts = useMemo<Drafts>(() => {
+        const scoped = (key: string) => JSON.stringify([path, key]);
+        return {
+            get: key => values.current.get(scoped(key)),
+            set: (key, value) => { values.current.set(scoped(key), value); },
+            delete: key => { values.current.delete(scoped(key)); }
+        };
+    }, [path]);
     return (
-        <DraftsContext.Provider value={drafts.current}>
+        <DraftsContext.Provider value={drafts}>
             {children}
         </DraftsContext.Provider>
     );

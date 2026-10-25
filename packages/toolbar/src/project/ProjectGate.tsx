@@ -1,4 +1,4 @@
-import { createContext, type PropsWithChildren, useContext } from 'react';
+import { createContext, type PropsWithChildren, useContext, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -8,10 +8,12 @@ import { toolbarConfig } from '../config';
 import { apiRequest, projectViewerQueryKey, required } from '../hooks/api';
 import { InkScope } from '../components/InkScope';
 import { consumeReviewCode, getReviewToken, setReviewToken } from './projectSession';
+import { checkInstallationReady } from './installationCheck';
+import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
-    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled' };
+    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; pageState?: PageStatePolicy };
     viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
@@ -36,6 +38,7 @@ async function loadReviewInfo() {
                 setReviewToken(session.token);
             }
         } catch (error) {
+            void checkInstallationReady(undefined, error);
             console.warn('uier-toolbar: The review link has expired', error);
         }
     }
@@ -48,11 +51,12 @@ async function loadReviewInfo() {
 }
 
 export type ProjectViewer = {
+    pageState: PageStatePolicy;
     /** Guests tag their comments with a name; members comment under their account name */
     needsName: boolean;
 };
 
-export const ProjectViewerContext = createContext<ProjectViewer>({ needsName: false });
+export const ProjectViewerContext = createContext<ProjectViewer>({ needsName: false, pageState: defaultPageStatePolicy });
 
 export function useProjectViewer() {
     return useContext(ProjectViewerContext);
@@ -121,6 +125,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
         staleTime: Infinity,
         retry: 1
     });
+    useEffect(() => { void checkInstallationReady(info, error); }, [info, error]);
 
     if (isPending) {
         return null;
@@ -145,7 +150,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     return (
-        <ProjectViewerContext.Provider value={{ needsName: info.viewer.kind !== 'member' }}>
+        <ProjectViewerContext.Provider value={{ needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
             {children}
         </ProjectViewerContext.Provider>
     );

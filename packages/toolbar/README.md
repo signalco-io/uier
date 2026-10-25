@@ -128,7 +128,11 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
 `src/hooks/useComments.tsx` calls `<apiUrl>/api/comments` with `credentials: 'include'`; the API identifies
 anonymous visitors with its HttpOnly `uier_visitor` cookie. Comments are public: every visitor sees the
 unresolved comments of the page (`?path=` is `location.pathname` without a trailing slash) and can reply;
-in a review the inbox also lists the site's other pages (`?scope=site`).
+in a review the inbox also lists the site's other pages (`?scope=site`). Project settings can opt in to meaningful
+query fields and `#/...` / `#!/...` routes. The shared `src/pageState.ts` contract filters reserved/credential and
+tracking fields, bounds values and produces the same canonical page key in the browser and API. Older records keep
+pathname identity; v1 view records never use the legacy query-prefix fallback. Routing settings do not rewrite old
+feedback. Direct links to an earlier view setting restore the URL and show its saved details in the inbox.
 Only the author of a comment can resolve, reopen, edit or delete it, and only the author of a reply can edit or delete
 that reply (the API returns `isMine` / `author.isMe`; project members also receive explicit edit/delete permissions,
 including workspace admin rights). Editing uses `PATCH .../replies/<itemId>` with the text and its original
@@ -200,10 +204,11 @@ error boundary, so one bad comment never breaks the toolbar.
 - Every comment saves the device size, viewport and supported browser/OS hints when feedback starts (`getDeviceInfo`).
   Public and guest threads show only size and viewport ("Desktop · 1280×720"). Authorized project members also get
   expandable/copyable reproduction details: browser/version, OS, pixel ratio, original capture time and a safe page
-  link. Unsupported/older fields stay Unknown or Unavailable. Links use only pathname until #87; query strings,
-  hashes and review tokens are excluded. Resizing, replying and editing do not replace the original context.
+  link. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
+  tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
+  In-memory text is scoped to the canonical page key so SPA views do not share drafts. Reload recovery is tracked in #86.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
 - A thread starts with its status (**Open** or **Done**) and public id (`#12`, numbered per site), **Mark as

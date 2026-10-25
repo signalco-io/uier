@@ -144,6 +144,7 @@ export async function getProjectComment(project: DbProject, actor: ProjectActor,
 }
 
 export type NewProjectComment = CreateCommentInput & {
+    pageStateVersion?: 1;
     /** Origin of the site it was left on (one of the project's addresses) */
     origin: string;
     /** Guests: the name they gave */
@@ -169,6 +170,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         ...(project.id === PUBLIC_PROJECT_ID ? { ttl: commentTtlSeconds() } : {}),
         origin: input.origin,
         path: input.path,
+        ...(input.pageStateVersion === 1 ? { pageStateVersion: 1 as const } : {}),
         position: input.position,
         number: await store.nextCommentNumber(partition),
         kind: input.kind,

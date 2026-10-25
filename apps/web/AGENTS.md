@@ -135,7 +135,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   permission checks and etag retries preserve concurrent replies. `editedAt` is shown in the toolbar and app.
 - Reproduction context is allowlisted by `src/lib/comments/reproduction.ts`: only authorized project members
   get it in the review DTO or app cards. Public/guest `device` DTOs stay limited to size and viewport. Capture time
-  and viewport belong to the original feedback start; page links validate the project's origin and discard query/hash.
+  and viewport belong to the original feedback start; page links validate the project's origin and retain only stored approved page state.
+- `@uier/toolbar/page-state` is the shared pure URL contract. Projects opt in through `ProjectPageStateForm`; the
+  review API filters submitted paths using that policy and marks new records `pageStateVersion: 1`. Store queries
+  match v1 keys exactly; the legacy query-string prefix fallback must never merge v1 views into a base page.
+- `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
+  Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
+  is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
 - Links the app sends or redirects to come from `appBaseUrl()`, never from the Host header.
 - Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
   helpers in `e2e/support/app.ts` sign in that way.

@@ -4,7 +4,8 @@ import { useActionState, useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Checkbox } from '@/src/components/ui/checkbox';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -16,6 +17,8 @@ import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { setProjectStatusAction, updateProjectAccessAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
+import { updateProjectPageStateAction } from './actions';
+import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 
 /** The footer of a settings card: the outcome on the left, the submit button (of the form `formId`) on the right */
 function SaveFooter({ formId, state, pending }: { formId: string; state: Parameters<typeof FormMessage>[0]['state']; pending: boolean }) {
@@ -127,4 +130,31 @@ export function ProjectStatusButton({ projectId, status }: { projectId: string; 
             {status === 'done' ? 'Reopen project' : 'Mark as done'}
         </Button>
     );
+}
+
+export function ProjectPageStateForm({ projectId, policy }: { projectId: string; policy?: PageStatePolicy }) {
+    const initial = pageStatePolicy(policy);
+    const formId = useId();
+    const [query, setQuery] = useState(initial.queryParameters.join(', '));
+    const [hash, setHash] = useState(initial.hashRouting);
+    const [state, action, pending] = useActionState(updateProjectPageStateAction, null);
+    return <Section id="page-state" title="Page state" description="Keep comments with the view being reviewed. By default, only the page path matters."
+        footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+        <form id={formId} action={action} onResetCapture={event => { event.preventDefault(); event.stopPropagation(); }}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="hashRouting" value={String(hash)} />
+            <FieldGroup>
+                <Field>
+                    <FieldLabel htmlFor={`${formId}-query`}>Meaningful query fields</FieldLabel>
+                    <Input id={`${formId}-query`} name="queryParameters" value={query} onChange={event => setQuery(event.target.value)} placeholder="category, sort, tab" />
+                    <FieldDescription>Up to 12 names, separated by commas. Tracking, identity and credential fields are excluded. Use short route values; emails, URLs and token-like values are not saved.</FieldDescription>
+                </Field>
+                <Field orientation="horizontal">
+                    <Checkbox id={`${formId}-hash`} checked={hash} onCheckedChange={value => setHash(value === true)} />
+                    <FieldLabel htmlFor={`${formId}-hash`}>Use hash routes (#/page or #!/page)</FieldLabel>
+                </Field>
+                <p className="m-0 text-sm text-muted-foreground">Existing comments keep their original view. Older path-only comments remain on that base page and in the site inbox.</p>
+            </FieldGroup>
+        </form>
+    </Section>;
 }

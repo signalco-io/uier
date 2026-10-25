@@ -78,8 +78,9 @@ export type DbComment = {
     private?: boolean;
     /** Project comments: the user id of the member it is assigned to */
     assigneeId?: string;
-    /** Page path without query string and without a trailing slash (except "/") */
+    /** Canonical page key; v1 may include approved query/hash state. Older comments use pathname. */
     path: string;
+    pageStateVersion?: 1;
     position: DbCommentPosition;
     /** Public id, numbered per domain (`#12`); missing on old documents */
     number?: number;

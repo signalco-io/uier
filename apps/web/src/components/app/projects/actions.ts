@@ -12,6 +12,7 @@ import {
     getProject,
     projectAccessModes,
     projectNameSchema,
+    projectPageStateSchema,
     projectUrlsSchema,
     updateProject,
     type ProjectUpdate
@@ -78,4 +79,14 @@ export async function setProjectStatusAction(projectId: string, status: ProjectS
     return await actionResult(async () => {
         await saveProject(projectId, { status: status === 'done' ? 'done' : 'active' });
     });
+}
+
+export async function updateProjectPageStateAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        const pageState = projectPageStateSchema.parse({
+            queryParameters: String(formData.get('queryParameters') ?? '').split(/[,\s]+/).filter(Boolean),
+            hashRouting: formData.get('hashRouting') === 'true'
+        });
+        await saveProject(formData.get('projectId'), { pageState });
+    }, 'Saved. New reviews use these page fields on the next page load.');
 }

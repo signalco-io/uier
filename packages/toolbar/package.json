@@ -15,7 +15,11 @@
             "types": "./src/react.ts",
             "default": "./dist/react.js"
         },
-        "./index.css": "./dist/index.css"
+        "./index.css": "./dist/index.css",
+        "./page-state": {
+            "types": "./src/pageState.ts",
+            "default": "./dist/pageState.js"
+        }
     },
     "scripts": {
         "dev:build": "tsup --watch ./src --env.NODE_ENV development",

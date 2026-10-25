@@ -4,6 +4,9 @@ import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
 import { endReviewSession, resolveReviewSession, ReviewSession } from './review';
+import { startInstallationCheck } from './project/installationCheck';
+
+startInstallationCheck();
 
 const containerId = 'uier-toolbar';
 

@@ -66,15 +66,15 @@ function clone<T>(value: T): T {
     return structuredClone(value);
 }
 
-function pathMatches(docPath: string, path: string) {
-    return docPath === path || docPath.startsWith(`${path}?`);
+function pathMatches(comment: DbComment, path: string) {
+    return comment.path === path || (comment.pageStateVersion !== 1 && !/[?#]/.test(path) && comment.path.startsWith(`${path}?`));
 }
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
         async list(domain, path, limit) {
             return domainComments(domain)
-                .filter(comment => pathMatches(comment.path, path))
+                .filter(comment => pathMatches(comment, path))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);

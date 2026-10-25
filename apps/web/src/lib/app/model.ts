@@ -1,3 +1,5 @@
+import type { PageStatePolicy } from '@uier/toolbar/page-state';
+
 // Documents of the `app` container (partition key `/pk`). Ids and partition keys are set by the
 // server only. Related documents share a partition: a workspace with its members and projects.
 
@@ -90,6 +92,8 @@ export type DbProject = AppDoc & {
     name: string;
     /** Site URLs (origin and optional path); the first one is the main site */
     urls: string[];
+    /** Opt-in meaningful URL state. Missing on older projects: pathname only. */
+    pageState?: PageStatePolicy;
     status: ProjectStatus;
     access: ProjectAccess;
     createdBy: string;

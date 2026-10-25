@@ -1,5 +1,6 @@
 import { customAlphabet } from 'nanoid';
 import { z } from 'zod';
+import { isMeaningfulQueryKey, pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { memberCanAccessProject } from './workspaces';
@@ -18,6 +19,11 @@ export function isProjectId(value: unknown): value is string {
 }
 
 export const projectAccessModes: readonly ProjectAccess[] = ['invited', 'guests', 'disabled'];
+
+export const projectPageStateSchema = z.object({
+    queryParameters: z.array(z.string().refine(isMeaningfulQueryKey, 'Choose route fields, not tracking, identity or credential parameters.')).max(12),
+    hashRouting: z.boolean()
+}).transform(pageStatePolicy);
 
 /**
  * A site URL as typed by a person: `example.com`, `https://staging.example.com/app/`. Returns the
@@ -148,6 +154,7 @@ export async function createProject(context: AppContext, { name, urls }: { name:
 }
 
 export type ProjectUpdate = Partial<{
+    pageState: PageStatePolicy;
     name: string;
     urls: string[];
     status: ProjectStatus;

@@ -19,7 +19,7 @@ export type AppendResult = 'ok' | 'full' | 'not_found';
  * so every query is a single-partition query.
  */
 export type CommentsStore = {
-    /** Comments for the page, newest first. Also matches old documents whose path still contains a query string. */
+    /** Canonical view, newest first. Only legacy records use a base-path query-string fallback. */
     list(domain: string, path: string, limit: number): Promise<DbComment[]>;
     /** Every comment of the partition (all pages), newest first */
     listAll(domain: string, limit: number): Promise<DbComment[]>;
