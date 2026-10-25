@@ -53,6 +53,16 @@
         --brand-selection: 227 100% 59% / 0.2; /* tint for a commented text range */
         --brand-success: 142 72% 29%;        /* #15803D resolved */
         --brand-warning: 26 90% 37%;         /* #B45309 */
+
+        /* The app's sidebar (shadcn/ui): one step off the page, ink text, ink 200 for hover and the current item */
+        --sidebar: 0 0% 96%;                 /* #F5F5F5 ink 100 */
+        --sidebar-foreground: 0 0% 4%;
+        --sidebar-primary: 0 0% 4%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 0 0% 90%;          /* #E5E5E5 ink 200 */
+        --sidebar-accent-foreground: 0 0% 4%;
+        --sidebar-border: 0 0% 90%;
+        --sidebar-ring: 227 100% 59%;
     }
 
     .dark, :host(.dark) {
@@ -96,5 +106,14 @@
         --brand-selection: 227 100% 59% / 0.25;
         --brand-success: 142 71% 45%;        /* #22C55E reads better on black */
         --brand-warning: 38 92% 50%;
+
+        --sidebar: 0 0% 4%;                  /* #0A0A0A surface, next to the black page */
+        --sidebar-foreground: 0 0% 93%;
+        --sidebar-primary: 0 0% 100%;
+        --sidebar-primary-foreground: 0 0% 4%;
+        --sidebar-accent: 0 0% 15%;          /* #262626 */
+        --sidebar-accent-foreground: 0 0% 93%;
+        --sidebar-border: 0 0% 15%;
+        --sidebar-ring: 227 100% 59%;
     }
 }

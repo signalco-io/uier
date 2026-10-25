@@ -1,3 +1,4 @@
+import { GlobeIcon, LockIcon, MessageSquareOffIcon, type LucideProps } from 'lucide-react';
 import type { ProjectAccess } from '../../../lib/app/model';
 
 /** Who can comment, as the app shows it */
@@ -15,6 +16,14 @@ export const projectAccessLabels: Record<ProjectAccess, { label: string; descrip
         description: 'Nobody can leave comments on the site. Existing comments stay here.'
     }
 };
+
+const accessIcons = { invited: LockIcon, guests: GlobeIcon, disabled: MessageSquareOffIcon } as const;
+
+/** The icon of a project's comment access (a lock, the globe, comments off) */
+export function AccessIcon({ access, ...props }: LucideProps & { access: ProjectAccess }) {
+    const Icon = accessIcons[access];
+    return <Icon {...props} />;
+}
 
 /** `https://www.example.com/app` -> `www.example.com/app` */
 export function displayUrl(url: string) {

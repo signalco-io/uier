@@ -1,23 +1,23 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Add } from '@signalco/ui-icons';
+import { FolderOpenIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
+import { Button } from '@/src/components/ui/button';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
+import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { PageHeader } from '@/src/components/app/PageHeader';
+import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectActionsMenu } from '@/src/components/app/projects/ProjectActionsMenu';
+import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
-import { displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
+import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
 export const metadata: Metadata = {
     title: 'Projects'
 };
-
-const filters = [
-    { status: 'active', label: 'Active' },
-    { status: 'done', label: 'Done' }
-] as const;
 
 export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
     const context = await requireAppContext();
@@ -29,6 +29,9 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
         done: projects.filter(project => project.status === 'done').length
     };
     const shown = projects.filter(project => (project.status === 'done' ? 'done' : 'active') === status);
+    // Open comments per project, as the person sees them (private comments only for admins and authors)
+    const openCounts = await Promise.all(shown.map(async project =>
+        (await loadProjectComments(context, project)).filter(comment => !comment.resolved).length));
 
     return (
         <>
@@ -36,65 +39,95 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                 title="Projects"
                 description="Each project is one site you review, with its addresses and its comments."
                 actions={context.isAdmin && (
-                    <Button href={KnownPages.AppNewProject} variant="solid" startDecorator={<Add className="size-4" />}>
-                        Create project
+                    <Button asChild>
+                        <Link href={KnownPages.AppNewProject}>
+                            <PlusIcon data-icon="inline-start" />
+                            Create project
+                        </Link>
                     </Button>
                 )}>
-                <nav aria-label="Project status" className="flex gap-1">
-                    {filters.map(filter => (
-                        <Button
-                            key={filter.status}
-                            href={filter.status === 'active' ? KnownPages.AppProjects : `${KnownPages.AppProjects}?status=${filter.status}`}
-                            variant={status === filter.status ? 'soft' : 'plain'}
-                            size="sm"
-                            aria-current={status === filter.status ? 'page' : undefined}>
-                            {filter.label}
-                            <span className="ml-1.5 tabular-nums text-muted-foreground">{counts[filter.status]}</span>
-                        </Button>
-                    ))}
-                </nav>
+                <LinkTabs
+                    label="Project status"
+                    variant="segmented"
+                    tabs={[
+                        { href: KnownPages.AppProjects, label: 'Active', count: counts.active, current: status === 'active' },
+                        { href: `${KnownPages.AppProjects}?status=done`, label: 'Done', count: counts.done, current: status === 'done' }
+                    ]} />
             </PageHeader>
             {shown.length ? (
-                <ul aria-label={`${status === 'done' ? 'Done' : 'Active'} projects`} className="m-0 flex list-none flex-col divide-y rounded-xl border p-0">
-                    {shown.map(project => (
-                        <li key={project.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                            <div className="flex min-w-0 flex-1 basis-60 flex-col">
-                                <Link href={KnownPageLinks.project(project.id)} className="truncate font-medium hover:underline">
-                                    {project.name}
-                                </Link>
-                                <span className="truncate font-mono text-[13px] text-muted-foreground">
-                                    {displayUrl(project.urls[0] ?? '')}
-                                    {project.urls.length > 1 && ` +${project.urls.length - 1}`}
-                                </span>
-                            </div>
-                            <span className="text-sm text-muted-foreground">{projectAccessLabels[project.access].label}</span>
-                            <div className="flex items-center gap-1">
-                                <ReviewLinksMenu projectId={project.id} urls={project.urls} size="sm" />
-                                {context.isAdmin && (
-                                    <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} />
-                                )}
-                            </div>
-                        </li>
-                    ))}
+                <ul aria-label={`${status === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+                    {shown.map((project, index) => {
+                        const open = openCounts[index] ?? 0;
+                        const access = projectAccessLabels[project.access];
+                        return (
+                            <li key={project.id} className="flex">
+                                <Card size="sm" className="relative flex-1 transition-colors hover:border-foreground/20">
+                                    <CardHeader className="flex items-center gap-3">
+                                        <ProjectMark name={project.name} className="size-9 rounded-lg text-sm" />
+                                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                            <CardTitle className="truncate">
+                                                {/* The whole card opens the project; the buttons sit above the link */}
+                                                <Link
+                                                    href={KnownPageLinks.project(project.id)}
+                                                    className="outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset">
+                                                    {project.name}
+                                                </Link>
+                                            </CardTitle>
+                                            <CardDescription className="truncate font-mono text-[13px]">
+                                                {displayUrl(project.urls[0] ?? '')}
+                                                {project.urls.length > 1 && ` +${project.urls.length - 1}`}
+                                            </CardDescription>
+                                        </div>
+                                        {context.isAdmin && (
+                                            <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="relative z-10 -mr-1.5" />
+                                        )}
+                                    </CardHeader>
+                                    <CardFooter className="mt-auto flex-wrap justify-between gap-2">
+                                        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                            <span className="inline-flex items-center gap-1.5 tabular-nums">
+                                                <MessageSquareIcon className="size-4" aria-hidden="true" />
+                                                {open} open
+                                            </span>
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <AccessIcon access={project.access} className="size-4" aria-hidden="true" />
+                                                {access.label}
+                                            </span>
+                                        </div>
+                                        <div className="relative z-10">
+                                            <ReviewLinksMenu projectId={project.id} urls={project.urls} size="sm" />
+                                        </div>
+                                    </CardFooter>
+                                </Card>
+                            </li>
+                        );
+                    })}
                 </ul>
             ) : (
-                <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed p-8">
-                    <p className="m-0 font-medium">
-                        {status === 'done' ? 'No done projects.' : 'No active projects.'}
-                    </p>
-                    <p className="m-0 text-sm text-muted-foreground">
-                        {status === 'done'
-                            ? 'Projects you mark as done move here. You can reopen them any time.'
-                            : context.isAdmin
-                                ? 'Create a project for the site you want to review, then add one script tag to it.'
-                                : 'Projects you are invited to show up here.'}
-                    </p>
+                <Empty className="border">
+                    <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                            <FolderOpenIcon />
+                        </EmptyMedia>
+                        <EmptyTitle>{status === 'done' ? 'No done projects' : 'No active projects'}</EmptyTitle>
+                        <EmptyDescription>
+                            {status === 'done'
+                                ? 'Projects you mark as done move here. You can reopen them any time.'
+                                : context.isAdmin
+                                    ? 'Create a project for the site you want to review, then add one script tag to it.'
+                                    : 'Projects you are invited to show up here.'}
+                        </EmptyDescription>
+                    </EmptyHeader>
                     {status === 'active' && context.isAdmin && (
-                        <Button href={KnownPages.AppNewProject} variant="solid" startDecorator={<Add className="size-4" />}>
-                            Create project
-                        </Button>
+                        <EmptyContent>
+                            <Button asChild>
+                                <Link href={KnownPages.AppNewProject}>
+                                    <PlusIcon data-icon="inline-start" />
+                                    Create project
+                                </Link>
+                            </Button>
+                        </EmptyContent>
                     )}
-                </div>
+                </Empty>
             )}
         </>
     );

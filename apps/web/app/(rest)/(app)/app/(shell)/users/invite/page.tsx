@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { Button } from '@signalco/ui-primitives/Button';
-import { KnownPages } from '@/src/knownPages';
+import { Card } from '@/src/components/ui/card';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { listProjects } from '@/src/lib/app/projects';
 import { PageHeader } from '@/src/components/app/PageHeader';
@@ -17,16 +16,17 @@ export default async function InvitePage({ searchParams }: PageProps<'/app/users
     const fromProject = projects.find(p => p.id === project);
 
     return (
-        <div className="max-w-xl">
+        <div className="mx-auto flex w-full max-w-xl flex-col">
             <PageHeader
                 title="Invite someone"
                 description={fromProject
                     ? `They get an email with a link that signs them in and opens ${fromProject.name} for review.`
-                    : 'They get an email with a link that signs them in.'}
-                actions={<Button href={KnownPages.AppUsers} variant="plain">Back to users</Button>} />
-            <InviteForm
-                projects={projects.filter(p => p.status !== 'done' || p.id === fromProject?.id).map(({ id, name }) => ({ id, name }))}
-                fromProjectId={fromProject?.id} />
+                    : 'They get an email with a link that signs them in.'} />
+            <Card>
+                <InviteForm
+                    projects={projects.filter(p => p.status !== 'done' || p.id === fromProject?.id).map(({ id, name }) => ({ id, name }))}
+                    fromProjectId={fromProject?.id} />
+            </Card>
         </div>
     );
 }

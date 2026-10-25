@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
-import { Button } from '@signalco/ui-primitives/Button';
+import Link from 'next/link';
+import { Button } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { getInvitation } from '@/src/lib/app/invitations';
 import { getProject } from '@/src/lib/app/projects';
 import { getUser } from '@/src/lib/app/users';
+import { AuthCard } from '@/src/components/app/AuthCard';
 import { AcceptInvitationForm } from './AcceptInvitationForm';
 
 export const metadata: Metadata = {
@@ -16,13 +18,13 @@ export default async function InvitationPage({ searchParams }: PageProps<'/app/i
 
     if (!pending || typeof token !== 'string') {
         return (
-            <div className="flex flex-col gap-4">
-                <h1 className="m-0 text-[28px] font-semibold leading-[34px] tracking-[-0.02em]">This invitation has expired</h1>
-                <p className="m-0 text-sm text-muted-foreground">
-                    Invitation links work once and expire after 7 days. Ask the person who invited you for a new one.
-                </p>
-                <Button href={KnownPages.AppSignIn} variant="outlined" size="lg" className="self-start">Sign in</Button>
-            </div>
+            <AuthCard
+                title="This invitation has expired"
+                description="Invitation links work once and expire after 7 days. Ask the person who invited you for a new one.">
+                <Button variant="outline" size="lg" className="w-full" asChild>
+                    <Link href={KnownPages.AppSignIn}>Sign in</Link>
+                </Button>
+            </AuthCard>
         );
     }
 
@@ -33,19 +35,17 @@ export default async function InvitationPage({ searchParams }: PageProps<'/app/i
     ]);
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-1.5">
-                <h1 className="m-0 text-[28px] font-semibold leading-[34px] tracking-[-0.02em]">
-                    {project ? `Review ${project.name}` : 'You are invited'}
-                </h1>
-                <p className="m-0 text-sm text-muted-foreground">
+        <AuthCard
+            title={project ? `Review ${project.name}` : 'You are invited'}
+            description={(
+                <>
                     {inviter ? <span className="font-medium text-foreground">{inviter.name}</span> : 'Someone'} invited you
                     {invitation.role === 'admin' ? ' as an admin' : ' to comment'}. Accepting signs you in
                     as <span className="font-medium text-foreground">{invitation.email}</span>
                     {project ? ' and opens the site with the toolbar.' : '.'}
-                </p>
-            </div>
+                </>
+            )}>
             <AcceptInvitationForm token={token} />
-        </div>
+        </AuthCard>
     );
 }

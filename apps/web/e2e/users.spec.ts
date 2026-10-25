@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { appNavigation, createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { commentBubble, newVisitor, toolbar } from './support/toolbar';
 
@@ -39,13 +39,10 @@ async function invite(page: Page, { email, role = 'Commenter', projects, from }:
 }) {
     await page.goto(`/app/users/invite${from ? `?project=${from}` : ''}`);
     await page.getByLabel('Email').fill(email);
-    if (role === 'Admin') {
-        await page.getByRole('combobox', { name: 'Role' }).click();
-        await page.getByRole('option', { name: 'Admin' }).click();
-    }
+    if (role === 'Admin')
+        await page.getByRole('radio', { name: /^Admin/ }).click();
     if (projects === 'all') {
-        await page.getByRole('combobox', { name: 'Projects' }).click();
-        await page.getByRole('option', { name: 'All projects, now and later' }).click();
+        await page.getByRole('radio', { name: 'All projects, now and later' }).click();
     } else {
         for (const name of projects ?? [])
             await page.getByRole('checkbox', { name }).click();
@@ -105,7 +102,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
 
     // In the app: only Alpha, no settings, no users, no new projects
     await commenter.page.goto('/app/projects');
-    await expect(commenter.page.getByRole('link', { name: 'Alpha' })).toBeVisible();
+    await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Alpha' })).toBeVisible();
     await expect(commenter.page.getByRole('link', { name: 'Beta' })).toHaveCount(0);
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
     await expect(commenter.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Users' })).toHaveCount(0);
@@ -141,8 +138,8 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenterRow).toBeVisible();
 
     // Delete: gone from the list, and the toolbar asks them to sign in again
-    await commenterRow.getByRole('button', { name: /^Delete / }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
+    await commenterRow.getByRole('button', { name: /^Remove / }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click();
     await expect(commenterRow).toHaveCount(0);
     await page.reload();
     await expect(people.getByRole('listitem')).toHaveCount(1);
@@ -164,11 +161,12 @@ test('an invited admin gets every project, the users and the settings', async ({
     await person.page.getByRole('button', { name: 'Accept invitation' }).click();
     // No project in the invitation: the projects
     await expect(person.page).toHaveURL(/\/app\/projects$/);
-    await expect(person.page.getByRole('link', { name: 'Alpha' })).toBeVisible();
-    await expect(person.page.getByRole('link', { name: 'Beta' })).toBeVisible();
-    await expect(person.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Users' })).toBeVisible();
+    const personProjects = person.page.getByRole('list', { name: 'Active projects' });
+    await expect(personProjects.getByRole('link', { name: 'Alpha' })).toBeVisible();
+    await expect(personProjects.getByRole('link', { name: 'Beta' })).toBeVisible();
+    await expect((await appNavigation(person.page)).getByRole('link', { name: 'Users' })).toBeVisible();
     await person.page.goto(`/app/projects/${beta}/settings`);
-    await expect(person.page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await expect(person.page.getByRole('region', { name: 'Who can comment' })).toBeVisible();
     expect((await person.page.request.get(`/app/review/${alpha}`, { maxRedirects: 0 })).status()).toBe(307);
 
     await page.goto('/app/users');
@@ -209,8 +207,7 @@ test('invitations validate, replace earlier ones and can be revoked', async ({ p
     // Members can't be invited again
     await page.goto('/app/users/invite');
     await page.getByLabel('Email').fill(adminEmail);
-    await page.getByRole('combobox', { name: 'Role' }).click();
-    await page.getByRole('option', { name: 'Admin' }).click();
+    await page.getByRole('radio', { name: /^Admin/ }).click();
     await page.getByRole('button', { name: 'Send invitation' }).click();
     await expect(page.locator('form').getByRole('alert')).toHaveText(`${adminEmail} is already in this workspace.`);
 });

@@ -3,9 +3,14 @@
 @import '../src/styles/signalco-theme.css';
 /* uier brand tokens override the theme above (colors, radius). Rules: packages/brand/BRAND.md */
 @import '@uier/brand/tokens.css';
+/* State variants of the shadcn/ui components in src/components/ui (the app) */
+@import '../src/styles/shadcn.css';
 
 /* JS preset from @signalco/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
 @config '../tailwind.config.js';
+
+/* next-themes puts `dark` on <html> next to the font classes, so match it as one class of several */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* The UI kit ships precompiled class names; node_modules is not scanned automatically */
 @source '../node_modules/@signalco/ui/dist';
@@ -18,6 +23,16 @@
 @theme inline {
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* The sidebar colours of shadcn/ui (tokens.css); the preset maps every other colour */
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
 }
 
 html, body, #__next {

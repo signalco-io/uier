@@ -1,18 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { appNavigation, closeAppNavigation, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 
-// The signed-in app (issue #34): sign-in, onboarding, projects, project settings and billing.
+// The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
 
 test('signed-out visitors are sent to sign in and come back afterwards', async ({ page }) => {
-    await page.goto('/app/billing');
-    await expect(page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Fbilling$/);
+    await page.goto('/app/account');
+    await expect(page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Faccount$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
     await expect(page).toHaveTitle('Sign in · uier');
     await expectNoAxeViolations(page);
 
     await signIn(page, uniqueEmail(), { from: page.url() });
-    await expect(page).toHaveURL(/\/app\/billing$/);
+    await expect(page).toHaveURL(/\/app\/account$/);
 });
 
 test('a sign-in link works once', async ({ page, browser }) => {
@@ -56,8 +56,10 @@ test('onboarding creates a project with its addresses and shows the install guid
 
     const projectId = await createProject(page, { urls: ['www.example.com/', 'https://staging.example.com/app/'] });
 
-    // Install guide: the script with the project code, platform guidance and the CSP sources
-    await expect(page.getByRole('heading', { level: 1, name: 'Install uier on example.com' })).toBeVisible();
+    // Install guide (the project's Install tab): the script with the project code, platform guidance and the CSP sources
+    await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByText(projectId, { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${projectId}"`).first()).toBeVisible();
     await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');
     await expect(page.getByText(/Paste it before the closing <\/body> tag/)).toBeVisible();
@@ -73,10 +75,11 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expectNoAxeViolations(page);
 
     // The project, with both addresses normalized
-    await page.getByRole('link', { name: 'Go to the project' }).click();
+    await page.getByRole('link', { name: 'Go to the comments' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(page).toHaveTitle('example.com · uier');
+    await expect(page.getByText('No comments yet')).toBeVisible();
     await page.getByRole('button', { name: 'Open review' }).click();
     await expect(page.getByRole('menuitem', { name: /www\.example\.com\s*Main site/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: /staging\.example\.com\/app/ })).toBeVisible();
@@ -125,7 +128,7 @@ test('projects can be marked as done and reopened', async ({ page }) => {
 
     await active.getByRole('button', { name: 'More actions for Launch site' }).click();
     await page.getByRole('menuitem', { name: 'Mark as done' }).click();
-    await expect(page.getByText('No active projects.')).toBeVisible();
+    await expect(page.getByText('No active projects')).toBeVisible();
 
     await page.getByRole('link', { name: /^Done/ }).click();
     const done = page.getByRole('list', { name: 'Done projects' });
@@ -135,7 +138,7 @@ test('projects can be marked as done and reopened', async ({ page }) => {
     await page.reload();
     await done.getByRole('button', { name: 'More actions for Launch site' }).click();
     await page.getByRole('menuitem', { name: 'Reopen' }).click();
-    await expect(page.getByText('No done projects.')).toBeVisible();
+    await expect(page.getByText('No done projects')).toBeVisible();
     await page.getByRole('link', { name: /^Active/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Launch site' })).toBeVisible();
 });
@@ -144,17 +147,15 @@ test('project settings save the comment access, addresses and name', async ({ pa
     await signIn(page, uniqueEmail());
     const projectId = await createProject(page, { urls: ['settings.example.com'] });
     await page.goto(`/app/projects/${projectId}/settings`);
-    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'settings.example.com' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Project settings · uier');
     await expectNoAxeViolations(page);
 
     // Who can comment
-    const access = page.getByRole('region', { name: 'Comments' });
-    await expect(access.getByRole('combobox')).toContainText('Invited people');
-    await access.getByRole('combobox').click();
-    await page.getByRole('option', { name: 'Anyone with the link' }).click();
-    await access.getByRole('button', { name: 'Save' }).click();
-    await expect(access.getByRole('status')).toContainText('Saved.');
+    const access = page.getByRole('region', { name: 'Who can comment' });
+    await expect(access.getByRole('radio', { name: 'Invited people' })).toBeChecked();
+    await setProjectAccess(page, projectId, 'Anyone with the link');
 
     // Addresses
     const addresses = page.getByRole('region', { name: 'Site addresses' });
@@ -172,27 +173,40 @@ test('project settings save the comment access, addresses and name', async ({ pa
     await general.getByRole('button', { name: 'Save' }).click();
     await expect(general.getByRole('status')).toHaveText('The name is saved.');
 
-    // Project code and embed script
-    const install = page.getByRole('region', { name: 'Install' });
-    await expect(install.getByText(projectId, { exact: true })).toBeVisible();
-    await expect(install.getByText(`data-uier-project="${projectId}"`)).toBeVisible();
-
     await page.reload();
-    await expect(access.getByRole('combobox')).toContainText('Anyone with the link');
+    await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     await expect(addresses.getByLabel('Main site address')).toHaveValue('https://settings.example.com');
     await expect(addresses.getByLabel('Other address')).toHaveValue('https://localhost:3000');
+    // The new name in the header and the breadcrumbs, and on the projects page
+    await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');
-    await expect(page.getByRole('link', { name: 'Marketing site' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Marketing site' })).toBeVisible();
 });
 
-test('billing says every feature is free, for good', async ({ page }) => {
-    await signIn(page, uniqueEmail());
-    await page.goto('/app/billing');
-    await expect(page.getByRole('heading', { level: 1, name: 'Billing' })).toBeVisible();
-    await expect(page.getByText('Every feature available today is free and will stay free forever. If we introduce pricing, it will apply only to new features users want.')).toBeVisible();
-    await expect(page.getByText('There is no payment method to add, nothing to upgrade and nothing to cancel.')).toBeVisible();
-    await expect(page).toHaveTitle('Billing · uier');
+test('the sidebar has the sections, the active projects and the account', async ({ page }) => {
+    await signIn(page, uniqueEmail('sidebar'));
+    const projectId = await createProject(page, { urls: ['sidebar.example.com'], name: 'Sidebar site' });
+
+    const navigation = await appNavigation(page);
+    await expect(navigation.getByRole('link', { name: 'Projects' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Users' })).toBeVisible();
+    await navigation.getByRole('link', { name: 'Sidebar site' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
+    // Small screens close the sheet after a link
+    await closeAppNavigation(page);
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Sidebar site');
     await expectNoAxeViolations(page);
+    await expect((await appNavigation(page)).getByRole('link', { name: 'Sidebar site' })).toHaveAttribute('aria-current', 'page');
+
+    // Billing is gone: uier is free, so there is nothing to bill
+    await expect(page.getByRole('link', { name: 'Billing' })).toHaveCount(0);
+    expect((await page.request.get('/app/billing')).status()).toBe(404);
+
+    // The account menu: account page and theme
+    await page.getByRole('button', { name: /^Account: / }).click();
+    await page.getByRole('menuitem', { name: 'Theme' }).click();
+    await page.getByRole('menuitemradio', { name: 'Dark' }).click();
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 });
 
 test('the account page saves the name and signs out', async ({ page }) => {
@@ -202,7 +216,9 @@ test('the account page saves the name and signs out', async ({ page }) => {
     await page.getByLabel('Name').fill('Mia Reviewer');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('status')).toHaveText('Your name is saved.');
+    await appNavigation(page);
     await expect(page.getByRole('button', { name: 'Account: Mia Reviewer' })).toBeVisible();
+    await closeAppNavigation(page);
     await expect(page).toHaveTitle('Account · uier');
     await expectNoAxeViolations(page);
 

@@ -26,7 +26,10 @@ The root is a pnpm + [Turborepo](https://turborepo.com) workspace containing onl
 `infra/` is deliberately **not** part of that workspace: it has its own `package.json` and `pnpm-lock.yaml`,
 so web development and web CI never install Pulumi dependencies.
 
-The shared UI kit (`@signalco/ui`, `@signalco/ui-primitives`, `@signalco/cms-core`, ...) is consumed from npm.
+The shared UI kit (`@signalco/ui`, `@signalco/ui-primitives`, `@signalco/cms-core`, ...) is consumed from
+npm and builds the public pages. The signed-in app (`/app`) is built from [shadcn/ui](https://ui.shadcn.com)
+components, added as source to `apps/web/src/components/ui` (`components.json`) and themed with the same
+brand tokens.
 
 Working with AI coding agents? Start at [`AGENTS.md`](AGENTS.md); every package has its own.
 
@@ -129,7 +132,7 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   member (their toolbar asks them to sign in again).
 - **Desktop Chrome** and **Mobile Chrome** also run the app ([`app.spec.ts`](apps/web/e2e/app.spec.ts)):
   sign-in (single-use links, redirects back), onboarding and the install guide, review links, done and
-  reopened projects, project settings, billing and the account page, with axe checks on every page.
+  reopened projects, project settings, the sidebar and the account page, with axe checks on every page.
 - **API** - [`comments.api.spec.ts`](apps/web/e2e/comments.api.spec.ts): the comments API with separate
   request contexts as separate visitors (ownership, deleting threads others replied to, validation, `413`,
   path filtering, DTO contents, cookie flags, rate limits).
@@ -154,6 +157,12 @@ The signed-in app at [uier.io/app](https://uier.io/app) ("Get started" on the la
 [`apps/web/src/lib/app`](apps/web/src/lib/app). Pages are server components; changes go through server
 actions that check the session and the role every time.
 
+The app is a sidebar layout (shadcn/ui `Sidebar`, inset variant): the workspace at the top (a menu switches
+between workspaces), Projects and Users (admins), the active projects for quick switching, and the account
+menu at the bottom (account, theme, sign out). It collapses to icons on desktop (`Ctrl/Cmd+B`) and opens as
+a sheet on small screens. A top bar holds the breadcrumbs. uier is free, so there is no billing page; pricing
+is the landing page's `brand.pricing` promise.
+
 - **Sign in** (`/app/sign-in`): no passwords. The app emails a single-use link (valid for 15 minutes, stored
   only as a SHA-256 hash); the first sign-in creates the account. Opening the link shows a "Continue"
   button, because email scanners open links before people do. The session is an HttpOnly `uier_session`
@@ -161,27 +170,31 @@ actions that check the session and the role every time.
   Sign-in emails are limited to 5 per address and 20 per IP per hour. Signed-out visits to an app page go
   to sign in and come back afterwards (`proxy.ts`, `?next=`).
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
-  members belong to a workspace; with more than one workspace the account menu switches between them.
+  members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
+  between them.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
-  then staging or preview addresses), its status (active or done) and who can comment. The project code
-  (12 lowercase letters and digits) is public: it is in the embed script.
+  then staging or preview addresses), its status (active or done) and who can comment. The page shows the
+  active or done projects as cards with their open comments, who can comment and review links. The project
+  code (12 lowercase letters and digits) is public: it is in the embed script.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
     (the script, where to paste it on common platforms, and the CSP sources in "Advanced").
-  - Details `/app/projects/<code>`: review links for every address, the guest link (in guest mode) and the
-    project's **comments**, as a list or a board (Open / Done), filtered by people (all, assigned to me,
-    opened by me) and page (relative URLs). Each comment shows its page URL, the device size it came from,
-    when it was created, its author, assignee, replies and state, with Done, Link to comment and Assign;
-    the author or an admin edits and deletes it, and only admins make it private.
-  - Settings `/app/projects/<code>/settings`: who can comment (invited people, anyone with the link, or
-    comments off), addresses, project code and embed script, usage (comments, open, done, replies, pages,
-    people with access), name, done.
+  - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
+    Comments, Install and Settings (admins).
+  - Comments `/app/projects/<code>`: the guest link (in guest mode) and the project's **comments**, as a
+    list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
+    URLs). Each comment shows its page URL, the device size it came from, when it was created, its author,
+    assignee, replies and state, with Done, Link to comment and Assign; the author or an admin edits and
+    deletes it, and only admins make it private.
+  - Install `/app/projects/<code>/install`: the install guide with the project code.
+  - Settings `/app/projects/<code>/settings`: name, who can comment (invited people, anyone with the link,
+    or comments off), addresses, usage (comments, open, done, replies, pages, people with access), done.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
     targets.
 - **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
-  delete people (the last admin stays) and revoke invitations. A deleted member's review token stops
+  remove people (the last admin stays) and revoke invitations. A removed member's review token stops
   working at once, because the review API checks the membership on every request.
   - Invite `/app/users/invite` (also "Invite" on a project): the email, the role and, for commenters, the
     selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
@@ -189,8 +202,8 @@ actions that check the session and the role every time.
     replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
     in (their account is created on first use), adds them to the workspace and opens the project's review
     link, or the projects when the invitation has no project.
-- **Billing** (`/app/billing`): the pricing promise `brand.pricing`, word for word like the landing page:
-  every feature available today is free and stays free.
+- **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
+  sign out.
 
 ### Review API (a project's toolbar)
 

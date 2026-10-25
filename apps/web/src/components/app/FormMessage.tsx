@@ -1,4 +1,4 @@
-import { cx } from '@signalco/ui-primitives/cx';
+import { cn } from '@/src/lib/utils';
 import type { ActionState } from '../../lib/app/actionResult';
 import { destructiveTextClassName } from './PageHeader';
 
@@ -8,10 +8,10 @@ export function FormMessage({ state, className }: { state: ActionState<unknown>;
         return null;
 
     if (!state.ok) {
-        return <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName, className)}>{state.error}</p>;
+        return <p role="alert" className={cn('m-0 text-sm', destructiveTextClassName, className)}>{state.error}</p>;
     }
 
     return state.message
-        ? <p role="status" className={cx('m-0 text-sm text-muted-foreground', className)}>{state.message}</p>
+        ? <p role="status" className={cn('m-0 text-sm text-muted-foreground', className)}>{state.message}</p>
         : null;
 }

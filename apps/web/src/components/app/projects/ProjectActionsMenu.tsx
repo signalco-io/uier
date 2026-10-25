@@ -1,61 +1,85 @@
 'use client';
 
 import { useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { CheckIcon, CodeIcon, MoreHorizontalIcon, SettingsIcon, Undo2Icon, UserPlusIcon } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/src/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuGroup,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger
-} from '@signalco/ui-primitives/Menu';
-import { showNotification } from '@signalco/ui-notifications';
-import { Check, Code, MoreHorizontal, People, Settings, Undo } from '@signalco/ui-icons';
+} from '@/src/components/ui/dropdown-menu';
 import { KnownPageLinks, KnownPages } from '../../../knownPages';
 import type { ProjectStatus } from '../../../lib/app/model';
 import { setProjectStatusAction } from './actions';
 
 /** More actions of a project (admins): invite people, settings, install, mark as done or reopen */
-export function ProjectActionsMenu({ projectId, projectName, status }: { projectId: string; projectName: string; status: ProjectStatus }) {
+export function ProjectActionsMenu({ projectId, projectName, status, className }: {
+    projectId: string;
+    projectName: string;
+    status: ProjectStatus;
+    className?: string;
+}) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
 
     const setStatus = (next: ProjectStatus) => startTransition(async () => {
         const result = await setProjectStatusAction(projectId, next);
         if (result && !result.ok) {
-            showNotification(result.error, 'error');
+            toast.error(result.error);
             return;
         }
-        showNotification(next === 'done' ? `${projectName} is marked as done.` : `${projectName} is active again.`, 'success');
+        toast.success(next === 'done' ? `${projectName} is marked as done.` : `${projectName} is active again.`);
         router.refresh();
     });
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <IconButton variant="plain" size="sm" disabled={pending} aria-label={`More actions for ${projectName}`} title="More actions">
-                    <MoreHorizontal />
-                </IconButton>
+                <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for ${projectName}`} className={className}>
+                    <MoreHorizontalIcon />
+                </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem href={`${KnownPages.AppInviteUser}?project=${projectId}`} startDecorator={<People className="size-4" />}>
-                    Invite people
-                </DropdownMenuItem>
-                <DropdownMenuItem href={KnownPageLinks.projectSettings(projectId)} startDecorator={<Settings className="size-4" />}>
-                    Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem href={KnownPageLinks.projectInstall(projectId)} startDecorator={<Code className="size-4" />}>
-                    Install script
-                </DropdownMenuItem>
-                {status === 'done' ? (
-                    <DropdownMenuItem startDecorator={<Undo className="size-4" />} onSelect={() => setStatus('active')}>
-                        Reopen
+            <DropdownMenuContent align="end" className="min-w-44">
+                <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                        <Link href={`${KnownPages.AppInviteUser}?project=${projectId}`}>
+                            <UserPlusIcon />
+                            Invite people
+                        </Link>
                     </DropdownMenuItem>
-                ) : (
-                    <DropdownMenuItem startDecorator={<Check className="size-4" />} onSelect={() => setStatus('done')}>
-                        Mark as done
+                    <DropdownMenuItem asChild>
+                        <Link href={KnownPageLinks.projectInstall(projectId)}>
+                            <CodeIcon />
+                            Install script
+                        </Link>
                     </DropdownMenuItem>
-                )}
+                    <DropdownMenuItem asChild>
+                        <Link href={KnownPageLinks.projectSettings(projectId)}>
+                            <SettingsIcon />
+                            Settings
+                        </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                    {status === 'done' ? (
+                        <DropdownMenuItem onSelect={() => setStatus('active')}>
+                            <Undo2Icon />
+                            Reopen
+                        </DropdownMenuItem>
+                    ) : (
+                        <DropdownMenuItem onSelect={() => setStatus('done')}>
+                            <CheckIcon />
+                            Mark as done
+                        </DropdownMenuItem>
+                    )}
+                </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
     );

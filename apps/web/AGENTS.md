@@ -9,11 +9,12 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | Path | What |
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
-| `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + `@theme` font mapping |
+| `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages, `(shell)/` signed-in pages (projects, settings, users, billing, account), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, users, account), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
-| `src/components/app/` | app UI: `PageHeader`/`Section`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`) |
+| `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
+| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; all other pages remain unframeable |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
@@ -73,7 +74,7 @@ how it works (`#how-it-works`), features (`#features`), get started (`#get-start
   with the showcase toolbar on this page. Point it at the app (and update the test) once
   onboarding exists.
 - **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
-  or limits. The app's billing must use the same constant.
+  or limits. The app has no billing page while everything is free.
 
 `e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" links, the sections, the
 pricing copy, the FAQ keyboard behaviour and the footer line through the brand constants; update
@@ -113,6 +114,18 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## The app
 
+- **UI: shadcn/ui.** The app (`app/(rest)/(app)`) is built from the components in `src/components/ui`,
+  added with `pnpm dlx shadcn@latest add <name>` (run in `apps/web`; the shadcn skill in
+  `.claude/skills/shadcn` has the rules: `Field` for forms, `Empty` for empty states, `Badge`, `Item`,
+  icons with `data-icon`). After adding a component, check the diff: the CLI may write oklch colour
+  variables or a `@theme inline` block into `app/global.css`, which must not land. Colours stay HSL
+  triplets in `@uier/brand/tokens.css` (the theme preset wraps them in `hsl()`), so a component that uses
+  a raw `var(--x)` as a colour needs `hsl(var(--x))`. Resting surfaces get a border, not a shadow
+  (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). Toasts are `sonner`
+  (`toast()`), mounted with the tooltip provider in the app layout.
+- **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher, sections, active
+  projects, account menu) and the inset panel with the breadcrumbs (`AppBreadcrumbs`, from the path). A
+  project's header and tabs are `projects/[projectId]/layout.tsx`; its pages render the tab content.
 - Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
   `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
   document from the current workspace.

@@ -25,8 +25,10 @@ The [README](README.md) covers setup, commands, infrastructure and CI/CD in full
   through the UI kit's semantic classes (`text-muted-foreground`, `border-border`,
   `rounded-xl`); the logo is `<Logo />` / `<Mark />` / `<Pin />` from `@uier/brand`. Never
   hardcode a hex, redraw the mark, or write "Uier".
-- **Use the UI kit.** Components come from `@signalco/ui` and `@signalco/ui-primitives` (npm).
-  Do not build parallel buttons, inputs or menus.
+- **Use the UI kit.** Public pages use `@signalco/ui` and `@signalco/ui-primitives` (npm). The signed-in
+  app (`/app`) uses the [shadcn/ui](https://ui.shadcn.com) components in `apps/web/src/components/ui`
+  (add more with `pnpm dlx shadcn@latest add <name>` in `apps/web`; the project skill is
+  `.claude/skills/shadcn`). Do not build parallel buttons, inputs or menus.
 - **Keep copy in the brand voice:** sentence case, short sentences, no exclamation marks, only
   claims the product can back.
 - **Node 24, pnpm via Corepack** (`corepack enable`), exact dependency versions (Renovate keeps
