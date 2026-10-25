@@ -165,7 +165,8 @@ error boundary, so one bad comment never breaks the toolbar.
   at their current positions; unsent comment and reply text is kept. The state is kept for the tab
   (`uier:toolbar-collapsed`), including after navigation and reload. The inbox keeps its state; **Show on page**
   expands the toolbar before opening a comment's pin.
-- Drag the **Move toolbar** handle with a mouse or touch to reposition the pill, including while collapsed.
+- Drag the **Move toolbar** handle with a mouse or touch to reposition the pill. Collapsed, the pill has no
+  separate handle: drag the mark itself (a click still expands it).
   Arrow keys move it (Shift moves farther), Home resets it, and Options offers **Reset toolbar position** after
   a move. The centre is saved per site/browser in `localStorage` (`uier:toolbar-position:v1`), then clamped to
   the visible viewport on resize, orientation changes and on-screen keyboard changes. Controls remain
