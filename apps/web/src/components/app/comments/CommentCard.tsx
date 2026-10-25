@@ -41,7 +41,8 @@ import {
     DialogDescription,
     DialogFooter,
     DialogHeader,
-    DialogTitle
+    DialogTitle,
+    DialogTrigger
 } from '@/src/components/ui/dialog';
 import {
     DropdownMenu,
@@ -251,16 +252,20 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                         : <p className="m-0 text-sm leading-6 break-words whitespace-pre-wrap">{comment.text}{comment.edited && <span className="text-muted-foreground"> (edited)</span>}</p>}
 
                     {comment.screenshot && (
-                        // The author's screenshot of the commented part of the page; opens full size
-                        <a href={comment.screenshot.url} target="_blank" rel="noopener" className="block self-start rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                            <img
-                                src={comment.screenshot.url}
-                                width={comment.screenshot.width}
-                                height={comment.screenshot.height}
-                                alt="Screenshot of the commented part of the page"
-                                loading="lazy"
-                                className="block h-auto max-h-64 w-auto max-w-full rounded-lg border" />
-                        </a>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" className="h-auto w-24 self-start p-0" aria-label="Screenshot of the commented part of the page">
+                                    <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
+                                        alt="Screenshot of the commented part of the page" loading="lazy"
+                                        className="block h-16 w-24 rounded-lg border object-contain" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
+                                <DialogHeader><DialogTitle>Screenshot</DialogTitle></DialogHeader>
+                                <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
+                                    alt="Expanded screenshot" className="max-h-[70dvh] w-full object-contain" />
+                            </DialogContent>
+                        </Dialog>
                     )}
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm">

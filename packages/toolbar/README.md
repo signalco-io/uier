@@ -150,6 +150,15 @@ error boundary, so one bad comment never breaks the toolbar.
   at their current positions; unsent comment and reply text is kept. The state is kept for the tab
   (`uier:toolbar-collapsed`), including after navigation and reload. The inbox keeps its state; **Show on page**
   expands the toolbar before opening a comment's pin.
+- Drag the **Move toolbar** handle with a mouse or touch to reposition the pill, including while collapsed.
+  Arrow keys move it (Shift moves farther), Home resets it, and Options offers **Reset toolbar position** after
+  a move. The centre is saved per site/browser in `localStorage` (`uier:toolbar-position:v1`), then clamped to
+  the visible viewport on resize, orientation changes and on-screen keyboard changes. Controls remain
+  horizontally scrollable on narrow screens. Dragging does not start from action buttons.
+- The inbox uses the shared `DockablePanel` shell. Drag its handle toward either side, or use its side-switch
+  button or left/right arrow keys. The destination is shown before dropping; canceled drags keep the old side.
+  Each panel saves its own side (`uier:panel-side:v1:<id>`). Moving keeps content, filters and scroll state;
+  narrow screens use a full-width inset panel and retain the preferred side for wider screens.
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them).
@@ -178,11 +187,13 @@ error boundary, so one bad comment never breaks the toolbar.
   it is searched for (ignoring whitespace) in its element, then its ancestors. When it is not on the page
   anymore, a fallback pin goes on the closest element that still is, and the thread says so. Anchors that
   are hidden (e.g. in a closed `<details>`) get no pin until they are shown.
-- Screenshots (optional): in a new comment or feedback, the camera button takes a screenshot of the part of the
-  page the comment is about (its element or text with some room around it, the window for feedback) and shows it
-  above the buttons, to remove again or post with the comment. It is drawn from the page in the browser,
-  without the toolbar (`src/screenshot.ts`, [Screenshots](../../README.md#screenshots)). The thread shows it under
-  the first message; clicking it opens it full size in a new tab.
+- Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
+  There is no camera button or preview while writing. Posting waits for that capture attempt (up to 15 seconds);
+  a failed capture still saves the text. Closing or collapsing a draft keeps its original capture promise, and
+  discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
+  show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.
+  Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
+  [Screenshots](../../README.md#screenshots).
 - Every comment saves the device size and viewport when it is posted (`getDeviceInfo`); the thread shows
   them under the first message ("Desktop · 1280×720").
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the

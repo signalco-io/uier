@@ -10,7 +10,6 @@ import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentIt
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
-import { captureScreenshot, commentRegion, toolbarHost } from '../screenshot';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
@@ -80,7 +79,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     // A deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted).length ?? 0;
 
-    const handleSubmit = async (text: string, screenshot?: string) => {
+    const handleSubmit = async (text: string) => {
         if (props.commentItem) {
             await reply.mutateAsync({ commentId: props.commentItem.id, text });
             drafts.delete(draftKey);
@@ -99,7 +98,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             quotedText: quotedText || undefined,
             // The viewport as it is when the comment is posted
             device: getDeviceInfo(),
-            screenshot
+            screenshot: await draft.screenshot
         });
         drafts.delete(draftKey);
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
@@ -197,7 +196,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 aria-label={creating ? newLabel : 'Comment thread'}
                 // Bounded by the space the window has left, so the reply box always stays visible
                 className={cx(
-                    'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
+                    'z-[60] flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
                     // A rewrite (text box and suggestions) scrolls as a whole: when it is clipped, the
                     // browser would scroll the page to show the caret, and the popover follows its pin
                     rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
@@ -241,10 +240,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         pending={mutation.isPending}
                         error={mutation.error}
                         onSubmit={handleSubmit}
-                        onDiscard={creating ? handleDiscard : undefined}
-                        onCaptureScreenshot={props.draft
-                            ? () => captureScreenshot(commentRegion(props.draft.position), toolbarHost(rootElement))
-                            : undefined} />
+                        onDiscard={creating ? handleDiscard : undefined} />
                 </div>
                 {rewriting && selectedText && (
                     <div className="shrink-0">

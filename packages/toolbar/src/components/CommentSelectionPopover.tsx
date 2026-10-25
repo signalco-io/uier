@@ -80,6 +80,8 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                         className="gap-2 rounded-full"
                         tabIndex={index === activeIndex ? 0 : -1}
                         onFocus={() => setActiveIndex(index)}
+                        // Keep the page selection intact until its action has consumed it.
+                        onPointerDown={event => event.preventDefault()}
                         onClick={action.onClick}
                         startDecorator={action.icon}>
                         {action.label}

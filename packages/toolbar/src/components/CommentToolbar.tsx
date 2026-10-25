@@ -4,7 +4,7 @@ import React, { Ref, useEffect, useRef } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Divider } from '@signalco/ui-primitives/Divider';
-import { Down, Inbox, Info } from '@signalco/ui-icons';
+import { Down, Drag, Inbox, Info } from '@signalco/ui-icons';
 import { Mark } from '@uier/brand';
 import type { ToolbarMode } from '../config';
 import { CommentIcon } from './CommentIcon';
@@ -12,6 +12,7 @@ import { InkScope } from './InkScope';
 import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
+import { useToolbarMovement } from '../hooks/useReviewMovement';
 import { commentsListMaxLength } from './@types/Comments';
 
 type CommentToolbarProps = {
@@ -38,6 +39,7 @@ type CommentToolbarProps = {
     onToggleSidebar: () => void;
     /** The feedback dialog opened */
     onFeedbackOpen?: () => void;
+    onMoveStart?: () => void;
     onToggleHint?: () => void;
     onCollapsedChange: (collapsed: boolean) => void;
     /** Ends the review (`review` mode) */
@@ -54,8 +56,12 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onToggleSidebar, onFeedbackOpen, onToggleHint, onCollapsedChange, onExitReview
+    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onToggleSidebar, onFeedbackOpen, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
+    const navRef = useRef<HTMLElement>(null);
+    const moveRef = useRef<HTMLButtonElement>(null);
+    const movement = useToolbarMovement(navRef, onMoveStart);
+    const resetPosition = () => { movement.reset(); requestAnimationFrame(() => moveRef.current?.focus()); };
     const capped = commentsCountCapped || commentsCount >= commentsListMaxLength;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount
@@ -94,7 +100,8 @@ export function CommentToolbar({
             {/* Always rendered, so screen readers announce the instruction when point mode starts */}
             <div
                 role="status"
-                className="pointer-events-none fixed bottom-[4.5rem] left-1/2 z-[51] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2">
+                style={movement.instructionStyle}
+                className="pointer-events-none fixed z-[51] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2">
                 {creatingPointComment && (
                     <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
                         {isCoarsePointer()
@@ -104,12 +111,17 @@ export function CommentToolbar({
                 )}
             </div>
             <nav
+                ref={navRef}
                 aria-label="uier feedback"
-                className="fixed bottom-4 left-1/2 z-[51] -translate-x-1/2">
+                style={{ ...movement.style, width: 'max-content' }}
+                className="fixed z-[51]">
                 <div
                     role="group"
                     aria-label="uier feedback toolbar"
-                    className="rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+                    className="flex max-w-full items-center overflow-x-auto rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+                    <IconButton ref={moveRef} variant="plain" className="shrink-0 rounded-full" aria-label="Move toolbar"
+                        title="Drag to move. Use arrow keys to move; Home resets position."
+                        {...movement.handle} onKeyDown={movement.onKeyDown}><Drag /></IconButton>
                     {collapsed ? (
                         <IconButton
                             ref={expandButtonRef}
@@ -161,7 +173,7 @@ export function CommentToolbar({
                             )}
                             <Divider orientation="vertical" className="mx-1 h-6" />
                             <ToolbarProfile />
-                            <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} />
+                            <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined} />
                             <IconButton
                                 ref={collapseButtonRef}
                                 variant="plain"

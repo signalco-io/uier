@@ -3,8 +3,8 @@ import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, enforceScreenshotLimits } from '../comments/rateLimits';
-import { commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
+import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
 import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
@@ -152,8 +152,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     await enforceNewCommentLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) }, input.path);
-    if (input.screenshot)
-        await enforceScreenshotLimits(store, partition);
+    const screenshot = await availableScreenshot(store, partition, input.screenshot);
 
     const now = nowIso();
     const authorName = actor.kind === 'guest' ? input.authorName : undefined;
@@ -183,9 +182,9 @@ export async function createProjectComment(request: Request, project: DbProject,
         createdAt: now,
         updatedAt: now
     };
-    if (input.screenshot)
-        comment.screenshot = screenshotInfo(input.screenshot);
-    await createWithScreenshot(store, comment, input.screenshot);
+    if (screenshot)
+        comment.screenshot = screenshotInfo(screenshot);
+    await createWithScreenshot(store, comment, screenshot);
     return comment;
 }
 

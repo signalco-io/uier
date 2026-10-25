@@ -17,6 +17,7 @@ import { floatingShadowClassName } from './@types/Comments';
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
     projectUrl?: string;
+    onResetPosition?: () => void;
     /** Ends the review (`review` mode) */
     onExitReview?: () => void;
 };
@@ -25,7 +26,7 @@ type ToolbarOptionsProps = {
  * The toolbar's options: view the project, exit the review, sign out. Only the options that
  * apply are listed; without any, there is no options button.
  */
-export function ToolbarOptions({ projectUrl, onExitReview }: ToolbarOptionsProps) {
+export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const { query: visitor, signOut } = useVisitor();
     const announce = useAnnounce();
@@ -63,7 +64,7 @@ export function ToolbarOptions({ projectUrl, onExitReview }: ToolbarOptionsProps
         onExitReview?.();
     };
 
-    if (!projectUrl && !onExitReview && !name) {
+    if (!projectUrl && !onExitReview && !name && !onResetPosition) {
         return null;
     }
 
@@ -109,6 +110,11 @@ export function ToolbarOptions({ projectUrl, onExitReview }: ToolbarOptionsProps
                 </Stack>
             ) : (
                 <Stack>
+                    {onResetPosition && (
+                        <Button variant="plain" size="sm" className="justify-start" onClick={() => { handleOpenChange(false); onResetPosition(); }}>
+                            Reset toolbar position
+                        </Button>
+                    )}
                     {projectUrl && (
                         <Button
                             variant="plain"

@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
+import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, selectText, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
+import { brand } from '@uier/brand';
 import { pngImage } from './support/images';
 
-// Optional screenshots (issue #32): a new comment or feedback can take a screenshot of the part of
+// Automatic screenshots (issue #81): a new comment or feedback can take a screenshot of the part of
 // the page it is about, in the reviewer's browser, without the toolbar. It is saved with the
 // comment and shown in its thread.
 
@@ -46,80 +47,64 @@ async function startComment(page: Page, text: string, element: Locator) {
     return draft;
 }
 
-test('screenshots: a comment with a screenshot of its element, one without, one removed again', async ({ browser }, testInfo) => {
-    const origin = isolatedOrigin(testInfo);
+test('screenshots: capture automatically, stay out of the composer and expand from saved thumbnails', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
-    await openLanding(page, origin, { dismissHint: true });
-
-    // With: the screenshot is taken when asked for, shown before posting, and sent with the comment
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     const draft = await startComment(page, 'The headline says it well.', page.getByRole('heading', { level: 1 }));
-    await draft.getByRole('button', { name: 'Add a screenshot' }).click();
-    const preview = draft.getByRole('img', { name: 'Screenshot to send with the comment' });
-    await expect(preview).toBeVisible();
-    await expect(page.getByRole('status').filter({ hasText: 'Screenshot added' })).toBeAttached();
-    await expect(draft.getByRole('button', { name: 'Add a screenshot' })).toHaveCount(0);
-    await animationsFinished(draft);
-    await expectNoAxeViolations(page);
+    await expect(draft.getByRole('button', { name: /screenshot/i })).toHaveCount(0);
+    await expect(draft.getByRole('img')).toHaveCount(0);
+    // Submit immediately: the form awaits the capture rather than racing it.
     await draft.getByRole('button', { name: 'Post comment' }).click();
-
-    // The thread shows it; it opens full size in a new tab
-    const thread = openThread(page);
-    const shown = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
-    await expect(shown).toBeVisible();
-    await expect.poll(async () => await shown.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    const popup = context.waitForEvent('page');
-    await shown.click();
-    expect((await popup).url()).toMatch(/^blob:/);
-
-    // Saved with the comment: the heading and some room around it, at the screen's pixel ratio
-    const withScreenshot = await savedComment(page, 'The headline says it well.');
-    const heading = await page.getByRole('heading', { level: 1 }).boundingBox();
-    const scale = Math.min(await page.evaluate(() => window.devicePixelRatio), 2);
-    expect(withScreenshot.screenshot!.height).toBeGreaterThanOrEqual(Math.floor(Math.min(heading!.height, 200) * scale));
-    expect(withScreenshot.screenshot!.width).toBeGreaterThanOrEqual(Math.floor(Math.min(heading!.width, 360) * scale));
-    const image = await page.evaluate(async (id) => {
-        const response = await fetch(`/api/comments/${id}/screenshot`);
-        const bitmap = await createImageBitmap(await response.blob());
-        return { type: response.headers.get('content-type'), width: bitmap.width, height: bitmap.height };
-    }, withScreenshot.id);
-    expect(image).toEqual({ type: expect.stringMatching(/^image\/(webp|jpeg)$/), ...withScreenshot.screenshot });
-
-    // Without: nothing taken, nothing sent
-    await page.keyboard.press('Escape');
-    const plain = await startComment(page, 'No picture needed.', page.getByRole('main').getByRole('heading', { level: 2 }).first());
-    await plain.getByRole('button', { name: 'Post comment' }).click();
-    const plainThread = page.getByRole('dialog', { name: 'Comment thread' });
-    await expect(plainThread.getByText('No picture needed.')).toBeVisible();
-    await expect(plainThread.getByRole('button', { name: 'Screenshot of the commented part of the page' })).toHaveCount(0);
-    expect((await savedComment(page, 'No picture needed.')).screenshot).toBeUndefined();
-
-    // Taken, then removed before posting
-    await page.keyboard.press('Escape');
-    const removed = await startComment(page, 'Changed my mind about the picture.', page.getByRole('main').getByRole('heading', { level: 2 }).nth(1));
-    await removed.getByRole('button', { name: 'Add a screenshot' }).click();
-    await removed.getByRole('button', { name: 'Remove screenshot' }).click();
-    await expect(removed.getByRole('img', { name: 'Screenshot to send with the comment' })).toHaveCount(0);
-    await expect(page.getByRole('status').filter({ hasText: 'Screenshot removed' })).toBeAttached();
-    await expect(removed.getByRole('textbox', { name: 'Comment' })).toBeFocused();
-    await removed.getByRole('button', { name: 'Post comment' }).click();
-    await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByText('Changed my mind about the picture.')).toBeVisible();
-    expect((await savedComment(page, 'Changed my mind about the picture.')).screenshot).toBeUndefined();
-
+    const thread = page.getByRole('dialog', { name: 'Comment thread' });
+    const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    await expect(thumbnail).toBeVisible();
+    const saved = await savedComment(page, 'The headline says it well.');
+    expect(saved.screenshot!.width).toBeGreaterThan(100);
+    const box = await thumbnail.boundingBox();
+    expect(box!.width).toBeLessThanOrEqual(100);
+    await thumbnail.focus();
+    await page.keyboard.press('Enter');
+    const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    await expect(expanded.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
+    await expanded.getByRole('button', { name: 'Close screenshot' }).click();
+    await expect(expanded).toBeHidden();
+    await expect(thumbnail).toBeFocused();
+    await page.reload();
+    await page.locator(`[data-uier-comment="${saved.id}"]`).click();
+    await expect(thumbnail).toBeVisible();
     await context.close();
 });
 
-test('screenshots: with the keyboard, the focus goes to "Remove screenshot"', async ({ browser }, testInfo) => {
-    const origin = isolatedOrigin(testInfo);
+test('screenshots: cancellation saves nothing and failed capture still saves the comment', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
-    await openLanding(page, origin, { dismissHint: true });
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const canceled = await startComment(page, 'Discard this feedback.', page.getByRole('heading', { level: 1 }));
+    await canceled.getByRole('button', { name: 'Discard' }).click();
+    expect(await savedComments(page)).toHaveLength(0);
+    await page.evaluate(() => { HTMLCanvasElement.prototype.toDataURL = () => { throw new Error('Capture unavailable'); }; });
+    const draft = await startComment(page, 'Keep the feedback if capture fails.', page.getByRole('heading', { level: 1 }));
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    const thread = page.getByRole('dialog', { name: 'Comment thread' });
+    await expect(thread.getByText('Keep the feedback if capture fails.')).toBeVisible();
+    await expect(thread.getByText('No screenshot available.')).toBeVisible();
+    expect((await savedComment(page, 'Keep the feedback if capture fails.')).screenshot).toBeUndefined();
+    await context.close();
+});
 
-    const draft = await startComment(page, 'With the keyboard.', page.getByRole('heading', { level: 1 }));
-    await draft.getByRole('button', { name: 'Add a screenshot' }).focus();
-    await page.keyboard.press('Enter');
-    await expect(draft.getByRole('button', { name: 'Remove screenshot' })).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(draft.getByRole('textbox', { name: 'Comment' })).toBeFocused();
-
+test('screenshots: selected-text comments and rewrite suggestions capture automatically', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    for (const rewrite of [false, true]) {
+        await selectText(page, brand.description);
+        await page.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: rewrite ? 'Rewrite' : 'Add comment', exact: true }).click();
+        const draft = page.getByRole('dialog', { name: rewrite ? 'New rewrite suggestion' : 'New comment' });
+        await draft.getByRole('textbox', { name: rewrite ? 'Suggested text' : 'Comment', exact: true }).fill(rewrite ? 'A clearer description.' : 'Clarify this description.');
+        await expect(draft.getByRole('img')).toHaveCount(0);
+        await draft.getByRole('button', { name: rewrite ? 'Post suggestion' : 'Post comment' }).click();
+        await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await page.evaluate(() => window.getSelection()?.removeAllRanges());
+    }
     await context.close();
 });
 
@@ -171,8 +156,7 @@ test('screenshots: feedback is about the page, its screenshot is the window with
     await page.getByRole('button', { name: 'Send feedback' }).click();
     const dialog = page.getByRole('dialog', { name: 'Send feedback' });
     await dialog.getByRole('textbox').fill('Clear and calm.');
-    await dialog.getByRole('button', { name: 'Add a screenshot' }).click();
-    await expect(dialog.getByRole('img', { name: 'Screenshot to send with the comment' })).toBeVisible();
+    await expect(dialog.getByRole('img')).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog).toBeHidden();
 

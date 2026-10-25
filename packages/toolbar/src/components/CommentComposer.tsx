@@ -7,15 +7,13 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Close, Send } from '@signalco/ui-icons';
+import { Send } from '@signalco/ui-icons';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 import { useProjectViewer } from '../project/ProjectGate';
 import { getGuestName, setGuestName } from '../project/projectSession';
-import type { CapturedScreenshot } from '../screenshot';
-import { CameraIcon } from './CommentScreenshot';
 
 /** Longest guest name the review API accepts */
 const guestNameMaxLength = 80;
@@ -52,16 +50,8 @@ type CommentComposerProps = {
     autoFocus?: boolean;
     pending?: boolean;
     error?: unknown;
-    /**
-     * Resolves when the text was saved (the text box is cleared), rejects to keep the text. With a
-     * screenshot when the reviewer took one (a data URL).
-     */
-    onSubmit: (text: string, screenshot?: string) => Promise<unknown>;
-    /**
-     * Offers an optional screenshot of the commented part of the page (new comments and feedback):
-     * takes it when the reviewer asks for it
-     */
-    onCaptureScreenshot?: () => Promise<CapturedScreenshot>;
+    /** Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form. */
+    onSubmit: (text: string) => Promise<unknown>;
     /** Shows a "Discard" button while there is text (new comments) */
     onDiscard?: () => void;
 };
@@ -71,7 +61,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard, onCaptureScreenshot }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -87,44 +77,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const [name, setName] = useState('');
     const [nameMissing, setNameMissing] = useState(false);
     const showCounter = text.length >= counterThreshold;
-    // The optional screenshot, sent with the comment
-    const [screenshot, setScreenshot] = useState<CapturedScreenshot>();
-    const [capturing, setCapturing] = useState(false);
-    const [captureFailed, setCaptureFailed] = useState(false);
-    const removeScreenshotRef = useRef<HTMLButtonElement>(null);
-    // The camera button goes once the screenshot is there: the focus moves to "Remove screenshot"
-    const focusRemoveRef = useRef(false);
-    useEffect(() => {
-        if (screenshot && focusRemoveRef.current) {
-            focusRemoveRef.current = false;
-            removeScreenshotRef.current?.focus();
-        }
-    }, [screenshot]);
-
-    const handleCapture = async () => {
-        if (!onCaptureScreenshot || capturing) {
-            return;
-        }
-        setCapturing(true);
-        setCaptureFailed(false);
-        try {
-            const captured = await onCaptureScreenshot();
-            focusRemoveRef.current = true;
-            setScreenshot(captured);
-            announce('Screenshot added');
-        } catch (captureError) {
-            console.warn('uier-toolbar: The screenshot could not be taken', captureError);
-            setCaptureFailed(true);
-        } finally {
-            setCapturing(false);
-        }
-    };
-
-    const handleRemoveScreenshot = () => {
-        setScreenshot(undefined);
-        announce('Screenshot removed');
-        textareaRef.current?.focus();
-    };
+    const submittingRef = useRef(false);
+    const [submitting, setSubmitting] = useState(false);
+    const busy = pending || submitting;
 
     const setText = (value: string) => {
         setTextState(value);
@@ -201,7 +156,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!trimmedText.length || pending) {
+        if (!trimmedText.length || pending || submittingRef.current) {
             return;
         }
         if (askName) {
@@ -213,12 +168,16 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
             setSavedName(name.trim());
         }
 
+        submittingRef.current = true;
+        setSubmitting(true);
         try {
-            await onSubmit(trimmedText, screenshot?.dataUrl);
+            await onSubmit(trimmedText);
             setText('');
-            setScreenshot(undefined);
         } catch {
             // Shown by `error`; keep the text so it can be sent again
+        } finally {
+            submittingRef.current = false;
+            setSubmitting(false);
         }
     };
 
@@ -235,7 +194,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     };
 
     return (
-        <form ref={formRef} onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit} aria-busy={busy}>
             <Stack spacing={1} className="bg-card px-3 py-3">
                 {Boolean(quote?.length) && (
                     <blockquote className="m-0 line-clamp-3 border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm text-secondary-foreground">
@@ -272,6 +231,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     onKeyDown={handleKeyDown}
                     onFocus={handleFocus}
                     maxLength={commentTextMaxLength}
+                    readOnly={busy}
                     placeholder={placeholder}
                     aria-label={label}
                     aria-describedby={showCounter ? counterId : undefined}
@@ -283,34 +243,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                     style={{ maxHeight: textareaMaxHeight }} />
-                {screenshot && (
-                    <figure className="relative m-0">
-                        <img
-                            src={screenshot.dataUrl}
-                            width={screenshot.width}
-                            height={screenshot.height}
-                            alt="Screenshot to send with the comment"
-                            className="block h-auto max-h-32 w-auto max-w-full rounded-md border" />
-                        <IconButton
-                            ref={removeScreenshotRef}
-                            variant="solid"
-                            size="xs"
-                            type="button"
-                            title="Remove screenshot"
-                            aria-label="Remove screenshot"
-                            disabled={pending}
-                            className="absolute right-1 top-1 rounded-full"
-                            onClick={handleRemoveScreenshot}>
-                            <Close size={14} />
-                        </IconButton>
-                    </figure>
-                )}
-                {captureFailed && (
-                    <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>
-                        The screenshot could not be taken. You can still post without one.
-                    </p>
-                )}
                 <CommentsErrorMessage error={error} />
+                {submitting && <p role="status" className="m-0 text-xs text-muted-foreground">Saving...</p>}
                 <Row justifyContent="space-between" spacing={1}>
                     <span
                         id={counterId}
@@ -326,26 +260,12 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         )}
                     </span>
                     <Row spacing={1}>
-                        {onCaptureScreenshot && !screenshot && (
-                            <IconButton
-                                variant="plain"
-                                size="sm"
-                                type="button"
-                                title={capturing ? 'Taking a screenshot...' : 'Add a screenshot'}
-                                aria-label={capturing ? 'Taking a screenshot...' : 'Add a screenshot'}
-                                // Not `disabled` while taking it: the button keeps the focus
-                                aria-disabled={capturing}
-                                disabled={pending}
-                                onClick={handleCapture}>
-                                <CameraIcon size={16} className={capturing ? 'animate-pulse' : undefined} />
-                            </IconButton>
-                        )}
                         {onDiscard && text.length > 0 && (
                             <Button
                                 variant="plain"
                                 size="sm"
                                 type="button"
-                                disabled={pending}
+                                disabled={busy}
                                 onClick={handleDiscard}>
                                 Discard
                             </Button>
@@ -356,7 +276,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             type="submit"
                             title={submitLabel}
                             aria-label={submitLabel}
-                            disabled={!trimmedText.length || pending}>
+                            disabled={!trimmedText.length || busy}>
                             <Send size={16} />
                         </IconButton>
                     </Row>

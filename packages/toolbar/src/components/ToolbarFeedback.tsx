@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -15,7 +15,7 @@ import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
-import { captureScreenshot, toolbarHost, windowRegion } from '../screenshot';
+import { captureCommentScreenshot } from '../screenshot';
 import { floatingShadowClassName } from './@types/Comments';
 
 type FeedbackKind = 'feedback' | 'bug';
@@ -36,25 +36,27 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
     const drafts = useDrafts();
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
+    const screenshot = useRef<Promise<string | undefined>>(undefined);
     const [kind, setKind] = useState<FeedbackKind>('feedback');
     const selected = kinds.find(k => k.value === kind) ?? kinds[0]!;
 
     const handleOpenChange = (next: boolean) => {
         setOpen(next);
         if (next) {
+            screenshot.current = captureCommentScreenshot({ type: 'page' }, rootElement);
             onOpen?.();
         } else {
             create.reset();
         }
     };
 
-    const handleSubmit = async (text: string, screenshot?: string) => {
+    const handleSubmit = async (text: string) => {
         await create.mutateAsync({
             position: { type: 'page' },
             kind,
             text,
             device: getDeviceInfo(),
-            screenshot
+            screenshot: await screenshot.current
         });
         drafts.delete(feedbackDraftKey);
         handleOpenChange(false);
@@ -69,7 +71,7 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
             side="top"
             sideOffset={12}
             aria-label="Send feedback"
-            className={cx('flex w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl p-0', floatingShadowClassName)}
+            className={cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName)}
             trigger={(
                 <IconButton
                     variant="plain"
@@ -110,9 +112,7 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
                 autoFocus
                 pending={create.isPending}
                 error={create.error}
-                onSubmit={handleSubmit}
-                // Feedback is about the page: the screenshot is the window
-                onCaptureScreenshot={() => captureScreenshot(windowRegion(), toolbarHost(rootElement))} />
+                onSubmit={handleSubmit} />
         </Popper>
     );
 }
