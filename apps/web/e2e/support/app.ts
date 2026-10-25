@@ -25,7 +25,7 @@ export async function signIn(page: Page, email: string, { from = '/app/sign-in' 
 }
 
 /** Creates a project from /app/projects/new and returns its code (the install page follows) */
-export async function createProject(page: Page, { urls, name }: { urls: string[]; name?: string }) {
+export async function createProject(page: Page, { urls, name, clientName }: { urls: string[]; name?: string; clientName?: string }) {
     await page.goto('/app/projects/new');
     const [main, ...others] = urls;
     await page.getByLabel('Main site address').fill(main ?? '');
@@ -35,6 +35,8 @@ export async function createProject(page: Page, { urls, name }: { urls: string[]
     }
     if (name)
         await page.getByLabel('Project name').fill(name);
+    if (clientName !== undefined)
+        await page.getByLabel('Client name (optional)').fill(clientName);
     await page.getByRole('button', { name: 'Create project' }).click();
     await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install$/);
     const projectId = /\/app\/projects\/([0-9a-z]{12})\/install$/.exec(page.url())?.[1];

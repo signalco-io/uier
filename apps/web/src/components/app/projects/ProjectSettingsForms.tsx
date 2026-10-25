@@ -12,11 +12,11 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { Section } from '../PageHeader';
-import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
-import { setProjectStatusAction, updateProjectAccessAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
+import { setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
 import { updateProjectPageStateAction } from './actions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 
@@ -55,6 +55,25 @@ export function ProjectNameForm({ projectId, name }: { projectId: string; name: 
                         required
                         maxLength={MAX_PROJECT_NAME_LENGTH}
                         className="max-w-md" />
+                </Field>
+            </form>
+        </Section>
+    );
+}
+
+export function ProjectClientNameForm({ projectId, clientName }: { projectId: string; clientName?: string }) {
+    const formId = useId();
+    const [state, formAction, pending] = useActionState(updateProjectClientNameAction, null);
+    const [value, setValue] = useState(clientName ?? '');
+    return (
+        <Section id="client" title="Client" description="An optional name for the client this project is for. Leave it blank to remove it."
+            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+            <form id={formId} action={formAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <Field>
+                    <FieldLabel htmlFor={`${formId}-client`}>Client name (optional)</FieldLabel>
+                    <Input id={`${formId}-client`} name="clientName" value={value}
+                        onChange={event => setValue(event.target.value)} maxLength={MAX_CLIENT_NAME_LENGTH} className="max-w-md" />
                 </Field>
             </form>
         </Section>

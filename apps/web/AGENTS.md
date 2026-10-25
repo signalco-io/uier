@@ -129,6 +129,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
   `projects/[projectId]/layout.tsx`; its pages render the tab content.
+- Client names are optional project labels (`clientName`), not address/environment configuration or client entities.
+  `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit is 80 characters.
+  The list builds client choices only after `listVisibleProjects` and preserves the client/status query filters.
+  Client names belong to the signed-in app, not the public review project DTO.
 - Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
   `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
   document from the current workspace.
