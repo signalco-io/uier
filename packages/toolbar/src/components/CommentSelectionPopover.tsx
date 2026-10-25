@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Row } from '@signalco/ui-primitives/Row';
-import { Comment, Replace } from '@signalco/ui-icons';
 import { orderBy } from '@signalco/js';
 import { useResizeObserver } from '@enterwell/react-hooks';
-import { floatingShadowClassName, popoverWidth, popoverWindowMargin } from './@types/Comments';
+import { popoverWidth, popoverWindowMargin } from './@types/Comments';
+import { CommentIcon } from './CommentIcon';
+import { InkScope } from './InkScope';
+import { RewriteIcon } from './RewriteIcon';
 
 type CommentSelectionPopoverProps = {
     rects: DOMRect[];
@@ -18,7 +19,7 @@ type CommentSelectionPopoverProps = {
 };
 
 /**
- * The toolbar for selected page text: below the selection, or above it near the window's bottom.
+ * The toolbar for selected page text, ink and the size of the toolbar pill (BRAND.md, "The review layer"): below the selection, or above it near the window's bottom.
  * One Tab stop, like any toolbar: Left and Right arrows (Home, End) move between its buttons.
  */
 export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentSelectionPopoverProps) {
@@ -29,8 +30,8 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     const buttonsRef = useRef<(HTMLButtonElement | null)[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const actions = [
-        { label: 'Add comment', icon: <Comment />, onClick: onCreate },
-        { label: 'Rewrite', icon: <Replace />, onClick: onRewrite }
+        { label: 'Add comment', icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate },
+        { label: 'Rewrite', icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite }
     ];
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -59,35 +60,36 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
         : window.scrollY + (bottom ?? 0) + 20;
 
     return (
-        <div
-            ref={resizeObserverRef}
-            role="toolbar"
-            aria-label="Selected text"
-            aria-orientation="horizontal"
-            onKeyDown={handleKeyDown}
-            className={cx(
-                'absolute z-[52] bg-card border rounded-full p-1 -translate-x-1/2', floatingShadowClassName
-            )}
-            style={{ left: leftFixed, top: topFixed }}>
-            <Row spacing={0.5}>
-                {actions.map((action, index) => (
-                    <Button
-                        key={action.label}
-                        ref={(element: HTMLButtonElement | null) => {
-                            buttonsRef.current[index] = element;
-                        }}
-                        variant="plain"
-                        className="gap-2 rounded-full"
-                        tabIndex={index === activeIndex ? 0 : -1}
-                        onFocus={() => setActiveIndex(index)}
-                        // Keep the page selection intact until its action has consumed it.
-                        onPointerDown={event => event.preventDefault()}
-                        onClick={action.onClick}
-                        startDecorator={action.icon}>
-                        {action.label}
-                    </Button>
-                ))}
-            </Row>
-        </div>
+        <InkScope>
+            <div
+                ref={resizeObserverRef}
+                role="toolbar"
+                aria-label="Selected text"
+                aria-orientation="horizontal"
+                onKeyDown={handleKeyDown}
+                className="absolute z-[52] -translate-x-1/2 rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                style={{ left: leftFixed, top: topFixed }}>
+                <Row>
+                    {actions.map((action, index) => (
+                        <Button
+                            key={action.label}
+                            ref={(element: HTMLButtonElement | null) => {
+                                buttonsRef.current[index] = element;
+                            }}
+                            variant="plain"
+                            size="sm"
+                            className="gap-1.5 rounded-full pl-2.5"
+                            tabIndex={index === activeIndex ? 0 : -1}
+                            onFocus={() => setActiveIndex(index)}
+                            // Keep the page selection intact until its action has consumed it.
+                            onPointerDown={event => event.preventDefault()}
+                            onClick={action.onClick}
+                            startDecorator={action.icon}>
+                            {action.label}
+                        </Button>
+                    ))}
+                </Row>
+            </div>
+        </InkScope>
     );
 }
