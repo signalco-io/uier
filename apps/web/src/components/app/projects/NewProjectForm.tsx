@@ -7,12 +7,13 @@ import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '../FormMessage';
-import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { ClientNameInput } from './ClientNameInput';
 import { UrlListInput } from './UrlListInput';
 import { createProjectAction } from './actions';
 
-/** The fields and footer of the new-project card */
-export function NewProjectForm() {
+/** The fields and footer of the new-project card; `clients` are the existing ones to suggest */
+export function NewProjectForm({ clients }: { clients: string[] }) {
     const id = useId();
     const [state, formAction, pending] = useActionState(createProjectAction, null);
     const [name, setName] = useState('');
@@ -33,8 +34,7 @@ export function NewProjectForm() {
                     </Field>
                     <Field>
                         <FieldLabel htmlFor={`${id}-client`}>Client name (optional)</FieldLabel>
-                        <Input id={`${id}-client`} name="clientName" value={clientName}
-                            onChange={event => setClientName(event.target.value)} maxLength={MAX_CLIENT_NAME_LENGTH} />
+                        <ClientNameInput id={`${id}-client`} value={clientName} onValueChange={setClientName} clients={clients} />
                     </Field>
                     <UrlListInput description="The site you want to review first, then any staging or preview addresses, so reviewers can open any of them." />
                 </FieldGroup>

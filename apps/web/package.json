@@ -21,6 +21,7 @@
     "@azure/communication-email": "1.1.0",
     "@azure/cosmos": "4.10.1",
     "@azure/identity": "4.14.0",
+    "@base-ui/react": "1.9.0",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@signalco/cms-core": "0.1.1",
     "@signalco/js": "0.1.0",
