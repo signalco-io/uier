@@ -104,12 +104,13 @@ export default function PrivacyPolicyPage() {
                 the details.
             </p>
 
+            <p>Project feedback keeps its recorded source origin. Removing a site address does not delete its feedback or move it to another site. The inbox environment filter is saved in browser storage until you clear site data; app filters stay in the page URL.</p>
             <h3>Your account in the app</h3>
             <p>When you sign in to the {brand.name} app at {brand.domain}/app, we store:</p>
             <ul>
                 <li>your email address, and the name shown with your work (it starts as the part of your email before the @, and you can change it);</li>
                 <li>when your account was created;</li>
-                <li>your workspace and the projects in it: their names, optional client names, the site addresses you add and their settings.</li>
+                <li>your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.</li>
             </ul>
             <p>
                 To sign you in, we email you a link. We store only a hash of the token in the link, and delete it when

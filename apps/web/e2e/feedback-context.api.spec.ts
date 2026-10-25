@@ -79,7 +79,7 @@ test('project export enforces private visibility, original allowed source and me
     try {
         const origin = 'https://preview.example';
         const otherOrigin = 'https://production.example';
-        const project = { id: `packet-${randomUUID()}`, urls: [otherOrigin, origin] } as DbProject;
+        const project = { id: `packet-${randomUUID()}`, urls: [otherOrigin, origin], environments: [{ origin, label: 'Preview' }] } as DbProject;
         const store = getMemoryCommentsStore();
         const comment: DbComment = {
             id: 'comment_packet', domain: `project:${project.id}`, origin, path: '/pricing?plan=team&token=secret&uier-token=proof#/details?plan=team&auth=hidden', pageStateVersion: 1,
@@ -98,11 +98,13 @@ test('project export enforces private visibility, original allowed source and me
         expect(memberPacket.context.reproduction).toMatchObject({ browser: 'Original Browser', os: 'Original OS', windowSize: [800, 600], pixelRatio: 2 });
         expect(memberPacket.context.links.page).toBe(`${origin}/pricing?plan=team#/details?plan=team`);
         expect(memberPacket.context.links.comment).toContain('/app/review/');
+        expect(memberPacket.context.source.environment).toBe('Preview');
         expect(JSON.stringify(memberPacket)).not.toMatch(/secret|proof|hidden|uier-token|authorId|guest-owner/);
         // Metadata exists but the actual image is gone: report unavailable, never a broken promise.
         expect(memberPacket.context.screenshot.state).toBe('unavailable');
         const guestPacket = await projectFeedbackExport(project, guest, comment.id, origin, base);
         expect(guestPacket.context.reproduction).toEqual({ windowSize: [800, 600] });
+        expect(guestPacket.context.source.environment).toBe('Preview');
         expect(guestPacket.context.links.comment).toContain(`${origin}/pricing?plan=team&review=true&uier-comment=comment_packet`);
         expect(JSON.stringify(guestPacket)).not.toMatch(/Original Browser|Original OS|pixelRatio|capturedAt/);
         expect((await projectFeedbackExport(project, guest, comment.id, otherOrigin, base)).context.links).toEqual({ page: undefined, comment: undefined });
@@ -110,6 +112,8 @@ test('project export enforces private visibility, original allowed source and me
         expect(removed.context.links.page).toBeUndefined();
         expect(removed.context.links.comment).toBeUndefined();
         expect(removed.context.source.origin).toBeUndefined();
+        expect(removed.context.source.environment).toBe('Removed address');
+        expect((await projectFeedbackExport(project, guest, comment.id, otherOrigin, base)).context.source.environment).toBeUndefined();
         await expect(projectFeedbackExport(project, admin, 'comment_missing', undefined, base)).rejects.toMatchObject({ code: 'not_found' });
         await expect(projectFeedbackExport({ ...project, id: 'another-project' }, admin, comment.id, undefined, base)).rejects.toMatchObject({ code: 'not_found' });
     } finally {

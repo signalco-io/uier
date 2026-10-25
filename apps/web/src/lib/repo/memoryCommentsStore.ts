@@ -1,3 +1,4 @@
+import { matchesOrigin } from './originFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
@@ -78,15 +79,17 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...state().domains.keys()].flatMap(domainComments)
                 .filter(comment => comment.notificationPending && comment.projectId).map(clone);
         },
-        async list(domain, path, limit) {
+        async list(domain, path, limit, originFilter) {
             return domainComments(domain)
+                .filter(comment => matchesOrigin(comment.origin, originFilter))
                 .filter(comment => pathMatches(comment, path))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);
         },
-        async listAll(domain, limit) {
+        async listAll(domain, limit, originFilter) {
             return domainComments(domain)
+                .filter(comment => matchesOrigin(comment.origin, originFilter))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);
@@ -151,8 +154,8 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
                 if (!comment) return [];
-                const { id, path, private: isPrivate, authorId, resolved, createdAt, activity } = comment;
-                return [{ id, domain, path, private: isPrivate, authorId, resolved, createdAt, activity: clone(activity),
+                const { id, path, origin, private: isPrivate, authorId, resolved, createdAt, activity } = comment;
+                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, createdAt, activity: clone(activity),
                     thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
             }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
         },

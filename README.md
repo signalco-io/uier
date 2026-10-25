@@ -893,6 +893,35 @@ page key, original allowed origin and existing selector/offset limits. ETag retr
 replies/status changes and recheck authorization; anchor revisions reject stale choices. No cross-page
 migration or AI relocation is provided.
 
+### Feedback environments
+
+Project settings → Environments labels each configured **origin** (scheme, host and port).
+Addresses with different paths on one origin share an environment. Different origins are isolated
+by default, including older unlabeled projects: their origin is the label. Admins can set an
+identical, case-sensitive alias group on equivalent origins to share feedback for matching canonical
+page views. A label alone never groups addresses. Grouping changes the view; it does not copy or
+migrate comments, change permission checks, or rewrite their source origins.
+
+The toolbar's pins follow the current environment or explicit alias group. Its inbox has a visible
+Environment filter and a deliberate All environments view. Counts/unread and bounded lists use the
+same server-side scope. Selecting another environment changes the inbox, while new feedback is
+still recorded on the site being reviewed. The filter is saved on that site for the API, project
+and reviewer in `uier:environment:v1:<api>:<project>:<reviewer>` until browser data is cleared.
+App filters are retained in the URL and survive reload. The app initially shows the main origin's
+environment; the toolbar initially shows its current origin. Invalid/stale selections fall back to
+that default. Direct comment links open the original configured origin and stored safe query/hash
+state, even when aliases share feedback. Reattachment still requires the original reviewed origin. Opening a direct link overrides an old toolbar filter for
+that visit. Notifications also retain the original source: unavailable sources link members to feedback history and give guests notification controls instead of a replacement site.
+An allowed site that no longer responds can still fail at the browser; uier does not
+proxy or provision previews.
+
+Removed addresses remain searchable through Removed addresses or All environments, with the
+recorded origin and disabled page links. Comments without a recorded origin remain in Source not
+recorded or All environments; no current address is inferred for them. Re-adding the same origin
+makes its links available again. Existing access, private-feedback and screenshot checks apply to
+every scope. Environment isolation is a feedback view, not a separate membership boundary within
+a project. No data migration or hosting changes are performed.
+
 ### Copy feedback as an issue
 
 Saved thread details in the toolbar and app offer **Copy issue**: exact saved feedback, quotes,

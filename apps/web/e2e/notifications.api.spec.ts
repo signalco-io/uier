@@ -283,3 +283,22 @@ test('targeted activity contract reaches authorized nonparticipants once and res
     await dispatch(f.project, f.comment, sent);
     expect(sent.filter(message => message.to === f.member.email)).toHaveLength(1);
 });
+
+
+test('removed source notifications keep member history and never retarget a guest to another origin', async () => {
+    const f = await fixture();
+    const address = `guest-removed-${f.project.id}@example.com`;
+    const follow = await followThread(f.project, f.guest, f.comment.id, true, address, baseUrl);
+    const token = new URL(follow.verificationUrl!).searchParams.get('token')!;
+    await actOnNotificationToken(token, 'verify');
+    await updateDoc<DbProject>(f.project.pk, f.project.id, p => ({ ...p, urls: ['https://replacement.example'] }));
+    await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'A reply after removal' });
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.find(message => message.to === f.owner.email)?.text).toContain('environment=removed');
+    const guest = sent.find(message => message.to === address)!;
+    expect(guest.text).toContain('original site address is unavailable');
+    expect(guest.text).toContain('Manage notifications');
+    expect(guest.text).not.toContain('replacement.example');
+    expect(guest.text).not.toContain('uier-comment=');
+});

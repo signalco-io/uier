@@ -9,6 +9,7 @@ import { CommentFilters } from './CommentFilters';
 import type { CommentsView, PeopleFilter } from './commentLabels';
 
 export type CommentsQuery = {
+    environment?: string;
     unread?: boolean;
     view: CommentsView;
     people: PeopleFilter;
@@ -25,6 +26,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
     const people = value('people');
     const page = value('page');
     return {
+        environment: value('environment'),
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
         people: people === 'assigned' || people === 'mine' ? people : 'all',
@@ -67,7 +69,8 @@ function CommentList({ projectId, comments, assignees, label }: {
 }
 
 /** The project's comments in a list or on a board (Open / Done), filtered by people and page */
-export function ProjectComments({ projectId, comments, query, userId, assignees, installHref }: {
+export function ProjectComments({ projectId, comments, query, userId, assignees, installHref, environments }: {
+    environments: import('../../../lib/app/environments').EnvironmentOption[];
     projectId: string;
     comments: ProjectCommentView[];
     query: CommentsQuery;
@@ -76,26 +79,24 @@ export function ProjectComments({ projectId, comments, query, userId, assignees,
     /** The install guide, offered while there are no comments */
     installHref: string;
 }) {
-    if (!comments.length) {
-        return (
-            <Empty className="border">
-                <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                        <MessageSquareDashedIcon />
-                    </EmptyMedia>
-                    <EmptyTitle>No comments yet</EmptyTitle>
-                    <EmptyDescription>
-                        Add the script to your site, open a review link and pin the first comment. It shows up here.
-                    </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                    <Button variant="outline" asChild>
-                        <Link href={installHref}>Install the script</Link>
-                    </Button>
-                </EmptyContent>
-            </Empty>
-        );
-    }
+    const emptyState = (
+        <Empty className="border">
+            <EmptyHeader>
+                <EmptyMedia variant="icon">
+                    <MessageSquareDashedIcon />
+                </EmptyMedia>
+                <EmptyTitle>No comments yet</EmptyTitle>
+                <EmptyDescription>
+                    This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.
+                </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+                <Button variant="outline" asChild>
+                    <Link href={installHref}>Install the script</Link>
+                </Button>
+            </EmptyContent>
+        </Empty>
+    );
 
     const pages = [...new Set(comments.map(comment => comment.path))].sort();
     const shown = applyFilters(comments, query, userId);
@@ -105,14 +106,14 @@ export function ProjectComments({ projectId, comments, query, userId, assignees,
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <CommentFilters unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages} />
+                <CommentFilters environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages} />
                 <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
                     {shown.length === comments.length
                         ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
                         : `${shown.length} of ${comments.length} comments`}
                 </p>
             </div>
-            {!shown.length ? (
+            {!comments.length ? emptyState : !shown.length ? (
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">

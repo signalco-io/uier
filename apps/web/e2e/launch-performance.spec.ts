@@ -90,6 +90,9 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         await guest.page.getByRole('button', { name: /^Inbox/ }).click();
         const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
         await expect(inbox.getByRole('article')).toHaveCount(100);
+        // Filters can fill a short mobile viewport. Scroll saved evidence into view before
+        // checking its lazy image; offscreen images must stay unloaded.
+        await inbox.getByRole('article').first().scrollIntoViewIfNeeded();
         await expect(inbox.getByRole('button', { name: 'Screenshot of the commented part of the page' }).first()).toBeVisible();
         await expect.poll(() => requests.filter(request => request.path.endsWith('/screenshot')).length).toBeGreaterThan(0);
         const loadedRequests = [...requests];

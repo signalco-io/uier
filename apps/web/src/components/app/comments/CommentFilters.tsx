@@ -10,7 +10,9 @@ import { peopleFilterLabels, type CommentsView, type PeopleFilter } from './comm
 const allPages = 'all';
 
 /** View (list or board) and the people and page filters; all kept in the URL */
-export function CommentFilters({ unread, unreadCount, view, people, page, pages }: {
+export function CommentFilters({ unread, unreadCount, view, people, page, pages, environment, environments }: {
+    environment?: string;
+    environments: import('../../../lib/app/environments').EnvironmentOption[];
     unread: boolean;
     unreadCount: number;
     view: CommentsView;
@@ -35,6 +37,15 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages 
 
     return (
         <div className="flex flex-wrap items-center gap-2">
+            <Select value={environment} onValueChange={value => go('environment', value)}>
+                <SelectTrigger size="sm" aria-label="Environment" className="max-w-80 min-w-36"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectGroup>
+                    {environments.map(item => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}
+                    <SelectItem value="all">All environments</SelectItem>
+                    <SelectItem value="removed">Removed addresses</SelectItem>
+                    <SelectItem value="unknown">Source not recorded</SelectItem>
+                </SelectGroup></SelectContent>
+            </Select>
             <Button size="sm" variant="outline" aria-pressed={unread} onClick={() => go('unread', unread ? undefined : 'true')}>
                 Unread {unreadCount}
             </Button>

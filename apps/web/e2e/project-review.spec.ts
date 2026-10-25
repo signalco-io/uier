@@ -332,7 +332,9 @@ for (const layout of ['html-scroll', 'body-hidden']) {
         // Without waiting for the lazy image
         const started = Date.now();
         await draft.getByRole('button', { name: 'Post comment' }).click();
-        const preview = guest.page.getByRole('dialog', { name: 'Comment thread' }).getByRole('img', { name: 'Screenshot of the commented part of the page' });
+        const savedThread = guest.page.getByRole('dialog', { name: 'Comment thread' });
+        await savedThread.getByRole('region', { name: 'Screenshot evidence' }).scrollIntoViewIfNeeded();
+        const preview = savedThread.getByRole('img', { name: 'Screenshot of the commented part of the page' });
         await expect(preview).toBeVisible();
         expect(Date.now() - started).toBeLessThan(5_000);
 

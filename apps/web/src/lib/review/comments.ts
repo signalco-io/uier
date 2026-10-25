@@ -1,6 +1,8 @@
 import { reattachAnchor } from '../comments/reattachAnchor';
 import type { ReattachAnchorInput } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
+
+import type { OriginFilter } from '../repo/originFilter';
 import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { moveMentions } from '@uier/toolbar/mentions';
@@ -143,12 +145,12 @@ function visibleOrThrow(comment: DbComment, actor: ProjectActor) {
 }
 
 /** Comments of one page, or of every page (`path` undefined), that the actor can see */
-export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string) {
+export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter) {
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     const comments = path === undefined
-        ? await store.listAll(partition, MAX_PROJECT_COMMENTS)
-        : await store.list(partition, path, MAX_PROJECT_COMMENTS);
+        ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter)
+        : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter);
     return comments.filter(comment => canSeeComment(comment, actor));
 }
 

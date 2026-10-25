@@ -1,4 +1,5 @@
 import { commentResponse } from './response';
+import { configuredEnvironments, environmentOptions } from '../app/environments';
 import { z } from 'zod';
 import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
@@ -7,7 +8,7 @@ import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema,
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
-import { projectOrigins } from '../app/projects';
+import { projectOrigins, projectReviewOrigin } from '../app/projects';
 import { appBaseUrl } from '../app/request';
 import { KnownPageLinks } from '../../knownPages';
 import { actorAuthorId, assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } from './actor';
@@ -53,7 +54,7 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
 export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
-        project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState) },
+        project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) },
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)
@@ -79,7 +80,7 @@ export async function createReviewComment(context: ReviewApiContext) {
     // A screenshot makes the body larger than other writes
     const input = await parseJsonBody(request, createSchema, MAX_COMMENT_BODY_BYTES);
     const authorName = writerName(actor, input.authorName);
-    const origin = siteOrigin ?? projectOrigins(project)[0]!;
+    const origin = projectReviewOrigin(project, request, siteOrigin)!;
     const comment = await createProjectComment(request, project, actor, { ...input, path: pagePath(input.path, project.pageState), pageStateVersion: 1, authorName, origin });
     return await commentResponse(context, comment, 201);
 }

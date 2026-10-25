@@ -1,4 +1,4 @@
-import { createContext, type PropsWithChildren, useContext, useEffect, useRef } from 'react';
+import { createContext, type PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -14,7 +14,7 @@ import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
-    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; pageState?: PageStatePolicy };
+    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
     viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
@@ -55,6 +55,11 @@ async function loadReviewInfo() {
 
 export type ProjectViewer = {
     isMember?: boolean;
+    environment?: string;
+    currentEnvironment?: string;
+    environmentLabel?: string;
+    environmentOptions?: { id: string; label: string }[];
+    setEnvironment?: (value: string) => void;
     draftScope?: string;
     pageState: PageStatePolicy;
     /** Guests tag their comments with a name; members comment under their account name */
@@ -169,9 +174,26 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
         return <ProjectNotice text="Sign in to see and leave comments." action={{ label: 'Sign in', onClick: signIn }} onExitReview={onExitReview} />;
     }
 
-    return (
-        <ProjectViewerContext.Provider value={{ isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope, needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
-            {children}
-        </ProjectViewerContext.Provider>
-    );
+    return <ProjectEnvironmentProvider key={info.viewer.draftScope ?? info.viewer.kind} info={info}>{children}</ProjectEnvironmentProvider>;
+}
+
+function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info: ReviewInfo }>) {
+    const current = info.project.environments?.find(item => item.origin === window.location.origin);
+    const options = info.project.environmentOptions ?? [];
+    const currentEnvironment = current?.group ? `group:${current.group}` : current ? `origin:${current.origin}` : options[0]?.id;
+    const storageKey = `uier:environment:v1:${toolbarConfig.apiUrl}:${info.project.id}:${info.viewer.draftScope ?? info.viewer.kind}`;
+    const [saved, setSaved] = useState<string | null>(() => {
+        if (new URL(window.location.href).searchParams.has('uier-comment')) return null;
+        try { return window.localStorage.getItem(storageKey); } catch { return null; }
+    });
+    const environment = saved && (['all', 'unknown', 'removed'].includes(saved) || options.some(option => option.id === saved)) ? saved : currentEnvironment;
+    const setEnvironment = (value: string) => {
+        setSaved(value);
+        try { window.localStorage.setItem(storageKey, value); } catch { /* Filter still works for this page. */ }
+    };
+    return <ProjectViewerContext.Provider value={{
+        isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
+        needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,
+        currentEnvironment, environment, environmentLabel: current?.label, environmentOptions: options, setEnvironment
+    }}>{children}</ProjectViewerContext.Provider>;
 }

@@ -1,3 +1,4 @@
+import { environmentOptions, environmentSelection } from '@/src/lib/app/environments';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { GlobeIcon } from 'lucide-react';
@@ -25,12 +26,12 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
     if (!project)
         notFound();
 
+    const query = parseCommentsQuery(await searchParams);
+    query.environment = environmentSelection(project, query.environment);
     const [comments, members] = await Promise.all([
-        loadProjectComments(context, project),
+        loadProjectComments(context, project, query.environment),
         listProjectMembers(context.workspace.id, project.id)
     ]);
-    const query = parseCommentsQuery(await searchParams);
-
     return (
         <>
             {project.access === 'guests' && project.urls[0] && (
@@ -48,6 +49,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
             <section id="comments" aria-labelledby="comments-title" className="flex scroll-mt-6 flex-col gap-4">
                 <h2 id="comments-title" className="sr-only">Comments</h2>
                 <ProjectComments
+                    environments={environmentOptions(project)}
                     projectId={project.id}
                     comments={comments}
                     query={query}

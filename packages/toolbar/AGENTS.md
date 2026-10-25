@@ -131,6 +131,13 @@ cancels choosing. Anchor updates use `PATCH .../anchor`, the saved page key and 
 Keep original and previous context, and never invent fallback pins for missing or ambiguous targets.
 `e2e/reattach*.spec.ts` covers recovery, access, races, layout changes and light/dark accessibility.
 
+- Project review info supplies environment labels and explicit alias groups. Pins always use the
+  current environment; inbox lists and activity use the visible saved Environment selection.
+  Scope query keys by that selection and reviewer. A thread's server-provided `source` owns its
+  original link; missing/removed sources have no executable link. Keep foreign-environment items
+  out of This page/Show on page even when paths match. Direct links override saved filters for the
+  visit. Filter preferences use the versioned `uier:environment:v1:` key and contain no credentials.
+
 ## Feedback export
 
 `components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
