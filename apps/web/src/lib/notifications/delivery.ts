@@ -170,6 +170,12 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
             if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
             return { ...current, attempt, lastOperationId: attempt.operationId };
         });
+        // Preparing a digest does several reads/writes. Check once more at the send boundary.
+        const latest = await recipientContext(delivery);
+        if (!latest?.email || latest.email !== attempt.message.to || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
+            await save({ processedThrough: through, attempt: undefined, active: false, status: 'suppressed' });
+            return;
+        }
         const result = await transport(attempt.message, attempt, Boolean(delivery.attempt));
         if (result.status === 'sent') {
             await save({ processedThrough: through, attempt: undefined, active: true, failures: 0, nextAttemptAt: iso(), status: 'accepted', lastCode: result.code });
