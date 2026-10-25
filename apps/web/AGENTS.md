@@ -17,7 +17,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
-| `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; all other pages remain unframeable |
+| `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
+| `app/review-session/`, `app/api/review/[projectId]/sso/` | empty frame and same-origin cookie endpoint for background member sign-in; validate the actual message parent origin against project addresses and recheck membership. Only accepts the separate `review-sso` cookie purpose, never the app cookie; no CORS, no cache, no storage-access prompts |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
@@ -115,6 +116,11 @@ those checks measure, at request time. Do not add uptime percentages, history or
 not checked. A new service gets a real check there first. `e2e/status.spec.ts` covers both.
 
 ## The app
+
+- `reviewSsoCookie.ts` owns the HttpOnly/Secure/SameSite=None companion, restricted to `/api/review`.
+  Sign-in and first-party app requests seed it with no longer lifetime than the SameSite=Lax app session;
+  sign-out expires both. It cannot authenticate app routes. Browser-blocked handoffs silently retain the
+  explicit review-link fallback. Comment writes continue to require the existing browser verification.
 
 - **UI: shadcn/ui.** The app (`app/(rest)/(app)`) is built from the components in `src/components/ui`,
   added with `pnpm dlx shadcn@latest add <name>` (run in `apps/web`; the shadcn skill in

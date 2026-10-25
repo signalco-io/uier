@@ -46,6 +46,7 @@ test('authorized reviewer, project and canonical query/hash scopes survive SPA n
     await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Member view A');
     // Remove the authorized member token without signing out, to prove a guest cannot read member drafts.
     await page.evaluate(project => localStorage.removeItem(`uier:review-token:${project}`), project);
+    await page.context().clearCookies({ name: 'uier_review_sso' });
     await page.reload();
     await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(0);
@@ -56,6 +57,8 @@ test('a guest project review recovers lost create/reply responses across reload 
     await signIn(page, uniqueEmail('project-retry'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');
+    // Project setup used the owner account; this scenario exercises a guest without background SSO.
+    await page.context().clearCookies();
     const path = `/${project}/pricing`;
     await page.goto(`${site.origin()}${path}?review=true`);
     await page.getByRole('button', { name: 'Add comment', exact: true }).click();

@@ -152,6 +152,16 @@ export default function PrivacyPolicyPage() {
                 signed in to the project, or, as a guest, a random visitor id that recognises your comments and
                 the name you gave. Signing out in the toolbar removes them.
             </p>
+            <p>
+                If you are already signed in to {brand.domain}, an empty frame can authenticate you in the
+                background on a configured project site. A separate HttpOnly, Secure cookie authorizes only
+                this review handoff; we check the requesting site and your current project membership.
+                Browsers that block cross-site cookies or frames keep the explicit sign-in link. We do not
+                open a popup or request storage access. Toolbar sign-out disables automatic sign-in on that
+                site until you use an authenticated review link. A pending link code is kept in tab storage
+                for up to ten minutes to survive the reviewed site&rsquo;s own authentication redirects.
+                The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> describes these keys and controls.
+            </p>
 
             <h3>Read activity</h3>
             <p>
