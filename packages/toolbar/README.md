@@ -145,7 +145,11 @@ error boundary, so one bad comment never breaks the toolbar.
 ## Using it
 
 - The pill sits at the bottom centre: add comment, feedback, inbox, profile, options and collapse. **Collapse** shrinks it
-  to the uier mark (with the unread count); the state is kept for the tab (`uier:toolbar-collapsed`).
+  to the uier mark (with the unread count) and hides page pins, text highlights, comment popovers and inline threads. Point mode
+  ends, and selecting page text shows no review controls while collapsed. **Expand** restores the annotations
+  at their current positions; unsent comment and reply text is kept. The state is kept for the tab
+  (`uier:toolbar-collapsed`), including after navigation and reload. The inbox keeps its state; **Show on page**
+  expands the toolbar before opening a comment's pin.
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them).

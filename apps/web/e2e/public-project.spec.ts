@@ -52,3 +52,18 @@ test('anonymous visitors can comment on another public page and keep the comment
     await expect(page.getByRole('region', { name: 'Other pages' }).getByText(text)).toBeVisible();
     await context.close();
 });
+
+test('collapse hides inline public threads and preserves their reply drafts', async ({ page }) => {
+    await page.goto('/');
+    const headline = page.getByRole('region', { name: 'Headline comment thread' });
+    await headline.getByRole('textbox', { name: 'Reply to the headline' }).fill('An unsent headline reply');
+    await page.getByRole('button', { name: 'Collapse toolbar' }).click();
+    await expect(headline).toHaveCount(0);
+    await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
+    await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Expand toolbar' }).click();
+    await expect(headline).toBeVisible();
+    await expect(headline.getByRole('textbox', { name: 'Reply to the headline' })).toHaveValue('An unsent headline reply');
+    await expect(page.locator(`[data-uier-comment="${HEADLINE_COMMENT_ID}"]`)).toBeVisible();
+});

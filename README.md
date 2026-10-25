@@ -271,6 +271,11 @@ links still start review mode; the signed-in app does not automatically publish 
 
 ### `/toolbar.js`
 
+Collapsing the toolbar hides on-page comment pins, text highlights, comment popovers and inline threads, leaving the page
+free to browse and select text. Expanding restores annotations at their current positions and retains unsent
+comment and reply text. Collapse is remembered for the tab across navigation and reload; the inbox retains
+its state, and **Show on page** expands the toolbar to open the requested comment.
+
 The production URL of the toolbar is **`https://uier.io/toolbar.js`**. A reviewed site embeds it with its
 project's script tag from the app's install guide:
 
