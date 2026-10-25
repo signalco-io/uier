@@ -43,4 +43,9 @@ export default defineConfig(({ env }) => [{
     external: ['react'],
     // A client component in React Server Components apps (Next.js App Router)
     banner: { js: '\'use client\';' }
+}, {
+    // Pure browser/server page identity contract; no React client boundary.
+    entry: { pageState: './src/pageState.ts' },
+    format: ['esm'],
+    platform: 'neutral'
 }]);

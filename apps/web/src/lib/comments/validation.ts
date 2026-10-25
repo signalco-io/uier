@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { maxPageKeyLength } from '@uier/toolbar/page-state';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
@@ -26,6 +27,10 @@ export const pathSchema = z.string()
     .transform(normalizePath)
     // Browsers read `//host` and `/\host` as another site: a link to the comment would leave this one
     .refine(path => !path.startsWith('//') && !path.includes('\\'), 'Path must not start with "//" or contain "\\"');
+
+/** Projects filter meaningful state using their policy after parsing; never accept an absolute URL. */
+export const reviewPathSchema = z.string().min(1).max(maxPageKeyLength)
+    .refine(path => path.startsWith('/') && !path.startsWith('//') && !path.includes('\\') && !controlCharacters.test(path), 'Use a relative page path.');
 
 /** Removes the query string, hash and trailing slashes (except for "/") */
 export function normalizePath(path: string) {

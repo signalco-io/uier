@@ -3,7 +3,7 @@ import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { Button } from '@signalco/ui-primitives/Button';
-import { useComments } from '../hooks/useComments';
+import { useComments, useSiteComments } from '../hooks/useComments';
 import { newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
@@ -116,9 +116,11 @@ export function CommentsGlobal({
     // The last focused element of the page (outside the toolbar), for comments created with the keyboard
     const lastPageFocusRef = useRef<Element | null>(null);
 
-    const { query: commentItems } = useComments();
+    const { path, query: commentItems } = useComments();
     const drafts = useDrafts();
     const allComments = commentItems.data;
+    // Old routing settings must not move a thread onto a different view. A direct link can still show its saved details.
+    const linkedSite = useSiteComments(Boolean(linkedCommentId && commentItems.isSuccess && !allComments?.some(comment => comment.id === linkedCommentId)));
     const unresolvedComments = useMemo(
         () => sortByDocumentPosition((allComments ?? []).filter(c => !c.resolved)),
         [allComments]);
@@ -324,9 +326,16 @@ export function CommentsGlobal({
         if (!linkedCommentId || linkHandledRef.current || !allComments) {
             return;
         }
-        linkHandledRef.current = true;
-        const linked = allComments.find(c => c.id === linkedCommentId);
+        const linked = allComments.find(c => c.id === linkedCommentId) ?? linkedSite.data?.find(c => c.id === linkedCommentId);
         if (!linked) {
+            if (linkedSite.isSuccess) linkHandledRef.current = true;
+            return;
+        }
+        linkHandledRef.current = true;
+        if (linked.path !== path) {
+            setSidebarFilter({ status: linked.resolved ? 'resolved' : 'unresolved', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
+            setSidebarOpen(true);
+            announce('This comment uses an earlier page-state setting. Its saved details are in the inbox.');
             return;
         }
         if (linked.resolved || linked.position.type === 'page') {
@@ -334,7 +343,7 @@ export function CommentsGlobal({
         } else {
             setOpenComment({ id: linked.id });
         }
-    }, [allComments, linkedCommentId]);
+    }, [allComments, linkedCommentId, linkedSite.data, linkedSite.isSuccess, path, announce]);
 
     // When the thread's pin can't be placed on this page (the element is gone or hidden), the inbox
     // shows it. "Show on page" goes back to the inbox as it was and says why.

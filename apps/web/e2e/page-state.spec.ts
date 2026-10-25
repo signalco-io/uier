@@ -1,0 +1,124 @@
+import { randomBytes } from 'node:crypto';
+import { expect, test, type Page } from '@playwright/test';
+import { startReviewedSite } from './support/reviewedSite';
+import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { verifiedReviewHeaders } from './support/reviewVerification';
+import { commentBubbles, openThread } from './support/toolbar';
+import { expectNoAxeViolations } from './accessibility';
+
+let site: Awaited<ReturnType<typeof startReviewedSite>>;
+test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
+test.afterAll(async () => { await site.close(); });
+
+async function startComment(page: Page) {
+    await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+    await page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+    return page.getByRole('dialog', { name: 'New comment', exact: true });
+}
+
+test('query/hash views, links, legacy feedback and SPA drafts stay with their original page', async ({ page, request }) => {
+    await signIn(page, uniqueEmail('page-state'));
+    const projectId = await createProject(page, { urls: [site.origin()], name: 'Views' });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const basePath = `/${projectId}/search`;
+    const headers = await verifiedReviewHeaders(request, projectId, site.origin(), randomBytes(32).toString('base64url'));
+    const old = await request.post(`/api/review/${projectId}/comments`, { headers, data: {
+        path: basePath, position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Path-only feedback', authorName: 'Earlier reviewer'
+    } });
+    expect(old.status()).toBe(201);
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const settings = page.getByRole('region', { name: 'Page state' });
+    await settings.getByLabel('Meaningful query fields').fill('category, tab');
+    await settings.getByLabel('Use hash routes (#/page or #!/page)').check();
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('checkbox')).toBeChecked();
+    await expectNoAxeViolations(page);
+    const viewA = `${basePath}?category=a&tab=overview#/catalog?tab=summary`;
+    const viewB = `${basePath}?category=b&tab=overview#/catalog?tab=summary`;
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}${basePath}/?tab=overview&category=a&utm_source=tracking&token=secret#/catalog/?tab=summary`)}`);
+    await expect(commentBubbles(page)).toHaveCount(0);
+    const draft = await startComment(page);
+    await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Feedback for view A');
+    const posted = page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments` && response.request().method() === 'POST');
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    const savedA = await (await posted).json();
+    expect(savedA.path).toBe(viewA);
+    expect(JSON.stringify(savedA)).not.toMatch(/utm_source|token=secret/);
+    await openThread(page).getByRole('textbox', { name: 'Reply', exact: true }).fill('Unsent reply A');
+    await page.keyboard.press('Escape');
+    const unsent = await startComment(page);
+    await unsent.getByRole('textbox', { name: 'Comment', exact: true }).fill('Unsent new A');
+    await page.evaluate(url => history.pushState(null, '', url), viewB);
+    await expect(commentBubbles(page)).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    const draftB = await startComment(page);
+    await expect(draftB.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('');
+    await draftB.getByRole('textbox', { name: 'Comment', exact: true }).fill('Feedback for view B');
+    await draftB.getByRole('button', { name: 'Post comment' }).click();
+    await expect(openThread(page)).toContainText('Feedback for view B');
+    await openThread(page).getByRole('textbox', { name: 'Reply', exact: true }).fill('Unsent reply B');
+    await page.evaluate(url => history.replaceState(null, '', url), viewB.replace('category=b', 'utm_source=other&category=b&token=hidden'));
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Unsent reply B');
+    await page.evaluate(url => history.replaceState(null, '', url), viewB.replace('#/catalog', '#!/details'));
+    await expect(commentBubbles(page)).toHaveCount(0);
+    await page.evaluate(url => history.replaceState(null, '', url), viewB);
+    await expect(commentBubbles(page)).toHaveCount(1);
+    await commentBubbles(page).click();
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Unsent reply B');
+    await page.goBack();
+    await expect(commentBubbles(page)).toHaveCount(1);
+    await commentBubbles(page).click();
+    await expect(openThread(page)).toContainText('Feedback for view A');
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Unsent reply A');
+    await page.keyboard.press('Escape');
+    const restored = await startComment(page);
+    await expect(restored.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Unsent new A');
+    await restored.getByRole('button', { name: 'Discard' }).click();
+    await page.goForward();
+    await expect(commentBubbles(page)).toHaveCount(1);
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    const linkA = inbox.getByRole('link', { name: `Open on ${viewA}`, exact: true });
+    const href = await linkA.getAttribute('href');
+    expect(href).toContain(`uier-comment=${savedA.id}`);
+    expect(href).not.toMatch(/utm_source|token=secret|token=hidden/);
+    await linkA.click();
+    await expect(openThread(page)).toContainText('Feedback for view A');
+    await page.reload();
+    await expect(commentBubbles(page)).toHaveCount(1);
+    await commentBubbles(page).click();
+    await expect(openThread(page)).toContainText('Feedback for view A');
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}${basePath}`)}`);
+    await expect(commentBubbles(page)).toHaveCount(1);
+    await commentBubbles(page).click();
+    await expect(openThread(page)).toContainText('Path-only feedback');
+    await page.goto(`/app/projects/${projectId}`);
+    await expect(page.getByRole('article')).toHaveCount(3);
+    const cardA = page.getByRole('article').filter({ hasText: 'Feedback for view A' });
+    await expect(cardA.getByRole('link', { name: new RegExp('category=a') })).toHaveAttribute('href', new RegExp('category%3Da|category=a'));
+    await cardA.getByRole('button', { name: 'Reproduction details' }).click();
+    await expect(cardA.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${viewA}`);
+    // Removing routing fields does not reassign old feedback; direct links retain its saved details.
+    await page.goto(`/app/projects/${projectId}/settings`);
+    await settings.getByLabel('Meaningful query fields').fill('');
+    await settings.getByLabel('Use hash routes (#/page or #!/page)').uncheck();
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('checkbox')).not.toBeChecked();
+    await page.goto(href!);
+    await expect(page.getByRole('complementary', { name: 'Comments' })).toContainText('Feedback for view A');
+    await expect(page.getByRole('complementary', { name: 'Comments' })).not.toContainText('Feedback for view B');
+});
+
+test('page-state settings reject sensitive fields and keep the attempted configuration', async ({ page }) => {
+    await signIn(page, uniqueEmail('state-settings'));
+    const projectId = await createProject(page, { urls: [site.origin()] });
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const settings = page.getByRole('region', { name: 'Page state' });
+    await settings.getByLabel('Meaningful query fields').fill('category, session_token');
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('alert')).toContainText('credential');
+    await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('category, session_token');
+});

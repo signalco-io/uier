@@ -1,7 +1,7 @@
 import type { DbComment } from '../db/schema';
-import { pathSchema } from './validation';
+import { commentPath } from './dto';
 
-/** Explicit member-only fields. Never include a raw user agent or the page's query/hash. */
+/** Explicit member-only fields. Page links contain only stored approved state, never a raw URL or user agent. */
 export type ReproductionContext = {
     browser?: string;
     os?: string;
@@ -27,9 +27,8 @@ export function toReproductionContext(comment: DbComment, allowedOrigins: readon
     const capturedAt = Number.isFinite(captureTime) ? new Date(captureTime).toISOString() : undefined;
     let url: string | undefined;
     try {
-        const path = pathSchema.safeParse(comment.path);
-        if (comment.origin && allowedOrigins.includes(comment.origin) && path.success) {
-            const page = new URL(path.data, comment.origin);
+        if (comment.origin && allowedOrigins.includes(comment.origin) && comment.path.startsWith('/') && !comment.path.startsWith('//') && !comment.path.includes('\\')) {
+            const page = new URL(commentPath(comment), comment.origin);
             if (['http:', 'https:'].includes(page.protocol) && page.origin === comment.origin && !page.username && !page.password)
                 url = page.href;
         }

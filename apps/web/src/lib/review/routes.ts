@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
-import { createCommentSchema, editThreadItemSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
+import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES, MAX_LIST_COMMENTS } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
@@ -60,7 +61,7 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
 export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
-        project: { id: project.id, name: project.name, access: project.access },
+        project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState) },
         viewer: viewerDto(actor),
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)
@@ -79,7 +80,7 @@ export async function createReviewSession({ request, project }: ReviewApiContext
     return Response.json({ token: session.token, viewer: viewerDto(session.actor) }, { status: 201 });
 }
 
-const listQuerySchema = z.object({ path: pathSchema });
+const listQuerySchema = z.object({ path: reviewPathSchema });
 
 /** `?path=/x`: the comments of the page; `?scope=site`: of every page (the toolbar's inbox) */
 export async function listReviewComments({ request, project, actor }: ReviewApiContext) {
@@ -89,7 +90,7 @@ export async function listReviewComments({ request, project, actor }: ReviewApiC
         const query = listQuerySchema.safeParse({ path: params.get('path') ?? '' });
         if (!query.success)
             throw apiErrors.invalidRequest('"path" is required and must start with "/".');
-        path = query.data.path;
+        path = pagePath(query.data.path, project.pageState);
     }
 
     const comments = (await listProjectComments(project, actor, path)).slice(0, MAX_LIST_COMMENTS);
@@ -100,7 +101,7 @@ export async function listReviewComments({ request, project, actor }: ReviewApiC
         .filter(Boolean)));
 }
 
-const createSchema = createCommentSchema.extend({ authorName: guestNameSchema.optional() });
+const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional() });
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
@@ -108,7 +109,7 @@ export async function createReviewComment(context: ReviewApiContext) {
     const input = await parseJsonBody(request, createSchema, MAX_COMMENT_BODY_BYTES);
     const authorName = writerName(actor, input.authorName);
     const origin = siteOrigin ?? projectOrigins(project)[0]!;
-    const comment = await createProjectComment(request, project, actor, { ...input, authorName, origin });
+    const comment = await createProjectComment(request, project, actor, { ...input, path: pagePath(input.path, project.pageState), pageStateVersion: 1, authorName, origin });
     return await commentResponse(context, comment, 201);
 }
 

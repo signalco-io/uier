@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { pagePath, pageStatePolicy, type PageStatePolicy } from '../pageState';
 
 /**
  * Page path as the comments API stores it: no query string, no trailing slash (except "/"). One
@@ -9,26 +10,29 @@ export function normalizePath(pathname: string) {
     return trimmed.length ? trimmed : '/';
 }
 
-function currentPath() {
-    return normalizePath(window.location.pathname);
+/** Notify synchronously for SPA transitions, preserving method receivers and later router wrappers. */
+function subscribe(listener: () => void) {
+    const originalPush = history.pushState;
+    const originalReplace = history.replaceState;
+    const push = function(this: History, ...args: Parameters<History['pushState']>) { const result = originalPush.apply(this, args); listener(); return result; };
+    const replace = function(this: History, ...args: Parameters<History['replaceState']>) { const result = originalReplace.apply(this, args); listener(); return result; };
+    try { history.pushState = push; history.replaceState = replace; } catch { /* Frozen host APIs use the fallback below. */ }
+    window.addEventListener('popstate', listener);
+    window.addEventListener('hashchange', listener);
+    const interval = window.setInterval(listener, 1000);
+    return () => {
+        try {
+            if (history.pushState === push) history.pushState = originalPush;
+            if (history.replaceState === replace) history.replaceState = originalReplace;
+        } catch { /* The host may have frozen its APIs after mounting. */ }
+        window.removeEventListener('popstate', listener);
+        window.removeEventListener('hashchange', listener);
+        window.clearInterval(interval);
+    };
 }
 
-/**
- * Normalized path of the current page. Follows client-side navigation (history API), which
- * does not emit an event for `pushState`, so the path is also checked periodically.
- */
-export function usePagePath() {
-    const [path, setPath] = useState(currentPath);
-
-    useEffect(() => {
-        const update = () => setPath(currentPath());
-        window.addEventListener('popstate', update);
-        const interval = window.setInterval(update, 1000);
-        return () => {
-            window.removeEventListener('popstate', update);
-            window.clearInterval(interval);
-        };
-    }, []);
-
-    return path;
+export function usePagePath(value?: PageStatePolicy) {
+    const policy = useMemo(() => pageStatePolicy(value), [value]);
+    const snapshot = useCallback(() => pagePath(`${location.pathname}${location.search}${location.hash}`, policy), [policy]);
+    return useSyncExternalStore(subscribe, snapshot, () => '/');
 }

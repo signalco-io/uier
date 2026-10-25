@@ -15,12 +15,13 @@ function withoutSystemProperties(resource: Record<string, unknown>): DbComment {
 }
 
 // Matches the normalized path and old documents whose path still contains the query string (e.g. `/x?review=true`)
-const pathFilter = '(c.path = @path OR STARTSWITH(c.path, @pathWithQuery))';
+const pathFilter = '(c.path = @path OR (@legacyPath = true AND (NOT IS_DEFINED(c.pageStateVersion) OR c.pageStateVersion != 1) AND STARTSWITH(c.path, @pathWithQuery)))';
 
 function pathParameters(path: string): SqlParameter[] {
     return [
         { name: '@path', value: path },
-        { name: '@pathWithQuery', value: `${path}?` }
+        { name: '@pathWithQuery', value: `${path}?` },
+        { name: '@legacyPath', value: !/[?#]/.test(path) }
     ];
 }
 

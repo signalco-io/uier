@@ -12,6 +12,8 @@
  * of the site, until the reviewer chooses "Exit review".
  */
 
+import { storedPagePath } from './pageState';
+
 export const reviewParamKey = 'review';
 export const toolbarCodeParamKey = 'toolbar-code';
 
@@ -109,10 +111,7 @@ export const commentLinkParamKey = 'uier-comment';
  * `/\host` (which a browser would read as another site) can't lead away.
  */
 export function commentLink(comment: { id: string; path: string }, review: ReviewSession | null | undefined) {
-    const url = new URL(window.location.href);
-    url.pathname = comment.path.startsWith('/') ? comment.path : `/${comment.path}`;
-    url.search = '';
-    url.hash = '';
+    const url = new URL(storedPagePath(comment.path, 1), window.location.origin);
     if (review?.projectCode) {
         url.searchParams.set(toolbarCodeParamKey, review.projectCode);
     } else if (review) {

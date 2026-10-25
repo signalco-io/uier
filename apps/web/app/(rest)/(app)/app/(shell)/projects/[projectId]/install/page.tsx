@@ -27,6 +27,7 @@ export default async function InstallProjectPage({ params }: PageProps<'/app/pro
             <InstallGuide
                 baseUrl={await appBaseUrl()}
                 projectId={project.id}
+                urls={project.urls}
                 reviewStep={(
                     <div className="flex flex-wrap gap-2">
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} />

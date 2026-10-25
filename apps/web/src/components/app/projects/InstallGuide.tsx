@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/compo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { CopyBlock } from '../CopyBlock';
 import { cspSnippet, embedScript, nextJsSnippet } from '../../../lib/app/integration';
+import { InstallationCheck } from './InstallationCheck';
 
 type Platform = {
     id: string;
@@ -71,7 +72,7 @@ function Step({ number, title, last = false, children }: { number: number; title
  * Where and how to add the script on the common platforms, then opening a review link (`reviewStep`),
  * plus the CSP sources (Advanced)
  */
-export function InstallGuide({ baseUrl, projectId, reviewStep }: { baseUrl: string; projectId: string; reviewStep: ReactNode }) {
+export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl: string; projectId: string; urls: string[]; reviewStep: ReactNode }) {
     const script = embedScript(baseUrl, projectId);
     return (
         <div className="flex flex-col gap-8">
@@ -82,7 +83,7 @@ export function InstallGuide({ baseUrl, projectId, reviewStep }: { baseUrl: stri
                         It loads the toolbar only when a page is opened with a review link
                         (<code className="font-mono">?toolbar-code={projectId}</code>), so visitors never see it.
                     </p>
-                    <CopyBlock value={script} label="Copy the script" />
+                    <div id="install-script"><CopyBlock value={script} label="Copy the script" /></div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         Project code
                         <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{projectId}</code>
@@ -112,10 +113,11 @@ export function InstallGuide({ baseUrl, projectId, reviewStep }: { baseUrl: stri
                         Once the script is live, a review link opens your site with the toolbar. Pin a comment and it shows up in the app.
                     </p>
                     {reviewStep}
+                    <InstallationCheck key={urls.join('\0')} projectId={projectId} urls={urls} />
                 </Step>
             </ol>
 
-            <Collapsible className="rounded-xl border">
+            <Collapsible id="security-headers" className="rounded-xl border">
                 <CollapsibleTrigger asChild>
                     <Button variant="ghost" className="group/advanced h-auto w-full justify-start rounded-xl px-4 py-3 font-medium">
                         <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-open/advanced:rotate-90" />

@@ -42,7 +42,11 @@ export default function PrivacyPolicyPage() {
             <p>When you post a comment or a reply with the toolbar, we store:</p>
             <ul>
                 <li>the text you write and, for a comment on selected text, the words you selected;</li>
-                <li>the page it belongs to (domain and path, without the query string) and where on the page it is pinned;</li>
+                <li>
+                    the page it belongs to and where it is pinned. By default this is the domain and path. A project
+                    owner can additionally choose non-sensitive query fields and hash routes that identify a view.
+                    Tracking, review activation and recognized credential fields are excluded; unapproved query fields are not stored.
+                </li>
                 <li>when it was posted or edited, and the time in your browser when feedback capture started;</li>
                 <li>
                     details about the device it came from: its size (desktop, tablet or mobile), the window
@@ -62,7 +66,7 @@ export default function PrivacyPolicyPage() {
                 3F2A&rdquo;, derived from the author id. Public and guest views never expose the author id, browser,
                 operating system, pixel ratio or capture-start time. Authorized members of a project can view and copy
                 those reproduction details for that project, except the author id. Unsupported browser details are shown
-                as unknown. The copied page link excludes query strings, hashes and review tokens. Comments on the public
+                as unknown. The copied page link contains only the stored page path and any approved view state, with no review tokens. Comments on the public
                 site are public, so do not put personal information in them.
             </p>
 

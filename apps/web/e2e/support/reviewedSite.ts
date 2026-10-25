@@ -69,17 +69,26 @@ export async function startReviewedSite(apiBaseUrl: string) {
             return;
         }
 
+        const label = request.headers.host?.split('.')[0];
+        if (label === 'redirect-denied') {
+            response.writeHead(302, { Location: `http://denied.localhost:${request.headers.host?.split(':').at(-1)}${url.pathname}${url.search}` });
+            response.end();
+            return;
+        }
         const [, pathProject = '', ...pagePath] = url.pathname.split('/');
         // The project of /<code>/<page>; on other pages the review link's code (a project's main site)
         const projectId = pathProject || url.searchParams.get('toolbar-code') || '';
-        const embed = url.searchParams.get('embed') === 'react'
+        const embed = label === 'missing-script' ? '' : label === 'wrong-project' ? embedScript(apiBaseUrl, 'zzzzzzzzzzzz')
+            : label === 'wrong-api' ? embedScript(apiBaseUrl, projectId).replace(' defer', ' data-uier-api-url="https://wrong-api.example" defer') : url.searchParams.get('embed') === 'react'
             ? `<div id="root"></div>
     <script src="/react-app.js" data-project="${projectId}" data-src="${apiBaseUrl}/toolbar.js" defer></script>`
             : embedScript(apiBaseUrl, projectId);
         // `?layout=html-scroll` or `?layout=body-hidden`: a long page with CSS that makes a copy of the
         // page clip itself (`<html>` or `<body>` as a scroll box), and a lazy image below the window
         const layout = layouts[url.searchParams.get('layout') ?? ''];
-        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': csp });
+        const policy = label === 'blocked-connect' ? csp.replace(/connect-src [^;]+/, "connect-src 'self'")
+            : label === 'blocked-frame' ? csp.replace(/frame-src [^;]+/, "frame-src 'self'") : csp;
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': policy });
         response.end(`<!doctype html>
 <html lang="en">
 <head>

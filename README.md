@@ -185,9 +185,13 @@ is the landing page's `brand.pricing` promise.
     URLs). Each comment shows its page URL, the device size it came from, when it was created, its author,
     assignee, replies and state, with Done, Link to comment and Assign; the author or an admin edits and
     deletes it, and only admins make it private.
-  - Install `/app/projects/<code>/install`: the install guide with the project code.
+  - Install `/app/projects/<code>/install`: the install guide with the project code and **Check installation**.
+    The check opens the actual configured site, confirms the script's project/API, reads comments and obtains a
+    browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence
+    exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
+    Reports check the window, origin and a temporary nonce; no tokens, reviewer identity or page content are reported.
   - Settings `/app/projects/<code>/settings`: name, who can comment (invited people, anyone with the link,
-    or comments off), addresses, usage (comments, open, done, replies, pages, people with access), done.
+    or comments off), addresses, meaningful page-state fields, usage (comments, open, done, replies, pages, people with access), done.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
@@ -213,7 +217,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 
 | Request | What |
 | --- | --- |
-| `GET /api/review/<code>` | the project (name, who can comment), the reviewer and whether they can comment, the sign-in URL |
+| `GET /api/review/<code>` | the project (name, who can comment, page-state policy), the reviewer and whether they can comment, the sign-in URL |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
@@ -398,8 +402,25 @@ Authorized project members additionally receive `reproduction`: browser/version 
 client hints, the original viewport and pixel ratio, the browser's capture-start timestamp and a safe reviewed-page
 link. Threads, inbox entries and app cards offer expandable, copyable details. Missing/older fields say Unknown
 or Unavailable. Public and guest responses keep the restricted `device` shape and omit `reproduction`, even for
-the author. Links currently retain only the pathname; query strings, hash state and review tokens are not copied.
-Meaningful query/hash routing is tracked separately in #87. Replies, edits and viewport changes keep the original context.
+the author. Links retain the stored page identity described below; review tokens and unapproved query fields are
+excluded. Replies, edits and viewport changes keep the original context.
+
+**Meaningful page state.** Projects default to pathname-only review. Admins can choose up to 12 non-sensitive query
+names in Settings → Page state and enable `#/...` or `#!/...` hash routes. The shared
+[`pageState.ts`](packages/toolbar/src/pageState.ts) contract (also exported as `@uier/toolbar/page-state`) normalizes
+trailing slashes, percent encoding, query order and duplicate values. Hash-route prefixes are preserved so copied
+links work with the site's router. Tracking, review activation and recognized credential/identity fields cannot
+be selected. Values are limited to five per field, 128 characters each; emails, URLs, token-like values and common
+credential hash routes are omitted. Choose only fields that never contain personal or secret values. Keys longer
+than 2048 characters fall back to pathname; the public showcase keeps its existing 512-character pathname contract.
+
+New project records have `pageStateVersion: 1`; their `path` is the canonical view key, used consistently by APIs,
+queries, caches, inbox groups, app links and in-memory drafts. SPA push/replace, back/forward and hash changes update
+the view without carrying placement controls or draft text onto another view. Old pathname records stay on the base
+page and in the site inbox. The old query-string fallback applies only to legacy records, never to v1 views.
+There is no bulk migration. Changing settings does not rewrite stored feedback: old view links still restore the
+website URL and show saved details in the inbox if the current routing policy no longer identifies that view.
+Drafts remain in memory until #86 adds durable recovery.
 
 **Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
 for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere

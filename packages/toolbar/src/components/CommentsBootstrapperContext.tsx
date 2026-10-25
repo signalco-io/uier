@@ -8,7 +8,7 @@ export type CommentsBootstrapperContextValue = {
     mode: ToolbarMode;
     /** The review this page is part of (`review` mode), `null` in showcase mode */
     review: ReviewSession | null;
-    /** Normalized path of the current page (see hooks/usePagePath.tsx) */
+    /** Canonical view key: pathname plus configured meaningful query/hash state. */
     path: string;
 };
 

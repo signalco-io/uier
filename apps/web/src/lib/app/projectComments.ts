@@ -1,6 +1,6 @@
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
-import { normalizePath } from '../comments/validation';
+import { commentPath } from '../comments/dto';
 import type { ProjectActor } from '../review/actor';
 import {
     canDeleteComment,
@@ -67,7 +67,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         return null;
 
     const myId = actor.kind === 'member' ? `user:${actor.userId}` : undefined;
-    const path = normalizePath(typeof comment.path === 'string' ? comment.path : '/');
+    const path = commentPath(comment);
     const origin = comment.origin ?? projectOrigins(project)[0] ?? '';
     const size = comment.device?.size;
     return {
