@@ -16,7 +16,7 @@ import type { AppContext } from './context';
 import type { DbProject } from './model';
 import { projectOrigins } from './projects';
 import { KnownPageLinks } from '../../knownPages';
-import { notificationPk, type NotificationSubscription } from '../notifications/preferences';
+import { isNotificationParticipant, notificationPk, type NotificationSubscription } from '../notifications/preferences';
 import { getAppStore } from './store';
 
 /** The signed-in app user as the actor on a project of the current workspace */
@@ -129,7 +129,7 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
         .filter((view): view is ProjectCommentView => Boolean(view));
     const subscriptions = await getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } });
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));
-    const participated = new Set(comments.filter(comment => comment.thread.items.some(item => item.authorId === `user:${context.user.id}`)).map(comment => comment.id));
+    const participated = new Set(comments.filter(comment => isNotificationParticipant(comment, `user:${context.user.id}`)).map(comment => comment.id));
     return views.map(view => ({ ...view, following: following.get(view.id) ?? participated.has(view.id) }));
 }
 

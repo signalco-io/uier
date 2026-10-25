@@ -42,7 +42,7 @@ export function ThreadNotifications({ commentId, itemCount }: { commentId: strin
         </form>}
         {state.pending && <p role="status">Check your email to confirm reply notifications.</p>}
         {verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer" className="underline">Open verification link</a>}
-        {state.member && <p>{state.muted ? 'Project emails are muted.' : 'Admins get new feedback. Members follow threads they post in. Replies and status changes are batched for 5 minutes.'}</p>}
+        {state.member && <p>{state.muted ? 'Project emails are muted.' : 'Owners and admins get new feedback. Members follow threads they post in. Replies and status changes are batched for 5 minutes.'}</p>}
         <CommentsErrorMessage error={follow.error ?? mute.error} />
     </div>;
 }

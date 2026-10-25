@@ -74,7 +74,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 <LinkTabs label="Project" tabs={tabs} match="path" className="mt-2" />
             </PageHeader>
             <div className="flex flex-col gap-6 pt-6">
-                <p className="text-sm text-muted-foreground">Admins get new feedback. Posting follows a thread. Emails are batched for 5 minutes.</p>
+                <p className="text-sm text-muted-foreground">Owners and admins get new feedback. Posting follows a thread. Emails are batched for 5 minutes.</p>
                 {children}
             </div>
         </>

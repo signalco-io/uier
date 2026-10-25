@@ -11,10 +11,17 @@ import { getCommentsStore } from '../repo/commentsStore';
 import { sendEmail, showsEmailLinksOnPage } from '../email/send';
 import { notificationVerificationEmail } from '../email/templates';
 import { KnownPages } from '../../knownPages';
+import type { DbComment } from '../db/schema';
 
 export const notificationPk = (projectId: string) => `notifications:${projectId}`;
 export const subscriptionId = (actorId: string, threadId: string) => `subscription_${sha256Hex(`${actorId}:${threadId}`)}`;
 export const preferenceId = (actorId: string) => `preference_${sha256Hex(actorId)}`;
+
+/** Deleting a message does not implicitly unfollow the thread. */
+export function isNotificationParticipant(comment: DbComment, actorId: string) {
+    return comment.thread.items.some(item => item.authorId === actorId)
+        || Boolean(comment.notificationEvents?.some(event => event.actorId === actorId && (event.kind === 'comment' || event.kind === 'reply')));
+}
 
 export type NotificationSubscription = AppDoc & {
     type: 'notification-subscription';
@@ -65,7 +72,7 @@ export async function threadNotificationState(project: DbProject, actor: Project
     const [subscription, preference] = await Promise.all([
         notificationSubscription(project.id, actorId, threadId), notificationPreference(project.id, actorId)
     ]);
-    const participant = comment.thread.items.some(item => item.authorId === actorId);
+    const participant = isNotificationParticipant(comment, actorId);
     return {
         member: actor.kind === 'member',
         eligible: actor.kind === 'member' || participant,

@@ -12,7 +12,7 @@ import { getCommentsStore } from '../repo/commentsStore';
 import { getReadSequence } from '../comments/readState';
 import { layoutEmail } from '../email/templates';
 import { KnownPageLinks } from '../../knownPages';
-import { notificationManageUrl, notificationPk, notificationPreference, notificationSubscription, notificationToken,
+import { isNotificationParticipant, notificationManageUrl, notificationPk, notificationPreference, notificationSubscription, notificationToken,
     preferenceId, type NotificationPreference, type NotificationSubscription } from './preferences';
 import { deliverNotificationEmail, type EmailAttempt } from './transport';
 import { EmailNotConfiguredError, type EmailMessage } from '../email/send';
@@ -46,8 +46,8 @@ export async function discoverThreadNotifications(project: DbProject, comment: D
     const subscriptions = await store.query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { threadId: comment.id } });
     for (const member of members) {
         const actorId = `user:${member.userId}`;
-        if (memberCanAccessProject(member, project.id) && (member.role === 'admin'
-            || comment.thread.items.some(item => item.authorId === actorId)
+        if (memberCanAccessProject(member, project.id) && (member.role === 'admin' || member.userId === project.createdBy
+            || isNotificationParticipant(comment, actorId)
             || subscriptions.some(sub => sub.actorId === actorId && sub.following))) recipients.set(actorId, member.userId);
     }
     for (const subscription of subscriptions) if (!subscription.userId && subscription.following && subscription.verifiedAt)
@@ -97,9 +97,9 @@ function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awa
         && subscription?.following !== false
         && (!context.memberSince || event.at >= context.memberSince)
         && (!subscription?.since || event.at >= subscription.since)
-        && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || event.recipients?.includes(delivery.actorId))
+        && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || actor.userId === context.project.createdBy || event.recipients?.includes(delivery.actorId))
             : event.kind === 'mention' || event.kind === 'assignment' ? Boolean(event.recipients?.includes(delivery.actorId))
-                : subscription?.following ?? (actor.kind === 'member' && (comment.thread.items.some(item => item.authorId === delivery.actorId)
+                : subscription?.following ?? (actor.kind === 'member' && (isNotificationParticipant(comment, delivery.actorId)
                     || event.recipients?.includes(delivery.actorId)))));
 }
 

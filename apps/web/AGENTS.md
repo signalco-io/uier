@@ -149,7 +149,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
-- Links the app sends or redirects to come from `appBaseUrl()`, never from the Host header.
+- Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
+  `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
 - Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
   helpers in `e2e/support/app.ts` sign in that way.
 

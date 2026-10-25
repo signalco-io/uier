@@ -266,7 +266,7 @@ set by Pulumi). Links in emails use `https://uier.io` in production and the depl
 
 ### Review email notifications
 
-Admins receive new feedback. Members automatically follow threads they post in, can follow or
+Owners and admins receive new feedback. Members automatically follow threads they post in, can follow or
 unfollow any visible thread, and can mute project emails from the toolbar or app. Guests can
 optionally choose **Email me replies** after commenting and verify an address; neither email nor
 an account is required to post. Related unread activity is batched for five minutes, with current

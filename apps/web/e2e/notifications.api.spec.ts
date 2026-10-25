@@ -4,7 +4,7 @@ import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser, findUserByEmail } from '../src/lib/app/users';
 import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { createProjectComment, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
+import { createProjectComment, deleteProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { markThreadRead } from '../src/lib/comments/readState';
 import { threadActivity, withThreadActivity } from '../src/lib/comments/activity';
@@ -85,6 +85,24 @@ test('digest waits five minutes and uses #83 shared read cursor to suppress seen
     expect(sent).toHaveLength(0);
     expect((await deliveries(f.project))[0]!.status).toBe('suppressed');
     expect((await current(f.comment)).resolved).toBe(false);
+});
+
+test('an authorized project creator receives new feedback after an admin role change', async () => {
+    const f = await fixture();
+    await updateDoc<DbMember>(f.project.pk, memberId(f.owner.id), member => ({ ...member, role: 'commenter' }));
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.map(message => message.to)).toEqual([f.owner.email]);
+});
+
+test('deleting a reply preserves its member participation until explicit unfollow', async () => {
+    const f = await fixture();
+    const reply = await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'Member participation' });
+    await deleteProjectCommentItem(f.project, f.memberActor, f.comment.id, reply.thread.items.at(-1)!.id);
+    await replyToProjectComment(request, f.project, f.ownerActor, f.comment.id, { text: 'Team follow-up' });
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.filter(message => message.to === f.member.email)).toHaveLength(1);
 });
 
 test('explicit follow/unfollow and project mute apply at delivery, including queued work', async () => {

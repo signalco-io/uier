@@ -145,7 +145,7 @@ export default function PrivacyPolicyPage() {
 
             <h3>Optional reply notifications</h3>
             <p>
-                Project admins receive new feedback by email. Members follow threads they post in and can
+                Authorized project owners and admins receive new feedback by email. Members follow threads they post in and can
                 follow or unfollow threads or mute a project. Guests can leave feedback with only a name.
                 If a guest separately chooses Email me replies, we store the address with that browser
                 identity and thread, and send a confirmation link. The address is used for replies and

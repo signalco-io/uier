@@ -1,8 +1,7 @@
 import { headers } from 'next/headers';
-import { brand } from '@uier/brand';
 import { isLocalRuntime } from '../comments/environment';
 import { ipRateLimitBucket, isLoopbackIp } from '../comments/visitor';
-import { deploymentEnvironment } from './deployment';
+import { configuredAppBaseUrl, deploymentEnvironment } from './deployment';
 export { deploymentEnvironment } from './deployment';
 
 /**
@@ -13,11 +12,9 @@ export { deploymentEnvironment } from './deployment';
  * sign-in links to another site, so `UIER_BASE_URL` is required there.
  */
 export async function appBaseUrl() {
-    const configured = process.env.UIER_BASE_URL?.trim();
+    const configured = configuredAppBaseUrl();
     if (configured)
-        return configured.replace(/\/+$/, '');
-    if (deploymentEnvironment() === 'production')
-        return brand.url;
+        return configured;
     if (deploymentEnvironment() !== 'preview' && !isLocalRuntime())
         throw new Error('UIER_BASE_URL is required outside Vercel deployments and local development.');
 

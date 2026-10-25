@@ -1,6 +1,7 @@
 # Review email notifications
 
-Admins receive new top-level feedback by default. Members automatically follow threads they
+Project creators and workspace admins receive new top-level feedback by default, while they
+retain access to it. Members automatically follow threads they
 post in; any authorized member can follow or unfollow a thread explicitly. Replies and
 resolve/reopen activity go to followers. A project mute stops all its notification emails
 for that member, including targeted activity. The actor never receives their own activity.
