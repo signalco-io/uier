@@ -183,9 +183,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   active or done projects as cards with their open comments, who can comment and review links. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
-    (the script, where to paste it on common platforms, and the CSP sources in "Advanced").
+    (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
+    the sources to add to it).
   - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
-    Comments, Install and Settings (admins).
+    Comments, Install and Settings.
   - Comments `/app/projects/<code>`: the guest link (in guest mode) and the project's **comments**, as a
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
     URLs). Each comment shows its page URL, the device size it came from, when it was created, its author,
@@ -196,8 +197,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence
     exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
     Reports check the window, origin and a temporary nonce; no tokens, reviewer identity or page content are reported.
-  - Settings `/app/projects/<code>/settings`: name, who can comment (invited people, anyone with the link,
-    or comments off), addresses, meaningful page-state fields, usage (comments, open, done, replies, pages, people with access), done.
+  - Settings `/app/projects/<code>/settings`: everyone mutes or unmutes their own project emails there. Admins
+    also set the name, who can comment (invited people, anyone with the link, or comments off), addresses,
+    meaningful page-state fields, and see usage (comments, open, done, replies, pages, people with access) and done.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
@@ -291,7 +293,7 @@ set by Pulumi). Links in emails use `https://uier.io` in production and the depl
 ### Review email notifications
 
 Owners and admins receive new feedback. Members automatically follow threads they post in, can follow or
-unfollow any visible thread, and can mute project emails from the toolbar or app. Guests can
+unfollow any visible thread, and can mute project emails from the toolbar or the project's settings in the app. Guests can
 optionally choose **Email me replies** after commenting and verify an address; neither email nor
 an account is required to post. Related unread activity is batched for five minutes, with current
 access, mute, unsubscribe and shared read-cursor checks before sending. A scheduled GitHub workflow

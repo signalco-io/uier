@@ -18,6 +18,7 @@ import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { setProjectStatusAction, updateProjectAccessAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
 import { updateProjectPageStateAction } from './actions';
+import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 
 /** The footer of a settings card: the outcome on the left, the submit button (of the form `formId`) on the right */
@@ -126,6 +127,28 @@ export function ProjectStatusButton({ projectId, status }: { projectId: string; 
         <Button variant="outline" disabled={pending} onClick={handleClick}>
             {pending && <Spinner data-icon="inline-start" />}
             {status === 'done' ? 'Reopen project' : 'Mark as done'}
+        </Button>
+    );
+}
+
+/** The person's own emails from the project: muting stops all of them, also of threads they follow */
+export function ProjectEmailsButton({ projectId, muted }: { projectId: string; muted: boolean }) {
+    const router = useRouter();
+    const [pending, startTransition] = useTransition();
+
+    const handleClick = () => startTransition(async () => {
+        const result = await updateNotificationAction(projectId, undefined, !muted);
+        if (result && !result.ok) {
+            toast.error(result.error);
+            return;
+        }
+        router.refresh();
+    });
+
+    return (
+        <Button variant="outline" disabled={pending} onClick={handleClick}>
+            {pending && <Spinner data-icon="inline-start" />}
+            {muted ? 'Unmute project emails' : 'Mute project emails'}
         </Button>
     );
 }

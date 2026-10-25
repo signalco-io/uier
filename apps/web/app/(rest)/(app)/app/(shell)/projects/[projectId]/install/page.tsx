@@ -23,7 +23,6 @@ export default async function InstallProjectPage({ params }: PageProps<'/app/pro
 
     return (
         <div className="flex max-w-3xl flex-col gap-8">
-            <p className="m-0 text-sm text-muted-foreground">Add one script tag to your site, then open a review link.</p>
             <InstallGuide
                 baseUrl={await appBaseUrl()}
                 projectId={project.id}

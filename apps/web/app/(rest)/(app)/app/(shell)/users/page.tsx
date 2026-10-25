@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { MailIcon } from 'lucide-react';
+import { FolderIcon, FoldersIcon, MailIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { Card } from '@/src/components/ui/card';
@@ -12,7 +12,7 @@ import { listProjects } from '@/src/lib/app/projects';
 import { memberCanAccessProject } from '@/src/lib/app/workspaces';
 import type { ProjectsAccess } from '@/src/lib/app/model';
 import { PageHeader } from '@/src/components/app/PageHeader';
-import { DateTime } from '@/src/components/app/comments/DateTime';
+import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { initials } from '@/src/components/app/initials';
 import { ProjectFilter } from '@/src/components/app/users/ProjectFilter';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
@@ -27,6 +27,17 @@ function accessText(role: 'admin' | 'commenter', projects: ProjectsAccess, names
         return 'All projects';
     const listed = projects.map(id => names.get(id)).filter(Boolean);
     return listed.length ? listed.join(', ') : 'No projects';
+}
+
+/** The projects someone can review, with a folder (or folders, for all of them) */
+function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projects: ProjectsAccess; names: Map<string, string> }) {
+    const Icon = role === 'admin' || projects === 'all' ? FoldersIcon : FolderIcon;
+    return (
+        <ItemDescription className="flex items-center gap-1.5">
+            <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="truncate">{accessText(role, projects, names)}</span>
+        </ItemDescription>
+    );
 }
 
 // The avatar stays centred on the row (Item tops it when there is a description)
@@ -105,14 +116,12 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                         <ItemDescription className="truncate font-mono text-[13px]">{member.email}</ItemDescription>
                                     </ItemContent>
                                     <ItemContent className="min-w-0 basis-48">
-                                        <ItemDescription className="truncate">{accessText(member.role, member.projects, projectNames)}</ItemDescription>
-                                        <ItemDescription className="text-xs"><span>Joined <DateTime value={member.createdAt} /></span></ItemDescription>
+                                        <Access role={member.role} projects={member.projects} names={projectNames} />
+                                        <ItemDescription className="text-xs"><span>Joined <RelativeTime value={member.createdAt} /></span></ItemDescription>
                                     </ItemContent>
                                     <ItemActions className="ml-auto">
+                                        {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
                                         <span className={roleColumn}><RoleBadge role={member.role} /></span>
-                                        <span className="flex w-20 justify-end">
-                                            {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
-                                        </span>
                                     </ItemActions>
                                 </Item>
                             ))}
@@ -123,7 +132,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                     id="invitations"
                     title="Invitations"
                     count={shownInvitations.length}
-                    description="Sent and not accepted yet. A link works once and expires after 7 days.">
+                    description="Sent and not accepted yet.">
                     {shownInvitations.length ? (
                         <Card className="gap-0 py-0">
                             <ItemGroup aria-label="Invitations" className="gap-0 divide-y">
@@ -134,16 +143,14 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                         </ItemMedia>
                                         <ItemContent className="min-w-48">
                                             <ItemTitle className="font-mono text-[13px] font-normal">{invitation.email}</ItemTitle>
-                                            <ItemDescription className="text-xs"><span>Expires <DateTime value={invitation.expiresAt} /></span></ItemDescription>
+                                            <ItemDescription className="text-xs"><span>Expires <RelativeTime value={invitation.expiresAt} /></span></ItemDescription>
                                         </ItemContent>
                                         <ItemContent className="min-w-0 basis-48">
-                                            <ItemDescription className="truncate">{accessText(invitation.role, invitation.projects, projectNames)}</ItemDescription>
+                                            <Access role={invitation.role} projects={invitation.projects} names={projectNames} />
                                         </ItemContent>
                                         <ItemActions className="ml-auto">
+                                            <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
                                             <span className={roleColumn}><RoleBadge role={invitation.role} /></span>
-                                            <span className="flex w-20 justify-end">
-                                                <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
-                                            </span>
                                         </ItemActions>
                                     </Item>
                                 ))}

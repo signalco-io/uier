@@ -12,40 +12,50 @@ type Platform = {
     label: string;
     steps: string[];
     code?: (baseUrl: string, projectId: string) => string;
+    /** Where a site on the platform gets its Content-Security-Policy */
+    csp: ReactNode;
 };
+
+const Code = ({ children }: { children: ReactNode }) => <code className="font-mono">{children}</code>;
 
 // Only steps that put the script tag at the end of <body>, where the generic instructions say
 const platforms: Platform[] = [
     {
         id: 'html',
         label: 'HTML',
-        steps: ['Open the HTML of every page you want to review (or the shared template).', 'Paste the script right before the closing </body> tag.']
+        steps: ['Open the HTML of every page you want to review (or the shared template).', 'Paste the script right before the closing </body> tag.'],
+        csp: <>If your server sends a <Code>Content-Security-Policy</Code> header, or a page has a CSP <Code>&lt;meta&gt;</Code> tag, add these sources to its matching directives.</>
     },
     {
         id: 'nextjs',
         label: 'Next.js',
         steps: ['Open app/layout.tsx (pages/_app.tsx with the Pages Router).', 'Add the script with next/script inside <body>.'],
-        code: nextJsSnippet
+        code: nextJsSnippet,
+        csp: <>Next.js apps set a <Code>Content-Security-Policy</Code> in <Code>headers()</Code> of next.config.js, or in proxy.ts (middleware.ts before Next.js 16). If yours does, add these sources to its matching directives.</>
     },
     {
         id: 'react',
         label: 'React',
-        steps: ['Open index.html (public/index.html with Create React App, the project root with Vite).', 'Paste the script right before the closing </body> tag.']
+        steps: ['Open index.html (public/index.html with Create React App, the project root with Vite).', 'Paste the script right before the closing </body> tag.'],
+        csp: <>A React app gets its <Code>Content-Security-Policy</Code> from its host (vercel.json, Netlify <Code>_headers</Code>, your server) or a CSP <Code>&lt;meta&gt;</Code> tag in index.html. If yours has one, add these sources to its matching directives.</>
     },
     {
         id: 'wordpress',
         label: 'WordPress',
-        steps: ['Use a code snippets plugin such as WPCode and add the script to the site-wide footer.', 'Or, in a child theme, paste it into footer.php right before </body>.']
+        steps: ['Use a code snippets plugin such as WPCode and add the script to the site-wide footer.', 'Or, in a child theme, paste it into footer.php right before </body>.'],
+        csp: <>WordPress sends no <Code>Content-Security-Policy</Code> by default. If a security plugin, your host or the server config (.htaccess, nginx) adds one, add these sources to its matching directives there.</>
     },
     {
         id: 'webflow',
         label: 'Webflow',
-        steps: ['Open Site settings, then Custom code.', 'Paste the script into Footer code and publish the site.']
+        steps: ['Open Site settings, then Custom code.', 'Paste the script into Footer code and publish the site.'],
+        csp: <>Webflow sends a <Code>Content-Security-Policy</Code> only with custom security headers (Enterprise). If your site has one, add these sources to it in Site settings, Publishing, Custom headers, then publish again.</>
     },
     {
         id: 'shopify',
         label: 'Shopify',
-        steps: ['Open Online Store, Themes, then Edit code on your theme.', 'In layout/theme.liquid, paste the script right before </body> and save.']
+        steps: ['Open Online Store, Themes, then Edit code on your theme.', 'In layout/theme.liquid, paste the script right before </body> and save.'],
+        csp: <>Shopify stores send a <Code>Content-Security-Policy</Code> that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP <Code>&lt;meta&gt;</Code> tag, add these sources to its matching directives.</>
     }
 ];
 
@@ -68,9 +78,32 @@ function Step({ number, title, last = false, children }: { number: number; title
     );
 }
 
+/** The CSP sources, and where the platform's site sets its policy */
+function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Platform }) {
+    return (
+        <Collapsible className="flex flex-col gap-2">
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent">
+                    <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-open/advanced:rotate-90" />
+                    Advanced: security headers
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-3">
+                <p className="m-0 text-sm text-muted-foreground">
+                    {platform.csp} Without them the browser blocks the toolbar.
+                </p>
+                <CopyBlock value={cspSnippet(baseUrl)} label="Copy the CSP sources" />
+                <p className="m-0 text-sm text-muted-foreground">
+                    The font is optional: when it is blocked the toolbar uses the system font.
+                </p>
+            </CollapsibleContent>
+        </Collapsible>
+    );
+}
+
 /**
- * Where and how to add the script on the common platforms, then opening a review link (`reviewStep`),
- * plus the CSP sources (Advanced)
+ * Where and how to add the script on the common platforms (with the CSP sources, in Advanced), then
+ * opening a review link (`reviewStep`)
  */
 export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl: string; projectId: string; urls: string[]; reviewStep: ReactNode }) {
     const script = embedScript(baseUrl, projectId);
@@ -83,7 +116,7 @@ export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl
                         It loads the toolbar only when a page is opened with a review link
                         (<code className="font-mono">?toolbar-code={projectId}</code>), so visitors never see it.
                     </p>
-                    <div id="install-script"><CopyBlock value={script} label="Copy the script" /></div>
+                    <CopyBlock value={script} label="Copy the script" />
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         Project code
                         <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{projectId}</code>
@@ -104,6 +137,7 @@ export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl
                                 {platform.code && (
                                     <CopyBlock value={platform.code(baseUrl, projectId)} label={`Copy the ${platform.label} code`} />
                                 )}
+                                <SecurityHeaders baseUrl={baseUrl} platform={platform} />
                             </TabsContent>
                         ))}
                     </Tabs>
@@ -117,24 +151,6 @@ export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl
                 </Step>
             </ol>
 
-            <Collapsible id="security-headers" className="rounded-xl border">
-                <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="group/advanced h-auto w-full justify-start rounded-xl px-4 py-3 font-medium">
-                        <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-open/advanced:rotate-90" />
-                        Advanced: security headers
-                    </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col gap-3 px-4 pb-4">
-                    <p className="m-0 text-sm text-muted-foreground">
-                        If your site sends a <code className="font-mono">Content-Security-Policy</code> header, add these sources to the
-                        matching directives. Without them the browser blocks the toolbar. Sites without a CSP need nothing.
-                    </p>
-                    <CopyBlock value={cspSnippet(baseUrl)} label="Copy the CSP sources" />
-                    <p className="m-0 text-sm text-muted-foreground">
-                        The font is optional: when it is blocked the toolbar uses the system font.
-                    </p>
-                </CollapsibleContent>
-            </Collapsible>
         </div>
     );
 }
