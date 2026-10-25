@@ -28,6 +28,7 @@ export function cspSources(baseUrl: string) {
     return [
         { directive: 'script-src', sources: [origin] },
         { directive: 'connect-src', sources: [origin] },
+        { directive: 'frame-src', sources: [origin] },
         { directive: 'style-src', sources: ['\'unsafe-inline\'', 'https://fonts.googleapis.com'] },
         { directive: 'img-src', sources: ['data:'] },
         { directive: 'font-src', sources: ['https://fonts.gstatic.com'] }

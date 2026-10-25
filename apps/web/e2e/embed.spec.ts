@@ -3,6 +3,9 @@ import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { toolbar } from './support/toolbar';
+import { createProject, signIn, uniqueEmail } from './support/app';
+import { commentBubble, newVisitor, openThread } from './support/toolbar';
+import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // A reviewed site embeds the toolbar from uier.io on its own origin:
 //     <script src="https://uier.io/toolbar.js" defer></script>
@@ -37,11 +40,13 @@ test.beforeAll(async ({ baseURL }) => {
 </html>`);
             return;
         }
+        const project = new URL(request.url ?? '/', 'http://reviewed.localhost').searchParams.get('project');
+        const projectAttribute = project && /^[a-z0-9]{12}$/.test(project) ? ` data-uier-project="${project}"` : '';
         response.end(`<!doctype html>
 <html lang="en">
 <head>
     <title>Reviewed site</title>
-    <script src="${toolbarUrl}" defer></script>
+    <script src="${toolbarUrl}"${projectAttribute} defer></script>
 </head>
 <body>
     <main><h1>Pricing</h1><p>A page on a site under review.</p></main>
@@ -76,6 +81,82 @@ test('the toolbar starts on a reviewed site on another origin', async ({ page, b
     await expect(toolbar(page)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
     expect(new URL((await commentsRequest).url()).searchParams.get('path')).toBe('/pricing');
+    await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
+});
+
+test('a reviewed project lists, posts and replies without third-party cookies', async ({ page, browser, request }, testInfo) => {
+    await signIn(page, uniqueEmail('embed'));
+    const projectId = await createProject(page, { urls: [reviewedSiteOrigin], name: 'Embedded review' });
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const access = page.getByRole('region', { name: 'Comments' });
+    await access.getByRole('combobox').click();
+    await page.getByRole('option', { name: 'Anyone with the link' }).click();
+    await access.getByRole('button', { name: 'Save' }).click();
+    await expect(access.getByRole('status')).toContainText('Saved.');
+
+    const guest = await newVisitor(browser, testInfo);
+    await guest.page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
+    await guest.page.getByRole('button', { name: 'Add comment' }).click();
+    const heading = await guest.page.getByRole('heading', { name: 'Pricing', exact: true }).boundingBox();
+    await guest.page.mouse.click(heading!.x + 20, heading!.y + heading!.height / 2);
+    await guest.page.getByRole('textbox', { name: 'Your name' }).fill('Ana');
+    const write = guest.page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith(`/api/review/${projectId}/comments`));
+    await guest.page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Show the yearly price.');
+    await guest.page.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
+    await expect(commentBubble(guest.page, 1)).toBeVisible();
+    const sent = await write;
+    expect(await sent.headerValue('origin')).toBe(reviewedSiteOrigin);
+    expect(await sent.headerValue('cookie')).toBeNull();
+    expect(await sent.headerValue('x-uier-verification')).toBeTruthy();
+
+    const reply = openThread(guest.page).getByRole('textbox', { name: 'Reply' });
+    await reply.fill('Include tax too.');
+    await reply.press('Enter');
+    await expect(commentBubble(guest.page, 2)).toBeVisible();
+    await guest.page.reload();
+    await expect(commentBubble(guest.page, 2)).toBeVisible();
+    await commentBubble(guest.page, 2).click();
+    await expect(openThread(guest.page).getByText('Show the yearly price.')).toBeVisible();
+    await expect(openThread(guest.page).getByText('Include tax too.')).toBeVisible();
+    await expect(openThread(guest.page).getByText('You', { exact: true }).first()).toBeVisible();
+    expect(await guest.context.cookies()).toEqual([]);
+    await guest.context.close();
+
+    // The saved origin is the reviewed site; the API host never becomes the comment's site.
+    await page.goto(`/app/projects/${projectId}`);
+    await expect(page.getByRole('article', { name: 'Comment by Ana' })).toContainText(`${new URL(reviewedSiteOrigin).host}/pricing`);
+
+    const headers = await verifiedReviewHeaders(request, projectId, reviewedSiteOrigin);
+    const data = { path: '/pricing', position: { type: 'page' }, kind: 'feedback', text: 'A direct request', authorName: 'Ana' };
+    const post = (requestHeaders: Record<string, string>) => request.post(`/api/review/${projectId}/comments`, { headers: requestHeaders, data });
+    const { 'X-Uier-Verification': proof, ...withoutProof } = headers;
+    expect((await post(withoutProof)).status()).toBe(403);
+    expect((await post({ ...headers, 'X-Uier-Verification': `${proof}tampered` })).status()).toBe(403);
+    expect((await post({ ...headers, 'X-Uier-Visitor': 'a'.repeat(43) })).status()).toBe(403);
+    const foreign = await post({ ...headers, Origin: 'https://elsewhere.example' });
+    expect(foreign.status()).toBe(403);
+    expect(foreign.headers()['access-control-allow-origin']).toBeUndefined();
+    // Proofs cannot be minted from cross-site fetches, even for an allowed origin.
+    const crossSiteProof = await request.post(`/api/review/${projectId}/verification`, { headers, data: { origin: reviewedSiteOrigin } });
+    expect(crossSiteProof.status()).toBe(403);
+});
+
+test('a failed project comments load is visible and can be retried', async ({ page }) => {
+    await signIn(page, uniqueEmail('embed-error'));
+    const projectId = await createProject(page, { urls: [reviewedSiteOrigin] });
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const access = page.getByRole('region', { name: 'Comments' });
+    await access.getByRole('combobox').click();
+    await page.getByRole('option', { name: 'Anyone with the link' }).click();
+    await access.getByRole('button', { name: 'Save' }).click();
+    await expect(access.getByRole('status')).toContainText('Saved.');
+    const endpoint = `**/api/review/${projectId}/comments?*`;
+    await page.route(endpoint, route => route.abort());
+    await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
+    await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
+    await page.unroute(endpoint);
+    await page.getByRole('button', { name: 'Try again', exact: true }).click();
+    await expect(page.getByText('Comments could not be loaded.')).toBeHidden();
 });
 
 /** Computed styles of the reviewed page's elements */

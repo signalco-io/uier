@@ -2,6 +2,7 @@ import { apiErrors, errorResponse } from '../comments/http';
 import { findProject, projectOrigins } from '../app/projects';
 import type { DbProject } from '../app/model';
 import { assertCanUseComments, resolveActor, VISITOR_HEADER, type ProjectActor } from './actor';
+import { assertVerifiedWrite, VERIFICATION_HEADER } from './verification';
 
 export type ReviewApiContext = {
     request: Request;
@@ -49,7 +50,7 @@ function corsHeaders(headers: Headers, origin: string | undefined) {
  */
 export function reviewApiHandler<TParams extends ReviewParams>(
     handler: (context: ReviewApiContext, params: TParams) => Promise<Response>,
-    { comments = true } = {}
+    { comments = true, verifyWrites = true } = {}
 ) {
     return async (request: Request, routeContext: { params: Promise<TParams> }) => {
         let siteOrigin: string | undefined;
@@ -64,7 +65,10 @@ export function reviewApiHandler<TParams extends ReviewParams>(
             const actor = await resolveActor(request, project);
             if (comments)
                 assertCanUseComments(project, actor);
-            response = await handler({ request, project, actor, siteOrigin }, params);
+            const context = { request, project, actor, siteOrigin };
+            if (verifyWrites && request.method !== 'GET' && request.method !== 'HEAD')
+                await assertVerifiedWrite(context);
+            response = await handler(context, params);
         } catch (error) {
             response = errorResponse(error);
         }
@@ -87,7 +91,7 @@ export function reviewPreflight(methods: string) {
             corsHeaders(headers, origin);
             if (origin) {
                 headers.set('Access-Control-Allow-Methods', methods);
-                headers.set('Access-Control-Allow-Headers', `Content-Type, Authorization, ${VISITOR_HEADER}`);
+                headers.set('Access-Control-Allow-Headers', `Content-Type, Authorization, ${VISITOR_HEADER}, ${VERIFICATION_HEADER}`);
                 headers.set('Access-Control-Max-Age', '600');
             }
         } catch {

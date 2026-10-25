@@ -20,7 +20,7 @@ const controls = [
     },
     {
         title: 'Locked-down pages',
-        text: 'A Content Security Policy limits where scripts and connections can go. Pages cannot be put in frames, and browsers do not guess content types.'
+        text: 'A Content Security Policy limits where scripts and connections can go. Only the empty browser verification page can be framed. Browsers do not guess content types.'
     },
     {
         title: 'Anonymous identity',
@@ -31,12 +31,12 @@ const controls = [
         text: 'The server, not the toolbar, decides who may resolve, reopen or delete. Only the author of a comment or reply can, and deleting your comment never removes replies from other people.'
     },
     {
-        title: 'Same-origin writes',
-        text: 'The comments API accepts writes only as JSON from pages on its own origin. Cross-site requests are rejected.'
+        title: 'Checked site origins',
+        text: 'The showcase comments API accepts JSON writes only from its own origin. The project review API allows only the project’s configured site origins, identifies reviewers through headers and requires a signed browser verification proof for cross-origin writes.'
     },
     {
         title: 'Bot protection and rate limits',
-        text: 'Every write is checked by Vercel BotID. New comments and replies are limited per visitor, per IP address and per page, with atomic counters that store only keyed hashes and expire after their time window.'
+        text: 'Writes require Vercel BotID verification. On reviewed sites, an empty frame on uier’s origin verifies the browser and returns a proof valid for five minutes, bound to the site, project and reviewer. New comments and replies have rate limits with atomic counters.'
     },
     {
         title: 'Strict input, plain output',

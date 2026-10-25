@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
+import { Button } from '@signalco/ui-primitives/Button';
 import { useComments } from '../hooks/useComments';
 import { newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
@@ -12,6 +13,8 @@ import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentPointOverlay } from './CommentPointOverlay';
 import { CommentBubble } from './CommentBubble';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
+import { CommentsErrorMessage } from './CommentsErrorMessage';
+import { InkScope } from './InkScope';
 import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
@@ -363,6 +366,17 @@ export function CommentsGlobal({
 
     return (
         <>
+            {commentItems.isError && (
+                <InkScope>
+                    <div className="fixed bottom-20 left-1/2 z-[51] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
+                        <div>
+                            <p className="m-0 text-sm">Comments could not be loaded.</p>
+                            <CommentsErrorMessage error={commentItems.error} />
+                        </div>
+                        <Button variant="outlined" size="sm" onClick={() => commentItems.refetch()}>Try again</Button>
+                    </div>
+                </InkScope>
+            )}
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
             {pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">

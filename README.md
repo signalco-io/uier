@@ -204,6 +204,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | --- | --- |
 | `GET /api/review/<code>` | the project (name, who can comment), the reviewer and whether they can comment, the sign-in URL |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
+| `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `DELETE .../replies/<itemId>` | replies, done (`resolved`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
@@ -219,8 +220,13 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 - **Permissions**: members mark any comment done, the author and the workspace admins delete it, private
   comments are listed only to admins and their author. Comments carry `permissions` and `canDelete`.
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
-  the author (`user:<id>` for members) and no TTL. The same rate limits as the comments API apply; BotID
-  does not (it only covers same-origin requests).
+  the author (`user:<id>` for members) and no TTL. The same rate limits as the comments API apply.
+- **Bot protection**: writes on uier's origin use BotID directly. On reviewed sites, the toolbar opens an
+  empty frame on uier's origin so BotID can verify there, without third-party cookies. The frame checks
+  its parent's browser-supplied origin against the project's addresses and returns a signed five-minute
+  proof. Every cross-origin write needs that proof in `X-Uier-Verification`, bound to its origin, project
+  and reviewer. Only `/review-verification` can be framed; other pages keep their framing protection.
+  The install guide includes `frame-src` for the API origin. BotID failures stop writes.
 
 Data lives in the Cosmos DB container `app` (`app-preview` on previews), partition key `/pk`:
 
@@ -291,11 +297,11 @@ Every reviewed site always runs the latest toolbar; there are no pinned versions
 
 **On other sites** the toolbar needs a project: with the project's script tag (`data-uier-project`, from the
 app's install guide) it uses the [review API](#review-api-a-projects-toolbar), which answers CORS for the
-project's own addresses and identifies reviewers with headers instead of cookies
-([`project-review.spec.ts`](apps/web/e2e/project-review.spec.ts)). Without a project it mounts and calls
-`https://uier.io/api/comments` ([`embed.spec.ts`](apps/web/e2e/embed.spec.ts)), which does not accept
-cross-origin requests: it sends no CORS headers, BotID only protects requests from the same origin and the
-`uier_visitor` cookie is not sent cross-site ([#53](https://github.com/signalco-io/uier/issues/53)).
+project's own addresses and identifies reviewers with headers instead of cookies. BotID verification runs
+in a frame on uier's origin. [`embed.spec.ts`](apps/web/e2e/embed.spec.ts) checks listing, posting and
+replying from another site without cookies; [`project-review.spec.ts`](apps/web/e2e/project-review.spec.ts)
+checks permissions and the install guide's CSP. An embed without `data-uier-project` is for uier's own
+same-origin showcase only. Failed comment loads show a message and a retry action.
 
 ### Comments API
 

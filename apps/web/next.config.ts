@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
     },
     async headers() {
         return [{
-            source: '/(.*)',
+            source: '/((?!review-verification$).*)',
             headers: createSecureHeaders(combineSecureHeaders(
                 ['uier.io'],
                 false,
@@ -48,6 +48,17 @@ const nextConfig: NextConfig = {
                         : []),
                 ]
             ))
+        }, {
+            // This empty BotID bridge is the only frameable page. It returns results only to
+            // the requesting parent; the server checks that origin against the project's sites.
+            source: '/review-verification',
+            headers: createSecureHeaders({
+                ...combineSecureHeaders(['uier.io'], false, isDevelopment, [
+                    knownSecureHeadersExternalUrls.vercel,
+                    { frameAncestors: ['*'] }
+                ]),
+                frameGuard: false
+            }).concat([{ key: 'Cache-Control', value: 'no-store' }])
         }, {
             // Toolbar bundle (packages/toolbar, copied to public/ by scripts/copy-toolbar.mjs).
             // The URL is not versioned, so it is cached briefly (not immutable). Customer sites

@@ -1,5 +1,6 @@
 import { toolbarConfig } from '../config';
 import { projectHeaders } from '../project/projectSession';
+import { reviewVerification } from '../project/verification';
 
 // Requests to the uier API (comments, visitor) and the query keys of its data
 
@@ -59,6 +60,16 @@ function errorCodeFromStatus(status: number): CommentsApiErrorCode {
 /** A request to the uier API, answered with 2xx; errors are thrown as {@link CommentsApiError} */
 async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }): Promise<Response> {
     const hasBody = init?.body !== undefined;
+    const crossOriginWrite = toolbarConfig.project && init?.method && init.method !== 'GET'
+        && new URL(url).origin !== window.location.origin;
+    let verification: string | undefined;
+    if (crossOriginWrite) {
+        try {
+            verification = await reviewVerification();
+        } catch {
+            throw new CommentsApiError('bot_detected', 'Browser verification failed.', 403);
+        }
+    }
     let response: Response;
     try {
         response = await fetch(url, {
@@ -69,7 +80,8 @@ async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' 
             credentials: toolbarConfig.project ? 'omit' : 'include',
             headers: {
                 ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
-                ...(toolbarConfig.project ? projectHeaders() : {})
+                ...(toolbarConfig.project ? projectHeaders() : {}),
+                ...(verification ? { 'X-Uier-Verification': verification } : {})
             },
             body: hasBody ? JSON.stringify(init.body) : undefined
         });

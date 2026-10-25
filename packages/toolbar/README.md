@@ -23,10 +23,8 @@ showcase mode and no project:
 <script src="https://uier.io/toolbar.js" data-uier-mode="showcase" defer></script>
 ```
 
-Without a project, comments are stored per domain through `/api/comments`, which does not accept requests
-from other sites yet ([#53](https://github.com/signalco-io/uier/issues/53)): there the toolbar starts but
-can't load or post comments. A script tag without a project, opened with `?review=true`, is for uier.io
-itself and local development.
+Cross-site embeds require a project. Without one, `/api/comments` stores comments per domain for the
+same-origin showcase on uier.io and local development. Failed comment loads show a message and a retry action.
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:
@@ -108,7 +106,10 @@ Members mark any comment done; the author and the project's admins delete it (th
 account name or the guest's name; Sign out forgets the token, name and visitor id on this site.
 `?uier-comment=<comment id>` (from "Link to comment" in the app) opens that comment's thread. The API only
 answers the project's own site addresses (CORS), so the script works only on those sites. Sites with a
-Content-Security-Policy add the sources from the install guide's "Advanced" section.
+Content-Security-Policy add the sources from the install guide's "Advanced" section, including uier's
+origin in `frame-src`. Before a cross-origin write, an empty frame on the API's origin runs BotID and
+returns a signed proof bound to the origin, project and reviewer. The toolbar caches it only in memory
+for under five minutes and sends it as `X-Uier-Verification`. No third-party cookies are needed.
 
 ### Modes
 
