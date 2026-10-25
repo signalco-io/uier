@@ -21,6 +21,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
 import { captureCommentScreenshot } from '../screenshot';
+import { getDeviceInfo } from './info/getDeviceInfo';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength, commentTextMaxLength } from './@types/Comments';
 
@@ -149,6 +150,7 @@ export function CommentsGlobal({
             key: draftKeyRef.current,
             position,
             kind,
+            device: getDeviceInfo(),
             screenshot: captureCommentScreenshot(position, rootElement)
         });
     };

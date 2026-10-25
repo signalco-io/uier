@@ -217,7 +217,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
-| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `DELETE .../replies/<itemId>` | replies, done (`resolved`), deleting |
+| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
@@ -347,6 +347,7 @@ trailing slash).
 | `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
 | `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](#screenshots)). `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
+| `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
@@ -382,11 +383,23 @@ author, or a cross-site request), `403 bot_detected`, `404 not_found`, `409 conf
 `415 unsupported_media_type` (writes must be `application/json`), `429 rate_limited` (with `Retry-After` in
 seconds and `reason`: `too_fast` or `page_full`), `500 server_error` and `503 unavailable` (rewrite suggestions only). Writes are accepted only from the API's
 own origin (a cross-site `Origin` or `Sec-Fetch-Site: cross-site` gets `403`). Unknown fields are ignored; ids,
-authors and timestamps are always set by the server. Selectors must have the form the toolbar creates
+authors and message timestamps are always set by the server (the capture-start time is explicitly from the reviewer's browser). Selectors must have the form the toolbar creates
 (`#id` or `tag.class:nth-of-type(n)` joined by `>`), so a stored comment can't break `querySelector` in
 visitors' browsers. Responses never contain author ids, IP hashes, the TTL or device details other than the coarse size
 (`desktop`/`tablet`/`mobile`) and the viewport the comment was left from (`windowSize`, `[width, height]` in CSS
-pixels, read when it is posted), and only the size of a screenshot (the image has its own route). Texts are shown as plain text only (no markdown, no links).
+pixels, read when feedback starts), and only the size of a screenshot (the image has its own route). Texts are shown as plain text only (no markdown, no links).
+
+The toolbar's message menu offers **Edit** for the author (also workspace admins in project reviews).
+Save and Cancel keep the original author, creation time, anchor, screenshot and replies. Failed edits retain
+the attempted text. A stale edit must be reviewed against the latest message before retrying; edits are marked
+in the toolbar, inbox and app, including replies.
+
+Authorized project members additionally receive `reproduction`: browser/version and OS from supported low-entropy
+client hints, the original viewport and pixel ratio, the browser's capture-start timestamp and a safe reviewed-page
+link. Threads, inbox entries and app cards offer expandable, copyable details. Missing/older fields say Unknown
+or Unavailable. Public and guest responses keep the restricted `device` shape and omit `reproduction`, even for
+the author. Links currently retain only the pathname; query strings, hash state and review tokens are not copied.
+Meaningful query/hash routing is tracked separately in #87. Replies, edits and viewport changes keep the original context.
 
 **Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
 for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere

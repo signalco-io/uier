@@ -1,4 +1,5 @@
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
+import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
 import { normalizePath } from '../comments/validation';
 import type { ProjectActor } from '../review/actor';
 import {
@@ -25,6 +26,7 @@ export type ProjectCommentMessage = {
     text: string;
     createdAt?: string;
     deleted: boolean;
+    edited: boolean;
 };
 
 /** A comment as the app shows it */
@@ -40,6 +42,7 @@ export type ProjectCommentView = {
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
     device?: DbDeviceSize;
+    reproduction: ReproductionContext;
     createdAt?: string;
     resolved: boolean;
     private: boolean;
@@ -77,6 +80,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             : undefined,
         kind: comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment',
         device: size && deviceSizes.includes(size) ? size : undefined,
+        reproduction: toReproductionContext(comment, projectOrigins(project)),
         createdAt: comment.createdAt,
         resolved: comment.resolved === true,
         private: comment.private === true,
@@ -93,7 +97,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId },
             text: reply.text,
             createdAt: reply.createdAt,
-            deleted: Boolean(reply.deletedAt)
+            deleted: Boolean(reply.deletedAt),
+            edited: Boolean(reply.editedAt)
         })),
         permissions: {
             resolve: canResolveComment(comment, actor),

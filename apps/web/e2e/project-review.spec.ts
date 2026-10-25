@@ -218,6 +218,85 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     await expect(thumbnail).toBeFocused();
 });
 
+test('guest edits and original reproduction details persist; only members see and copy the details', async ({ page, browser, request }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const guest = await anonymousVisitor(browser, testInfo);
+    await guest.page.addInitScript(() => Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: {
+        brands: [{ brand: 'Not_A Brand', version: '99' }, { brand: 'Chromium', version: '123' }, { brand: 'Example Browser', version: '123' }], platform: 'Example OS'
+    } }));
+    const path = `/${projectId}/pricing`;
+    await guest.page.goto(`${siteOrigin()}${path}?toolbar-code=${projectId}&session_token=never-copy-this#private`);
+    const originalViewport = await guest.page.evaluate(() => [innerWidth, innerHeight]);
+    await guest.page.getByRole('button', { name: 'Add comment' }).click();
+    const heading = (await guest.page.getByRole('heading', { level: 1 }).boundingBox())!;
+    await guest.page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+    const draft = guest.page.getByRole('dialog', { name: 'New comment' });
+    await draft.getByRole('textbox', { name: 'Your name' }).fill('Context reviewer');
+    await guest.page.setViewportSize({ width: 360, height: 680 });
+    await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Original report.');
+    const posted = guest.page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments` && response.request().method() === 'POST');
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    const response = await posted;
+    const sent = response.request().postDataJSON();
+    expect(sent.device.windowSize).toEqual(originalViewport);
+    expect(sent.device.browser).toBe('Example Browser (123)');
+    expect(sent.device.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    const savedComment = await response.json();
+    expect(savedComment.reproduction).toBeUndefined();
+    const forbidden = await request.patch(`/api/review/${projectId}/comments/${savedComment.id}/replies/${savedComment.thread.items[0].id}`, {
+        headers: await verifiedReviewHeaders(request, projectId, siteOrigin(), randomBytes(32).toString('base64url')),
+        data: { text: 'An unrelated guest cannot edit this', expectedText: 'Original report.' }
+    });
+    expect(forbidden.status()).toBe(403);
+    const guestThread = openThread(guest.page);
+    await expect(guestThread.getByRole('button', { name: 'Reproduction details' })).toHaveCount(0);
+    await guestThread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Original reply.');
+    await guestThread.getByRole('button', { name: 'Post reply', exact: true }).click();
+    await guestThread.getByRole('button', { name: 'More options for your reply' }).click();
+    await guest.page.getByRole('dialog', { name: 'Reply options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await guestThread.getByRole('textbox', { name: 'Edit reply', exact: true }).fill('Corrected guest reply.');
+    await guestThread.getByRole('button', { name: 'Save changes' }).click();
+    await expect(guestThread).toContainText('Corrected guest reply. (edited)');
+    await guest.context.close();
+
+    await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => {
+        (window as Window & { copiedContext?: string }).copiedContext = text;
+    } } }));
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}${path}?session_token=never-copy-this#private`)}`);
+    await page.locator('[data-uier-comment]').click();
+    const thread = openThread(page);
+    await expect(thread).toContainText('Example Browser (123) · Example OS');
+    await thread.getByRole('button', { name: 'Reproduction details', exact: true }).click();
+    await expect(thread.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
+    await thread.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    const copied = await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext);
+    expect(copied).toContain(`Viewport: ${originalViewport[0]}×${originalViewport[1]} CSS px`);
+    expect(copied).toContain(`Captured: ${sent.device.capturedAt}`);
+    expect(copied).not.toMatch(/never-copy-this|toolbar-code|uier-token|session_token|#private/);
+    await thread.getByRole('button', { name: 'More options for this comment' }).click();
+    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await thread.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Admin clarified the report.');
+    await thread.getByRole('button', { name: 'Save changes' }).click();
+    await expect(thread).toContainText('Admin clarified the report. (edited)');
+    await page.reload();
+    await page.locator('[data-uier-comment]').click();
+    await openThread(page).getByRole('button', { name: 'Reproduction details', exact: true }).click();
+    await openThread(page).getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
+
+    await page.goto(`/app/projects/${projectId}`);
+    const card = page.getByRole('article', { name: 'Comment by Context reviewer' });
+    await expect(card).toContainText('Admin clarified the report. (edited)');
+    await card.getByRole('button', { name: '1 reply' }).click();
+    await expect(card).toContainText('Corrected guest reply. (edited)');
+    await card.getByRole('button', { name: 'Reproduction details', exact: true }).click();
+    await expect(card.locator('pre')).toHaveText(copied!);
+    await card.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
+    await expectNoAxeViolations(page);
+});
+
 for (const layout of ['html-scroll', 'body-hidden']) {
     test(`a screenshot far down a long page is not blank (${layout})`, async ({ page, browser }, testInfo) => {
         const projectId = await ownerWithProject(page);
@@ -454,8 +533,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     };
     expect(await list(ana, about)).toHaveLength(1);
     // Guests resolve and delete only their own comments
-    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false });
-    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true });
+    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false });
+    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true });
 
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText('2 comments');

@@ -77,6 +77,13 @@ async function deleteReply({ commentId, itemId }: { commentId: string; itemId: s
     });
 }
 
+type EditMessageInput = { commentId: string; itemId: string; text: string; expectedText: string };
+async function editMessage({ commentId, itemId, text, expectedText }: EditMessageInput) {
+    return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies/${encodeURIComponent(itemId)}`, {
+        method: 'PATCH', body: { text, expectedText }
+    }));
+}
+
 async function getSiteComments() {
     const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site`);
     return Array.isArray(comments) ? comments : [];
@@ -117,6 +124,7 @@ export function useComments(): {
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
+    edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
 } {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
@@ -167,6 +175,8 @@ export function useComments(): {
         onSettled: handleSettled
     });
 
+    const edit = useMutation({ mutationFn: editMessage, onSuccess: handleCommentChanged, onSettled: handleSettled });
+
     // Deletes return the comment when its thread stays, nothing when the whole comment is gone
     const remove = useMutation({
         mutationFn: deleteComment,
@@ -186,6 +196,7 @@ export function useComments(): {
         create,
         reply,
         resolve,
+        edit,
         delete: remove,
         deleteReply: removeReply
     };

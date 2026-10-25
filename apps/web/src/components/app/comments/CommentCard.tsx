@@ -63,6 +63,7 @@ import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import { initials } from '../initials';
 import { DateTime } from './DateTime';
+import { CommentReproduction } from './CommentReproduction';
 import { deviceLabels, kindLabels } from './commentLabels';
 import {
     deleteCommentAction,
@@ -268,6 +269,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                         </Dialog>
                     )}
 
+                    <CommentReproduction context={comment.reproduction} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm">
                         <StateBadge resolved={comment.resolved} />
                         {comment.number !== undefined && (
@@ -323,7 +325,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                             <span className="font-medium">{reply.author.isMe ? 'You' : reply.author.name}</span>
                                             <span className="text-xs text-muted-foreground"><DateTime value={reply.createdAt} /></span>
                                         </span>
-                                        <span className="break-words whitespace-pre-wrap">{reply.text}</span>
+                                        <span className="break-words whitespace-pre-wrap">{reply.text}{reply.edited && <span className="text-muted-foreground"> (edited)</span>}</span>
                                     </div>
                                 </li>
                             ))}

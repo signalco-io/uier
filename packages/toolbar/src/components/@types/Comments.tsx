@@ -77,6 +77,8 @@ export type CommentItemThreadItem = {
     createdAt?: string;
     /** Project comments: whether the reviewer may delete this item (its author or an admin) */
     canDelete?: boolean;
+    canEdit?: boolean;
+    editedAt?: string;
     deleted?: undefined;
 } | CommentItemDeletedThreadItem;
 
@@ -98,6 +100,7 @@ export type CommentDeviceSize = 'desktop' | 'tablet' | 'mobile';
 
 /** Device info sent when creating a comment */
 export type CommentDeviceInfo = {
+    capturedAt?: string;
     size?: CommentDeviceSize;
     windowSize?: [number, number];
     browser?: string;
@@ -119,6 +122,11 @@ export type CommentItem = {
     thread: CommentItemThread;
     /** The coarse device size and the viewport (width, height) it was left from */
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };
+    /** Detailed, safe reproduction fields returned only to authorized project members. */
+    reproduction?: {
+        browser?: string; os?: string; capturedAt?: string;
+        windowSize?: [number, number]; pixelRatio?: number; url?: string; text: string;
+    };
     resolved: boolean;
     /**
      * Whether the current visitor wrote this comment (only the author can resolve or delete it).
@@ -130,13 +138,14 @@ export type CommentItem = {
      * Project comments: what the reviewer may do. Members can mark any comment done; the author
      * and the workspace admins can delete it. Without it, only the author can (`isMine`).
      */
-    permissions?: { resolve: boolean; delete: boolean };
+    permissions?: { resolve: boolean; delete: boolean; edit?: boolean };
     /** Project comments: only workspace admins and the author see it */
     private?: boolean;
 }
 
-/** A comment that is being written and is not saved yet (the device is read when it is posted) */
+/** A comment being written: device context and screenshot start with the draft. */
 export type CommentDraft = {
+    device?: CommentDeviceInfo;
     position: CommentAnchor;
     /** A rewrite suggestion for the selected text, instead of a comment */
     kind?: 'comment' | 'rewrite';

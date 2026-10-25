@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useRef, useState } from 'react';
+import { useContext, useRef, useState, type Ref } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -19,7 +19,9 @@ type CommentThreadItemMenuProps = {
     /** The confirmation question, saying what deleting does (e.g. "Delete this comment and your 2 replies?") */
     confirmText: string;
     disabled?: boolean;
-    onDelete: () => void;
+    onDelete?: () => void;
+    onEdit?: () => void;
+    triggerRef?: Ref<HTMLButtonElement>;
 };
 
 /**
@@ -27,11 +29,12 @@ type CommentThreadItemMenuProps = {
  * portals into the page's body) so it renders inside the toolbar's shadow root.
  * Deleting asks first, with `confirmText`: it can take the visitor's replies or the whole thread with it.
  */
-export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete }: CommentThreadItemMenuProps) {
+export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete, onEdit, triggerRef }: CommentThreadItemMenuProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const deleteRef = useRef<HTMLButtonElement>(null);
+    const editRef = useRef<HTMLButtonElement>(null);
     const confirmRef = useRef<HTMLButtonElement>(null);
 
     const handleOpenChange = (next: boolean) => {
@@ -49,14 +52,14 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
 
     const handleDelete = () => {
         handleOpenChange(false);
-        onDelete();
+        onDelete?.();
     };
 
     // Radix props passed through the Popper to the popover content
     const contentProps = {
         onOpenAutoFocus: (event: Event) => {
             event.preventDefault();
-            deleteRef.current?.focus();
+            (editRef.current ?? deleteRef.current)?.focus();
         }
     };
 
@@ -70,6 +73,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
             className={cx('z-[70] w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName)}
             trigger={(
                 <IconButton
+                    ref={triggerRef}
                     size="xs"
                     variant="plain"
                     title="More options"
@@ -97,16 +101,26 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     </Row>
                 </Stack>
             ) : (
-                <Button
-                    ref={deleteRef}
-                    variant="plain"
-                    size="sm"
-                    fullWidth
-                    className={cx('justify-start', destructiveTextClassName)}
-                    startDecorator={<Delete size={16} />}
-                    onClick={handleAskDelete}>
-                    Delete...
-                </Button>
+                <Stack>
+                    {onEdit && (
+                        <Button ref={editRef} variant="plain" size="sm" fullWidth className="justify-start"
+                            onClick={() => { handleOpenChange(false); onEdit(); }}>
+                            Edit
+                        </Button>
+                    )}
+                    {onDelete && (
+                        <Button
+                            ref={deleteRef}
+                            variant="plain"
+                            size="sm"
+                            fullWidth
+                            className={cx('justify-start', destructiveTextClassName)}
+                            startDecorator={<Delete size={16} />}
+                            onClick={handleAskDelete}>
+                            Delete...
+                        </Button>
+                    )}
+                </Stack>
             )}
         </Popper>
     );

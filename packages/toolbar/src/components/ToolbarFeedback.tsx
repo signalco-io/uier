@@ -37,12 +37,14 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
     const screenshot = useRef<Promise<string | undefined>>(undefined);
+    const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
     const [kind, setKind] = useState<FeedbackKind>('feedback');
     const selected = kinds.find(k => k.value === kind) ?? kinds[0]!;
 
     const handleOpenChange = (next: boolean) => {
         setOpen(next);
         if (next) {
+            device.current = getDeviceInfo();
             screenshot.current = captureCommentScreenshot({ type: 'page' }, rootElement);
             onOpen?.();
         } else {
@@ -55,7 +57,7 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
             position: { type: 'page' },
             kind,
             text,
-            device: getDeviceInfo(),
+            device: device.current,
             screenshot: await screenshot.current
         });
         drafts.delete(feedbackDraftKey);

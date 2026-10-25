@@ -129,8 +129,11 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
 anonymous visitors with its HttpOnly `uier_visitor` cookie. Comments are public: every visitor sees the
 unresolved comments of the page (`?path=` is `location.pathname` without a trailing slash) and can reply;
 in a review the inbox also lists the site's other pages (`?scope=site`).
-Only the author of a comment can resolve, reopen or delete it, and only the author of a reply can delete
-that reply (the API returns `isMine` / `author.isMe`). When others replied, deleting a comment keeps the
+Only the author of a comment can resolve, reopen, edit or delete it, and only the author of a reply can edit or delete
+that reply (the API returns `isMine` / `author.isMe`; project members also receive explicit edit/delete permissions,
+including workspace admin rights). Editing uses `PATCH .../replies/<itemId>` with the text and its original
+`expectedText`; a stale edit returns `409`. Save and Cancel preserve the thread and original screenshot/context,
+and failures keep the attempted text. Saved edits show an edited label. When others replied, deleting a comment keeps the
 thread: its first item comes back as `{ deleted: true }` and shows as "Comment deleted", without author or
 actions. Deleting asks first and says what will go. Texts are limited to 1000 characters. API errors
 (`rate_limited`, `too_large`, `bot_detected`, ...) are shown as friendly inline messages
@@ -194,8 +197,11 @@ error boundary, so one bad comment never breaks the toolbar.
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.
   Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
   [Screenshots](../../README.md#screenshots).
-- Every comment saves the device size and viewport when it is posted (`getDeviceInfo`); the thread shows
-  them under the first message ("Desktop · 1280×720").
+- Every comment saves the device size, viewport and supported browser/OS hints when feedback starts (`getDeviceInfo`).
+  Public and guest threads show only size and viewport ("Desktop · 1280×720"). Authorized project members also get
+  expandable/copyable reproduction details: browser/version, OS, pixel ratio, original capture time and a safe page
+  link. Unsupported/older fields stay Unknown or Unavailable. Links use only pathname until #87; query strings,
+  hashes and review tokens are excluded. Resizing, replying and editing do not replace the original context.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /

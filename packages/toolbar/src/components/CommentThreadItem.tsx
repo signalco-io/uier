@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -13,6 +13,8 @@ import { useAnnounce } from './Announcer';
 import { CommentKindLabel } from './CommentKindLabel';
 import { CommentDeviceMeta } from './info/CommentDeviceMeta';
 import { CommentScreenshot } from './CommentScreenshot';
+import { CommentComposer } from './CommentComposer';
+import { useDrafts } from '../hooks/useDrafts';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
 
 function parseDate(value: string | undefined) {
@@ -53,9 +55,13 @@ function deleteConfirmText(comment: CommentItem, first: boolean | undefined) {
 }
 
 export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
-    const { delete: deleteComment, deleteReply } = useComments();
+    const { delete: deleteComment, deleteReply, edit } = useComments();
     const announce = useAnnounce();
     const rootRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLButtonElement>(null);
+    const [editing, setEditing] = useState<{ originalText: string }>();
+    const drafts = useDrafts();
+    const editDraftKey = `edit:${comment.id}:${threadItem.id}`;
 
     // The author deleted it after others replied: a placeholder, without author or actions
     if (threadItem.deleted) {
@@ -70,12 +76,16 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     const isMe = Boolean(threadItem.author?.isMe);
     const createdAt = parseDate(threadItem.createdAt);
 
-    // Only the author may delete a comment, and only the author of a reply may delete it (the
-    // status is changed in the thread's header, CommentThreadHeader.tsx)
-    // In a project the API says what the reviewer may do (admins delete others' comments too)
+    // Public actions belong to the author. Project DTOs include author/admin permissions.
     const canDelete = first ? (comment.permissions?.delete ?? comment.isMine) : (threadItem.canDelete ?? isMe);
-    const pending = deleteComment.isPending || deleteReply.isPending;
+    const canEdit = first ? (comment.permissions?.edit ?? comment.isMine) : (threadItem.canEdit ?? isMe);
+    const pending = deleteComment.isPending || deleteReply.isPending || edit.isPending;
     const error = deleteComment.error ?? deleteReply.error;
+    const finishEdit = () => {
+        drafts.delete(editDraftKey);
+        setEditing(undefined);
+        requestAnimationFrame(() => menuRef.current?.focus());
+    };
 
     const handleDelete = async () => {
         // The item's menu had the focus and goes away; the thread's messages list (in the popover
@@ -113,13 +123,15 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     )}
                 </Row>
                 <Row className="shrink-0">
-                    {canDelete && (
+                    {(canDelete || canEdit) && !editing && (
                         <CommentThreadItemMenu
+                            triggerRef={menuRef}
                             kind={first ? 'comment' : 'reply'}
                             own={isMe}
                             confirmText={deleteConfirmText(comment, first)}
                             disabled={pending}
-                            onDelete={handleDelete} />
+                            onDelete={canDelete ? handleDelete : undefined}
+                            onEdit={canEdit ? () => { edit.reset(); setEditing({ originalText: text }); } : undefined} />
                     )}
                 </Row>
             </Row>
@@ -129,9 +141,17 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     {quote}
                 </blockquote>
             )}
-            <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{text}</Typography>
+            {editing ? (
+                <CommentComposer label={first ? 'Edit comment' : 'Edit reply'} placeholder="Update the message" submitLabel="Save changes"
+                    draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
+                    onCancel={finishEdit} onSubmit={async text => {
+                        await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, expectedText: editing.originalText });
+                        finishEdit();
+                        announce(first ? 'Comment edited' : 'Reply edited');
+                    }} />
+            ) : <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{text}{threadItem.editedAt && <span className="text-muted-foreground"> (edited)</span>}</Typography>}
             {first && <CommentScreenshot comment={comment} />}
-            {first && <CommentDeviceMeta device={comment.device} />}
+            {first && <CommentDeviceMeta device={comment.device} reproduction={comment.reproduction} />}
             <CommentsErrorMessage error={error} />
         </Stack>
     );
