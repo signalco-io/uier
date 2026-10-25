@@ -134,7 +134,7 @@ export function CommentsGlobal({
     // The last focused element of the page (outside the toolbar), for comments created with the keyboard
     const lastPageFocusRef = useRef<Element | null>(null);
 
-    const { path, query: commentItems } = useComments();
+    const { path, query: commentItems } = useComments(true);
     useCommentsRefresh(!collapsed);
     const activityQuery = useActivitySummary();
     const allComments = commentItems.data;

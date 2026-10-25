@@ -123,7 +123,7 @@ export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryR
     });
 }
 
-export function useComments(): {
+export function useComments(refreshOnMount = false): {
     path: string;
     query: UseQueryResult<CommentItem[], Error>;
     create: UseMutationResult<CommentItem, Error, CreateCommentInput, unknown>;
@@ -141,7 +141,8 @@ export function useComments(): {
     const query = useQuery({
         queryKey,
         queryFn: () => authorizedList(client, () => getComments(path, client)),
-        refetchOnMount: 'always',
+        // Only the review layer refreshes on navigation. New pin/header observers reuse it.
+        refetchOnMount: refreshOnMount ? 'always' : false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         retry: false
