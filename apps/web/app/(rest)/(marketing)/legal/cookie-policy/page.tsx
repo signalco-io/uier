@@ -52,7 +52,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="24 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 October 2026">
             <p>
                 {brand.domain} uses three cookies and two keys in your browser&rsquo;s local storage. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
@@ -88,6 +88,8 @@ export default function CookiePolicyPage() {
                 When you review a site that embeds the {brand.name} toolbar for a project, the toolbar keeps these keys
                 in that site&rsquo;s local storage. They are set only once you open a review link or comment, and the
                 toolbar&rsquo;s Sign out removes them.
+                Before writing, an empty frame on {brand.domain} verifies your browser with BotID. Its signed
+                proof lasts five minutes and is kept only in memory. This needs no third-party cookies.
             </p>
             <ul className="flex flex-col gap-2 text-sm">
                 <li><code>uier:review-token:&lt;project&gt;</code>: keeps you signed in to the project on that site (30 days).</li>

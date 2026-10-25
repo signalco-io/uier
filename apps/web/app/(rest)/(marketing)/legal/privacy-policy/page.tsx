@@ -122,6 +122,9 @@ export default function PrivacyPolicyPage() {
             <p>
                 Requests that post, change or delete comments are checked by Vercel BotID, which runs a challenge
                 in your browser and inspects the request to tell people from bots.
+                On reviewed sites this challenge runs in an empty frame on {brand.domain}. It returns a signed
+                proof tied to the reviewed site, project and reviewer, valid for five minutes and kept only
+                in the toolbar&rsquo;s memory. It does not need third-party cookies.
             </p>
 
             <h3>Analytics</h3>

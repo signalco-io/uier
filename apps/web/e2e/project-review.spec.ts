@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
+import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
@@ -201,7 +202,7 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     await guest.context.close();
 
     // The review API serves it to the project's sites only
-    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
     const [comment] = await (await request.get(`/api/review/${projectId}/comments?path=/${projectId}/pricing`, { headers })).json() as { id: string; screenshot?: { width: number; height: number } }[];
     expect(comment!.screenshot?.width).toBeGreaterThan(0);
     const image = await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers });
@@ -355,7 +356,7 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
     await expect(card).toContainText('Second suggestion.');
 
     // The same checks as the project's comments: its sites, a reviewer, comments on
-    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
     const suggest = async (data: unknown, requestHeaders: Record<string, string> = headers) =>
         await request.post(`/api/review/${projectId}/rewrite`, { headers: requestHeaders, data });
     const answered = await suggest({ text: 'Every plan includes the toolbar.', instruction: 'Shorter' });
@@ -366,7 +367,7 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
     expect(failed.status()).toBe(503);
     expect((await failed.json()).error).toBe('unavailable');
     expect((await suggest({})).status()).toBe(400);
-    expect((await suggest({ text: 'Hi' }, { Origin: siteOrigin() })).status()).toBe(400);
+    expect((await suggest({ text: 'Hi' }, { Origin: siteOrigin() })).status()).toBe(403);
     expect((await suggest({ text: 'Hi' }, { ...headers, Origin: siteOrigin('elsewhere') })).status()).toBe(403);
     const preflight = await request.fetch(`/api/review/${projectId}/rewrite`, {
         method: 'OPTIONS',
@@ -383,7 +384,7 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
 test('the toolbar\'s inbox lists the project\'s other pages; comments have public ids', async ({ page, request, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
     await setAccess(page, projectId, 'Anyone with the link');
-    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
     const post = async (path: string, text: string) => {
         const response = await request.post(`/api/review/${projectId}/comments`, {
             headers,
@@ -434,7 +435,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     const ben = guest('Ben');
     const post = async (author: { token: string; name: string }, path: string, text: string, device: 'desktop' | 'mobile') => {
         const response = await request.post(`/api/review/${projectId}/comments`, {
-            headers: { Origin: siteOrigin(), 'X-Uier-Visitor': author.token },
+            headers: await verifiedReviewHeaders(request, projectId, siteOrigin(), author.token),
             data: { path, position: { type: 'point', selector: 'body>main>h1', xNormal: 0.5, yNormal: 0.5 }, text, authorName: author.name, device: { size: device } }
         });
         expect(response.status()).toBe(201);
@@ -534,7 +535,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
 test('feedback and bug reports from the toolbar reach the project', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
     await setAccess(page, projectId, 'Anyone with the link');
-    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
 
     // About the whole page: a `page` position and a kind
     const report = await request.post(`/api/review/${projectId}/comments`, {

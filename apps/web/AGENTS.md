@@ -14,7 +14,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages, `(shell)/` signed-in pages (projects, settings, users, billing, account), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/components/app/` | app UI: `PageHeader`/`Section`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`) |
-| `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), routes |
+| `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
+| `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; all other pages remain unframeable |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
@@ -66,8 +67,8 @@ how it works (`#how-it-works`), features (`#features`), get started (`#get-start
 
 - **Only what the toolbar does today.** Every step, feature and answer describes behaviour you can
   try on the page (check `packages/toolbar` before adding one). Not claimed, because it is not
-  true yet: using uier on your own site (#53), and with it the inbox's other pages (the showcase
-  is the landing page only).
+  shown by the showcase: the inbox's other pages (the showcase is the landing page only). Project
+  embeds work on their configured addresses, with headers for identity and BotID proofs for writes.
 - **Get started** goes to `#get-started`, which starts the one supported flow: leaving a comment
   with the showcase toolbar on this page. Point it at the app (and update the test) once
   onboarding exists.

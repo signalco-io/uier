@@ -54,6 +54,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages (review mode), the status filter and search (`CommentsFilter.tsx`) |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
+| `project/verification.ts` | cross-origin writes get a BotID proof through the API's `/review-verification` frame (no cookies); checks message origin and source, caches the proof in memory for under five minutes, fails closed |
 | `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, a fallback pin when it is gone, nothing for hidden anchors; never throws (invalid selectors, out-of-range offsets) |
 | `hooks/useLayoutVersion.ts` | one shared "measure again" signal: scroll (capture), resize, size and DOM changes of the page |
 | `hooks/useDrafts.tsx` | unsent comment and reply texts, so closing a popover does not lose them |
@@ -70,6 +71,8 @@ starts the review: the project whose comments apply is the script's `data-uier-p
   inside a `CommentErrorBoundary`, so one bad comment can never take the toolbar down.
 - Everything rendered must work inside a shadow root on an unknown page: no global CSS, no
   assumptions about the host's fonts or variables, no `document.body` styling.
+- Cross-site embeds require `data-uier-project`. The project's addresses decide CORS; the install
+  guide includes the API origin in `frame-src`. Failed comment loads show a message and retry action.
 - UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
 - Keep the bundle small: no new large dependencies without a reason (`modern-screenshot`, about
