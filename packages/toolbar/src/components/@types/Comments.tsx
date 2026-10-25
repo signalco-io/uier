@@ -120,6 +120,7 @@ export type CommentItem = {
     id: string;
     path: string;
     position: CommentItemPosition;
+    anchorContext?: { original: CommentItemPosition; previous: CommentItemPosition; revision: string; changedAt: string; changes: number };
     /** Public id, numbered per site (`#12`); missing on old comments */
     number?: number;
     /** A screenshot of the commented part of the page, in pixels (the image is fetched separately) */

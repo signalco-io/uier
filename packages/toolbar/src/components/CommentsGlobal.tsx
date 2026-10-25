@@ -1,11 +1,14 @@
+import { ReattachContext, describeAnchor, anchorStateText } from './CommentAnchorDetails';
+import { DockablePanel } from './DockablePanel';
+import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
-import { getElementSelector } from '@signalco/js';
+import { anchorSelector } from '../anchorSelector';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { Button } from '@signalco/ui-primitives/Button';
 import { useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
-import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
+import { getCommentPlacement, resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
 import { CommentToolbar } from './CommentToolbar';
 import { CommentSelectionPopover } from './CommentSelectionPopover';
@@ -24,7 +27,7 @@ import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
-import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength } from './@types/Comments';
+import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
 function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement | undefined) {
@@ -42,7 +45,7 @@ function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement |
 function centerPoint(element: Element): CommentPoint {
     return {
         type: 'point',
-        selector: getElementSelector(element),
+        selector: anchorSelector(element),
         xNormal: 0.5,
         yNormal: 0.5
     };
@@ -146,7 +149,38 @@ export function CommentsGlobal({
     // The last focused element of the page (outside the toolbar), for comments created with the keyboard
     const lastPageFocusRef = useRef<Element | null>(null);
 
-    const { path, query: commentItems } = useComments(true);
+    const { path, query: commentItems, reattach } = useComments(true);
+    const [reattaching, setReattaching] = useState<{ comment: CommentItem; candidate?: CommentAnchor; mode?: 'point' | 'text' }>();
+    const requestReattach = (comment: CommentItem) => {
+        if (comment.path !== path || !(comment.permissions?.edit ?? comment.isMine)) return;
+        handleCollapsedChange(false);
+        reattach.reset();
+        setCreatingCommentPoint(false);
+        setCreatingCommentSelection(undefined);
+        setOpenComment(undefined);
+        setSidebarOpen(false);
+        setReattaching({ comment });
+    };
+    const finishReattach = () => {
+        setReattaching(undefined);
+        setCreatingCommentSelection(undefined);
+        setSidebarOpen(true);
+    };
+    const chooseAnchor = (candidate: CommentAnchor) => setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
+    const saveAnchor = async () => {
+        if (!reattaching?.candidate) return;
+        try {
+            await reattach.mutateAsync({ commentId: reattaching.comment.id, path, position: reattaching.candidate,
+                expectedRevision: reattaching.comment.anchorContext?.revision ?? null });
+            announce('Comment reattached. Original evidence is unchanged.');
+            finishReattach();
+        } catch (error) {
+            if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
+                announce('This comment is no longer available to edit.');
+                finishReattach();
+            }
+        }
+    };
     useCommentsRefresh(!collapsed);
     const activityQuery = useActivitySummary();
     const allComments = commentItems.data;
@@ -235,6 +269,9 @@ export function CommentsGlobal({
             return;
         }
 
+        if (reattaching && !reattach.isPending) {
+            event.stopPropagation(); event.preventDefault(); finishReattach(); return;
+        }
         if (creatingCommentSelection || creatingCommentPoint) {
             event.stopPropagation();
             event.preventDefault();
@@ -247,12 +284,12 @@ export function CommentsGlobal({
         if (hintOpen && isToolbarNode(document.activeElement, rootElement)) {
             handleDismissHint(false);
         }
-    }, [creatingCommentSelection, creatingCommentPoint, hintOpen, rootElement]);
+    }, [creatingCommentSelection, creatingCommentPoint, hintOpen, rootElement, reattaching, reattach.isPending]);
 
     // In point mode, Enter on a focused page element pins the comment to it (instead of e.g.
     // following the link). Capture phase, so the page does not handle the key first.
     useEffect(() => {
-        if (!creatingCommentPoint) {
+        if (!creatingCommentPoint && reattaching?.mode !== 'point') {
             return;
         }
 
@@ -267,7 +304,9 @@ export function CommentsGlobal({
             }
             event.preventDefault();
             event.stopPropagation();
-            startDraftOnFocusedElement(active);
+            if (reattaching?.mode === 'point') {
+                if (active && active !== document.body && active !== document.documentElement) chooseAnchor(centerPoint(active));
+            } else startDraftOnFocusedElement(active);
         };
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
@@ -298,7 +337,7 @@ export function CommentsGlobal({
             const element = node instanceof Element ? node : node?.parentElement;
             const isText = node?.nodeType === Node.TEXT_NODE;
             return {
-                selector: getElementSelector(element),
+                selector: anchorSelector(element),
                 offset: isText && element && node ? textOffsetWithin(element, node, offset) : offset,
                 type: isText ? 'text' as const : 'element' as const
             };
@@ -307,7 +346,7 @@ export function CommentsGlobal({
         const end = boundary(selection.focusNode, selection.focusOffset);
 
         closeHintForUse();
-        setCreatingCommentSelection({
+        const position: CommentSelection = {
             text: text.slice(0, selectionTextMaxLength),
             type: 'text',
             startSelector: start.selector,
@@ -316,7 +355,12 @@ export function CommentsGlobal({
             endSelector: end.selector,
             endOffset: end.offset,
             endType: end.type
-        });
+        };
+        if (reattaching) {
+            if (reattaching.mode === 'text') setReattaching({ ...reattaching, candidate: position });
+            return;
+        }
+        setCreatingCommentSelection(position);
     });
 
     useEffect(() => {
@@ -343,6 +387,7 @@ export function CommentsGlobal({
     };
 
     const handleAddPointComment = (fromKeyboard: boolean) => {
+        if (reattaching) return;
         if (fromKeyboard) {
             // Point mode needs a pointer; with the keyboard the comment goes on the element
             // that had the focus before the toolbar
@@ -431,6 +476,7 @@ export function CommentsGlobal({
             setCreatingCommentPoint(false);
             setCreatingCommentSelection(undefined);
             setOpenComment(undefined);
+            setReattaching(undefined);
             closeHintForUse();
         }
     };
@@ -442,8 +488,9 @@ export function CommentsGlobal({
         ? `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(projectCode)}`
         : undefined;
 
+    const candidatePlacement = reattaching?.candidate ? getCommentPlacement(reattaching.candidate) : undefined;
     return (
-        <>
+        <ReattachContext.Provider value={requestReattach}>
             {commentItems.isError && (
                 <InkScope>
                     <div className="fixed bottom-20 left-1/2 z-[51] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
@@ -491,6 +538,48 @@ export function CommentsGlobal({
                     onCreate={() => handleCreateComment('comment')}
                     onRewrite={() => handleCreateComment('rewrite')} />
             )}
+            {!collapsed && reattaching && <>
+                {reattaching.mode === 'point' && <CommentPointOverlay onPoint={chooseAnchor} />}
+                {reattaching.candidate?.type === 'text' && <CommentSelectionHighlight commentSelection={reattaching.candidate} />}
+                <InkScope>
+                    {reattaching.mode ? <div className="fixed top-4 left-1/2 z-[60] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border bg-background p-3 text-sm text-foreground" role="region" aria-label="Choose new anchor">
+                        <p role="status" className="m-0">{reattaching.mode === 'point' ? 'Click an element, or focus it and press Enter.' : 'Select text on the page, then use the selection.'}</p>
+                        <div className="mt-2 flex gap-2">
+                            {reattaching.mode === 'text' && <Button size="sm" className="min-h-11" disabled={!reattaching.candidate} onClick={() => setReattaching({ ...reattaching, mode: undefined })}>Use selected text</Button>}
+                            <Button size="sm" variant="plain" className="min-h-11" onClick={finishReattach}>Cancel</Button>
+                        </div>
+                    </div> : <DockablePanel id="inbox" label="Reattach comment" onKeyDown={event => {
+                        if (event.key === 'Escape' && !reattach.isPending) { event.stopPropagation(); finishReattach(); }
+                    }}>
+                        <div className="h-full overflow-y-auto p-4 text-sm">
+                            <h2 className="m-0 text-base font-semibold">Reattach comment</h2>
+                            <p>Choose an element or select text on this page. Confirm to move the anchor. Messages and saved evidence stay the same.</p>
+                            <div className="flex flex-wrap gap-2">
+                                <Button autoFocus size="sm" variant="outlined" className="min-h-11" disabled={reattach.isPending}
+                                    onClick={() => setReattaching({ ...reattaching, mode: 'point', candidate: undefined })}>Choose element</Button>
+                                <Button size="sm" variant="outlined" className="min-h-11" disabled={reattach.isPending}
+                                    onClick={() => { window.getSelection()?.removeAllRanges(); setReattaching({ ...reattaching, mode: 'text', candidate: undefined }); }}>Choose text</Button>
+                            </div>
+                            <p role="status">{reattaching.candidate ? 'Review the new anchor, then confirm.' : 'Choose how to select the new target.'}</p>
+                            {reattaching.candidate && <>
+                                <p className="break-words" data-uier-anchor-candidate="">{describeAnchor(reattaching.candidate)}</p>
+                                <p>{candidatePlacement && anchorStateText[candidatePlacement.state]}</p>
+                            </>}
+                            {reattach.error instanceof CommentsApiError && reattach.error.status === 409
+                                ? <p role="alert" className="text-sm">The anchor changed. Start again to review the latest anchor.</p>
+                                : <CommentsErrorMessage error={reattach.error} />}
+                            {reattach.error instanceof CommentsApiError && reattach.error.status === 409 && <Button variant="outlined" size="sm" className="min-h-11" onClick={() => {
+                                const latest = allComments?.find(comment => comment.id === reattaching.comment.id);
+                                if (latest) requestReattach(latest);
+                            }}>Start again</Button>}
+                            <div className="mt-4 flex gap-2">
+                                <Button size="sm" className="min-h-11" disabled={reattach.isPending || !candidatePlacement?.rects.length || candidatePlacement.state !== 'exact'} onClick={() => void saveAnchor()}>Confirm anchor</Button>
+                                <Button size="sm" variant="plain" className="min-h-11" disabled={reattach.isPending} onClick={finishReattach}>Cancel</Button>
+                            </div>
+                        </div>
+                    </DockablePanel>}
+                </InkScope>
+            </>}
             {!collapsed && creatingCommentPoint && (
                 <CommentPointOverlay onPoint={handleCreateCommentPoint} />
             )}
@@ -514,7 +603,7 @@ export function CommentsGlobal({
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
                 sidebarOpen={sidebarOpen}
-                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                onToggleSidebar={() => { if (!reattaching) setSidebarOpen(!sidebarOpen); }}
                 onMoveStart={() => {
                     setCreatingCommentPoint(false);
                     setCreatingCommentSelection(undefined);
@@ -533,6 +622,6 @@ export function CommentsGlobal({
             {mode === 'showcase' && hintOpen && !collapsed && (
                 <ShowcaseHint id={hintId} pointAtRef={addButtonRef} onDismiss={handleDismissHint} />
             )}
-        </>
+        </ReattachContext.Provider>
     );
 }

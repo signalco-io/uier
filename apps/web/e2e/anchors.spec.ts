@@ -228,7 +228,7 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
     await context.close();
 });
 
-test('text that moved is found again; text that is gone keeps a fallback pin', async ({ browser }, testInfo) => {
+test('text that moved is found again; text that is gone stays reachable in the inbox', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, origin, { dismissHint: true });
@@ -252,25 +252,13 @@ test('text that moved is found again; text that is gone keeps a fallback pin', a
     await expectHighlightOnText(page, 'leaving comments directly');
     await expect(page.locator('[data-uier-highlight]')).not.toHaveCount(0);
 
-    const fallbackPin = page.getByRole('button', { name: 'Comment, 1 message. The commented text is no longer on the page', exact: true });
-    await expect(fallbackPin).toBeVisible();
-    // At the paragraph the text was in
-    // On touch, the 32 px mark has a larger hit area. Compare the visible mark with its anchor.
-    const pin = await fallbackPin.locator('svg').boundingBox();
-    // The element the toolbar resolves the selector to
-    const box = await page.evaluate((selector) => {
-        const { x, y, width, height } = document.querySelector(selector)!.getBoundingClientRect();
-        return { x, y, width, height };
-    }, paragraph);
-    expect(pin!.x).toBeGreaterThanOrEqual(box!.x);
-    expect(pin!.y).toBeGreaterThanOrEqual(box!.y);
-    expect(pin!.y).toBeLessThan(box!.y + box!.height);
-
-    await fallbackPin.click();
-    const thread = openThread(page);
-    await expect(thread.getByText('The commented text is no longer on the page.')).toBeVisible();
-    await expect(thread.locator('blockquote')).toHaveText('A sentence that was edited away');
-    await expect(thread.getByText('Gone words')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comment, 1 message', exact: true })).toHaveCount(1);
+    await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+    const sidebar = page.getByRole('complementary', { name: 'Comments' });
+    const gone = sidebar.getByRole('article').filter({ hasText: 'Gone words' });
+    await expect(gone.getByText('Target is missing from this page.')).toBeVisible();
+    await expect(gone.locator('blockquote')).toHaveText('A sentence that was edited away');
+    await expect(gone.getByRole('button', { name: 'Show on page' })).toHaveCount(0);
 
     await context.close();
 });

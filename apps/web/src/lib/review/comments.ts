@@ -1,3 +1,6 @@
+import { reattachAnchor } from '../comments/reattachAnchor';
+import type { ReattachAnchorInput } from '../comments/validation';
+import { projectOrigins } from '../app/projects';
 import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { moveMentions } from '@uier/toolbar/mentions';
@@ -428,4 +431,14 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
     });
     await forgetScreenshot(store, partition, id, hadScreenshot, updated);
     return updated;
+}
+
+export async function reattachProjectAnchor(project: DbProject, actor: ProjectActor, id: string, origin: string, input: ReattachAnchorInput) {
+    assertWriter(actor);
+    if (!projectOrigins(project).includes(origin)) throw apiErrors.forbidden('Open the reviewed page to change its anchor.');
+    return reattachAnchor(getCommentsStore(), projectPartition(project.id), id, input, comment => {
+        visibleOrThrow(comment, actor);
+        if (!canEditComment(comment, actor)) throw apiErrors.forbidden();
+        if (comment.origin !== origin) throw apiErrors.forbidden('Choose a target on the original reviewed site.');
+    });
 }

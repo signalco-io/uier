@@ -109,6 +109,13 @@ export const pagePositionSchema = z.object({
 
 export const positionSchema = z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema, pagePositionSchema]);
 
+export const reattachAnchorSchema = z.object({
+    path: reviewPathSchema,
+    position: z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema]),
+    expectedRevision: z.string().min(1).max(128).nullable()
+});
+export type ReattachAnchorInput = z.infer<typeof reattachAnchorSchema>;
+
 /**
  * Feedback and bug reports are about the page (`page` position); comments are pinned to it, and
  * rewrite suggestions (the suggested text) to the selected text they would replace

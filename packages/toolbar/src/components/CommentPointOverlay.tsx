@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { cx } from '@signalco/ui-primitives/cx';
-import { getElementSelector } from '@signalco/js';
+import { anchorSelector } from '../anchorSelector';
 import { CommentPoint } from './@types/Comments';
 
 type CommentPointOverlayProps = {
@@ -56,7 +56,7 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
         const el = pageElementAt(event.clientX, event.clientY);
         if (!el) return;
 
-        const selector = getElementSelector(el);
+        const selector = anchorSelector(el);
         const elBounds = el.getBoundingClientRect();
         const relativeX = event.clientX - elBounds.left;
         const relativeY = event.clientY - elBounds.top;

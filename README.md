@@ -143,8 +143,8 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   path filtering, DTO contents, cookie flags, rate limits).
 - **Desktop Chrome** and **Mobile Chrome** - the landing page (render, security headers, axe, `/toolbar.js`)
   and the showcase toolbar ([`showcase.spec.ts`](apps/web/e2e/showcase.spec.ts)): point and text-selection
-  comments (the hover outline, the thread that opens after posting; text anchors, restored highlights, fallback
-  pins and the viewport are in [`anchors.spec.ts`](apps/web/e2e/anchors.spec.ts)), a second visitor who can reply but not
+  comments (the hover outline, the thread that opens after posting; text anchors, restored highlights, missing-anchor
+  recovery and the viewport are in [`anchors.spec.ts`](apps/web/e2e/anchors.spec.ts)), a second visitor who can reply but not
   resolve or delete, Done and comment links, a deleted comment whose replies stay,
   review mode on other pages. Review links, the review session and the toolbar's controls (collapse, profile,
   options, sign out) are in [`review.spec.ts`](apps/web/e2e/review.spec.ts). Each of these tests opens the site
@@ -256,6 +256,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
+| `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
@@ -404,6 +405,7 @@ trailing slash).
 | `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](#screenshots)). `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
+| `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
@@ -811,8 +813,8 @@ local storage: do not type secrets into feedback. If storage is blocked or full,
 in memory and the composer explains that the page must stay open.
 
 Images and device details are never persisted with drafts. Automatic capture is refreshed on
-reopen/reload, using the restored anchor and the current page/viewport. A missing anchor uses the
-existing fallback placement; failed capture never blocks text. Composers show no image preview.
+reopen/reload, using the restored anchor and the current page/viewport. Capture uses the resolved anchor
+when available; failed capture never blocks text. Composers show no image preview.
 Saved screenshots keep their expandable thumbnail behavior.
 
 Create/reply requests from the toolbar carry a random `idempotencyKey`, kept with the draft.
@@ -873,6 +875,23 @@ authorized mutation and record recipients through the shared notification outbox
 `GET .../comments/activity` returns authorized `{ unread, open, done, total }` counts without message
 text or actor ids. `GET .../comments?scope=site&unread=true` selects unread threads from the full
 activity projection before fetching a bounded content batch. Both use the same private/access checks.
+
+### Missing anchors and reattachment
+
+Thread details distinguish exact positions, uniquely restored text, temporarily hidden targets, missing
+targets and ambiguous matches. Text with several possible matches is never silently moved to the first.
+Missing/ambiguous/hidden targets have no page pin; comments remain searchable/reachable in the inbox.
+Authors and workspace admins can choose a new element or text on the same saved page and confirm or
+cancel. Pointer/touch and keyboard element selection are supported. The existing dockable panel and
+movable toolbar retain their positions; collapse cancels selection and hides page annotations.
+
+Reattachment updates only the position and `anchorContext` (original and immediately previous anchors,
+last change time, count and revision). Messages, original quotes, screenshots, authors and status stay
+unchanged. Context has the same visibility and retention as its comment; no new browser storage or
+external processing is added. Server checks enforce partition/project, author/admin permission, saved
+page key, original allowed origin and existing selector/offset limits. ETag retries retain concurrent
+replies/status changes and recheck authorization; anchor revisions reject stale choices. No cross-page
+migration or AI relocation is provided.
 
 ### Copy feedback as an issue
 

@@ -80,6 +80,8 @@ async function deleteReply({ commentId, itemId }: { commentId: string; itemId: s
     });
 }
 
+export type ReattachInput = { commentId: string; path: string; position: import('../components/@types/Comments').CommentAnchor; expectedRevision: string | null };
+
 type EditMessageInput = { commentId: string; itemId: string; text: string; expectedText: string; mentions?: Mention[] };
 async function editMessage({ commentId, itemId, text, expectedText, mentions }: EditMessageInput) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies/${encodeURIComponent(itemId)}`, {
@@ -134,6 +136,7 @@ export function useComments(refreshOnMount = false): {
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
     assign: UseMutationResult<CommentItem, Error, { commentId: string; assigneeId: string | null }, unknown>;
     edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
+    reattach: UseMutationResult<CommentItem, Error, ReattachInput, unknown>;
 } {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
@@ -203,6 +206,14 @@ export function useComments(refreshOnMount = false): {
     });
     const edit = useMutation({ mutationFn: editMessage, onSuccess: handleCommentChanged, onSettled: handleSettled });
 
+    const reattach = useMutation({
+        mutationFn: ({ commentId, ...body }: ReattachInput) => authorizedList(client,
+            () => apiRequest<CommentItem>(`${commentUrl(commentId)}/anchor`, { method: 'PATCH', body }).then(required)),
+        onMutate: () => currentReviewerRevision(),
+        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
+        onSettled: handleSettled
+    });
+
     // Deletes return the comment when its thread stays, nothing when the whole comment is gone
     const remove = useMutation({
         mutationFn: deleteComment,
@@ -223,6 +234,7 @@ export function useComments(refreshOnMount = false): {
         reply,
         resolve,
         edit,
+        reattach,
         assign,
         delete: remove,
         deleteReply: removeReply
@@ -240,7 +252,7 @@ function reconcileReads(client: QueryClient, comments: CommentItem[]) {
     });
 }
 
-async function authorizedList(client: QueryClient, load: () => Promise<CommentItem[]>) {
+async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
     try { return await load(); }
     catch (error) {
         if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {

@@ -1,3 +1,4 @@
+import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -123,6 +124,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
                     </div>
                 </>
             )}
+            <CommentAnchorDetails comment={commentItem} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <div className="px-4 pt-2">
                 <ThreadNotifications comment={commentItem} />
             </div>}
