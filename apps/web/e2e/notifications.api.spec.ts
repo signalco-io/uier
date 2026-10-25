@@ -71,6 +71,36 @@ test('owners receive new feedback, participants receive batched replies/status, 
     expect(sent).toHaveLength(2);
 });
 
+test('safe submission retries commit a single notification event with the shared activity cursor', async () => {
+    const f = await fixture();
+    const input = { text: 'Retryable feedback', origin: 'https://reviewed.example', path: '/retry',
+        position: { type: 'page' } as const, kind: 'feedback' as const, authorName: 'Ana', idempotencyKey: randomUUID() };
+    const [created, retried] = await Promise.all([
+        createProjectComment(request, f.project, f.guest, input),
+        createProjectComment(request, f.project, f.guest, input)
+    ]);
+    expect(retried.id).toBe(created.id);
+    expect((await current(created)).notificationEvents).toHaveLength(1);
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, created, sent);
+    expect(sent).toHaveLength(1);
+    await followThread(f.project, f.ownerActor, created.id, true);
+    const reply = { text: 'One reply after a lost response', idempotencyKey: randomUUID() };
+    await Promise.all([
+        replyToProjectComment(request, f.project, f.memberActor, created.id, reply),
+        replyToProjectComment(request, f.project, f.memberActor, created.id, reply)
+    ]);
+    const saved = await current(created);
+    expect(saved.thread.items).toHaveLength(2);
+    expect(threadActivity(saved).sequence).toBe(2);
+    expect(saved.notificationEvents?.map(event => [event.kind, event.sequence])).toEqual([['comment', 1], ['reply', 2]]);
+    await dispatch(f.project, created, sent);
+    await createProjectComment(request, f.project, f.guest, input);
+    await replyToProjectComment(request, f.project, f.memberActor, created.id, reply);
+    await dispatch(f.project, created, sent);
+    expect(sent).toHaveLength(2);
+});
+
 test('digest waits five minutes and uses #83 shared read cursor to suppress seen activity', async () => {
     const f = await fixture();
     const sent: EmailMessage[] = [];

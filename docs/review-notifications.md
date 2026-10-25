@@ -21,7 +21,9 @@ identity but does not unsubscribe an already verified address; use its email uns
   `getReadSequence(domain, actorAuthorId, threadId)` service is the only seen cursor used for email.
 - `notificationEvents` contains `{sequence, actorId, kind, at, recipients?}` metadata, without
   message text or images. It is written atomically with the comment mutation and shared activity
-  sequence; `notificationPending` requests durable discovery. Legacy activity is not replayed.
+  sequence; `notificationPending` requests durable discovery. Safe submission retries commit the
+  same event and activity cursor with the idempotency receipt, so a lost response cannot duplicate
+  an event. Legacy activity is not replayed.
 - Kinds are `comment`, `reply`, `resolved`, `reopened`, plus `mention` and `assignment` for #91.
   Targeted events may include server-validated `user:<userId>` recipients. Their producer must
   advance the shared activity cursor and append the event inside the same etag-protected write.
