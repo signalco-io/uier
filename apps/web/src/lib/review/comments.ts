@@ -12,7 +12,9 @@ import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/vi
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
-import { actorAuthorId, type ProjectActor } from './actor';
+import { actorAuthorId, assertWriter, type ProjectActor } from './actor';
+import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
+import type { ParsedScreenshot } from '../comments/screenshot';
 
 /** Most comments the app loads for a project (all pages) */
 export const MAX_PROJECT_COMMENTS = 1000;
@@ -205,6 +207,15 @@ export async function getProjectScreenshot(project: DbProject, actor: ProjectAct
     if (!screenshot)
         throw apiErrors.notFound('Screenshot not found.');
     return screenshot;
+}
+
+export async function replaceProjectScreenshot(project: DbProject, actor: ProjectActor, id: string,
+    input: { screenshot: ParsedScreenshot; expectedRevision: string | null }) {
+    assertWriter(actor);
+    return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, input, comment => {
+        visibleOrThrow(comment, actor);
+        if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can replace this screenshot.');
+    });
 }
 
 /**

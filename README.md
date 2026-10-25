@@ -223,6 +223,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
+| `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
@@ -354,6 +355,7 @@ trailing slash).
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
+| `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
@@ -506,11 +508,26 @@ Images, fonts and stylesheets from other sites that don't allow it (CORS, or the
 images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
 `backdrop-filter` come out empty or plain.
 
+For missing or unsuitable captures, the author (or a workspace admin) can choose **Upload image** or
+**Paste image** on saved feedback in the toolbar. Keyboard image paste also works while a saved image
+control has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
+invalid images and denied clipboard access show an error and keep the saved feedback. Nothing is previewed
+in a composer. Images are not persisted with drafts or in browser storage.
+
+Expand the saved thumbnail and choose **Redact screenshot** to cover content with opaque black rectangles.
+Drag with a mouse/touch, or enter left/top/width/height percentages and add an area using the keyboard.
+Undo and cancel affect only the editor. **Save redaction** flattens the masks into a replacement image.
+Upload, paste and redaction all use an authorized, conditional transaction that swaps the image and comment
+metadata together. The previous bytes remain until success, then are overwritten in the same storage document;
+the API exposes no image history. Failed or unconfirmed saves report an error; reload to check an uncertain
+network result. Image revisions prevent stale replacements. These actions count against the existing daily
+image budget. They cannot erase copies someone already downloaded.
+
 It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
 may then be up to about 700 KB. The server reads the type and size from the image itself (PNG, JPEG or WebP, at
 most 512 KB and 4096 px on a side) and stores it as a document of its own in the comment's partition
 (`type: 'screenshot'`, id `$screenshot_<comment id>`, which no route accepts, with the comment's `ttl`); the comment
-keeps `screenshot: { contentType, width, height, bytes }`. Anyone who can see the comment gets the image from
+keeps `screenshot: { contentType, width, height, bytes, revision? }`. Anyone who can see the comment gets the image from
 `GET .../comments/<id>/screenshot` (the toolbar fetches it when the thread shows it, in the inbox as it scrolls into view); the app shows it on the comment
 (`/app/projects/<project>/comments/<id>/screenshot`). It is deleted with the comment, or with its author's text
 when others replied. A site gets at most 300 screenshots a day.

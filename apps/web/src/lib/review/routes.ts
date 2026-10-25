@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
-import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
+import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema, replaceScreenshotSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES, MAX_LIST_COMMENTS } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
@@ -19,7 +19,8 @@ import {
     getProjectScreenshot,
     listProjectComments,
     replyToProjectComment,
-    setProjectCommentResolved
+    setProjectCommentResolved,
+    replaceProjectScreenshot
 } from './comments';
 import { authorNames, toReviewCommentDto } from './dto';
 import type { ReviewApiContext } from './http';
@@ -170,4 +171,12 @@ export async function editReviewCommentItem(context: ReviewApiContext, { id, ite
 /** GET /api/review/<code>/comments/<id>/screenshot: the screenshot of a comment the reviewer can see */
 export async function getReviewScreenshot({ project, actor }: ReviewApiContext, { id }: { id: string }) {
     return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id)));
+}
+
+export async function replaceReviewScreenshot(context: ReviewApiContext, { id }: { id: string }) {
+    const { actor, project } = context;
+    assertWriter(actor);
+    const input = await parseJsonBody(context.request, replaceScreenshotSchema, MAX_COMMENT_BODY_BYTES);
+    const comment = await replaceProjectScreenshot(project, actor, commentId(id), input);
+    return commentResponse(context, comment);
 }

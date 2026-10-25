@@ -81,7 +81,7 @@ function toDto(comment: DbComment, context: CommentsApiContext): CommentDto {
     return dto;
 }
 
-function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
+export function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
     if (!comment.authorId || comment.authorId !== context.visitor.authorId)
         throw apiErrors.forbidden('Only the author of the comment can do this.');
 }

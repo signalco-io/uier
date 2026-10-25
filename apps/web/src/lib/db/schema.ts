@@ -136,6 +136,8 @@ export const commentSequenceId = '$sequence_comments';
 
 /** What a comment knows about its screenshot (the image itself is a {@link DbScreenshot}) */
 export type DbCommentScreenshot = {
+    /** Changes only when evidence is replaced, preventing stale redaction from overwriting it. */
+    revision?: string;
     contentType: 'image/webp' | 'image/jpeg' | 'image/png';
     /** Pixels, read from the image */
     width: number;

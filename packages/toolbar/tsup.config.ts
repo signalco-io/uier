@@ -45,7 +45,7 @@ export default defineConfig(({ env }) => [{
     banner: { js: '\'use client\';' }
 }, {
     // Pure browser/server page identity contract; no React client boundary.
-    entry: { pageState: './src/pageState.ts' },
+    entry: { pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts' },
     format: ['esm'],
     platform: 'neutral'
 }]);

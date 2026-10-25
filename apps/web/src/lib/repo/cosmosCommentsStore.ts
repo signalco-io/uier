@@ -119,6 +119,28 @@ export function createCosmosCommentsStore(): CommentsStore {
         async createScreenshot(screenshot) {
             await cosmosDataContainerComments().items.create<DbScreenshot>(screenshot);
         },
+        async replaceScreenshot(comment, etag, screenshot) {
+            // One partition transaction: a failed metadata write never destroys the old image.
+            try {
+                const response = await cosmosDataContainerComments().items.batch([
+                    { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag },
+                    { operationType: 'Upsert', resourceBody: screenshot }
+                ], comment.domain);
+                const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
+                    .filter((code): code is number => typeof code === 'number');
+                if (codes.includes(412)) return 'conflict';
+                if (codes.includes(404)) return 'not_found';
+                if (response.result?.length !== 2 || codes.some(code => code < 200 || code >= 300))
+                    throw new Error('Screenshot replacement transaction failed.');
+                return 'ok';
+            } catch (error) {
+                // The SDK may wrap a top-level failure in Error.cause.
+                const code = errorCode(error) ?? (error instanceof Error ? errorCode(error.cause) : undefined);
+                if (code === 412) return 'conflict';
+                if (code === 404) return 'not_found';
+                throw error;
+            }
+        },
         async getScreenshot(domain, commentId) {
             try {
                 const { resource } = await cosmosDataContainerComments().item(screenshotDocumentId(commentId), domain).read<Record<string, unknown>>();
