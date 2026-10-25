@@ -31,7 +31,7 @@ export async function createProject(page: Page, { urls, name }: { urls: string[]
     await page.getByLabel('Main site address').fill(main ?? '');
     for (const [index, url] of others.entries()) {
         await page.getByRole('button', { name: 'Add another address' }).click();
-        await page.getByLabel('Other address').nth(index).fill(url);
+        await page.getByLabel(`Address ${index + 2}`, { exact: true }).fill(url);
     }
     if (name)
         await page.getByLabel('Project name').fill(name);

@@ -7,7 +7,7 @@ import { commentBubble, newVisitor, toolbar } from './support/toolbar';
 
 // Users and invitations (issues #14 and #15): admins invite people by email as admins or as
 // commenters of selected projects; accepting signs them in and opens the project's review link.
-// Locally no email is sent, so the invite form shows the link it would have emailed.
+// Locally no email is sent, so the invite dialog shows the link it would have emailed.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 
@@ -28,28 +28,38 @@ async function adminWithProjects(page: Page) {
     return { adminEmail, alpha, beta };
 }
 
-/** Sends an invitation from the invite page; returns the invitation link (shown locally) */
+/** Opens the invite dialog from the users page, or from a project's header */
+async function openInvite(page: Page, from?: string) {
+    await page.goto(from ? `/app/projects/${from}` : '/app/users');
+    await page.getByRole('button', { name: 'Invite', exact: true }).click();
+    // Not by name: once sent, its title is "Invitation sent"
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toHaveAccessibleName('Invite someone');
+    return dialog;
+}
+
+/** Sends an invitation from the invite dialog; returns the invitation link (shown locally) */
 async function invite(page: Page, { email, role = 'Commenter', projects, from }: {
     email: string;
     role?: 'Commenter' | 'Admin';
     /** Commenters: project names to tick, or every project */
     projects?: string[] | 'all';
-    /** The project the invitation starts from (`?project=`) */
+    /** The project the invitation starts from (its header's Invite button) */
     from?: string;
 }) {
-    await page.goto(`/app/users/invite${from ? `?project=${from}` : ''}`);
-    await page.getByLabel('Email').fill(email);
+    const dialog = await openInvite(page, from);
+    await dialog.getByLabel('Email').fill(email);
     if (role === 'Admin')
-        await page.getByRole('radio', { name: /^Admin/ }).click();
+        await dialog.getByRole('radio', { name: /^Admin/ }).click();
     if (projects === 'all') {
-        await page.getByRole('radio', { name: 'All projects, now and later' }).click();
+        await dialog.getByRole('radio', { name: 'All projects, now and later' }).click();
     } else {
         for (const name of projects ?? [])
-            await page.getByRole('checkbox', { name }).click();
+            await dialog.getByRole('checkbox', { name }).click();
     }
-    await page.getByRole('button', { name: 'Send invitation' }).click();
-    await expect(page.getByRole('status')).toContainText(`We emailed an invitation to ${email}`);
-    const link = await page.getByRole('link', { name: 'Open the invitation link' }).getAttribute('href');
+    await dialog.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(dialog.getByRole('status')).toContainText(`We emailed an invitation to ${email}`);
+    const link = await dialog.getByRole('link', { name: 'Open the invitation link' }).getAttribute('href');
     expect(link).toMatch(/^\/app\/invitation\?token=/);
     return link!;
 }
@@ -179,11 +189,10 @@ test('invitations validate, replace earlier ones and can be revoked', async ({ p
     const email = uniqueEmail('invitee');
 
     // A commenter needs projects
-    await page.goto('/app/users/invite');
-    await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: 'Send invitation' }).click();
-    await expect(page.locator('form').getByRole('alert')).toHaveText('Choose the projects they can review.');
-    await expect(page).toHaveTitle('Invite · uier');
+    const dialog = await openInvite(page);
+    await dialog.getByLabel('Email').fill(email);
+    await dialog.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(dialog.getByRole('alert')).toHaveText('Choose the projects they can review.');
     await expectNoAxeViolations(page);
 
     const first = await invite(page, { email, projects: ['Alpha'] });
@@ -205,9 +214,9 @@ test('invitations validate, replace earlier ones and can be revoked', async ({ p
     await expect(page.getByRole('heading', { name: 'This invitation has expired' })).toBeVisible();
 
     // Members can't be invited again
-    await page.goto('/app/users/invite');
-    await page.getByLabel('Email').fill(adminEmail);
-    await page.getByRole('radio', { name: /^Admin/ }).click();
-    await page.getByRole('button', { name: 'Send invitation' }).click();
-    await expect(page.locator('form').getByRole('alert')).toHaveText(`${adminEmail} is already in this workspace.`);
+    const again = await openInvite(page);
+    await again.getByLabel('Email').fill(adminEmail);
+    await again.getByRole('radio', { name: /^Admin/ }).click();
+    await again.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(again.getByRole('alert')).toHaveText(`${adminEmail} is already in this workspace.`);
 });

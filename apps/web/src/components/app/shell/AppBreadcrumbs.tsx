@@ -30,10 +30,8 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
         const pageLabel = page ? projectPages[page] : undefined;
         return pageLabel ? [root, project, { label: pageLabel, href: pathname }] : [root, project];
     }
-    if (section === 'users') {
-        const root = { label: 'Users', href: KnownPages.AppUsers };
-        return id === 'invite' ? [root, { label: 'Invite', href: KnownPages.AppInviteUser }] : [root];
-    }
+    if (section === 'users')
+        return [{ label: 'Users', href: KnownPages.AppUsers }];
     if (section === 'account')
         return [{ label: 'Account', href: KnownPages.AppAccount }];
     return [];

@@ -1,4 +1,5 @@
 import { brand } from '@uier/brand';
+import { KnownPages } from '../../knownPages';
 import { getAppStore, type AppStore } from '../app/store';
 import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef, type DbWorkspace } from '../app/model';
 import type { DbComment } from '../db/schema';
@@ -11,6 +12,18 @@ export const HEADLINE_COMMENT_ID = 'comment_uier_headline';
 export const STEP_COMMENT_ID = 'comment_uier_first_step';
 const workspaceId = 'w_uier_public';
 const createdAt = '2026-10-25T00:00:00.000Z';
+
+// The page key may carry query or hash state after the pathname
+const appPagePattern = new RegExp(`^${KnownPages.App}(?:[/?#]|$)`);
+
+/**
+ * Feedback on the uier app's own pages (`/app`, the app's "Give feedback" button) shows each
+ * person's private projects, so on the public project it is private: only its author and the uier
+ * team (the project's admins, in the app) see it, whichever toolbar left it.
+ */
+export function isPrivateAppFeedback(comment: Pick<DbComment, 'domain' | 'path'>) {
+    return comment.domain === PUBLIC_PROJECT_PARTITION && typeof comment.path === 'string' && appPagePattern.test(comment.path);
+}
 
 /** Local subdomains keep their own partitions, useful for isolated reviews and e2e tests. */
 export function usesPublicProject(host: string) {

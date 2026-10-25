@@ -163,10 +163,11 @@ The signed-in app at [uier.io/app](https://uier.io/app) ("Get started" on the la
 actions that check the session and the role every time.
 
 The app is a sidebar layout (shadcn/ui `Sidebar`, inset variant): the workspace at the top (a menu switches
-between workspaces), Projects and Users (admins), the active projects for quick switching, and the account
-menu at the bottom (account, theme, sign out). It collapses to icons on desktop (`Ctrl/Cmd+B`) and opens as
-a sheet on small screens. A top bar holds the breadcrumbs. uier is free, so there is no billing page; pricing
-is the landing page's `brand.pricing` promise.
+between workspaces), Users (admins), the active projects for quick switching (their header links to all
+projects and, for admins, to a new one), and at the bottom "Give feedback" (uier's own toolbar, see
+[public feedback](#landing-page-showcase-and-public-feedback)) and the account menu (account, theme, sign out). It
+collapses to icons on desktop (`Ctrl/Cmd+B`) and opens as a sheet on small screens. A top bar holds the
+breadcrumbs. uier is free, so there is no billing page; pricing is the landing page's `brand.pricing` promise.
 
 - **Sign in** (`/app/sign-in`): no passwords. The app emails a single-use link (valid for 15 minutes, stored
   only as a SHA-256 hash); the first sign-in creates the account. Opening the link shows a "Continue"
@@ -205,8 +206,8 @@ is the landing page's `brand.pricing` promise.
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
   remove people (the last admin stays) and revoke invitations. A removed member's review token stops
   working at once, because the review API checks the membership on every request.
-  - Invite `/app/users/invite` (also "Invite" on a project): the email, the role and, for commenters, the
-    selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
+  - Invite (a dialog from the users page, a project's header or its card menu): the email, the role and,
+    for commenters, the selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
     stored only as a SHA-256 hash; 50 invitations per workspace per day). Inviting the same address again
     replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
     in (their account is created on first use), adds them to the workspace and opens the project's review
@@ -326,6 +327,12 @@ The hero's `data-uier-thread="comment_uier_headline"` slot renders a live thread
 root, sharing the toolbar's components, queries and anonymous visitor cookie. Both hero pins and the
 text highlight come from stored comments. The inbox includes other public pages. Explicit review
 links still start review mode; the signed-in app does not automatically publish a showcase.
+
+The app's **Give feedback** button (sidebar, above the account) opens the same toolbar on the app page in
+`feedback` mode, with its feedback form open (`openUierFeedback()` from `@uier/toolbar/react`). App pages show
+people's private projects, so on the public project every comment on an `/app` page is **private**: only its
+author and the uier team (the public project's admins, in the app) see it, in both comments APIs, whichever
+toolbar left it. Comments the team makes private there are hidden from other visitors as well.
 
 ### `/toolbar.js`
 

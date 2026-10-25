@@ -20,7 +20,7 @@ import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, t
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
-import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from './publicProject';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, isPrivateAppFeedback } from './publicProject';
 
 const MAX_UPDATE_ATTEMPTS = 8;
 
@@ -77,9 +77,15 @@ function compactDevice(device: CreateCommentInput['device']): DbCommentDevice | 
     return Object.keys(compacted).length ? compacted : undefined;
 }
 
+/** Private comments (made private by the team, or feedback on the app) show only to their author here */
+function isVisible(comment: DbComment, context: CommentsApiContext) {
+    return !(comment.private || isPrivateAppFeedback(comment))
+        || (Boolean(comment.authorId) && comment.authorId === context.visitor.authorId);
+}
+
 /** Public showcase uses the visitor cookie; private project threads still stay author-only. */
 function assertVisible(comment: DbComment, context: CommentsApiContext) {
-    if (comment.private && (!comment.authorId || comment.authorId !== context.visitor.authorId))
+    if (!isVisible(comment, context))
         throw apiErrors.notFound();
 }
 
@@ -147,7 +153,7 @@ export async function listComments(context: CommentsApiContext, path: string | n
         const ids = new Set(starters.map(comment => comment.id));
         comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
     }
-    comments = comments.filter(comment => !comment.private || Boolean(comment.authorId && comment.authorId === context.visitor.authorId));
+    comments = comments.filter(comment => isVisible(comment, context));
     const reads = await loadReadSequences(context.domain, context.visitor.authorId);
     return withinListResponseSize(comments.flatMap(comment => {
         const dto = toCommentDto(comment, context.visitor.authorId);
@@ -257,6 +263,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         id: `comment_${nanoid()}`,
         domain: context.domain,
         ...(context.domain === PUBLIC_PROJECT_PARTITION ? { projectId: PUBLIC_PROJECT_ID } : {}),
+        ...(isPrivateAppFeedback({ domain: context.domain, path: input.path }) ? { private: true } : {}),
         path: input.path,
         position: input.position,
         number: await store.nextCommentNumber(context.domain),

@@ -4,6 +4,7 @@ import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
 import { endReviewSession, resolveReviewSession, ReviewSession } from './review';
+import { openFeedbackEvent, requestFeedbackOnMount } from './openFeedback';
 import { startInstallationCheck } from './project/installationCheck';
 
 startInstallationCheck();
@@ -71,9 +72,7 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     // Run React
     const root = createRoot(shadowDomContainer);
 
-    // "Exit review": the review ends for this tab and the toolbar leaves the page
-    const handleExitReview = () => {
-        endReviewSession();
+    const unmount = () => {
         darkScheme.removeEventListener('change', applyScheme);
         // After the click that asked for it has been handled
         window.setTimeout(() => {
@@ -81,12 +80,17 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
             container.remove();
         }, 0);
     };
+    // "Exit review": the review ends for this tab and the toolbar leaves the page.
+    // "Close toolbar" (`feedback` mode): it leaves until feedback is asked for again.
+    const handleExit = mode === 'review'
+        ? () => { endReviewSession(); unmount(); }
+        : mode === 'feedback' ? unmount : undefined;
 
     root.render(<CommentsBootstrapper
         mode={mode}
         review={review}
         rootElement={shadowDomContainer}
-        onExitReview={mode === 'review' ? handleExitReview : undefined} />);
+        onExitReview={handleExit} />);
 }
 
 function whenBodyReady(callback: () => void) {
@@ -100,6 +104,18 @@ function whenBodyReady(callback: () => void) {
 if (toolbarConfig.mode === 'showcase') {
     const review = resolveReviewSession();
     whenBodyReady(() => MountOnPage(review ? 'review' : 'showcase', review));
+} else if (toolbarConfig.mode === 'feedback') {
+    // The script loads when someone asks to give feedback, and every later request after "Close
+    // toolbar" mounts it again. A toolbar already on the page opens its feedback form itself.
+    const openFeedback = () => whenBodyReady(() => {
+        if (document.getElementById(containerId)) {
+            return;
+        }
+        requestFeedbackOnMount();
+        MountOnPage('feedback', null);
+    });
+    window.addEventListener(openFeedbackEvent, openFeedback);
+    openFeedback();
 } else {
     console.debug('uier-toolbar: Checking for a review link...');
     const review = resolveReviewSession();

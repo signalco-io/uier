@@ -125,8 +125,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). Toasts are `sonner`
   (`toast()`), mounted with the tooltip provider in the app layout.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher, sections, active
-  projects, account menu) and the inset panel with the breadcrumbs (`AppBreadcrumbs`, from the path). A
-  project's header and tabs are `projects/[projectId]/layout.tsx`; its pages render the tab content.
+  projects with All projects and Create project icon links in their header, account menu), the inset
+  panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
+  (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
+  `projects/[projectId]/layout.tsx`; its pages render the tab content.
 - Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
   `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
   document from the current workspace.
@@ -185,7 +187,9 @@ mute and `getReadSequence`; keep the optional verified guest flow separate from 
 `app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with a
 review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
 see the real toolbar on top of it. uier.io's public marketing layout embeds showcase mode on every page, using the same-origin cookie API
-backed by the static project `uier00000001`. `src/lib/comments/publicProject.ts` provisions its workspace,
+backed by the static project `uier00000001`; feedback on `/app` pages (the sidebar's "Give feedback",
+`FeedbackButton`) is private to its author and the team (`isPrivateAppFeedback`).
+`src/lib/comments/publicProject.ts` provisions its workspace,
 project and permanent starter threads on first use, and copies legacy production feedback once. New
 visitor threads expire after 90 days; starter threads and their replies do not expire. Local subdomains
 retain independent host partitions for tests. On a project's site the

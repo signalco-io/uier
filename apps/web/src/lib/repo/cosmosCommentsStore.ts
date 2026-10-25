@@ -139,7 +139,7 @@ export function createCosmosCommentsStore(): CommentsStore {
             // No TOP: badge counts and unread selection must include threads outside the text list.
             // Modern records need only the compact activity map; legacy records need item authors.
             return await queryAll<DbCommentActivity>(domain,
-                `SELECT c.id, c.domain, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
+                `SELECT c.id, c.domain, c.path, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
                  FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
         },

@@ -52,7 +52,11 @@ import { UierToolbar } from '@uier/toolbar/react';
 ```
 
 Props: `mode` (`review` or `showcase`), `project` (`data-uier-project`), `src` (script URL, default
-`https://uier.io/toolbar.js`) and `apiUrl`. A reviewed site passes its project code from the app's install
+`https://uier.io/toolbar.js`) and `apiUrl`.
+
+`openUierFeedback({ project, src, apiUrl })` opens the toolbar's feedback form from a button of your own
+(uier's app has "Give feedback" in its sidebar). A toolbar already on the page opens its form; otherwise the
+first call adds the script in `feedback` mode. A reviewed site passes its project code from the app's install
 guide; without it, comments can't load or post there (see above). The package is part of this repository
 and not published to npm yet.
 
@@ -114,6 +118,10 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
 ### Modes
 
 - `review` mode mounts the toolbar only for a review (see above).
+- `feedback` mode mounts it when the page asks for feedback: when the script loads, and again on every
+  `uier:open-feedback` event on `window` after **Close toolbar** (in its options) removed it. It mounts
+  with the feedback form open; a toolbar already on the page opens its form on the same event
+  (`src/openFeedback.ts`).
 - `showcase` mode (uier.io public pages) always mounts it and shows a dismissible first-run hint above the
   toolbar (dismissal is remembered in `localStorage`, key `uier:showcase-hint-dismissed`; the "About uier"
   button shows it again). The hint also closes, and stays closed, once the visitor starts a comment.

@@ -19,7 +19,7 @@ type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
     projectUrl?: string;
     onResetPosition?: () => void;
-    /** Ends the review (`review` mode) */
+    /** Ends the review (`review` mode) or closes the toolbar (`feedback` mode) */
     onExitReview?: () => void;
 };
 
@@ -28,7 +28,7 @@ type ToolbarOptionsProps = {
  * apply are listed; without any, there is no options button.
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const { rootElement, mode } = useContext(CommentsBootstrapperContext);
     const drafts = useDrafts();
     const { query: visitor, signOut } = useVisitor({ onSignedOut: () => drafts.clear() });
     const announce = useAnnounce();
@@ -139,7 +139,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                             className="justify-start"
                             startDecorator={<Close size={16} />}
                             onClick={handleExitReview}>
-                            Exit review
+                            {mode === 'feedback' ? 'Close toolbar' : 'Exit review'}
                         </Button>
                     )}
                     {name && (

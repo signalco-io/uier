@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { openFeedbackEvent } from './openFeedback';
 
 /**
  * React integration of the uier toolbar (`@uier/toolbar/react`, built to `dist/react.js`).
@@ -8,6 +9,8 @@ import { useEffect } from 'react';
  *
  *     <UierToolbar project="k3m9x2p7q4ab" />  // a project's site, opened with its review links
  *     <UierToolbar mode="showcase" />         // always shown
+ *
+ * `openUierFeedback()` opens the toolbar's feedback form from a button of your own.
  */
 
 export type UierToolbarProps = {
@@ -55,4 +58,28 @@ export function UierToolbar({ mode = 'review', project, src = defaultToolbarScri
     }, [mode, project, src, apiUrl]);
 
     return null;
+}
+
+/**
+ * Opens the toolbar's feedback form, e.g. from a "Give feedback" button. A toolbar already on the
+ * page opens its form; otherwise the first call adds the toolbar script in `feedback` mode, which
+ * mounts the toolbar with the form open (and can be closed from its options).
+ */
+export function openUierFeedback({ project, src = defaultToolbarScriptSrc, apiUrl }: Omit<UierToolbarProps, 'mode'> = {}) {
+    window.dispatchEvent(new Event(openFeedbackEvent));
+    if (document.querySelector('script[data-uier-mode="feedback"]')) {
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.dataset.uierMode = 'feedback';
+    if (project) {
+        script.dataset.uierProject = project;
+    }
+    if (apiUrl) {
+        script.dataset.uierApiUrl = apiUrl;
+    }
+    document.body.appendChild(script);
 }
