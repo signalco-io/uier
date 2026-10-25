@@ -46,6 +46,7 @@ export function useReviewDrag(callbacks: {
     onEnd: (canceled: boolean) => void;
 }) {
     const gesture = useRef<{ id: number; start: Point; moved: boolean }>(undefined);
+    const dragged = useRef(false);
     const [dragging, setDragging] = useState(false);
     const cancel = useEffectEvent(() => {
         if (gesture.current?.moved) callbacks.onEnd(true);
@@ -64,11 +65,17 @@ export function useReviewDrag(callbacks: {
         gesture.current = undefined;
         setDragging(false);
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-        if (moved) callbacks.onEnd(canceled);
+        if (moved) {
+            callbacks.onEnd(canceled);
+            dragged.current = true;
+            setTimeout(() => { dragged.current = false; }, 0);
+        }
     };
 
     return {
         dragging,
+        /** True for the click that ends a drag; a handle that is also a button skips its action then. */
+        wasDragged: () => dragged.current,
         handle: {
             style: { touchAction: 'none', cursor: dragging ? 'grabbing' : 'grab' } as CSSProperties,
             onPointerDown: (event: PointerEvent<HTMLElement>) => {
