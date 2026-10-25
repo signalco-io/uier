@@ -45,6 +45,11 @@ function buildReactApp() {
  * by `page.route` or on a public address load scripts from loopback). With `?embed=react` the page
  * is a React app that adds the toolbar with its React component instead (`/react-app.js`).
  */
+const layouts: Record<string, string> = {
+    'html-scroll': 'html { overflow-y: scroll; } body { margin: 0 16px; }',
+    'body-hidden': 'html, body { height: 100%; } body { margin: 0 16px; overflow-x: hidden; }'
+};
+
 export async function startReviewedSite(apiBaseUrl: string) {
     const csp = [
         'default-src \'self\'',
@@ -71,17 +76,23 @@ export async function startReviewedSite(apiBaseUrl: string) {
             ? `<div id="root"></div>
     <script src="/react-app.js" data-project="${projectId}" data-src="${apiBaseUrl}/toolbar.js" defer></script>`
             : embedScript(apiBaseUrl, projectId);
+        // `?layout=html-scroll` or `?layout=body-hidden`: a long page with CSS that makes a copy of the
+        // page clip itself (`<html>` or `<body>` as a scroll box), and a lazy image below the window
+        const layout = layouts[url.searchParams.get('layout') ?? ''];
         response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': csp });
         response.end(`<!doctype html>
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
+    ${layout ? `<style>${layout}</style>` : ''}
 </head>
 <body>
     <main>
         <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
         <p>A page on a site under review. Every plan includes the toolbar.</p>
+        ${layout ? Array.from({ length: 40 }, (_, i) => `<p id="row-${i + 1}">Row ${i + 1}: every plan includes the toolbar, and this row is here to make the page long.</p>`).join('') : ''}
+        ${layout ? '<img loading="lazy" src="/lazy-image.png" width="40" height="40" alt="">' : ''}
     </main>
     ${embed}
 </body>

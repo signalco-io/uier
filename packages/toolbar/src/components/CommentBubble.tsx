@@ -10,6 +10,7 @@ import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentIt
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
+import { captureScreenshot, commentRegion, toolbarHost } from '../screenshot';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
@@ -79,7 +80,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     // A deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted).length ?? 0;
 
-    const handleSubmit = async (text: string) => {
+    const handleSubmit = async (text: string, screenshot?: string) => {
         if (props.commentItem) {
             await reply.mutateAsync({ commentId: props.commentItem.id, text });
             drafts.delete(draftKey);
@@ -97,7 +98,8 @@ export function CommentBubble(props: CommentBubbleProps) {
             text,
             quotedText: quotedText || undefined,
             // The viewport as it is when the comment is posted
-            device: getDeviceInfo()
+            device: getDeviceInfo(),
+            screenshot
         });
         drafts.delete(draftKey);
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
@@ -239,7 +241,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                         pending={mutation.isPending}
                         error={mutation.error}
                         onSubmit={handleSubmit}
-                        onDiscard={creating ? handleDiscard : undefined} />
+                        onDiscard={creating ? handleDiscard : undefined}
+                        onCaptureScreenshot={props.draft
+                            ? () => captureScreenshot(commentRegion(props.draft.position), toolbarHost(rootElement))
+                            : undefined} />
                 </div>
                 {rewriting && selectedText && (
                     <div className="shrink-0">

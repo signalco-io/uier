@@ -12,6 +12,7 @@ import { authorNames, itemAuthorName } from '../review/dto';
 import type { AppContext } from './context';
 import type { DbProject } from './model';
 import { projectOrigins } from './projects';
+import { KnownPageLinks } from '../../knownPages';
 
 /** The signed-in app user as the actor on a project of the current workspace */
 export function appActor(context: AppContext): ProjectActor {
@@ -34,6 +35,8 @@ export type ProjectCommentView = {
     path: string;
     /** Public id, numbered per project (`#12`, as in the toolbar); missing on older comments */
     number?: number;
+    /** The screenshot its author took of the commented part of the page */
+    screenshot?: { url: string; width: number; height: number };
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
     device?: DbDeviceSize;
@@ -69,6 +72,9 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         url: `${origin}${path === '/' ? '/' : path}`,
         path,
         number: Number.isInteger(comment.number) ? comment.number : undefined,
+        screenshot: comment.screenshot
+            ? { url: KnownPageLinks.projectCommentScreenshot(project.id, comment.id), width: comment.screenshot.width, height: comment.screenshot.height }
+            : undefined,
         kind: comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment',
         device: size && deviceSizes.includes(size) ? size : undefined,
         createdAt: comment.createdAt,

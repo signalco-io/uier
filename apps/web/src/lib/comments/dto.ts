@@ -29,6 +29,8 @@ export type CommentDto = {
     position: DbCommentPosition;
     /** Public id, numbered per domain (`#12`); missing on old comments */
     number?: number;
+    /** A screenshot of the commented part of the page (`GET .../comments/<id>/screenshot`), in pixels */
+    screenshot?: { width: number; height: number };
     kind: DbCommentKind;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
@@ -136,6 +138,9 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         path: normalizePath(optionalString(comment.path) ?? '/'),
         position,
         number: typeof comment.number === 'number' && Number.isInteger(comment.number) ? comment.number : undefined,
+        screenshot: comment.screenshot && Number.isInteger(comment.screenshot.width) && Number.isInteger(comment.screenshot.height)
+            ? { width: comment.screenshot.width, height: comment.screenshot.height }
+            : undefined,
         kind: commentKinds.find(kind => kind === comment.kind) ?? 'comment',
         thread: {
             items: items

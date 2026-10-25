@@ -85,6 +85,11 @@ export type DbComment = {
     kind?: DbCommentKind;
     thread: { items: DbThreadItem[] };
     device?: DbCommentDevice;
+    /**
+     * A screenshot of the commented part of the page, taken by the author when posting: its image
+     * is a {@link DbScreenshot} document. Removed with the author's first item.
+     */
+    screenshot?: DbCommentScreenshot;
     resolved?: boolean;
     /** sha256 of the visitor token (missing on old documents) */
     authorId?: string;
@@ -126,11 +131,42 @@ export type DbSequence = {
  */
 export const commentSequenceId = '$sequence_comments';
 
+/** What a comment knows about its screenshot (the image itself is a {@link DbScreenshot}) */
+export type DbCommentScreenshot = {
+    contentType: 'image/webp' | 'image/jpeg' | 'image/png';
+    /** Pixels, read from the image */
+    width: number;
+    height: number;
+    bytes: number;
+};
+
 /**
- * Whether a document of the comments container is a comment. Rate-limit counters and the
- * sequence share its partitions; they have no `path`.
+ * A comment's screenshot image, a document of its own in the comment's partition (comment lists
+ * stay small). No `path`, so comment queries never match it, and an id no route accepts.
+ */
+export type DbScreenshot = DbCommentScreenshot & {
+    /** {@link screenshotDocumentId} of the comment */
+    id: string;
+    domain: string;
+    type: 'screenshot';
+    commentId: string;
+    /** The image, base64 */
+    data: string;
+    createdAt: string;
+    /** Like the comment's, when it has one */
+    ttl?: number;
+};
+
+/** Id of a comment's screenshot document: not an id the API accepts (`isValidId`: no `$`) */
+export function screenshotDocumentId(commentId: string) {
+    return `$screenshot_${commentId}`;
+}
+
+/**
+ * Whether a document of the comments container is a comment. Rate-limit counters, the sequence
+ * and screenshots share its partitions; they have no `path`.
  */
 export function isCommentDocument(document: object): boolean {
     const { path, type } = document as { path?: unknown; type?: unknown };
-    return typeof path === 'string' && type !== 'counter' && type !== 'sequence';
+    return typeof path === 'string' && type !== 'counter' && type !== 'sequence' && type !== 'screenshot';
 }

@@ -3,7 +3,7 @@ import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, 
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
-import { apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey } from './api';
+import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey } from './api';
 import { getGuestName } from '../project/projectSession';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
@@ -30,6 +30,8 @@ export type CreateCommentInput = {
     text: string;
     quotedText?: string;
     device?: CommentDeviceInfo;
+    /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts) */
+    screenshot?: string;
 };
 
 async function getComments(path: string) {
@@ -37,11 +39,16 @@ async function getComments(path: string) {
     return Array.isArray(comments) ? comments : [];
 }
 
-async function createComment(path: string, { position, kind, text, quotedText, device }: CreateCommentInput) {
+async function createComment(path: string, { position, kind, text, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { path, position, kind, text, quotedText, device, authorName: guestAuthorName() }
+        body: { path, position, kind, text, quotedText, device, screenshot, authorName: guestAuthorName() }
     }));
+}
+
+/** The image of a comment's screenshot, as a data URL */
+export function getCommentScreenshot(commentId: string) {
+    return apiImage(`${commentUrl(commentId)}/screenshot`);
 }
 
 async function replyToComment({ commentId, text }: { commentId: string; text: string }) {

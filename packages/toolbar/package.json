@@ -48,5 +48,8 @@
     },
     "peerDependencies": {
         "react": "^19.0.0"
+    },
+    "dependencies": {
+        "modern-screenshot": "4.7.0"
     }
 }

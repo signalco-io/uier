@@ -173,6 +173,11 @@ error boundary, so one bad comment never breaks the toolbar.
   it is searched for (ignoring whitespace) in its element, then its ancestors. When it is not on the page
   anymore, a fallback pin goes on the closest element that still is, and the thread says so. Anchors that
   are hidden (e.g. in a closed `<details>`) get no pin until they are shown.
+- Screenshots (optional): in a new comment or feedback, the camera button takes a screenshot of the part of the
+  page the comment is about (its element or text with some room around it, the window for feedback) and shows it
+  above the buttons, to remove again or post with the comment. It is drawn from the page in the browser,
+  without the toolbar (`src/screenshot.ts`, [Screenshots](../../README.md#screenshots)). The thread shows it under
+  the first message; clicking it opens it full size in a new tab.
 - Every comment saves the device size and viewport when it is posted (`getDeviceInfo`); the thread shows
   them under the first message ("Desktop · 1280×720").
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the

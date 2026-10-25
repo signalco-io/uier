@@ -3,7 +3,8 @@ import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, enforceScreenshotLimits } from '../comments/rateLimits';
+import { createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
@@ -150,6 +151,8 @@ export async function createProjectComment(request: Request, project: DbProject,
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     await enforceNewCommentLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) }, input.path);
+    if (input.screenshot)
+        await enforceScreenshotLimits(store, partition);
 
     const now = nowIso();
     const authorName = actor.kind === 'guest' ? input.authorName : undefined;
@@ -178,8 +181,21 @@ export async function createProjectComment(request: Request, project: DbProject,
         createdAt: now,
         updatedAt: now
     };
-    await store.create(comment);
+    if (input.screenshot)
+        comment.screenshot = screenshotInfo(input.screenshot);
+    await createWithScreenshot(store, comment, input.screenshot);
     return comment;
+}
+
+/** The screenshot of a comment the actor can see */
+export async function getProjectScreenshot(project: DbProject, actor: ProjectActor, id: string) {
+    const comment = await getProjectComment(project, actor, id);
+    const screenshot = comment?.screenshot
+        ? await getCommentsStore().getScreenshot(projectPartition(project.id), id)
+        : null;
+    if (!screenshot)
+        throw apiErrors.notFound('Screenshot not found.');
+    return screenshot;
 }
 
 /**
@@ -271,12 +287,17 @@ export async function editProjectCommentText(project: DbProject, actor: ProjectA
 
 /** Deletes the whole thread (the app: the author or an admin) */
 export async function removeProjectComment(project: DbProject, actor: ProjectActor, id: string) {
-    await updateComment(getCommentsStore(), projectPartition(project.id), id, (comment) => {
+    const store = getCommentsStore();
+    const partition = projectPartition(project.id);
+    let hadScreenshot = false;
+    await updateComment(store, partition, id, (comment) => {
         visibleOrThrow(comment, actor);
         if (!canDeleteComment(comment, actor))
             throw apiErrors.forbidden('Only the author or an admin can delete this comment.');
+        hadScreenshot = Boolean(comment.screenshot);
         return null;
     });
+    await forgetScreenshot(store, partition, id, hadScreenshot, null);
 }
 
 /**
@@ -286,8 +307,12 @@ export async function removeProjectComment(project: DbProject, actor: ProjectAct
  * reply under a placeholder takes the thread with it. Returns the comment that stays, or `null`.
  */
 export async function deleteProjectCommentItem(project: DbProject, actor: ProjectActor, id: string, itemId: string) {
-    return await updateComment(getCommentsStore(), projectPartition(project.id), id, (comment): DbComment | null => {
+    const store = getCommentsStore();
+    const partition = projectPartition(project.id);
+    let hadScreenshot = false;
+    const updated = await updateComment(store, partition, id, (comment): DbComment | null => {
         visibleOrThrow(comment, actor);
+        hadScreenshot = Boolean(comment.screenshot);
         const items = threadItems(comment);
         const index = items.findIndex(item => item.id === itemId);
         const item = items[index];
@@ -305,10 +330,11 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             const placeholder: DbThreadItem = { id: item.id, text: '', deletedAt: now };
             if (item.createdAt)
                 placeholder.createdAt = item.createdAt;
-            const updated: DbComment = { ...comment, thread: { ...comment.thread, items: [placeholder, ...replies] }, updatedAt: now };
-            delete updated.authorId;
-            delete updated.device;
-            return updated;
+            const kept: DbComment = { ...comment, thread: { ...comment.thread, items: [placeholder, ...replies] }, updatedAt: now };
+            delete kept.authorId;
+            delete kept.device;
+            delete kept.screenshot;
+            return kept;
         }
 
         const remaining = items.filter(other => other !== item);
@@ -316,4 +342,6 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             return null;
         return { ...comment, thread: { ...comment.thread, items: remaining }, updatedAt: now };
     });
+    await forgetScreenshot(store, partition, id, hadScreenshot, updated);
+    return updated;
 }

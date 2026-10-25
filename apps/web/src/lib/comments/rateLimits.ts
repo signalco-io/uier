@@ -7,6 +7,8 @@ import {
     PAGE_COMMENTS_WINDOW_SECONDS,
     RATE_LIMIT_APP_REWRITES,
     RATE_LIMIT_DOMAIN_REWRITES,
+    RATE_LIMIT_DOMAIN_SCREENSHOTS,
+    SCREENSHOTS_WINDOW_SECONDS,
     RATE_LIMIT_IP_REWRITES,
     RATE_LIMIT_VISITOR_REWRITES,
     RATE_LIMIT_IP_WRITES,
@@ -110,4 +112,12 @@ export async function enforceRewriteLimits(store: CommentsStore, subject: Rewrit
         await consume(store, APP_COUNTERS_PARTITION, { key: `rewrites-ip:${subject.ipBucket}`, limit: RATE_LIMIT_IP_REWRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyRewrites });
     await consume(store, subject.domain, { key: 'domain-rewrites', limit: RATE_LIMIT_DOMAIN_REWRITES, windowSeconds: DOMAIN_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions for this site have reached their limit for today. Please try again tomorrow.' });
     await consume(store, APP_COUNTERS_PARTITION, { key: 'rewrites', limit: RATE_LIMIT_APP_REWRITES, windowSeconds: APP_REWRITES_WINDOW_SECONDS, reason: 'too_fast', message: 'Suggestions have reached their limit for today. Please try again tomorrow.' });
+}
+
+/**
+ * Screenshots per site (the domain or `project:<code>` partition) per day, on top of the new
+ * comment limits, so one site's stored images can't grow without bounds
+ */
+export async function enforceScreenshotLimits(store: CommentsStore, domain: string) {
+    await consume(store, domain, { key: 'domain-screenshots', limit: RATE_LIMIT_DOMAIN_SCREENSHOTS, windowSeconds: SCREENSHOTS_WINDOW_SECONDS, reason: 'too_fast', message: 'This site has reached its screenshots for today. Post the comment without one, or try again tomorrow.' });
 }
