@@ -1,5 +1,5 @@
 import { toolbarConfig } from '../config';
-import { projectHeaders } from '../project/projectSession';
+import { getVisitorToken, projectHeaders } from '../project/projectSession';
 import { reviewVerification } from '../project/verification';
 
 // Requests to the uier API (comments, visitor) and the query keys of its data
@@ -80,7 +80,7 @@ async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' 
             credentials: toolbarConfig.project ? 'omit' : 'include',
             headers: {
                 ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
-                ...(toolbarConfig.project ? projectHeaders() : {}),
+                ...(toolbarConfig.project ? projectHeaders() : { 'X-Uier-Visitor': getVisitorToken() }),
                 ...(verification ? { 'X-Uier-Verification': verification } : {})
             },
             body: hasBody ? JSON.stringify(init.body) : undefined

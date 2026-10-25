@@ -417,12 +417,12 @@ credential hash routes are omitted. Choose only fields that never contain person
 than 2048 characters fall back to pathname; the public showcase keeps its existing 512-character pathname contract.
 
 New project records have `pageStateVersion: 1`; their `path` is the canonical view key, used consistently by APIs,
-queries, caches, inbox groups, app links and in-memory drafts. SPA push/replace, back/forward and hash changes update
+queries, caches, inbox groups, app links and durable drafts. SPA push/replace, back/forward and hash changes update
 the view without carrying placement controls or draft text onto another view. Old pathname records stay on the base
 page and in the site inbox. The old query-string fallback applies only to legacy records, never to v1 views.
 There is no bulk migration. Changing settings does not rewrite stored feedback: old view links still restore the
 website URL and show saved details in the inbox if the current routing policy no longer identifies that view.
-Drafts remain in memory until #86 adds durable recovery.
+Drafts recover across reload and navigation; see [Draft recovery and submission retries](#draft-recovery-and-submission-retries).
 
 **Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
 for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
@@ -745,3 +745,38 @@ with its git history preserved (`web/apps/uier` -> `apps/web`, `web/packages/uie
 [`packages/toolbar`](packages/toolbar) and [`infra`](infra) are licensed under the MIT license, as declared in their
 `package.json`. Anything without an explicit license is covered by the root [LICENSE](LICENSE) (AGPL-3.0).
 [uier.io/open-source](https://uier.io/open-source) explains the licenses in plain words; keep it in step with this section.
+
+### Draft recovery and submission retries
+
+The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text in the reviewed
+site's local storage for seven days after the last change. Versioned `uier:draft:v1:` keys include
+the API, project, server-authorized reviewer scope, canonical page key (`@uier/toolbar/page-state`)
+and thread/item. Pinned drafts retain their element/text anchor and return as closed pins without taking focus; edits retain the original text
+for stale-edit protection. Closing a composer keeps its draft. Discard (Cancel for edits), a
+successful submission and toolbar sign-out remove it; sign-out clears that reviewer's project
+drafts on every page of the current site. Drafts on another reviewed origin must be cleared there.
+Expired drafts are ignored and pruned when the toolbar next opens. Browser/site scripts can read
+local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays
+in memory and the composer explains that the page must stay open.
+
+Images and device details are never persisted with drafts. Automatic capture is refreshed on
+reopen/reload, using the restored anchor and the current page/viewport. A missing anchor uses the
+existing fallback placement; failed capture never blocks text. Composers show no image preview.
+Saved screenshots keep their expandable thumbnail behavior.
+
+Create/reply requests from the toolbar carry a random `idempotencyKey`, kept with the draft.
+Unchanged retries keep it, including after reload; changing the submitted text/anchor/kind starts
+a new attempt. Pending sends share a lock across composer instances. This is recovery of authored
+work, with an explicit send action, not a background queue. Both comments APIs accept optional
+keys (16–128 URL-safe characters). Receipts are scoped to the server actor and partition, shared
+across create/reply operations, and reject conflicting content with 409. Capture/device changes
+are excluded from the content hash so restored captures do not invalidate a retry. A replay
+returns the current authorized thread, including later edits; a deleted thread returns 404 and
+is never resurrected. Receipts contain hashes and ids only, expire after 30 days, and are committed
+atomically with the comment/reply and optional screenshot (Cosmos single-partition batch,
+conditional replacement for replies). No live Cosmos transaction is exercised by local tests.
+
+On the public toolbar a random visitor token is kept in memory until a draft is started, then
+stored as `uier:visitor`. The first successful write still sets the HttpOnly cookie. A validated
+`X-Uier-Visitor` token supplies the same identity when that first write's response/cookie is lost;
+an existing cookie always takes precedence. Toolbar sign-out removes both identities.

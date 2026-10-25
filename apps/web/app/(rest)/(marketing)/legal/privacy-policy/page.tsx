@@ -75,9 +75,24 @@ export default function PrivacyPolicyPage() {
                 site are public, so do not put personal information in them.
             </p>
 
+            <h3>Unsent drafts and retries</h3>
+            <p>
+                The toolbar stores draft text and anchors in the current site&rsquo;s local storage for seven days
+                after the last change, scoped to the project, authorized reviewer, page and item. Edit drafts also
+                retain the original message text to detect conflicting edits. Discard, posting and toolbar sign-out
+                clear relevant drafts. Expired data is removed when the toolbar next opens. Site scripts can read
+                local storage. If storage is unavailable, drafts remain only while the page stays open.
+            </p>
+            <p>
+                Draft images and device details are kept only in memory. Reopening a draft refreshes automatic
+                capture from the current page and viewport, without a composer image preview. Nothing is sent
+                automatically after reload. The server keeps submission hashes and item ids for 30 days to prevent
+                duplicate comments and replies when a response is lost. Receipts contain no message text or images.
+            </p>
+
             <h3>The visitor cookie</h3>
             <p>
-                Your first comment or reply sets the <code>uier_visitor</code> cookie. It holds a random token that
+                Starting a draft keeps a random visitor token in local storage to recover a lost response. Your first comment or reply sets the <code>uier_visitor</code> cookie. It holds a random token that
                 lets the server recognise your comments, so only you can resolve or delete them. We store a hash of
                 the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
@@ -195,6 +210,7 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
+                <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
                 <li>Comments in projects: until their author or a project admin deletes them.</li>

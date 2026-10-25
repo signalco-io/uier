@@ -1,4 +1,4 @@
-import type { DbComment, DbScreenshot, DbThreadItem } from '../db/schema';
+import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
@@ -25,6 +25,9 @@ export type CommentsStore = {
     listAll(domain: string, limit: number): Promise<DbComment[]>;
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
+    getSubmission(domain: string, id: string): Promise<DbSubmission | null>;
+    /** Receipt + create/conditional replacement + optional image: one partition transaction. */
+    commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot): Promise<'ok' | 'conflict'>;
     /** Replaces the comment only when it was not changed since it was read (`etag`) */
     replace(comment: DbComment, etag: string): Promise<ConditionalWriteResult>;
     /**

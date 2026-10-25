@@ -77,13 +77,14 @@ export function setReviewToken(token: string | undefined) {
 }
 
 /** A random visitor id (32 bytes, base64url), created on first use */
-export function getVisitorToken() {
+export function getVisitorToken(persist = Boolean(toolbarConfig.project)) {
     let token = readKey(visitorKey);
     if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
         const bytes = crypto.getRandomValues(new Uint8Array(32));
         token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        writeKey(visitorKey, token);
+        memory.set(visitorKey, token);
     }
+    if (persist) writeKey(visitorKey, token);
     return token;
 }
 

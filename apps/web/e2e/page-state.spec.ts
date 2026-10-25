@@ -34,6 +34,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status')).toContainText('Saved.');
     await expect(settings.getByRole('checkbox')).toBeChecked();
+    await expect(page).toHaveTitle(/uier/);
     await expectNoAxeViolations(page);
     const viewA = `${basePath}?category=a&tab=overview#/catalog?tab=summary`;
     const viewB = `${basePath}?category=b&tab=overview#/catalog?tab=summary`;

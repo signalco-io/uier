@@ -14,6 +14,20 @@ export const metadata: Metadata = {
 
 const items = [
     {
+        name: 'uier:draft:v1:<scope>:<item>',
+        type: 'Local storage',
+        when: 'You start or change a feedback draft',
+        purpose: 'Restores unsent text, its anchor, the original text of an edit and a submission identity, scoped to the project, reviewer and page. Images are never stored here. Discard, posting and toolbar sign-out clear relevant drafts.',
+        duration: 'Seven days after the last change; expired data is removed when the toolbar next opens'
+    },
+    {
+        name: 'uier:visitor',
+        type: 'Local storage',
+        when: 'You start a draft on uier.io, or open a project review',
+        purpose: 'Keeps a random guest identity stable if a submission response is lost. An existing visitor cookie takes precedence. Toolbar sign-out removes it.',
+        duration: 'Until toolbar sign-out or you clear your browser data'
+    },
+    {
         name: 'uier_visitor',
         type: 'Cookie (first party, HttpOnly)',
         when: 'Your first comment or reply',
@@ -119,7 +133,7 @@ export default function CookiePolicyPage() {
             </ul>
 
             <p>
-                Toolbar position and panel-side preferences are also stored on reviewed sites. Signing out removes
+                Drafts, toolbar position and panel-side preferences are also stored on reviewed sites. Drafts expire after seven days; signing out clears that reviewer’s drafts for the project on that site. Signing out removes
                 the identity keys listed above; movement preferences remain until you reset them or clear site data.
             </p>
 
@@ -134,7 +148,7 @@ export default function CookiePolicyPage() {
             <h2>Removing them</h2>
             <p>
                 You can delete cookies and site data in your browser settings at any time. If you delete
-                the <code>uier_visitor</code> cookie, the server can no longer tell that your earlier comments are
+                the <code>uier_visitor</code> cookie and <code>uier:visitor</code> local storage, the server can no longer tell that your earlier comments are
                 yours: you will not be able to resolve or delete them, and your next comment starts a new guest
                 name. Visitor threads stay public until they expire 90 days after their last change, or until you ask us to
                 remove them. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>uier_session</code> cookie, you are signed out of the app.

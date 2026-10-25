@@ -147,8 +147,10 @@ export const replaceScreenshotSchema = z.object({
     screenshot: screenshotSchema,
     expectedRevision: z.string().min(1).max(128).nullable()
 });
+export const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/);
 
 export const createCommentSchema = z.object({
+    idempotencyKey: idempotencyKeySchema.optional(),
     path: pathSchema,
     position: positionSchema,
     kind: kindSchema.default('comment'),
@@ -181,6 +183,7 @@ export const rewriteRequestSchema = z.object({
 });
 
 export const replySchema = z.object({
+    idempotencyKey: idempotencyKeySchema.optional(),
     text: textSchema
 });
 

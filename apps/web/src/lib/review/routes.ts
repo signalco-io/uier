@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema, replaceScreenshotSchema } from '../comments/validation';
@@ -9,7 +10,7 @@ import { withinListResponseSize } from '../comments/dto';
 import { projectOrigins } from '../app/projects';
 import { appBaseUrl } from '../app/request';
 import { KnownPageLinks } from '../../knownPages';
-import { assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } from './actor';
+import { actorAuthorId, assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } from './actor';
 import {
     createProjectComment,
     deleteProjectCommentItem,
@@ -63,7 +64,7 @@ export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
         project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState) },
-        viewer: viewerDto(actor),
+        viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)
         signInUrl: `${await appBaseUrl()}${KnownPageLinks.projectReview(project.id)}`
@@ -120,7 +121,7 @@ export async function replyToReviewComment(context: ReviewApiContext, { id }: { 
     const { request, project, actor } = context;
     const input = await parseJsonBody(request, replyInputSchema);
     const authorName = writerName(actor, input.authorName);
-    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName });
+    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, idempotencyKey: input.idempotencyKey });
     return await commentResponse(context, comment, 201);
 }
 

@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from './submissions';
 import { withEditedThreadItem } from './editing';
 import type { EditThreadItemInput } from './validation';
 import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbCommentScreenshot, type DbScreenshot, type DbThreadItem } from '../db/schema';
@@ -166,17 +167,7 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
         return;
     }
 
-    const document: DbScreenshot = {
-        ...screenshotInfo(screenshot),
-        id: screenshotDocumentId(comment.id),
-        domain: comment.domain,
-        type: 'screenshot',
-        commentId: comment.id,
-        data: screenshot.data.toString('base64'),
-        createdAt: comment.createdAt ?? nowIso()
-    };
-    if (comment.ttl !== undefined)
-        document.ttl = comment.ttl;
+    const document = screenshotDocument(comment, screenshot);
     try {
         await store.createScreenshot(document);
     } catch (error) {
@@ -192,6 +183,21 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
         await store.deleteScreenshot(comment.domain, comment.id).catch(() => undefined);
         throw error;
     }
+}
+
+export function screenshotDocument(comment: DbComment, screenshot: ParsedScreenshot): DbScreenshot {
+    const document: DbScreenshot = {
+        ...screenshotInfo(screenshot),
+        id: screenshotDocumentId(comment.id),
+        domain: comment.domain,
+        type: 'screenshot',
+        commentId: comment.id,
+        data: screenshot.data.toString('base64'),
+        createdAt: comment.createdAt ?? nowIso()
+    };
+    if (comment.ttl !== undefined)
+        document.ttl = comment.ttl;
+    return document;
 }
 
 /**
@@ -216,6 +222,11 @@ export async function forgetScreenshot(store: CommentsStore, domain: string, id:
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, {
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText
+    });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return toDto(recovered, context);
     await enforceNewCommentLimits(store, subject, input.path);
     const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
 
@@ -246,6 +257,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
 
+    if (attempt) return toDto(await commitNewSubmission(store, attempt, comment, screenshot ? screenshotDocument(comment, screenshot) : undefined), context);
     await createWithScreenshot(store, comment, screenshot);
     return toDto(comment, context);
 }
@@ -263,18 +275,23 @@ export async function getCommentScreenshot(context: CommentsApiContext, id: stri
 export async function replyToComment(context: CommentsApiContext, id: string, input: ReplyInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return toDto(recovered, context);
     if (!await store.get(context.domain, id))
         throw apiErrors.notFound();
 
     await enforceReplyLimits(store, subject);
 
     const now = nowIso();
-    const result = await store.appendThreadItem(context.domain, id, {
+    const item: DbThreadItem = {
         id: `item_${nanoid()}`,
         text: input.text,
         authorId: subject.authorId,
         createdAt: now
-    }, MAX_THREAD_ITEMS, now);
+    };
+    if (attempt) return toDto(await commitReplySubmission(store, attempt, id, item), context);
+    const result = await store.appendThreadItem(context.domain, id, item, MAX_THREAD_ITEMS, now);
     if (result === 'not_found')
         throw apiErrors.notFound();
     if (result === 'full')
