@@ -1,3 +1,5 @@
+import { readActivity, threadActivity, withThreadActivity } from './activity';
+import { getReadSequence, loadReadSequences, unreadComments } from './readState';
 import { nanoid } from 'nanoid';
 import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from './submissions';
 import { withEditedThreadItem } from './editing';
@@ -75,14 +77,22 @@ function compactDevice(device: CreateCommentInput['device']): DbCommentDevice | 
     return Object.keys(compacted).length ? compacted : undefined;
 }
 
-function toDto(comment: DbComment, context: CommentsApiContext): CommentDto {
+/** Public showcase uses the visitor cookie; private project threads still stay author-only. */
+function assertVisible(comment: DbComment, context: CommentsApiContext) {
+    if (comment.private && (!comment.authorId || comment.authorId !== context.visitor.authorId))
+        throw apiErrors.notFound();
+}
+
+async function toDto(comment: DbComment, context: CommentsApiContext): Promise<CommentDto> {
+    assertVisible(comment, context);
     const dto = toCommentDto(comment, context.visitor.authorId);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
-    return dto;
+    return { ...dto, activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
 }
 
 export function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
+    assertVisible(comment, context);
     if (!comment.authorId || comment.authorId !== context.visitor.authorId)
         throw apiErrors.forbidden('Only the author of the comment can do this.');
 }
@@ -103,7 +113,7 @@ async function updateComment<T extends DbComment | null>(
         if (!stored)
             throw apiErrors.notFound();
 
-        const updated = update(stored.comment);
+        const updated = update({ ...stored.comment, activity: threadActivity(stored.comment) });
         const result = updated
             ? await store.replace(updated, stored.etag)
             : await store.delete(domain, id, stored.etag);
@@ -123,21 +133,26 @@ async function updateComment<T extends DbComment | null>(
  * The page's newest comments (or, without a path, those of every page of the domain), as many as
  * fit into {@link MAX_LIST_RESPONSE_BYTES}
  */
-export async function listComments(context: CommentsApiContext, path: string | null) {
+export async function listComments(context: CommentsApiContext, path: string | null, unreadOnly = false) {
     const store = getCommentsStore();
-    let comments = path === null
+    let comments = unreadOnly
+        ? await unreadComments(context.domain, context.visitor.authorId)
+        : path === null
         ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
         : await store.list(context.domain, path, MAX_LIST_COMMENTS);
     // The initial threads stay visible even when the page has more than one list of feedback.
-    if (context.domain === PUBLIC_PROJECT_PARTITION && (path === null || path === '/')) {
+    if (!unreadOnly && context.domain === PUBLIC_PROJECT_PARTITION && (path === null || path === '/')) {
         const starters = (await Promise.all([HEADLINE_COMMENT_ID, STEP_COMMENT_ID].map(id => store.get(context.domain, id))))
             .flatMap(stored => stored ? [stored.comment] : []);
         const ids = new Set(starters.map(comment => comment.id));
         comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
     }
-    return withinListResponseSize(comments
-        .map(comment => toCommentDto(comment, context.visitor.authorId))
-        .filter((dto): dto is CommentDto => Boolean(dto)));
+    comments = comments.filter(comment => !comment.private || Boolean(comment.authorId && comment.authorId === context.visitor.authorId));
+    const reads = await loadReadSequences(context.domain, context.visitor.authorId);
+    return withinListResponseSize(comments.flatMap(comment => {
+        const dto = toCommentDto(comment, context.visitor.authorId);
+        return dto ? [{ ...dto, activity: readActivity(comment, context.visitor.authorId, reads.get(comment.id)) }] : [];
+    }));
 }
 
 /** What the comment keeps about its screenshot */
@@ -250,6 +265,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         device: compactDevice(input.device),
         resolved: false,
         authorId: subject.authorId,
+        activity: { sequence: 1, byActor: { [subject.authorId!]: 1 } },
         createdAt: now,
         updatedAt: now,
         ttl: commentTtlSeconds()
@@ -266,6 +282,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
 export async function getCommentScreenshot(context: CommentsApiContext, id: string) {
     const store = getCommentsStore();
     const stored = await store.get(context.domain, id);
+    if (stored) assertVisible(stored.comment, context);
     const screenshot = stored?.comment.screenshot ? await store.getScreenshot(context.domain, id) : null;
     if (!screenshot)
         throw apiErrors.notFound('Screenshot not found.');
@@ -278,8 +295,9 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
     const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return toDto(recovered, context);
-    if (!await store.get(context.domain, id))
-        throw apiErrors.notFound();
+    const target = await store.get(context.domain, id);
+    if (!target) throw apiErrors.notFound();
+    assertVisible(target.comment, context);
 
     await enforceReplyLimits(store, subject);
 
@@ -290,7 +308,7 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
         authorId: subject.authorId,
         createdAt: now
     };
-    if (attempt) return toDto(await commitReplySubmission(store, attempt, id, item), context);
+    if (attempt) return toDto(await commitReplySubmission(store, attempt, id, item, comment => assertVisible(comment, context)), context);
     const result = await store.appendThreadItem(context.domain, id, item, MAX_THREAD_ITEMS, now);
     if (result === 'not_found')
         throw apiErrors.notFound();
@@ -306,15 +324,17 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {
     const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
         assertCommentAuthor(comment, context);
-        return { ...comment, resolved: input.resolved, updatedAt: nowIso() };
+        return { ...(Boolean(comment.resolved) === input.resolved ? comment : withThreadActivity(comment, writerId(context))), resolved: input.resolved, updatedAt: nowIso() };
     });
 
     return toDto(updated, context);
 }
 
 export async function editCommentThreadItem(context: CommentsApiContext, id: string, itemId: string, input: EditThreadItemInput) {
-    const updated = await updateComment(getCommentsStore(), context.domain, id, comment =>
-        withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId));
+    const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
+        assertVisible(comment, context);
+        return withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId);
+    });
     return toDto(updated, context);
 }
 
@@ -363,6 +383,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
  * item would be left. Author of the reply only.
  */
 function withoutReply(comment: DbComment, itemId: string, context: CommentsApiContext): DbComment | null {
+    assertVisible(comment, context);
     const items = threadItems(comment);
     const reply = items.find(item => item.id === itemId);
     if (!reply)
@@ -418,3 +439,5 @@ export async function deleteThreadItem(context: CommentsApiContext, id: string, 
     await forgetScreenshot(store, context.domain, id, hadScreenshot, updated);
     return updated ? toDto(updated, context) : null;
 }
+
+export { toDto as toPublicCommentDto };

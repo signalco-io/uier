@@ -25,6 +25,7 @@ export type CommentDeletedThreadItemDto = {
 };
 
 export type CommentDto = {
+    activity?: import('./activity').ReadActivity;
     id: string;
     path: string;
     position: DbCommentPosition;

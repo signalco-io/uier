@@ -1,12 +1,13 @@
+import { getReadSequence } from '../comments/readState';
+import { actorAuthorId } from './actor';
 import { z } from 'zod';
 import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema, replaceScreenshotSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
-import { MAX_COMMENT_BODY_BYTES, MAX_LIST_COMMENTS } from '../comments/limits';
+import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
-import { withinListResponseSize } from '../comments/dto';
 import { projectOrigins } from '../app/projects';
 import { appBaseUrl } from '../app/request';
 import { KnownPageLinks } from '../../knownPages';
@@ -18,7 +19,6 @@ import {
     enforceProjectRewriteLimits,
     getProjectComment,
     getProjectScreenshot,
-    listProjectComments,
     replyToProjectComment,
     setProjectCommentResolved,
     replaceProjectScreenshot
@@ -39,7 +39,7 @@ function viewerDto(actor: ProjectActor) {
 async function commentResponse(context: ReviewApiContext, comment: DbComment | null, status = 200) {
     if (!comment)
         return new Response(null, { status: 204 });
-    const dto = toReviewCommentDto(comment, context.actor, await authorNames([comment]), projectOrigins(context.project));
+    const dto = toReviewCommentDto(comment, context.actor, await authorNames([comment]), projectOrigins(context.project), actorAuthorId(context.actor) ? await getReadSequence(comment.domain, actorAuthorId(context.actor)!, comment.id) : 0);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     return Response.json(dto, { status });
@@ -80,27 +80,6 @@ export async function createReviewSession({ request, project }: ReviewApiContext
     if (!session)
         throw apiErrors.forbidden('This review link has expired. Open it again from uier.');
     return Response.json({ token: session.token, viewer: viewerDto(session.actor) }, { status: 201 });
-}
-
-const listQuerySchema = z.object({ path: reviewPathSchema });
-
-/** `?path=/x`: the comments of the page; `?scope=site`: of every page (the toolbar's inbox) */
-export async function listReviewComments({ request, project, actor }: ReviewApiContext) {
-    const params = new URL(request.url).searchParams;
-    let path: string | undefined;
-    if (params.get('scope') !== 'site') {
-        const query = listQuerySchema.safeParse({ path: params.get('path') ?? '' });
-        if (!query.success)
-            throw apiErrors.invalidRequest('"path" is required and must start with "/".');
-        path = pagePath(query.data.path, project.pageState);
-    }
-
-    const comments = (await listProjectComments(project, actor, path)).slice(0, MAX_LIST_COMMENTS);
-    const names = await authorNames(comments);
-    // As many as fit into the comments API's response size
-    return Response.json(withinListResponseSize(comments
-        .map(comment => toReviewCommentDto(comment, actor, names, projectOrigins(project)))
-        .filter(Boolean)));
 }
 
 const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional() });
@@ -181,3 +160,5 @@ export async function replaceReviewScreenshot(context: ReviewApiContext, { id }:
     const comment = await replaceProjectScreenshot(project, actor, commentId(id), input);
     return commentResponse(context, comment);
 }
+
+export { listReviewComments, readReviewComment } from './readRoutes';

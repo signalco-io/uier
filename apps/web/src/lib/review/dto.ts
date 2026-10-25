@@ -1,3 +1,4 @@
+import { readActivity } from '../comments/activity';
 import type { DbComment, DbThreadItem } from '../db/schema';
 import { toCommentDto, type CommentDto } from '../comments/dto';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
@@ -46,7 +47,7 @@ export type ReviewCommentDto = CommentDto & {
  * A project comment for the toolbar: the public comment shape (`CommentDto`) with project names
  * and permissions. Detailed reproduction context is member-only; author ids are never exposed.
  */
-export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = []): ReviewCommentDto | null {
+export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0): ReviewCommentDto | null {
     const authorId = actorAuthorId(actor);
     const dto = toCommentDto(comment, authorId);
     if (!dto)
@@ -55,6 +56,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        activity: readActivity(comment, authorId, readSequence),
         ...(actor.kind === 'member' ? { reproduction: toReproductionContext(comment, origins) } : {}),
         private: comment.private === true,
         permissions: {

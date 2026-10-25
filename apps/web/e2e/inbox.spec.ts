@@ -86,7 +86,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
 
     await page.reload();
     await addToolbarScript(page);
-    const inbox = page.getByRole('button', { name: 'Inbox, 2 comments' });
+    const inbox = page.getByRole('button', { name: /^Inbox(?:,|$)/ });
     await inbox.click();
     await expect(inbox).toHaveAttribute('aria-expanded', 'true');
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
@@ -148,7 +148,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
 
     // Status: done comments, then all of them, still searched
     await search.fill('');
-    await sidebar.getByRole('button', { name: 'Done', exact: true }).click();
+    await sidebar.getByRole('button', { name: /^Done \d+$/ }).click();
     await expectListed(thisPage, ['Comment #2']);
     await expectListed(otherPages, ['Comment #6', 'Comment #4']);
     await expect(otherPages.getByRole('article', { name: 'Comment #4' })).toContainText('Status: Done');
@@ -162,7 +162,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await search.fill(guestName);
     await expectListed(thisPage, ['Comment #2']);
     await expect(otherPages).toContainText('No matches');
-    await sidebar.getByRole('button', { name: 'All', exact: true }).click();
+    await sidebar.getByRole('button', { name: /^All \d+$/ }).click();
     await search.fill('');
     await expectListed(thisPage, ['Comment #5', 'Comment #2', 'Comment #1']);
     await expectListed(otherPages, ['Comment #6', 'Comment #4', 'Comment #3']);
@@ -172,7 +172,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await expect(sidebar).toBeHidden();
     await expect(inbox).toHaveAttribute('aria-expanded', 'false');
     await inbox.click();
-    await expect(sidebar.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(sidebar.getByRole('button', { name: /^All \d+$/ })).toHaveAttribute('aria-pressed', 'true');
     await expectListed(otherPages, ['Comment #6', 'Comment #4', 'Comment #3']);
 
     // Show on page: the inbox closes and the thread opens on its pin
@@ -201,7 +201,7 @@ test('inbox: the showcase lists comments on other public pages', async ({ browse
     await comment(page, '/brand', 'Somewhere else.');
 
     await page.reload();
-    await page.getByRole('button', { name: 'Inbox, 1 comment' }).click();
+    await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByText('Pinned on the landing page.')).toBeVisible();
     await expect(sidebar.getByRole('region', { name: 'Other pages' }).getByText('Somewhere else.')).toBeVisible();

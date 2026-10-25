@@ -1,3 +1,4 @@
+import { withThreadActivity } from './activity';
 import { createHash } from 'node:crypto';
 import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
 import type { CommentsStore } from '../repo/commentsStore';
@@ -70,7 +71,7 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
         visible(stored.comment);
         if (stored.comment.thread.items.length >= MAX_THREAD_ITEMS)
             throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
-        const comment = { ...stored.comment, thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
+        const comment = { ...withThreadActivity(stored.comment, item.authorId ?? 'legacy'), thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
         const saved = await commit(store, attempt, comment, stored.etag);
         if (saved) { visible(saved); return saved; }
     }

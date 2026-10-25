@@ -1,3 +1,5 @@
+import { readActivity, type ReadActivity } from '../comments/activity';
+import { loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
 import { commentPath } from '../comments/dto';
@@ -31,6 +33,7 @@ export type ProjectCommentMessage = {
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    activity?: ReadActivity;
     id: string;
     /** The page it was left on: origin and path */
     url: string;
@@ -60,7 +63,7 @@ export type ProjectCommentView = {
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
 
-function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>): ProjectCommentView | null {
+function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, readSequence = 0): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
     if (!first)
@@ -71,6 +74,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const origin = comment.origin ?? projectOrigins(project)[0] ?? '';
     const size = comment.device?.size;
     return {
+        activity: readActivity(comment, myId, readSequence),
         id: comment.id,
         url: `${origin}${path === '/' ? '/' : path}`,
         path,
@@ -114,9 +118,11 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 export async function loadProjectComments(context: AppContext, project: DbProject) {
     const actor = appActor(context);
     const comments = await listProjectComments(project, actor);
-    const names = await authorNames(comments);
+    const [names, reads] = await Promise.all([
+        authorNames(comments), loadReadSequences(`project:${project.id}`, `user:${context.user.id}`)
+    ]);
     return comments
-        .map(comment => toView(comment, project, actor, names))
+        .map(comment => toView(comment, project, actor, names, reads.get(comment.id)))
         .filter((view): view is ProjectCommentView => Boolean(view));
 }
 

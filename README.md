@@ -785,3 +785,44 @@ On the public toolbar a random visitor token is kept in memory until a draft is 
 stored as `uier:visitor`. The first successful write still sets the HttpOnly cookie. A validated
 `X-Uier-Visitor` token supplies the same identity when that first write's response/cookie is lost;
 an existing cookie always takes precedence. Toolbar sign-out removes both identities.
+
+### Unread review activity
+
+The toolbar's blue badge counts unread threads across all of the site's authorized comments. Open/Done
+counts remain separate. The Unread filter includes all statuses and pages. Opening a visible short
+thread acknowledges it after 800 ms in a focused foreground window; inbox previews and longer
+collapsed threads require **Mark as read**. Reading never resolves feedback, and resolving never
+acknowledges it. The app shares the same member cursor and offers Unread / Mark as read.
+
+One scheduler refreshes active page/site queries every 15 seconds while expanded, online and visible,
+and immediately on focus, reconnect, foreground return and expansion. Hidden and collapsed reviews
+do not poll. Content lists retain their size limits; a separate activity projection supplies full badge/status
+counts. The Unread filter fetches unread content before applying those limits, so older unread threads
+remain findable. Marking a batch read reveals the next batch. The inbox warns when content is omitted. Fresh requests enforce project/private permissions and access failures purge cached
+comments and screenshots. Drafts, stable thread keys and focus survive ordinary refreshes.
+
+`apps/web/src/lib/comments/activity.ts` defines the monotonic thread activity sequence. Creation,
+replies and resolve/reopen advance it atomically with the thread write; edits and reads do not.
+Actor ids stay server-side. DTO `activity` contains `sequence`, `lastOtherSequence`, `readSequence`
+and `unread` (`lastOtherSequence > readSequence`). Own posts do not create unread or clear another
+person's unread activity. Legacy threads derive a stable initial sequence from stored item order.
+
+`POST /api/review/:projectId/comments/:id/read` accepts `{ sequence }` and returns the activity DTO.
+It uses the existing project and private-thread access checks and authenticated actor; callers cannot
+choose another reviewer. It acknowledges only the rendered sequence, rejects a future sequence, and
+uses etags and `max()` across concurrent tabs. The public showcase uses `/api/comments/:id/read`.
+Receipts are `review-read` documents in the existing app container, partitioned by domain/reviewer;
+members use `user:<id>` across sites/devices, guests the existing hashed browser/site visitor id.
+Guest receipts expire one year after the last advancing acknowledgement; member receipts persist.
+Project guests fall back to page memory when local storage is blocked. Public guests can retain
+their identity in the visitor cookie. Read tracking introduces no additional browser storage key.
+
+For notification seen suppression (#84), recheck current project access and private-thread visibility,
+then call `getReadSequence(domain, reviewerId, commentId)` from `comments/readState.ts` and compare the
+queued activity's sequence. This service sends no email and stores no delivery queue. Future activity
+producers such as mentions (#91) must advance `withThreadActivity` inside the same conditional write
+as their authorized mutation; they retain responsibility for their own event/delivery records.
+
+`GET .../comments/activity` returns authorized `{ unread, open, done, total }` counts without message
+text or actor ids. `GET .../comments?scope=site&unread=true` selects unread threads from the full
+activity projection before fetching a bounded content batch. Both use the same private/access checks.

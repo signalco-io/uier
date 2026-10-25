@@ -3,7 +3,7 @@ import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { Button } from '@signalco/ui-primitives/Button';
-import { useComments, useSiteComments } from '../hooks/useComments';
+import { useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
@@ -23,7 +23,7 @@ import { takeLinkedCommentId } from '../review';
 import { captureCommentScreenshot } from '../screenshot';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
-import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentsListMaxLength, commentTextMaxLength } from './@types/Comments';
+import { CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
 function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement | undefined) {
@@ -135,18 +135,18 @@ export function CommentsGlobal({
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { path, query: commentItems } = useComments();
+    useCommentsRefresh(!collapsed);
+    const activityQuery = useActivitySummary();
     const allComments = commentItems.data;
     // Old routing settings must not move a thread onto a different view. A direct link can still show its saved details.
     const linkedSite = useSiteComments(Boolean(linkedCommentId && commentItems.isSuccess && !allComments?.some(comment => comment.id === linkedCommentId)));
-    const unresolvedComments = useMemo(
-        () => sortByDocumentPosition((allComments ?? []).filter(c => !c.resolved)),
-        [allComments]);
-    // Feedback and bug reports are about the whole page: in the inbox, without a pin
+    // Keep a reply being written if another reviewer resolves the thread during refresh.
+    // Its draft stays attached to the same stable component and receives the new Done status.
     const pinnedComments = useMemo(
-        () => unresolvedComments.filter(c => c.position.type !== 'page'),
-        [unresolvedComments]);
+        () => sortByDocumentPosition((allComments ?? []).filter(comment =>
+            comment.position.type !== 'page' && (!comment.resolved || Boolean(drafts.get(comment.id))))),
+        [allComments, drafts]);
     // The API lists at most this many comments; the page can have more
-    const commentsCountCapped = (allComments?.length ?? 0) >= commentsListMaxLength;
 
     const [creatingCommentPoint, setCreatingCommentPoint] = useState(false);
 
@@ -480,8 +480,7 @@ export function CommentsGlobal({
                 mode={mode}
                 creatingPointComment={creatingCommentPoint}
                 collapsed={collapsed}
-                commentsCount={unresolvedComments.length}
-                commentsCountCapped={commentsCountCapped}
+                commentsCount={activityQuery.data?.unread ?? 0}
                 hintOpen={hintOpen}
                 hintId={hintId}
                 projectUrl={projectUrl}

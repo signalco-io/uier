@@ -9,6 +9,7 @@ import { CommentFilters } from './CommentFilters';
 import type { CommentsView, PeopleFilter } from './commentLabels';
 
 export type CommentsQuery = {
+    unread?: boolean;
     view: CommentsView;
     people: PeopleFilter;
     /** A page (relative URL) or every page */
@@ -24,6 +25,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
     const people = value('people');
     const page = value('page');
     return {
+        unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
         people: people === 'assigned' || people === 'mine' ? people : 'all',
         page: page?.startsWith('/') ? page : undefined
@@ -32,6 +34,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
 
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string) {
     return comments.filter(comment => {
+        if (query.unread && !comment.activity?.unread) return false;
         if (query.page && comment.path !== query.page)
             return false;
         if (query.people === 'assigned')
@@ -102,7 +105,7 @@ export function ProjectComments({ projectId, comments, query, userId, assignees,
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <CommentFilters view={query.view} people={query.people} page={query.page} pages={pages} />
+                <CommentFilters unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages} />
                 <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
                     {shown.length === comments.length
                         ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`

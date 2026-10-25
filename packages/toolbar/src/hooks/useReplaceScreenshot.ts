@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CommentItem } from '../components/@types/Comments';
 import { apiRequest, commentsQueryKeyPrefix, required, screenshotQueryKey } from './api';
-import { commentUrl } from './useComments';
+import { commentUrl, mergeReadCursor } from './useComments';
 
 export function useReplaceScreenshot(comment: CommentItem) {
     const client = useQueryClient();
@@ -15,7 +15,7 @@ export function useReplaceScreenshot(comment: CommentItem) {
             client.removeQueries({ queryKey: screenshotQueryKey(comment.id) });
             client.setQueryData([...screenshotQueryKey(comment.id), saved.screenshot?.revision ?? null], screenshot);
             client.setQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix }, current =>
-                current?.map(item => item.id === saved.id ? saved : item));
+                current?.map(item => item.id === saved.id ? mergeReadCursor(saved, item.activity?.readSequence) : item));
         },
         onSettled: () => { void client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
     });

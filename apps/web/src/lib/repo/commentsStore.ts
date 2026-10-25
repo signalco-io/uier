@@ -1,4 +1,4 @@
-import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
@@ -23,6 +23,8 @@ export type CommentsStore = {
     list(domain: string, path: string, limit: number): Promise<DbComment[]>;
     /** Every comment of the partition (all pages), newest first */
     listAll(domain: string, limit: number): Promise<DbComment[]>;
+    /** All thread activity, without message text or images; authoritative badge counts. */
+    listActivity(domain: string): Promise<DbCommentActivity[]>;
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
     getSubmission(domain: string, id: string): Promise<DbSubmission | null>;

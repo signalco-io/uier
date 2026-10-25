@@ -152,3 +152,8 @@ export const screenshotQueryKey = (commentId: string) => ['screenshot', commentI
 
 /** A project's reviewer and settings (project/ProjectGate.tsx) */
 export const projectViewerQueryKey = ['project-viewer'] as const;
+
+// A pending acknowledgement must not cross sign-out or a revoked review session.
+let reviewerRevision = 0;
+export const currentReviewerRevision = () => reviewerRevision;
+export function advanceReviewerRevision() { reviewerRevision++; }

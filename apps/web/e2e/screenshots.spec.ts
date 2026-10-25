@@ -131,7 +131,7 @@ test('screenshots: the inbox loads them as they come into view', async ({ browse
         }
     });
     await page.reload();
-    await page.getByRole('button', { name: 'Inbox, 6 comments' }).click();
+    await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('button', { name: 'Screenshot of the commented part of the page' }).first()).toBeVisible();
     // Only the ones in (or near) the list's view

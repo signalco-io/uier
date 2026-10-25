@@ -1,9 +1,9 @@
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
-import { CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
-import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey } from './api';
+import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
+import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision } from './api';
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import { getGuestName } from '../project/projectSession';
 
@@ -36,9 +36,9 @@ export type CreateCommentInput = {
     screenshot?: string;
 };
 
-async function getComments(path: string) {
+async function getComments(path: string, client: QueryClient) {
     const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}`);
-    return Array.isArray(comments) ? comments : [];
+    return reconcileReads(client, Array.isArray(comments) ? comments : []);
 }
 
 async function createComment(path: string, { idempotencyKey, position, kind, text, quotedText, device, screenshot }: CreateCommentInput) {
@@ -86,9 +86,9 @@ async function editMessage({ commentId, itemId, text, expectedText }: EditMessag
     }));
 }
 
-async function getSiteComments() {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site`);
-    return Array.isArray(comments) ? comments : [];
+async function getSiteComments(client: QueryClient, unreadOnly: boolean) {
+    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site${unreadOnly ? '&unread=true' : ''}`);
+    return reconcileReads(client, Array.isArray(comments) ? comments : []);
 }
 
 export function commentsQueryKey(path: string) {
@@ -100,7 +100,7 @@ export const siteCommentsQueryKey = [...commentsQueryKeyPrefix, 'site'] as const
 
 function withComment(comments: CommentItem[], comment: CommentItem) {
     return comments.some(c => c.id === comment.id)
-        ? comments.map(c => c.id === comment.id ? comment : c)
+        ? comments.map(c => c.id === comment.id ? mergeReadCursor(comment, c.activity?.readSequence) : c)
         : [comment, ...comments];
 }
 
@@ -110,10 +110,15 @@ function updateAllCachedComments(client: QueryClient, update: (comments: Comment
 }
 
 /** The comments of every page of the site, for the inbox (fetched while `enabled`) */
-export function useSiteComments(enabled: boolean): UseQueryResult<CommentItem[], Error> {
+export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryResult<CommentItem[], Error> {
+    const client = useQueryClient();
     return useQuery({
-        queryKey: siteCommentsQueryKey,
-        queryFn: getSiteComments,
+        queryKey: unreadOnly ? [...commentsQueryKeyPrefix, 'site-unread'] : siteCommentsQueryKey,
+        queryFn: () => authorizedList(client, () => getSiteComments(client, unreadOnly)),
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        retry: false,
         enabled
     });
 }
@@ -135,12 +140,16 @@ export function useComments(): {
 
     const query = useQuery({
         queryKey,
-        queryFn: () => getComments(path)
+        queryFn: () => authorizedList(client, () => getComments(path, client)),
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        retry: false
     });
 
     // A comment can be on another page (the inbox lists the whole site): every list that has it
     const handleCommentChanged = (comment: CommentItem) => {
-        updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? comment : c));
+        updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? mergeReadCursor(comment, c.activity?.readSequence) : c));
     };
     const handleCommentDeleted = (commentId: string) => {
         updateAllCachedComments(client, (comments) => comments.filter(c => c.id !== commentId));
@@ -148,6 +157,7 @@ export function useComments(): {
     const handleSettled = () => {
         // Also picks up other visitors' changes; the comment is gone on `not_found`
         client.invalidateQueries({ queryKey: commentsQueryKeyPrefix });
+        client.invalidateQueries({ queryKey: activityQueryKey });
     };
 
     // The first comment or reply gives the visitor a guest name (see hooks/useVisitor.tsx)
@@ -209,4 +219,116 @@ export function useComments(): {
         delete: remove,
         deleteReply: removeReply
     };
+}
+
+/** Retain monotonic receipts if an older in-flight list finishes after a read write. */
+function reconcileReads(client: QueryClient, comments: CommentItem[]) {
+    const cached = client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix }).flatMap(([, data]) => data ?? []);
+    const reads = new Map<string, number>();
+    for (const item of cached) reads.set(item.id, Math.max(reads.get(item.id) ?? 0, item.activity?.readSequence ?? 0));
+    return comments.map(comment => {
+        if (!comment.activity) return comment;
+        return mergeReadCursor(comment, reads.get(comment.id));
+    });
+}
+
+async function authorizedList(client: QueryClient, load: () => Promise<CommentItem[]>) {
+    try { return await load(); }
+    catch (error) {
+        if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
+            // React Query retains stale data on error. Purge it before showing an access notice.
+            client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
+            client.removeQueries({ queryKey: ['screenshot'] });
+            client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+            if (toolbarConfig.project) void client.invalidateQueries({ queryKey: projectViewerQueryKey });
+        }
+        throw error;
+    }
+}
+
+export function useReadComment() {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn: async (comment: CommentItem) => {
+            const revision = currentReviewerRevision();
+            const activity = required(await apiRequest<CommentActivity>(`${commentUrl(comment.id)}/read`, {
+                method: 'POST', body: { sequence: comment.activity?.sequence ?? 0 }
+            }));
+            return { activity, revision };
+        },
+        onSuccess: async ({ activity, revision }, comment) => {
+            await client.cancelQueries({ queryKey: activityQueryKey });
+            if (revision !== currentReviewerRevision()) return;
+            // A reply that raced the read request was never acknowledged. Fetch its content now.
+            if (activity.sequence > (comment.activity?.sequence ?? 0))
+                void client.invalidateQueries({ queryKey: commentsQueryKeyPrefix });
+            void client.invalidateQueries({ queryKey: activityQueryKey });
+            void client.invalidateQueries({ queryKey: [...commentsQueryKeyPrefix, 'site-unread'] });
+            updateAllCachedComments(client, comments => comments.map(current => {
+                if (current.id !== comment.id || !current.activity) return current;
+                const readSequence = Math.max(current.activity.readSequence, activity.readSequence);
+                return { ...current, activity: { ...current.activity, readSequence, unread: current.activity.lastOtherSequence > readSequence } };
+            }));
+        }
+    });
+}
+
+/** One scheduler per review layer. Hidden, offline and collapsed reviews do not poll. */
+export function useCommentsRefresh(expanded: boolean) {
+    const client = useQueryClient();
+    useEffect(() => {
+        let refreshing = false;
+        const refresh = async () => {
+            if (!expanded || document.visibilityState !== 'visible' || !navigator.onLine || refreshing) return;
+            refreshing = true;
+            try {
+                if (toolbarConfig.project) await client.invalidateQueries({ queryKey: projectViewerQueryKey });
+                await Promise.all([
+                    client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active' }, { cancelRefetch: false }),
+                    client.invalidateQueries({ queryKey: activityQueryKey }, { cancelRefetch: false })
+                ]);
+            } finally { refreshing = false; }
+        };
+        const interval = window.setInterval(() => { void refresh(); }, 15_000);
+        const foreground = () => { void refresh(); };
+        window.addEventListener('focus', foreground);
+        window.addEventListener('online', foreground);
+        document.addEventListener('visibilitychange', foreground);
+        if (expanded) void refresh();
+        return () => {
+            window.clearInterval(interval);
+            window.removeEventListener('focus', foreground);
+            window.removeEventListener('online', foreground);
+            document.removeEventListener('visibilitychange', foreground);
+        };
+    }, [client, expanded]);
+}
+
+export const activityQueryKey = ['review-activity'] as const;
+export type ActivitySummary = { unread: number; open: number; done: number; total: number };
+
+export function useActivitySummary() {
+    const client = useQueryClient();
+    return useQuery({
+        queryKey: activityQueryKey,
+        queryFn: async () => {
+            try { return required(await apiRequest<ActivitySummary>(`${commentsApiUrl}/activity`)); }
+            catch (error) {
+                if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
+                    client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
+                    client.removeQueries({ queryKey: ['screenshot'] });
+                    client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+                }
+                throw error;
+            }
+        },
+        retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false
+    });
+}
+
+/** Local mutations, including screenshot replacement, cannot roll a pending receipt backwards. */
+export function mergeReadCursor(comment: CommentItem, previousSequence = 0): CommentItem {
+    if (!comment.activity) return comment;
+    const readSequence = Math.max(comment.activity.readSequence, previousSequence);
+    return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
 }

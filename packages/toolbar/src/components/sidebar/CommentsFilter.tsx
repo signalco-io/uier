@@ -4,6 +4,7 @@ export type CommentsStatusFilter = 'unresolved' | 'resolved' | 'all';
 
 export type CommentsFilter = {
     keywords?: string;
+    unread?: boolean;
     status: CommentsStatusFilter;
 };
 
@@ -20,6 +21,7 @@ function searchableText(comment: CommentItem) {
 
 /** Whether the comment has the status and every word of the search */
 export function matchesFilter(comment: CommentItem, filter: CommentsFilter) {
+    if (filter.unread && !comment.activity?.unread) return false;
     if (filter.status !== 'all' && comment.resolved !== (filter.status === 'resolved')) {
         return false;
     }

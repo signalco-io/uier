@@ -1,5 +1,6 @@
+import { withThreadActivity } from '../comments/activity';
 import type { OperationInput, SqlParameter } from '@azure/cosmos';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
@@ -127,25 +128,38 @@ export function createCosmosCommentsStore(): CommentsStore {
                 throw error;
             }
         },
+        async listActivity(domain) {
+            // No TOP: badge counts and unread selection must include threads outside the text list.
+            // Modern records need only the compact activity map; legacy records need item authors.
+            return await queryAll<DbCommentActivity>(domain,
+                `SELECT c.id, c.domain, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
+                    IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
+                 FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
+        },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
-            try {
-                // Conditional patch: atomic, so concurrent replies never overwrite each other
-                await cosmosDataContainerComments().item(id, domain).patch<DbComment>({
-                    condition: `FROM c WHERE ARRAY_LENGTH(c.thread.items) < ${maxItems}`,
-                    operations: [
-                        { op: 'add', path: '/thread/items/-', value: item },
-                        { op: 'set', path: '/updatedAt', value: updatedAt }
-                    ]
-                });
-                return 'ok';
-            } catch (error) {
-                const code = errorCode(error);
-                if (code === 412)
-                    return 'full';
-                if (code === 404)
-                    return 'not_found';
-                throw error;
+            // Item and activity cursor share one etag-protected write. A patch cannot derive
+            // a cursor for legacy threads or record the actor's latest sequence atomically.
+            const target = cosmosDataContainerComments().item(id, domain);
+            for (let attempt = 0; attempt < 16; attempt++) {
+                try {
+                    const stored = await target.read<DbComment>();
+                    if (!stored.resource || !stored.etag) return 'not_found';
+                    const current = withoutSystemProperties(stored.resource as unknown as Record<string, unknown>);
+                    if (current.thread.items.length >= maxItems) return 'full';
+                    const updated = {
+                        ...withThreadActivity(current, item.authorId ?? 'legacy'),
+                        thread: { ...current.thread, items: [...current.thread.items, item] }, updatedAt
+                    };
+                    await target.replace(updated, { accessCondition: { type: 'IfMatch', condition: stored.etag } });
+                    return 'ok';
+                } catch (error) {
+                    const code = errorCode(error);
+                    if (code === 404) return 'not_found';
+                    if (code !== 412) throw error;
+                    await new Promise(resolve => setTimeout(resolve, 10 * (attempt + 1) + Math.random() * 25));
+                }
             }
+            throw new Error(`Comment ${id} changed too often while replying`);
         },
         async createScreenshot(screenshot) {
             await cosmosDataContainerComments().items.create<DbScreenshot>(screenshot);

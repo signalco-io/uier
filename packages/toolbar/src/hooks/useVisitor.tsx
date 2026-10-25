@@ -1,6 +1,7 @@
 import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
-import { apiRequest, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey } from './api';
+import { apiRequest, advanceReviewerRevision, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey } from './api';
+import { activityQueryKey } from './useComments';
 import { forgetProjectReviewer, getGuestName } from '../project/projectSession';
 
 const visitorApiUrl = `${toolbarConfig.apiUrl}/api/visitor`;
@@ -52,8 +53,14 @@ export function useVisitor({ onSignedOut }: { onSignedOut?: () => void } = {}): 
 
     const signOutMutation = useMutation({
         mutationFn: signOut,
-        onSuccess: () => {
+        onSuccess: async () => {
             onSignedOut?.();
+            advanceReviewerRevision();
+            await client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
+            client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
+            client.removeQueries({ queryKey: ['screenshot'] });
+            client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+            client.invalidateQueries({ queryKey: activityQueryKey });
             client.setQueryData<Visitor>(visitorQueryKey, { name: null });
             client.invalidateQueries({ queryKey: visitorQueryKey });
             // Nothing is "mine" anymore; a project asks again who the reviewer is
