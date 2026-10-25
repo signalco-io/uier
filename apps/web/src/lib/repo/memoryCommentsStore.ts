@@ -1,4 +1,5 @@
 import { withThreadActivity } from '../comments/activity';
+import { withNotificationEvent } from '../notifications/events';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
@@ -73,6 +74,10 @@ function pathMatches(comment: DbComment, path: string) {
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
+        async listNotificationPending() {
+            return [...state().domains.keys()].flatMap(domainComments)
+                .filter(comment => comment.notificationPending && comment.projectId).map(clone);
+        },
         async list(domain, path, limit) {
             return domainComments(domain)
                 .filter(comment => pathMatches(comment, path))
@@ -160,7 +165,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 return 'full';
 
             const comment: DbComment = {
-                ...withThreadActivity(current, item.authorId ?? 'legacy'),
+                ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy'), item.authorId ?? 'legacy', 'reply', updatedAt),
                 thread: { ...current.thread, items: [...current.thread.items, clone(item)] },
                 updatedAt
             };

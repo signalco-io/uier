@@ -264,6 +264,18 @@ Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
 (`UIER_BASE_URL` overrides both); never the request's Host header.
 
+### Review email notifications
+
+Owners and admins receive new feedback. Members automatically follow threads they post in, can follow or
+unfollow any visible thread, and can mute project emails from the toolbar or app. Guests can
+optionally choose **Email me replies** after commenting and verify an address; neither email nor
+an account is required to post. Related unread activity is batched for five minutes, with current
+access, mute, unsubscribe and shared read-cursor checks before sending. A scheduled GitHub workflow
+uses the existing production Cosmos/ACS configuration; no detached serverless work is used.
+
+See [the delivery contract and operations guide](docs/review-notifications.md) for defaults,
+verification, retention, retry evidence, scheduler delays and the #83/#91 integration contract.
+
 ## Landing page showcase and public feedback
 
 Every public page embeds the toolbar from the marketing layout in **showcase** mode:

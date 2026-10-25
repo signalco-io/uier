@@ -111,7 +111,14 @@ test('owner checks installation, shares a review, replies and resolves; the name
         const doneCard = guest.page.getByRole('complementary', { name: 'Comments' }).getByRole('article');
         await expect(doneCard).toContainText('The annual price is now explained.');
         await expect(doneCard).toContainText('Status: Done');
+        // A recovered reply draft keeps even a Done thread pinned. Wait for the durable
+        // status write rather than using the pin count as evidence that Reopen finished.
+        const reopened = guest.page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments/${saved.id}`
+            && response.request().method() === 'PATCH');
         await doneCard.getByRole('button', { name: 'Reopen' }).click();
+        const reopenResponse = await reopened;
+        expect(reopenResponse.status()).toBe(200);
+        expect((await reopenResponse.json()).resolved).toBe(false);
         await expect(commentBubbles(guest.page)).toHaveCount(1);
         await guest.page.reload();
         await guest.page.locator(`[data-uier-comment="${saved.id}"]`).click();

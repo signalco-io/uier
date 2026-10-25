@@ -1,4 +1,5 @@
 import { getReadSequence } from '../comments/readState';
+import { threadNotificationStates } from '../notifications/preferences';
 import { z } from 'zod';
 import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
@@ -41,7 +42,8 @@ async function commentResponse(context: ReviewApiContext, comment: DbComment | n
     const dto = toReviewCommentDto(comment, context.actor, await authorNames([comment]), projectOrigins(context.project), actorAuthorId(context.actor) ? await getReadSequence(comment.domain, actorAuthorId(context.actor)!, comment.id) : 0);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
-    return Response.json(dto, { status });
+    const notifications = (await threadNotificationStates(context.project, context.actor, [comment])).get(comment.id);
+    return Response.json({ ...dto, notifications }, { status });
 }
 
 function commentId(id: string) {

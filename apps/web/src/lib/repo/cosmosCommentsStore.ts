@@ -1,4 +1,5 @@
 import { withThreadActivity } from '../comments/activity';
+import { withNotificationEvent } from '../notifications/events';
 import type { OperationInput, SqlParameter } from '@azure/cosmos';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
@@ -36,6 +37,12 @@ async function queryAll<T>(domain: string, query: string, parameters: SqlParamet
 
 export function createCosmosCommentsStore(): CommentsStore {
     return {
+        async listNotificationPending() {
+            const { resources } = await cosmosDataContainerComments().items.query<Record<string, unknown>>({
+                query: 'SELECT * FROM c WHERE c.notificationPending = true AND IS_DEFINED(c.projectId) AND IS_DEFINED(c.path)'
+            }).fetchAll();
+            return resources.map(withoutSystemProperties);
+        },
         async list(domain, path, limit) {
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
@@ -147,7 +154,7 @@ export function createCosmosCommentsStore(): CommentsStore {
                     const current = withoutSystemProperties(stored.resource as unknown as Record<string, unknown>);
                     if (current.thread.items.length >= maxItems) return 'full';
                     const updated = {
-                        ...withThreadActivity(current, item.authorId ?? 'legacy'),
+                        ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy'), item.authorId ?? 'legacy', 'reply', updatedAt),
                         thread: { ...current.thread, items: [...current.thread.items, item] }, updatedAt
                     };
                     await target.replace(updated, { accessCondition: { type: 'IfMatch', condition: stored.etag } });

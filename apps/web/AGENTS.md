@@ -149,11 +149,19 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
-- Links the app sends or redirects to come from `appBaseUrl()`, never from the Host header.
+- Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
+  `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
 - Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
   helpers in `e2e/support/app.ts` sign in that way.
 
 ## Testing
+
+Review notifications live in `src/lib/notifications/`. Event metadata is part of the same comment
+write as the shared unread activity cursor. Never send email from a toolbar client or detached
+promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-backed worker with
+the existing production configuration. Dispatch rechecks access, private visibility, subscription,
+mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
+`docs/review-notifications.md` for the event/delivery contract and failure evidence.
 
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and

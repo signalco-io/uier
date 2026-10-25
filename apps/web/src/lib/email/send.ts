@@ -1,6 +1,6 @@
 import { EmailClient, KnownEmailSendStatus } from '@azure/communication-email';
 import { isLocalRuntime } from '../comments/environment';
-import { deploymentEnvironment } from '../app/request';
+import { deploymentEnvironment } from '../app/deployment';
 
 export type EmailMessage = {
     to: string;

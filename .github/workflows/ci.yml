@@ -44,6 +44,7 @@ jobs:
               - ".nvmrc"
               - ".github/workflows/ci.yml"
               - ".github/workflows/vercel-deploy_reusable.yml"
+              - ".github/workflows/notifications.yml"
             infra:
               - "infra/**"
               - ".nvmrc"

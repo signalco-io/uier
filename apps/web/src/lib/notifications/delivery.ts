@@ -1,0 +1,226 @@
+import { randomUUID } from 'node:crypto';
+import type { AppDoc, DbProject } from '../app/model';
+import { getAppStore, updateDoc } from '../app/store';
+import { sha256Hex } from '../app/tokens';
+import { getUser } from '../app/users';
+import { getMember, listWorkspaceMembers, memberCanAccessProject } from '../app/workspaces';
+import { findProject, projectOrigins } from '../app/projects';
+import { memberActor, type ProjectActor } from '../review/actor';
+import { canSeeComment } from '../review/comments';
+import type { DbComment } from '../db/schema';
+import { getCommentsStore } from '../repo/commentsStore';
+import { getReadSequence } from '../comments/readState';
+import { layoutEmail } from '../email/templates';
+import { KnownPageLinks } from '../../knownPages';
+import { isNotificationParticipant, notificationManageUrl, notificationPk, notificationPreference, notificationSubscription, notificationToken,
+    preferenceId, type NotificationPreference, type NotificationSubscription } from './preferences';
+import { deliverNotificationEmail, type EmailAttempt } from './transport';
+import { EmailNotConfiguredError, type EmailMessage } from '../email/send';
+
+export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
+const MAX_FAILURES = 8;
+
+/** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[] };
+
+export type NotificationDelivery = AppDoc & {
+    type: 'notification-delivery'; projectId: string; threadId: string; actorId: string; userId?: string;
+    requestedThrough: number; processedThrough: number; active: boolean;
+    failures: number; nextAttemptAt: string;
+    lease?: { id: string; until: string };
+    attempt?: EmailAttempt & { through: number; message: EmailMessage };
+    status: 'queued' | 'waiting' | 'accepted' | 'suppressed' | 'failed' | 'ambiguous';
+    lastCode?: string;
+    lastOperationId?: string;
+};
+
+const deliveryId = (threadId: string, actorId: string) => `delivery_${sha256Hex(`${threadId}:${actorId}`)}`;
+const iso = (time = Date.now()) => new Date(time).toISOString();
+const failureCode = (code: string | undefined) => code && /^[A-Za-z0-9_.-]{1,80}$/.test(code) ? code : 'UnknownProviderError';
+
+/** Crash-safe discovery: clear the comment's pending flag only after all ledgers exist. */
+export async function discoverThreadNotifications(project: DbProject, comment: DbComment) {
+    const store = getAppStore();
+    const recipients = new Map<string, string | undefined>();
+    const members = await listWorkspaceMembers(project.workspaceId);
+    const subscriptions = await store.query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { threadId: comment.id } });
+    for (const member of members) {
+        const actorId = `user:${member.userId}`;
+        if (memberCanAccessProject(member, project.id) && (member.role === 'admin' || member.userId === project.createdBy
+            || isNotificationParticipant(comment, actorId)
+            || subscriptions.some(sub => sub.actorId === actorId && sub.following))) recipients.set(actorId, member.userId);
+    }
+    for (const subscription of subscriptions) if (!subscription.userId && subscription.following && subscription.verifiedAt)
+        recipients.set(subscription.actorId, undefined);
+    // #91 can target existing authorized members; dispatch still checks mute, follow and visibility.
+    for (const event of comment.notificationEvents ?? []) for (const actorId of event.recipients ?? []) {
+        const member = members.find(member => actorId === `user:${member.userId}` && memberCanAccessProject(member, project.id));
+        if (member) recipients.set(actorId, member.userId);
+    }
+    const requestedThrough = Math.max(0, ...(comment.notificationEvents ?? []).map(event => event.sequence));
+    for (const [actorId, userId] of recipients) {
+        const doc: NotificationDelivery = { type: 'notification-delivery', id: deliveryId(comment.id, actorId), pk: notificationPk(project.id),
+            projectId: project.id, threadId: comment.id, actorId, ...(userId ? { userId } : {}),
+            requestedThrough, processedThrough: 0, active: true, failures: 0, nextAttemptAt: iso(), status: 'queued' };
+        if (!await store.create(doc)) await updateDoc<NotificationDelivery>(doc.pk, doc.id, old => ({ ...old,
+            requestedThrough: Math.max(old.requestedThrough, requestedThrough),
+            active: old.status !== 'failed' && old.status !== 'ambiguous' && (old.active || requestedThrough > old.processedThrough) }));
+    }
+    const comments = getCommentsStore();
+    const current = await comments.get(comment.domain, comment.id);
+    if (current && Math.max(0, ...(current.comment.notificationEvents ?? []).map(event => event.sequence)) === requestedThrough)
+        await comments.replace({ ...current.comment, notificationPending: false }, current.etag);
+}
+
+async function recipientContext(delivery: NotificationDelivery) {
+    const project = await findProject(delivery.projectId);
+    if (!project || project.access === 'disabled') return null;
+    const actor: ProjectActor | null = delivery.userId ? await memberActor(project, delivery.userId)
+        : project.access === 'guests' ? { kind: 'guest', visitorId: delivery.actorId } : null;
+    if (!actor) return null;
+    const comment = (await getCommentsStore().get(`project:${project.id}`, delivery.threadId))?.comment;
+    if (!comment || !canSeeComment(comment, actor)) return null;
+    const [subscription, preference, readSequence] = await Promise.all([
+        notificationSubscription(project.id, delivery.actorId, comment.id), notificationPreference(project.id, delivery.actorId),
+        getReadSequence(comment.domain, delivery.actorId, comment.id)
+    ]);
+    const user = delivery.userId ? await getUser(delivery.userId) : null;
+    const member = delivery.userId ? await getMember(project.workspaceId, delivery.userId) : null;
+    if (preference?.muted || (actor.kind === 'guest' && (!subscription?.following || !subscription.verifiedAt || !subscription.email))) return null;
+    return { project, comment, actor, subscription, preference, readSequence, memberSince: member?.createdAt, email: user?.email ?? subscription?.email };
+}
+
+function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awaited<ReturnType<typeof recipientContext>>>) {
+    const { comment, actor, subscription, readSequence } = context;
+    return (comment.notificationEvents ?? []).filter(event => event.sequence > delivery.processedThrough && event.sequence <= delivery.requestedThrough
+        && event.sequence > readSequence && event.actorId !== delivery.actorId
+        && subscription?.following !== false
+        && (!context.memberSince || event.at >= context.memberSince)
+        && (!subscription?.since || event.at >= subscription.since)
+        && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || actor.userId === context.project.createdBy || event.recipients?.includes(delivery.actorId))
+            : event.kind === 'mention' || event.kind === 'assignment' ? Boolean(event.recipients?.includes(delivery.actorId))
+                : subscription?.following ?? (actor.kind === 'member' && (isNotificationParticipant(comment, delivery.actorId)
+                    || event.recipients?.includes(delivery.actorId)))));
+}
+
+async function digestMessage(baseUrl: string, delivery: NotificationDelivery, context: NonNullable<Awaited<ReturnType<typeof recipientContext>>>) {
+    const { project, comment } = context;
+    let manage: NotificationSubscription | NotificationPreference | undefined = context.subscription;
+    let mode: 'subscription' | 'project' = 'subscription';
+    if (!manage) {
+        mode = 'project';
+        manage = context.preference;
+        if (!manage) {
+            const preference: NotificationPreference = { type: 'notification-preference', pk: notificationPk(project.id), id: preferenceId(delivery.actorId),
+                projectId: project.id, actorId: delivery.actorId, muted: false, version: randomUUID() };
+            await getAppStore().create(preference);
+            manage = (await notificationPreference(project.id, delivery.actorId))!;
+        }
+    }
+    const origin = comment.origin && projectOrigins(project).includes(comment.origin) ? comment.origin : projectOrigins(project)[0]!;
+    const page = new URL(comment.path, origin);
+    // Stored path is server-canonicalized; validate again before making an email link.
+    if (page.origin !== origin) throw new Error('Invalid notification page origin');
+    let url: string;
+    if (delivery.userId) url = `${baseUrl}${KnownPageLinks.projectReview(project.id, page.toString(), comment.id)}`;
+    else {
+        page.searchParams.set('toolbar-code', project.id);
+        page.searchParams.set('uier-comment', comment.id);
+        url = page.toString();
+    }
+    const manageUrl = notificationManageUrl(baseUrl, notificationToken(manage, mode));
+    return layoutEmail({ to: context.email!, subject: `Review activity in ${project.name}`,
+        paragraphs: [`There is new activity in thread ${comment.number ? `#${comment.number}` : ''} on ${project.name}.`,
+            'Open the thread to read the latest feedback, replies and status changes.'],
+        action: { label: 'Open thread', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
+        footerAction: { label: mode === 'project' ? 'Manage project emails' : 'Unsubscribe from thread', url: manageUrl } });
+}
+
+/** One bounded attempt under an optimistic lease; all state survives process restarts. */
+export async function processNotificationDelivery(candidate: NotificationDelivery, baseUrl: string, transport = deliverNotificationEmail, now = Date.now()) {
+    const store = getAppStore();
+    const stored = await store.get<NotificationDelivery>(candidate.pk, candidate.id);
+    if (!stored || !stored.doc.active || Date.parse(stored.doc.nextAttemptAt) > now || (stored.doc.lease && Date.parse(stored.doc.lease.until) > now)) return;
+    const lease = { id: randomUUID(), until: iso(now + 5 * 60 * 1000) };
+    const delivery = { ...stored.doc, lease };
+    if (await store.replace(delivery, stored.etag) !== 'ok') return;
+    const save = async (patch: Partial<NotificationDelivery>) => updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
+        if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
+        const { lease: _lease, ...rest } = current;
+        const saved = { ...rest, ...patch };
+        if (saved.status !== 'failed' && saved.status !== 'ambiguous')
+            saved.active = Boolean(saved.attempt) || current.requestedThrough > saved.processedThrough;
+        return saved;
+    });
+    try {
+        const context = await recipientContext(delivery);
+        const events = context ? eligibleEvents(delivery, context) : [];
+        if (!context?.email || !events.length) {
+            await save({ processedThrough: delivery.requestedThrough, attempt: undefined, active: false, status: 'suppressed' });
+            return;
+        }
+        const due = Date.parse(events[0]!.at) + DIGEST_WINDOW_MS;
+        if (!delivery.attempt && now < due) { await save({ nextAttemptAt: iso(due), status: 'waiting' }); return; }
+        const through = delivery.attempt?.through ?? Math.max(...events.filter(event => Date.parse(event.at) <= due).map(event => event.sequence));
+        const batch = events.filter(event => event.sequence <= through);
+        // A cursor may advance between retries; cancel any unsent content that's now seen.
+        if (!batch.length) { await save({ processedThrough: through, attempt: undefined, active: true, nextAttemptAt: iso(), status: 'suppressed' }); return; }
+        const attempt = delivery.attempt ?? { operationId: randomUUID(), firstSentAt: iso(now), through,
+            message: await digestMessage(baseUrl, delivery, context) };
+        // Persist before the external request, including its exact body and repeatability identity.
+        await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
+            if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
+            return { ...current, attempt, lastOperationId: attempt.operationId };
+        });
+        // Preparing a digest does several reads/writes. Check once more at the send boundary.
+        const latest = await recipientContext(delivery);
+        if (!latest?.email || latest.email !== attempt.message.to || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
+            await save({ processedThrough: through, attempt: undefined, active: false, status: 'suppressed' });
+            return;
+        }
+        const result = await transport(attempt.message, attempt, Boolean(delivery.attempt));
+        if (result.status === 'sent') {
+            await save({ processedThrough: through, attempt: undefined, active: true, failures: 0, nextAttemptAt: iso(), status: 'accepted', lastCode: result.code });
+        } else if (result.status === 'ambiguous') {
+            await save({ active: false, status: 'ambiguous', lastCode: failureCode(result.code) });
+            console.error(`[notifications] ${delivery.id}: ambiguous (${failureCode(result.code)})`);
+        } else if (result.status === 'failed') {
+            const failures = delivery.failures + 1;
+            await save({ failures, attempt: undefined, active: failures < MAX_FAILURES, status: failures < MAX_FAILURES ? 'queued' : 'failed',
+                nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)), lastCode: failureCode(result.code) });
+            console.error(`[notifications] ${delivery.id}: provider rejected (${failureCode(result.code)})`);
+        } else await save({ attempt: { ...attempt, resumeFrom: result.resumeFrom }, nextAttemptAt: iso(now + 60000), status: 'waiting' });
+    } catch (error) {
+        const failures = delivery.failures + 1;
+        // Error messages from providers may contain personal data. Store only a bounded class name.
+        const code = error instanceof Error ? error.name.slice(0, 80) : 'UnknownError';
+        await save({ failures, active: failures < MAX_FAILURES, status: failures < MAX_FAILURES ? 'queued' : 'failed', lastCode: code,
+            ...(error instanceof EmailNotConfiguredError ? { attempt: undefined } : {}),
+            nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)) });
+        console.error(`[notifications] ${delivery.id}: attempt failed (${code})`);
+    }
+}
+
+export async function runNotificationWorker(baseUrl: string, transport = deliverNotificationEmail) {
+    for (const comment of await getCommentsStore().listNotificationPending()) {
+        if (!comment.projectId) continue;
+        const project = await findProject(comment.projectId);
+        if (project) await discoverThreadNotifications(project, comment);
+    }
+    const deliveries = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true } });
+    for (const delivery of deliveries) await processNotificationDelivery(delivery, baseUrl, transport);
+    const failures = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', where: { active: false } });
+    const blocked = failures.filter(delivery => delivery.status === 'failed' || delivery.status === 'ambiguous');
+    return { checked: deliveries.length, blocked: blocked.length };
+}
+
+/** Manual workflow recovery. An uncertain send keeps its operation identity and is only reconciled. */
+export async function retryNotificationDelivery(id: string) {
+    if (!/^delivery_[a-f0-9]{64}$/.test(id)) throw new Error('Invalid notification delivery id.');
+    const [delivery] = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', where: { id } });
+    if (!delivery || (delivery.status !== 'failed' && delivery.status !== 'ambiguous')) throw new Error('This delivery does not need manual recovery.');
+    await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
+        if (current.lease && Date.parse(current.lease.until) > Date.now()) throw new Error('This delivery is still leased.');
+        return { ...current, active: true, failures: 0, status: 'queued', nextAttemptAt: iso() };
+    });
+}

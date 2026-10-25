@@ -143,6 +143,28 @@ export default function PrivacyPolicyPage() {
                 visitor cookie when present, starts a new identity. The toolbar refreshes comments while it is in the foreground.
             </p>
 
+            <h3>Optional reply notifications</h3>
+            <p>
+                Authorized project owners and admins receive new feedback by email. Members follow threads they post in and can
+                follow or unfollow threads or mute a project. Guests can leave feedback with only a name.
+                If a guest separately chooses Email me replies, we store the address with that browser
+                identity and thread, and send a confirmation link. The address is used for replies and
+                status changes only after confirmation. Pending addresses expire after 24 hours;
+                unsubscribing removes the address from the subscription. Signing out of the toolbar does not unsubscribe email.
+            </p>
+            <p>
+                We store notification preferences, activity sequence metadata and delivery records in
+                Cosmos DB. We use the same read cursor as the toolbar and app to skip activity you have
+                already read. Related activity is batched for five minutes and processed by a scheduled
+                GitHub workflow using our existing Azure Communication Services email sender. Emails
+                contain project names and authorized thread links, without comment text or images.
+                Every digest links to unsubscribe or manage notifications. Preferences and delivery
+                evidence remain until revoked or the associated data is removed. Delivery records can
+                include the recipient address and the exact email while a send is pending or its result is uncertain.
+                Unsubscribe prevents further sends. We do not
+                add notification cookies or store guest email addresses in your browser.
+            </p>
+
             <h3>Rewrite suggestions</h3>
             <p>
                 When you ask for rewrite suggestions for selected text, that text and your instruction (if you
@@ -201,7 +223,8 @@ export default function PrivacyPolicyPage() {
             <h2>Where it is stored and who processes it</h2>
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
-                <li>Sign-in and invitation emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.

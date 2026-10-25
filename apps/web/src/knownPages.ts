@@ -9,6 +9,7 @@ export const KnownPages = {
     OpenSource: '/open-source',
     Security: '/security',
     Status: '/status',
+    Notifications: '/notifications',
 
     App: '/app',
     AppSignIn: '/app/sign-in',
