@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { toolbarConfig } from '../config';
-import { apiRequest, required } from '../hooks/api';
+import { apiRequest, currentReviewerRevision, required } from '../hooks/api';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 
 type State = { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
@@ -14,7 +14,7 @@ export function ThreadNotifications({ commentId, itemCount }: { commentId: strin
     const [editing, setEditing] = useState(false);
     const [verificationUrl, setVerificationUrl] = useState<string>();
     const url = `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/comments/${encodeURIComponent(commentId)}/notifications`;
-    const query = useQuery({ queryKey: ['thread-notifications', commentId, itemCount], queryFn: async () => required(await apiRequest<State>(url)) });
+    const query = useQuery({ queryKey: ['thread-notifications', currentReviewerRevision(), commentId, itemCount], queryFn: async () => required(await apiRequest<State>(url)) });
     const follow = useMutation({
         mutationFn: async (following: boolean) => apiRequest<{ verificationUrl?: string }>(url, { method: 'POST', body: { following, ...(email ? { email } : {}) } }),
         onSuccess: async result => { setVerificationUrl(result?.verificationUrl); setEditing(false); await query.refetch(); }
@@ -23,7 +23,7 @@ export function ThreadNotifications({ commentId, itemCount }: { commentId: strin
         mutationFn: async () => apiRequest(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/notifications`, { method: 'POST', body: { muted: !query.data?.muted } }),
         onSuccess: async () => { await client.invalidateQueries({ queryKey: ['thread-notifications'] }); }
     });
-    const state = query.data;
+    const state = query.error ? undefined : query.data;
     if (!state?.eligible) return null;
     return <div className="flex flex-col gap-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">
