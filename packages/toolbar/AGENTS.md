@@ -122,14 +122,6 @@ Never infer recipients from display names or reveal account ids in guest DTOs.
   The unread inbox requests `scope=site&unread=true`, including old threads outside the newest list.
   Refresh and mutation paths must invalidate the activity summary as well as page/site lists.
 
-## Feedback export
-
-`components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
-Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model and deterministic
-formatter for toolbar/app and future integrations. Authorization and private-field projection
-belong on the server; never format a raw document or browser location for export. See
-[the shared contract](../../docs/feedback-context.md).
-
 ## Anchor recovery
 
 `CommentAnchorDetails` explains resolution and exposes author/admin reattachment in thread details.
@@ -138,3 +130,11 @@ and compact instructions while choosing. The saved thread is changed only after 
 cancels choosing. Anchor updates use `PATCH .../anchor`, the saved page key and expected revision.
 Keep original and previous context, and never invent fallback pins for missing or ambiguous targets.
 `e2e/reattach*.spec.ts` covers recovery, access, races, layout changes and light/dark accessibility.
+
+## Feedback export
+
+`components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
+Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model and deterministic
+formatter for toolbar/app and future integrations. Authorization and private-field projection
+belong on the server; never format a raw document or browser location for export. See
+[the shared contract](../../docs/feedback-context.md).

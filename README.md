@@ -876,14 +876,6 @@ authorized mutation and record recipients through the shared notification outbox
 text or actor ids. `GET .../comments?scope=site&unread=true` selects unread threads from the full
 activity projection before fetching a bounded content batch. Both use the same private/access checks.
 
-### Copy feedback as an issue
-
-Saved thread details in the toolbar and app offer **Copy issue**: exact saved feedback, quotes,
-anchor, permitted links, original permitted browser context, discussion and protected screenshot
-references in one Markdown packet. Clipboard failures offer selectable Markdown. This is an explicit
-export; it does not publish to a tracker. The shared versioned model and access rules are documented
-in [Feedback context](docs/feedback-context.md).
-
 ### Missing anchors and reattachment
 
 Thread details distinguish exact positions, uniquely restored text, temporarily hidden targets, missing
@@ -900,3 +892,11 @@ external processing is added. Server checks enforce partition/project, author/ad
 page key, original allowed origin and existing selector/offset limits. ETag retries retain concurrent
 replies/status changes and recheck authorization; anchor revisions reject stale choices. No cross-page
 migration or AI relocation is provided.
+
+### Copy feedback as an issue
+
+Saved thread details in the toolbar and app offer **Copy issue**: exact saved feedback, quotes,
+anchor, permitted links, original permitted browser context, discussion and protected screenshot
+references in one Markdown packet. Clipboard failures offer selectable Markdown. This is an explicit
+export; it does not publish to a tracker. The shared versioned model and access rules are documented
+in [Feedback context](docs/feedback-context.md).
