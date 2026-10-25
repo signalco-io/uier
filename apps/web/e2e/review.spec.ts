@@ -12,8 +12,7 @@ import {
 import { expectNoAxeViolations } from './accessibility';
 
 // Review links, the review session and the toolbar's own controls (collapse, profile, options).
-// Other pages of uier.io don't embed the toolbar, so these tests add the script like a reviewed
-// site would (review mode).
+// Public pages also run the showcase. Unknown routes stand in for a reviewed site without it.
 
 const options = (page: Page) => page.getByRole('dialog', { name: 'Options' });
 
@@ -25,7 +24,7 @@ async function openOptions(page: Page) {
 
 test('a review link starts a review for the tab; Exit review ends it', async ({ page, baseURL }) => {
     // Without a review link the toolbar stays away
-    await page.goto('/brand');
+    await page.goto('/e2e-another-page');
     await addToolbarScript(page);
     await expect(page.locator('#uier-toolbar')).toHaveCount(0);
 
@@ -68,7 +67,7 @@ test('a review link starts a review for the tab; Exit review ends it', async ({ 
     expect(new URL(page.url()).search).toBe('?tab=tokens');
 
     // A code that can't be a project code starts nothing
-    await page.goto('/brand?toolbar-code=%3Cscript%3E');
+    await page.goto('/e2e-another-page?toolbar-code=%3Cscript%3E');
     await addToolbarScript(page);
     await expect(page.locator('#uier-toolbar')).toHaveCount(0);
 });

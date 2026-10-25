@@ -53,7 +53,7 @@ test('toolbar runs on the landing page without ?review=true', async ({ browser }
     const hint = showcaseHint(page);
     await expect(hint).toBeVisible();
     await expect(hint).toContainText(/(Click|Tap) the \+ button, or select text, to leave feedback\./);
-    await expect(hint).toContainText('Anyone can see and reply to comments. They are deleted after 90 days.');
+    await expect(hint).toContainText('Visitor threads are deleted after 90 days. Starter threads and their replies stay.');
     await hint.getByRole('button', { name: 'Got it' }).focus();
     await page.keyboard.press('Enter');
     await expect(hint).toBeHidden();

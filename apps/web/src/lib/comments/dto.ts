@@ -115,7 +115,7 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
         id: String(item.id),
         text: optionalString(item.text) ?? '',
         quotedText: optionalString(item.quotedText),
-        author: toAuthorDto(optionalString(item.authorId), visitorAuthorId),
+        author: { ...toAuthorDto(optionalString(item.authorId), visitorAuthorId), ...(item.authorName ? { name: item.authorName } : {}) },
         createdAt: optionalString(item.createdAt)
     };
 }

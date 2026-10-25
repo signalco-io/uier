@@ -5,6 +5,7 @@ import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type Proj
 import { memberCanAccessProject } from './workspaces';
 import type { AppContext } from './context';
 import { MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
+import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 
 const MAX_URL_LENGTH = 512;
 
@@ -106,6 +107,8 @@ export async function getProject(workspaceId: string, projectId: string) {
 export async function findProject(projectId: string) {
     if (!isProjectId(projectId))
         return null;
+    if (projectId === PUBLIC_PROJECT_ID)
+        await ensurePublicProject();
     const ref = (await getAppStore().get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
     return ref ? await getProject(ref.workspaceId, projectId) : null;
 }

@@ -20,7 +20,7 @@ export default function RootLayout({ children }: {
                     <ClientProvider>
                         {children}
                         <Analytics />
-                        {/* Review toolbar from the local packages/toolbar dev server (`pnpm dev`); the landing page embeds it in showcase mode */}
+                        {/* Review toolbar from the local packages/toolbar dev server (`pnpm dev`); the public layout embeds it in showcase mode */}
                         {isDevelopment && <DevReviewToolbarScript />}
                     </ClientProvider>
                 </AuthProvider>

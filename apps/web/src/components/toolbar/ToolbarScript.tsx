@@ -1,7 +1,7 @@
 import { UierToolbar } from '@uier/toolbar/react';
 
 /**
- * - `showcase`: always mounted, anyone can leave public feedback (the landing page)
+ * - `showcase`: always mounted, anyone can leave public feedback (every public page)
  * - `review`: mounted when the page is opened with a review link (`?toolbar-code=...` or `?review=true`)
  */
 export type ToolbarMode = 'showcase' | 'review';

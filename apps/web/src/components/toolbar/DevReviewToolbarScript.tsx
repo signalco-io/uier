@@ -5,12 +5,11 @@ import { KnownPages } from '../../knownPages';
 import { ToolbarScript } from './ToolbarScript';
 
 /**
- * `next dev` only: the toolbar in review mode (`?review=true`) on every page except the landing
- * page, which embeds it in showcase mode itself.
+ * `next dev` only: review mode in the app. The public marketing layout embeds showcase mode.
  */
 export function DevReviewToolbarScript() {
     const pathname = usePathname();
-    if (pathname === KnownPages.Landing) {
+    if (!pathname.startsWith(KnownPages.App)) {
         return null;
     }
 

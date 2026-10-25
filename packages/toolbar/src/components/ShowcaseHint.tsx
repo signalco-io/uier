@@ -105,7 +105,7 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
                 </Typography>
                 <Typography level="body2" className="text-foreground">
                     {coarsePointer ? 'Tap' : 'Click'} the + button, or select text, to leave feedback.
-                    Anyone can see and reply to comments. They are deleted after 90 days.
+                    Anyone can see and reply to comments. Visitor threads are deleted after 90 days. Starter threads and their replies stay.
                 </Typography>
                 <Row justifyContent="end">
                     <Button variant="solid" size="sm" onClick={handleDismiss}>

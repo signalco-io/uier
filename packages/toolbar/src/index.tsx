@@ -95,8 +95,8 @@ function whenBodyReady(callback: () => void) {
 }
 
 if (toolbarConfig.mode === 'showcase') {
-    console.debug('uier-toolbar: Showcase mode, mounting...');
-    whenBodyReady(() => MountOnPage('showcase', null));
+    const review = resolveReviewSession();
+    whenBodyReady(() => MountOnPage(review ? 'review' : 'showcase', review));
 } else {
     console.debug('uier-toolbar: Checking for a review link...');
     const review = resolveReviewSession();

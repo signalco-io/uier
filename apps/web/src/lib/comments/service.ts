@@ -15,6 +15,7 @@ import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, t
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from './publicProject';
 
 const MAX_UPDATE_ATTEMPTS = 8;
 
@@ -26,7 +27,7 @@ function nowIso() {
  * 90 days in the production container. Any other container (`comments-preview`) keeps its own,
  * shorter default TTL: a per-item ttl would override it.
  */
-function commentTtlSeconds() {
+export function commentTtlSeconds() {
     return commentsContainerName() === DEFAULT_COMMENTS_CONTAINER_NAME ? COMMENT_TTL_SECONDS : undefined;
 }
 
@@ -121,9 +122,16 @@ async function updateComment<T extends DbComment | null>(
  */
 export async function listComments(context: CommentsApiContext, path: string | null) {
     const store = getCommentsStore();
-    const comments = path === null
+    let comments = path === null
         ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
         : await store.list(context.domain, path, MAX_LIST_COMMENTS);
+    // The initial threads stay visible even when the page has more than one list of feedback.
+    if (context.domain === PUBLIC_PROJECT_PARTITION && (path === null || path === '/')) {
+        const starters = (await Promise.all([HEADLINE_COMMENT_ID, STEP_COMMENT_ID].map(id => store.get(context.domain, id))))
+            .flatMap(stored => stored ? [stored.comment] : []);
+        const ids = new Set(starters.map(comment => comment.id));
+        comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
+    }
     return withinListResponseSize(comments
         .map(comment => toCommentDto(comment, context.visitor.authorId))
         .filter((dto): dto is CommentDto => Boolean(dto)));
@@ -201,6 +209,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const comment: DbComment = {
         id: `comment_${nanoid()}`,
         domain: context.domain,
+        ...(context.domain === PUBLIC_PROJECT_PARTITION ? { projectId: PUBLIC_PROJECT_ID } : {}),
         path: input.path,
         position: input.position,
         number: await store.nextCommentNumber(context.domain),

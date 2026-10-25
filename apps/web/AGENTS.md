@@ -23,7 +23,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
-| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo`) |
+| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo` remains a visual specimen on `/brand`; the landing thread is live) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
@@ -58,7 +58,7 @@ that the assets (favicon, icons, manifest, OG image) are served, and that it pas
 ## Landing page
 
 Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
-review layer is shown on the page itself (`ReviewThreadDemo` and `<Pin />`), one solid
+review layer is shown with persisted starter threads (the toolbar renders `data-uier-thread` slots, pins and highlights), one solid
 "Get started" and one outlined secondary action, no badges above the headline.
 
 Sections, in order, each with an `h2` whose id the navigation and footer link to (`KnownPages`):
@@ -66,8 +66,8 @@ how it works (`#how-it-works`), features (`#features`), get started (`#get-start
 (`#pricing`, `LandingPricing`) and questions (`#faq`, `LandingFaq`, native `<details>`).
 
 - **Only what the toolbar does today.** Every step, feature and answer describes behaviour you can
-  try on the page (check `packages/toolbar` before adding one). Not claimed, because it is not
-  shown by the showcase: the inbox's other pages (the showcase is the landing page only). Project
+  try on the page (check `packages/toolbar` before adding one). The showcase runs on every public
+  marketing page and its inbox includes other public pages. Project
   embeds work on their configured addresses, with headers for identity and BotID proofs for writes.
 - **Get started** goes to `#get-started`, which starts the one supported flow: leaving a comment
   with the showcase toolbar on this page. Point it at the app (and update the test) once
@@ -140,8 +140,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 `app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with a
 review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
-see the real toolbar on top of it. uier.io's own pages have no project (no `data-uier-project`), so
-their comments are stored per domain whichever link started the review. On a project's site the
+see the real toolbar on top of it. uier.io's public marketing layout embeds showcase mode on every page, using the same-origin cookie API
+backed by the static project `uier00000001`. `src/lib/comments/publicProject.ts` provisions its workspace,
+project and permanent starter threads on first use, and copies legacy production feedback once. New
+visitor threads expire after 90 days; starter threads and their replies do not expire. Local subdomains
+retain independent host partitions for tests. On a project's site the
 script's `data-uier-project` decides the project, and `?review=true` there reviews that project
-(`e2e/project-review.spec.ts`). The landing page embeds the toolbar with its React component
+(`e2e/project-review.spec.ts`). The marketing layout embeds the toolbar with its React component
 (`@uier/toolbar/react`, see `ToolbarScript`).

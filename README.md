@@ -3,7 +3,7 @@
 [uier.io](https://uier.io) lets you review a live website by leaving comments directly on the page.
 A small toolbar is injected into the page (inside a shadow DOM, so it neither inherits nor leaks
 styles), comments are pinned to page elements or selected text and stored per domain.
-The uier.io landing page runs the toolbar itself as a [showcase](#landing-page-showcase-and-public-feedback):
+Every public uier.io page runs the toolbar itself as a [showcase](#landing-page-showcase-and-public-feedback):
 anyone can try it and leave public feedback.
 
 This repository contains:
@@ -71,11 +71,9 @@ pnpm dev
 | http://localhost:4004 | `apps/web` (Next.js dev server) |
 | http://localhost:4005/index.js | `packages/toolbar` (tsup watch build served from `dist/`); the web app loads this script instead of `/toolbar.js` |
 
-- On the landing page (http://localhost:4004/) the toolbar runs in **showcase** mode: always mounted,
-  with the first-run hint.
-- On every other page it runs in **review** mode and mounts only when the page is opened with a review link
-  (`?toolbar-code=<project code>` or `?review=true`, e.g. http://localhost:4004/brand?review=true); the review
-  then continues in that tab until "Exit review".
+- Every public page runs in **showcase** mode: always mounted, with the first-run hint.
+- Review links (`?toolbar-code=<project code>` or `?review=true`) start **review** mode instead; the
+  review continues in that tab until "Exit review". In development the signed-in app loads review mode only.
 - Open the app on `localhost` (not `127.0.0.1`): the development toolbar build always talks to the local
   comments API on http://localhost:4004/api/comments, never to uier.io.
 
@@ -245,7 +243,7 @@ set by Pulumi). Links in emails use `https://uier.io` in production and the depl
 
 ## Landing page showcase and public feedback
 
-The landing page (`/`) embeds the toolbar the same way a customer site would, in **showcase** mode:
+Every public page embeds the toolbar from the marketing layout in **showcase** mode:
 
 ```html
 <script src="/toolbar.js" data-uier-mode="showcase"></script>
@@ -253,10 +251,23 @@ The landing page (`/`) embeds the toolbar the same way a customer site would, in
 
 ([`ToolbarScript`](apps/web/src/components/toolbar/ToolbarScript.tsx), which renders the toolbar's React component
 `<UierToolbar mode="showcase" />` from `@uier/toolbar/react`). The toolbar
-is always mounted there and shows a dismissible first-run hint; anonymous visitors can leave point comments,
+is always mounted on public pages and shows a dismissible first-run hint; anonymous visitors can leave point comments,
 text-selection comments and replies. **Feedback is public**: every visitor sees every unresolved comment on
 the page and can reply to it. Embedding options and the toolbar's modes are described in
 [`packages/toolbar/README.md`](packages/toolbar/README.md).
+
+The static project `uier00000001` and workspace `w_uier_public` are created in the deployment's
+`app` container on the first public API request. The two starter threads are created in `comments`
+with stable ids and `ttl: -1` (no expiry). Provisioning is create-only and safe across concurrent
+cold starts: it preserves replies, status and numbers. Production feedback previously stored under
+`uier.io` is copied once, with a persistent migration receipt; source records remain untouched.
+Previews use only their configured preview containers. Local subdomains keep independent, unseeded
+partitions for testing.
+
+The hero's `data-uier-thread="comment_uier_headline"` slot renders a live thread in an open shadow
+root, sharing the toolbar's components, queries and anonymous visitor cookie. Both hero pins and the
+text highlight come from stored comments. The inbox includes other public pages. Explicit review
+links still start review mode; the signed-in app does not automatically publish a showcase.
 
 ### `/toolbar.js`
 
@@ -307,7 +318,7 @@ same-origin showcase only. Failed comment loads show a message and a retry actio
 
 [`apps/web/app/api/comments`](apps/web/app/api/comments), implemented in
 [`apps/web/src/lib/comments`](apps/web/src/lib/comments). JSON in and out; comments are partitioned by the
-request's `Host` (the Cosmos DB partition key `domain`) and stored per page path (without query string and
+public project (`project:uier00000001`, the Cosmos DB partition key `domain`) and stored per page path (without query string and
 trailing slash).
 
 | Request | Body | Response |
@@ -396,9 +407,10 @@ request is treated as human and `UIER_BOTID_DEV_BYPASS=BAD-BOT` simulates a bot 
 path. Anything else fails closed: a deployment where BotID can't verify (for example without the project's OIDC
 token) rejects writes with `500`.
 
-**Retention.** Comments in the `comments` container carry a Cosmos DB per-item `ttl`: they expire **90 days**
+**Retention.** Starter threads (`comment_uier_headline`, `comment_uier_first_step`) and their replies
+never expire (`ttl: -1`). New visitor threads in the `comments` container carry a Cosmos DB per-item `ttl`: they expire **90 days**
 after their last change. The container has `defaultTtl: -1` (TTL enabled, nothing expires without its own
-`ttl`). Comments in `comments-preview` have no per-item `ttl` and expire with the container default (7 days).
+`ttl`). New visitor threads in `comments-preview` have no per-item `ttl` and expire with the container default (7 days).
 
 **Storage.**
 

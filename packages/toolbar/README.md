@@ -23,8 +23,8 @@ showcase mode and no project:
 <script src="https://uier.io/toolbar.js" data-uier-mode="showcase" defer></script>
 ```
 
-Cross-site embeds require a project. Without one, `/api/comments` stores comments per domain for the
-same-origin showcase on uier.io and local development. Failed comment loads show a message and a retry action.
+Cross-site embeds require a project. Without one, `/api/comments` uses the static public project for the same-origin showcase on
+uier.io. Local subdomains keep separate host partitions. Failed comment loads show a message and a retry action.
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:
@@ -48,7 +48,7 @@ Render it once, for example in the root layout; it renders nothing itself:
 import { UierToolbar } from '@uier/toolbar/react';
 
 <UierToolbar project="<project code>" />          // a reviewed site: review mode, https://uier.io/toolbar.js
-<UierToolbar mode="showcase" src="/toolbar.js" /> // how the uier.io landing page embeds it
+<UierToolbar mode="showcase" src="/toolbar.js" /> // how uier.io public pages embed it
 ```
 
 Props: `mode` (`review` or `showcase`), `project` (`data-uier-project`), `src` (script URL, default
@@ -114,7 +114,7 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
 ### Modes
 
 - `review` mode mounts the toolbar only for a review (see above).
-- `showcase` mode (the uier landing page) always mounts it and shows a dismissible first-run hint above the
+- `showcase` mode (uier.io public pages) always mounts it and shows a dismissible first-run hint above the
   toolbar (dismissal is remembered in `localStorage`, key `uier:showcase-hint-dismissed`; the "About uier"
   button shows it again). The hint also closes, and stays closed, once the visitor starts a comment.
 - The API base URL defaults to the origin of the toolbar script (`document.currentScript.src`), so a
@@ -191,13 +191,12 @@ error boundary, so one bad comment never breaks the toolbar.
   the inbox for a done thread or feedback. The parameter is then removed from the address. Done threads have
   no pin; the inbox lists them under "Done".
 - The inbox (the pill's inbox button opens and closes it; Esc and the close button close it too) lists
-  **This page** and, in a review, the site's **Other pages** (`?scope=site`), newest first.
+  **This page** and the site's **Other pages** (`?scope=site`), newest first.
   **Open**, **Done** and **All** filter by status, and the search box matches messages, quoted text, guest
   names, page paths and public ids. A thread shows its first and last message; **Show all** shows the rest.
   **Show on page** (only while the comment's pin can be placed) opens an open comment's thread on its pin; a
   comment on another page links to its thread there (`?uier-comment=`, always on this site). The status and
-  search are kept while the inbox is closed; Escape clears a search first. The showcase runs on the landing
-  page only, so it has no other pages.
+  search are kept while the inbox is closed; Escape clears a search first. The showcase includes other public pages too.
 
 ## UI and styles
 

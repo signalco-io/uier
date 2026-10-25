@@ -31,7 +31,7 @@ const questions: { question: string; answer: ReactNode }[] = [
     },
     {
         question: 'How long are comments kept?',
-        answer: <>Comments on this page: 90 days after their last change, then they are deleted automatically. Comments in your projects stay until you delete them. You can delete your own comments at any time.</>
+        answer: <>Visitor threads on this site: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. Comments in your projects stay until you delete them. You can delete your own comments at any time.</>
     },
     {
         question: 'What does it cost?',
