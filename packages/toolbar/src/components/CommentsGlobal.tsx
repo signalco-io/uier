@@ -16,6 +16,7 @@ import { InlineCommentThreads } from './InlineCommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { InkScope } from './InkScope';
+import { Toaster } from './Toaster';
 import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
@@ -360,10 +361,17 @@ export function CommentsGlobal({
         setSidebarOpen(true);
     };
 
-    // A posted comment shows its thread
-    const handleCreated = (comment: CommentItem, draftKey: number) => {
+    // A posted comment shows its thread (at once: its pin is there while it is sent)
+    const handleCreated = (commentId: string, draftKey: number) => {
         removeCreatingComment(draftKey);
-        setOpenComment({ id: comment.id });
+        setOpenComment({ id: commentId });
+    };
+    // It was not posted: the draft, with its text back, is on the page again
+    const restoreCreatingComment = (kind: CommentDraft['kind'], sendError: unknown) => {
+        const saved = drafts.details(kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey);
+        if (!saved?.text.trim() || !saved.anchor) return;
+        draftKeyRef.current += 1;
+        setCreatingComment({ ...saved.anchor, key: draftKeyRef.current, sendError });
     };
     const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
 
@@ -460,7 +468,7 @@ export function CommentsGlobal({
             {!collapsed && pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">
                     {pinnedComments.map((commentItem) => (
-                        <CommentErrorBoundary key={commentItem.id} commentId={commentItem.id}>
+                        <CommentErrorBoundary key={commentItem.localKey ?? commentItem.id} commentId={commentItem.id}>
                             <CommentBubble
                                 commentItem={commentItem}
                                 onOpenStateChange={handleThreadOpenState}
@@ -476,7 +484,8 @@ export function CommentsGlobal({
                         draft={creatingComment}
                         initiallyClosed={creatingComment.initiallyClosed}
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
-                        onCreated={comment => handleCreated(comment, creatingComment.key)}
+                        onCreated={commentId => handleCreated(commentId, creatingComment.key)}
+                        onSendFailed={error => restoreCreatingComment(creatingComment.kind, error)}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>
             ))}
@@ -514,7 +523,7 @@ export function CommentsGlobal({
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
                 sidebarOpen={sidebarOpen}
-                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                onToggleSidebar={() => sidebarOpen ? handleCloseSidebar() : setSidebarOpen(true)}
                 onMoveStart={() => {
                     setCreatingCommentPoint(false);
                     setCreatingCommentSelection(undefined);
@@ -533,6 +542,7 @@ export function CommentsGlobal({
             {mode === 'showcase' && hintOpen && !collapsed && (
                 <ShowcaseHint id={hintId} pointAtRef={addButtonRef} onDismiss={handleDismissHint} />
             )}
+            <Toaster />
         </>
     );
 }

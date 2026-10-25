@@ -85,7 +85,7 @@ test('inbox docks on either side with mouse or touch without losing filters or r
     await expect(inbox.getByRole('searchbox')).toHaveValue('discussion');
     await drag(page, handle, { x: 920, y: 100 }, Boolean(testInfo.project.use.hasTouch));
     await expect(inbox).toHaveAttribute('data-side', 'right');
-    await inbox.getByRole('button', { name: 'Move to left side' }).click();
+    await handle.press('ArrowLeft');
     await expect(inbox).toHaveAttribute('data-side', 'left');
     await handle.press('ArrowRight');
     await expect(inbox).toHaveAttribute('data-side', 'right');

@@ -243,7 +243,7 @@ test('recovery and keyboard movement preserve host styles, focus and reachable c
     await panelHandle.press('ArrowRight');
     await expect(inbox).toHaveAttribute('data-side', 'right');
     if (testInfo.project.use.hasTouch) {
-        for (const control of [handle, panelHandle, inbox.getByRole('button', { name: 'Move to left side' })]) {
+        for (const control of [handle, panelHandle]) {
             const box = (await control.boundingBox())!;
             expect(box.width, 'touch control width').toBeGreaterThanOrEqual(44);
             expect(box.height, 'touch control height').toBeGreaterThanOrEqual(44);

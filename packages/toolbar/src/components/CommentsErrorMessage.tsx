@@ -1,5 +1,5 @@
 import { cx } from '@signalco/ui-primitives/cx';
-import { CommentsApiError } from '../hooks/useComments';
+import { CommentsApiError } from '../hooks/api';
 import { commentTextMaxLength, destructiveTextClassName } from './@types/Comments';
 
 /** "in 30 seconds", "in 5 minutes", "in about an hour" */

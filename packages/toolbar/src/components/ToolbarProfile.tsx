@@ -11,18 +11,21 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { UserCircle } from '@signalco/ui-icons';
 import { useVisitor } from '../hooks/useVisitor';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useInkContainer } from './InkScope';
 import { avatarText } from './CommentThreadItem';
 import { floatingShadowClassName } from './@types/Comments';
 
 /** The toolbar's profile button: who the visitor comments as */
 export function ToolbarProfile() {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    // Dark like the pill it opens from
+    const container = useInkContainer() ?? rootElement;
     const { query } = useVisitor();
     const name = query.data?.name;
 
     return (
         <Popper
-            container={rootElement}
+            container={container}
             side="top"
             sideOffset={12}
             aria-label="Profile"

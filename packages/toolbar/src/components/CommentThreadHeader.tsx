@@ -84,14 +84,15 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                             {done ? 'Reopen' : 'Mark as done'}
                         </Button>
                     )}
-                    <IconButton
+                    {/* A comment on its way has no link yet */}
+                    {!comment.pending && <IconButton
                         size="xs"
                         variant="plain"
                         title="Copy link"
                         aria-label="Copy link"
                         onClick={handleCopyLink}>
                         <Link size={16} />
-                    </IconButton>
+                    </IconButton>}
                 </Row>
             </Row>
             <CommentsErrorMessage error={resolve.error} />

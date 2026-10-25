@@ -11,6 +11,7 @@ import { Close, ExternalLink, LogOut, MoreHorizontal } from '@signalco/ui-icons'
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useInkContainer } from './InkScope';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { floatingShadowClassName } from './@types/Comments';
@@ -29,6 +30,8 @@ type ToolbarOptionsProps = {
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
     const { rootElement, mode } = useContext(CommentsBootstrapperContext);
+    // Dark like the pill it opens from
+    const container = useInkContainer() ?? rootElement;
     const drafts = useDrafts();
     const { query: visitor, signOut } = useVisitor({ onSignedOut: () => drafts.clear() });
     const announce = useAnnounce();
@@ -72,7 +75,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
 
     return (
         <Popper
-            container={rootElement}
+            container={container}
             open={open}
             onOpenChange={handleOpenChange}
             side="top"

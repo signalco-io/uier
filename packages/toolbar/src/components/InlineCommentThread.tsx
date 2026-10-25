@@ -2,7 +2,6 @@ import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { useComments } from '../hooks/useComments';
-import { useDrafts } from '../hooks/useDrafts';
 import { useLayoutVersion } from '../hooks/useLayoutVersion';
 import { useAnnounce } from './Announcer';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
@@ -15,7 +14,6 @@ import type { CommentItem } from './@types/Comments';
 function InlineCommentThread({ comment, target }: { comment: CommentItem; target: HTMLElement }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const { reply } = useComments();
-    const drafts = useDrafts();
     const announce = useAnnounce();
     const [container, setContainer] = useState<HTMLElement>();
 
@@ -49,11 +47,10 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
             <Divider />
             <CommentComposer
                 label="Reply to the headline" placeholder="Reply..." submitLabel="Post reply"
-                draftKey={comment.id} pending={reply.isPending} error={reply.error}
+                draftKey={comment.id} error={reply.error}
                 commentId={comment.id}
                 onSubmit={async (text, mentions) => {
                     await reply.mutateAsync({ commentId: comment.id, text, mentions });
-                    drafts.delete(comment.id);
                     announce('Reply posted');
                 }} />
         </section>, container);

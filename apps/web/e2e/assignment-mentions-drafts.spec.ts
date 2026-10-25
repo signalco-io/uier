@@ -33,7 +33,8 @@ test('selected mentions recover with their draft and an unchanged lost-response 
         } else await route.continue();
     });
     await page.getByRole('button', { name: 'Post comment', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('Check your connection');
+    // The draft is back with its text (a toast says it too)
+    await expect(page.getByRole('dialog', { name: 'New comment', exact: true }).getByRole('alert')).toContainText('Check your connection');
     await expect(composer).toHaveValue(text);
     await page.reload();
     const recovered = page.locator('[data-uier-comment="new"]');

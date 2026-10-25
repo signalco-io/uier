@@ -97,5 +97,6 @@ test('a guest project review recovers lost create/reply responses across reload 
     await page.unroute(replyEndpoint);
     await thread.getByRole('button', { name: 'Post reply' }).click();
     await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
-    expect((await (await read()).json())[0].thread.items).toHaveLength(2);
+    // Sent in the background
+    await expect.poll(async () => (await (await read()).json())[0].thread.items.length).toBe(2);
 });

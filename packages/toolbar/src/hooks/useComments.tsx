@@ -2,10 +2,13 @@ import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
-import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind, Mention } from '../components/@types/Comments';
+import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentItemThreadItem, CommentKind, Mention } from '../components/@types/Comments';
 import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
+import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
+import { getCommentsErrorMessage } from '../components/CommentsErrorMessage';
+import { showErrorToast } from '../components/Toaster';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -26,6 +29,8 @@ export function commentUrl(commentId: string) {
 
 export type CreateCommentInput = {
     idempotencyKey?: string;
+    /** The temporary id the comment is shown with until the API saved it (`newLocalId()`) */
+    localId?: string;
     position: CommentItemPosition;
     /** `comment` (default) for pinned comments; `feedback` and `bug` with a `page` position */
     kind?: CommentKind;
@@ -33,19 +38,91 @@ export type CreateCommentInput = {
     mentions?: Mention[];
     quotedText?: string;
     device?: CommentDeviceInfo;
-    /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts) */
-    screenshot?: string;
+    /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts); awaited while sending */
+    screenshot?: string | Promise<string | undefined>;
 };
+
+type ReplyInput = { commentId: string; text: string; mentions?: Mention[] };
+
+/*
+ * Optimistic comments and replies: shown at once, sent in the background. A list fetched while
+ * one is on its way keeps it (`withPending`), until the API's version replaces it; a failure
+ * removes it and says so in a toast (the composer puts the text back in the draft).
+ */
+const pendingComments = new Map<string, CommentItem>();
+const pendingReplies = new Map<string, CommentItemThreadItem[]>();
+// A saved comment keeps the temporary id it had as its `localKey` (its pin stays the same component)
+const localKeys = new Map<string, string>();
+
+/** A temporary id for a comment or reply that is not saved yet */
+export function newLocalId() {
+    return `pending-${Array.from(crypto.getRandomValues(new Uint8Array(12)), value => value.toString(16).padStart(2, '0')).join('')}`;
+}
+
+const sameText = (item: CommentItemThreadItem | undefined, text: string) => Boolean(item && !item.deleted && item.author.isMe && item.text === text);
+
+/** A saved comment with its local key and the replies to it that are still on their way */
+function applyPending(comment: CommentItem): CommentItem {
+    const localKey = localKeys.get(comment.id);
+    const replies = pendingReplies.get(comment.id)?.filter(reply => !reply.deleted && !comment.thread.items.some(item => sameText(item, reply.text)));
+    if (!localKey && !replies?.length) return comment;
+    return { ...comment, ...(localKey ? { localKey } : {}), ...(replies?.length ? { thread: { items: [...comment.thread.items, ...replies] } } : {}) };
+}
+
+/** A fetched list, with the comments (of the list, `include`) that are still on their way */
+function withPending(comments: CommentItem[], include: (comment: CommentItem) => boolean) {
+    const waiting = [...pendingComments.values()].filter(pending => {
+        const first = pending.thread.items[0];
+        return include(pending) && !comments.some(comment => comment.isMine && comment.kind === pending.kind && comment.path === pending.path
+            && first && !first.deleted && sameText(comment.thread.items[0], first.text));
+    });
+    return [...waiting, ...comments.map(applyPending)];
+}
+
+/** The temporary comment, shown until the API returns the saved one */
+function optimisticComment(path: string, input: CreateCommentInput, authorName: string): CommentItem {
+    const createdAt = new Date().toISOString();
+    const id = input.localId ?? newLocalId();
+    return {
+        id, path, position: input.position, kind: input.kind ?? 'comment', pending: true,
+        thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
+        device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
+        resolved: false, isMine: true, createdAt,
+        // Nothing to change before it is saved
+        permissions: { resolve: false, delete: false, edit: false, assign: false }
+    };
+}
+
+/** The saved comment in place of its temporary one (or added, when the list did not have it) */
+function replacePending(comments: CommentItem[], localId: string, saved: CommentItem) {
+    const has = comments.some(comment => comment.id === saved.id);
+    return comments.flatMap(comment => comment.id === localId
+        ? has ? [] : [saved]
+        : comment.id === saved.id ? [mergeReadCursor(saved, comment.activity?.readSequence)] : [comment]);
+}
+
+const notSent: Record<CommentKind | 'reply', string> = {
+    comment: 'Your comment wasn\'t posted',
+    rewrite: 'Your suggestion wasn\'t posted',
+    feedback: 'Your feedback wasn\'t sent',
+    bug: 'Your bug report wasn\'t sent',
+    reply: 'Your reply wasn\'t posted'
+};
+
+function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
+    const reason = getCommentsErrorMessage(error);
+    showErrorToast(notSent[kind], /kept/.test(reason) ? reason : `${reason} Your text is kept.`);
+}
 
 async function getComments(path: string, client: QueryClient) {
     const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}`);
-    return reconcileReads(client, Array.isArray(comments) ? comments : []);
+    return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), comment => comment.path === path);
 }
 
 async function createComment(path: string, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, position, kind, text, mentions, quotedText, device, screenshot, authorName: guestAuthorName() }
+        body: { idempotencyKey, path, position, kind, text, mentions, quotedText, device, screenshot: await screenshot, authorName: guestAuthorName() }
     }));
 }
 
@@ -89,7 +166,7 @@ async function editMessage({ commentId, itemId, text, expectedText, mentions }: 
 
 async function getSiteComments(client: QueryClient, unreadOnly: boolean) {
     const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site${unreadOnly ? '&unread=true' : ''}`);
-    return reconcileReads(client, Array.isArray(comments) ? comments : []);
+    return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
 }
 
 export function commentsQueryKey(path: string) {
@@ -127,8 +204,8 @@ export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryR
 export function useComments(refreshOnMount = false): {
     path: string;
     query: UseQueryResult<CommentItem[], Error>;
-    create: UseMutationResult<CommentItem, Error, CreateCommentInput, unknown>;
-    reply: UseMutationResult<CommentItem, Error, { commentId: string; text: string; mentions?: Mention[] }, unknown>;
+    create: UseMutationResult<CommentItem, Error, CreateCommentInput, { localId: string }>;
+    reply: UseMutationResult<CommentItem, Error, ReplyInput, { itemId: string }>;
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
@@ -152,7 +229,7 @@ export function useComments(refreshOnMount = false): {
 
     // A comment can be on another page (the inbox lists the whole site): every list that has it
     const handleCommentChanged = (comment: CommentItem) => {
-        updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? mergeReadCursor(comment, c.activity?.readSequence) : c));
+        updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? mergeReadCursor(applyPending(comment), c.activity?.readSequence) : c));
     };
     const handleCommentDeleted = (commentId: string) => {
         updateAllCachedComments(client, (comments) => comments.filter(c => c.id !== commentId));
@@ -169,25 +246,74 @@ export function useComments(refreshOnMount = false): {
         client.invalidateQueries({ queryKey: visitorQueryKey });
     };
 
+    // The visitor's name on what they just wrote, until the API returns it
+    const authorName = () => client.getQueryData<Visitor>(visitorQueryKey)?.name ?? guestAuthorName() ?? 'You';
+
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => {
             const key = input.kind === 'rewrite' ? newRewriteDraftKey : input.kind === 'feedback' || input.kind === 'bug' ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
-            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, ...content } = input;
+            // The same content is the same attempt (a retry the API can recognize), whatever its local id
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, ...content } = input;
             return createComment(path, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content })) });
         },
-        onSuccess: (comment: CommentItem) => {
-            client.setQueryData<CommentItem[]>(queryKey, (current) => withComment(current ?? [], comment));
-            client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && withComment(current, comment));
+        onMutate: (input: CreateCommentInput) => {
+            const comment = optimisticComment(path, input, authorName());
+            pendingComments.set(comment.id, comment);
+            client.setQueryData<CommentItem[]>(queryKey, (current) => [comment, ...(current ?? [])]);
+            client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && [comment, ...current]);
+            return { localId: comment.id };
+        },
+        onSuccess: (comment: CommentItem, _input, { localId }) => {
+            pendingComments.delete(localId);
+            localKeys.set(comment.id, localId);
+            const saved = applyPending(comment);
+            updateAllCachedComments(client, (comments) => comments.some(c => c.id === localId) ? replacePending(comments, localId, saved) : comments);
+            client.setQueryData<CommentItem[]>(queryKey, (current) => withComment(current ?? [], saved));
+            client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && withComment(current, saved));
             client.invalidateQueries({ queryKey: visitorQueryKey });
+        },
+        onError: (error, input, context) => {
+            if (context) {
+                pendingComments.delete(context.localId);
+                updateAllCachedComments(client, (comments) => comments.filter(c => c.id !== context.localId));
+            }
+            toastNotSent(input.kind ?? 'comment', error);
         },
         onSettled: handleSettled
     });
 
+    const forgetPendingReply = (commentId: string, itemId: string) => {
+        const rest = pendingReplies.get(commentId)?.filter(item => item.id !== itemId) ?? [];
+        if (rest.length) pendingReplies.set(commentId, rest);
+        else pendingReplies.delete(commentId);
+    };
+
     const reply = useMutation({
-        mutationFn: (input: { commentId: string; text: string; mentions?: Mention[] }) => replyToComment({
+        mutationFn: (input: ReplyInput) => replyToComment({
             ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify(input))
         }),
-        onSuccess: handleWritten,
+        onMutate: (input: ReplyInput) => {
+            const item: CommentItemThreadItem = {
+                id: newLocalId(), text: input.text, mentions: input.mentions, author: { name: authorName(), isMe: true },
+                createdAt: new Date().toISOString(), canDelete: false, canEdit: false, pending: true
+            };
+            pendingReplies.set(input.commentId, [...(pendingReplies.get(input.commentId) ?? []), item]);
+            updateAllCachedComments(client, (comments) => comments.map(c => c.id === input.commentId ? { ...c, thread: { items: [...c.thread.items, item] } } : c));
+            return { itemId: item.id };
+        },
+        onSuccess: (comment, input, { itemId }) => {
+            forgetPendingReply(input.commentId, itemId);
+            handleWritten(comment);
+        },
+        onError: (error, input, context) => {
+            if (context) {
+                forgetPendingReply(input.commentId, context.itemId);
+                updateAllCachedComments(client, (comments) => comments.map(c => c.id === input.commentId
+                    ? { ...c, thread: { items: c.thread.items.filter(item => item.id !== context.itemId) } }
+                    : c));
+            }
+            toastNotSent('reply', error);
+        },
         onSettled: handleSettled
     });
 

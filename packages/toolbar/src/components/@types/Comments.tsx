@@ -83,6 +83,8 @@ export type CommentItemThreadItem = {
     canEdit?: boolean;
     editedAt?: string;
     deleted?: undefined;
+    /** Shown before the API saved it (an optimistic reply, see hooks/useComments.tsx) */
+    pending?: boolean;
 } | CommentItemDeletedThreadItem;
 
 /**
@@ -149,6 +151,10 @@ export type CommentItem = {
     /** Project comments: only workspace admins and the author see it */
     private?: boolean;
     assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean };
+    /** Shown before the API saved it (an optimistic comment with a temporary id, see hooks/useComments.tsx) */
+    pending?: boolean;
+    /** The temporary id it had while pending: the pin and its open thread stay the same component */
+    localKey?: string;
 }
 
 /** A comment being written: device context and screenshot start with the draft. */
@@ -159,6 +165,8 @@ export type CommentDraft = {
     kind?: 'comment' | 'rewrite';
     /** Started when the feedback began; retained through collapse and awaited before posting. */
     screenshot?: Promise<string | undefined>;
+    /** Why it was not posted: the draft is back on the page with its text (see CommentComposer) */
+    sendError?: unknown;
 }
 
 export type CommentsGlobalProps = {

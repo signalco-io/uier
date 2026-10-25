@@ -66,7 +66,7 @@ function CommentsGroup({ title, query, comments, filter, renderPlace, note }: Co
         content = (
             <Stack spacing={1}>
                 {comments.map((comment) => (
-                    <CommentErrorBoundary key={comment.id} commentId={comment.id}>
+                    <CommentErrorBoundary key={comment.localKey ?? comment.id} commentId={comment.id}>
                         <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="rounded-xl border bg-card">
                             {renderPlace(comment)}
                             <CommentThread commentItem={comment} />
