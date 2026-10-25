@@ -1,10 +1,10 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { Input } from '@signalco/ui-primitives/Input';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Add, Delete } from '@signalco/ui-icons';
+import { PlusIcon, XIcon } from 'lucide-react';
+import { Button } from '@/src/components/ui/button';
+import { Field, FieldLabel } from '@/src/components/ui/field';
+import { Input } from '@/src/components/ui/input';
 import { MAX_PROJECT_URLS } from '../../../lib/app/limits';
 
 /**
@@ -26,13 +26,13 @@ export function UrlListInput({ defaultUrls = [] }: { defaultUrls?: string[] }) {
     const setUrl = (key: number, url: string) => setRows(current => current.map(row => row.key === key ? { ...row, url } : row));
 
     return (
-        <div className="flex flex-col gap-3">
+        <>
             {rows.map((row, index) => (
-                <div key={row.key} className="flex items-end gap-2">
-                    <div className="min-w-0 flex-1">
+                <Field key={row.key}>
+                    <FieldLabel htmlFor={`${idPrefix}-${row.key}`}>{index === 0 ? 'Main site address' : 'Other address'}</FieldLabel>
+                    <div className="flex items-center gap-2">
                         <Input
                             id={`${idPrefix}-${row.key}`}
-                            label={index === 0 ? 'Main site address' : 'Other address'}
                             name="url"
                             value={row.url}
                             onChange={(event) => setUrl(row.key, event.target.value)}
@@ -41,31 +41,26 @@ export function UrlListInput({ defaultUrls = [] }: { defaultUrls?: string[] }) {
                             autoComplete="url"
                             spellCheck={false}
                             placeholder={index === 0 ? 'example.com' : 'staging.example.com'}
-                            fullWidth />
+                            className="font-mono text-[13px] md:text-[13px]" />
+                        {index > 0 && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Remove address ${index + 1}`}
+                                onClick={() => removeRow(row.key)}>
+                                <XIcon />
+                            </Button>
+                        )}
                     </div>
-                    {index > 0 && (
-                        <IconButton
-                            type="button"
-                            variant="plain"
-                            aria-label={`Remove address ${index + 1}`}
-                            title="Remove address"
-                            onClick={() => removeRow(row.key)}>
-                            <Delete />
-                        </IconButton>
-                    )}
-                </div>
+                </Field>
             ))}
             {rows.length < MAX_PROJECT_URLS && (
-                <Button
-                    type="button"
-                    variant="plain"
-                    size="sm"
-                    className="self-start"
-                    startDecorator={<Add className="size-4" />}
-                    onClick={addRow}>
+                <Button type="button" variant="ghost" size="sm" className="self-start" onClick={addRow}>
+                    <PlusIcon data-icon="inline-start" />
                     Add another address
                 </Button>
             )}
-        </div>
+        </>
     );
 }

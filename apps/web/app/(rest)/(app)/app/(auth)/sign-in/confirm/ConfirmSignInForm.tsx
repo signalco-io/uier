@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@/src/components/ui/button';
+import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { confirmSignInAction } from '../actions';
 
@@ -15,7 +16,8 @@ export function ConfirmSignInForm({ token }: { token: string }) {
         <form action={formAction} className="flex flex-col gap-4">
             <input type="hidden" name="token" value={token} />
             <FormMessage state={state} />
-            <Button type="submit" variant="solid" size="lg" fullWidth loading={pending}>
+            <Button type="submit" size="lg" className="w-full" disabled={pending}>
+                {pending && <Spinner data-icon="inline-start" />}
                 Continue
             </Button>
         </form>

@@ -1,75 +1,109 @@
 'use client';
 
-import { useActionState, useState, useTransition } from 'react';
+import { useActionState, useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Input } from '@signalco/ui-primitives/Input';
-import { Button } from '@signalco/ui-primitives/Button';
-import { SelectItems } from '@signalco/ui-primitives/SelectItems';
-import { showNotification } from '@signalco/ui-notifications';
+import { toast } from 'sonner';
+import { Button } from '@/src/components/ui/button';
+import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Input } from '@/src/components/ui/input';
+import { RadioGroup } from '@/src/components/ui/radio-group';
+import { Spinner } from '@/src/components/ui/spinner';
+import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
+import { Section } from '../PageHeader';
 import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { UrlListInput } from './UrlListInput';
-import { projectAccessLabels } from './projectLabels';
+import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { setProjectStatusAction, updateProjectAccessAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
 
+/** The footer of a settings card: the outcome on the left, the submit button (of the form `formId`) on the right */
+function SaveFooter({ formId, state, pending }: { formId: string; state: Parameters<typeof FormMessage>[0]['state']; pending: boolean }) {
+    return (
+        <>
+            <FormMessage state={state} className="mr-auto" />
+            <Button type="submit" form={formId} disabled={pending}>
+                {pending && <Spinner data-icon="inline-start" />}
+                Save
+            </Button>
+        </>
+    );
+}
+
 export function ProjectNameForm({ projectId, name }: { projectId: string; name: string }) {
+    const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectNameAction, null);
     const [value, setValue] = useState(name);
     return (
-        <form action={formAction} className="flex flex-col gap-4">
-            <input type="hidden" name="projectId" value={projectId} />
-            <Input
-                label="Project name"
-                name="name"
-                value={value}
-                onChange={(event) => setValue(event.target.value)}
-                required
-                maxLength={MAX_PROJECT_NAME_LENGTH}
-                fullWidth />
-            <FormMessage state={state} />
-            <Button type="submit" variant="solid" className="self-start" loading={pending}>Save</Button>
-        </form>
+        <Section
+            id="general"
+            title="General"
+            description="The name shows in the app and in invitations."
+            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+            <form id={formId} action={formAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <Field>
+                    <FieldLabel htmlFor={`${formId}-name`}>Project name</FieldLabel>
+                    <Input
+                        id={`${formId}-name`}
+                        name="name"
+                        value={value}
+                        onChange={(event) => setValue(event.target.value)}
+                        required
+                        maxLength={MAX_PROJECT_NAME_LENGTH}
+                        className="max-w-md" />
+                </Field>
+            </form>
+        </Section>
+    );
+}
+
+export function ProjectAccessForm({ projectId, access }: { projectId: string; access: ProjectAccess }) {
+    const formId = useId();
+    const [state, formAction, pending] = useActionState(updateProjectAccessAction, null);
+    const [value, setValue] = useState<ProjectAccess>(access);
+    return (
+        <Section
+            id="access"
+            title="Who can comment"
+            description="Who can see and leave comments with the toolbar on your site."
+            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+            <form id={formId} action={formAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="access" value={value} />
+                <RadioGroup value={value} onValueChange={(next) => setValue(next as ProjectAccess)} aria-label="Who can comment">
+                    {(['invited', 'guests', 'disabled'] as const).map(option => (
+                        <ChoiceCard
+                            key={option}
+                            id={`${formId}-${option}`}
+                            value={option}
+                            title={projectAccessLabels[option].label}
+                            description={projectAccessLabels[option].description}
+                            icon={<AccessIcon access={option} aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />} />
+                    ))}
+                </RadioGroup>
+            </form>
+        </Section>
     );
 }
 
 export function ProjectUrlsForm({ projectId, urls }: { projectId: string; urls: string[] }) {
+    const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectUrlsAction, null);
     return (
-        <form action={formAction} className="flex flex-col gap-4">
-            <input type="hidden" name="projectId" value={projectId} />
-            {/* Remounted with the saved (normalized) addresses */}
-            <UrlListInput key={urls.join(' ')} defaultUrls={urls} />
-            <FormMessage state={state} />
-            <Button type="submit" variant="solid" className="self-start" loading={pending}>Save</Button>
-        </form>
-    );
-}
-
-const accessItems = (['invited', 'guests', 'disabled'] as const).map(access => ({
-    value: access,
-    label: projectAccessLabels[access].label
-}));
-
-export function ProjectAccessForm({ projectId, access }: { projectId: string; access: ProjectAccess }) {
-    const [state, formAction, pending] = useActionState(updateProjectAccessAction, null);
-    const [value, setValue] = useState<ProjectAccess>(access);
-    return (
-        <form action={formAction} className="flex flex-col gap-4">
-            <input type="hidden" name="projectId" value={projectId} />
-            <input type="hidden" name="access" value={value} />
-            <div className="flex flex-col gap-2">
-                <SelectItems
-                    label="Who can comment"
-                    value={value}
-                    onValueChange={(next) => setValue(next as ProjectAccess)}
-                    items={accessItems} />
-                {/* Not the kit's helperText: it is styled as an error */}
-                <p className="m-0 text-sm text-muted-foreground">{projectAccessLabels[value].description}</p>
-            </div>
-            <FormMessage state={state} />
-            <Button type="submit" variant="solid" className="self-start" loading={pending}>Save</Button>
-        </form>
+        <Section
+            id="addresses"
+            title="Site addresses"
+            description="The main site first, then staging or preview addresses. The toolbar works only on these."
+            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+            <form id={formId} action={formAction}>
+                <input type="hidden" name="projectId" value={projectId} />
+                <FieldGroup>
+                    {/* Remounted with the saved (normalized) addresses */}
+                    <UrlListInput key={urls.join(' ')} defaultUrls={urls} />
+                </FieldGroup>
+            </form>
+        </Section>
     );
 }
 
@@ -81,14 +115,15 @@ export function ProjectStatusButton({ projectId, status }: { projectId: string; 
     const handleClick = () => startTransition(async () => {
         const result = await setProjectStatusAction(projectId, next);
         if (result && !result.ok) {
-            showNotification(result.error, 'error');
+            toast.error(result.error);
             return;
         }
         router.refresh();
     });
 
     return (
-        <Button variant="outlined" className="self-start" loading={pending} onClick={handleClick}>
+        <Button variant="outline" disabled={pending} onClick={handleClick}>
+            {pending && <Spinner data-icon="inline-start" />}
             {status === 'done' ? 'Reopen project' : 'Mark as done'}
         </Button>
     );

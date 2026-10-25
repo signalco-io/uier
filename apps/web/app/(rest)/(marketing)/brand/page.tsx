@@ -12,6 +12,8 @@ import { Mark } from '@uier/brand/Mark';
 import { Pin } from '@uier/brand/Pin';
 import { ThemeToggle } from '../../../../src/components/brand/ThemeToggle';
 import { TokenSwatch } from '../../../../src/components/brand/TokenSwatch';
+import { Badge as AppBadge } from '../../../../src/components/ui/badge';
+import { Button as AppButton } from '../../../../src/components/ui/button';
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
 
@@ -174,6 +176,8 @@ export default function BrandPage() {
                     <TokenSwatch token="--brand-warning" name="Amber" role="warning" />
                     <TokenSwatch token="--destructive" name="Red" role="destructive" />
                     <TokenSwatch token="--brand-selection" name="Selection" role="commented text range" bordered />
+                    <TokenSwatch token="--sidebar" name="Sidebar" role="the app's sidebar" bordered />
+                    <TokenSwatch token="--sidebar-accent" name="Sidebar accent" role="sidebar hover, current item" />
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-muted px-4 py-3 text-sm leading-relaxed">
                     <span>Where blue shows up:</span>
@@ -272,6 +276,26 @@ export default function BrandPage() {
                         <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[hsl(var(--brand-accent))] px-1.5 text-[11px] font-semibold text-white">3</span>
                         <Avatar size="sm">A</Avatar>
                         <Avatar size="md">M</Avatar>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-4 rounded-2xl border p-6">
+                    <p className="m-0 max-w-[720px] text-sm leading-relaxed text-muted-foreground">
+                        The signed-in app is built from <a href="https://ui.shadcn.com" className="text-[hsl(var(--brand-accent-text))] underline underline-offset-2">shadcn/ui</a> components
+                        (<code className="font-mono">apps/web/src/components/ui</code>) on the same tokens and the same rules: ink buttons, bordered cards, no resting shadows.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <AppButton>Create project</AppButton>
+                        <AppButton variant="outline">Open review</AppButton>
+                        <AppButton variant="ghost">Cancel</AppButton>
+                        <AppBadge variant="outline" className="gap-1.5">
+                            <span aria-hidden="true" className="size-1.5 rounded-full bg-foreground" />
+                            Open
+                        </AppBadge>
+                        <AppBadge variant="outline" className="gap-1.5">
+                            <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />
+                            Done
+                        </AppBadge>
+                        <AppBadge variant="secondary">Bug report</AppBadge>
                     </div>
                 </div>
             </Section>

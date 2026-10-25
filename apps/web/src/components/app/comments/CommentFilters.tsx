@@ -1,9 +1,9 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@signalco/ui-primitives/Button';
-import { SelectItems } from '@signalco/ui-primitives/SelectItems';
-import { LayoutGrid, LayoutList } from '@signalco/ui-icons';
+import { FileIcon, KanbanIcon, ListIcon, UserIcon } from 'lucide-react';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { peopleFilterLabels, type CommentsView, type PeopleFilter } from './commentLabels';
 
 const allPages = 'all';
@@ -20,53 +20,61 @@ export function CommentFilters({ view, people, page, pages }: {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const hrefWith = (name: string, value: string | undefined) => {
+    const go = (name: string, value: string | undefined) => {
         const params = new URLSearchParams(searchParams.toString());
         if (value === undefined)
             params.delete(name);
         else
             params.set(name, value);
         const query = params.toString();
-        return `${pathname}${query ? `?${query}` : ''}#comments`;
+        router.push(`${pathname}${query ? `?${query}` : ''}#comments`);
     };
 
     return (
-        <div className="flex flex-wrap items-end gap-3">
-            <div role="group" aria-label="View" className="flex gap-1">
-                <Button
-                    href={hrefWith('view', undefined)}
-                    variant={view === 'list' ? 'soft' : 'plain'}
-                    size="sm"
-                    aria-current={view === 'list' ? 'true' : undefined}
-                    startDecorator={<LayoutList className="size-4" />}>
+        <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                aria-label="View"
+                value={view}
+                onValueChange={(value) => value && go('view', value === 'board' ? 'board' : undefined)}>
+                <ToggleGroupItem value="list">
+                    <ListIcon data-icon="inline-start" />
                     List
-                </Button>
-                <Button
-                    href={hrefWith('view', 'board')}
-                    variant={view === 'board' ? 'soft' : 'plain'}
-                    size="sm"
-                    aria-current={view === 'board' ? 'true' : undefined}
-                    startDecorator={<LayoutGrid className="size-4" />}>
+                </ToggleGroupItem>
+                <ToggleGroupItem value="board">
+                    <KanbanIcon data-icon="inline-start" />
                     Board
-                </Button>
-            </div>
-            <div className="w-48">
-                <SelectItems
-                    label="People"
-                    value={people}
-                    onValueChange={(value) => router.push(hrefWith('people', value === 'all' ? undefined : value))}
-                    items={(Object.keys(peopleFilterLabels) as PeopleFilter[]).map(value => ({ value, label: peopleFilterLabels[value] }))} />
-            </div>
-            <div className="w-64">
-                <SelectItems
-                    label="Page"
-                    value={page ?? allPages}
-                    onValueChange={(value) => router.push(hrefWith('page', value === allPages ? undefined : value))}
-                    items={[
-                        { value: allPages, label: 'All pages' },
-                        ...pages.map(path => ({ value: path, label: <span className="font-mono text-[13px]">{path}</span> }))
-                    ]} />
-            </div>
+                </ToggleGroupItem>
+            </ToggleGroup>
+            <Select value={people} onValueChange={(value) => go('people', value === 'all' ? undefined : value)}>
+                <SelectTrigger size="sm" aria-label="People" className="min-w-36">
+                    <UserIcon className="text-muted-foreground" />
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectGroup>
+                        {(Object.keys(peopleFilterLabels) as PeopleFilter[]).map(value => (
+                            <SelectItem key={value} value={value}>{peopleFilterLabels[value]}</SelectItem>
+                        ))}
+                    </SelectGroup>
+                </SelectContent>
+            </Select>
+            <Select value={page ?? allPages} onValueChange={(value) => go('page', value === allPages ? undefined : value)}>
+                <SelectTrigger size="sm" aria-label="Page" className="max-w-64 min-w-36">
+                    <FileIcon className="text-muted-foreground" />
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectGroup>
+                        <SelectItem value={allPages}>All pages</SelectItem>
+                        {pages.map(path => (
+                            <SelectItem key={path} value={path}><span className="font-mono text-[13px]">{path}</span></SelectItem>
+                        ))}
+                    </SelectGroup>
+                </SelectContent>
+            </Select>
         </div>
     );
 }

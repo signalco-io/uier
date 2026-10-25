@@ -1,10 +1,14 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { LogOutIcon } from 'lucide-react';
+import { Button } from '@/src/components/ui/button';
 import { signOutAction } from './actions';
 
 export function SignOutButton() {
     return (
         <form action={signOutAction}>
-            <Button type="submit" variant="outlined">Sign out</Button>
+            <Button type="submit" variant="outline">
+                <LogOutIcon data-icon="inline-start" />
+                Sign out
+            </Button>
         </form>
     );
 }

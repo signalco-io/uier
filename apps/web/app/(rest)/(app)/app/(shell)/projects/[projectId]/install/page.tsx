@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@/src/components/ui/button';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
 import { appBaseUrl } from '@/src/lib/app/request';
-import { PageHeader } from '@/src/components/app/PageHeader';
 import { InstallGuide } from '@/src/components/app/projects/InstallGuide';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 
@@ -22,23 +22,19 @@ export default async function InstallProjectPage({ params }: PageProps<'/app/pro
         notFound();
 
     return (
-        <div className="max-w-3xl">
-            <PageHeader
-                title={`Install uier on ${project.name}`}
-                description="Step 2 of 2. Add one script tag to your site, then open a review link." />
-            <div className="flex flex-col gap-8">
-                <InstallGuide baseUrl={await appBaseUrl()} projectId={project.id} />
-                <div className="flex flex-col gap-3">
-                    <h2 className="m-0 text-xl font-semibold tracking-[-0.015em]">3. Open a review link</h2>
-                    <p className="m-0 text-sm text-muted-foreground">
-                        Once the script is live, a review link opens your site with the toolbar.
-                    </p>
+        <div className="flex max-w-3xl flex-col gap-8">
+            <p className="m-0 text-sm text-muted-foreground">Add one script tag to your site, then open a review link.</p>
+            <InstallGuide
+                baseUrl={await appBaseUrl()}
+                projectId={project.id}
+                reviewStep={(
                     <div className="flex flex-wrap gap-2">
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} />
-                        <Button href={KnownPageLinks.project(project.id)} variant="plain">Go to the project</Button>
+                        <Button variant="ghost" asChild>
+                            <Link href={KnownPageLinks.project(project.id)}>Go to the comments</Link>
+                        </Button>
                     </div>
-                </div>
-            </div>
+                )} />
         </div>
     );
 }

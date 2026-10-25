@@ -40,3 +40,43 @@ export async function createProject(page: Page, { urls, name }: { urls: string[]
         throw new Error(`No project id in ${page.url()}`);
     return projectId;
 }
+
+export type ProjectAccessLabel = 'Invited people' | 'Anyone with the link' | 'Comments off';
+
+/** Sets who can comment on a project, from its settings */
+export async function setProjectAccess(page: Page, projectId: string, label: ProjectAccessLabel) {
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const access = page.getByRole('region', { name: 'Who can comment' });
+    await access.getByRole('radio', { name: label }).click();
+    await access.getByRole('button', { name: 'Save' }).click();
+    await expect(access.getByRole('status')).toContainText('Saved.');
+}
+
+/** The sidebar as a sheet (small screens), while it is open or closing */
+const sidebarSheet = (page: Page) => page.locator('[data-slot="sidebar"][data-mobile="true"]');
+
+/** Waits for running animations (the sheet sliding in), so axe sees the final colours */
+async function animationsDone(page: Page) {
+    await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+}
+
+/** The app's sidebar navigation; on small screens the sidebar is a sheet, opened first */
+export async function appNavigation(page: Page) {
+    const navigation = page.getByRole('navigation', { name: 'App' });
+    const toggle = page.getByRole('button', { name: 'Toggle sidebar' });
+    // A sheet that is still closing (after a link) can't be used
+    await expect(sidebarSheet(page).and(page.locator('[data-state="closed"]'))).toHaveCount(0);
+    if (!await navigation.isVisible() && await toggle.isVisible())
+        await toggle.click();
+    await expect(navigation).toBeVisible();
+    await animationsDone(page);
+    return navigation;
+}
+
+/** Closes the sidebar sheet on small screens (links close it themselves) and waits until it is gone */
+export async function closeAppNavigation(page: Page) {
+    const sheet = sidebarSheet(page);
+    if (await sheet.count() && await sheet.getAttribute('data-state') === 'open')
+        await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+}

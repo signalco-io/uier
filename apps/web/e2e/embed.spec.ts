@@ -3,7 +3,7 @@ import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { toolbar } from './support/toolbar';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
@@ -87,12 +87,7 @@ test('the toolbar starts on a reviewed site on another origin', async ({ page, b
 test('a reviewed project lists, posts and replies without third-party cookies', async ({ page, browser, request }, testInfo) => {
     await signIn(page, uniqueEmail('embed'));
     const projectId = await createProject(page, { urls: [reviewedSiteOrigin], name: 'Embedded review' });
-    await page.goto(`/app/projects/${projectId}/settings`);
-    const access = page.getByRole('region', { name: 'Comments' });
-    await access.getByRole('combobox').click();
-    await page.getByRole('option', { name: 'Anyone with the link' }).click();
-    await access.getByRole('button', { name: 'Save' }).click();
-    await expect(access.getByRole('status')).toContainText('Saved.');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
 
     const guest = await newVisitor(browser, testInfo);
     await guest.page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
@@ -144,12 +139,7 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
 test('a failed project comments load is visible and can be retried', async ({ page }) => {
     await signIn(page, uniqueEmail('embed-error'));
     const projectId = await createProject(page, { urls: [reviewedSiteOrigin] });
-    await page.goto(`/app/projects/${projectId}/settings`);
-    const access = page.getByRole('region', { name: 'Comments' });
-    await access.getByRole('combobox').click();
-    await page.getByRole('option', { name: 'Anyone with the link' }).click();
-    await access.getByRole('button', { name: 'Save' }).click();
-    await expect(access.getByRole('status')).toContainText('Saved.');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
     const endpoint = `**/api/review/${projectId}/comments?*`;
     await page.route(endpoint, route => route.abort());
     await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);

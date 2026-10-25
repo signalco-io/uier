@@ -4,7 +4,7 @@ import type { Browser, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
 // The review flow of a project (issue #34): a reviewed site on another origin embeds the toolbar
@@ -37,15 +37,6 @@ async function watchCsp(page: Page) {
             violations.push(message.text());
     });
     return violations;
-}
-
-async function setAccess(page: Page, projectId: string, label: 'Invited people' | 'Anyone with the link' | 'Comments off') {
-    await page.goto(`/app/projects/${projectId}/settings`);
-    const access = page.getByRole('region', { name: 'Comments' });
-    await access.getByRole('combobox').click();
-    await page.getByRole('option', { name: label }).click();
-    await access.getByRole('button', { name: 'Save' }).click();
-    await expect(access.getByRole('status')).toContainText('Saved.');
 }
 
 /** Pins a point comment on the page's heading from the toolbar */
@@ -122,7 +113,7 @@ test('invited people only: a review link signs members in, everyone else is aske
 
 test('guest mode: anyone with the link comments under their name', async ({ page, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByRole('region', { name: 'Guest link' })).toContainText(`${siteOrigin()}/?toolbar-code=${projectId}`);
 
@@ -154,7 +145,7 @@ test('guest mode: anyone with the link comments under their name', async ({ page
 
 test('a React site adds the project\'s toolbar with the React component', async ({ page, browser, baseURL }, testInfo) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
     const appOrigin = new URL(baseURL!).origin;
 
     // `<UierToolbar project={projectId} />`, opened with `?review=true`: the link has no project code
@@ -178,7 +169,7 @@ test('a React site adds the project\'s toolbar with the React component', async 
 
 test('a screenshot with a comment on the project\'s site, shown in the toolbar and the app', async ({ page, request, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
 
     // The guest takes it with the comment; the site's CSP (the install guide's sources) allows it
     const guest = await anonymousVisitor(browser, testInfo);
@@ -224,7 +215,7 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
 for (const layout of ['html-scroll', 'body-hidden']) {
     test(`a screenshot far down a long page is not blank (${layout})`, async ({ page, browser }, testInfo) => {
         const projectId = await ownerWithProject(page);
-        await setAccess(page, projectId, 'Anyone with the link');
+        await setProjectAccess(page, projectId, 'Anyone with the link');
 
         // CSS that turns a copy of the page into a clipped box, and a lazy image that never loads
         const guest = await anonymousVisitor(browser, testInfo);
@@ -271,7 +262,7 @@ for (const layout of ['html-scroll', 'body-hidden']) {
 
 test('comments off: the toolbar says so and the API refuses', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Comments off');
+    await setProjectAccess(page, projectId, 'Comments off');
 
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}/${projectId}/`)}`);
     await expect(toolbar(page)).toContainText('Comments are turned off for this project.');
@@ -296,7 +287,7 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
 
 test('the toolbar works only on the project\'s own sites', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
 
     await page.goto(`${siteOrigin('elsewhere')}/${projectId}/?toolbar-code=${projectId}`);
     await expect(toolbar(page)).toContainText('uier can\'t open this project here.');
@@ -327,7 +318,7 @@ test('the toolbar works only on the project\'s own sites', async ({ page, reques
 
 test('rewrite suggestions on the project\'s site go through the review API', async ({ page, request, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
 
     // The guest's toolbar asks the project's review API (the e2e server's model is a stub)
     const guest = await anonymousVisitor(browser, testInfo);
@@ -375,7 +366,7 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
     });
     expect(preflight.headers()['access-control-allow-methods']).toBe('POST');
 
-    await setAccess(page, projectId, 'Comments off');
+    await setProjectAccess(page, projectId, 'Comments off');
     const off = await suggest({ text: 'Hi' });
     expect(off.status()).toBe(403);
     expect((await off.json()).error).toBe('comments_disabled');
@@ -383,7 +374,7 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
 
 test('the toolbar\'s inbox lists the project\'s other pages; comments have public ids', async ({ page, request, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
     const post = async (path: string, text: string) => {
         const response = await request.post(`/api/review/${projectId}/comments`, {
@@ -427,7 +418,7 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
 
 test('the app lists, filters and manages a project\'s comments', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
 
     // Two guests comment on two pages (through the review API, like their toolbar does)
     const guest = (name: string) => ({ token: randomBytes(32).toString('base64url'), name });
@@ -518,7 +509,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     // Delete (admin)
     await anaCard.getByRole('button', { name: /More actions/ }).click();
     await page.getByRole('menuitem', { name: 'Delete' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Confirm' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
     await expect(page.getByRole('article', { name: 'Comment by Ana' })).toHaveCount(0);
 
     // Usage in the settings
@@ -534,7 +525,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
 
 test('feedback and bug reports from the toolbar reach the project', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
-    await setAccess(page, projectId, 'Anyone with the link');
+    await setProjectAccess(page, projectId, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
 
     // About the whole page: a `page` position and a kind

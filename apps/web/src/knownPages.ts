@@ -18,7 +18,6 @@ export const KnownPages = {
     AppUsers: '/app/users',
     AppInviteUser: '/app/users/invite',
     AppInvitation: '/app/invitation',
-    AppBilling: '/app/billing',
     AppAccount: '/app/account',
 
     LegalPrivacyPolicy: '/legal/privacy-policy',

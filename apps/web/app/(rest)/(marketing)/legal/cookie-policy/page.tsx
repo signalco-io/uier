@@ -44,7 +44,7 @@ const items = [
     {
         name: 'theme',
         type: 'Local storage',
-        when: 'You switch the theme on the brand page',
+        when: 'You switch the theme on the brand page or in the app',
         purpose: 'Remembers light, dark or system.',
         duration: 'Until you clear your browser data'
     }

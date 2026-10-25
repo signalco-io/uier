@@ -17,7 +17,7 @@ export type PeopleFilter = 'all' | 'assigned' | 'mine';
 export type CommentsView = 'list' | 'board';
 
 export const peopleFilterLabels: Record<PeopleFilter, string> = {
-    all: 'All',
+    all: 'Everyone',
     assigned: 'Assigned to me',
     mine: 'Opened by me'
 };

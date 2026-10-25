@@ -130,8 +130,10 @@ Blue is never a background for a section, a card or a button.
 
 `tokens.css` overrides the signalco minimal theme (`--foreground`, `--border`, `--muted`,
 `--ring`, `--radius`, ...) and adds `--brand-accent`, `--brand-accent-text`,
-`--brand-selection`, `--brand-success` and `--brand-warning`. Components use the UI kit's
-semantic classes (`text-muted-foreground`, `border-border`, `bg-primary`) or these variables.
+`--brand-selection`, `--brand-success` and `--brand-warning`, plus the app's sidebar
+(`--sidebar`: Ink 100 on light, Surface on dark; `--sidebar-accent`: Ink 200 / Border for hover
+and the current item). Components use the semantic classes (`text-muted-foreground`,
+`border-border`, `bg-primary`, `bg-sidebar`) or these variables.
 A raw hex belongs only in `src/brand.ts`, for metadata and generated images.
 
 ## Typography
@@ -215,8 +217,10 @@ A commented text range gets the blue 20 % tint. The inbox shows the unread count
 
 ## Components
 
-Use `@signalco/ui` and `@signalco/ui-primitives` with the tokens; do not build parallel
-components. Solid buttons are ink (white on dark), outlined buttons are the border, plain
+Public pages use `@signalco/ui` and `@signalco/ui-primitives`; the signed-in app uses the
+shadcn/ui components in `apps/web/src/components/ui`. Both run on these tokens; do not build
+parallel components. The app is a sidebar (one step off the page colour) beside an inset panel
+with a 1 px border. Solid buttons are ink (white on dark), outlined buttons are the border, plain
 buttons are nothing until hovered. Inputs are bordered, 36 px, radius 8, blue focus ring.
 Badges are full-radius with a 6 px status dot (ink = open, green = resolved). Menus and
 popovers are radius 12 and float; dialogs and the sidebar are radius 16.
