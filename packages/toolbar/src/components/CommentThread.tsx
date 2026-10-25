@@ -8,6 +8,8 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { CommentThreadItem } from './CommentThreadItem';
 import { CommentThreadHeader } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
+import { ThreadNotifications } from './ThreadNotifications';
+import { toolbarConfig } from '../config';
 
 /** A thread: its first and last message, and "Show all" for the ones between */
 export function CommentThread({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
@@ -120,6 +122,9 @@ function ThreadContents({ commentItem, reading = false }: { commentItem: Comment
                     </div>
                 </>
             )}
+            {toolbarConfig.project && commentItem.notifications?.eligible && <div className="px-4 pt-2">
+                <ThreadNotifications comment={commentItem} />
+            </div>}
         </Stack>
     );
 }

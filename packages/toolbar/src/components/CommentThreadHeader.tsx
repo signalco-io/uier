@@ -13,8 +13,6 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
-import { toolbarConfig } from '../config';
-import { ThreadNotifications } from './ThreadNotifications';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
 export function CommentStatusBadge({ done }: { done: boolean }) {
@@ -97,7 +95,6 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                 </Row>
             </Row>
             <CommentsErrorMessage error={resolve.error} />
-            {toolbarConfig.project && <ThreadNotifications commentId={comment.id} itemCount={comment.thread.items.length} />}
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
                     <span className={destructiveTextClassName}>The link could not be copied. Copy it from here:</span>

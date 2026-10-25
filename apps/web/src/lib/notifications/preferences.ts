@@ -65,22 +65,30 @@ export async function setProjectMuted(project: DbProject, actor: ProjectActor, m
         await updateDoc<NotificationPreference>(doc.pk, doc.id, old => ({ ...doc, version: old.version }));
 }
 
+export type ThreadNotificationState = { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
+
+/** Caller supplies already authorized/visible comments. Two store reads for a whole list. */
+export async function threadNotificationStates(project: DbProject, actor: ProjectActor, comments: DbComment[]) {
+    const actorId = actorAuthorId(actor);
+    if (!actorId) return new Map<string, ThreadNotificationState>();
+    const [subscriptions, preference] = await Promise.all([
+        getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId } }),
+        notificationPreference(project.id, actorId)
+    ]);
+    const byThread = new Map(subscriptions.map(subscription => [subscription.threadId, subscription]));
+    return new Map(comments.map(comment => {
+        const subscription = byThread.get(comment.id);
+        const participant = isNotificationParticipant(comment, actorId);
+        return [comment.id, { member: actor.kind === 'member', eligible: actor.kind === 'member' || participant,
+            following: subscription?.following ?? (actor.kind === 'member' && participant), verified: Boolean(subscription?.verifiedAt),
+            pending: Boolean(subscription?.pendingUntil && Date.parse(subscription.pendingUntil) > Date.now()), muted: preference?.muted ?? false }];
+    }));
+}
+
 export async function threadNotificationState(project: DbProject, actor: ProjectActor, threadId: string) {
     const comment = await getProjectComment(project, actor, threadId);
-    const actorId = actorAuthorId(actor);
-    if (!comment || !actorId) throw apiErrors.notFound();
-    const [subscription, preference] = await Promise.all([
-        notificationSubscription(project.id, actorId, threadId), notificationPreference(project.id, actorId)
-    ]);
-    const participant = isNotificationParticipant(comment, actorId);
-    return {
-        member: actor.kind === 'member',
-        eligible: actor.kind === 'member' || participant,
-        following: subscription?.following ?? (actor.kind === 'member' && participant),
-        verified: Boolean(subscription?.verifiedAt),
-        pending: Boolean(subscription?.pendingUntil && Date.parse(subscription.pendingUntil) > Date.now()),
-        muted: preference?.muted ?? false
-    };
+    if (!comment || !actorAuthorId(actor)) throw apiErrors.notFound();
+    return (await threadNotificationStates(project, actor, [comment])).get(threadId)!;
 }
 
 type NotificationToken = { projectId: string; id: string; version: string; mode: 'verify' | 'subscription' | 'project' };

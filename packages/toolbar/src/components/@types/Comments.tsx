@@ -112,6 +112,7 @@ export type CommentDeviceInfo = {
 export type CommentActivity = { sequence: number; lastOtherSequence: number; readSequence: number; unread: boolean };
 
 export type CommentItem = {
+    notifications?: { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
     activity?: CommentActivity;
     id: string;
     path: string;

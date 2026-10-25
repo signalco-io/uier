@@ -1,29 +1,27 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { toolbarConfig } from '../config';
-import { apiRequest, currentReviewerRevision, required } from '../hooks/api';
+import { apiRequest, commentsQueryKeyPrefix } from '../hooks/api';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
+import type { CommentItem } from './@types/Comments';
 
-type State = { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
-
-export function ThreadNotifications({ commentId, itemCount }: { commentId: string; itemCount: number }) {
+export function ThreadNotifications({ comment }: { comment: CommentItem }) {
     const client = useQueryClient();
     const [email, setEmail] = useState('');
     const [editing, setEditing] = useState(false);
     const [verificationUrl, setVerificationUrl] = useState<string>();
-    const url = `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/comments/${encodeURIComponent(commentId)}/notifications`;
-    const query = useQuery({ queryKey: ['thread-notifications', currentReviewerRevision(), commentId, itemCount], queryFn: async () => required(await apiRequest<State>(url)) });
+    const state = comment.notifications;
+    const url = `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/comments/${encodeURIComponent(comment.id)}/notifications`;
     const follow = useMutation({
         mutationFn: async (following: boolean) => apiRequest<{ verificationUrl?: string }>(url, { method: 'POST', body: { following, ...(email ? { email } : {}) } }),
-        onSuccess: async result => { setVerificationUrl(result?.verificationUrl); setEditing(false); await query.refetch(); }
+        onSuccess: async result => { setVerificationUrl(result?.verificationUrl); setEditing(false); await client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
     });
     const mute = useMutation({
-        mutationFn: async () => apiRequest(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/notifications`, { method: 'POST', body: { muted: !query.data?.muted } }),
-        onSuccess: async () => { await client.invalidateQueries({ queryKey: ['thread-notifications'] }); }
+        mutationFn: async () => apiRequest(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/notifications`, { method: 'POST', body: { muted: !state?.muted } }),
+        onSuccess: async () => { await client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
     });
-    const state = query.error ? undefined : query.data;
     if (!state?.eligible) return null;
     return <div className="flex flex-col gap-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">
