@@ -114,6 +114,15 @@ export function CommentsGlobal({
         const stopRewrite = watch(newRewriteDraftKey, 'rewrite');
         return () => { stopComment(); stopRewrite(); };
     }, [drafts]);
+    const [activeThreads, setActiveThreads] = useState<ReadonlySet<string>>(() => new Set());
+    const handleThreadOpenState = useCallback((id: string, open: boolean) => {
+        setActiveThreads(current => {
+            if (current.has(id) === open) return current;
+            const next = new Set(current);
+            if (open) next.add(id); else next.delete(id);
+            return next;
+        });
+    }, []);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
@@ -144,8 +153,8 @@ export function CommentsGlobal({
     // Its draft stays attached to the same stable component and receives the new Done status.
     const pinnedComments = useMemo(
         () => sortByDocumentPosition((allComments ?? []).filter(comment =>
-            comment.position.type !== 'page' && (!comment.resolved || Boolean(drafts.get(comment.id))))),
-        [allComments, drafts]);
+            comment.position.type !== 'page' && (!comment.resolved || (activeThreads.has(comment.id) && Boolean(drafts.get(comment.id)))))),
+        [allComments, drafts, activeThreads]);
     // The API lists at most this many comments; the page can have more
 
     const [creatingCommentPoint, setCreatingCommentPoint] = useState(false);
@@ -439,6 +448,7 @@ export function CommentsGlobal({
                         <CommentErrorBoundary key={commentItem.id} commentId={commentItem.id}>
                             <CommentBubble
                                 commentItem={commentItem}
+                                onOpenStateChange={handleThreadOpenState}
                                 autoOpen={openCommentId === commentItem.id}
                                 onAutoOpened={handleAutoOpened} />
                         </CommentErrorBoundary>

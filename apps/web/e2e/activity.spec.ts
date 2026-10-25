@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { addToolbarScript, isolatedOrigin, newVisitor, commentBubbles, openThread, toolbar } from './support/toolbar';
+import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -173,6 +173,9 @@ test('opened short threads become read in light/dark without moving composer foc
         await expect(composer).toBeFocused();
         for (const colorScheme of ['light', 'dark'] as const) {
             await reader.page.emulateMedia({ colorScheme });
+            await expect(reader.page.locator('#uier-toolbar').locator('[data-uier-root]').first())
+                .toHaveAttribute('class', colorScheme === 'dark' ? 'dark' : '');
+            await animationsFinished(openThread(reader.page));
             // The toolbar is embedded on arbitrary host pages; inspect its shadow-root UI.
             const audit = await new AxeBuilder({ page: reader.page }).include('#uier-toolbar')
                 .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag21aaa']).analyze();
@@ -182,7 +185,7 @@ test('opened short threads become read in light/dark without moving composer foc
         await reader.page.reload();
         await expect(inbox(reader.page)).toHaveAccessibleName('Inbox');
         await reader.page.route('**/api/comments/activity', route => route.fulfill({ json: { unread: 205, open: 205, done: 0, total: 205 } }));
-        await foreground(reader.page);
+        await reader.page.reload();
         await expect(inbox(reader.page)).toHaveAccessibleName('Inbox, 99+ unread threads, 205 in total');
         const highCountAudit = await new AxeBuilder({ page: reader.page }).include('#uier-toolbar').analyze();
         expect(highCountAudit.violations).toEqual([]);
