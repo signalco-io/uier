@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { orderBy } from '@signalco/js';
 import { CommentItemPosition, CommentPoint, CommentSelection } from '../components/@types/Comments';
-import { useLayoutVersion } from './useLayoutVersion';
+import { getLayoutVersion, useLayoutVersion } from './useLayoutVersion';
 
 /** Selection text limit of the comments API; longer selections are stored cut to this length */
 export const selectionTextMaxLength = 2000;
@@ -25,24 +25,10 @@ export function safeQuerySelector(selector: string | undefined): Element | null 
     }
 }
 
-/**
- * The element of a `>` selector chain (as the toolbar creates them), or its closest ancestor in
- * the chain that is still on the page. Never the page's `html` or `body`.
- */
-function closestExistingElement(selector: string | undefined): Element | null {
-    if (!selector?.length) {
-        return null;
-    }
-
-    // `>` that is not escaped (identifiers escape special characters with a backslash)
-    const parts = selector.split(/(?<!\\)>/);
-    for (let count = parts.length; count > 0; count--) {
-        const element = safeQuerySelector(parts.slice(0, count).join('>'));
-        if (element && element !== document.documentElement && element !== document.body) {
-            return element;
-        }
-    }
-    return null;
+/** More than one selector match is never silently reduced to the first element. */
+function selectorMatches(selector: string | undefined): Element[] {
+    try { return selector ? [...document.querySelectorAll(selector)] : []; }
+    catch { return []; }
 }
 
 /** The element a comment is anchored to (the start of a text selection), if it is on the page */
@@ -62,7 +48,7 @@ function textNodesOf(root: Node): Text[] {
     const nodes: Text[] = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        nodes.push(node as Text);
+        if (!node.parentElement?.closest('script,style,noscript,#uier-toolbar,[data-uier-thread]')) nodes.push(node as Text);
     }
     return nodes;
 }
@@ -132,6 +118,8 @@ function rangeHasText(range: Range, position: CommentSelection) {
 
 /** The range the stored selectors and offsets describe */
 function rangeFromOffsets(position: CommentSelection): Range | null {
+    if (selectorMatches(position.startSelector).length !== 1
+        || (position.endSelector && selectorMatches(position.endSelector).length !== 1)) return null;
     const startElement = safeQuerySelector(position.startSelector);
     const endElement = position.endSelector?.length
         ? safeQuerySelector(position.endSelector)
@@ -164,7 +152,7 @@ function rangeFromOffsets(position: CommentSelection): Range | null {
 const searchTextMinLength = 3;
 
 /** Finds the text in `root` (ignoring whitespace), e.g. after the page changed around it */
-function findText(root: Element, text: string): Range | null {
+function findText(root: Element, text: string): Range | 'ambiguous' | null {
     const needle = withoutWhitespace(text);
     if (needle.length < searchTextMinLength) {
         return null;
@@ -184,6 +172,7 @@ function findText(root: Element, text: string): Range | null {
     }
 
     const index = haystack.indexOf(needle);
+    if (index >= 0 && haystack.indexOf(needle, index + 1) >= 0) return 'ambiguous';
     const start = points[index];
     const end = points[index + needle.length - 1];
     if (index < 0 || !start || !end) {
@@ -196,43 +185,27 @@ function findText(root: Element, text: string): Range | null {
     return range;
 }
 
-/** Searches the element of the selection first, then its ancestors up to the whole page */
-function searchText(position: CommentSelection): Range | null {
-    let scope: Element | null = closestExistingElement(position.startSelector) ?? document.body;
-    while (scope) {
-        const range = findText(scope, position.text);
-        if (range) {
-            return range;
-        }
-        scope = scope.parentElement;
-    }
-    return null;
+export type AnchorState = 'exact' | 'restored' | 'hidden' | 'missing' | 'ambiguous' | 'page';
+
+const resolvedText = new WeakMap<CommentSelection, { version: number; result: { range: Range | null; state: AnchorState } }>();
+
+/** Stored offsets are evidence. Text search is used only when it has one possible match. */
+function resolveText(position: CommentSelection): { range: Range | null; state: AnchorState } {
+    const version = getLayoutVersion();
+    const cached = resolvedText.get(position);
+    if (cached?.version === version) return cached.result;
+    const fromOffsets = rangeFromOffsets(position);
+    const exact = fromOffsets && rangeHasText(fromOffsets, position);
+    const found = exact ? fromOffsets : findText(document.body, position.text);
+    const result: { range: Range | null; state: AnchorState } = found === 'ambiguous'
+        ? { range: null, state: 'ambiguous' }
+        : { range: found, state: found ? exact ? 'exact' : 'restored' : 'missing' };
+    resolvedText.set(position, { version, result });
+    return result;
 }
 
-// Resolved ranges per stored position (live ranges follow the page as it changes); a miss is
-// searched again after a while, for content that loads later
-const resolvedRanges = new WeakMap<CommentSelection, { range: Range | null; at: number }>();
-const missRetryMs = 1000;
-
-/**
- * The page range of a text comment: where its selectors and offsets point, or where its text is
- * found if the page changed. `null` when the text is not on the page (anymore).
- */
 export function resolveTextRange(position: CommentSelection): Range | null {
-    const cached = resolvedRanges.get(position);
-    if (cached?.range && cached.range.startContainer.isConnected && rangeHasText(cached.range, position)) {
-        return cached.range;
-    }
-    if (cached && !cached.range && Date.now() - cached.at < missRetryMs) {
-        return null;
-    }
-
-    const fromOffsets = rangeFromOffsets(position);
-    const range = fromOffsets && rangeHasText(fromOffsets, position)
-        ? fromOffsets
-        : searchText(position);
-    resolvedRanges.set(position, { range, at: Date.now() });
-    return range;
+    try { return resolveText(position).range; } catch { return null; }
 }
 
 /**
@@ -240,7 +213,7 @@ export function resolveTextRange(position: CommentSelection): Range | null {
  * hidden`) still has layout boxes, but nothing should be pinned to it while it is hidden.
  */
 function isShown(element: Element | null | undefined) {
-    return Boolean(element) && (typeof element!.checkVisibility !== 'function' || element!.checkVisibility());
+    return Boolean(element) && (typeof element!.checkVisibility !== 'function' || element!.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
 }
 
 /** Line boxes of the range, when its text is shown */
@@ -285,7 +258,7 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
                 const range = resolveTextRange(position);
                 return range ? shownRangeRects(range) : [];
             }
-            case 'point': return pointRects(position);
+            case 'point': return selectorMatches(position.selector).length === 1 ? pointRects(position) : [];
             default: return [];
         }
     } catch (error) {
@@ -294,41 +267,23 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
     }
 }
 
-export type CommentPlacement = {
-    /** Where the pin goes: it sits below and right of the last rect */
-    rects: DOMRect[];
-    /**
-     * The commented text is not on the page anymore: the pin marks the closest element that is
-     * (the selection's element or one of its ancestors), so the thread stays reachable
-     */
-    textMissing: boolean;
-};
+export type CommentPlacement = { rects: DOMRect[]; state: AnchorState };
 
-/**
- * Where a comment's pin goes. Text that is on the page but not shown (e.g. in a closed
- * `<details>`) has no pin, like an element that is hidden on this device.
- */
+/** Missing or ambiguous anchors stay in the inbox, without an unrelated fallback pin. */
 export function getCommentPlacement(position: CommentItemPosition | null | undefined): CommentPlacement {
-    if (position?.type !== 'text') {
-        return { rects: getCommentItemRects(position), textMissing: false };
-    }
-
     try {
-        const range = resolveTextRange(position);
-        if (range) {
-            return { rects: shownRangeRects(range), textMissing: false };
+        if (!position || position.type === 'page') return { rects: [], state: 'page' };
+        if (position.type === 'point') {
+            const matches = selectorMatches(position.selector);
+            if (matches.length !== 1) return { rects: [], state: matches.length ? 'ambiguous' : 'missing' };
+            const rects = pointRects(position);
+            return { rects, state: rects.length ? 'exact' : 'hidden' };
         }
-
-        const element = closestExistingElement(position.startSelector);
-        const rect = isShown(element) ? element?.getBoundingClientRect() : undefined;
-        return {
-            // Inside the element's top left corner
-            rects: rect && (rect.width || rect.height) ? [new DOMRect(rect.left, rect.top, 1, 1)] : [],
-            textMissing: true
-        };
-    } catch (error) {
-        console.warn('uier: Could not place a comment on this page', error);
-        return { rects: [], textMissing: false };
+        const { range, state } = resolveText(position);
+        const rects = range ? shownRangeRects(range).filter(rect => rect.width > 0 && rect.height > 0) : [];
+        return { rects, state: range && !rects.length ? 'hidden' : state };
+    } catch {
+        return { rects: [], state: 'missing' };
     }
 }
 

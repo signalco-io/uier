@@ -90,6 +90,8 @@ export type DbComment = {
     path: string;
     pageStateVersion?: 1;
     position: DbCommentPosition;
+    /** Original and immediately previous anchors, retained with the thread. No actor identifiers. */
+    anchorContext?: { original: DbCommentPosition; previous: DbCommentPosition; revision: string; changedAt: string; changes: number };
     /** Public id, numbered per domain (`#12`); missing on old documents */
     number?: number;
     /** Missing on old documents: `comment` */

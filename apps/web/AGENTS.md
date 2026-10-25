@@ -223,3 +223,12 @@ authorized feedback. `src/lib/review/feedbackContext.ts` is the common project s
 redaction, canonical page state and protected screenshot references intact. The complete packet
 contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
 work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
+
+## Anchor updates
+
+`PATCH /api/comments/<id>/anchor` and the matching project review route validate selectors with the
+existing schemas and call `comments/reattachAnchor.ts`. It enforces the saved page key and anchor revision
+on each ETag retry; project updates also require author/admin rights and the original allowed origin.
+Retain the original and immediately previous position plus change time/count in `anchorContext`, without
+actor identifiers. DTOs allowlist its fields. It follows comment visibility and retention; no image or
+message is replaced. Keep the privacy policy and toolbar guide aligned with this context.

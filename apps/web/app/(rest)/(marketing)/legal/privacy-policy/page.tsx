@@ -47,6 +47,11 @@ export default function PrivacyPolicyPage() {
                     owner can additionally choose non-sensitive query fields and hash routes that identify a view.
                     Tracking, review activation and recognized credential fields are excluded; unapproved query fields are not stored.
                 </li>
+                <li>
+                    if you or an allowed editor reattach a comment, the new position, original and immediately
+                    previous anchors (including selected text), last change time and change count. This context
+                    follows the comment&rsquo;s visibility and retention. Reattachment keeps messages and saved images;
+                </li>
                 <li>when it was posted or edited, and the time in your browser when feedback capture started;</li>
                 <li>
                     details about the device it came from: its size (desktop, tablet or mobile), the window

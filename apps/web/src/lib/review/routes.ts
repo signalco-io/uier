@@ -1,5 +1,4 @@
-import { getReadSequence } from '../comments/readState';
-import { threadNotificationStates } from '../notifications/preferences';
+import { commentResponse } from './response';
 import { z } from 'zod';
 import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
@@ -24,10 +23,8 @@ import {
     setProjectCommentAssignee,
     replaceProjectScreenshot
 } from './comments';
-import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import { eligibleParticipants, mentionsSchema } from './participants';
 import type { ReviewApiContext } from './http';
-import type { DbComment } from '../db/schema';
 
 // The review API (app/api/review/[projectId]/...): the toolbar of a project. Mirrors the public
 // comments API (/api/comments) so the toolbar uses the same requests on another base URL.
@@ -36,18 +33,6 @@ function viewerDto(actor: ProjectActor) {
     return actor.kind === 'member'
         ? { kind: actor.kind, name: actor.name, isAdmin: actor.isAdmin }
         : { kind: actor.kind };
-}
-
-async function commentResponse(context: ReviewApiContext, comment: DbComment | null, status = 200) {
-    if (!comment)
-        return new Response(null, { status: 204 });
-    const actorId = actorAuthorId(context.actor);
-    const [names, participants, readSequence] = await Promise.all([authorNames([comment]), participantNames(context.project), actorId ? getReadSequence(comment.domain, actorId, comment.id) : 0]);
-    const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants);
-    if (!dto)
-        throw new Error(`Comment ${comment.id} can't be represented`);
-    const notifications = (await threadNotificationStates(context.project, context.actor, [comment])).get(comment.id);
-    return Response.json({ ...dto, notifications }, { status });
 }
 
 function commentId(id: string) {

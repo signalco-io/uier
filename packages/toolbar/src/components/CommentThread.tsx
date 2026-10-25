@@ -1,3 +1,4 @@
+import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -68,6 +69,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
             <div className="px-4 pb-1 pt-2">
                 <CommentThreadHeader comment={commentItem} />
             </div>
+            <CommentAnchorDetails comment={commentItem} />
             {(commentItem.permissions?.assign || commentItem.assignee) && <CommentAssignment comment={commentItem} />}
             {commentItem.activity && (
                 <div className="flex items-center justify-between gap-2 px-4">
