@@ -166,11 +166,21 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
 
 /**
  * Deletes the screenshot when the comment that had one is gone, or lost its first item (the
- * author's content: the screenshot goes with the text)
+ * author's content: the screenshot goes with the text). The comment is already written, so a
+ * failure here is retried once and logged, never turned into an error for a delete that happened.
  */
 export async function forgetScreenshot(store: CommentsStore, domain: string, id: string, hadScreenshot: boolean, updated: DbComment | null) {
-    if (hadScreenshot && !updated?.screenshot)
-        await store.deleteScreenshot(domain, id);
+    if (!hadScreenshot || updated?.screenshot)
+        return;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            await store.deleteScreenshot(domain, id);
+            return;
+        } catch (error) {
+            if (attempt === 2)
+                console.error(`[comments] The screenshot of ${id} could not be deleted`, error);
+        }
+    }
 }
 
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {

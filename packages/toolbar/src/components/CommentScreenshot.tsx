@@ -1,6 +1,6 @@
 'use client';
 
-import type { SVGProps } from 'react';
+import { useEffect, useRef, useState, type SVGProps } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCommentScreenshot } from '../hooks/useComments';
 import { screenshotQueryKey } from '../hooks/api';
@@ -30,16 +30,39 @@ export function CameraIcon({ size = 24, ...rest }: SVGProps<SVGSVGElement> & { s
 
 export const screenshotAlt = 'Screenshot of the commented part of the page';
 
+/** Whether the element is in (or near) the window, once; scrolled containers count (the inbox) */
+function useSeen<T extends Element>() {
+    const ref = useRef<T>(null);
+    const [seen, setSeen] = useState(false);
+    useEffect(() => {
+        const element = ref.current;
+        if (!element || seen) {
+            return;
+        }
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setSeen(true);
+                observer.disconnect();
+            }
+        }, { rootMargin: '200px' });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [seen]);
+    return [ref, seen] as const;
+}
+
 /**
- * The screenshot under a thread's first message. The image is fetched once per comment (it never
- * changes); while it loads, a placeholder of its size keeps the thread from jumping.
+ * The screenshot under a thread's first message. The image is fetched when it comes into view (the
+ * inbox lists many threads), once per comment (it never changes); until then a placeholder of its
+ * size keeps the thread from jumping.
  */
 export function CommentScreenshot({ comment }: { comment: CommentItem }) {
     const size = comment.screenshot;
+    const [placeholderRef, seen] = useSeen<HTMLDivElement>();
     const { data, isError } = useQuery({
         queryKey: screenshotQueryKey(comment.id),
         queryFn: () => getCommentScreenshot(comment.id),
-        enabled: Boolean(size),
+        enabled: Boolean(size) && seen,
         staleTime: Infinity,
         retry: 1
     });
@@ -68,6 +91,7 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
         )
         : (
             <div
+                ref={placeholderRef}
                 aria-hidden="true"
                 className="w-full max-h-80 animate-pulse rounded-md border bg-muted"
                 style={{ aspectRatio: `${size.width} / ${size.height}` }} />

@@ -91,6 +91,15 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const [screenshot, setScreenshot] = useState<CapturedScreenshot>();
     const [capturing, setCapturing] = useState(false);
     const [captureFailed, setCaptureFailed] = useState(false);
+    const removeScreenshotRef = useRef<HTMLButtonElement>(null);
+    // The camera button goes once the screenshot is there: the focus moves to "Remove screenshot"
+    const focusRemoveRef = useRef(false);
+    useEffect(() => {
+        if (screenshot && focusRemoveRef.current) {
+            focusRemoveRef.current = false;
+            removeScreenshotRef.current?.focus();
+        }
+    }, [screenshot]);
 
     const handleCapture = async () => {
         if (!onCaptureScreenshot || capturing) {
@@ -99,7 +108,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         setCapturing(true);
         setCaptureFailed(false);
         try {
-            setScreenshot(await onCaptureScreenshot());
+            const captured = await onCaptureScreenshot();
+            focusRemoveRef.current = true;
+            setScreenshot(captured);
             announce('Screenshot added');
         } catch (captureError) {
             console.warn('uier-toolbar: The screenshot could not be taken', captureError);
@@ -281,6 +292,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             alt="Screenshot to send with the comment"
                             className="block h-auto max-h-32 w-auto max-w-full rounded-md border" />
                         <IconButton
+                            ref={removeScreenshotRef}
                             variant="solid"
                             size="xs"
                             type="button"
@@ -321,7 +333,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                                 type="button"
                                 title={capturing ? 'Taking a screenshot...' : 'Add a screenshot'}
                                 aria-label={capturing ? 'Taking a screenshot...' : 'Add a screenshot'}
-                                disabled={capturing || pending}
+                                // Not `disabled` while taking it: the button keeps the focus
+                                aria-disabled={capturing}
+                                disabled={pending}
                                 onClick={handleCapture}>
                                 <CameraIcon size={16} className={capturing ? 'animate-pulse' : undefined} />
                             </IconButton>

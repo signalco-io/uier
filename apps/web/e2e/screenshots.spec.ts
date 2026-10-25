@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
+import { pngImage } from './support/images';
 
 // Optional screenshots (issue #32): a new comment or feedback can take a screenshot of the part of
 // the page it is about, in the reviewer's browser, without the toolbar. It is saved with the
@@ -103,6 +104,59 @@ test('screenshots: a comment with a screenshot of its element, one without, one 
     await removed.getByRole('button', { name: 'Post comment' }).click();
     await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByText('Changed my mind about the picture.')).toBeVisible();
     expect((await savedComment(page, 'Changed my mind about the picture.')).screenshot).toBeUndefined();
+
+    await context.close();
+});
+
+test('screenshots: with the keyboard, the focus goes to "Remove screenshot"', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    const draft = await startComment(page, 'With the keyboard.', page.getByRole('heading', { level: 1 }));
+    await draft.getByRole('button', { name: 'Add a screenshot' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(draft.getByRole('button', { name: 'Remove screenshot' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toBeFocused();
+
+    await context.close();
+});
+
+test('screenshots: the inbox loads them as they come into view', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+    for (let i = 1; i <= 6; i++) {
+        const status = await page.evaluate(async ({ i, screenshot }) => (await fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: '/', position: { type: 'point', selector: 'main', xNormal: 0.5, yNormal: 0.1 * i }, text: `Comment ${i}`, screenshot })
+        })).status, { i, screenshot: pngImage });
+        expect(status).toBe(201);
+    }
+
+    const fetched = new Set<string>();
+    page.on('request', (request) => {
+        if (request.url().endsWith('/screenshot')) {
+            fetched.add(request.url());
+        }
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Inbox, 6 comments' }).click();
+    const sidebar = page.getByRole('complementary', { name: 'Comments' });
+    await expect(sidebar.getByRole('button', { name: 'Screenshot of the commented part of the page' }).first()).toBeVisible();
+    // Only the ones in (or near) the list's view
+    expect(fetched.size).toBeGreaterThan(0);
+    expect(fetched.size).toBeLessThan(6);
+
+    // The rest when the list scrolls to them
+    const cards = sidebar.getByRole('article');
+    for (let i = 0; i < 6; i++) {
+        await cards.nth(i).scrollIntoViewIfNeeded();
+        await expect(cards.nth(i).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
+    }
+    expect(fetched.size).toBe(6);
 
     await context.close();
 });

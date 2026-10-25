@@ -12,7 +12,7 @@
  * What can't be drawn this way: images and fonts from other sites that don't allow it (CORS),
  * `<canvas>`, video and iframes. They show as empty space.
  */
-import { domToCanvas } from 'modern-screenshot';
+import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
 import { GEIST_FONTS_URL } from '@uier/brand';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
 import type { CommentItemPosition } from './components/@types/Comments';
@@ -40,8 +40,9 @@ const maxScale = 2;
 /** Marks elements scrolled inside the page while their copy is made */
 const scrollAttribute = 'data-uier-screenshot-scroll';
 
+/** The window without its scrollbars (in quirks mode `<html>` is as tall as the page; `<body>` is the window) */
 function windowSize() {
-    const root = document.documentElement;
+    const root = document.compatMode === 'CSS1Compat' ? document.documentElement : document.body;
     return { width: root.clientWidth || window.innerWidth, height: root.clientHeight || window.innerHeight };
 }
 
@@ -224,9 +225,22 @@ function markScrolledElements() {
     return () => marked.forEach(element => element.removeAttribute(scrollAttribute));
 }
 
-/** In the copy: a marked element's children move by its scroll, and the mark goes */
+/**
+ * In the copy: a marked element's children move by its scroll, and the mark goes. (A transform:
+ * fixed and sticky elements inside such an element move with it, unlike in the page.)
+ */
 function restoreScroll(cloned: Node) {
-    if (!(cloned instanceof Element) || !cloned.hasAttribute(scrollAttribute)) {
+    if (!(cloned instanceof Element)) {
+        return;
+    }
+    // In the copy `<body>` is not the page's root: a `height: 100%` or `overflow` that makes the page
+    // scroll would make it a clipped box, empty once shifted by the scroll
+    if (cloned instanceof HTMLBodyElement && document.scrollingElement !== document.body) {
+        cloned.style.overflow = 'visible';
+        cloned.style.height = 'auto';
+        cloned.style.maxHeight = 'none';
+    }
+    if (!cloned.hasAttribute(scrollAttribute)) {
         return;
     }
     const [left = 0, top = 0] = (cloned.getAttribute(scrollAttribute) ?? '').split(',').map(Number);
@@ -283,24 +297,36 @@ function resized(source: HTMLCanvasElement, factor: number) {
  * its host element)
  */
 export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null): Promise<CapturedScreenshot> {
+    // As the page is now, like the region (measured just before)
     const view = windowSize();
+    const scroll = { x: window.scrollX, y: window.scrollY };
     const scale = Math.min(window.devicePixelRatio || 1, maxScale);
     const cssText = await fontFaceCss();
     const unmark = markScrolledElements();
     let page: HTMLCanvasElement;
     try {
-        page = await domToCanvas(document.documentElement, {
+        const context = await createContext(document.documentElement, {
             width: view.width,
             height: view.height,
             scale,
             backgroundColor: pageBackground(),
             filter: node => node !== exclude,
-            // The scroll position as a margin, not a transform: fixed and sticky elements stay put
-            style: { marginTop: `${-window.scrollY}px`, marginLeft: `${-window.scrollX}px` },
+            // The scroll position as a margin, not a transform: fixed and sticky elements stay put.
+            // `<html>` is not the page's root in the copy: its overflow would clip it.
+            style: { marginTop: `${-scroll.y}px`, marginLeft: `${-scroll.x}px`, overflow: 'visible' },
             font: cssText ? { cssText } : false,
-            timeout: 10_000,
+            // The library first waits for every image and video of the page to load: not long, as
+            // lazy images below the window never do
+            timeout: 1_000,
             onCloneEachNode: restoreScroll
         });
+        // Then images are fetched to be drawn: that may take longer
+        context.timeout = 10_000;
+        try {
+            page = await domToCanvas(context);
+        } finally {
+            destroyContext(context);
+        }
     } finally {
         unmark();
     }

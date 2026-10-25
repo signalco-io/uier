@@ -426,14 +426,15 @@ ask for it ([`packages/toolbar/src/screenshot.ts`](packages/toolbar/src/screensh
 its DOM and CSS without the toolbar, cut to the comment's element or text with some room around it (the whole
 window for feedback and bug reports), as WebP (JPEG where the browser can't make WebP) of at most 480 KB.
 Images, fonts and stylesheets from other sites that don't allow it (CORS, or the site's CSP `connect-src`),
-`<canvas>`, video, iframes and `backdrop-filter` come out empty or plain.
+images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
+`backdrop-filter` come out empty or plain.
 
 It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
 may then be up to about 700 KB. The server reads the type and size from the image itself (PNG, JPEG or WebP, at
 most 512 KB and 4096 px on a side) and stores it as a document of its own in the comment's partition
 (`type: 'screenshot'`, id `$screenshot_<comment id>`, which no route accepts, with the comment's `ttl`); the comment
 keeps `screenshot: { contentType, width, height, bytes }`. Anyone who can see the comment gets the image from
-`GET .../comments/<id>/screenshot`; the app shows it on the comment
+`GET .../comments/<id>/screenshot` (the toolbar fetches it when the thread shows it, in the inbox as it scrolls into view); the app shows it on the comment
 (`/app/projects/<project>/comments/<id>/screenshot`). It is deleted with the comment, or with its author's text
 when others replied. A site gets at most 300 screenshots a day.
 

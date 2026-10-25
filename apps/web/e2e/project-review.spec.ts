@@ -220,6 +220,54 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
         .toHaveAttribute('href', `/app/projects/${projectId}/comments/${comment!.id}/screenshot`);
 });
 
+for (const layout of ['html-scroll', 'body-hidden']) {
+    test(`a screenshot far down a long page is not blank (${layout})`, async ({ page, browser }, testInfo) => {
+        const projectId = await ownerWithProject(page);
+        await setAccess(page, projectId, 'Anyone with the link');
+
+        // CSS that turns a copy of the page into a clipped box, and a lazy image that never loads
+        const guest = await anonymousVisitor(browser, testInfo);
+        await guest.page.goto(`${siteOrigin()}/${projectId}/long?toolbar-code=${projectId}&layout=${layout}`);
+        await expect(guest.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+        const row = guest.page.locator('#row-30');
+        await row.scrollIntoViewIfNeeded();
+        expect(await guest.page.evaluate(() => window.scrollY)).toBeGreaterThan(await guest.page.evaluate(() => window.innerHeight));
+        await guest.page.getByRole('button', { name: 'Add comment' }).click();
+        const box = await row.boundingBox();
+        await guest.page.mouse.click(box!.x + 20, box!.y + box!.height / 2);
+        const draft = guest.page.getByRole('dialog', { name: 'New comment' });
+        await draft.getByRole('textbox', { name: 'Your name' }).fill('Dana');
+        await draft.getByRole('textbox', { name: 'Comment' }).fill('Row 30 says it twice.');
+
+        // Without waiting for the lazy image
+        const started = Date.now();
+        await draft.getByRole('button', { name: 'Add a screenshot' }).click();
+        const preview = draft.getByRole('img', { name: 'Screenshot to send with the comment' });
+        await expect(preview).toBeVisible();
+        expect(Date.now() - started).toBeLessThan(5_000);
+
+        // The row's text is in it (dark pixels on the white page)
+        const ink = await preview.evaluate(async (img: HTMLImageElement) => {
+            await img.decode();
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const context = canvas.getContext('2d')!;
+            context.drawImage(img, 0, 0);
+            const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+            let dark = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i]! + data[i + 1]! + data[i + 2]! < 300) {
+                    dark++;
+                }
+            }
+            return dark / (data.length / 4);
+        });
+        expect(ink).toBeGreaterThan(0.005);
+        await guest.context.close();
+    });
+}
+
 test('comments off: the toolbar says so and the API refuses', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
     await setAccess(page, projectId, 'Comments off');
