@@ -180,7 +180,11 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   between them.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
-  active or done projects as cards with their open comments, who can comment and review links. The project
+  active or done projects as cards with their open comments, who can comment and review links.
+  An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
+  in settings. It appears in project details and cards. The client filter sits beside Active/Done,
+  offers All clients and No client, and stays selected in the URL across status changes and reloads.
+  Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
     (the script, where to paste it on common platforms, and the CSP sources in "Advanced").
@@ -196,7 +200,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence
     exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
     Reports check the window, origin and a temporary nonce; no tokens, reviewer identity or page content are reported.
-  - Settings `/app/projects/<code>/settings`: name, who can comment (invited people, anyone with the link,
+  - Settings `/app/projects/<code>/settings`: name, optional client name, who can comment (invited people, anyone with the link,
     or comments off), addresses, meaningful page-state fields, usage (comments, open, done, replies, pages, people with access), done.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in

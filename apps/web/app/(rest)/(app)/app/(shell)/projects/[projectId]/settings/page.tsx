@@ -6,7 +6,7 @@ import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments
 import { listProjectMembers } from '@/src/lib/app/members';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
-import { ProjectAccessForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectAccessForm, ProjectClientNameForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm } from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
     title: 'Project settings'
@@ -37,6 +37,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
         <div className="flex max-w-3xl flex-col gap-6">
             <h2 className="sr-only">Settings</h2>
             <ProjectNameForm projectId={project.id} name={project.name} />
+            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} />
             <ProjectAccessForm projectId={project.id} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />
             <ProjectPageStateForm projectId={project.id} policy={project.pageState} />

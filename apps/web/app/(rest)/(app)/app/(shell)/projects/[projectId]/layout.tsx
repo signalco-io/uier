@@ -47,6 +47,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                             <AccessIcon access={project.access} className="size-4" aria-hidden="true" />
                             {projectAccessLabels[project.access].label}
                         </span>
+                        {project.clientName && <span className="min-w-0 break-words">Client: {project.clientName}</span>}
                         {project.status === 'done' && (
                             <Badge variant="outline" className="gap-1.5">
                                 <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />

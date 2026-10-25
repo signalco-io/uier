@@ -11,6 +11,7 @@ import {
     defaultProjectName,
     getProject,
     projectAccessModes,
+    projectClientNameSchema,
     projectNameSchema,
     projectPageStateSchema,
     projectUrlsSchema,
@@ -46,7 +47,8 @@ export async function createProjectAction(_: ActionState, formData: FormData): P
         const urls = projectUrlsSchema.parse(formUrls(formData));
         const nameInput = String(formData.get('name') ?? '').trim();
         const name = projectNameSchema.parse(nameInput || defaultProjectName(urls[0]!));
-        return await createProject(context, { name, urls });
+        const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
+        return await createProject(context, { name, urls, clientName });
     });
     if (!result?.ok)
         return result;
@@ -59,6 +61,12 @@ export async function updateProjectNameAction(_: ActionState, formData: FormData
     return await actionResult(async () => {
         await saveProject(formData.get('projectId'), { name: projectNameSchema.parse(formData.get('name') ?? '') });
     }, 'The name is saved.');
+}
+
+export async function updateProjectClientNameAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        await saveProject(formData.get('projectId'), { clientName: projectClientNameSchema.parse(formData.get('clientName') ?? '') });
+    }, 'The client name is saved.');
 }
 
 export async function updateProjectUrlsAction(_: ActionState, formData: FormData): Promise<ActionState> {

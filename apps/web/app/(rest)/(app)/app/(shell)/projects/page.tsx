@@ -12,6 +12,7 @@ import { PageHeader } from '@/src/components/app/PageHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectActionsMenu } from '@/src/components/app/projects/ProjectActionsMenu';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
+import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
@@ -21,14 +22,25 @@ export const metadata: Metadata = {
 
 export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
     const context = await requireAppContext();
-    const { status: statusParam } = await searchParams;
+    const { status: statusParam, client: clientParam } = await searchParams;
     const status = statusParam === 'done' ? 'done' : 'active';
     const projects = await listVisibleProjects(context);
-    const counts = {
-        active: projects.filter(project => project.status !== 'done').length,
-        done: projects.filter(project => project.status === 'done').length
+    const clients = [...new Set(projects.flatMap(project => project.clientName ? [project.clientName] : []))]
+        .sort((a, b) => a.localeCompare(b));
+    const client = typeof clientParam === 'string' && (clientParam === 'none' || clients.some(name => clientParam === `name:${name}`))
+        ? clientParam : undefined;
+    const matching = projects.filter(project => !client || (client === 'none' ? !project.clientName : `name:${project.clientName}` === client));
+    const statusHref = (next: 'active' | 'done') => {
+        const query = new URLSearchParams();
+        if (next === 'done') query.set('status', next);
+        if (client) query.set('client', client);
+        return `${KnownPages.AppProjects}${query.size ? `?${query}` : ''}`;
     };
-    const shown = projects.filter(project => (project.status === 'done' ? 'done' : 'active') === status);
+    const counts = {
+        active: matching.filter(project => project.status !== 'done').length,
+        done: matching.filter(project => project.status === 'done').length
+    };
+    const shown = matching.filter(project => (project.status === 'done' ? 'done' : 'active') === status);
     // Open comments per project, as the person sees them (private comments only for admins and authors)
     const openCounts = await Promise.all(shown.map(async project =>
         (await loadProjectComments(context, project)).filter(comment => !comment.resolved).length));
@@ -46,13 +58,16 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         </Link>
                     </Button>
                 )}>
-                <LinkTabs
-                    label="Project status"
-                    variant="segmented"
-                    tabs={[
-                        { href: KnownPages.AppProjects, label: 'Active', count: counts.active, current: status === 'active' },
-                        { href: `${KnownPages.AppProjects}?status=done`, label: 'Done', count: counts.done, current: status === 'done' }
-                    ]} />
+                <div className="flex flex-wrap items-center gap-3">
+                    <LinkTabs
+                        label="Project status"
+                        variant="segmented"
+                        tabs={[
+                            { href: statusHref('active'), label: 'Active', count: counts.active, current: status === 'active' },
+                            { href: statusHref('done'), label: 'Done', count: counts.done, current: status === 'done' }
+                        ]} />
+                    <ClientFilter clients={clients} value={client} status={status} />
+                </div>
             </PageHeader>
             {shown.length ? (
                 <ul aria-label={`${status === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
@@ -77,6 +92,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                 {displayUrl(project.urls[0] ?? '')}
                                                 {project.urls.length > 1 && ` +${project.urls.length - 1}`}
                                             </CardDescription>
+                                            {project.clientName && <CardDescription className="truncate">Client: {project.clientName}</CardDescription>}
                                         </div>
                                         {context.isAdmin && (
                                             <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="relative z-10 -mr-1.5" />
@@ -110,7 +126,9 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         </EmptyMedia>
                         <EmptyTitle>{status === 'done' ? 'No done projects' : 'No active projects'}</EmptyTitle>
                         <EmptyDescription>
-                            {status === 'done'
+                            {client
+                                ? 'No projects match this client and status. Choose another filter to see more projects.'
+                                : status === 'done'
                                 ? 'Projects you mark as done move here. You can reopen them any time.'
                                 : context.isAdmin
                                     ? 'Create a project for the site you want to review, then add one script tag to it.'

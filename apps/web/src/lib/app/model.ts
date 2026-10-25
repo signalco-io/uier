@@ -90,6 +90,8 @@ export type DbProject = AppDoc & {
     pk: `workspace:${string}`;
     workspaceId: string;
     name: string;
+    /** Optional client label, normalized whitespace; older projects have no client. */
+    clientName?: string;
     /** Site URLs (origin and optional path); the first one is the main site */
     urls: string[];
     /** Opt-in meaningful URL state. Missing on older projects: pathname only. */

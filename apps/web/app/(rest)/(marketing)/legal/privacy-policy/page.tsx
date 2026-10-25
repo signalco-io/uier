@@ -104,7 +104,7 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>your email address, and the name shown with your work (it starts as the part of your email before the @, and you can change it);</li>
                 <li>when your account was created;</li>
-                <li>your workspace and the projects in it: their names, the site addresses you add and their settings.</li>
+                <li>your workspace and the projects in it: their names, optional client names, the site addresses you add and their settings.</li>
             </ul>
             <p>
                 To sign you in, we email you a link. We store only a hash of the token in the link, and delete it when
