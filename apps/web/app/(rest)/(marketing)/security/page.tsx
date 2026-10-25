@@ -48,7 +48,7 @@ const controls = [
     },
     {
         title: 'Minimal data, short retention',
-        text: 'The API never returns author ids, IP data or device details beyond the device size. Comments are deleted automatically 90 days after their last change.'
+        text: 'The API never returns author ids, IP data or device details beyond the device size. Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies do not expire.'
     },
     {
         title: 'Encrypted at rest, in the EU',

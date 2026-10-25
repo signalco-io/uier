@@ -110,8 +110,8 @@ export default function CookiePolicyPage() {
                 You can delete cookies and site data in your browser settings at any time. If you delete
                 the <code>uier_visitor</code> cookie, the server can no longer tell that your earlier comments are
                 yours: you will not be able to resolve or delete them, and your next comment starts a new guest
-                name. They stay public until they expire 90 days after their last change, or until you ask us to
-                remove them. If you delete the <code>uier_session</code> cookie, you are signed out of the app.
+                name. Visitor threads stay public until they expire 90 days after their last change, or until you ask us to
+                remove them. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>uier_session</code> cookie, you are signed out of the app.
             </p>
 
             <h2>Contact</h2>

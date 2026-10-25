@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>Reading the site sets no cookies and stores nothing in your browser.</li>
                 <li>Comments you leave with the toolbar on {brand.domain} are public. Anyone who opens the page can read them.</li>
-                <li>Those comments are deleted automatically 90 days after their last change.</li>
+                <li>Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies stay until we remove them.</li>
                 <li>
                     Comments in a project, on a site that uses {brand.name}, are visible only to the people the
                     project allows, and stay until they are deleted.
@@ -180,7 +180,7 @@ export default function PrivacyPolicyPage() {
 
             <h2>How long we keep it</h2>
             <ul>
-                <li>Comments and replies: 90 days after their last change, then they are deleted automatically. You can delete your own earlier in the toolbar.</li>
+                <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>

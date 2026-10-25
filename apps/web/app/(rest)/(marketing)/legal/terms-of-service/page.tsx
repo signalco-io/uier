@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsOfServicePage() {
     return (
-        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="24 October 2026">
+        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="25 October 2026">
             <p>
                 These terms apply when you use {brand.domain}, including leaving comments with the {brand.name}{' '}
                 toolbar. {brand.name} is a {brand.parent.name} project; in these terms &ldquo;we&rdquo; means{' '}
@@ -37,7 +37,7 @@ export default function TermsOfServicePage() {
                     You keep the rights to your comments. You allow us to store them, show them to visitors of the
                     page and remove them, for as long as they exist on {brand.domain}.
                 </li>
-                <li>Comments are deleted automatically 90 days after their last change. You can delete your own earlier.</li>
+                <li>Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies do not expire. You can delete your own messages earlier.</li>
             </ul>
 
             <h2>Acceptable use</h2>

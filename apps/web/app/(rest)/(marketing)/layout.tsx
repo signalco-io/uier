@@ -3,6 +3,7 @@ import { PageNav } from '@signalco/ui/Nav';
 import { Logo } from '@uier/brand/Logo';
 import { SiteFooter } from '../../../src/components/marketing/SiteFooter';
 import { KnownPages } from '../../../src/knownPages';
+import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 
 const navLinks = [
     { text: 'How it works', href: KnownPages.HowItWorks },
@@ -17,7 +18,7 @@ export default function RootMarketingLayout({ children, }: {
     return (
         <>
             <PageNav logo={<Logo size={18} />} links={navLinks} />
-            {/* While the review toolbar is mounted (showcase on the landing page, ?review=true elsewhere),
+            {/* While the review toolbar is mounted (showcase on public pages, review mode through review links),
                 its pill sits at the bottom of the window (bottom 16px, 48px tall): the padding lets the
                 end of the page scroll clear of it, and the scroll padding keeps focused links from
                 scrolling underneath it */}
@@ -27,6 +28,7 @@ export default function RootMarketingLayout({ children, }: {
                 </Container>
                 <SiteFooter />
             </div>
+            <ToolbarScript mode="showcase" />
         </>
     );
 }

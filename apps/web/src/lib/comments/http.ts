@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { MAX_BODY_BYTES } from './limits';
 import { describeValidationError } from './validation';
 import { resolveVisitor, type Visitor } from './visitor';
+import { ensurePublicProject, PUBLIC_PROJECT_PARTITION, usesPublicProject } from './publicProject';
 
 export type ApiErrorCode =
     | 'invalid_request'
@@ -198,7 +199,10 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
             const domain = resolveDomain(request);
             if (write)
                 assertSameOrigin(request, domain);
-            response = await handler({ request, domain, visitor }, await routeContext.params);
+            const publicProject = usesPublicProject(domain);
+            if (publicProject)
+                await ensurePublicProject();
+            response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor }, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);
         }

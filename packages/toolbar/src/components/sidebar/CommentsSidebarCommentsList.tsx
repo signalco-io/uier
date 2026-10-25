@@ -126,13 +126,12 @@ type CommentsSidebarCommentsListProps = {
 
 /**
  * The inbox's comments in two groups: this page (the page's own list, as its pins) and the site's
- * other pages (`GET /api/comments?scope=site`), newest first. The showcase is on the landing page
- * only, so it has no other pages.
+ * other pages (`GET /api/comments?scope=site`), newest first, including the public showcase.
  */
 export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSidebarCommentsListProps) {
-    const { mode, review } = useContext(CommentsBootstrapperContext);
+    const { review } = useContext(CommentsBootstrapperContext);
     const { path, query: pageQuery } = useComments();
-    const withOtherPages = mode === 'review';
+    const withOtherPages = true;
     const siteQuery = useSiteComments(withOtherPages);
 
     const pageComments = pageQuery.data?.filter(c => matchesFilter(c, filter));

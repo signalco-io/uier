@@ -193,7 +193,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await context.close();
 });
 
-test('inbox: the showcase lists this page only', async ({ browser }, testInfo) => {
+test('inbox: the showcase lists comments on other public pages', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, origin, { dismissHint: true });
@@ -204,8 +204,7 @@ test('inbox: the showcase lists this page only', async ({ browser }, testInfo) =
     await page.getByRole('button', { name: 'Inbox, 1 comment' }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByText('Pinned on the landing page.')).toBeVisible();
-    await expect(sidebar.getByRole('region', { name: 'Other pages' })).toHaveCount(0);
-    await expect(sidebar.getByText('Somewhere else.')).toHaveCount(0);
+    await expect(sidebar.getByRole('region', { name: 'Other pages' }).getByText('Somewhere else.')).toBeVisible();
 
     await context.close();
 });

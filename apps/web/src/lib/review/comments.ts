@@ -4,7 +4,8 @@ import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, enforceScreenshotLimits } from '../comments/rateLimits';
-import { createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
+import { commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
+import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
@@ -160,6 +161,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         id: `comment_${nanoid()}`,
         domain: partition,
         projectId: project.id,
+        ...(project.id === PUBLIC_PROJECT_ID ? { ttl: commentTtlSeconds() } : {}),
         origin: input.origin,
         path: input.path,
         position: input.position,

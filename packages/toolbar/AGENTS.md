@@ -3,7 +3,7 @@
 The review toolbar: one classic-script bundle (`dist/index.js`, an IIFE with the CSS inlined) that a
 site includes and that mounts the comments UI into an open shadow root, when the page is opened with
 a review link (`?toolbar-code=<project code>` or `?review=true`, `review` mode; the review then lasts
-for the tab, `src/review.ts`) or always (`showcase` mode, the uier.io landing page). The link only
+for the tab, `src/review.ts`) or always (`showcase` mode, every public uier.io page). The link only
 starts the review: the project whose comments apply is the script's `data-uier-project`
 (`src/config.ts`). `dist/react.js` is the React component that adds the script
 (`@uier/toolbar/react`, `src/react.ts`, with a `project` prop). Embedding and configuration:
@@ -37,6 +37,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
 | `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest name) and the options (view project, exit review, sign out) popovers |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
+| `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, in their own styled shadow root; never auto-focus on load |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; `CommentThreadHeader.tsx` is the status, Mark as done / Reopen and Copy link (`?uier-comment=`, `src/review.ts`) |
 | `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line), keeps drafts |
@@ -51,7 +52,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
 | `components/info/` | `getDeviceInfo` (read when a comment is posted) and `CommentDeviceMeta` ("Desktop · 1280×720") |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx` | optional screenshots: the region of a comment, drawn from the page without the toolbar (`modern-screenshot`, the scroll as a negative margin so fixed elements stay, fonts inlined), encoded under the API's limits; the camera icon and the screenshot in a thread (fetched as a data URL, opens full size) |
-| `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages (review mode), the status filter and search (`CommentsFilter.tsx`) |
+| `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages in both modes, the status filter and search (`CommentsFilter.tsx`) |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
 | `project/verification.ts` | cross-origin writes get a BotID proof through the API's `/review-verification` frame (no cookies); checks message origin and source, caches the proof in memory for under five minutes, fails closed |

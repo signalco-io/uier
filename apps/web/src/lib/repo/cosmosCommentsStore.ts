@@ -50,11 +50,17 @@ export function createCosmosCommentsStore(): CommentsStore {
             return resources.map(withoutSystemProperties);
         },
         async get(domain, id): Promise<StoredComment | null> {
-            const response = await cosmosDataContainerComments().item(id, domain).read<Record<string, unknown>>();
-            // The partition's counters, sequence and screenshots are not comments
-            if (!response.resource || !response.etag || !isCommentDocument(response.resource))
-                return null;
-            return { comment: withoutSystemProperties(response.resource), etag: response.etag };
+            try {
+                const response = await cosmosDataContainerComments().item(id, domain).read<Record<string, unknown>>();
+                // The partition's counters, sequence and screenshots are not comments
+                if (!response.resource || !response.etag || !isCommentDocument(response.resource))
+                    return null;
+                return { comment: withoutSystemProperties(response.resource), etag: response.etag };
+            } catch (error) {
+                if (errorCode(error) === 404)
+                    return null;
+                throw error;
+            }
         },
         async create(comment) {
             await cosmosDataContainerComments().items.create<DbComment>(comment);

@@ -12,6 +12,7 @@ import { CommentSelectionPopover } from './CommentSelectionPopover';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentPointOverlay } from './CommentPointOverlay';
 import { CommentBubble } from './CommentBubble';
+import { InlineCommentThreads } from './InlineCommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { InkScope } from './InkScope';
@@ -29,7 +30,9 @@ function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement |
         return false;
     }
 
-    return node.getRootNode() === rootNode || node === rootNode.host || rootNode.host.contains(node);
+    const nodeRoot = node.getRootNode();
+    return nodeRoot === rootNode || node === rootNode.host || rootNode.host.contains(node)
+        || (nodeRoot instanceof ShadowRoot && nodeRoot.host.hasAttribute('data-uier-thread'));
 }
 
 /** A point comment in the middle of the element, for comments created with the keyboard */
@@ -377,6 +380,7 @@ export function CommentsGlobal({
                     </div>
                 </InkScope>
             )}
+            <InlineCommentThreads comments={pinnedComments} />
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
             {pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">

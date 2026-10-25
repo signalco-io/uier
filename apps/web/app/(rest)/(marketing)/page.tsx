@@ -2,13 +2,11 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
-import { Pin } from '@uier/brand/Pin';
 import { Mark } from '@uier/brand/Mark';
-import { ReviewThreadDemo } from '../../../src/components/marketing/ReviewThreadDemo';
 import { LandingPricing } from '../../../src/components/marketing/LandingPricing';
 import { LandingFaq } from '../../../src/components/marketing/LandingFaq';
 import { KnownPages } from '../../../src/knownPages';
-import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
+import { HEADLINE_COMMENT_ID } from '../../../src/lib/comments/publicProject';
 
 // Copy and layout follow packages/brand/BRAND.md ("Marketing and metadata"): the tagline is the
 // headline, the review layer is shown on the page itself instead of a screenshot. Every claim
@@ -17,8 +15,7 @@ import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 const steps = [
     {
         title: 'Open the page',
-        text: 'The black toolbar sits at the bottom of the page. It runs in the browser: nothing to install, no account.',
-        pin: 1
+        text: 'The black toolbar sits at the bottom of the page. It runs in the browser: nothing to install, no account.'
     },
     {
         title: 'Click, or select, and write',
@@ -88,11 +85,10 @@ export default function LandingPage() {
         <main>
             <section className="flex flex-wrap items-start gap-12 py-12 md:py-20">
                 <div className="flex min-w-0 flex-[1_1_560px] flex-col items-start gap-5">
-                    <div className="relative inline-block pr-12">
+                    <div className="relative inline-block pb-4 pr-12">
                         <h1 className="max-w-[700px] text-5xl font-semibold leading-none tracking-[-0.04em] md:text-[64px]">
-                            Say it <span className="-mx-1 rounded-md bg-[hsl(var(--brand-selection))] px-1">on the page.</span>
+                            Say it <span id="hero-comment-anchor">on the page.</span>
                         </h1>
-                        <Pin count={2} className="absolute -top-1 right-0" label="Comment on the headline, 2 messages" />
                     </div>
                     <Typography component="p" className="max-w-[540px] text-lg leading-relaxed text-muted-foreground">
                         {brand.description}
@@ -103,7 +99,7 @@ export default function LandingPage() {
                     </div>
                 </div>
                 <div className="min-w-[280px] flex-[0_1_320px]">
-                    <ReviewThreadDemo />
+                    <div data-uier-thread={HEADLINE_COMMENT_ID} />
                 </div>
             </section>
 
@@ -111,11 +107,10 @@ export default function LandingPage() {
                 <SectionHeading id="how-it-works" title="How it works" />
                 <ol className="grid grid-cols-1 gap-8 rounded-2xl border p-8 md:grid-cols-3">
                     {steps.map((step, index) => (
-                        <li key={step.title} className="relative flex flex-col gap-2.5">
+                        <li id={index === 0 ? 'first-step-comment-anchor' : undefined} key={step.title} className="relative flex flex-col gap-2.5">
                             <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">0{index + 1}</span>
                             <h3 className="text-lg font-semibold tracking-[-0.015em]">{step.title}</h3>
                             <Typography level="body2" className="text-muted-foreground">{step.text}</Typography>
-                            {step.pin && <Pin count={step.pin} className="absolute -right-2 -top-4" label="Comment on this step, 1 message" />}
                         </li>
                     ))}
                 </ol>
@@ -153,7 +148,8 @@ export default function LandingPage() {
                             ))}
                         </ol>
                         <p className="text-sm text-muted-foreground">
-                            Comments here are public and anonymous, and they are deleted after 90 days.
+                            Comments on this site are public and anonymous. Visitor threads are deleted after 90 days.
+                            The starter threads and their replies stay.
                         </p>
                     </div>
                     <div className="flex flex-col gap-2 rounded-2xl border p-8">
@@ -180,9 +176,6 @@ export default function LandingPage() {
                 <SectionHeading id="faq" title="Questions" />
                 <LandingFaq />
             </section>
-
-            {/* Showcase: the real uier toolbar runs on the landing page and anyone can leave public feedback */}
-            <ToolbarScript mode="showcase" />
         </main>
     );
 }

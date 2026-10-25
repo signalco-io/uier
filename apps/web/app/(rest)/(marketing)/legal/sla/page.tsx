@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function SlaPage() {
     return (
-        <LegalDocument href={KnownPages.LegalSla} title="Service level agreement" effective="24 October 2026">
+        <LegalDocument href={KnownPages.LegalSla} title="Service level agreement" effective="25 October 2026">
             <p>
                 {brand.name} has no service level agreement. It is free and provided as is, so we make no
                 commitments about:
@@ -21,7 +21,7 @@ export default function SlaPage() {
             <ul>
                 <li>availability or uptime;</li>
                 <li>response or resolution times for problems or questions;</li>
-                <li>keeping comments: they are deleted 90 days after their last change, and may be removed earlier;</li>
+                <li>keeping visitor threads: they are deleted 90 days after their last change, and may be removed earlier. Our starter threads and their replies do not expire;</li>
                 <li>advance notice of maintenance or changes.</li>
             </ul>
             <p>There are no service credits or other compensation for downtime.</p>
