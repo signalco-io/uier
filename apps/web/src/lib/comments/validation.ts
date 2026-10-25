@@ -132,7 +132,7 @@ export const deviceSchema = z.object({
  * A screenshot of the commented part of the page, as a data URL. Its type and size are read from
  * the image (screenshot.ts), never taken from the client.
  */
-const screenshotSchema = z.string()
+export const screenshotSchema = z.string()
     .max(MAX_SCREENSHOT_DATA_URL_LENGTH)
     .transform((value, ctx) => {
         const parsed = parseScreenshot(value);
@@ -142,6 +142,11 @@ const screenshotSchema = z.string()
         }
         return parsed;
     });
+
+export const replaceScreenshotSchema = z.object({
+    screenshot: screenshotSchema,
+    expectedRevision: z.string().min(1).max(128).nullable()
+});
 
 export const createCommentSchema = z.object({
     path: pathSchema,

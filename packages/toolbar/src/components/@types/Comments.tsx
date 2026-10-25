@@ -116,7 +116,7 @@ export type CommentItem = {
     /** Public id, numbered per site (`#12`); missing on old comments */
     number?: number;
     /** A screenshot of the commented part of the page, in pixels (the image is fetched separately) */
-    screenshot?: { width: number; height: number };
+    screenshot?: { width: number; height: number; revision?: string };
     /** `feedback` and `bug` have a `page` position */
     kind: CommentKind;
     thread: CommentItemThread;

@@ -52,6 +52,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
 | `components/info/` | `getDeviceInfo` (read when feedback/capture starts) and `CommentDeviceMeta` (coarse device/viewport for everyone, expandable/copyable original reproduction details only when the API supplies the member-only `reproduction` field) |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx` | automatic screenshots: the region of a new comment, drawn from the page without the toolbar (`modern-screenshot`, the scroll as a negative margin so fixed elements stay, fonts inlined), encoded under the API's limits; capture starts from the feedback event, the draft retains its promise, and saved thumbnails expand in a shadow-root popover |
+| `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx`, `hooks/useReplaceScreenshot.ts` | saved evidence upload/paste and opaque rectangle redaction, using shared API limits; replacements invalidate cached originals and update all comment lists. Redaction opens only from expanded saved details; composers never preview images |
 | `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages in both modes, the status filter and search (`CommentsFilter.tsx`) |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
@@ -81,6 +82,9 @@ starts the review: the project whose comments apply is the script's `data-uier-p
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
 - Keep the bundle small: no new large dependencies without a reason (`modern-screenshot`, about
   25 KB, draws screenshots; there is no lighter way that keeps the page's own CSS).
+- Capture starts automatically for new feedback. Image selection and redaction happen after saving,
+  outside draft/idempotency storage. Saved thumbnails expand by click, tap or keyboard; failed image
+  replacement retains feedback and reports the error. Keep the API's revision check on replacements.
 
 ## Working on it
 

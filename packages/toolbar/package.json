@@ -16,6 +16,10 @@
             "default": "./dist/react.js"
         },
         "./index.css": "./dist/index.css",
+        "./screenshot-policy": {
+            "types": "./src/screenshotPolicy.ts",
+            "default": "./dist/screenshotPolicy.js"
+        },
         "./page-state": {
             "types": "./src/pageState.ts",
             "default": "./dist/pageState.js"

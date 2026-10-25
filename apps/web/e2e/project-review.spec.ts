@@ -6,6 +6,7 @@ import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { pngImage } from './support/images';
 
 // The review flow of a project (issue #34): a reviewed site on another origin embeds the toolbar
 // with the project's script from the install guide, and sends the Content-Security-Policy the
@@ -188,6 +189,12 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     const shown = openThread(guest.page).getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(shown).toBeVisible();
     await expect.poll(async () => await shown.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    // Supplying evidence reuses the cross-origin verification/CORS path and the guest's identity.
+    await openThread(guest.page).getByLabel('Upload screenshot image').setInputFiles({
+        name: 'supplied.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64')
+    });
+    await expect(openThread(guest.page).getByRole('status')).toContainText('Screenshot replaced.');
+    await expect.poll(async () => await shown.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(3);
     expect(violations).toEqual([]);
     await guest.context.close();
 
@@ -197,9 +204,15 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     expect(comment!.screenshot?.width).toBeGreaterThan(0);
     const image = await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers });
     expect(image.status()).toBe(200);
-    expect(image.headers()['content-type']).toMatch(/^image\/(webp|jpeg)$/);
+    expect(image.headers()['content-type']).toBe('image/png');
     expect(image.headers()['access-control-allow-origin']).toBe(siteOrigin());
     expect((await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers: { ...headers, Origin: siteOrigin('elsewhere') } })).status()).toBe(403);
+    const imageUrl = `/api/review/${projectId}/comments/${comment!.id}/screenshot`;
+    const data = { screenshot: pngImage, expectedRevision: null };
+    expect((await request.post(imageUrl, { headers, data })).status()).toBe(403); // another guest
+    expect((await request.post(imageUrl, { headers: { ...headers, Origin: siteOrigin('elsewhere') }, data })).status()).toBe(403);
+    const preflight = await request.fetch(imageUrl, { method: 'OPTIONS', headers: { Origin: siteOrigin(), 'Access-Control-Request-Method': 'POST' } });
+    expect(preflight.headers()['access-control-allow-methods']).toContain('POST');
 
     // The app shows it on the comment, and opens it full size
     await page.goto(`/app/projects/${projectId}`);

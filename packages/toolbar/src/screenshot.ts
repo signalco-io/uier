@@ -2,8 +2,8 @@
  * Screenshots of the commented part of the page, taken in the reviewer's browser when they post a
  * comment (automatic, issue #81).
  *
- * The page is drawn the way the browser shows it (`modern-screenshot` renders a copy of the DOM
- * through an SVG `foreignObject`, so the page's own CSS applies), without the toolbar. Only what
+ * DOM content is drawn with the page's CSS (`modern-screenshot` renders a copy through an SVG
+ * `foreignObject`), without the toolbar. Unsupported content can be omitted. Only what
  * is in the window is drawn: the copy is shifted by the scroll position with a negative margin (a
  * transform would move fixed and sticky elements with it), and elements scrolled inside the page
  * keep their scroll. Then the region around the comment is cut out and encoded (WebP, else JPEG)
@@ -17,7 +17,7 @@ import { GEIST_FONTS_URL } from '@uier/brand';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
 import type { CommentItemPosition } from './components/@types/Comments';
 
-/** A screenshot for a new comment: sent to the API as a data URL, shown in the composer */
+/** A screenshot sent to the API as a data URL; shown only on saved feedback. */
 export type CapturedScreenshot = {
     dataUrl: string;
     /** Pixels */
@@ -267,7 +267,7 @@ function bytesOf(dataUrl: string) {
 }
 
 /** WebP (JPEG where the browser can't make WebP), smaller in quality and then in size until it fits */
-function encode(source: HTMLCanvasElement): CapturedScreenshot {
+export function encodeScreenshot(source: HTMLCanvasElement): CapturedScreenshot {
     let canvas = source;
     for (let attempt = 0; attempt < 6; attempt++) {
         for (const quality of [0.85, 0.7, 0.55]) {
@@ -340,7 +340,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
         page,
         region.left * scale, region.top * scale, region.width * scale, region.height * scale,
         0, 0, crop.width, crop.height);
-    return encode(crop);
+    return encodeScreenshot(crop);
 }
 
 /** Start once from the feedback event, keep the promise with the draft, and never block text on failure. */

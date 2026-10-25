@@ -2,7 +2,8 @@ import type { DbScreenshot } from '../db/schema';
 import { MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_DIMENSION } from './limits';
 
 /** Image formats a screenshot can have (what browsers' canvas encoders produce) */
-export const screenshotContentTypes = ['image/webp', 'image/jpeg', 'image/png'] as const;
+import { screenshotContentTypes } from '@uier/toolbar/screenshot-policy';
+export { screenshotContentTypes };
 export type ScreenshotContentType = typeof screenshotContentTypes[number];
 
 export type ParsedScreenshot = {

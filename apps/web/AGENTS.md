@@ -133,6 +133,12 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   and controlled inputs, so React's reset after an action never drops what was typed.
 - Message edits through the review API compare `expectedText` before changing a thread item; author/admin
   permission checks and etag retries preserve concurrent replies. `editedAt` is shown in the toolbar and app.
+- Saved image replacements use `POST .../comments/<id>/screenshot` with shared screenshot validation,
+  the daily image budget and `expectedRevision`. `replaceScreenshot.ts` checks visibility/edit rights
+  on each attempt; stores atomically swap comment metadata and image bytes under the comment etag.
+  Never delete the original before this transaction succeeds. Public authors and project authors/admins
+  can replace evidence; readers retain the existing comment visibility rules. The screenshot replacement
+  API/browser tests cover failure, reload, redaction, private visibility and deletion.
 - Reproduction context is allowlisted by `src/lib/comments/reproduction.ts`: only authorized project members
   get it in the review DTO or app cards. Public/guest `device` DTOs stay limited to size and viewport. Capture time
   and viewport belong to the original feedback start; page links validate the project's origin and retain only stored approved page state.

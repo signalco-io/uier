@@ -19,7 +19,7 @@ function guestAuthorName() {
     return toolbarConfig.project ? getGuestName() : undefined;
 }
 
-function commentUrl(commentId: string) {
+export function commentUrl(commentId: string) {
     return `${commentsApiUrl}/${encodeURIComponent(commentId)}`;
 }
 

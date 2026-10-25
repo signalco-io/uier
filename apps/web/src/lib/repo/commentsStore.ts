@@ -46,6 +46,8 @@ export type CommentsStore = {
 
     /** Stores a comment's screenshot (a document of its own in the comment's partition) */
     createScreenshot(screenshot: DbScreenshot): Promise<void>;
+    /** Atomically swaps image and comment metadata, conditional on the authorized comment version. */
+    replaceScreenshot(comment: DbComment, etag: string, screenshot: DbScreenshot): Promise<ConditionalWriteResult>;
     getScreenshot(domain: string, commentId: string): Promise<DbScreenshot | null>;
     /** Deletes a comment's screenshot; nothing when there is none */
     deleteScreenshot(domain: string, commentId: string): Promise<void>;

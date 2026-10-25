@@ -149,6 +149,19 @@ export function getMemoryCommentsStore(): CommentsStore {
                 throw new Error(`Screenshot ${screenshot.id} already exists`);
             entries.set(screenshot.id, { document: clone(screenshot), version: ++state().version, modifiedAt: Date.now() });
         },
+        async replaceScreenshot(comment, etag, screenshot) {
+            const entries = domainEntries(comment.domain);
+            const entry = entries.get(comment.id);
+            if (!commentOf(entry)) return 'not_found';
+            if (String(entry!.version) !== etag) return 'conflict';
+            // No await between the check and both writes: the same transaction as Cosmos.
+            const modifiedAt = Date.now();
+            const savedComment = clone(comment);
+            const savedImage = clone(screenshot);
+            entries.set(comment.id, { document: savedComment, version: ++state().version, modifiedAt });
+            entries.set(screenshot.id, { document: savedImage, version: ++state().version, modifiedAt });
+            return 'ok';
+        },
         async getScreenshot(domain, commentId) {
             const document = domainEntries(domain).get(screenshotDocumentId(commentId))?.document;
             return document && 'type' in document && document.type === 'screenshot' ? clone(document) : null;
