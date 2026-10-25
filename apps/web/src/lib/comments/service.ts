@@ -1,4 +1,6 @@
 import { nanoid } from 'nanoid';
+import { withEditedThreadItem } from './editing';
+import type { EditThreadItemInput } from './validation';
 import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbCommentScreenshot, type DbScreenshot, type DbThreadItem } from '../db/schema';
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
@@ -290,6 +292,12 @@ export async function updateCommentResolved(context: CommentsApiContext, id: str
         return { ...comment, resolved: input.resolved, updatedAt: nowIso() };
     });
 
+    return toDto(updated, context);
+}
+
+export async function editCommentThreadItem(context: CommentsApiContext, id: string, itemId: string, input: EditThreadItemInput) {
+    const updated = await updateComment(getCommentsStore(), context.domain, id, comment =>
+        withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId));
     return toDto(updated, context);
 }
 

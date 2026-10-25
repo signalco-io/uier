@@ -41,7 +41,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; `CommentThreadHeader.tsx` is the status, Mark as done / Reopen and Copy link (`?uier-comment=`, `src/review.ts`) |
 | `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line), keeps drafts |
-| `components/CommentThreadItemMenu.tsx` | item options (delete, with a confirmation that says what goes; the copy is in `CommentThreadItem.tsx`) |
+| `components/CommentThreadItemMenu.tsx` | item options (edit with Save/Cancel and stale-edit protection; delete with a confirmation); `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns focus to the menu |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...) |
 | `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted", "Comment deleted", "Reply deleted") |
@@ -50,7 +50,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`), clickable for saved comments |
 | `components/CommentSelectionPopover.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
-| `components/info/` | `getDeviceInfo` (read when a comment is posted) and `CommentDeviceMeta` ("Desktop · 1280×720") |
+| `components/info/` | `getDeviceInfo` (read when feedback/capture starts) and `CommentDeviceMeta` (coarse device/viewport for everyone, expandable/copyable original reproduction details only when the API supplies the member-only `reproduction` field) |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx` | automatic screenshots: the region of a new comment, drawn from the page without the toolbar (`modern-screenshot`, the scroll as a negative margin so fixed elements stay, fonts inlined), encoded under the API's limits; capture starts from the feedback event, the draft retains its promise, and saved thumbnails expand in a shadow-root popover |
 | `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages in both modes, the status filter and search (`CommentsFilter.tsx`) |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |

@@ -14,6 +14,7 @@ export type CommentThreadItemDto = {
     quotedText?: string;
     author: CommentAuthorDto;
     createdAt?: string;
+    editedAt?: string;
 } | CommentDeletedThreadItemDto;
 
 /** The first item after its author deleted it while others had replied: no text and no author */
@@ -116,7 +117,8 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
         text: optionalString(item.text) ?? '',
         quotedText: optionalString(item.quotedText),
         author: { ...toAuthorDto(optionalString(item.authorId), visitorAuthorId), ...(item.authorName ? { name: item.authorName } : {}) },
-        createdAt: optionalString(item.createdAt)
+        createdAt: optionalString(item.createdAt),
+        editedAt: optionalString(item.editedAt)
     };
 }
 

@@ -131,6 +131,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   document from the current workspace.
 - Forms use `useActionState` with `actionResult()` (expected failures become `{ ok: false, error }`)
   and controlled inputs, so React's reset after an action never drops what was typed.
+- Message edits through the review API compare `expectedText` before changing a thread item; author/admin
+  permission checks and etag retries preserve concurrent replies. `editedAt` is shown in the toolbar and app.
+- Reproduction context is allowlisted by `src/lib/comments/reproduction.ts`: only authorized project members
+  get it in the review DTO or app cards. Public/guest `device` DTOs stay limited to size and viewport. Capture time
+  and viewport belong to the original feedback start; page links validate the project's origin and discard query/hash.
 - Links the app sends or redirects to come from `appBaseUrl()`, never from the Host header.
 - Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
   helpers in `e2e/support/app.ts` sign in that way.

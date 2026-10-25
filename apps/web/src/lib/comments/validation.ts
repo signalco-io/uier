@@ -115,6 +115,7 @@ const deviceLabelSchema = z.string().trim().max(MAX_DEVICE_LABEL_LENGTH)
     .transform(label => label.length ? label : undefined);
 
 export const deviceSchema = z.object({
+    capturedAt: z.iso.datetime().optional(),
     size: z.enum(['desktop', 'tablet', 'mobile']).optional(),
     windowSize: z.tuple([windowDimensionSchema, windowDimensionSchema]).optional(),
     pixelRatio: z.number().min(0).max(MAX_PIXEL_RATIO).optional(),
@@ -172,6 +173,13 @@ export const rewriteRequestSchema = z.object({
 export const replySchema = z.object({
     text: textSchema
 });
+
+export const editThreadItemSchema = z.object({
+    text: textSchema,
+    // Exact saved text when editing started; never normalize away a concurrent difference.
+    expectedText: z.string().max(MAX_TEXT_LENGTH)
+});
+export type EditThreadItemInput = z.infer<typeof editThreadItemSchema>;
 
 export const updateCommentSchema = z.object({
     resolved: z.boolean()

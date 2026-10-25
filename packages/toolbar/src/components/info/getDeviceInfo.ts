@@ -15,14 +15,15 @@ export function getDeviceSize(): CommentDeviceSize {
         : (window.innerWidth >= 768 ? 'tablet' : 'mobile');
 }
 
-/** Coarse device info stored with a new comment (only `size` is shown to other visitors) */
+/** Minimal supported client hints; unavailable browser/OS fields stay unknown. No high-entropy hints. */
 export function getDeviceInfo(): CommentDeviceInfo {
     const userAgentData = (navigator as Navigator & { userAgentData?: NavigatorUserAgentData }).userAgentData;
     // Skip the GREASE brand ("Not A;Brand") and prefer the specific browser over "Chromium"
-    const brands = (userAgentData?.brands ?? []).filter(b => !/not.?a.?brand/i.test(b.brand));
+    const brands = (userAgentData?.brands ?? []).filter(b => b.brand.replace(/[^a-z]/gi, '').toLowerCase() !== 'notabrand');
     const brand = brands.find(b => b.brand !== 'Chromium') ?? brands[0];
 
     return {
+        capturedAt: new Date().toISOString(),
         size: getDeviceSize(),
         windowSize: [
             clamp(Math.round(window.innerWidth), 0, 20000),

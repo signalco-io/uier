@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { apiErrors, parseJsonBody } from '../comments/http';
-import { createCommentSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
+import { createCommentSchema, editThreadItemSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES, MAX_LIST_COMMENTS } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
@@ -12,6 +12,7 @@ import { assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } 
 import {
     createProjectComment,
     deleteProjectCommentItem,
+    editProjectCommentItem,
     enforceProjectRewriteLimits,
     getProjectComment,
     getProjectScreenshot,
@@ -35,7 +36,7 @@ function viewerDto(actor: ProjectActor) {
 async function commentResponse(context: ReviewApiContext, comment: DbComment | null, status = 200) {
     if (!comment)
         return new Response(null, { status: 204 });
-    const dto = toReviewCommentDto(comment, context.actor, await authorNames([comment]));
+    const dto = toReviewCommentDto(comment, context.actor, await authorNames([comment]), projectOrigins(context.project));
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     return Response.json(dto, { status });
@@ -95,7 +96,7 @@ export async function listReviewComments({ request, project, actor }: ReviewApiC
     const names = await authorNames(comments);
     // As many as fit into the comments API's response size
     return Response.json(withinListResponseSize(comments
-        .map(comment => toReviewCommentDto(comment, actor, names))
+        .map(comment => toReviewCommentDto(comment, actor, names, projectOrigins(project)))
         .filter(Boolean)));
 }
 
@@ -155,6 +156,14 @@ export async function deleteReviewCommentItem(context: ReviewApiContext, { id, i
     if (!target || (itemId !== undefined && !isValidId(itemId)))
         throw apiErrors.notFound('Reply not found.');
     return await commentResponse(context, await deleteProjectCommentItem(project, actor, comment.id, target));
+}
+
+/** PATCH of one message, including the first item, with a stale-edit check. */
+export async function editReviewCommentItem(context: ReviewApiContext, { id, itemId }: { id: string; itemId: string }) {
+    assertWriter(context.actor);
+    const input = await parseJsonBody(context.request, editThreadItemSchema);
+    if (!isValidId(itemId)) throw apiErrors.notFound();
+    return await commentResponse(context, await editProjectCommentItem(context.project, context.actor, commentId(id), itemId, input));
 }
 
 /** GET /api/review/<code>/comments/<id>/screenshot: the screenshot of a comment the reviewer can see */

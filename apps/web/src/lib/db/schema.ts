@@ -32,6 +32,8 @@ export type DbCommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
 export type DbDeviceSize = 'desktop' | 'tablet' | 'mobile';
 
 export type DbCommentDevice = {
+    /** ISO time in the reviewer's browser when feedback/capture starts. */
+    capturedAt?: string;
     size?: DbDeviceSize;
     windowSize?: [number, number];
     pixelRatio?: number;

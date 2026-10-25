@@ -1,4 +1,6 @@
 import { nanoid } from 'nanoid';
+import { withEditedThreadItem } from '../comments/editing';
+import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
@@ -58,6 +60,10 @@ export function canDeleteComment(comment: DbComment, actor: ProjectActor) {
 }
 
 export function canDeleteItem(item: DbThreadItem, actor: ProjectActor) {
+    return !item.deletedAt && (isAdmin(actor) || isAuthor(item.authorId, actor));
+}
+
+export function canEditItem(item: DbThreadItem, actor: ProjectActor) {
     return !item.deletedAt && (isAdmin(actor) || isAuthor(item.authorId, actor));
 }
 
@@ -284,6 +290,12 @@ export async function editProjectCommentText(project: DbProject, actor: ProjectA
                 throw apiErrors.notFound();
             return { ...comment, thread: { ...comment.thread, items: [{ ...first, text, editedAt: nowIso() }, ...replies] } };
         });
+}
+
+/** The toolbar edits one message, retaining the thread's author, anchor, image and context. */
+export async function editProjectCommentItem(project: DbProject, actor: ProjectActor, id: string, itemId: string, input: EditThreadItemInput) {
+    return await changeComment(project, actor, id, () => true,
+        comment => withEditedThreadItem(comment, itemId, input, item => canEditItem(item, actor)));
 }
 
 /** Deletes the whole thread (the app: the author or an admin) */

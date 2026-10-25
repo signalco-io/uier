@@ -96,8 +96,8 @@ export function CommentBubble(props: CommentBubbleProps) {
             kind: rewriting ? 'rewrite' : undefined,
             text,
             quotedText: quotedText || undefined,
-            // The viewport as it is when the comment is posted
-            device: getDeviceInfo(),
+            // The original viewport, alongside the automatic capture, even after resizing.
+            device: draft.device ?? getDeviceInfo(),
             screenshot: await draft.screenshot
         });
         drafts.delete(draftKey);

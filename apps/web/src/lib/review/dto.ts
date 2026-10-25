@@ -1,8 +1,9 @@
 import type { DbComment, DbThreadItem } from '../db/schema';
 import { toCommentDto, type CommentDto } from '../comments/dto';
+import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
 import { getUser } from '../app/users';
 import { actorAuthorId, type ProjectActor } from './actor';
-import { canDeleteComment, canDeleteItem, canResolveComment } from './comments';
+import { canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
 
 const memberPrefix = 'user:';
 
@@ -35,16 +36,17 @@ export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName
 
 export type ReviewCommentDto = CommentDto & {
     private: boolean;
+    reproduction?: ReproductionContext;
     /** What the current reviewer may do (the toolbar shows only these actions) */
-    permissions: { resolve: boolean; delete: boolean };
-    thread: { items: (CommentDto['thread']['items'][number] & { canDelete?: boolean })[] };
+    permissions: { resolve: boolean; delete: boolean; edit: boolean };
+    thread: { items: (CommentDto['thread']['items'][number] & { canDelete?: boolean; canEdit?: boolean })[] };
 };
 
 /**
  * A project comment for the toolbar: the public comment shape (`CommentDto`) with project names
- * and permissions. Never contains author ids or device details other than the size and viewport.
+ * and permissions. Detailed reproduction context is member-only; author ids are never exposed.
  */
-export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>): ReviewCommentDto | null {
+export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = []): ReviewCommentDto | null {
     const authorId = actorAuthorId(actor);
     const dto = toCommentDto(comment, authorId);
     if (!dto)
@@ -53,9 +55,11 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        ...(actor.kind === 'member' ? { reproduction: toReproductionContext(comment, origins) } : {}),
         private: comment.private === true,
         permissions: {
             resolve: canResolveComment(comment, actor),
+            edit: canEditComment(comment, actor) && !items[0]?.deletedAt,
             delete: canDeleteComment(comment, actor)
         },
         thread: {
@@ -66,7 +70,8 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
                 return {
                     ...itemDto,
                     author: { ...itemDto.author, name: itemAuthorName(item, names) },
-                    canDelete: canDeleteItem(item, actor)
+                    canDelete: canDeleteItem(item, actor),
+                    canEdit: canEditItem(item, actor)
                 };
             })
         }

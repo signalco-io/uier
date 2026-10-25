@@ -49,7 +49,13 @@ export function getCommentsErrorMessage(error: unknown) {
             case 'bot_detected':
                 return 'We couldn\'t verify your browser. Reload the page and try again.';
             case 'forbidden':
-                return 'Only the author of this comment can do that.';
+                return 'You don\'t have permission to change this comment.';
+            case 'conflict':
+                return 'This message changed while you were editing. Your text is kept. Copy it, then cancel and reopen the edit to review the latest message.';
+            case 'sign_in_required':
+                return 'Your access has expired. Your text is kept. Sign in again to continue.';
+            case 'comments_disabled':
+                return 'Comments are turned off for this project. Your text is kept.';
             case 'not_found':
                 return 'This comment no longer exists.';
             case 'invalid_request':

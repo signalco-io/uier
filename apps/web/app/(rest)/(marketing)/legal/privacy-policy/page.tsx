@@ -43,7 +43,7 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>the text you write and, for a comment on selected text, the words you selected;</li>
                 <li>the page it belongs to (domain and path, without the query string) and where on the page it is pinned;</li>
-                <li>when it was posted;</li>
+                <li>when it was posted or edited, and the time in your browser when feedback capture started;</li>
                 <li>
                     details about the device it came from: its size (desktop, tablet or mobile), the window
                     size, the pixel ratio, the browser name and version, and the operating system;
@@ -59,8 +59,11 @@ export default function PrivacyPolicyPage() {
             <p>
                 Other visitors see the text, the time, the device size, the window size (so a reviewer can see
                 the page as you saw it), the screenshot if there is one, and a guest name such as &ldquo;Guest
-                3F2A&rdquo;, derived from the author id. They never see the author id, your browser, operating system or pixel ratio. Comments are
-                public, so do not put personal information in them.
+                3F2A&rdquo;, derived from the author id. Public and guest views never expose the author id, browser,
+                operating system, pixel ratio or capture-start time. Authorized members of a project can view and copy
+                those reproduction details for that project, except the author id. Unsupported browser details are shown
+                as unknown. The copied page link excludes query strings, hashes and review tokens. Comments on the public
+                site are public, so do not put personal information in them.
             </p>
 
             <h3>The visitor cookie</h3>

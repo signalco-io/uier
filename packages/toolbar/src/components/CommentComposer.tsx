@@ -38,6 +38,9 @@ export type CommentComposerHandle = {
 };
 
 type CommentComposerProps = {
+    initialText?: string;
+    /** Editing has a labeled Save button and a separate cancel action. */
+    onCancel?: () => void;
     ref?: Ref<CommentComposerHandle>;
     /** Accessible name of the text box */
     label: string;
@@ -61,14 +64,14 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard, initialText, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
     const counterId = useId();
     const drafts = useDrafts();
     const announce = useAnnounce();
-    const [text, setTextState] = useState(() => drafts.get(draftKey) ?? '');
+    const [text, setTextState] = useState(() => drafts.get(draftKey) ?? initialText ?? '');
     const trimmedText = text.trim();
     // Guests of a project tag their comments with their name, asked once and kept on this site
     const { needsName } = useProjectViewer();
@@ -129,6 +132,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
             return;
         }
         caretPlacedRef.current = true;
+        // Preserve an existing selection (including select-all used to replace or clear text).
+        if (e.currentTarget.selectionStart !== e.currentTarget.selectionEnd) return;
         const length = e.currentTarget.value.length;
         e.currentTarget.setSelectionRange(length, length);
     };
@@ -260,6 +265,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         )}
                     </span>
                     <Row spacing={1}>
+                        {onCancel && <Button variant="plain" size="sm" type="button" disabled={busy} onClick={onCancel}>Cancel</Button>}
                         {onDiscard && text.length > 0 && (
                             <Button
                                 variant="plain"
@@ -270,7 +276,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                                 Discard
                             </Button>
                         )}
-                        <IconButton
+                        {onCancel ? (
+                            <Button type="submit" size="sm" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
+                        ) : <IconButton
                             variant="solid"
                             size="sm"
                             type="submit"
@@ -278,7 +286,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             aria-label={submitLabel}
                             disabled={!trimmedText.length || busy}>
                             <Send size={16} />
-                        </IconButton>
+                        </IconButton>}
                     </Row>
                 </Row>
             </Stack>
