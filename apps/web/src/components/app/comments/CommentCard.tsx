@@ -189,7 +189,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                             <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
                                                 <DropdownMenuGroup>
                                                     <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
-                                                    {assignees.map(option => (
+                                                    {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
                                                         <DropdownMenuItem
                                                             key={option.userId}
                                                             onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
@@ -252,7 +252,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                     )}
                     {comment.deleted
                         ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
-                        : <p className="m-0 text-sm leading-6 break-words whitespace-pre-wrap">{comment.text}{comment.edited && <span className="text-muted-foreground"> (edited)</span>}</p>}
+                        : <p className="m-0 text-sm leading-6 break-words whitespace-pre-wrap">{comment.displayText}{comment.edited && <span className="text-muted-foreground"> (edited)</span>}</p>}
 
                     {comment.screenshot && (
                         <Dialog>

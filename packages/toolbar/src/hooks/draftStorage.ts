@@ -1,9 +1,10 @@
-import type { CommentAnchor } from '../components/@types/Comments';
+import type { CommentAnchor, Mention } from '../components/@types/Comments';
 
 export const draftStoragePrefix = 'uier:draft:v1:';
 const maxDraftRecordLength = 64_000;
 export const draftLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 export type DraftDetails = {
+    mentions?: Mention[];
     anchor?: { kind: 'comment' | 'rewrite'; position: CommentAnchor };
     originalText?: string;
 };
@@ -50,6 +51,16 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 || !(p.type === 'point' ? selector(p.selector) && Number.isFinite(p.xNormal) && p.xNormal >= 0 && p.xNormal <= 1 && Number.isFinite(p.yNormal) && p.yNormal >= 0 && p.yNormal <= 1
                     : p.type === 'text' && selector(p.startSelector) && (p.endSelector === undefined || selector(p.endSelector)) && typeof p.text === 'string' && p.text.length <= 2000
                         && offset(p.startOffset) && offset(p.endOffset) && ['text', 'element'].includes(p.startType) && ['text', 'element'].includes(p.endType))) delete value.anchor;
+        }
+        if (value.mentions !== undefined) {
+            let end = 0;
+            if (!Array.isArray(value.mentions) || value.mentions.length > 20 || value.mentions.some(mention => {
+                if (!mention || typeof mention.userId !== 'string' || !/^u_[A-Za-z0-9_-]{1,64}$/.test(mention.userId)
+                    || !Number.isInteger(mention.start) || !Number.isInteger(mention.end) || mention.start < end
+                    || mention.end <= mention.start + 1 || mention.end > value!.text.length || value!.text[mention.start] !== '@') return true;
+                end = mention.end;
+                return false;
+            })) delete value.mentions;
         }
         values.set(key, value);
         return value;

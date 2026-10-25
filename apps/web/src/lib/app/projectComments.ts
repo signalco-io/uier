@@ -9,9 +9,11 @@ import {
     canEditComment,
     canMakeCommentPrivate,
     canResolveComment,
+    canSeeComment,
     listProjectComments
 } from '../review/comments';
-import { authorNames, itemAuthorName } from '../review/dto';
+import { authorNames, itemAuthorName, messageMentions } from '../review/dto';
+import { listProjectMembers } from './members';
 import type { AppContext } from './context';
 import type { DbProject } from './model';
 import { projectOrigins } from './projects';
@@ -35,8 +37,8 @@ export type ProjectCommentMessage = {
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
-    activity?: ReadActivity;
     following?: boolean;
+    activity?: ReadActivity;
     id: string;
     /** The page it was left on: origin and path */
     url: string;
@@ -53,10 +55,12 @@ export type ProjectCommentView = {
     resolved: boolean;
     private: boolean;
     assignee?: { id: string; name: string };
+    eligibleAssigneeIds: string[];
     /** Author of the comment (its first message) */
     author: { name: string; isMe: boolean };
     /** Text of the first message; empty when its author deleted it (`deleted`) */
     text: string;
+    displayText: string;
     quotedText?: string;
     deleted: boolean;
     edited: boolean;
@@ -66,7 +70,14 @@ export type ProjectCommentView = {
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
 
-function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, readSequence = 0): ProjectCommentView | null {
+function mentionText(item: import('../db/schema').DbThreadItem, participants: Map<string, string>) {
+    let text = item.text;
+    for (const mention of (messageMentions(item, participants) ?? []).slice().reverse())
+        text = text.slice(0, mention.start) + `@${mention.name}` + text.slice(mention.end);
+    return text;
+}
+
+function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
     if (!first)
@@ -91,18 +102,20 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         createdAt: comment.createdAt,
         resolved: comment.resolved === true,
         private: comment.private === true,
-        assignee: comment.assigneeId ? { id: comment.assigneeId, name: names.get(comment.assigneeId) ?? 'Former member' } : undefined,
+        eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
+        assignee: comment.assigneeId ? { id: comment.assigneeId, name: participants.get(comment.assigneeId) ?? 'Former member' } : undefined,
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false }
             : { name: itemAuthorName(first, names), isMe: Boolean(myId) && first.authorId === myId },
         text: first.deletedAt ? '' : first.text,
+        displayText: first.deletedAt ? '' : mentionText(first, participants),
         quotedText: first.deletedAt ? undefined : first.quotedText,
         deleted: Boolean(first.deletedAt),
         edited: Boolean(first.editedAt),
         replies: replies.map(reply => ({
             id: String(reply.id),
             author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId },
-            text: reply.text,
+            text: mentionText(reply, participants),
             createdAt: reply.createdAt,
             deleted: Boolean(reply.deletedAt),
             edited: Boolean(reply.editedAt)
@@ -121,11 +134,10 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 export async function loadProjectComments(context: AppContext, project: DbProject) {
     const actor = appActor(context);
     const comments = await listProjectComments(project, actor);
-    const [names, reads] = await Promise.all([
-        authorNames(comments), loadReadSequences(`project:${project.id}`, `user:${context.user.id}`)
-    ]);
+    const [names, members, reads] = await Promise.all([authorNames(comments), listProjectMembers(project.workspaceId, project.id), loadReadSequences(`project:${project.id}`, `user:${context.user.id}`)]);
+    const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
     const views = comments
-        .map(comment => toView(comment, project, actor, names, reads.get(comment.id)))
+        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id)))
         .filter((view): view is ProjectCommentView => Boolean(view));
     const subscriptions = await getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } });
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));

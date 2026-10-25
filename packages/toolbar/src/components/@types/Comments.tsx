@@ -68,7 +68,10 @@ export type CommentAuthor = {
     isMe: boolean;
 };
 
+export type Mention = { userId: string; start: number; end: number; name?: string };
+
 export type CommentItemThreadItem = {
+    mentions?: Mention[];
     id: string;
     text: string;
     quotedText?: string;
@@ -142,9 +145,10 @@ export type CommentItem = {
      * Project comments: what the reviewer may do. Members can mark any comment done; the author
      * and the workspace admins can delete it. Without it, only the author can (`isMine`).
      */
-    permissions?: { resolve: boolean; delete: boolean; edit?: boolean };
+    permissions?: { resolve: boolean; delete: boolean; edit?: boolean; assign?: boolean };
     /** Project comments: only workspace admins and the author see it */
     private?: boolean;
+    assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean };
 }
 
 /** A comment being written: device context and screenshot start with the draft. */

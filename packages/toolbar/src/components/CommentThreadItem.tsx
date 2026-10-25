@@ -77,6 +77,9 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     }
 
     const { text } = threadItem;
+    let displayText = text;
+    for (const mention of (threadItem.mentions ?? []).slice().reverse())
+        displayText = displayText.slice(0, mention.start) + `@${mention.name ?? 'Former member'}` + displayText.slice(mention.end);
     const quote: string | undefined = threadItem.quotedText;
     const authorName = threadItem.author?.name || 'Guest';
     const isMe = Boolean(threadItem.author?.isMe);
@@ -158,13 +161,13 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
             )}
             {editing ? (
                 <CommentComposer label={first ? 'Edit comment' : 'Edit reply'} placeholder="Update the message" submitLabel="Save changes"
-                    draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
-                    onCancel={finishEdit} onSubmit={async text => {
-                        await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, expectedText: editing.originalText });
+                    commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
+                    onCancel={finishEdit} onSubmit={async (text, mentions) => {
+                        await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
                         finishEdit();
                         announce(first ? 'Comment edited' : 'Reply edited');
                     }} />
-            ) : <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{text}{threadItem.editedAt && <span className="text-muted-foreground"> (edited)</span>}</Typography>}
+            ) : <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{displayText}{threadItem.editedAt && <span className="text-muted-foreground"> (edited)</span>}</Typography>}
             {first && <CommentScreenshot comment={comment} />}
             {first && <CommentDeviceMeta device={comment.device} reproduction={comment.reproduction} />}
             <CommentsErrorMessage error={error} />

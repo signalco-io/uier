@@ -193,6 +193,10 @@ script's `data-uier-project` decides the project, and `?review=true` there revie
 (`e2e/project-review.spec.ts`). The marketing layout embeds the toolbar with its React component
 (`@uier/toolbar/react`, see `ToolbarScript`).
 
+Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
+comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
+expose identity metadata only to members. App and toolbar must share these checks.
+
 - `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
   Read acknowledgements require current project/thread access and acknowledge only a rendered
   sequence. Toolbar and app use the same member cursor; notifications must reauthorize before

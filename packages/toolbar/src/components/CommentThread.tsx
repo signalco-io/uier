@@ -6,6 +6,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { useReadComment } from '../hooks/useComments';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { CommentThreadItem } from './CommentThreadItem';
+import { CommentAssignment } from './CommentAssignment';
 import { CommentThreadHeader } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 import { ThreadNotifications } from './ThreadNotifications';
@@ -16,7 +17,7 @@ export function CommentThread({ commentItem, reading = false }: { commentItem: C
     return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} /></DraftsProvider>;
 }
 
-function ThreadContents({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
+function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; reading: boolean }) {
     const read = useReadComment();
     const threadRef = useRef<HTMLDivElement>(null);
     const canReadAutomatically = reading && commentItem.thread.items.length <= 2;
@@ -44,7 +45,6 @@ function ThreadContents({ commentItem, reading = false }: { commentItem: Comment
             window.removeEventListener('blur', cancel);
         };
     }, [canReadAutomatically, commentItem.id, commentItem.activity?.sequence, commentItem.activity?.unread, read.mutate]);
-
     const [expanded, setExpanded] = useState(false);
     // "Show all" goes away once used (it is the only way to expand): the focus moves to the first
     // message it showed instead of getting lost
@@ -68,6 +68,7 @@ function ThreadContents({ commentItem, reading = false }: { commentItem: Comment
             <div className="px-4 pb-1 pt-2">
                 <CommentThreadHeader comment={commentItem} />
             </div>
+            {(commentItem.permissions?.assign || commentItem.assignee) && <CommentAssignment comment={commentItem} />}
             {commentItem.activity && (
                 <div className="flex items-center justify-between gap-2 px-4">
                     <span className={commentItem.activity.unread ? 'text-xs text-[hsl(var(--brand-accent-text))]' : 'text-xs text-muted-foreground'}>{commentItem.activity.unread ? 'Unread' : 'Read'}</span>

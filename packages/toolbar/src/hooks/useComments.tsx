@@ -2,7 +2,7 @@ import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
-import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
+import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind, Mention } from '../components/@types/Comments';
 import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import { getGuestName } from '../project/projectSession';
@@ -30,6 +30,7 @@ export type CreateCommentInput = {
     /** `comment` (default) for pinned comments; `feedback` and `bug` with a `page` position */
     kind?: CommentKind;
     text: string;
+    mentions?: Mention[];
     quotedText?: string;
     device?: CommentDeviceInfo;
     /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts) */
@@ -41,10 +42,10 @@ async function getComments(path: string, client: QueryClient) {
     return reconcileReads(client, Array.isArray(comments) ? comments : []);
 }
 
-async function createComment(path: string, { idempotencyKey, position, kind, text, quotedText, device, screenshot }: CreateCommentInput) {
+async function createComment(path: string, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, position, kind, text, quotedText, device, screenshot, authorName: guestAuthorName() }
+        body: { idempotencyKey, path, position, kind, text, mentions, quotedText, device, screenshot, authorName: guestAuthorName() }
     }));
 }
 
@@ -53,10 +54,10 @@ export function getCommentScreenshot(commentId: string) {
     return apiImage(`${commentUrl(commentId)}/screenshot`);
 }
 
-async function replyToComment({ commentId, text, idempotencyKey }: { commentId: string; text: string; idempotencyKey?: string }) {
+async function replyToComment({ commentId, text, mentions, idempotencyKey }: { commentId: string; text: string; mentions?: Mention[]; idempotencyKey?: string }) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies`, {
         method: 'POST',
-        body: { text, idempotencyKey, authorName: guestAuthorName() }
+        body: { text, mentions, idempotencyKey, authorName: guestAuthorName() }
     }));
 }
 
@@ -79,10 +80,10 @@ async function deleteReply({ commentId, itemId }: { commentId: string; itemId: s
     });
 }
 
-type EditMessageInput = { commentId: string; itemId: string; text: string; expectedText: string };
-async function editMessage({ commentId, itemId, text, expectedText }: EditMessageInput) {
+type EditMessageInput = { commentId: string; itemId: string; text: string; expectedText: string; mentions?: Mention[] };
+async function editMessage({ commentId, itemId, text, expectedText, mentions }: EditMessageInput) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies/${encodeURIComponent(itemId)}`, {
-        method: 'PATCH', body: { text, expectedText }
+        method: 'PATCH', body: { text, expectedText, mentions }
     }));
 }
 
@@ -127,10 +128,11 @@ export function useComments(refreshOnMount = false): {
     path: string;
     query: UseQueryResult<CommentItem[], Error>;
     create: UseMutationResult<CommentItem, Error, CreateCommentInput, unknown>;
-    reply: UseMutationResult<CommentItem, Error, { commentId: string; text: string }, unknown>;
+    reply: UseMutationResult<CommentItem, Error, { commentId: string; text: string; mentions?: Mention[] }, unknown>;
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
+    assign: UseMutationResult<CommentItem, Error, { commentId: string; assigneeId: string | null }, unknown>;
     edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
 } {
     const { path } = useContext(CommentsBootstrapperContext);
@@ -182,7 +184,7 @@ export function useComments(refreshOnMount = false): {
     });
 
     const reply = useMutation({
-        mutationFn: (input: { commentId: string; text: string }) => replyToComment({
+        mutationFn: (input: { commentId: string; text: string; mentions?: Mention[] }) => replyToComment({
             ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify(input))
         }),
         onSuccess: handleWritten,
@@ -195,6 +197,10 @@ export function useComments(refreshOnMount = false): {
         onSettled: handleSettled
     });
 
+    const assign = useMutation({
+        mutationFn: async ({ commentId, assigneeId }: { commentId: string; assigneeId: string | null }) => required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/assignee`, { method: 'PATCH', body: { assigneeId } })),
+        onSuccess: handleCommentChanged, onSettled: handleSettled
+    });
     const edit = useMutation({ mutationFn: editMessage, onSuccess: handleCommentChanged, onSettled: handleSettled });
 
     // Deletes return the comment when its thread stays, nothing when the whole comment is gone
@@ -217,6 +223,7 @@ export function useComments(refreshOnMount = false): {
         reply,
         resolve,
         edit,
+        assign,
         delete: remove,
         deleteReply: removeReply
     };

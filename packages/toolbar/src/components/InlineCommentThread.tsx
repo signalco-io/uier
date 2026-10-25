@@ -50,8 +50,9 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
             <CommentComposer
                 label="Reply to the headline" placeholder="Reply..." submitLabel="Post reply"
                 draftKey={comment.id} pending={reply.isPending} error={reply.error}
-                onSubmit={async text => {
-                    await reply.mutateAsync({ commentId: comment.id, text });
+                commentId={comment.id}
+                onSubmit={async (text, mentions) => {
+                    await reply.mutateAsync({ commentId: comment.id, text, mentions });
                     drafts.delete(comment.id);
                     announce('Reply posted');
                 }} />

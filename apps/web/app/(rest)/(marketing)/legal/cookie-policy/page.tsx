@@ -158,6 +158,9 @@ export default function CookiePolicyPage() {
             <p>
                 Questions about this policy: <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>.
             </p>
+        <p>Selected @mentions in an unsent draft also keep the participant&rsquo;s opaque account id and
+                its range in the draft text. They use the same seven-day draft record, reviewer and page scope,
+                discard controls and sign-out clearing described above. No email address is added to the draft.</p>
         </LegalDocument>
     );
 }

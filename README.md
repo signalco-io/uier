@@ -214,6 +214,29 @@ is the landing page's `brand.pricing` promise.
 - **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
   sign out.
 
+### Assignment and mentions
+
+Signed-in project members can change a thread's assignee in its toolbar details or inbox.
+The app and toolbar use the same assignment service. Assigned to me combines with page,
+status and search filters. Guests see the assignee's name but cannot change assignment or
+look up the participant directory. Removed members appear as Former member (no access);
+the assignment can be cleared or changed.
+
+In a member's composer, type @ to search eligible participants. Arrow keys move through
+suggestions; Enter or Tab selects without posting; Escape dismisses. Touch/click selects
+the same account. A short opaque account suffix distinguishes duplicate display names.
+Selection saves an account id and a text range, not a display-name match. Editing through
+a mention turns it back into plain text. Names update when reading saved mentions; removed
+accounts appear as Former member. New mention and assignment targets must currently have
+project access and visibility of the thread (private threads: admins and the author).
+Neither action creates membership or bypasses private-thread checks.
+Assignment changes and newly selected mention recipients use the shared unread activity
+cursor and five-minute email digest. A post with mentions still creates one event. Repeated
+assignment selections and edits retaining the same recipients create no extra event. The
+actor, read activity, muted projects, explicitly unfollowed threads, removed members and
+people without private-thread access are suppressed by the shared notification delivery.
+Unassignment targets the previous assignee, subject to the same rules.
+
 ### Review API (a project's toolbar)
 
 A project's toolbar (`data-uier-project`, see the [toolbar README](packages/toolbar/README.md)) runs on the
@@ -814,7 +837,8 @@ remain findable. Marking a batch read reveals the next batch. The inbox warns wh
 comments and screenshots. Drafts, stable thread keys and focus survive ordinary refreshes.
 
 `apps/web/src/lib/comments/activity.ts` defines the monotonic thread activity sequence. Creation,
-replies and resolve/reopen advance it atomically with the thread write; edits and reads do not.
+replies, resolve/reopen, assignment changes and newly selected mention recipients advance it
+atomically with the thread write. Reads and edits retaining the same recipients do not.
 Actor ids stay server-side. DTO `activity` contains `sequence`, `lastOtherSequence`, `readSequence`
 and `unread` (`lastOtherSequence > readSequence`). Own posts do not create unread or clear another
 person's unread activity. Legacy threads derive a stable initial sequence from stored item order.
@@ -831,9 +855,9 @@ their identity in the visitor cookie. Read tracking introduces no additional bro
 
 For notification seen suppression (#84), recheck current project access and private-thread visibility,
 then call `getReadSequence(domain, reviewerId, commentId)` from `comments/readState.ts` and compare the
-queued activity's sequence. This service sends no email and stores no delivery queue. Future activity
-producers such as mentions (#91) must advance `withThreadActivity` inside the same conditional write
-as their authorized mutation; they retain responsibility for their own event/delivery records.
+queued activity's sequence. The read service sends no email and stores no delivery queue. Assignment
+and mention producers advance `withThreadActivity` inside the same conditional write as their
+authorized mutation and record recipients through the shared notification outbox.
 
 `GET .../comments/activity` returns authorized `{ unread, open, done, total }` counts without message
 text or actor ids. `GET .../comments?scope=site&unread=true` selects unread threads from the full

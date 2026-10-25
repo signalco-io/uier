@@ -8,7 +8,7 @@ import { isValidId, reviewPathSchema } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
 import { actorAuthorId, assertWriter } from './actor';
 import { canSeeComment, getProjectComment, listProjectComments } from './comments';
-import { authorNames, toReviewCommentDto } from './dto';
+import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import type { ReviewApiContext } from './http';
 import { threadNotificationStates } from '../notifications/preferences';
 
@@ -28,13 +28,13 @@ export async function listReviewComments({ request, project, actor }: ReviewApiC
     const comments = (params.get('unread') === 'true' && path === undefined
         ? await unreadComments(`project:${project.id}`, actorAuthorId(actor), comment => canSeeComment(comment, actor))
         : await listProjectComments(project, actor, path)).slice(0, MAX_LIST_COMMENTS);
-    const [names, reads, notifications] = await Promise.all([
-        authorNames(comments), loadReadSequences(`project:${project.id}`, actorAuthorId(actor)), threadNotificationStates(project, actor, comments)
+    const [names, reads, participants, notifications] = await Promise.all([
+        authorNames(comments), loadReadSequences(`project:${project.id}`, actorAuthorId(actor)), participantNames(project), threadNotificationStates(project, actor, comments)
     ]);
     // As many as fit into the comments API's response size
     return Response.json(withinListResponseSize(comments
         .map(comment => {
-            const dto = toReviewCommentDto(comment, actor, names, projectOrigins(project), reads.get(comment.id));
+            const dto = toReviewCommentDto(comment, actor, names, projectOrigins(project), reads.get(comment.id), participants);
             return dto ? { ...dto, notifications: notifications.get(comment.id) } : null;
         })
         .filter(Boolean)));
