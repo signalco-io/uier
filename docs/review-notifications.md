@@ -62,6 +62,9 @@ and failure class; the workflow reports their count and fails. Logs identify onl
 and bounded failure code, without recipients or message content. ACS acceptance is not proof of
 inbox delivery; this implementation does not process bounce/delivery-report events.
 
+Provider references: [ACS repeatable requests](https://learn.microsoft.com/en-us/rest/api/communication/repeatable-requests)
+and [email operation status](https://learn.microsoft.com/en-us/rest/api/communication/email/email/get-send-result?view=rest-communication-email-2025-09-01).
+
 After correcting a delivery configuration error, run the workflow manually with `retry_delivery`
 set to the id shown in the failure log. A confirmed failure gets another bounded retry cycle.
 An ambiguous operation retains its original id and only reconciles with ACS; it never starts an

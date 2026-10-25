@@ -15,7 +15,7 @@ import { KnownPageLinks } from '../../knownPages';
 import { notificationManageUrl, notificationPk, notificationPreference, notificationSubscription, notificationToken,
     preferenceId, type NotificationPreference, type NotificationSubscription } from './preferences';
 import { deliverNotificationEmail, type EmailAttempt } from './transport';
-import type { EmailMessage } from '../email/send';
+import { EmailNotConfiguredError, type EmailMessage } from '../email/send';
 
 export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
@@ -94,11 +94,13 @@ function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awa
     const { comment, actor, subscription, readSequence } = context;
     return (comment.notificationEvents ?? []).filter(event => event.sequence > delivery.processedThrough && event.sequence <= delivery.requestedThrough
         && event.sequence > readSequence && event.actorId !== delivery.actorId
+        && subscription?.following !== false
         && (!context.memberSince || event.at >= context.memberSince)
         && (!subscription?.since || event.at >= subscription.since)
-        && (event.kind === 'comment' ? actor.kind === 'member' && actor.isAdmin
-            : subscription?.following ?? (actor.kind === 'member' && (comment.thread.items.some(item => item.authorId === delivery.actorId)
-                || event.recipients?.includes(delivery.actorId)))));
+        && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || event.recipients?.includes(delivery.actorId))
+            : event.kind === 'mention' || event.kind === 'assignment' ? Boolean(event.recipients?.includes(delivery.actorId))
+                : subscription?.following ?? (actor.kind === 'member' && (comment.thread.items.some(item => item.authorId === delivery.actorId)
+                    || event.recipients?.includes(delivery.actorId)))));
 }
 
 async function digestMessage(baseUrl: string, delivery: NotificationDelivery, context: NonNullable<Awaited<ReturnType<typeof recipientContext>>>) {
@@ -193,6 +195,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         // Error messages from providers may contain personal data. Store only a bounded class name.
         const code = error instanceof Error ? error.name.slice(0, 80) : 'UnknownError';
         await save({ failures, active: failures < MAX_FAILURES, status: failures < MAX_FAILURES ? 'queued' : 'failed', lastCode: code,
+            ...(error instanceof EmailNotConfiguredError ? { attempt: undefined } : {}),
             nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)) });
         console.error(`[notifications] ${delivery.id}: attempt failed (${code})`);
     }

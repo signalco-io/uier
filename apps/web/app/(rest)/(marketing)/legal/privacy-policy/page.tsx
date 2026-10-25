@@ -222,7 +222,8 @@ export default function PrivacyPolicyPage() {
             <h2>Where it is stored and who processes it</h2>
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
-                <li>Sign-in and invitation emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.

@@ -7,8 +7,9 @@ import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { createProjectComment, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { markThreadRead } from '../src/lib/comments/readState';
-import { threadActivity } from '../src/lib/comments/activity';
-import { discoverThreadNotifications, processNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
+import { threadActivity, withThreadActivity } from '../src/lib/comments/activity';
+import { withNotificationEvent } from '../src/lib/notifications/events';
+import { discoverThreadNotifications, processNotificationDelivery, retryNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
 import { actOnNotificationToken, followThread, inspectNotificationToken, notificationPk, notificationSubscription, notificationToken, setProjectMuted } from '../src/lib/notifications/preferences';
 import type { EmailMessage } from '../src/lib/email/send';
 import type { deliverNotificationEmail } from '../src/lib/notifications/transport';
@@ -190,6 +191,9 @@ test('provider ambiguity and repeated failure retain clear durable evidence', as
     delivery = (await deliveries(f.project))[0]!;
     expect(delivery).toMatchObject({ active: false, status: 'ambiguous', lastCode: 'operation_unknown' });
     expect(delivery.attempt?.operationId).toBeTruthy();
+    const operationId = delivery.attempt!.operationId;
+    await retryNotificationDelivery(delivery.id);
+    expect((await deliveries(f.project))[0]).toMatchObject({ active: true, status: 'queued', attempt: { operationId } });
     const second = await fixture();
     await discoverThreadNotifications(second.project, second.comment);
     for (let attempt = 0; attempt < 8; attempt++) {
@@ -197,6 +201,9 @@ test('provider ambiguity and repeated failure retain clear durable evidence', as
         await processNotificationDelivery(queued, baseUrl, async () => ({ status: 'failed', code: 'ProviderRejected' }), Date.now() + (attempt + 1) * 4 * 60 * 60 * 1000);
     }
     expect((await deliveries(second.project))[0]).toMatchObject({ active: false, status: 'failed', failures: 8, lastCode: 'ProviderRejected' });
+    const failed = (await deliveries(second.project))[0]!;
+    await retryNotificationDelivery(failed.id);
+    expect((await deliveries(second.project))[0]).toMatchObject({ active: true, failures: 0, status: 'queued' });
 });
 
 test('outbox shares the activity cursor and status no-ops do not enqueue duplicates', async () => {
@@ -209,4 +216,22 @@ test('outbox shares the activity cursor and status no-ops do not enqueue duplica
     expect(resolved.notificationEvents?.at(-1)?.sequence).toBe(threadActivity(resolved).sequence);
     expect(noop.notificationEvents).toEqual(resolved.notificationEvents);
     expect(noop.notificationPending).toBe(true);
+});
+
+test('targeted activity contract reaches authorized nonparticipants once and respects explicit unfollow', async () => {
+    const f = await fixture();
+    const recipient = `user:${f.member.id}`;
+    const stored = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+    await getCommentsStore().replace({ ...stored.comment, notificationEvents: stored.comment.notificationEvents!.map(event => ({ ...event, recipients: [recipient, recipient] })) }, stored.etag);
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.filter(message => message.to === f.member.email)).toHaveLength(1);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.filter(message => message.to === f.member.email)).toHaveLength(1);
+    await followThread(f.project, f.memberActor, f.comment.id, false);
+    const current = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+    const actorId = `user:${f.owner.id}`;
+    await getCommentsStore().replace(withNotificationEvent(withThreadActivity(current.comment, actorId), actorId, 'assignment', undefined, [recipient]), current.etag);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.filter(message => message.to === f.member.email)).toHaveLength(1);
 });
