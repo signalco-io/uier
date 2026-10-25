@@ -255,7 +255,8 @@ test('text that moved is found again; text that is gone keeps a fallback pin', a
     const fallbackPin = page.getByRole('button', { name: 'Comment, 1 message. The commented text is no longer on the page', exact: true });
     await expect(fallbackPin).toBeVisible();
     // At the paragraph the text was in
-    const pin = await fallbackPin.boundingBox();
+    // On touch, the 32 px mark has a larger hit area. Compare the visible mark with its anchor.
+    const pin = await fallbackPin.locator('svg').boundingBox();
     // The element the toolbar resolves the selector to
     const box = await page.evaluate((selector) => {
         const { x, y, width, height } = document.querySelector(selector)!.getBoundingClientRect();

@@ -61,8 +61,8 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
 
     return (
         <Stack spacing={1}>
-            <Row spacing={1} justifyContent="space-between">
-                <Row spacing={1} className="min-w-0">
+            <Row spacing={1} justifyContent="space-between" className="flex-wrap gap-y-1">
+                <Row spacing={1} className="min-w-0 shrink-0">
                     <CommentStatusBadge done={done} />
                     {/* The public id, numbered per site */}
                     {comment.number !== undefined && (

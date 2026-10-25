@@ -115,8 +115,13 @@ by mistake. To use another port, for example to run them in two worktrees at onc
 PORT=4104 pnpm test
 ```
 
-Outside CI, a server that already answers on that port is reused rather than started, so stop `pnpm dev` or
-pick a free port to test the production build.
+An existing server on that port is never reused, inside or outside CI.
+
+The [MVP launch evidence matrix](docs/mvp-launch-verification.md) maps the combined review flow to
+coverage and records pending hosted/physical-device checks. `launch.spec.ts` adds owner/guest review,
+canonical routes, capture and recovery checks; `launch-performance.spec.ts` records a 100-thread inbox,
+bundle/request budgets and host interaction timings. Optional Firefox/WebKit projects run the portable
+launch flow with `PLAYWRIGHT_CROSS_BROWSER=1`; see the matrix for commands and engine limitations.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.config.ts)):
 

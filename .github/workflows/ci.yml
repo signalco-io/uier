@@ -98,7 +98,8 @@ jobs:
         run: pnpm test
 
       - name: Upload Playwright results
-        if: failure()
+        # Successful launch measurements/screenshots are release evidence too.
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-results

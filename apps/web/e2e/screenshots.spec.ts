@@ -101,6 +101,9 @@ test('screenshots: selected-text comments and rewrite suggestions capture automa
         await draft.getByRole('textbox', { name: rewrite ? 'Suggested text' : 'Comment', exact: true }).fill(rewrite ? 'A clearer description.' : 'Clarify this description.');
         await expect(draft.getByRole('img')).toHaveCount(0);
         await draft.getByRole('button', { name: rewrite ? 'Post suggestion' : 'Post comment' }).click();
+        // Long quoted text can put the lazy image below the thread's scroll viewport on touch.
+        await page.getByRole('dialog', { name: 'Comment thread' }).getByRole('group', { name: 'Messages', exact: true })
+            .evaluate(element => element.scrollTo({ top: element.scrollHeight }));
         await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
         await page.keyboard.press('Escape');
         await page.evaluate(() => window.getSelection()?.removeAllRanges());
