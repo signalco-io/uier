@@ -53,12 +53,19 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Create a project' })).toBeVisible();
     await expect(page).toHaveTitle('Create project · uier');
+    // The onboarding progress: the site first, then the script
+    const progress = page.getByRole('list', { name: 'Onboarding progress' });
+    await expect(progress.getByRole('listitem')).toHaveCount(2);
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 2: Your site');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 2: Add the script');
     await expectNoAxeViolations(page);
 
     const projectId = await createProject(page, { urls: ['www.example.com/', 'https://staging.example.com/app/'] });
 
     // Install guide (the project's Install tab): the script with the project code, platform guidance and the CSP sources
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
+    await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 2: Your site (done)');
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 2: Add the script');
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(projectId, { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${projectId}"`).first()).toBeVisible();
@@ -88,6 +95,12 @@ test('onboarding creates a project with its addresses and shows the install guid
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toBeHidden();
     await expectNoAxeViolations(page);
+
+    // The Install tab itself is the plain guide, without the onboarding progress
+    await page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install$`));
+    await expect(page.getByRole('heading', { name: 'Copy the script' })).toBeVisible();
+    await expect(progress).toHaveCount(0);
 });
 
 test('review links open the project\'s own sites with the toolbar turned on', async ({ page }) => {

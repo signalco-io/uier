@@ -7,15 +7,17 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
 import { appBaseUrl } from '@/src/lib/app/request';
 import { InstallGuide } from '@/src/components/app/projects/InstallGuide';
+import { OnboardingSteps } from '@/src/components/app/projects/OnboardingSteps';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 
 export const metadata: Metadata = {
     title: 'Install'
 };
 
-/** Onboarding, step 2 (and the install guide of any project) */
-export default async function InstallProjectPage({ params }: PageProps<'/app/projects/[projectId]/install'>) {
+/** Onboarding, step 2 (`?onboarding=1`, right after creating the project), and the install guide of any project */
+export default async function InstallProjectPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/install'>) {
     const { projectId } = await params;
+    const { onboarding } = await searchParams;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
     if (!project)
@@ -23,6 +25,7 @@ export default async function InstallProjectPage({ params }: PageProps<'/app/pro
 
     return (
         <div className="flex max-w-3xl flex-col gap-8">
+            {onboarding === '1' && <OnboardingSteps current={2} className="max-w-xl" />}
             <InstallGuide
                 baseUrl={await appBaseUrl()}
                 projectId={project.id}

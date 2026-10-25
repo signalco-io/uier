@@ -186,9 +186,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   offers All clients and No client, and stays selected in the URL across status changes and reloads.
   Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
-  - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
+  - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install?onboarding=1`
     (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
-    the sources to add to it).
+    the sources to add to it). Both pages show the two-step progress (Your site, Add the script); the Install
+    tab on its own is the guide without it.
   - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
     Comments, Install and Settings.
   - Comments `/app/projects/<code>`: the guest link (in guest mode) and the project's **comments**, as a

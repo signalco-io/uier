@@ -73,7 +73,7 @@ export async function createProjectAction(_: ActionState, formData: FormData): P
         return result;
 
     revalidatePath('/app', 'layout');
-    redirect(KnownPageLinks.projectInstall(result.data.id));
+    redirect(KnownPageLinks.projectInstall(result.data.id, { onboarding: true }));
 }
 
 export async function updateProjectNameAction(_: ActionState, formData: FormData): Promise<ActionState> {
