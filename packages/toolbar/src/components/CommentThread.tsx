@@ -69,7 +69,6 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
             <div className="px-4 pb-1 pt-2">
                 <CommentThreadHeader comment={commentItem} />
             </div>
-            <CommentAnchorDetails comment={commentItem} />
             {(commentItem.permissions?.assign || commentItem.assignee) && <CommentAssignment comment={commentItem} />}
             {commentItem.activity && (
                 <div className="flex items-center justify-between gap-2 px-4">
@@ -125,6 +124,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
                     </div>
                 </>
             )}
+            <CommentAnchorDetails comment={commentItem} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <div className="px-4 pt-2">
                 <ThreadNotifications comment={commentItem} />
             </div>}
