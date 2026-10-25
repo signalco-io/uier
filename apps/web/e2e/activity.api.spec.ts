@@ -126,12 +126,17 @@ test('public read receipts isolate guests, persist across page/site requests, an
         expect(read.headers()['set-cookie']).toContain('uier_visitor=');
         expect((await list()).activity).toMatchObject({ unread: false, readSequence: 1 });
         expect((await list()).resolved).toBe(false);
+        // Toolbar writes now use #86's atomic retry receipts. Replaying a reply advances once.
+        const idempotencyKey = randomUUID();
+        const reply = () => second.post(`/api/comments/${comment.id}/replies`, { data: { text: 'My reply', idempotencyKey } });
+        expect((await (await reply()).json()).activity).toMatchObject({ sequence: 2, unread: false, readSequence: 1 });
+        expect((await (await reply()).json()).activity.sequence).toBe(2);
         await request.patch(`/api/comments/${comment.id}`, { data: { resolved: true } });
         const changed = await list();
-        expect(changed).toMatchObject({ resolved: true, activity: { unread: true, sequence: 2, readSequence: 1 } });
-        await second.post(readUrl, { data: { sequence: 2 } });
+        expect(changed).toMatchObject({ resolved: true, activity: { unread: true, sequence: 3, readSequence: 1 } });
+        await second.post(readUrl, { data: { sequence: 3 } });
         const site = await (await second.get('/api/comments?scope=site')).json();
-        expect(site.find((item: { id: string }) => item.id === comment.id)).toMatchObject({ resolved: true, activity: { unread: false, readSequence: 2 } });
+        expect(site.find((item: { id: string }) => item.id === comment.id)).toMatchObject({ resolved: true, activity: { unread: false, readSequence: 3 } });
         expect((await second.post(readUrl, { data: { sequence: 999 } })).status()).toBe(400);
         expect((await second.post(readUrl, { headers: { Origin: 'https://other.example' }, data: { sequence: 2 } })).status()).toBe(403);
         expect((await second.post('/api/comments/comment_missing/read', { data: { sequence: 1 } })).status()).toBe(404);

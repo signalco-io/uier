@@ -5,7 +5,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close } from '@signalco/ui-icons';
 import { toolbarConfig } from '../config';
-import { apiRequest, advanceReviewerRevision, projectViewerQueryKey, required, CommentsApiError, commentsQueryKeyPrefix } from '../hooks/api';
+import { apiRequest, advanceReviewerRevision, clearReviewerCache, projectViewerQueryKey, required, CommentsApiError, commentsQueryKeyPrefix } from '../hooks/api';
 import { activityQueryKey } from '../hooks/useComments';
 import { InkScope } from '../components/InkScope';
 import { consumeReviewCode, getReviewToken, setReviewToken } from './projectSession';
@@ -124,7 +124,7 @@ type ProjectGateProps = PropsWithChildren<{
  */
 export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     const client = useQueryClient();
-    const previousKind = useRef<string | undefined>(undefined);
+    const previousScope = useRef<string | undefined>(undefined);
     const { data: info, error, isPending } = useQuery({
         queryKey: projectViewerQueryKey,
         queryFn: loadReviewInfo,
@@ -135,14 +135,11 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     });
     useEffect(() => {
         void checkInstallationReady(info, error);
-        const changed = Boolean(previousKind.current && info && previousKind.current !== info.viewer.kind);
-        if (info) previousKind.current = info.viewer.kind;
-        if (changed) advanceReviewerRevision();
+        const scope = info?.viewer.draftScope ?? info?.viewer.kind;
+        const changed = Boolean(previousScope.current && scope && previousScope.current !== scope);
+        if (scope) previousScope.current = scope;
         if (changed || (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) || (info && !info.canComment)) {
-            void client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
-            client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
-            client.removeQueries({ queryKey: ['screenshot'] });
-            client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+            clearReviewerCache(client);
         }
     }, [client, info, error]);
 

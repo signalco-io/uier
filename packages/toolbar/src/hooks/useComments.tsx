@@ -3,7 +3,7 @@ import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, 
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
-import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision } from './api';
+import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import { getGuestName } from '../project/projectSession';
 
@@ -305,7 +305,7 @@ export function useCommentsRefresh(expanded: boolean) {
     }, [client, expanded]);
 }
 
-export const activityQueryKey = ['review-activity'] as const;
+export { activityQueryKey };
 export type ActivitySummary = { unread: number; open: number; done: number; total: number };
 
 export function useActivitySummary() {

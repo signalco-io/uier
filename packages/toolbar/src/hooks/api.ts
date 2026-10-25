@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { getVisitorToken, projectHeaders } from '../project/projectSession';
 import { reviewVerification } from '../project/verification';
@@ -144,6 +145,7 @@ export function required<T>(value: T | undefined): T {
 
 /** Prefix of the comments queries of every page */
 export const commentsQueryKeyPrefix = ['comments'] as const;
+export const activityQueryKey = ['review-activity'] as const;
 
 export const visitorQueryKey = ['visitor'] as const;
 
@@ -157,3 +159,12 @@ export const projectViewerQueryKey = ['project-viewer'] as const;
 let reviewerRevision = 0;
 export const currentReviewerRevision = () => reviewerRevision;
 export function advanceReviewerRevision() { reviewerRevision++; }
+
+export function clearReviewerCache(client: QueryClient) {
+    advanceReviewerRevision();
+    void client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
+    void client.cancelQueries({ queryKey: activityQueryKey });
+    client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
+    client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+    client.removeQueries({ queryKey: ['screenshot'] });
+}

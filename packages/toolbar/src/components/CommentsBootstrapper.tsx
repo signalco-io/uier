@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { InkScope } from './InkScope';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { usePagePath } from '../hooks/usePagePath';
 import { CommentsGlobal } from './CommentsGlobal';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
@@ -9,6 +9,7 @@ import { CommentsGlobalProps } from './@types/Comments';
 import { AnnouncerProvider } from './Announcer';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { toolbarConfig } from '../config';
+import { clearReviewerCache, commentsQueryKeyPrefix, activityQueryKey } from '../hooks/api';
 import { useVisitor } from '../hooks/useVisitor';
 import { ProjectViewerContext } from '../project/ProjectGate';
 import { defaultPageStatePolicy } from '../pageState';
@@ -43,6 +44,17 @@ function ReviewLayer({
 
 function PublicReviewLayer(props: CommentsGlobalProps) {
     const { query } = useVisitor();
+    const client = useQueryClient();
+    const previousScope = useRef<string | undefined>(undefined);
+    const scope = query.data?.draftScope;
+    useEffect(() => {
+        if (scope && previousScope.current && previousScope.current !== scope) {
+            clearReviewerCache(client);
+            void client.invalidateQueries({ queryKey: commentsQueryKeyPrefix });
+            void client.invalidateQueries({ queryKey: activityQueryKey });
+        }
+        if (scope) previousScope.current = scope;
+    }, [client, scope]);
     // Old unconfigured cross-origin embeds still show their controls and comments load error.
     // No server scope can be read there, so DraftsProvider uses memory only.
     if (new URL(toolbarConfig.apiUrl).origin !== window.location.origin) return <ReviewLayer {...props} />;
