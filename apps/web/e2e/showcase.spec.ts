@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
 import {
     addToolbarScript,
+    animationsFinished,
     commentBubble,
     commentBubbles,
     isolatedOrigin,
@@ -609,6 +610,8 @@ test('rate limit messages tell a full page from a fast visitor', async ({ browse
     const alert = openThread(page).getByRole('alert');
     await expect(alert).toHaveText('This page has reached its comment limit. Try again in about an hour.');
     await expect(composer).toHaveValue('Hello');
+    // The draft is back (it opens again): measured colours are only final once it faded in
+    await animationsFinished(openThread(page));
     await expectNoAxeViolations(page);
 
     // Without a reason: the visitor is sending too fast

@@ -8,7 +8,32 @@ export type DraftDetails = {
     anchor?: { kind: 'comment' | 'rewrite'; position: CommentAnchor };
     originalText?: string;
 };
-type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: { content: string; key: string } };
+/** Text being sent in the background: the form is empty, the text stays here until the send settles */
+type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string };
+type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: { content: string; key: string }; sending?: Sending[] };
+const maxTextLength = 1000;
+
+/** Sent text back in the draft, before what was written meanwhile (when both fit) */
+function withSentText(value: RecordValue, text: string, mentions: Mention[] = []): RecordValue {
+    if (!value.text.trim()) return { ...value, text, mentions };
+    const joined = `${text}\n\n${value.text}`;
+    if (joined.length > maxTextLength) return value;
+    const shift = text.length + 2;
+    return { ...value, text: joined, mentions: [...mentions, ...(value.mentions ?? []).map(mention => ({ ...mention, start: mention.start + shift, end: mention.end + shift }))] };
+}
+
+/** Sends this page never saw settle (it was left or reloaded meanwhile): uncertain, so the text is a draft again */
+function recoverSending(value: RecordValue): RecordValue {
+    const { sending, ...rest } = value;
+    let recovered: RecordValue = rest;
+    if (Array.isArray(sending)) {
+        for (const entry of [...sending].reverse()) {
+            if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
+                recovered = withSentText(recovered, entry.text, Array.isArray(entry.mentions) ? entry.mentions : undefined);
+        }
+    }
+    return recovered;
+}
 
 const memory = new Map<string, Map<string, RecordValue>>();
 const listeners = new Map<string, Set<() => void>>();
@@ -36,9 +61,10 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 const raw = persistent ? localStorage.getItem(prefix + key) : null;
                 if (raw && raw.length <= maxDraftRecordLength) value = JSON.parse(raw) as RecordValue;
             } catch { available = false; }
+            if (value?.sending && typeof value.text === 'string') value = recoverSending(value);
         }
         if (!value) return undefined;
-        if (typeof value.text !== 'string' || value.text.length > 1000 || !Number.isFinite(value.updatedAt)
+        if (typeof value.text !== 'string' || value.text.length > maxTextLength || !Number.isFinite(value.updatedAt)
             || value.updatedAt + draftLifetimeMs <= Date.now() || value.updatedAt > Date.now() + 60_000) {
             remove(key); return undefined;
         }
@@ -110,6 +136,27 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 }
             } catch { available = false; }
             for (const key of listeners.keys()) if (key.startsWith(reviewerPrefix)) notify(key);
+        },
+        /** Empties the draft for a send in the background, keeping its text until `settleSend` */
+        startSend(key: string, text: string, mentions: Mention[]) {
+            const previous = read(key);
+            const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), value => value.toString(16).padStart(2, '0')).join('');
+            write(key, { ...previous, text: '', mentions: [], updatedAt: Date.now(),
+                sending: [...(previous?.sending ?? []), { id, text, mentions, anchor: JSON.stringify(previous?.anchor) }] });
+            return id;
+        },
+        /** Saved: the draft goes (unless something new was written meanwhile). Not saved: its text is back. */
+        settleSend(key: string, id: string, saved: boolean) {
+            const current = read(key);
+            const entry = current?.sending?.find(item => item.id === id);
+            if (!current || !entry) return;
+            const sending = current.sending!.filter(item => item.id !== id);
+            const rest: RecordValue = { ...current, sending: sending.length ? sending : undefined };
+            if (saved && !rest.text.trim() && !sending.length && JSON.stringify(rest.anchor) === entry.anchor) {
+                remove(key);
+                return;
+            }
+            write(key, saved ? rest : { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() });
         },
         available: () => available,
         pending: (key: string) => pendingSends.has(prefix + key),

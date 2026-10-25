@@ -9,7 +9,7 @@ import { CommentThread } from '../CommentThread';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
-import { useComments, useSiteComments, useActivitySummary } from '../../hooks/useComments';
+import { commentKey, useComments, useSiteComments, useActivitySummary } from '../../hooks/useComments';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { commentLink } from '../../review';
 import { CommentItem, commentsListMaxLength } from '../@types/Comments';
@@ -66,7 +66,7 @@ function CommentsGroup({ title, query, comments, filter, renderPlace, note }: Co
         content = (
             <Stack spacing={1}>
                 {comments.map((comment) => (
-                    <CommentErrorBoundary key={comment.localKey ?? comment.id} commentId={comment.id}>
+                    <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
                         <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="rounded-xl border bg-card">
                             {renderPlace(comment)}
                             <CommentThread commentItem={comment} />

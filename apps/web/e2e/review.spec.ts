@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
 import {
     addToolbarScript,
+    animationsFinished,
     commentBubble,
     commentBubbles,
     isolatedOrigin,
@@ -23,6 +24,8 @@ const options = (page: Page) => page.getByRole('dialog', { name: 'Options' });
 async function openOptions(page: Page) {
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page)).toBeVisible();
+    // Faded in (dark over the page): measured colours are only final after that
+    await animationsFinished(options(page));
     return options(page);
 }
 
@@ -221,6 +224,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     const profile = page.getByRole('dialog', { name: 'Profile' });
     await profileButton.click();
     await expect(profile).toContainText('You have not commented yet.');
+    await animationsFinished(profile);
     await expectNoAxeViolations(page);
     await page.keyboard.press('Escape');
     await expect(profile).toBeHidden();

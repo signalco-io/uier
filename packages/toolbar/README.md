@@ -218,9 +218,10 @@ error boundary, so one bad comment never breaks the toolbar.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
   Comments, replies and feedback are sent in the background: the form empties at once and the comment or reply
-  shows straight away (a pending pin reads "Comment, sending" and counts only saved messages; replies to it wait
-  for its id). A failure removes it, puts the text back in the draft (a new comment's draft pin returns with the
-  reason) and says so in a toast. Edits still wait for the save.
+  shows straight away (a pending pin reads "Comment, sending" and counts only saved messages; its thread opens
+  once it is saved, and replies to it wait for its id). The text stays with the draft until the send settles, so
+  leaving or reloading the page meanwhile keeps it. A failure removes the comment or reply, puts the text back in
+  the draft (a new comment's draft pin returns with the reason) and says so in a toast. Edits still wait for the save.
   Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../README.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.

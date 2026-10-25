@@ -50,8 +50,10 @@ type CommentBubbleProps = {
     draftPinOffset?: number;
     onAutoOpened?: () => void;
     onOpenStateChange?: (commentId: string, open: boolean) => void;
-    /** The comment was sent: its temporary id, shown at once (see hooks/useComments.tsx) */
-    onCreated?: (commentId: string) => void;
+    /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
+    onCreated?: (localId: string) => void;
+    /** The API saved it */
+    onSaved?: (localId: string, commentId: string) => void;
     /** Sending failed: the draft (its text is back) should be on the page again */
     onSendFailed?: (error: unknown) => void;
     onCanceled?: () => void;
@@ -64,7 +66,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, onAutoOpened, onCreated, onSendFailed, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, onAutoOpened, onCreated, onSaved, onSendFailed, onCanceled, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -121,14 +123,16 @@ export function CommentBubble(props: CommentBubbleProps) {
         });
         // The draft pin makes way for the comment's, shown at once
         onCreated?.(localId);
+        let saved: CommentItem;
         try {
-            await posting;
-            announce(rewriting ? 'Suggestion posted' : 'Comment posted');
+            saved = await posting;
         } catch (error) {
             // After the composer has put the text back
             window.setTimeout(() => onSendFailed?.(error), 0);
             throw error;
         }
+        announce(rewriting ? 'Suggestion posted' : 'Comment posted');
+        onSaved?.(localId, saved.id);
     };
 
     const [open, setOpen] = useState(creating && !props.initiallyClosed);
@@ -276,7 +280,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                         submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
                         draftKey={draftKey}
                         quote={selectedText}
-                        autoFocus
+                        // Not when it appears in a thread that is closing (its comment was saved after
+                        // Escape): the focus, and a page selection made meanwhile, stay where they are
+                        autoFocus={open}
                         error={mutation.error ?? props.draft?.sendError}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />

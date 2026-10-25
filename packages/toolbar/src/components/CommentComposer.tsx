@@ -190,27 +190,20 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         lastThreshold.current = current;
     }, [text.length, announce]);
 
-    /** Empties the form at once; a failure puts the text back (before anything written meanwhile) */
+    /**
+     * Empties the form at once. The text stays with the draft until the send settles: a failure puts
+     * it back (before anything written meanwhile), and so does leaving the page before it settled.
+     */
     const sendInBackground = async (sentText: string, sentMentions: Mention[], send: () => Promise<unknown>) => {
-        const sentAnchor = JSON.stringify(drafts.details(draftKey)?.anchor);
-        const sameDraft = () => JSON.stringify(drafts.details(draftKey)?.anchor) === sentAnchor;
-        drafts.set(draftKey, '');
-        drafts.setDetails(draftKey, { mentions: [] });
+        const id = drafts.startSend(draftKey, sentText, sentMentions);
+        let saved = false;
         try {
             await send();
-            if (!drafts.get(draftKey) && sameDraft()) drafts.delete(draftKey);
+            saved = true;
         } catch {
-            const typed = drafts.get(draftKey) ?? '';
-            if (!typed.trim()) {
-                drafts.set(draftKey, sentText);
-                drafts.setDetails(draftKey, { mentions: sentMentions });
-                return;
-            }
-            const joined = `${sentText}\n\n${typed}`;
-            if (joined.length > commentTextMaxLength) return;
-            const shift = sentText.length + 2;
-            drafts.set(draftKey, joined);
-            drafts.setDetails(draftKey, { mentions: [...sentMentions, ...(drafts.details(draftKey)?.mentions ?? []).map(m => ({ ...m, start: m.start + shift, end: m.end + shift }))] });
+            // The toast says why
+        } finally {
+            drafts.settleSend(draftKey, id, saved);
         }
     };
 

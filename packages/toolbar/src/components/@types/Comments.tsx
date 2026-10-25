@@ -153,8 +153,6 @@ export type CommentItem = {
     assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean };
     /** Shown before the API saved it (an optimistic comment with a temporary id, see hooks/useComments.tsx) */
     pending?: boolean;
-    /** The temporary id it had while pending: the pin and its open thread stay the same component */
-    localKey?: string;
 }
 
 /** A comment being written: device context and screenshot start with the draft. */

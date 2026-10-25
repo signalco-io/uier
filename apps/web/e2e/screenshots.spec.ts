@@ -162,6 +162,8 @@ test('screenshots: feedback is about the page, its screenshot is the window with
     await expect(dialog.getByRole('img')).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog).toBeHidden();
+    // Sent in the background
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
 
     // The whole window, at the screen's pixel ratio (at most 2)
     const feedback = await savedComment(page, 'Clear and calm.');

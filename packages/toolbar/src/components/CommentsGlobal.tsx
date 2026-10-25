@@ -3,7 +3,7 @@ import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { Button } from '@signalco/ui-primitives/Button';
-import { useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
+import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
@@ -117,7 +117,11 @@ export function CommentsGlobal({
         return () => { stopComment(); stopRewrite(); };
     }, [drafts]);
     const [activeThreads, setActiveThreads] = useState<ReadonlySet<string>>(() => new Set());
+    // A comment being sent (its temporary id), whose thread opens once it is saved (see `handleSaved`)
+    const awaitingThreadRef = useRef<string>(undefined);
     const handleThreadOpenState = useCallback((id: string, open: boolean) => {
+        // A thread opened meanwhile (the one being sent, too) stays the only one
+        if (open) awaitingThreadRef.current = undefined;
         setActiveThreads(current => {
             if (current.has(id) === open) return current;
             const next = new Set(current);
@@ -173,6 +177,7 @@ export function CommentsGlobal({
 
     const startDraft = (position: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
         closeHintForUse();
+        awaitingThreadRef.current = undefined;
         draftKeyRef.current += 1;
         const draftKey = kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey;
         const existing = drafts.details(draftKey);
@@ -361,9 +366,15 @@ export function CommentsGlobal({
         setSidebarOpen(true);
     };
 
-    // A posted comment shows its thread (at once: its pin is there while it is sent)
-    const handleCreated = (commentId: string, draftKey: number) => {
+    // A posted comment's pin is there at once; its thread opens when it is saved (at its full size,
+    // so the popover takes the side with room), unless something else was started meanwhile
+    const handleCreated = (localId: string, draftKey: number) => {
         removeCreatingComment(draftKey);
+        awaitingThreadRef.current = localId;
+    };
+    const handleSaved = (localId: string, commentId: string) => {
+        if (awaitingThreadRef.current !== localId) return;
+        awaitingThreadRef.current = undefined;
         setOpenComment({ id: commentId });
     };
     // It was not posted: the draft, with its text back, is on the page again
@@ -426,6 +437,7 @@ export function CommentsGlobal({
     // "Show on page" in the inbox (only while the pin can be placed): the thread opens on its pin
     // (and takes the focus)
     const handleShowOnPage = (commentId: string) => {
+        awaitingThreadRef.current = undefined;
         handleCollapsedChange(false);
         setSidebarOpen(false);
         setOpenComment({ id: commentId, fromInbox: true });
@@ -439,6 +451,7 @@ export function CommentsGlobal({
             setCreatingCommentPoint(false);
             setCreatingCommentSelection(undefined);
             setOpenComment(undefined);
+            awaitingThreadRef.current = undefined;
             closeHintForUse();
         }
     };
@@ -468,7 +481,7 @@ export function CommentsGlobal({
             {!collapsed && pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">
                     {pinnedComments.map((commentItem) => (
-                        <CommentErrorBoundary key={commentItem.localKey ?? commentItem.id} commentId={commentItem.id}>
+                        <CommentErrorBoundary key={commentKey(commentItem)} commentId={commentItem.id}>
                             <CommentBubble
                                 commentItem={commentItem}
                                 onOpenStateChange={handleThreadOpenState}
@@ -484,7 +497,8 @@ export function CommentsGlobal({
                         draft={creatingComment}
                         initiallyClosed={creatingComment.initiallyClosed}
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
-                        onCreated={commentId => handleCreated(commentId, creatingComment.key)}
+                        onCreated={localId => handleCreated(localId, creatingComment.key)}
+                        onSaved={handleSaved}
                         onSendFailed={error => restoreCreatingComment(creatingComment.kind, error)}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>

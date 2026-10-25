@@ -137,6 +137,8 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await expect(feedback.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveValue('Feedback draft');
     await feedback.getByRole('button', { name: 'Send feedback', exact: true }).click();
     await expect(feedback).toBeHidden();
+    // Sent in the background: saved before leaving the page
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
     await page.keyboard.press('Escape');
     await page.goto(`${origin}/brand`);
     const other = await startPoint(page);

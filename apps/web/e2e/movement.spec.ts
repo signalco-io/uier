@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
+import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 /** Browser-generated touch events, including pointer capture; synthetic DOM events miss scrolling/cancel behavior. */
@@ -79,6 +79,8 @@ test('inbox docks on either side with mouse or touch without losing filters or r
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     const handle = inbox.getByRole('button', { name: 'Move comments panel' });
     await inbox.getByRole('searchbox').fill('discussion');
+    // It slides in: the handle is where it stays once that is over
+    await animationsFinished(inbox);
     await drag(page, handle, { x: 70, y: 100 }, Boolean(testInfo.project.use.hasTouch));
     await expect(inbox).toHaveAttribute('data-side', 'left');
     await expect.poll(async () => (await inbox.boundingBox())!.x).toBeLessThan(30);

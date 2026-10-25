@@ -51,8 +51,16 @@ type ReplyInput = { commentId: string; text: string; mentions?: Mention[] };
  */
 const pendingComments = new Map<string, CommentItem>();
 const pendingReplies = new Map<string, CommentItemThreadItem[]>();
-// A saved comment keeps the temporary id it had as its `localKey` (its pin stays the same component)
+// The temporary id a saved comment had (see `commentKey`)
 const localKeys = new Map<string, string>();
+
+/**
+ * A comment's React key: the temporary id it was shown with while it was sent, so its pin and open
+ * thread stay the same component when the API's version (or any later update of it) replaces it
+ */
+export function commentKey(comment: CommentItem) {
+    return localKeys.get(comment.id) ?? comment.id;
+}
 
 /** A temporary id for a comment or reply that is not saved yet */
 export function newLocalId() {
@@ -61,12 +69,10 @@ export function newLocalId() {
 
 const sameText = (item: CommentItemThreadItem | undefined, text: string) => Boolean(item && !item.deleted && item.author.isMe && item.text === text);
 
-/** A saved comment with its local key and the replies to it that are still on their way */
+/** A saved comment with the replies to it that are still on their way */
 function applyPending(comment: CommentItem): CommentItem {
-    const localKey = localKeys.get(comment.id);
     const replies = pendingReplies.get(comment.id)?.filter(reply => !reply.deleted && !comment.thread.items.some(item => sameText(item, reply.text)));
-    if (!localKey && !replies?.length) return comment;
-    return { ...comment, ...(localKey ? { localKey } : {}), ...(replies?.length ? { thread: { items: [...comment.thread.items, ...replies] } } : {}) };
+    return replies?.length ? { ...comment, thread: { items: [...comment.thread.items, ...replies] } } : comment;
 }
 
 /** A fetched list, with the comments (of the list, `include`) that are still on their way */
