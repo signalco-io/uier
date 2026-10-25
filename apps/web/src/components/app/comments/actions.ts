@@ -19,6 +19,8 @@ import { markThreadRead } from '../../../lib/comments/readState';
 import { actorAuthorId } from '../../../lib/review/actor';
 import { apiErrors } from '../../../lib/comments/http';
 import { KnownPageLinks } from '../../../knownPages';
+import { appBaseUrl } from '../../../lib/app/request';
+import { projectFeedbackExport } from '../../../lib/review/feedbackContext';
 
 /** The comment's project (current workspace, visible to the user) and the user as its actor */
 async function commentContext(projectId: string) {
@@ -76,5 +78,18 @@ export async function markCommentReadAction(projectId: string, commentId: string
         const comment = await getProjectComment(project, actor, commentId);
         if (!comment) throw apiErrors.notFound();
         await markThreadRead(comment, actorAuthorId(actor)!, sequence);
+    });
+}
+
+/** An explicit export, using current workspace/member and private-thread authorization. */
+export async function copyIssueAction(projectId: string, commentId: string) {
+    return actionResult(async () => {
+        const { project, actor } = await commentContext(projectId);
+        try { return await projectFeedbackExport(project, actor, commentId, undefined, await appBaseUrl()); }
+        catch (error) {
+            if (error instanceof ApiError)
+                throw new UserFacingError(error.code === 'not_found' ? 'This comment is no longer available.' : error.message);
+            throw error;
+        }
     });
 }

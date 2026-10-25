@@ -6,13 +6,14 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Link, Undo } from '@signalco/ui-icons';
+import { Check, Copy, Link, Undo } from '@signalco/ui-icons';
 import { useComments } from '../hooks/useComments';
 import { commentLink } from '../review';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
+import { CopyIssueResult, useCopyIssue } from './CopyIssue';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
 export function CommentStatusBadge({ done }: { done: boolean }) {
@@ -37,6 +38,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const done = comment.resolved;
+    const issue = useCopyIssue(comment.id);
 
     const handleStatus = async () => {
         try {
@@ -87,6 +89,16 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                     <IconButton
                         size="xs"
                         variant="plain"
+                        title="Copy issue"
+                        aria-label="Copy issue"
+                        aria-busy={issue.pending}
+                        disabled={issue.pending}
+                        onClick={issue.copy}>
+                        <Copy size={16} />
+                    </IconButton>
+                    <IconButton
+                        size="xs"
+                        variant="plain"
                         title="Copy link"
                         aria-label="Copy link"
                         onClick={handleCopyLink}>
@@ -94,6 +106,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                     </IconButton>
                 </Row>
             </Row>
+            <CopyIssueResult state={issue} />
             <CommentsErrorMessage error={resolve.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
