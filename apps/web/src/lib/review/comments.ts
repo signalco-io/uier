@@ -7,7 +7,7 @@ import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
 import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
-import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
@@ -44,7 +44,7 @@ function isAdmin(actor: ProjectActor) {
 // The author and the workspace admins can edit and delete it; only admins make it private.
 
 export function canSeeComment(comment: DbComment, actor: ProjectActor) {
-    return !comment.private || isAdmin(actor) || isAuthor(comment.authorId, actor);
+    return !(comment.private || isPrivateAppFeedback(comment)) || isAdmin(actor) || isAuthor(comment.authorId, actor);
 }
 
 export function canResolveComment(comment: DbComment, actor: ProjectActor) {
@@ -168,6 +168,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         domain: partition,
         projectId: project.id,
         ...(project.id === PUBLIC_PROJECT_ID ? { ttl: commentTtlSeconds() } : {}),
+        ...(isPrivateAppFeedback({ domain: partition, path: input.path }) ? { private: true } : {}),
         origin: input.origin,
         path: input.path,
         ...(input.pageStateVersion === 1 ? { pageStateVersion: 1 as const } : {}),

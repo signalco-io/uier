@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { newVisitor, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
 
@@ -160,10 +161,10 @@ test('project settings save the comment access, addresses and name', async ({ pa
     // Addresses
     const addresses = page.getByRole('region', { name: 'Site addresses' });
     await addresses.getByRole('button', { name: 'Add another address' }).click();
-    await addresses.getByLabel('Other address').fill('localhost:3000/');
+    await addresses.getByLabel('Address 2', { exact: true }).fill('localhost:3000/');
     await addresses.getByRole('button', { name: 'Save' }).click();
     await expect(addresses.getByRole('status')).toHaveText('The addresses are saved.');
-    await addresses.getByLabel('Other address').fill('not a site');
+    await addresses.getByLabel('Address 2', { exact: true }).fill('not a site');
     await addresses.getByRole('button', { name: 'Save' }).click();
     await expect(addresses.getByRole('alert')).toContainText('"not a site" is not a website address.');
 
@@ -176,7 +177,7 @@ test('project settings save the comment access, addresses and name', async ({ pa
     await page.reload();
     await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     await expect(addresses.getByLabel('Main site address')).toHaveValue('https://settings.example.com');
-    await expect(addresses.getByLabel('Other address')).toHaveValue('https://localhost:3000');
+    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('https://localhost:3000');
     // The new name in the header and the breadcrumbs, and on the projects page
     await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');
@@ -188,7 +189,8 @@ test('the sidebar has the sections, the active projects and the account', async 
     const projectId = await createProject(page, { urls: ['sidebar.example.com'], name: 'Sidebar site' });
 
     const navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link', { name: 'Projects' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'All projects' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Create project' })).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Users' })).toBeVisible();
     await navigation.getByRole('link', { name: 'Sidebar site' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
@@ -207,6 +209,43 @@ test('the sidebar has the sections, the active projects and the account', async 
     await page.getByRole('menuitem', { name: 'Theme' }).click();
     await page.getByRole('menuitemradio', { name: 'Dark' }).click();
     await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+});
+
+test('feedback on the app opens uier\'s toolbar and stays private', async ({ page, browser }, testInfo) => {
+    await signIn(page, uniqueEmail('feedback'));
+    await page.goto('/app/projects');
+    // In the sidebar's footer, with the account (not in the navigation)
+    const giveFeedback = page.getByRole('button', { name: 'Give feedback' });
+    await appNavigation(page);
+    await giveFeedback.click();
+
+    // The toolbar mounts with its feedback form open
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    const text = `Projects could use search ${Date.now().toString(36)}`;
+    await expect(dialog.getByRole('textbox', { name: 'Feedback' })).toBeFocused();
+    await dialog.getByRole('textbox', { name: 'Feedback' }).fill(text);
+    await dialog.getByRole('button', { name: 'Send feedback' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    await expectNoAxeViolations(page);
+
+    // App pages show private projects: only the author (and the team, in the app) sees it
+    const pageComments = new URL('/api/comments?path=/app/projects', page.url()).href;
+    const siteComments = new URL('/api/comments?scope=site', page.url()).href;
+    const texts = (comments: { thread: { items: { text: string }[] } }[]) => comments.map(comment => comment.thread.items[0]?.text);
+    expect(texts(await (await page.request.get(pageComments)).json())).toContain(text);
+    const other = await newVisitor(browser, testInfo);
+    expect(texts(await (await other.context.request.get(pageComments)).json())).not.toContain(text);
+    expect(texts(await (await other.context.request.get(siteComments)).json())).not.toContain(text);
+    await other.context.close();
+
+    // Closed from its options, and back with the button
+    await toolbar(page).getByRole('button', { name: 'Options' }).click();
+    await page.getByRole('button', { name: 'Close toolbar' }).click();
+    await expect(toolbar(page)).toBeHidden();
+    await appNavigation(page);
+    await giveFeedback.click();
+    await expect(dialog).toBeVisible();
 });
 
 test('the account page saves the name and signs out', async ({ page }) => {

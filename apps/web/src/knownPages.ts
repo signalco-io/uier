@@ -16,7 +16,6 @@ export const KnownPages = {
     AppProjects: '/app/projects',
     AppNewProject: '/app/projects/new',
     AppUsers: '/app/users',
-    AppInviteUser: '/app/users/invite',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
 

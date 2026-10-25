@@ -39,6 +39,9 @@ type CommentToolbarProps = {
     onToggleSidebar: () => void;
     /** The feedback dialog opened */
     onFeedbackOpen?: () => void;
+    /** The page asked to give feedback: the feedback dialog opens */
+    feedbackRequested?: boolean;
+    onFeedbackRequestHandled?: () => void;
     onMoveStart?: () => void;
     onToggleHint?: () => void;
     onCollapsedChange: (collapsed: boolean) => void;
@@ -56,7 +59,8 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onToggleSidebar, onFeedbackOpen, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
+    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onToggleSidebar, onFeedbackOpen,
+    feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
     const navRef = useRef<HTMLElement>(null);
     const moveRef = useRef<HTMLButtonElement>(null);
@@ -146,7 +150,7 @@ export function CommentToolbar({
                                 onClick={handleAddClick}>
                                 <CommentIcon icon="add" size={24} variant="outlined" aria-hidden="true" />
                             </IconButton>
-                            <ToolbarFeedback onOpen={onFeedbackOpen} />
+                            <ToolbarFeedback onOpen={onFeedbackOpen} openRequested={feedbackRequested} onOpenRequestHandled={onFeedbackRequestHandled} />
                             <IconButton
                                 ref={inboxButtonRef}
                                 variant="plain"

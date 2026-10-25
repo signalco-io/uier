@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useRef, useState } from 'react';
+import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -30,7 +30,12 @@ const kinds: { value: FeedbackKind; placeholder: string; submitLabel: string; se
  * not pinned to an element. Saved as a comment with a `page` position and its kind, so it shows
  * in the inbox like any other thread.
  */
-export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
+export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHandled }: {
+    onOpen?: () => void;
+    /** The page asked to give feedback (a "Give feedback" button): the form opens once */
+    openRequested?: boolean;
+    onOpenRequestHandled?: () => void;
+}) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const { create } = useComments();
     const drafts = useDrafts();
@@ -51,6 +56,18 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
             create.reset();
         }
     };
+
+    const openOnRequest = useEffectEvent(() => {
+        if (!open) {
+            handleOpenChange(true);
+        }
+        onOpenRequestHandled?.();
+    });
+    useEffect(() => {
+        if (openRequested) {
+            openOnRequest();
+        }
+    }, [openRequested]);
 
     const handleSubmit = async (text: string) => {
         await create.mutateAsync({

@@ -101,10 +101,8 @@ export function ProjectUrlsForm({ projectId, urls }: { projectId: string; urls: 
             footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
             <form id={formId} action={formAction}>
                 <input type="hidden" name="projectId" value={projectId} />
-                <FieldGroup>
-                    {/* Remounted with the saved (normalized) addresses */}
-                    <UrlListInput key={urls.join(' ')} defaultUrls={urls} />
-                </FieldGroup>
+                {/* Remounted with the saved (normalized) addresses */}
+                <UrlListInput key={urls.join(' ')} defaultUrls={urls} hideLegend />
             </form>
         </Section>
     );

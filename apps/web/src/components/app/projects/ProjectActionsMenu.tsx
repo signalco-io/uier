@@ -14,8 +14,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/src/components/ui/dropdown-menu';
-import { KnownPageLinks, KnownPages } from '../../../knownPages';
+import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectStatus } from '../../../lib/app/model';
+import { useInvite } from '../users/InviteDialog';
 import { setProjectStatusAction } from './actions';
 
 /** More actions of a project (admins): invite people, settings, install, mark as done or reopen */
@@ -27,6 +28,7 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
 }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
+    const openInvite = useInvite();
 
     const setStatus = (next: ProjectStatus) => startTransition(async () => {
         const result = await setProjectStatusAction(projectId, next);
@@ -47,11 +49,9 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-44">
                 <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                        <Link href={`${KnownPages.AppInviteUser}?project=${projectId}`}>
-                            <UserPlusIcon />
-                            Invite people
-                        </Link>
+                    <DropdownMenuItem onSelect={() => openInvite(projectId)}>
+                        <UserPlusIcon />
+                        Invite people
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                         <Link href={KnownPageLinks.projectInstall(projectId)}>

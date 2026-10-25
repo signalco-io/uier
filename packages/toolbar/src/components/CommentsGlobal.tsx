@@ -20,6 +20,7 @@ import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
+import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
@@ -97,7 +98,9 @@ export function CommentsGlobal({
     const [creatingCommentSelection, setCreatingCommentSelection] = useState<CommentSelection>();
     const [creatingComment, setCreatingComment] = useState<CommentDraftState>();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [collapsed, setCollapsed] = useState(readCollapsed);
+    // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
+    const [feedbackRequested, setFeedbackRequested] = useState(takeFeedbackRequest);
+    const [collapsed, setCollapsed] = useState(() => !feedbackRequested && readCollapsed());
     const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
     // The thread to open once its pin is on the page: a comment that was just posted, the one a
     // comment link (`?uier-comment=`) points at, or "Show on page" in the inbox (`fromInbox`)
@@ -174,6 +177,18 @@ export function CommentsGlobal({
             hintButtonRef.current?.focus();
         }
     };
+
+    const handleFeedbackRequest = useEffectEvent(() => {
+        if (collapsed) {
+            handleCollapsedChange(false);
+        }
+        setFeedbackRequested(true);
+    });
+    useEffect(() => {
+        const listener = () => handleFeedbackRequest();
+        window.addEventListener(openFeedbackEvent, listener);
+        return () => window.removeEventListener(openFeedbackEvent, listener);
+    }, []);
 
     useDocumentEvent('focusin', (event: FocusEvent) => {
         const target = event.target;
@@ -475,6 +490,8 @@ export function CommentsGlobal({
                     setCreatingCommentPoint(false);
                     closeHintForUse();
                 }}
+                feedbackRequested={feedbackRequested}
+                onFeedbackRequestHandled={() => setFeedbackRequested(false)}
                 onToggleHint={() => hintOpen ? handleDismissHint(false) : setHintOpen(true)}
                 onCollapsedChange={handleCollapsedChange}
                 onExitReview={onExitReview} />

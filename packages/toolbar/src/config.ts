@@ -7,13 +7,15 @@
  *     <script>window.uierConfig = { mode: 'showcase', apiUrl: 'https://uier.io' };</script>
  */
 
-export type ToolbarMode = 'showcase' | 'review';
+export type ToolbarMode = 'showcase' | 'review' | 'feedback';
 
 export type ToolbarConfig = {
     /**
      * - `review` (default): mounts only for a review link, `?toolbar-code=<project code>` or
      *   `?review=true`, then for the rest of the browser tab until "Exit review" (`src/review.ts`)
      * - `showcase`: always mounted, shows a first-run hint, anyone can leave public feedback
+     * - `feedback`: mounted when the page asks for it (the script loading, then `uier:open-feedback`,
+     *   see `openFeedback.ts`) with the feedback form open; it can be closed again
      */
     mode: ToolbarMode;
     /** Base URL of the uier comments API (origin, optional path prefix), without a trailing slash */
@@ -54,7 +56,7 @@ function getToolbarScript(): HTMLScriptElement | null {
 }
 
 function readMode(value: string | undefined): ToolbarMode | undefined {
-    return value === 'showcase' || value === 'review' ? value : undefined;
+    return value === 'showcase' || value === 'review' || value === 'feedback' ? value : undefined;
 }
 
 function readProject(value: string | undefined) {

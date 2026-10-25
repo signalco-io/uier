@@ -1,15 +1,13 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { UserPlusIcon } from 'lucide-react';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
-import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
+import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
 /** A project: its name, sites and review actions, and the tabs of its pages */
@@ -56,14 +54,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 )}
                 actions={(
                     <>
-                        {context.isAdmin && (
-                            <Button variant="outline" asChild>
-                                <Link href={`${KnownPages.AppInviteUser}?project=${project.id}`}>
-                                    <UserPlusIcon data-icon="inline-start" />
-                                    Invite
-                                </Link>
-                            </Button>
-                        )}
+                        {context.isAdmin && <InviteButton projectId={project.id} variant="outline" />}
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" />
                     </>
                 )}>

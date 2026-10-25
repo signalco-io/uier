@@ -3,10 +3,11 @@
 The review toolbar: one classic-script bundle (`dist/index.js`, an IIFE with the CSS inlined) that a
 site includes and that mounts the comments UI into an open shadow root, when the page is opened with
 a review link (`?toolbar-code=<project code>` or `?review=true`, `review` mode; the review then lasts
-for the tab, `src/review.ts`) or always (`showcase` mode, every public uier.io page). The link only
+for the tab, `src/review.ts`), always (`showcase` mode, every public uier.io page) or when the page asks
+for feedback (`feedback` mode, the uier app's "Give feedback" button, `src/openFeedback.ts`). The link only
 starts the review: the project whose comments apply is the script's `data-uier-project`
 (`src/config.ts`). `dist/react.js` is the React component that adds the script
-(`@uier/toolbar/react`, `src/react.ts`, with a `project` prop). Embedding and configuration:
+(`@uier/toolbar/react`, `src/react.ts`, with a `project` prop), plus `openUierFeedback()`. Embedding and configuration:
 [README.md](README.md).
 
 ## How it is built

@@ -1,12 +1,10 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { MailIcon, UserPlusIcon } from 'lucide-react';
+import { MailIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
-import { KnownPages } from '@/src/knownPages';
+import { cn } from '@/src/lib/utils';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { listMembersWithUsers } from '@/src/lib/app/members';
 import { listInvitations } from '@/src/lib/app/invitations';
@@ -17,6 +15,7 @@ import { PageHeader } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { initials } from '@/src/components/app/initials';
 import { ProjectFilter } from '@/src/components/app/users/ProjectFilter';
+import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { RemoveMemberButton, RevokeInvitationButton } from '@/src/components/app/users/UserActions';
 
 export const metadata: Metadata = {
@@ -29,6 +28,11 @@ function accessText(role: 'admin' | 'commenter', projects: ProjectsAccess, names
     const listed = projects.map(id => names.get(id)).filter(Boolean);
     return listed.length ? listed.join(', ') : 'No projects';
 }
+
+// The avatar stays centred on the row (Item tops it when there is a description)
+const centeredMedia = 'group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center';
+// A fixed column, so the role badges line up whatever their width
+const roleColumn = 'flex w-24 justify-end';
 
 function RoleBadge({ role }: { role: 'admin' | 'commenter' }) {
     return <Badge variant={role === 'admin' ? 'default' : 'secondary'}>{role === 'admin' ? 'Admin' : 'Commenter'}</Badge>;
@@ -75,14 +79,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
             <PageHeader
                 title="Users"
                 description="The people who review the projects in this workspace."
-                actions={(
-                    <Button asChild>
-                        <Link href={`${KnownPages.AppInviteUser}${project ? `?project=${project}` : ''}`}>
-                            <UserPlusIcon data-icon="inline-start" />
-                            Invite
-                        </Link>
-                    </Button>
-                )}>
+                actions={<InviteButton projectId={project} />}>
                 <ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} />
             </PageHeader>
             <div className="flex flex-col gap-10">
@@ -95,7 +92,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                         <ItemGroup aria-label="People" className="gap-0 divide-y">
                             {shownMembers.map(({ member, name }) => (
                                 <Item key={member.id} role="listitem" className="rounded-none">
-                                    <ItemMedia>
+                                    <ItemMedia className={centeredMedia}>
                                         <Avatar aria-hidden="true">
                                             <AvatarFallback>{initials(name)}</AvatarFallback>
                                         </Avatar>
@@ -112,7 +109,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                         <ItemDescription className="text-xs"><span>Joined <DateTime value={member.createdAt} /></span></ItemDescription>
                                     </ItemContent>
                                     <ItemActions className="ml-auto">
-                                        <RoleBadge role={member.role} />
+                                        <span className={roleColumn}><RoleBadge role={member.role} /></span>
                                         <span className="flex w-20 justify-end">
                                             {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
                                         </span>
@@ -132,7 +129,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                             <ItemGroup aria-label="Invitations" className="gap-0 divide-y">
                                 {shownInvitations.map(invitation => (
                                     <Item key={invitation.id} role="listitem" className="rounded-none">
-                                        <ItemMedia variant="icon" className="size-8 rounded-full border border-dashed">
+                                        <ItemMedia variant="icon" className={cn(centeredMedia, 'size-8 rounded-full border border-dashed')}>
                                             <MailIcon aria-hidden="true" className="text-muted-foreground" />
                                         </ItemMedia>
                                         <ItemContent className="min-w-48">
@@ -143,7 +140,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                             <ItemDescription className="truncate">{accessText(invitation.role, invitation.projects, projectNames)}</ItemDescription>
                                         </ItemContent>
                                         <ItemActions className="ml-auto">
-                                            <RoleBadge role={invitation.role} />
+                                            <span className={roleColumn}><RoleBadge role={invitation.role} /></span>
                                             <span className="flex w-20 justify-end">
                                                 <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
                                             </span>

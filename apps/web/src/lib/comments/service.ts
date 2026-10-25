@@ -17,7 +17,7 @@ import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, t
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
-import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from './publicProject';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, isPrivateAppFeedback } from './publicProject';
 
 const MAX_UPDATE_ATTEMPTS = 8;
 
@@ -81,6 +81,12 @@ function toDto(comment: DbComment, context: CommentsApiContext): CommentDto {
     return dto;
 }
 
+/** Private comments (made private by the team, or feedback on the app) show only to their author here */
+function isVisible(comment: DbComment, context: CommentsApiContext) {
+    return !(comment.private || isPrivateAppFeedback(comment))
+        || (Boolean(comment.authorId) && comment.authorId === context.visitor.authorId);
+}
+
 function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
     if (!comment.authorId || comment.authorId !== context.visitor.authorId)
         throw apiErrors.forbidden('Only the author of the comment can do this.');
@@ -135,6 +141,7 @@ export async function listComments(context: CommentsApiContext, path: string | n
         comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
     }
     return withinListResponseSize(comments
+        .filter(comment => isVisible(comment, context))
         .map(comment => toCommentDto(comment, context.visitor.authorId))
         .filter((dto): dto is CommentDto => Boolean(dto)));
 }
@@ -231,6 +238,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         id: `comment_${nanoid()}`,
         domain: context.domain,
         ...(context.domain === PUBLIC_PROJECT_PARTITION ? { projectId: PUBLIC_PROJECT_ID } : {}),
+        ...(isPrivateAppFeedback({ domain: context.domain, path: input.path }) ? { private: true } : {}),
         path: input.path,
         position: input.position,
         number: await store.nextCommentNumber(context.domain),
@@ -254,7 +262,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
 export async function getCommentScreenshot(context: CommentsApiContext, id: string) {
     const store = getCommentsStore();
     const stored = await store.get(context.domain, id);
-    const screenshot = stored?.comment.screenshot ? await store.getScreenshot(context.domain, id) : null;
+    const screenshot = stored?.comment.screenshot && isVisible(stored.comment, context) ? await store.getScreenshot(context.domain, id) : null;
     if (!screenshot)
         throw apiErrors.notFound('Screenshot not found.');
     return screenshot;
@@ -263,7 +271,8 @@ export async function getCommentScreenshot(context: CommentsApiContext, id: stri
 export async function replyToComment(context: CommentsApiContext, id: string, input: ReplyInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
-    if (!await store.get(context.domain, id))
+    const existing = await store.get(context.domain, id);
+    if (!existing || !isVisible(existing.comment, context))
         throw apiErrors.notFound();
 
     await enforceReplyLimits(store, subject);

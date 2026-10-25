@@ -509,7 +509,8 @@ function SidebarMenuButton({
     />
   )
 
-  if (!tooltip) {
+  // No tooltip in the mobile sheet: it never shows there, and opening on focus it would take the Escape that closes the sheet
+  if (!tooltip || isMobile) {
     return button
   }
 
