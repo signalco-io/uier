@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function AcceptableUsePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalAcceptableUsePolicy} title="Acceptable use policy" effective="24 October 2026">
+        <LegalDocument href={KnownPages.LegalAcceptableUsePolicy} title="Acceptable use policy" effective="25 October 2026">
             <p>
                 Comments on {brand.domain} are public and anonymous, so they only work if people use them in good
                 faith. This policy is part of the <a href={KnownPages.LegalTermsOfService}>terms of service</a>.
@@ -28,7 +28,7 @@ export default function AcceptableUsePolicyPage() {
 
             <h2>Do not misuse the service</h2>
             <ul>
-                <li>Do not post in bulk, automate the toolbar or the comments API, or work around rate limits or bot protection.</li>
+                <li>Do not post in bulk, automate the browser toolbar or public comments API, or work around rate limits or bot protection. The authenticated MCP connector supports user-directed feedback reads and the replies, status changes and assignments you authorize within its granted scope.</li>
                 <li>Do not try to read, change or delete other people&rsquo;s comments in ways the toolbar does not offer.</li>
                 <li>Do not overload, probe or attack {brand.domain}. To report a vulnerability, follow the <a href={KnownPages.Security}>security policy</a>.</li>
             </ul>

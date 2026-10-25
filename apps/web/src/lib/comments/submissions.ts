@@ -81,3 +81,19 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
     }
     throw apiErrors.conflict();
 }
+
+/** Same partition transaction as replies: desired-state changes cannot replay over newer work. */
+export async function commitChangeSubmission(store: CommentsStore, attempt: Submission, id: string,
+    visible: (comment: DbComment) => unknown, change: (comment: DbComment) => Promise<DbComment>) {
+    for (let retry = 0; retry < 8; retry++) {
+        const recovered = await recoverSubmission(store, attempt);
+        if (recovered) { visible(recovered); return recovered; }
+        const stored = await store.get(attempt.domain, id);
+        if (!stored) throw apiErrors.notFound();
+        visible(stored.comment);
+        const updated = await change(stored.comment);
+        const saved = await commit(store, attempt, updated, stored.etag);
+        if (saved) { visible(saved); return saved; }
+    }
+    throw apiErrors.conflict();
+}

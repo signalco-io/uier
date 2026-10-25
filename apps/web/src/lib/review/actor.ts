@@ -14,7 +14,7 @@ import type { AppDoc, DbProject } from '../app/model';
  * - `anonymous`: neither (reading only)
  */
 export type ProjectActor =
-    | { kind: 'member'; userId: string; name: string; isAdmin: boolean }
+    | { kind: 'member'; userId: string; name: string; isAdmin: boolean; agent?: import('../db/schema').AgentSource }
     | { kind: 'guest'; visitorId: string }
     | { kind: 'anonymous' };
 
