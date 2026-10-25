@@ -56,7 +56,7 @@ button/input, and deliberately styles host buttons to detect style leakage. The 
 still downloaded and parsed when a review is inactive; absence of a toolbar does not mean zero cost.
 
 - Bundle limits are **750,000 raw bytes / 220,000 gzip bytes**. The audited baseline is approximately
-  671 KB raw / 196 KB gzip / 165 KB Brotli, with about 12% regression headroom. Compression is
+  671 KB raw / 196 KB gzip / 165 KB Brotli before the #102 integration, with limited regression headroom. Compression is
   calculated from the built bytes, not a claim about CDN transfer encoding, cache hits or wire size.
 - An inactive review must make **zero review API/font requests** in the load plus eight host clicks
   and a **1,200 ms observation window**. This is a short deterministic guard, not an all-day idle
@@ -88,21 +88,30 @@ The release record must preserve the actual JSON measurements and limitations wi
 revision. Repeat measurements after merged feature changes before accepting the launch gate.
 
 The [committed local baseline](mvp-launch-baseline.json) contains three samples per Chromium
-profile. The bundle was **671,317 raw / 195,884 gzip / 165,152 Brotli bytes**. Every sample made
-two list reads, loaded one of 25 screenshots initially, and made zero additional requests in the
-short idle window. No active long task of at least 50 ms was observed in these six isolated runs.
+profile, on top of merged #102. The bundle was **678,985 raw / 197,959 gzip / 167,269 Brotli bytes**.
+Every sample made two list reads, loaded one of 25 screenshots initially, and made zero additional
+requests in the short idle window. The longest observed active task was **63 ms**.
 
 | Profile (emulated, unthrottled) | Inactive max | Busy max | After capture trigger max | After movement max |
 | --- | --- | --- | --- | --- |
-| Desktop Chromium 156 | 17.1 ms | 26.5 ms | 13.4 ms | 16.8 ms |
-| Pixel 5 / Chromium 156 | 15.8 ms | 22.1 ms | 13.7 ms | 16.1 ms |
+| Desktop Chromium 156 | 16.8 ms | 22.8 ms | 17.4 ms | 16.7 ms |
+| Pixel 5 / Chromium 156 | 17.3 ms | 32.5 ms | 16.9 ms | 15.8 ms |
 
 These are maxima of the sampled browser click-to-frame durations, not population percentiles.
-Trigger-to-encoder completion took 21–28.1 ms on desktop and 16.4–43.3 ms on the mobile profile.
+Trigger-to-encoder completion took 35–48.2 ms on desktop and 30.6–47.2 ms on the mobile profile.
 **All six captures completed before the sampled host events (zero overlaps)**. The 250 ms guard
 allows substantial CI scheduling headroom; concurrent capture and real-device responsiveness remain
-pending, as do sustained refresh/network budgets after #83. The desktop/mobile light and dark launch
+pending, as do sustained refresh/network budgets after #83. Desktop/mobile light and dark launch
 screenshots were visually inspected for thread layout, saved thumbnails and fallback-anchor copy.
+
+## Local validation record
+
+The measured source revision is `ced38022adc3975797a539afa919617aabd374ba` on top of `55c5088` (#102).
+`pnpm typecheck`, `pnpm build` and `PORT=4714 pnpm test` passed: **all 289 tests, no retries**.
+Six additional WebKit launch scenarios passed without retries, and all six isolated performance
+samples passed. Firefox remains a startup failure, not a passing engine. Later receipt-only edits
+to this document/report do not change the measured product code. Hosted CI and merge receipts
+are recorded on #90 and the implementation PR.
 
 ## Reproduce
 
