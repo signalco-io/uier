@@ -500,7 +500,7 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
     // The toolbar on the pricing page: this page, and the checkout page under "Other pages"
     const guest = await anonymousVisitor(browser, testInfo);
     await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
-    await guest.page.getByRole('button', { name: 'Inbox, 1 comment' }).click();
+    await guest.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = guest.page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByRole('article', { name: 'Comment #1' })).toContainText('Show yearly prices.');
     const other = sidebar.getByRole('region', { name: 'Other pages' }).getByRole('article', { name: 'Comment #2' });

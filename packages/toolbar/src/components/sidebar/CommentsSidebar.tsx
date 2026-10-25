@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Divider } from '@signalco/ui-primitives/Divider';
+import { Button } from '@signalco/ui-primitives/Button';
+import { useActivitySummary } from '../../hooks/useComments';
 import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Search } from '@signalco/ui-icons';
@@ -31,6 +33,8 @@ export type CommentsSidebarProps = {
  * status
  */
 export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage }: CommentsSidebarProps) {
+    const { data: activity } = useActivitySummary();
+    const unread = activity?.unread ?? 0;
     const [hidding, setHidding] = useState<boolean>(false);
 
     const handleClose = () => {
@@ -63,6 +67,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                 <Stack className="h-full">
                     <Stack spacing={1.5} className="px-4 py-3">
                         <CommentsSidebarHeader
+                            counts={{ unresolved: activity?.open ?? 0, resolved: activity?.done ?? 0, all: activity?.total ?? 0 }}
                             status={filter.status}
                             onStatusChange={(status) => setFilter({ ...filter, status })}
                             onClose={handleClose} />
@@ -78,6 +83,11 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                             value={filter.keywords ?? ''}
                             onChange={(e) => setFilter({ ...filter, keywords: e.target.value })}
                             onKeyDown={handleSearchKeyDown} />
+                        <Button size="sm" variant="plain" aria-pressed={Boolean(filter.unread)}
+                            className="self-start text-[hsl(var(--brand-accent-text))] pointer-coarse:min-h-11"
+                            onClick={() => setFilter({ ...filter, unread: !filter.unread, status: 'all' })}>
+                            Unread {unread}
+                        </Button>
                     </Stack>
                     <Divider />
                     {/* Focusable so the list can be scrolled with the keyboard */}

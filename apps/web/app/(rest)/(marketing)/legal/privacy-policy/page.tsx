@@ -92,8 +92,9 @@ export default function PrivacyPolicyPage() {
 
             <h3>The visitor cookie</h3>
             <p>
-                Starting a draft keeps a random visitor token in local storage to recover a lost response. Your first comment or reply sets the <code>uier_visitor</code> cookie. It holds a random token that
-                lets the server recognise your comments, so only you can resolve or delete them. We store a hash of
+                Starting a draft keeps a random visitor token in local storage to recover a lost response.
+                Your first comment, reply or read acknowledgement sets the <code>uier_visitor</code> cookie. It holds a random token that
+                lets the server recognise your comments and read state, so only you can resolve or delete your comments. We store a hash of
                 the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
             </p>
@@ -131,6 +132,15 @@ export default function PrivacyPolicyPage() {
                 On that site, the toolbar keeps in the browser&rsquo;s local storage a review token while you are
                 signed in to the project, or, as a guest, a random visitor id that recognises your comments and
                 the name you gave. Signing out in the toolbar removes them.
+            </p>
+
+            <h3>Read activity</h3>
+            <p>
+                We store the last activity you have read for each thread, the time you acknowledged it and your
+                member or hashed visitor identity. This lets the inbox distinguish unread feedback from open work.
+                Reading a thread does not resolve it. Members share their read state wherever they sign in. Guest
+                read state belongs to that browser and site; signing out clears that identity. Clearing identity storage, including the public site&rsquo;s
+                visitor cookie when present, starts a new identity. The toolbar refreshes comments while it is in the foreground.
             </p>
 
             <h3>Rewrite suggestions</h3>
@@ -209,6 +219,7 @@ export default function PrivacyPolicyPage() {
             <h2>How long we keep it</h2>
             <ul>
                 <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
+                <li>Member read cursors: until removed with the account or project on request. Guest read cursors: one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>

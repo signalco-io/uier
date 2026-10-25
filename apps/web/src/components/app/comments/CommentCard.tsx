@@ -66,6 +66,7 @@ import { DateTime } from './DateTime';
 import { CommentReproduction } from './CommentReproduction';
 import { deviceLabels, kindLabels } from './commentLabels';
 import {
+    markCommentReadAction,
     deleteCommentAction,
     editCommentAction,
     setCommentAssigneeAction,
@@ -272,6 +273,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                     <CommentReproduction context={comment.reproduction} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm">
                         <StateBadge resolved={comment.resolved} />
+                        {comment.activity?.unread && (
+                            <Button size="sm" variant="ghost" disabled={pending}
+                                className="text-[hsl(var(--brand-accent-text))]"
+                                onClick={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence))}>
+                                Mark as read
+                            </Button>
+                        )}
                         {comment.number !== undefined && (
                             <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
                                 <span className="sr-only">Comment </span>#{comment.number}

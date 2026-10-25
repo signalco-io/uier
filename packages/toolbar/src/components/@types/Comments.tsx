@@ -109,7 +109,10 @@ export type CommentDeviceInfo = {
 }
 
 /** A comment as returned by the comments API (`CommentDto`) */
+export type CommentActivity = { sequence: number; lastOtherSequence: number; readSequence: number; unread: boolean };
+
 export type CommentItem = {
+    activity?: CommentActivity;
     id: string;
     path: string;
     position: CommentItemPosition;

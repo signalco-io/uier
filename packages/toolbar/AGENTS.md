@@ -102,3 +102,12 @@ starts the review: the project whose comments apply is the script's `data-uier-p
   `apps/web/e2e/project-review.spec.ts`; pins and highlights after a reload, a scroll and a resize
   are in `apps/web/e2e/anchors.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.
+
+- The badge is unread activity, not unresolved feedback. `useCommentsRefresh` is the sole 15-second
+  foreground scheduler (focus/online/visibility/expansion refresh immediately). Read receipts merge
+  monotonically across page/site caches. Inbox previews do not mark every listed thread read;
+  short opened threads acknowledge after 800 ms, otherwise use Mark as read. Keep resolve separate.
+
+- `useActivitySummary` provides full unread/Open/Done counts separately from bounded text lists.
+  The unread inbox requests `scope=site&unread=true`, including old threads outside the newest list.
+  Refresh and mutation paths must invalidate the activity summary as well as page/site lists.

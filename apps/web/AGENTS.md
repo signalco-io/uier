@@ -184,3 +184,12 @@ retain independent host partitions for tests. On a project's site the
 script's `data-uier-project` decides the project, and `?review=true` there reviews that project
 (`e2e/project-review.spec.ts`). The marketing layout embeds the toolbar with its React component
 (`@uier/toolbar/react`, see `ToolbarScript`).
+
+- `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
+  Read acknowledgements require current project/thread access and acknowledge only a rendered
+  sequence. Toolbar and app use the same member cursor; notifications must reauthorize before
+  reading it for suppression. Do not equate resolution with read state or expose actor ids in DTOs.
+
+- Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
+  threads, so badge counts do not inherit text-list limits. Unread content is selected before
+  applying response limits. Preserve legacy author-only projections and private-thread filtering.

@@ -30,8 +30,8 @@ const items = [
     {
         name: 'uier_visitor',
         type: 'Cookie (first party, HttpOnly)',
-        when: 'Your first comment or reply',
-        purpose: 'Recognises your comments, so only you can resolve or delete them. Holds a random token; the server stores only its hash.',
+        when: 'Your first comment, reply or read acknowledgement',
+        purpose: 'Recognises your comments and read state, so only you can resolve or delete your comments. Holds a random token; the server stores only its hash.',
         duration: 'One year'
     },
     {
@@ -128,7 +128,7 @@ export default function CookiePolicyPage() {
             </p>
             <ul className="flex flex-col gap-2 text-sm">
                 <li><code>uier:review-token:&lt;project&gt;</code>: keeps you signed in to the project on that site (30 days).</li>
-                <li><code>uier:visitor</code>: a random id that recognises a guest&rsquo;s comments, so only they can delete them.</li>
+                <li><code>uier:visitor</code>: a random id that recognises a guest&rsquo;s comments and read state. Read state is limited to this browser and site; clearing the id starts a new identity.</li>
                 <li><code>uier:guest-name</code>: the name a guest comments under.</li>
             </ul>
 

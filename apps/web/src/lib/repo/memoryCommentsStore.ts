@@ -1,4 +1,5 @@
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
+import { withThreadActivity } from '../comments/activity';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
@@ -141,6 +142,15 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.delete(id);
             return 'ok';
         },
+        async listActivity(domain): Promise<DbCommentActivity[]> {
+            return [...domainEntries(domain).values()].flatMap(entry => {
+                const comment = commentOf(entry);
+                if (!comment) return [];
+                const { id, private: isPrivate, authorId, resolved, createdAt, activity } = comment;
+                return [{ id, domain, private: isPrivate, authorId, resolved, createdAt, activity: clone(activity),
+                    thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
+            }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+        },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
             const entries = domainEntries(domain);
             const current = commentOf(entries.get(id));
@@ -150,7 +160,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 return 'full';
 
             const comment: DbComment = {
-                ...current,
+                ...withThreadActivity(current, item.authorId ?? 'legacy'),
                 thread: { ...current.thread, items: [...current.thread.items, clone(item)] },
                 updatedAt
             };

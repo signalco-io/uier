@@ -3,16 +3,46 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { Button } from '@signalco/ui-primitives/Button';
+import { useReadComment } from '../hooks/useComments';
+import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { CommentThreadItem } from './CommentThreadItem';
 import { CommentThreadHeader } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 
 /** A thread: its first and last message, and "Show all" for the ones between */
-export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
-    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} /></DraftsProvider>;
+export function CommentThread({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
+    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} /></DraftsProvider>;
 }
 
-function ThreadContents({ commentItem }: { commentItem: CommentItem; }) {
+function ThreadContents({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
+    const read = useReadComment();
+    const threadRef = useRef<HTMLDivElement>(null);
+    const canReadAutomatically = reading && commentItem.thread.items.length <= 2;
+    // Only an opened thread, while visible in a foreground window. Inbox previews stay unread
+    // until explicitly acknowledged; just listing feedback must not suppress notifications.
+    useEffect(() => {
+        if (!canReadAutomatically || !commentItem.activity?.unread) return;
+        let timeout: number | undefined;
+        let visible = false;
+        const cancel = () => { window.clearTimeout(timeout); timeout = undefined; };
+        const schedule = () => {
+            cancel();
+            if (visible && document.visibilityState === 'visible' && document.hasFocus())
+                timeout = window.setTimeout(() => read.mutate(commentItem), 800);
+        };
+        const observer = new IntersectionObserver(entries => { visible = entries.some(entry => entry.isIntersecting); schedule(); });
+        if (threadRef.current) observer.observe(threadRef.current);
+        document.addEventListener('visibilitychange', schedule);
+        window.addEventListener('focus', schedule);
+        window.addEventListener('blur', cancel);
+        return () => {
+            cancel(); observer.disconnect();
+            document.removeEventListener('visibilitychange', schedule);
+            window.removeEventListener('focus', schedule);
+            window.removeEventListener('blur', cancel);
+        };
+    }, [canReadAutomatically, commentItem.id, commentItem.activity?.sequence, commentItem.activity?.unread, read.mutate]);
+
     const [expanded, setExpanded] = useState(false);
     // "Show all" goes away once used (it is the only way to expand): the focus moves to the first
     // message it showed instead of getting lost
@@ -32,10 +62,22 @@ function ThreadContents({ commentItem }: { commentItem: CommentItem; }) {
     const messagesCount = commentItem.thread.items.filter(item => !item.deleted).length;
 
     return (
-        <Stack className="py-2">
+        <Stack ref={threadRef} className="py-2">
             <div className="px-4 pb-1 pt-2">
                 <CommentThreadHeader comment={commentItem} />
             </div>
+            {commentItem.activity && (
+                <div className="flex items-center justify-between gap-2 px-4">
+                    <span className={commentItem.activity.unread ? 'text-xs text-[hsl(var(--brand-accent-text))]' : 'text-xs text-muted-foreground'}>{commentItem.activity.unread ? 'Unread' : 'Read'}</span>
+                    <Button size="xs" variant="plain" aria-label="Mark as read"
+                        disabled={!commentItem.activity.unread || read.isPending}
+                        className="pointer-coarse:min-h-11"
+                        onClick={() => read.mutate(commentItem)}>
+                        Mark as read
+                    </Button>
+                    <CommentsErrorMessage error={read.error} />
+                </div>
+            )}
             {threadFistItem && (
                 <>
                     <div className="px-4 py-2 pb-3">

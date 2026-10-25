@@ -44,7 +44,7 @@ const selectionPosition = {
     endType: 'text'
 };
 
-const commentKeys = ['createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'resolved', 'thread'];
+const commentKeys = ['activity', 'createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'resolved', 'thread'];
 const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
 
 type CommentDto = {

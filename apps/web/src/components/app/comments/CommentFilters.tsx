@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { FileIcon, KanbanIcon, ListIcon, UserIcon } from 'lucide-react';
+import { Button } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { peopleFilterLabels, type CommentsView, type PeopleFilter } from './commentLabels';
@@ -9,7 +10,9 @@ import { peopleFilterLabels, type CommentsView, type PeopleFilter } from './comm
 const allPages = 'all';
 
 /** View (list or board) and the people and page filters; all kept in the URL */
-export function CommentFilters({ view, people, page, pages }: {
+export function CommentFilters({ unread, unreadCount, view, people, page, pages }: {
+    unread: boolean;
+    unreadCount: number;
     view: CommentsView;
     people: PeopleFilter;
     page: string | undefined;
@@ -32,6 +35,9 @@ export function CommentFilters({ view, people, page, pages }: {
 
     return (
         <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" aria-pressed={unread} onClick={() => go('unread', unread ? undefined : 'true')}>
+                Unread {unreadCount}
+            </Button>
             <ToggleGroup
                 type="single"
                 variant="outline"

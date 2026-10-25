@@ -49,6 +49,7 @@ type CommentBubbleProps = {
     /** Keep a recovered draft reachable beside saved pins on the same element. */
     draftPinOffset?: number;
     onAutoOpened?: () => void;
+    onOpenStateChange?: (commentId: string, open: boolean) => void;
     onCreated?: (comment: CommentItem) => void;
     onCanceled?: () => void;
     className?: string;
@@ -60,7 +61,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, onAutoOpened, onCreated, onCanceled, className } = props;
+    const { autoOpen, onAutoOpened, onCreated, onCanceled, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -118,6 +119,12 @@ export function CommentBubble(props: CommentBubbleProps) {
     };
 
     const [open, setOpen] = useState(creating && !props.initiallyClosed);
+    const savedId = commentItem?.id;
+    useEffect(() => {
+        if (!savedId || !onOpenStateChange) return;
+        onOpenStateChange(savedId, open);
+        return () => onOpenStateChange(savedId, false);
+    }, [savedId, open, onOpenStateChange]);
     const handleOpenChange = (open: boolean) => {
         if (open && creating) capture.current = { device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) };
         if (!open) {
@@ -238,7 +245,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             aria-label="Messages"
                             role="group"
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                            <CommentThread commentItem={commentItem} />
+                            <CommentThread commentItem={commentItem} reading={open} />
                         </div>
                         <Divider className="shrink-0" />
                     </>

@@ -314,7 +314,7 @@ test('every comment keeps the viewport it was left from', async ({ browser }, te
     // And shows it after a reload, at any window size
     await page.setViewportSize({ width: 1100, height: 700 });
     await page.reload();
-    await page.getByRole('button', { name: 'Inbox, 2 comments' }).click();
+    await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByText(`${first[0]}×${first[1]}`)).toBeVisible();
     await expect(sidebar.getByText('Mobile · 700×600')).toBeVisible();

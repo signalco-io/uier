@@ -1,3 +1,4 @@
+import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from '../comments/submissions';
 import { withEditedThreadItem } from '../comments/editing';
@@ -46,7 +47,7 @@ function isAdmin(actor: ProjectActor) {
 // Permissions of project comments. Members review together: any member can mark a comment done.
 // The author and the workspace admins can edit and delete it; only admins make it private.
 
-export function canSeeComment(comment: DbComment, actor: ProjectActor) {
+export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId'>, actor: ProjectActor) {
     return !comment.private || isAdmin(actor) || isAuthor(comment.authorId, actor);
 }
 
@@ -110,7 +111,7 @@ async function updateComment<T extends DbComment | null>(
         if (!stored)
             throw apiErrors.notFound();
 
-        const updated = update(stored.comment);
+        const updated = update({ ...stored.comment, activity: threadActivity(stored.comment) });
         const result = updated
             ? await store.replace(updated, stored.etag)
             : await store.delete(partition, id, stored.etag);
@@ -196,6 +197,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         device: compactDevice(input.device),
         resolved: false,
         authorId,
+        activity: { sequence: 1, byActor: { [authorId]: 1 } },
         createdAt: now,
         updatedAt: now
     };
@@ -287,7 +289,7 @@ async function changeComment(project: DbProject, actor: ProjectActor, id: string
 export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean) {
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
-        comment => ({ ...comment, resolved }));
+        comment => Boolean(comment.resolved) === resolved ? comment : ({ ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }));
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
