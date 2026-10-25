@@ -918,6 +918,12 @@ feedback rights. Its selected projects do not expand when new projects are creat
 | `set_feedback_status` | `feedback:status` | Resolve/reopen using the app's permission checks |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 
+`get_feedback` returns `{ actingAs, contentTrust, context, markdown, screenshotResource? }`.
+`context` and `markdown` come directly from the same authorized project export service as Copy
+issue, using the shared [version 1 feedback context contract](docs/feedback-context.md). The MCP
+resource reference supplements its protected web image link when image access was granted.
+Deleted first-message evidence is unavailable through both the packet and screenshot resource.
+
 Screenshot references are `uier://projects/{projectId}/feedback/{commentId}/screenshot` resources.
 Use MCP `resources/read` with `screenshots:read` to retrieve the saved image; current feedback
 visibility is checked again. References never contain a credential or create a public image URL.

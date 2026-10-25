@@ -237,6 +237,8 @@ credential attribution. All mutations require a stable idempotency key and share
 receipts; do not implement retry deduplication in process memory. Reads never acknowledge unread
 activity. Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
 to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
-contract shared with developer issue export. `e2e/mcp.api.spec.ts` exercises the official HTTP client
+contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
+produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
+its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
 and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
 light/dark accessibility. This connector does not prove #90 launch acceptance.

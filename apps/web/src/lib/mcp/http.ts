@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticateMcp } from '@/src/lib/mcp/credentials';
 import { createFeedbackMcpServer } from '@/src/lib/mcp/server';
 import { ApiError, apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
+import { keyedHash } from '@/src/lib/comments/environment';
 import { getCommentsStore } from '@/src/lib/repo/commentsStore';
 
 export async function handleMcp(request: Request, allowedOrigin: string) {
@@ -12,11 +13,11 @@ export async function handleMcp(request: Request, allowedOrigin: string) {
         if (origin && origin !== allowedOrigin) throw apiErrors.forbidden('Origin is not allowed.');
         const identity = await authenticateMcp(request);
         const window = Math.floor(Date.now() / 60_000);
-        if (!await getCommentsStore().incrementCounter('$mcp', `counter_${identity.user.id}_${window}`, 120, 120))
+        if (!await getCommentsStore().incrementCounter('$mcp', `counter_${keyedHash('mcp-request', `${identity.user.id}:${window}`)}`, 120, 120))
             throw apiErrors.rateLimited('MCP request limit reached. Try again in one minute.', 60, 'too_fast');
         if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
         const parsedBody = await parseJsonBody(request, z.unknown(), 16_384);
-        const server = createFeedbackMcpServer(identity, request);
+        const server = createFeedbackMcpServer(identity, request, allowedOrigin);
         const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
         try {
             await server.connect(transport);

@@ -6,8 +6,7 @@ import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, textSchema } from '../comments/validation';
 import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentResolved } from '../review/comments';
 import { assertCanUseComments } from '../review/actor';
-import { authorNames, participantNames, toReviewCommentDto } from '../review/dto';
-import { projectOrigins } from '../app/projects';
+import { projectFeedbackExport } from '../review/feedbackContext';
 import { sha256Hex } from '../app/tokens';
 import { eligibleParticipants } from '../review/participants';
 
@@ -37,7 +36,7 @@ function slice<T>(items: T[], cursor: number, limit: number) {
 }
 function key(identity: McpIdentity, value: string) { return sha256Hex(`mcp:${identity.credential.id}:${value}`); }
 
-export function createFeedbackMcpServer(identity: McpIdentity, request: Request) {
+export function createFeedbackMcpServer(identity: McpIdentity, request: Request, baseUrl: string) {
     const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
     const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.credential.name };
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
@@ -58,10 +57,10 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request)
     }));
     server.registerTool('get_feedback', { description: `Read an authorized thread, anchor and reproduction context. ${untrusted}`, inputSchema: thread, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId);
-        const comment = await getProjectComment(project, actor, input.commentId);
-        if (!comment) throw apiErrors.notFound();
-        const feedback = toReviewCommentDto(comment, actor, await authorNames([comment]), projectOrigins(project), 0, await participantNames(project));
-        return result({ actingAs, contentTrust: 'untrusted', feedback, screenshot: comment.screenshot && identity.credential.scopes.includes('screenshots:read') ? { uri: `uier://projects/${project.id}/feedback/${comment.id}/screenshot`, access: 'Use resources/read with this credential. No public image URL is issued.' } : undefined });
+        const packet = await projectFeedbackExport(project, actor, input.commentId, undefined, baseUrl);
+        return result({ actingAs, contentTrust: 'untrusted', ...packet,
+            screenshotResource: packet.context.screenshot.state === 'protected' && identity.credential.scopes.includes('screenshots:read')
+                ? { uri: `uier://projects/${project.id}/feedback/${input.commentId}/screenshot`, access: 'Use resources/read with this credential. No public image URL is issued.' } : undefined });
     }));
     server.registerTool('list_assignees', { description: 'List existing project participants eligible to see this thread. Assignment never grants access.', inputSchema: { ...thread, ...page }, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
@@ -87,7 +86,10 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request)
     }));
     server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, async (uri, variables) => {
         const { project, actor } = await mcpProject(identity, projectId.parse(variables.projectId), 'screenshots:read');
-        const image = await getProjectScreenshot(project, actor, commentId.parse(variables.commentId));
+        const id = commentId.parse(variables.commentId);
+        const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
+        if (packet.context.screenshot.state !== 'protected') throw apiErrors.notFound('Screenshot not found.');
+        const image = await getProjectScreenshot(project, actor, id);
         if (Buffer.byteLength(image.data, 'base64') > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
         return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: image.data }] };
     });
