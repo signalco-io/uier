@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
-import { commentBubble, newVisitor, openThread } from './support/toolbar';
+import { commentBubble, newVisitor, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -40,6 +40,12 @@ test('guest comments without email, then separately verifies and revokes reply n
             await verification.emulateMedia({ colorScheme });
             await verification.reload();
             await expect(verification.getByRole('button', { name: 'Confirm reply notifications' })).toBeVisible();
+            await expect(toolbar(verification)).toBeVisible();
+            const hint = verification.getByRole('region', { name: 'Try uier on this page' });
+            if (await hint.isVisible()) {
+                await hint.getByRole('button', { name: 'Got it' }).click();
+                await expect(hint).toBeHidden();
+            }
             await expect(verification.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
             await verification.evaluate(async () => {
                 // Flush the new theme before waiting for its finite color transitions.
