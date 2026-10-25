@@ -57,9 +57,14 @@ type CommentComposerProps = {
     /** Selected page text the new comment is about */
     quote?: string;
     autoFocus?: boolean;
+    /** Editing only: the save is on its way */
     pending?: boolean;
     error?: unknown;
-    /** Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form. */
+    /**
+     * Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form.
+     * New text (no `onCancel`) is sent in the background: the form is empty again at once, and a
+     * failure puts the text back (the toast says why).
+     */
     onSubmit: (text: string, mentions?: Mention[]) => Promise<unknown>;
     /** Shows a "Discard" button while there is text (new comments) */
     onDiscard?: () => void;
@@ -108,7 +113,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const sharedPending = useSyncExternalStore(
         listener => drafts.subscribe(draftKey, listener),
         () => drafts.pending(draftKey));
-    const busy = pending || submitting || sharedPending;
+    // Editing waits for the save; new comments, replies and feedback never block the form
+    const instant = !onCancel;
+    const busy = !instant && (pending || submitting || sharedPending);
 
     const setText = (value: string) => {
         const next = moveMentions(text, value, mentions).map(({ userId, start, end }) => ({ userId, start, end }));
@@ -183,8 +190,29 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         lastThreshold.current = current;
     }, [text.length, announce]);
 
+    /**
+     * Empties the form at once. The text stays with the draft until the send settles: a failure puts
+     * it back (before anything written meanwhile), and so does leaving the page before it settled.
+     */
+    const sendInBackground = async (sentText: string, sentMentions: Mention[], send: () => Promise<unknown>) => {
+        const id = drafts.startSend(draftKey, sentText, sentMentions);
+        let saved = false;
+        try {
+            await send();
+            saved = true;
+        } catch {
+            // The toast says why
+        } finally {
+            drafts.settleSend(draftKey, id, saved);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        // The draft's text, not this render's: a second Enter before the form re-rendered would send it again
+        const text = drafts.get(draftKey) ?? initialText ?? '';
+        const mentions = drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions);
+        const trimmedText = text.trim();
         if (!trimmedText.length || busy || drafts.pending(draftKey) || submittingRef.current) {
             return;
         }
@@ -197,11 +225,16 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
             setSavedName(name.trim());
         }
 
+        const leading = text.length - text.trimStart().length;
+        const selected = mentions.filter(mention => mention.end <= text.trimEnd().length).map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
+        if (instant) {
+            await sendInBackground(text, mentions, () => onSubmit(trimmedText, selected));
+            return;
+        }
+
         submittingRef.current = true;
         setSubmitting(true);
         try {
-            const leading = text.length - text.trimStart().length;
-            const selected = mentions.filter(mention => mention.end <= text.trimEnd().length).map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
             await drafts.run(draftKey, () => onSubmit(trimmedText, selected));
             drafts.delete(draftKey);
         } catch {

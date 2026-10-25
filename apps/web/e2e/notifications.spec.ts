@@ -64,13 +64,15 @@ test('guest comments without email, then separately verifies and revokes reply n
         await verification.close();
     } finally { await guest.context.close(); }
 
-    await page.goto(`/app/projects/${projectId}`);
+    await page.goto(`/app/projects/${projectId}/settings`);
     await page.getByRole('button', { name: 'Mute project emails', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
+    await page.goto(`/app/projects/${projectId}`);
     const article = page.getByRole('article', { name: 'Comment by Ana notifications' });
     await article.getByRole('button', { name: 'Follow thread', exact: true }).click();
     await expect(article.getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
     await expect(article.getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
 });

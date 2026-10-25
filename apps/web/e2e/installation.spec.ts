@@ -41,8 +41,6 @@ for (const [label, message] of [
         const popup = await opened;
         await expect(check.getByRole('status', { name: 'Installation result' })).toHaveAttribute('data-result', 'failure');
         await expect(check.getByRole('status', { name: 'Installation result' })).toContainText(message);
-        await expect(check.getByRole('link', { name: 'Script snippet' })).toBeVisible();
-        await expect(check.getByRole('link', { name: 'Security headers' })).toBeVisible();
         await expect(check.getByRole('button', { name: 'Retry installation check' })).toBeEnabled();
         await popup.close();
     });

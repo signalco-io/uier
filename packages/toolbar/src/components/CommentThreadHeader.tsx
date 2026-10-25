@@ -87,6 +87,8 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                             {done ? 'Reopen' : 'Mark as done'}
                         </Button>
                     )}
+                    {/* A comment on its way has no link or issue yet */}
+                    {!comment.pending && <>
                     <IconButton
                         size="xs"
                         variant="plain"
@@ -106,6 +108,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                         onClick={handleCopyLink}>
                         <Link size={16} />
                     </IconButton>
+                    </>}
                 </Row>
             </Row>
             <CopyIssueResult state={issue} />

@@ -65,8 +65,11 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
 
     return (
         <InkScope>
+            {/* Slides in from (and out to) the side it is docked on; only fades with reduced motion */}
             <DockablePanel id="inbox" label="Comments" onKeyDown={handleKeyDown}
-                className={cx('transition-opacity', hidding ? 'animate-out fade-out' : 'animate-in fade-in')}>
+                className={cx(hidding
+                    ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
+                    : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
                 <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Stack spacing={1.5} className="shrink-0 px-4 py-3">
                         <CommentsSidebarHeader

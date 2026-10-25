@@ -1,26 +1,62 @@
-import { configuredEnvironments } from '@/src/lib/app/environments';
-import { ProjectEnvironmentsForm } from '@/src/components/app/projects/ProjectSettingsForms';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { requireAdminContext } from '@/src/lib/app/context';
-import { getProject } from '@/src/lib/app/projects';
+import { requireAppContext, type AppContext } from '@/src/lib/app/context';
+import { getVisibleProject } from '@/src/lib/app/projects';
+import type { DbProject } from '@/src/lib/app/model';
 import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
+import { notificationPreference } from '@/src/lib/notifications/preferences';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
-import { ProjectAccessForm, ProjectClientNameForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { configuredEnvironments } from '@/src/lib/app/environments';
+import {
+    ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
+} from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
     title: 'Project settings'
 };
 
+/** Everyone sets their own project emails; admins also set up the project */
 export default async function ProjectSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings'>) {
     const { projectId } = await params;
-    const context = await requireAdminContext();
-    const project = await getProject(context.workspace.id, projectId);
+    const context = await requireAppContext();
+    const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+    const notifications = await notificationPreference(project.id, `user:${context.user.id}`);
+    const muted = notifications?.muted ?? false;
 
+    return (
+        <div className="flex max-w-3xl flex-col gap-6">
+            <h2 className="sr-only">Settings</h2>
+            {context.isAdmin && <ProjectSetup project={project} />}
+            <Section
+                id="emails"
+                title="Email notifications"
+                description={muted
+                    ? 'You get no emails from this project. Threads you follow stay followed.'
+                    : 'Owners and admins get new feedback. Posting in a thread follows it. Emails are batched for 5 minutes.'}
+                actions={<ProjectEmailsButton projectId={project.id} muted={muted} />} />
+            {context.isAdmin && <ProjectState context={context} project={project} />}
+        </div>
+    );
+}
+
+function ProjectSetup({ project }: { project: DbProject }) {
+    return (
+        <>
+            <ProjectNameForm projectId={project.id} name={project.name} />
+            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} />
+            <ProjectAccessForm projectId={project.id} access={project.access} />
+            <ProjectUrlsForm projectId={project.id} urls={project.urls} />
+            <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
+            <ProjectPageStateForm projectId={project.id} policy={project.pageState} />
+        </>
+    );
+}
+
+async function ProjectState({ context, project }: { context: AppContext; project: DbProject }) {
     const [comments, members] = await Promise.all([
         loadProjectComments(context, project),
         listProjectMembers(context.workspace.id, project.id)
@@ -36,14 +72,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
     ];
 
     return (
-        <div className="flex max-w-3xl flex-col gap-6">
-            <h2 className="sr-only">Settings</h2>
-            <ProjectNameForm projectId={project.id} name={project.name} />
-            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} />
-            <ProjectAccessForm projectId={project.id} access={project.access} />
-            <ProjectUrlsForm projectId={project.id} urls={project.urls} />
-            <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
-            <ProjectPageStateForm projectId={project.id} policy={project.pageState} />
+        <>
             <Section
                 id="usage"
                 title="Usage"
@@ -66,6 +95,6 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
                     ? 'This project is done. Reopen it to move it back to the active projects.'
                     : 'Mark the project as done when the review is over. It moves to the done projects; nothing is deleted.'}
                 actions={<ProjectStatusButton projectId={project.id} status={project.status} />} />
-        </div>
+        </>
     );
 }

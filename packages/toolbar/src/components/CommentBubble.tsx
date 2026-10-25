@@ -5,7 +5,7 @@ import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { orderBy } from '@signalco/js';
-import { useComments } from '../hooks/useComments';
+import { newLocalId, useComments } from '../hooks/useComments';
 import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { captureCommentScreenshot } from '../screenshot';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
@@ -50,7 +50,12 @@ type CommentBubbleProps = {
     draftPinOffset?: number;
     onAutoOpened?: () => void;
     onOpenStateChange?: (commentId: string, open: boolean) => void;
-    onCreated?: (comment: CommentItem) => void;
+    /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
+    onCreated?: (localId: string) => void;
+    /** The API saved it */
+    onSaved?: (localId: string, commentId: string) => void;
+    /** Sending failed: the draft (its text is back) should be on the page again */
+    onSendFailed?: (error: unknown) => void;
     onCanceled?: () => void;
     className?: string;
 } & (
@@ -61,7 +66,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, onAutoOpened, onCreated, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, onAutoOpened, onCreated, onSaved, onSendFailed, onCanceled, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -89,13 +94,13 @@ export function CommentBubble(props: CommentBubbleProps) {
         };
     }, [creating, position, rootElement, props.draft]);
     const mutation = creating ? create : reply;
-    // A deleted first item ("Comment deleted") is not a message
-    const messagesCount = commentItem?.thread.items.filter(item => !item.deleted).length ?? 0;
+    // A deleted first item ("Comment deleted") is not a message, nor is one still on its way
+    const messagesCount = commentItem?.thread.items.filter(item => !item.deleted && !item.pending).length ?? 0;
+    const sending = Boolean(commentItem?.pending);
 
     const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
         if (props.commentItem) {
             await reply.mutateAsync({ commentId: props.commentItem.id, text, mentions });
-            drafts.delete(draftKey);
             announce('Reply posted');
             return;
         }
@@ -104,7 +109,9 @@ export function CommentBubble(props: CommentBubbleProps) {
         const quotedText = draft.position.type === 'text'
             ? draft.position.text.trim().slice(0, commentTextMaxLength)
             : undefined;
-        const created = await create.mutateAsync({
+        const localId = newLocalId();
+        const posting = create.mutateAsync({
+            localId,
             position: draft.position,
             kind: rewriting ? 'rewrite' : undefined,
             text,
@@ -112,11 +119,20 @@ export function CommentBubble(props: CommentBubbleProps) {
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
             device: capture.current?.device ?? getDeviceInfo(),
-            screenshot: await capture.current?.screenshot
+            screenshot: capture.current?.screenshot
         });
-        drafts.delete(draftKey);
+        // The draft pin makes way for the comment's, shown at once
+        onCreated?.(localId);
+        let saved: CommentItem;
+        try {
+            saved = await posting;
+        } catch (error) {
+            // After the composer has put the text back
+            window.setTimeout(() => onSendFailed?.(error), 0);
+            throw error;
+        }
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
-        onCreated?.(created);
+        onSaved?.(localId, saved.id);
     };
 
     const [open, setOpen] = useState(creating && !props.initiallyClosed);
@@ -195,10 +211,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
                         aria-label={creating
                             ? newLabel
-                            : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
+                            : sending
+                                ? 'Comment, sending'
+                                : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
                         onFocus={handleFocus}
                         className={cx(
                             'fixed z-[48] hover:z-[49] cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            sending && 'opacity-70',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className
                         )}
@@ -212,11 +231,11 @@ export function CommentBubble(props: CommentBubbleProps) {
                         <span
                             aria-hidden="true"
                             className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums text-white">
-                            {creating ? '' : messagesCount}
+                            {creating || sending ? '' : messagesCount}
                         </span>
                     </button>
                 )}
-                aria-label={creating ? newLabel : 'Comment thread'}
+                aria-label={creating ? newLabel : sending ? 'Sending comment' : 'Comment thread'}
                 // Bounded by the space the window has left, so the reply box always stays visible
                 className={cx(
                     'z-[60] flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
@@ -243,10 +262,11 @@ export function CommentBubble(props: CommentBubbleProps) {
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                             <CommentThread commentItem={commentItem} reading={open} />
                         </div>
-                        <Divider className="shrink-0" />
+                        {!commentItem.pending && <Divider className="shrink-0" />}
                     </>
                 )}
-                <div className="shrink-0">
+                {/* Replies wait until the comment is saved (they need its id) */}
+                {!commentItem?.pending && <div className="shrink-0">
                     <CommentComposer
                         commentId={commentItem?.id}
                         ref={composerRef}
@@ -255,12 +275,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                         submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
                         draftKey={draftKey}
                         quote={selectedText}
-                        autoFocus
-                        pending={mutation.isPending}
-                        error={mutation.error}
+                        // Not when it appears in a thread that is closing (its comment was saved after
+                        // Escape): the focus, and a page selection made meanwhile, stay where they are
+                        autoFocus={open}
+                        error={mutation.error ?? props.draft?.sendError}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
-                </div>
+                </div>}
                 {rewriting && selectedText && (
                     <div className="shrink-0">
                         <RewriteSuggestions

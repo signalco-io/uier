@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
 import { Button } from '@signalco/ui-primitives/Button';
-import { NavigatingButton } from '@signalco/ui/NavigatingButton';
+import { KnownPages } from '../../src/knownPages';
+import { StatusPage } from '../../src/components/StatusPage';
 
 type RootErrorProps = {
-    error: Error;
+    error: Error & { digest?: string };
     reset: () => void;
 };
 
@@ -19,17 +17,16 @@ export default function RootError({ error, reset }: RootErrorProps) {
     }, [error]);
 
     return (
-        <Stack alignItems="center" justifyContent="center" className="mt-16 min-h-fit">
-            <Row justifyContent="center">
-                <Stack spacing={4}>
-                    <Typography level="h1">Page not found</Typography>
-                    <Typography>{'Can\'t find find what you\'re looking for...'}</Typography>
-                    <Row spacing={1}>
-                        <Button variant="plain" onClick={() => reset()}>Try again...</Button>
-                        <NavigatingButton href="/">uier home</NavigatingButton>
-                    </Row>
-                </Stack>
-            </Row>
-        </Stack>
-    )
+        <StatusPage
+            code={error.digest ? `Error ${error.digest}` : 'Error'}
+            title="Something went wrong"
+            note="This part did not load."
+            description="The page could not load. Try again, or start from the home page."
+            actions={(
+                <>
+                    <Button variant="solid" onClick={() => reset()}>Try again</Button>
+                    <Button variant="outlined" href={KnownPages.Landing}>Go to the home page</Button>
+                </>
+            )} />
+    );
 }

@@ -83,13 +83,10 @@ export function InstallationCheck({ projectId, urls }: { projectId: string; urls
                 }}>Cancel check</Button>}
             </div>
             {result && <p role="status" aria-label="Installation result" data-result={result.kind} className="m-0 text-sm">{result.message}</p>}
-            {result?.kind === 'success' ? <>
+            {result?.kind === 'success' && <>
                 <Button variant="outline" asChild><a href={reviewLink.href} target="_blank" rel="noopener">Open checked review</a></Button>
                 <CopyBlock value={reviewLink.href} label="Copy checked review link" />
-            </> : <div className="flex flex-wrap gap-3 text-sm">
-                <a href="#install-script" className="underline">Script snippet</a>
-                <a href="#security-headers" className="underline">Security headers</a>
-            </div>}
+            </>}
         </section>
     );
 }

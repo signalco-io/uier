@@ -171,10 +171,11 @@ error boundary, so one bad comment never breaks the toolbar.
   a move. The centre is saved per site/browser in `localStorage` (`uier:toolbar-position:v1`), then clamped to
   the visible viewport on resize, orientation changes and on-screen keyboard changes. Controls remain
   horizontally scrollable on narrow screens. Dragging does not start from action buttons.
-- The inbox uses the shared `DockablePanel` shell. Drag its handle toward either side, or use its side-switch
-  button or left/right arrow keys. The destination is shown before dropping; canceled drags keep the old side.
-  Each panel saves its own side (`uier:panel-side:v1:<id>`). Moving keeps content, filters and scroll state;
-  narrow screens use a full-width inset panel and retain the preferred side for wider screens.
+- The inbox uses the shared `DockablePanel` shell: 320px wide from 640px, 400px from 1280px. Drag the handle
+  beside its heading toward either side, or use left/right arrow keys on it. The destination is shown before
+  dropping; canceled drags keep the old side. The panel slides in from its side (it only fades with reduced
+  motion). Each panel saves its own side (`uier:panel-side:v1:<id>`). Moving keeps content, filters and scroll
+  state; narrow screens use a full-width inset panel and retain the preferred side for wider screens.
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them).
@@ -226,6 +227,11 @@ error boundary, so one bad comment never breaks the toolbar.
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
+  Comments, replies and feedback are sent in the background: the form empties at once and the comment or reply
+  shows straight away (a pending pin reads "Comment, sending" and counts only saved messages; its thread opens
+  once it is saved, and replies to it wait for its id). The text stays with the draft until the send settles, so
+  leaving or reloading the page meanwhile keeps it. A failure removes the comment or reply, puts the text back in
+  the draft (a new comment's draft pin returns with the reason) and says so in a toast. Edits still wait for the save.
   Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../README.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.

@@ -110,7 +110,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
     await expect(commentBubble(commenter.page, 1)).toBeVisible();
 
-    // In the app: only Alpha, no settings, no users, no new projects
+    // In the app: only Alpha, no users, no new projects; settings only for their own emails
     await commenter.page.goto('/app/projects');
     await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Alpha' })).toBeVisible();
     await expect(commenter.page.getByRole('link', { name: 'Beta' })).toHaveCount(0);
@@ -121,7 +121,9 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
     await expect(commenter.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Users' })).toHaveCount(0);
     await commenter.page.goto(`/app/projects/${alpha}/settings`);
-    await expect(commenter.page).toHaveURL(/\/app\/projects$/);
+    await expect(commenter.page.getByRole('region', { name: 'Email notifications' }).getByRole('button', { name: 'Mute project emails' })).toBeVisible();
+    await expect(commenter.page.getByRole('region', { name: 'General' })).toHaveCount(0);
+    await expect(commenter.page.getByRole('region', { name: 'Status' })).toHaveCount(0);
     expect((await commenter.page.request.get(`/app/review/${beta}`, { maxRedirects: 0 })).status()).toBe(404);
 
     // Their own comment: edit and delete, but only admins make comments private

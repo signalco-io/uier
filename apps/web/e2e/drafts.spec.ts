@@ -113,8 +113,11 @@ test('uncertain create and reply responses survive reload and repeated submissio
     await page.unroute(repliesUrl);
     await thread.getByRole('button', { name: 'Post reply' }).click();
     await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
-    const saved = await page.evaluate(async () => (await (await fetch('/api/comments?path=/')).json() as CommentDto[])[0]) as CommentDto;
-    expect(saved.thread.items.map(item => 'text' in item ? item.text : '')).toEqual(['Save once after a lost response', 'Keep this reply too']);
+    // Sent in the background
+    await expect.poll(async () => {
+        const saved = await page.evaluate(async () => (await (await fetch('/api/comments?path=/')).json() as CommentDto[])[0]) as CommentDto;
+        return saved.thread.items.map(item => 'text' in item ? item.text : '');
+    }).toEqual(['Save once after a lost response', 'Keep this reply too']);
     await context.close();
 });
 
@@ -134,6 +137,8 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await expect(feedback.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveValue('Feedback draft');
     await feedback.getByRole('button', { name: 'Send feedback', exact: true }).click();
     await expect(feedback).toBeHidden();
+    // Sent in the background: saved before leaving the page
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
     await page.keyboard.press('Escape');
     await page.goto(`${origin}/brand`);
     const other = await startPoint(page);
@@ -232,13 +237,14 @@ test('inline and pin composers share edit/reply drafts and pending state', async
     });
     try {
         await page.getByRole('dialog', { name: 'Comment thread', exact: true }).getByRole('button', { name: 'Post reply' }).click();
-        await expect(inline).toHaveJSProperty('readOnly', true);
+        // Sent in the background: both composers are empty and the reply shows before the API answers
+        await expect(pin).toHaveValue('');
+        await expect(inline).toHaveValue('');
+        await expect(page.getByRole('dialog', { name: 'Comment thread', exact: true })).toContainText('Send from either composer');
         await expect.poll(() => posts).toBe(1);
         await inline.evaluate(element => element.closest('form')!.requestSubmit());
         expect(posts).toBe(1);
         release?.();
-        await expect(pin).toHaveValue('');
-        await expect(inline).toHaveValue('');
         const saved = await page.evaluate(async () => (await (await fetch('/api/comments?path=/')).json() as CommentDto[])[0]);
         expect(saved!.thread.items).toHaveLength(2);
     } finally {

@@ -11,6 +11,7 @@ import { Megaphone } from '@signalco/ui-icons';
 import { useComments } from '../hooks/useComments';
 import { feedbackDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
 import { useAnnounce } from './Announcer';
@@ -37,6 +38,8 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     onOpenRequestHandled?: () => void;
 }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    // Dark like the pill it opens from
+    const container = useInkContainer() ?? rootElement;
     const { create } = useComments();
     const drafts = useDrafts();
     const announce = useAnnounce();
@@ -69,23 +72,24 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         }
     }, [openRequested]);
 
+    // Sent in the background: the form closes at once, a failure says so and keeps the text
     const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
-        await create.mutateAsync({
+        const sending = create.mutateAsync({
             position: { type: 'page' },
             kind,
             text,
             mentions,
             device: device.current,
-            screenshot: await screenshot.current
+            screenshot: screenshot.current
         });
-        drafts.delete(`${feedbackDraftKey}:${kind}`);
         handleOpenChange(false);
+        await sending;
         announce(selected.sent);
     };
 
     return (
         <Popper
-            container={rootElement}
+            container={container}
             open={open}
             onOpenChange={handleOpenChange}
             side="top"
@@ -131,7 +135,6 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 submitLabel={selected.submitLabel}
                 draftKey={`${feedbackDraftKey}:${kind}`}
                 autoFocus
-                pending={create.isPending}
                 error={create.error}
                 onSubmit={handleSubmit} />
         </Popper>
