@@ -1,12 +1,16 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { brand } from '@uier/brand';
 import {
     addToolbarScript,
     commentBubble,
+    commentBubbles,
     isolatedOrigin,
     newVisitor,
     openLanding,
     openThread,
+    selectText,
+    selectionToolbar,
     toolbar
 } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
@@ -97,6 +101,115 @@ test('the toolbar collapses and expands', async ({ browser }, testInfo) => {
     await page.reload();
     await expect(add).toBeVisible();
 
+    await context.close();
+});
+
+test('collapse hides page annotations, preserves reply text and restores current anchors', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const created = await page.evaluate(async (text) => {
+        const positions = [
+            { type: 'point', selector: 'h1', xNormal: 0.25, yNormal: 0.25 },
+            { type: 'text', text, startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: text.length, endType: 'text' }
+        ];
+        const comments = [];
+        for (const [index, position] of positions.entries()) {
+            const response = await fetch('/api/comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: '/', position, text: index === 0 ? 'Heading placement' : 'Wording clarity' })
+            });
+            comments.push({ status: response.status, id: (await response.json() as { id: string }).id });
+        }
+        return comments;
+    }, brand.tagline);
+    expect(created.map(comment => comment.status)).toEqual([201, 201]);
+    await page.reload();
+
+    const pointPin = page.locator(`[data-uier-comment="${created[0]!.id}"]`);
+    await expect(commentBubbles(page)).toHaveCount(2);
+    await expect(page.locator('[data-uier-highlight]').first()).toBeVisible();
+    await pointPin.click();
+    await openThread(page).getByRole('textbox', { name: 'Reply' }).fill('Keep this unsent reply');
+    const collapse = page.getByRole('button', { name: 'Collapse toolbar' });
+    if (testInfo.project.use.hasTouch) await collapse.tap();
+    else await collapse.click();
+
+    const expand = page.getByRole('button', { name: 'Expand toolbar' });
+    await expect(expand).toBeFocused();
+    await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
+    await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
+    await expect(openThread(page)).toHaveCount(0);
+    await selectText(page, brand.description);
+    await expect(selectionToolbar(page)).toHaveCount(0);
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(brand.description);
+
+    // The page can move underneath the hidden layer; expanding must measure it again.
+    await page.getByRole('heading', { level: 1 }).evaluate(element => { element.style.marginTop = '120px'; });
+    await page.evaluate(() => { window.getSelection()?.removeAllRanges(); window.scrollTo(0, 0); });
+    if (testInfo.project.use.hasTouch) await expand.tap();
+    else await expand.click();
+    await expect(commentBubbles(page)).toHaveCount(2);
+    await expect(page.locator('[data-uier-highlight]').first()).toBeVisible();
+    await expect(openThread(page)).toHaveCount(0);
+    await expect.poll(async () => {
+        const [pin, heading] = await Promise.all([pointPin.boundingBox(), page.getByRole('heading', { level: 1 }).boundingBox()]);
+        return pin && heading ? Math.abs(pin.y + pin.height / 2 - (heading.y + heading.height * 0.25 + 17)) : Infinity;
+    }).toBeLessThan(2);
+    await pointPin.click();
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveValue('Keep this unsent reply');
+    await page.keyboard.press('Escape');
+
+    // The remembered collapsed state hides saved annotations from the first render after reload.
+    await collapse.click();
+    await page.reload();
+    await expect(expand).toBeVisible();
+    await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
+    await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
+    await expect(openThread(page)).toHaveCount(0);
+    const saved = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { resolved: boolean; thread: { items: unknown[] } }[]);
+    expect(saved).toHaveLength(2);
+    expect(saved.every(comment => !comment.resolved && comment.thread.items.length === 1)).toBe(true);
+    await expand.click();
+    await expect(commentBubbles(page)).toHaveCount(2);
+    await selectText(page, brand.description);
+    await expect(selectionToolbar(page)).toBeVisible();
+    await collapse.click();
+    await expect(selectionToolbar(page)).toHaveCount(0);
+    await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
+
+    // Collapsing leaves inbox state intact; explicitly showing a pin expands the review layer.
+    await expand.click();
+    await page.getByRole('button', { name: 'Inbox, 2 comments' }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Heading placement');
+    await collapse.click();
+    await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('Heading placement');
+    await expect(inbox.getByRole('article')).toHaveCount(1);
+    await inbox.getByRole('button', { name: 'Show on page' }).click();
+    await expect(collapse).toBeVisible();
+    await expect(inbox).toBeHidden();
+    await expect(openThread(page).getByText('Heading placement', { exact: true })).toBeVisible();
+    await context.close();
+});
+
+test('collapse preserves a new comment draft without posting it', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('button', { name: 'Add comment' }).focus();
+    await page.keyboard.press('Enter');
+    await openThread(page).getByRole('textbox', { name: 'Comment', exact: true }).fill('Keep this unsent comment');
+    await page.getByRole('button', { name: 'Collapse toolbar' }).click();
+    await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
+    await expect(openThread(page)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Expand toolbar' }).click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'New comment', exact: true }).click();
+    await expect(openThread(page).getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep this unsent comment');
+    const saved = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as unknown[]);
+    expect(saved).toHaveLength(0);
     await context.close();
 });
 

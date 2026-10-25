@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { getElementSelector } from '@signalco/js';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
@@ -219,7 +219,12 @@ export function CommentsGlobal({
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     });
 
-    useDocumentEvent('selectionchange', () => {
+    const handleSelectionChange = useEffectEvent(() => {
+        // A collapsed toolbar leaves normal page selection alone, without review controls.
+        if (collapsed) {
+            return;
+        }
+
         // Ignore if selection is empty or no selection in document
         const selection = window.getSelection();
         const text = selection?.toString();
@@ -259,6 +264,12 @@ export function CommentsGlobal({
             endType: end.type
         });
     });
+
+    useEffect(() => {
+        const onSelectionChange = () => handleSelectionChange();
+        document.addEventListener('selectionchange', onSelectionChange);
+        return () => document.removeEventListener('selectionchange', onSelectionChange);
+    }, []);
 
     const creatingSelectionRects = useCommentItemRects(creatingCommentSelection);
 
@@ -323,7 +334,7 @@ export function CommentsGlobal({
     // When the thread's pin can't be placed on this page (the element is gone or hidden), the inbox
     // shows it. "Show on page" goes back to the inbox as it was and says why.
     useEffect(() => {
-        if (!openComment) {
+        if (!openComment || collapsed) {
             return;
         }
         const timeout = window.setTimeout(() => {
@@ -336,7 +347,7 @@ export function CommentsGlobal({
             }
         }, 1000);
         return () => window.clearTimeout(timeout);
-    }, [openComment]);
+    }, [openComment, collapsed]);
 
     const handleCloseSidebar = () => {
         setSidebarOpen(false);
@@ -346,6 +357,7 @@ export function CommentsGlobal({
     // "Show on page" in the inbox (only while the pin can be placed): the thread opens on its pin
     // (and takes the focus)
     const handleShowOnPage = (commentId: string) => {
+        handleCollapsedChange(false);
         setSidebarOpen(false);
         setOpenComment({ id: commentId, fromInbox: true });
     };
@@ -354,8 +366,10 @@ export function CommentsGlobal({
         rememberCollapsed(next);
         setCollapsed(next);
         if (next) {
-            // The + button and the hint that points at it are hidden
+            // Hide the review layer without discarding a comment or reply draft.
             setCreatingCommentPoint(false);
+            setCreatingCommentSelection(undefined);
+            setOpenComment(undefined);
             closeHintForUse();
         }
     };
@@ -380,9 +394,9 @@ export function CommentsGlobal({
                     </div>
                 </InkScope>
             )}
-            <InlineCommentThreads comments={pinnedComments} />
+            {!collapsed && <InlineCommentThreads comments={pinnedComments} />}
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
-            {pinnedComments.length > 0 && (
+            {!collapsed && pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">
                     {pinnedComments.map((commentItem) => (
                         <CommentErrorBoundary key={commentItem.id} commentId={commentItem.id}>
@@ -394,7 +408,7 @@ export function CommentsGlobal({
                     ))}
                 </section>
             )}
-            {creatingComment && (
+            {!collapsed && creatingComment && (
                 <CommentErrorBoundary key={`new-${creatingComment.key}`}>
                     <CommentBubble
                         draft={creatingComment}
@@ -402,18 +416,18 @@ export function CommentsGlobal({
                         onCanceled={() => setCreatingComment(undefined)} />
                 </CommentErrorBoundary>
             )}
-            {creatingCommentSelection && (
+            {!collapsed && creatingCommentSelection && (
                 <CommentErrorBoundary>
                     <CommentSelectionHighlight commentSelection={creatingCommentSelection} />
                 </CommentErrorBoundary>
             )}
-            {creatingSelectionRects?.length > 0 && (
+            {!collapsed && creatingSelectionRects?.length > 0 && (
                 <CommentSelectionPopover
                     rects={creatingSelectionRects}
                     onCreate={() => handleCreateComment('comment')}
                     onRewrite={() => handleCreateComment('rewrite')} />
             )}
-            {creatingCommentPoint && (
+            {!collapsed && creatingCommentPoint && (
                 <CommentPointOverlay onPoint={handleCreateCommentPoint} />
             )}
             {sidebarOpen && (
