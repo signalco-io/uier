@@ -8,6 +8,7 @@ export type Visitor = {
      * Missing on reads by a visitor who never wrote anything (no cookie yet).
      */
     authorId?: string;
+    hasCookie?: boolean;
     /** `Set-Cookie` value for a new identity (sent only with a successful write) */
     setCookie?: string;
 };
@@ -76,8 +77,13 @@ export function expiredVisitorCookie(request: Request) {
 export function resolveVisitor(request: Request, createIfMissing: boolean): Visitor {
     const token = readCookie(request, VISITOR_COOKIE_NAME);
     if (token && tokenPattern.test(token))
-        return { authorId: sha256Hex(token) };
+        return { authorId: sha256Hex(token), hasCookie: true };
 
+    const supplied = request.headers.get('x-uier-visitor');
+    if (supplied && tokenPattern.test(supplied)) return {
+        authorId: sha256Hex(supplied),
+        ...(createIfMissing ? { setCookie: serializeVisitorCookie(supplied, shouldUseSecureCookie(request)) } : {})
+    };
     if (!createIfMissing)
         return {};
 

@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "Review notifications"
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      retry_delivery:
+        description: 'Failed delivery id to retry, or ambiguous delivery id to reconcile with ACS'
+        required: false
+        type: string
+
+permissions: {}
+concurrency:
+  group: review-notifications-production
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn
+  VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc
+  VERCEL_TELEMETRY_DISABLED: "1"
+  # renovate: datasource=npm depName=vercel
+  VERCEL_CLI_VERSION: "65.2.0"
+
+jobs:
+  deliver:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -C packages/toolbar build
+      - name: Install Vercel CLI
+        run: npm install --global --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+      - name: Pull production configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: '"$HOME/.vercel-cli/bin/vercel" pull --yes --environment=production'
+      - name: Deliver due digests
+        working-directory: apps/web
+        env:
+          UIER_DEPLOYMENT_ENV: production
+          UIER_NOTIFICATION_RETRY_DELIVERY: ${{ inputs.retry_delivery }}
+        run: node scripts/run-notifications.mjs ../../.vercel/.env.production.local
+      - name: Remove production configuration
+        if: always()
+        run: rm -f .vercel/.env.production.local

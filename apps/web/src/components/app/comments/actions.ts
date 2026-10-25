@@ -6,15 +6,18 @@ import { actionResult, UserFacingError, type ActionState } from '../../../lib/ap
 import { appContextOrThrow } from '../../../lib/app/context';
 import { getVisibleProject } from '../../../lib/app/projects';
 import { appActor } from '../../../lib/app/projectComments';
-import { listProjectMembers } from '../../../lib/app/members';
 import { ApiError } from '../../../lib/comments/http';
 import {
+    getProjectComment,
     editProjectCommentText,
     removeProjectComment,
     setProjectCommentAssignee,
     setProjectCommentPrivate,
     setProjectCommentResolved
 } from '../../../lib/review/comments';
+import { markThreadRead } from '../../../lib/comments/readState';
+import { actorAuthorId } from '../../../lib/review/actor';
+import { apiErrors } from '../../../lib/comments/http';
 import { KnownPageLinks } from '../../../knownPages';
 
 /** The comment's project (current workspace, visible to the user) and the user as its actor */
@@ -50,9 +53,7 @@ export async function setCommentPrivateAction(projectId: string, commentId: stri
 }
 
 export async function setCommentAssigneeAction(projectId: string, commentId: string, assigneeId: string | null) {
-    return await commentAction(projectId, async ({ context, project, actor }) => {
-        if (assigneeId && !(await listProjectMembers(context.workspace.id, project.id)).some(({ member }) => member.userId === assigneeId))
-            throw new UserFacingError('Only people with access to the project can be assigned.');
+    return await commentAction(projectId, async ({ project, actor }) => {
         await setProjectCommentAssignee(project, actor, commentId, assigneeId);
     });
 }
@@ -68,4 +69,12 @@ export async function editCommentAction(projectId: string, commentId: string, te
 
 export async function deleteCommentAction(projectId: string, commentId: string) {
     return await commentAction(projectId, ({ project, actor }) => removeProjectComment(project, actor, commentId));
+}
+
+export async function markCommentReadAction(projectId: string, commentId: string, sequence: number) {
+    return await commentAction(projectId, async ({ project, actor }) => {
+        const comment = await getProjectComment(project, actor, commentId);
+        if (!comment) throw apiErrors.notFound();
+        await markThreadRead(comment, actorAuthorId(actor)!, sequence);
+    });
 }

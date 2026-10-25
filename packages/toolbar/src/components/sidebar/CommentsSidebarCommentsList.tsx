@@ -9,7 +9,7 @@ import { CommentThread } from '../CommentThread';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
-import { useComments, useSiteComments } from '../../hooks/useComments';
+import { useComments, useSiteComments, useActivitySummary } from '../../hooks/useComments';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { commentLink } from '../../review';
 import { CommentItem, commentsListMaxLength } from '../@types/Comments';
@@ -22,6 +22,7 @@ function emptyText(filter: CommentsFilter) {
     if (filter.keywords?.trim()) {
         return 'No matches';
     }
+    if (filter.unread) return 'No unread comments';
     switch (filter.status) {
         case 'resolved': return 'No done comments';
         case 'all': return 'No comments';
@@ -132,14 +133,15 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
     const { review } = useContext(CommentsBootstrapperContext);
     const { path, query: pageQuery } = useComments();
     const withOtherPages = true;
-    const siteQuery = useSiteComments(withOtherPages);
+    const siteQuery = useSiteComments(withOtherPages, Boolean(filter.unread));
+    const { data: activity } = useActivitySummary();
 
-    const pageComments = pageQuery.data?.filter(c => matchesFilter(c, filter));
+    const pageComments = (filter.unread ? siteQuery.data?.filter(c => c.path === path) : pageQuery.data)?.filter(c => matchesFilter(c, filter));
     const otherComments = withOtherPages
         ? siteQuery.data?.filter(c => c.path !== path && matchesFilter(c, filter))
         : undefined;
     // The API lists the site's newest comments only
-    const siteCapped = (siteQuery.data?.length ?? 0) >= commentsListMaxLength;
+    const siteCapped = (filter.unread ? activity?.unread ?? 0 : activity?.total ?? 0) > (siteQuery.data?.length ?? 0) || (siteQuery.data?.length ?? 0) >= commentsListMaxLength;
     const searching = Boolean(filter.keywords?.trim());
 
     // The count is announced once the typing stopped and every group has loaded, so screen readers
@@ -161,7 +163,7 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
         <Stack spacing={3}>
             <CommentsGroup
                 title="This page"
-                query={pageQuery}
+                query={filter.unread ? siteQuery : pageQuery}
                 comments={pageComments}
                 filter={filter}
                 renderPlace={(comment) => !comment.resolved && comment.position.type !== 'page' && (

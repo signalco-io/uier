@@ -12,8 +12,8 @@ export const MAX_BODY_BYTES = 16 * 1024;
  * Screenshots of the commented part of the page (screenshot.ts): at most this many bytes (a
  * WebP of the region is usually far smaller) and pixels on a side
  */
-export const MAX_SCREENSHOT_BYTES = 512 * 1024;
-export const MAX_SCREENSHOT_DIMENSION = 4096;
+import { MAX_SCREENSHOT_BYTES } from '@uier/toolbar/screenshot-policy';
+export { MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_DIMENSION } from '@uier/toolbar/screenshot-policy';
 /** Body of a new comment with a screenshot: the comment, and the screenshot as a base64 data URL */
 export const MAX_COMMENT_BODY_BYTES = MAX_BODY_BYTES + Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64;
 

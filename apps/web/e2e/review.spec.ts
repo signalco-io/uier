@@ -180,7 +180,7 @@ test('collapse hides page annotations, preserves reply text and restores current
 
     // Collapsing leaves inbox state intact; explicitly showing a pin expands the review layer.
     await expand.click();
-    await page.getByRole('button', { name: 'Inbox, 2 comments' }).click();
+    await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Heading placement');
     await collapse.click();

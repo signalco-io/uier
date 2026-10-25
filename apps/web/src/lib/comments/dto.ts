@@ -25,13 +25,14 @@ export type CommentDeletedThreadItemDto = {
 };
 
 export type CommentDto = {
+    activity?: import('./activity').ReadActivity;
     id: string;
     path: string;
     position: DbCommentPosition;
     /** Public id, numbered per domain (`#12`); missing on old comments */
     number?: number;
     /** A screenshot of the commented part of the page (`GET .../comments/<id>/screenshot`), in pixels */
-    screenshot?: { width: number; height: number };
+    screenshot?: { width: number; height: number; revision?: string };
     kind: DbCommentKind;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
@@ -43,6 +44,7 @@ export type CommentDto = {
 
 /** `GET /api/visitor` */
 export type VisitorDto = {
+    draftScope?: string;
     /** The visitor's guest name (`Guest XXXX`), `null` before their first comment or reply */
     name: string | null;
 };
@@ -146,7 +148,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         position,
         number: typeof comment.number === 'number' && Number.isInteger(comment.number) ? comment.number : undefined,
         screenshot: comment.screenshot && Number.isInteger(comment.screenshot.width) && Number.isInteger(comment.screenshot.height)
-            ? { width: comment.screenshot.width, height: comment.screenshot.height }
+            ? { width: comment.screenshot.width, height: comment.screenshot.height, ...(comment.screenshot.revision ? { revision: comment.screenshot.revision } : {}) }
             : undefined,
         kind: commentKinds.find(kind => kind === comment.kind) ?? 'comment',
         thread: {

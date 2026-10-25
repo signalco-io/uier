@@ -9,7 +9,7 @@ import { MAX_COMMENT_BODY_BYTES } from '../../../src/lib/comments/limits';
 export const GET = commentsApiHandler(async (context) => {
     const params = new URL(context.request.url).searchParams;
     if (params.get('scope') === 'site')
-        return Response.json(await listComments(context, null));
+        return Response.json(await listComments(context, null, params.get('unread') === 'true'));
 
     const path = pathSchema.safeParse(params.get('path'));
     if (!path.success)

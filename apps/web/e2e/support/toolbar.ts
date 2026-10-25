@@ -46,8 +46,8 @@ export function isolatedOrigin(testInfo: TestInfo) {
 
 /** A new anonymous visitor: own browser context (own `uier_visitor` cookie and localStorage), same device as the project */
 export async function newVisitor(browser: Browser, testInfo: TestInfo): Promise<{ context: BrowserContext; page: Page }> {
-    const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = testInfo.project.use;
-    const context = await browser.newContext({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch });
+    const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, colorScheme, reducedMotion } = testInfo.project.use;
+    const context = await browser.newContext({ viewport, userAgent, deviceScaleFactor, isMobile, hasTouch, colorScheme, reducedMotion });
     const page = await context.newPage();
     return { context, page };
 }

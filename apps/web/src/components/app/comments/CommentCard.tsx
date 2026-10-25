@@ -64,8 +64,10 @@ import type { ActionState } from '../../../lib/app/actionResult';
 import { initials } from '../initials';
 import { DateTime } from './DateTime';
 import { CommentReproduction } from './CommentReproduction';
+import { NotificationControls } from './NotificationControls';
 import { deviceLabels, kindLabels } from './commentLabels';
 import {
+    markCommentReadAction,
     deleteCommentAction,
     editCommentAction,
     setCommentAssigneeAction,
@@ -187,7 +189,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                             <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
                                                 <DropdownMenuGroup>
                                                     <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
-                                                    {assignees.map(option => (
+                                                    {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
                                                         <DropdownMenuItem
                                                             key={option.userId}
                                                             onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
@@ -250,7 +252,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                     )}
                     {comment.deleted
                         ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
-                        : <p className="m-0 text-sm leading-6 break-words whitespace-pre-wrap">{comment.text}{comment.edited && <span className="text-muted-foreground"> (edited)</span>}</p>}
+                        : <p className="m-0 text-sm leading-6 break-words whitespace-pre-wrap">{comment.displayText}{comment.edited && <span className="text-muted-foreground"> (edited)</span>}</p>}
 
                     {comment.screenshot && (
                         <Dialog>
@@ -269,9 +271,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                         </Dialog>
                     )}
 
+                    <NotificationControls projectId={projectId} threadId={comment.id} following={comment.following} />
                     <CommentReproduction context={comment.reproduction} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm">
                         <StateBadge resolved={comment.resolved} />
+                        {comment.activity?.unread && (
+                            <Button size="sm" variant="ghost" disabled={pending}
+                                className="text-[hsl(var(--brand-accent-text))]"
+                                onClick={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence))}>
+                                Mark as read
+                            </Button>
+                        )}
                         {comment.number !== undefined && (
                             <span className="font-mono text-[13px] text-muted-foreground tabular-nums">
                                 <span className="sr-only">Comment </span>#{comment.number}

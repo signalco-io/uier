@@ -43,7 +43,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const [open, setOpen] = useState(false);
     const screenshot = useRef<Promise<string | undefined>>(undefined);
     const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
-    const [kind, setKind] = useState<FeedbackKind>('feedback');
+    const [kind, setKind] = useState<FeedbackKind>(() => (drafts.details(`${feedbackDraftKey}:bug`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:feedback`)?.updatedAt ?? 0) ? 'bug' : 'feedback');
     const selected = kinds.find(k => k.value === kind) ?? kinds[0]!;
 
     const handleOpenChange = (next: boolean) => {
@@ -69,15 +69,16 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         }
     }, [openRequested]);
 
-    const handleSubmit = async (text: string) => {
+    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
         await create.mutateAsync({
             position: { type: 'page' },
             kind,
             text,
+            mentions,
             device: device.current,
             screenshot: await screenshot.current
         });
-        drafts.delete(feedbackDraftKey);
+        drafts.delete(`${feedbackDraftKey}:${kind}`);
         handleOpenChange(false);
         announce(selected.sent);
     };
@@ -124,10 +125,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 </Row>
             </div>
             <CommentComposer
+                key={kind}
                 label={commentKindLabels[kind]}
                 placeholder={selected.placeholder}
                 submitLabel={selected.submitLabel}
-                draftKey={feedbackDraftKey}
+                draftKey={`${feedbackDraftKey}:${kind}`}
                 autoFocus
                 pending={create.isPending}
                 error={create.error}

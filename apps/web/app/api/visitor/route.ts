@@ -1,10 +1,12 @@
+import { keyedHash } from '../../../src/lib/comments/environment';
 import type { VisitorDto } from '../../../src/lib/comments/dto';
 import { commentsApiHandler } from '../../../src/lib/comments/http';
 import { displayName, expiredVisitorCookie } from '../../../src/lib/comments/visitor';
 
 // GET /api/visitor - who the toolbar's profile shows
 export const GET = commentsApiHandler(async ({ visitor }) => Response.json({
-    name: visitor.authorId ? displayName(visitor.authorId) : null
+    name: visitor.hasCookie ? displayName(visitor.authorId) : null,
+    draftScope: visitor.authorId ? keyedHash('draft-scope', visitor.authorId) : undefined
 } satisfies VisitorDto));
 
 // DELETE /api/visitor - signs out: removes the visitor cookie from this browser. The comments

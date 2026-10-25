@@ -115,8 +115,13 @@ by mistake. To use another port, for example to run them in two worktrees at onc
 PORT=4104 pnpm test
 ```
 
-Outside CI, a server that already answers on that port is reused rather than started, so stop `pnpm dev` or
-pick a free port to test the production build.
+An existing server on that port is never reused, inside or outside CI.
+
+The [MVP launch evidence matrix](docs/mvp-launch-verification.md) maps the combined review flow to
+coverage and records pending hosted/physical-device checks. `launch.spec.ts` adds owner/guest review,
+canonical routes, capture and recovery checks; `launch-performance.spec.ts` records a 100-thread inbox,
+bundle/request budgets and host interaction timings. Optional Firefox/WebKit projects run the portable
+launch flow with `PLAYWRIGHT_CROSS_BROWSER=1`; see the matrix for commands and engine limitations.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.config.ts)):
 
@@ -210,6 +215,29 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 - **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
   sign out.
 
+### Assignment and mentions
+
+Signed-in project members can change a thread's assignee in its toolbar details or inbox.
+The app and toolbar use the same assignment service. Assigned to me combines with page,
+status and search filters. Guests see the assignee's name but cannot change assignment or
+look up the participant directory. Removed members appear as Former member (no access);
+the assignment can be cleared or changed.
+
+In a member's composer, type @ to search eligible participants. Arrow keys move through
+suggestions; Enter or Tab selects without posting; Escape dismisses. Touch/click selects
+the same account. A short opaque account suffix distinguishes duplicate display names.
+Selection saves an account id and a text range, not a display-name match. Editing through
+a mention turns it back into plain text. Names update when reading saved mentions; removed
+accounts appear as Former member. New mention and assignment targets must currently have
+project access and visibility of the thread (private threads: admins and the author).
+Neither action creates membership or bypasses private-thread checks.
+Assignment changes and newly selected mention recipients use the shared unread activity
+cursor and five-minute email digest. A post with mentions still creates one event. Repeated
+assignment selections and edits retaining the same recipients create no extra event. The
+actor, read activity, muted projects, explicitly unfollowed threads, removed members and
+people without private-thread access are suppressed by the shared notification delivery.
+Unassignment targets the previous assignee, subject to the same rules.
+
 ### Review API (a project's toolbar)
 
 A project's toolbar (`data-uier-project`, see the [toolbar README](packages/toolbar/README.md)) runs on the
@@ -224,6 +252,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
+| `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
@@ -258,6 +287,18 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
 (`UIER_BASE_URL` overrides both); never the request's Host header.
+
+### Review email notifications
+
+Owners and admins receive new feedback. Members automatically follow threads they post in, can follow or
+unfollow any visible thread, and can mute project emails from the toolbar or app. Guests can
+optionally choose **Email me replies** after commenting and verify an address; neither email nor
+an account is required to post. Related unread activity is batched for five minutes, with current
+access, mute, unsubscribe and shared read-cursor checks before sending. A scheduled GitHub workflow
+uses the existing production Cosmos/ACS configuration; no detached serverless work is used.
+
+See [the delivery contract and operations guide](docs/review-notifications.md) for defaults,
+verification, retention, retry evidence, scheduler delays and the #83/#91 integration contract.
 
 ## Landing page showcase and public feedback
 
@@ -361,6 +402,7 @@ trailing slash).
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
+| `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
@@ -422,12 +464,12 @@ credential hash routes are omitted. Choose only fields that never contain person
 than 2048 characters fall back to pathname; the public showcase keeps its existing 512-character pathname contract.
 
 New project records have `pageStateVersion: 1`; their `path` is the canonical view key, used consistently by APIs,
-queries, caches, inbox groups, app links and in-memory drafts. SPA push/replace, back/forward and hash changes update
+queries, caches, inbox groups, app links and durable drafts. SPA push/replace, back/forward and hash changes update
 the view without carrying placement controls or draft text onto another view. Old pathname records stay on the base
 page and in the site inbox. The old query-string fallback applies only to legacy records, never to v1 views.
 There is no bulk migration. Changing settings does not rewrite stored feedback: old view links still restore the
 website URL and show saved details in the inbox if the current routing policy no longer identifies that view.
-Drafts remain in memory until #86 adds durable recovery.
+Drafts recover across reload and navigation; see [Draft recovery and submission retries](#draft-recovery-and-submission-retries).
 
 **Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
 for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
@@ -513,11 +555,26 @@ Images, fonts and stylesheets from other sites that don't allow it (CORS, or the
 images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
 `backdrop-filter` come out empty or plain.
 
+For missing or unsuitable captures, the author (or a workspace admin) can choose **Upload image** or
+**Paste image** on saved feedback in the toolbar. Keyboard image paste also works while a saved image
+control has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
+invalid images and denied clipboard access show an error and keep the saved feedback. Nothing is previewed
+in a composer. Images are not persisted with drafts or in browser storage.
+
+Expand the saved thumbnail and choose **Redact screenshot** to cover content with opaque black rectangles.
+Drag with a mouse/touch, or enter left/top/width/height percentages and add an area using the keyboard.
+Undo and cancel affect only the editor. **Save redaction** flattens the masks into a replacement image.
+Upload, paste and redaction all use an authorized, conditional transaction that swaps the image and comment
+metadata together. The previous bytes remain until success, then are overwritten in the same storage document;
+the API exposes no image history. Failed or unconfirmed saves report an error; reload to check an uncertain
+network result. Image revisions prevent stale replacements. These actions count against the existing daily
+image budget. They cannot erase copies someone already downloaded.
+
 It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
 may then be up to about 700 KB. The server reads the type and size from the image itself (PNG, JPEG or WebP, at
 most 512 KB and 4096 px on a side) and stores it as a document of its own in the comment's partition
 (`type: 'screenshot'`, id `$screenshot_<comment id>`, which no route accepts, with the comment's `ttl`); the comment
-keeps `screenshot: { contentType, width, height, bytes }`. Anyone who can see the comment gets the image from
+keeps `screenshot: { contentType, width, height, bytes, revision? }`. Anyone who can see the comment gets the image from
 `GET .../comments/<id>/screenshot` (the toolbar fetches it when the thread shows it, in the inbox as it scrolls into view); the app shows it on the comment
 (`/app/projects/<project>/comments/<id>/screenshot`). It is deleted with the comment, or with its author's text
 when others replied. A site gets at most 300 screenshots a day.
@@ -735,3 +792,80 @@ with its git history preserved (`web/apps/uier` -> `apps/web`, `web/packages/uie
 [`packages/toolbar`](packages/toolbar) and [`infra`](infra) are licensed under the MIT license, as declared in their
 `package.json`. Anything without an explicit license is covered by the root [LICENSE](LICENSE) (AGPL-3.0).
 [uier.io/open-source](https://uier.io/open-source) explains the licenses in plain words; keep it in step with this section.
+
+### Draft recovery and submission retries
+
+The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text in the reviewed
+site's local storage for seven days after the last change. Versioned `uier:draft:v1:` keys include
+the API, project, server-authorized reviewer scope, canonical page key (`@uier/toolbar/page-state`)
+and thread/item. Pinned drafts retain their element/text anchor and return as closed pins without taking focus; edits retain the original text
+for stale-edit protection. Closing a composer keeps its draft. Discard (Cancel for edits), a
+successful submission and toolbar sign-out remove it; sign-out clears that reviewer's project
+drafts on every page of the current site. Drafts on another reviewed origin must be cleared there.
+Expired drafts are ignored and pruned when the toolbar next opens. Browser/site scripts can read
+local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays
+in memory and the composer explains that the page must stay open.
+
+Images and device details are never persisted with drafts. Automatic capture is refreshed on
+reopen/reload, using the restored anchor and the current page/viewport. A missing anchor uses the
+existing fallback placement; failed capture never blocks text. Composers show no image preview.
+Saved screenshots keep their expandable thumbnail behavior.
+
+Create/reply requests from the toolbar carry a random `idempotencyKey`, kept with the draft.
+Unchanged retries keep it, including after reload; changing the submitted text/anchor/kind starts
+a new attempt. Pending sends share a lock across composer instances. This is recovery of authored
+work, with an explicit send action, not a background queue. Both comments APIs accept optional
+keys (16–128 URL-safe characters). Receipts are scoped to the server actor and partition, shared
+across create/reply operations, and reject conflicting content with 409. Capture/device changes
+are excluded from the content hash so restored captures do not invalidate a retry. A replay
+returns the current authorized thread, including later edits; a deleted thread returns 404 and
+is never resurrected. Receipts contain hashes and ids only, expire after 30 days, and are committed
+atomically with the comment/reply and optional screenshot (Cosmos single-partition batch,
+conditional replacement for replies). No live Cosmos transaction is exercised by local tests.
+
+On the public toolbar a random visitor token is kept in memory until a draft is started, then
+stored as `uier:visitor`. The first successful write still sets the HttpOnly cookie. A validated
+`X-Uier-Visitor` token supplies the same identity when that first write's response/cookie is lost;
+an existing cookie always takes precedence. Toolbar sign-out removes both identities.
+
+### Unread review activity
+
+The toolbar's blue badge counts unread threads across all of the site's authorized comments. Open/Done
+counts remain separate. The Unread filter includes all statuses and pages. Opening a visible short
+thread acknowledges it after 800 ms in a focused foreground window; inbox previews and longer
+collapsed threads require **Mark as read**. Reading never resolves feedback, and resolving never
+acknowledges it. The app shares the same member cursor and offers Unread / Mark as read.
+
+One scheduler refreshes active page/site queries every 15 seconds while expanded, online and visible,
+and immediately on focus, reconnect, foreground return and expansion. Hidden and collapsed reviews
+do not poll. Content lists retain their size limits; a separate activity projection supplies full badge/status
+counts. The Unread filter fetches unread content before applying those limits, so older unread threads
+remain findable. Marking a batch read reveals the next batch. The inbox warns when content is omitted. Fresh requests enforce project/private permissions and access failures purge cached
+comments and screenshots. Drafts, stable thread keys and focus survive ordinary refreshes.
+
+`apps/web/src/lib/comments/activity.ts` defines the monotonic thread activity sequence. Creation,
+replies, resolve/reopen, assignment changes and newly selected mention recipients advance it
+atomically with the thread write. Reads and edits retaining the same recipients do not.
+Actor ids stay server-side. DTO `activity` contains `sequence`, `lastOtherSequence`, `readSequence`
+and `unread` (`lastOtherSequence > readSequence`). Own posts do not create unread or clear another
+person's unread activity. Legacy threads derive a stable initial sequence from stored item order.
+
+`POST /api/review/:projectId/comments/:id/read` accepts `{ sequence }` and returns the activity DTO.
+It uses the existing project and private-thread access checks and authenticated actor; callers cannot
+choose another reviewer. It acknowledges only the rendered sequence, rejects a future sequence, and
+uses etags and `max()` across concurrent tabs. The public showcase uses `/api/comments/:id/read`.
+Receipts are `review-read` documents in the existing app container, partitioned by domain/reviewer;
+members use `user:<id>` across sites/devices, guests the existing hashed browser/site visitor id.
+Guest receipts expire one year after the last advancing acknowledgement; member receipts persist.
+Project guests fall back to page memory when local storage is blocked. Public guests can retain
+their identity in the visitor cookie. Read tracking introduces no additional browser storage key.
+
+For notification seen suppression (#84), recheck current project access and private-thread visibility,
+then call `getReadSequence(domain, reviewerId, commentId)` from `comments/readState.ts` and compare the
+queued activity's sequence. The read service sends no email and stores no delivery queue. Assignment
+and mention producers advance `withThreadActivity` inside the same conditional write as their
+authorized mutation and record recipients through the shared notification outbox.
+
+`GET .../comments/activity` returns authorized `{ unread, open, done, total }` counts without message
+text or actor ids. `GET .../comments?scope=site&unread=true` selects unread threads from the full
+activity projection before fetching a bounded content batch. Both use the same private/access checks.

@@ -13,14 +13,13 @@ import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
 import { useToolbarMovement } from '../hooks/useReviewMovement';
-import { commentsListMaxLength } from './@types/Comments';
 
 type CommentToolbarProps = {
     mode: ToolbarMode;
     creatingPointComment: boolean;
     /** Only the button that expands the toolbar again is shown */
     collapsed: boolean;
-    /** Number of unresolved comments on this page */
+    /** Authorized unread threads across all project pages */
     commentsCount?: number;
     /** Whether the API returned a full list (there may be more comments than `commentsCount`) */
     commentsCountCapped?: boolean;
@@ -66,10 +65,10 @@ export function CommentToolbar({
     const moveRef = useRef<HTMLButtonElement>(null);
     const movement = useToolbarMovement(navRef, onMoveStart);
     const resetPosition = () => { movement.reset(); requestAnimationFrame(() => moveRef.current?.focus()); };
-    const capped = commentsCountCapped || commentsCount >= commentsListMaxLength;
+    const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount
-        ? `${countText(commentsCount, capped)} ${commentsCount === 1 && !capped ? 'comment' : 'comments'}`
+        ? `${badgeText} unread ${commentsCount === 1 && !capped ? 'thread' : 'threads'}${commentsCount > 99 && !capped ? `, ${commentsCount} in total` : ''}`
         : undefined;
 
     // `detail` is 0 for clicks synthesized from Enter or Space

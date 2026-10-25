@@ -15,6 +15,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
+| `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; all other pages remain unframeable |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
@@ -135,6 +136,12 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   and controlled inputs, so React's reset after an action never drops what was typed.
 - Message edits through the review API compare `expectedText` before changing a thread item; author/admin
   permission checks and etag retries preserve concurrent replies. `editedAt` is shown in the toolbar and app.
+- Saved image replacements use `POST .../comments/<id>/screenshot` with shared screenshot validation,
+  the daily image budget and `expectedRevision`. `replaceScreenshot.ts` checks visibility/edit rights
+  on each attempt; stores atomically swap comment metadata and image bytes under the comment etag.
+  Never delete the original before this transaction succeeds. Public authors and project authors/admins
+  can replace evidence; readers retain the existing comment visibility rules. The screenshot replacement
+  API/browser tests cover failure, reload, redaction, private visibility and deletion.
 - Reproduction context is allowlisted by `src/lib/comments/reproduction.ts`: only authorized project members
   get it in the review DTO or app cards. Public/guest `device` DTOs stay limited to size and viewport. Capture time
   and viewport belong to the original feedback start; page links validate the project's origin and retain only stored approved page state.
@@ -144,11 +151,19 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
-- Links the app sends or redirects to come from `appBaseUrl()`, never from the Host header.
+- Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
+  `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
 - Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
   helpers in `e2e/support/app.ts` sign in that way.
 
 ## Testing
+
+Review notifications live in `src/lib/notifications/`. Event metadata is part of the same comment
+write as the shared unread activity cursor. Never send email from a toolbar client or detached
+promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-backed worker with
+the existing production configuration. Dispatch rechecks access, private visibility, subscription,
+mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
+`docs/review-notifications.md` for the event/delivery contract and failure evidence.
 
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
@@ -157,6 +172,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   on `PORT + 1000`, never to the real API.
 - Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
+- `e2e/launch.spec.ts` combines installation, owner/guest discussion, routes, capture, recovery and
+  keyboard movement. `PLAYWRIGHT_CROSS_BROWSER=1` adds focused Firefox/WebKit launch projects;
+  install those engines first. `launch-performance.spec.ts` attaches the 100-thread measurements.
+  Keep `docs/mvp-launch-verification.md` honest about pending dependency, hosted and physical-device
+  evidence; passing local fixtures alone must not close the launch gate.
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
   points it at a real Cosmos DB. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
   from Pulumi: production an account key, previews Entra ID with the Vercel OIDC token
@@ -176,3 +196,16 @@ retain independent host partitions for tests. On a project's site the
 script's `data-uier-project` decides the project, and `?review=true` there reviews that project
 (`e2e/project-review.spec.ts`). The marketing layout embeds the toolbar with its React component
 (`@uier/toolbar/react`, see `ToolbarScript`).
+
+Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
+comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
+expose identity metadata only to members. App and toolbar must share these checks.
+
+- `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
+  Read acknowledgements require current project/thread access and acknowledge only a rendered
+  sequence. Toolbar and app use the same member cursor; notifications must reauthorize before
+  reading it for suppression. Do not equate resolution with read state or expose actor ids in DTOs.
+
+- Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
+  threads, so badge counts do not inherit text-list limits. Unread content is selected before
+  applying response limits. Preserve legacy author-only projections and private-thread filtering.

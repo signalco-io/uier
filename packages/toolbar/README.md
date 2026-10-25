@@ -204,7 +204,7 @@ error boundary, so one bad comment never breaks the toolbar.
   are hidden (e.g. in a closed `<details>`) get no pin until they are shown.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
   There is no camera button or preview while writing. Posting waits for that capture attempt (up to 15 seconds);
-  a failed capture still saves the text. Closing or collapsing a draft keeps its original capture promise, and
+  a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and
   discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.
   Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
@@ -216,7 +216,7 @@ error boundary, so one bad comment never breaks the toolbar.
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).
-  In-memory text is scoped to the canonical page key so SPA views do not share drafts. Reload recovery is tracked in #86.
+  Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../README.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
 - A thread starts with its status (**Open** or **Done**) and public id (`#12`, numbered per site), **Mark as
@@ -231,6 +231,29 @@ error boundary, so one bad comment never breaks the toolbar.
   **Show on page** (only while the comment's pin can be placed) opens an open comment's thread on its pin; a
   comment on another page links to its thread there (`?uier-comment=`, always on this site). The status and
   search are kept while the inbox is closed; Escape clears a search first. The showcase includes other public pages too.
+
+### Assignment and mentions
+
+Signed-in project members can change a thread's assignee in its toolbar details or inbox.
+The app and toolbar use the same assignment service. Assigned to me combines with page,
+status and search filters. Guests see the assignee's name but cannot change assignment or
+look up the participant directory. Removed members appear as Former member (no access);
+the assignment can be cleared or changed.
+
+In a member's composer, type @ to search eligible participants. Arrow keys move through
+suggestions; Enter or Tab selects without posting; Escape dismisses. Touch/click selects
+the same account. A short opaque account suffix distinguishes duplicate display names.
+Selection saves an account id and a text range, not a display-name match. Editing through
+a mention turns it back into plain text. Names update when reading saved mentions; removed
+accounts appear as Former member. New mention and assignment targets must currently have
+project access and visibility of the thread (private threads: admins and the author).
+Neither action creates membership or bypasses private-thread checks.
+Assignment changes and newly selected mention recipients use the shared unread activity
+cursor and five-minute email digest. A post with mentions still creates one event. Repeated
+assignment selections and edits retaining the same recipients create no extra event. The
+actor, read activity, muted projects, explicitly unfollowed threads, removed members and
+people without private-thread access are suppressed by the shared notification delivery.
+Unassignment targets the previous assignee, subject to the same rules.
 
 ## UI and styles
 

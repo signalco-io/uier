@@ -6,6 +6,7 @@ import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { pngImage } from './support/images';
 
 // The review flow of a project (issue #34): a reviewed site on another origin embeds the toolbar
 // with the project's script from the install guide, and sends the Content-Security-Policy the
@@ -188,6 +189,12 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     const shown = openThread(guest.page).getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(shown).toBeVisible();
     await expect.poll(async () => await shown.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    // Supplying evidence reuses the cross-origin verification/CORS path and the guest's identity.
+    await openThread(guest.page).getByLabel('Upload screenshot image').setInputFiles({
+        name: 'supplied.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64')
+    });
+    await expect(openThread(guest.page).getByRole('status')).toContainText('Screenshot replaced.');
+    await expect.poll(async () => await shown.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(3);
     expect(violations).toEqual([]);
     await guest.context.close();
 
@@ -197,9 +204,15 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     expect(comment!.screenshot?.width).toBeGreaterThan(0);
     const image = await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers });
     expect(image.status()).toBe(200);
-    expect(image.headers()['content-type']).toMatch(/^image\/(webp|jpeg)$/);
+    expect(image.headers()['content-type']).toBe('image/png');
     expect(image.headers()['access-control-allow-origin']).toBe(siteOrigin());
     expect((await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers: { ...headers, Origin: siteOrigin('elsewhere') } })).status()).toBe(403);
+    const imageUrl = `/api/review/${projectId}/comments/${comment!.id}/screenshot`;
+    const data = { screenshot: pngImage, expectedRevision: null };
+    expect((await request.post(imageUrl, { headers, data })).status()).toBe(403); // another guest
+    expect((await request.post(imageUrl, { headers: { ...headers, Origin: siteOrigin('elsewhere') }, data })).status()).toBe(403);
+    const preflight = await request.fetch(imageUrl, { method: 'OPTIONS', headers: { Origin: siteOrigin(), 'Access-Control-Request-Method': 'POST' } });
+    expect(preflight.headers()['access-control-allow-methods']).toContain('POST');
 
     // The app shows it on the comment, and opens it full size
     await page.goto(`/app/projects/${projectId}`);
@@ -487,7 +500,7 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
     // The toolbar on the pricing page: this page, and the checkout page under "Other pages"
     const guest = await anonymousVisitor(browser, testInfo);
     await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
-    await guest.page.getByRole('button', { name: 'Inbox, 1 comment' }).click();
+    await guest.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = guest.page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByRole('article', { name: 'Comment #1' })).toContainText('Show yearly prices.');
     const other = sidebar.getByRole('region', { name: 'Other pages' }).getByRole('article', { name: 'Comment #2' });
@@ -533,8 +546,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     };
     expect(await list(ana, about)).toHaveLength(1);
     // Guests resolve and delete only their own comments
-    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false });
-    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true });
+    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false, assign: false });
+    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true, assign: false });
 
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText('2 comments');

@@ -9,6 +9,8 @@ import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
+import { notificationPreference } from '@/src/lib/notifications/preferences';
+import { NotificationControls } from '@/src/components/app/comments/NotificationControls';
 
 /** A project: its name, sites and review actions, and the tabs of its pages */
 export default async function ProjectLayout({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
@@ -17,6 +19,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+    const notifications = await notificationPreference(project.id, `user:${context.user.id}`);
 
     const tabs = [
         { href: KnownPageLinks.project(project.id), label: 'Comments' },
@@ -54,6 +57,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 )}
                 actions={(
                     <>
+                        <NotificationControls projectId={project.id} muted={notifications?.muted} />
                         {context.isAdmin && <InviteButton projectId={project.id} variant="outline" />}
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" />
                     </>
@@ -61,6 +65,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 <LinkTabs label="Project" tabs={tabs} match="path" className="mt-2" />
             </PageHeader>
             <div className="flex flex-col gap-6 pt-6">
+                <p className="text-sm text-muted-foreground">Owners and admins get new feedback. Posting follows a thread. Emails are batched for 5 minutes.</p>
                 {children}
             </div>
         </>

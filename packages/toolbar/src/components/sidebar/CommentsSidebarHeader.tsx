@@ -1,3 +1,4 @@
+import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -8,6 +9,7 @@ import { CommentsStatusFilter } from './CommentsFilter';
 
 type CommentsSidebarHeaderProps = {
     status: CommentsStatusFilter;
+    counts: Record<CommentsStatusFilter, number>;
     onStatusChange: (status: CommentsStatusFilter) => void;
     onClose: () => void;
 };
@@ -18,32 +20,25 @@ const statuses = [
     { value: 'all', label: 'All' }
 ] as const;
 
-export function CommentsSidebarHeader({ status, onStatusChange, onClose }: CommentsSidebarHeaderProps) {
+export function CommentsSidebarHeader({ status, counts, onStatusChange, onClose }: CommentsSidebarHeaderProps) {
     return (
-        <Row justifyContent="space-between">
-            <Row spacing={1}>
+        <Stack spacing={1}>
+            <Row justifyContent="space-between">
                 <Typography component="h2" level="body1" semiBold className="text-foreground">Comments</Typography>
-                <Row role="group" aria-label="Show comments" className="rounded-md bg-muted p-0.5">
-                    {statuses.map((s) => (
-                        <Button
-                            key={s.value}
-                            size="xs"
-                            variant="plain"
-                            aria-pressed={status === s.value}
-                            className={cx(
-                                // Touch targets are never below 44 px (BRAND.md)
-                                'rounded-sm pointer-coarse:h-11 pointer-coarse:min-w-11',
-                                status === s.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
-                            )}
-                            onClick={() => onStatusChange(s.value)}>
-                            {s.label}
-                        </Button>
-                    ))}
-                </Row>
+                <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
+                    <PanelRightClose />
+                </IconButton>
             </Row>
-            <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
-                <PanelRightClose />
-            </IconButton>
-        </Row>
+            <Row role="group" aria-label="Show comments" className="self-start rounded-md bg-muted p-0.5">
+                {statuses.map((s) => (
+                    <Button key={s.value} size="xs" variant="plain" aria-pressed={status === s.value}
+                        className={cx('rounded-sm pointer-coarse:h-11 pointer-coarse:min-w-11',
+                            status === s.value ? 'bg-accent text-foreground' : 'text-muted-foreground')}
+                        onClick={() => onStatusChange(s.value)}>
+                        {s.label} <span className="tabular-nums">{counts[s.value]}</span>
+                    </Button>
+                ))}
+            </Row>
+        </Stack>
     );
 }

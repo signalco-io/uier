@@ -57,7 +57,12 @@ export default function PrivacyPolicyPage() {
                     a screenshot of the part of the page the comment is about, when capture succeeds. Capture starts
                     automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
                     include what is visible in that part of the page. The image is sent only when you post the feedback;
-                    discarding an unsent comment saves no image. Replies keep the original screenshot.
+                    discarding an unsent comment saves no image. Replies keep the original screenshot. On saved feedback,
+                    its author or a workspace admin can supply an uploaded or pasted image, or save a redacted replacement.
+                    We read clipboard images only when you choose Paste image or paste an image into saved feedback.
+                    Supplied images follow the same visibility and retention rules. The original stays until replacement
+                    succeeds, then its stored bytes are overwritten. We expose no image history. Replacement cannot remove
+                    copies another person already downloaded. Image editing stays in memory in your browser until saved.
                 </li>
             </ul>
             <p>
@@ -70,10 +75,26 @@ export default function PrivacyPolicyPage() {
                 site are public, so do not put personal information in them.
             </p>
 
+            <h3>Unsent drafts and retries</h3>
+            <p>
+                The toolbar stores draft text and anchors in the current site&rsquo;s local storage for seven days
+                after the last change, scoped to the project, authorized reviewer, page and item. Edit drafts also
+                retain the original message text to detect conflicting edits. Discard, posting and toolbar sign-out
+                clear relevant drafts. Expired data is removed when the toolbar next opens. Site scripts can read
+                local storage. If storage is unavailable, drafts remain only while the page stays open.
+            </p>
+            <p>
+                Draft images and device details are kept only in memory. Reopening a draft refreshes automatic
+                capture from the current page and viewport, without a composer image preview. Nothing is sent
+                automatically after reload. The server keeps submission hashes and item ids for 30 days to prevent
+                duplicate comments and replies when a response is lost. Receipts contain no message text or images.
+            </p>
+
             <h3>The visitor cookie</h3>
             <p>
-                Your first comment or reply sets the <code>uier_visitor</code> cookie. It holds a random token that
-                lets the server recognise your comments, so only you can resolve or delete them. We store a hash of
+                Starting a draft keeps a random visitor token in local storage to recover a lost response.
+                Your first comment, reply or read acknowledgement sets the <code>uier_visitor</code> cookie. It holds a random token that
+                lets the server recognise your comments and read state, so only you can resolve or delete your comments. We store a hash of
                 the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
             </p>
@@ -105,12 +126,49 @@ export default function PrivacyPolicyPage() {
                 under their account name, guests under the name they give. Who sees the comments is the
                 project&rsquo;s choice: its members, or anyone with its review link. A comment an admin makes
                 private is visible only to the project&rsquo;s admins and its author. Members can assign comments
-                to each other and mark them done.
+                to eligible members and mark them done. We store the assignee&rsquo;s account id. A selected
+                @mention stores the recipient&rsquo;s account id and its range in the message text, so names can
+                change without changing the recipient. Unsent selections are kept with the browser-local draft
+                for up to seven days and are cleared on discard, submission or sign-out. Only signed-in project members can look up participants;
+                suggestions contain names and opaque account ids, never email addresses. Assignments and mentions
+                do not invite anyone or change access. Private threads can only target people who can already see
+                them. Removed participants appear as former members and cannot receive new assignments or mentions.
             </p>
             <p>
                 On that site, the toolbar keeps in the browser&rsquo;s local storage a review token while you are
                 signed in to the project, or, as a guest, a random visitor id that recognises your comments and
                 the name you gave. Signing out in the toolbar removes them.
+            </p>
+
+            <h3>Read activity</h3>
+            <p>
+                We store the last activity you have read for each thread, the time you acknowledged it and your
+                member or hashed visitor identity. This lets the inbox distinguish unread feedback from open work.
+                Reading a thread does not resolve it. Members share their read state wherever they sign in. Guest
+                read state belongs to that browser and site; signing out clears that identity. Clearing identity storage, including the public site&rsquo;s
+                visitor cookie when present, starts a new identity. The toolbar refreshes comments while it is in the foreground.
+            </p>
+
+            <h3>Optional reply notifications</h3>
+            <p>
+                Authorized project owners and admins receive new feedback by email. Members follow threads they post in and can
+                follow or unfollow threads or mute a project. Guests can leave feedback with only a name.
+                If a guest separately chooses Email me replies, we store the address with that browser
+                identity and thread, and send a confirmation link. The address is used for replies and
+                status changes only after confirmation. Pending addresses expire after 24 hours;
+                unsubscribing removes the address from the subscription. Signing out of the toolbar does not unsubscribe email.
+            </p>
+            <p>
+                We store notification preferences, activity sequence metadata and delivery records in
+                Cosmos DB. We use the same read cursor as the toolbar and app to skip activity you have
+                already read. Related activity is batched for five minutes and processed by a scheduled
+                GitHub workflow using our existing Azure Communication Services email sender. Emails
+                contain project names and authorized thread links, without comment text or images.
+                Every digest links to unsubscribe or manage notifications. Preferences and delivery
+                evidence remain until revoked or the associated data is removed. Delivery records can
+                include the recipient address and the exact email while a send is pending or its result is uncertain.
+                Unsubscribe prevents further sends. We do not
+                add notification cookies or store guest email addresses in your browser.
             </p>
 
             <h3>Rewrite suggestions</h3>
@@ -171,7 +229,8 @@ export default function PrivacyPolicyPage() {
             <h2>Where it is stored and who processes it</h2>
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
-                <li>Sign-in and invitation emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
@@ -189,7 +248,9 @@ export default function PrivacyPolicyPage() {
             <h2>How long we keep it</h2>
             <ul>
                 <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
+                <li>Member read cursors: until removed with the account or project on request. Guest read cursors: one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
+                <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
                 <li>Comments in projects: until their author or a project admin deletes them.</li>

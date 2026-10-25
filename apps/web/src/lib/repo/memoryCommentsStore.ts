@@ -1,4 +1,6 @@
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbScreenshot, type DbSequence } from '../db/schema';
+import { withThreadActivity } from '../comments/activity';
+import { withNotificationEvent } from '../notifications/events';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
@@ -6,7 +8,7 @@ const MAX_COMMENTS_PER_DOMAIN = 5000;
 
 type MemoryEntry = {
     /** A comment, the domain's comment numbers or a screenshot: as in Cosmos DB, they share the partition */
-    document: DbComment | DbSequence | DbScreenshot;
+    document: DbComment | DbSequence | DbScreenshot | DbSubmission;
     version: number;
     /** Milliseconds; emulates Cosmos `_ts` (last modification) for TTL */
     modifiedAt: number;
@@ -72,6 +74,10 @@ function pathMatches(comment: DbComment, path: string) {
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
+        async listNotificationPending() {
+            return [...state().domains.keys()].flatMap(domainComments)
+                .filter(comment => comment.notificationPending && comment.projectId).map(clone);
+        },
         async list(domain, path, limit) {
             return domainComments(domain)
                 .filter(comment => pathMatches(comment, path))
@@ -89,6 +95,20 @@ export function getMemoryCommentsStore(): CommentsStore {
             const entry = domainEntries(domain).get(id);
             const comment = commentOf(entry);
             return entry && comment ? { comment: clone(comment), etag: String(entry.version) } : null;
+        },
+        async getSubmission(domain, id) {
+            const document = domainEntries(domain).get(id)?.document;
+            return document && 'type' in document && document.type === 'submission' ? clone(document) : null;
+        },
+        async commitSubmission(receipt, comment, etag, screenshot) {
+            const entries = domainEntries(receipt.domain);
+            const previous = entries.get(comment.id);
+            if (entries.has(receipt.id) || (etag ? !previous || String(previous.version) !== etag : previous)) return 'conflict';
+            // No await between checking and applying: mirrors the Cosmos transaction.
+            for (const document of [receipt, comment, ...(screenshot ? [screenshot] : [])]) {
+                entries.set(document.id, { document: clone(document), version: ++state().version, modifiedAt: Date.now() });
+            }
+            return 'ok';
         },
         async create(comment) {
             const entries = domainEntries(comment.domain);
@@ -127,6 +147,15 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.delete(id);
             return 'ok';
         },
+        async listActivity(domain): Promise<DbCommentActivity[]> {
+            return [...domainEntries(domain).values()].flatMap(entry => {
+                const comment = commentOf(entry);
+                if (!comment) return [];
+                const { id, path, private: isPrivate, authorId, resolved, createdAt, activity } = comment;
+                return [{ id, domain, path, private: isPrivate, authorId, resolved, createdAt, activity: clone(activity),
+                    thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
+            }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+        },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
             const entries = domainEntries(domain);
             const current = commentOf(entries.get(id));
@@ -136,7 +165,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 return 'full';
 
             const comment: DbComment = {
-                ...current,
+                ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy'), item.authorId ?? 'legacy', 'reply', updatedAt),
                 thread: { ...current.thread, items: [...current.thread.items, clone(item)] },
                 updatedAt
             };
@@ -148,6 +177,19 @@ export function getMemoryCommentsStore(): CommentsStore {
             if (entries.has(screenshot.id))
                 throw new Error(`Screenshot ${screenshot.id} already exists`);
             entries.set(screenshot.id, { document: clone(screenshot), version: ++state().version, modifiedAt: Date.now() });
+        },
+        async replaceScreenshot(comment, etag, screenshot) {
+            const entries = domainEntries(comment.domain);
+            const entry = entries.get(comment.id);
+            if (!commentOf(entry)) return 'not_found';
+            if (String(entry!.version) !== etag) return 'conflict';
+            // No await between the check and both writes: the same transaction as Cosmos.
+            const modifiedAt = Date.now();
+            const savedComment = clone(comment);
+            const savedImage = clone(screenshot);
+            entries.set(comment.id, { document: savedComment, version: ++state().version, modifiedAt });
+            entries.set(screenshot.id, { document: savedImage, version: ++state().version, modifiedAt });
+            return 'ok';
         },
         async getScreenshot(domain, commentId) {
             const document = domainEntries(domain).get(screenshotDocumentId(commentId))?.document;

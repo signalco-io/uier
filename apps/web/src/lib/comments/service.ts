@@ -1,4 +1,7 @@
+import { readActivity, threadActivity, withThreadActivity } from './activity';
+import { getReadSequence, loadReadSequences, unreadComments } from './readState';
 import { nanoid } from 'nanoid';
+import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from './submissions';
 import { withEditedThreadItem } from './editing';
 import type { EditThreadItemInput } from './validation';
 import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbCommentScreenshot, type DbScreenshot, type DbThreadItem } from '../db/schema';
@@ -74,20 +77,28 @@ function compactDevice(device: CreateCommentInput['device']): DbCommentDevice | 
     return Object.keys(compacted).length ? compacted : undefined;
 }
 
-function toDto(comment: DbComment, context: CommentsApiContext): CommentDto {
-    const dto = toCommentDto(comment, context.visitor.authorId);
-    if (!dto)
-        throw new Error(`Comment ${comment.id} can't be represented`);
-    return dto;
-}
-
 /** Private comments (made private by the team, or feedback on the app) show only to their author here */
 function isVisible(comment: DbComment, context: CommentsApiContext) {
     return !(comment.private || isPrivateAppFeedback(comment))
         || (Boolean(comment.authorId) && comment.authorId === context.visitor.authorId);
 }
 
-function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
+/** Public showcase uses the visitor cookie; private project threads still stay author-only. */
+function assertVisible(comment: DbComment, context: CommentsApiContext) {
+    if (!isVisible(comment, context))
+        throw apiErrors.notFound();
+}
+
+async function toDto(comment: DbComment, context: CommentsApiContext): Promise<CommentDto> {
+    assertVisible(comment, context);
+    const dto = toCommentDto(comment, context.visitor.authorId);
+    if (!dto)
+        throw new Error(`Comment ${comment.id} can't be represented`);
+    return { ...dto, activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
+}
+
+export function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
+    assertVisible(comment, context);
     if (!comment.authorId || comment.authorId !== context.visitor.authorId)
         throw apiErrors.forbidden('Only the author of the comment can do this.');
 }
@@ -108,7 +119,7 @@ async function updateComment<T extends DbComment | null>(
         if (!stored)
             throw apiErrors.notFound();
 
-        const updated = update(stored.comment);
+        const updated = update({ ...stored.comment, activity: threadActivity(stored.comment) });
         const result = updated
             ? await store.replace(updated, stored.etag)
             : await store.delete(domain, id, stored.etag);
@@ -128,22 +139,26 @@ async function updateComment<T extends DbComment | null>(
  * The page's newest comments (or, without a path, those of every page of the domain), as many as
  * fit into {@link MAX_LIST_RESPONSE_BYTES}
  */
-export async function listComments(context: CommentsApiContext, path: string | null) {
+export async function listComments(context: CommentsApiContext, path: string | null, unreadOnly = false) {
     const store = getCommentsStore();
-    let comments = path === null
+    let comments = unreadOnly
+        ? await unreadComments(context.domain, context.visitor.authorId)
+        : path === null
         ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
         : await store.list(context.domain, path, MAX_LIST_COMMENTS);
     // The initial threads stay visible even when the page has more than one list of feedback.
-    if (context.domain === PUBLIC_PROJECT_PARTITION && (path === null || path === '/')) {
+    if (!unreadOnly && context.domain === PUBLIC_PROJECT_PARTITION && (path === null || path === '/')) {
         const starters = (await Promise.all([HEADLINE_COMMENT_ID, STEP_COMMENT_ID].map(id => store.get(context.domain, id))))
             .flatMap(stored => stored ? [stored.comment] : []);
         const ids = new Set(starters.map(comment => comment.id));
         comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
     }
-    return withinListResponseSize(comments
-        .filter(comment => isVisible(comment, context))
-        .map(comment => toCommentDto(comment, context.visitor.authorId))
-        .filter((dto): dto is CommentDto => Boolean(dto)));
+    comments = comments.filter(comment => isVisible(comment, context));
+    const reads = await loadReadSequences(context.domain, context.visitor.authorId);
+    return withinListResponseSize(comments.flatMap(comment => {
+        const dto = toCommentDto(comment, context.visitor.authorId);
+        return dto ? [{ ...dto, activity: readActivity(comment, context.visitor.authorId, reads.get(comment.id)) }] : [];
+    }));
 }
 
 /** What the comment keeps about its screenshot */
@@ -173,17 +188,7 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
         return;
     }
 
-    const document: DbScreenshot = {
-        ...screenshotInfo(screenshot),
-        id: screenshotDocumentId(comment.id),
-        domain: comment.domain,
-        type: 'screenshot',
-        commentId: comment.id,
-        data: screenshot.data.toString('base64'),
-        createdAt: comment.createdAt ?? nowIso()
-    };
-    if (comment.ttl !== undefined)
-        document.ttl = comment.ttl;
+    const document = screenshotDocument(comment, screenshot);
     try {
         await store.createScreenshot(document);
     } catch (error) {
@@ -199,6 +204,21 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
         await store.deleteScreenshot(comment.domain, comment.id).catch(() => undefined);
         throw error;
     }
+}
+
+export function screenshotDocument(comment: DbComment, screenshot: ParsedScreenshot): DbScreenshot {
+    const document: DbScreenshot = {
+        ...screenshotInfo(screenshot),
+        id: screenshotDocumentId(comment.id),
+        domain: comment.domain,
+        type: 'screenshot',
+        commentId: comment.id,
+        data: screenshot.data.toString('base64'),
+        createdAt: comment.createdAt ?? nowIso()
+    };
+    if (comment.ttl !== undefined)
+        document.ttl = comment.ttl;
+    return document;
 }
 
 /**
@@ -223,6 +243,11 @@ export async function forgetScreenshot(store: CommentsStore, domain: string, id:
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, {
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText
+    });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return toDto(recovered, context);
     await enforceNewCommentLimits(store, subject, input.path);
     const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
 
@@ -247,6 +272,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         device: compactDevice(input.device),
         resolved: false,
         authorId: subject.authorId,
+        activity: { sequence: 1, byActor: { [subject.authorId!]: 1 } },
         createdAt: now,
         updatedAt: now,
         ttl: commentTtlSeconds()
@@ -254,6 +280,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
 
+    if (attempt) return toDto(await commitNewSubmission(store, attempt, comment, screenshot ? screenshotDocument(comment, screenshot) : undefined), context);
     await createWithScreenshot(store, comment, screenshot);
     return toDto(comment, context);
 }
@@ -262,7 +289,8 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
 export async function getCommentScreenshot(context: CommentsApiContext, id: string) {
     const store = getCommentsStore();
     const stored = await store.get(context.domain, id);
-    const screenshot = stored?.comment.screenshot && isVisible(stored.comment, context) ? await store.getScreenshot(context.domain, id) : null;
+    if (stored) assertVisible(stored.comment, context);
+    const screenshot = stored?.comment.screenshot ? await store.getScreenshot(context.domain, id) : null;
     if (!screenshot)
         throw apiErrors.notFound('Screenshot not found.');
     return screenshot;
@@ -271,19 +299,24 @@ export async function getCommentScreenshot(context: CommentsApiContext, id: stri
 export async function replyToComment(context: CommentsApiContext, id: string, input: ReplyInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
-    const existing = await store.get(context.domain, id);
-    if (!existing || !isVisible(existing.comment, context))
-        throw apiErrors.notFound();
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) { assertVisible(recovered, context); return toDto(recovered, context); }
+    const target = await store.get(context.domain, id);
+    if (!target) throw apiErrors.notFound();
+    assertVisible(target.comment, context);
 
     await enforceReplyLimits(store, subject);
 
     const now = nowIso();
-    const result = await store.appendThreadItem(context.domain, id, {
+    const item: DbThreadItem = {
         id: `item_${nanoid()}`,
         text: input.text,
         authorId: subject.authorId,
         createdAt: now
-    }, MAX_THREAD_ITEMS, now);
+    };
+    if (attempt) return toDto(await commitReplySubmission(store, attempt, id, item, comment => assertVisible(comment, context)), context);
+    const result = await store.appendThreadItem(context.domain, id, item, MAX_THREAD_ITEMS, now);
     if (result === 'not_found')
         throw apiErrors.notFound();
     if (result === 'full')
@@ -298,15 +331,17 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {
     const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
         assertCommentAuthor(comment, context);
-        return { ...comment, resolved: input.resolved, updatedAt: nowIso() };
+        return { ...(Boolean(comment.resolved) === input.resolved ? comment : withThreadActivity(comment, writerId(context))), resolved: input.resolved, updatedAt: nowIso() };
     });
 
     return toDto(updated, context);
 }
 
 export async function editCommentThreadItem(context: CommentsApiContext, id: string, itemId: string, input: EditThreadItemInput) {
-    const updated = await updateComment(getCommentsStore(), context.domain, id, comment =>
-        withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId));
+    const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
+        assertVisible(comment, context);
+        return withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId);
+    });
     return toDto(updated, context);
 }
 
@@ -355,6 +390,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
  * item would be left. Author of the reply only.
  */
 function withoutReply(comment: DbComment, itemId: string, context: CommentsApiContext): DbComment | null {
+    assertVisible(comment, context);
     const items = threadItems(comment);
     const reply = items.find(item => item.id === itemId);
     if (!reply)
@@ -410,3 +446,5 @@ export async function deleteThreadItem(context: CommentsApiContext, id: string, 
     await forgetScreenshot(store, context.domain, id, hadScreenshot, updated);
     return updated ? toDto(updated, context) : null;
 }
+
+export { toDto as toPublicCommentDto };

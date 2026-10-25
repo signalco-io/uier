@@ -19,7 +19,9 @@ export async function signIn(page: Page, email: string, { from = '/app/sign-in' 
     await page.getByRole('link', { name: 'Open the sign-in link' }).click();
     await expect(page.getByText(`Continue as ${email}.`)).toBeVisible();
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page).not.toHaveURL(/\/app\/sign-in/);
+    // /app redirects again to onboarding or projects. WebKit can observe that intermediate
+    // URL before its navigation completes; starting the next goto then interrupts both.
+    await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
 }
 
 /** Creates a project from /app/projects/new and returns its code (the install page follows) */
@@ -76,7 +78,8 @@ export async function appNavigation(page: Page) {
 /** Closes the sidebar sheet on small screens (links close it themselves) and waits until it is gone */
 export async function closeAppNavigation(page: Page) {
     const sheet = sidebarSheet(page);
-    if (await sheet.count() && await sheet.getAttribute('data-state') === 'open')
+    // Read atomically: a closing sheet can unmount between count() and getAttribute().
+    if (await sheet.evaluateAll(elements => elements.some(element => element.getAttribute('data-state') === 'open')))
         await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
 }

@@ -21,9 +21,10 @@ type Layout = {
     action: { label: string; url: string };
     /** Small print after the button */
     footnote: string;
+    footerAction?: { label: string; url: string };
 };
 
-function layoutEmail({ to, subject, paragraphs, action, footnote }: Layout): EmailMessage {
+export function layoutEmail({ to, subject, paragraphs, action, footnote, footerAction }: Layout): EmailMessage {
     const { colors } = brand;
     const font = 'Geist, system-ui, -apple-system, \'Segoe UI\', sans-serif';
     const html = `<!doctype html>
@@ -36,6 +37,7 @@ ${paragraphs.map(p => `<p style="margin:0 0 16px;font-size:16px;line-height:26px
 <p style="margin:24px 0;"><a href="${escapeHtml(action.url)}" style="display:inline-block;background:${colors.ink};color:${colors.paper};text-decoration:none;font-weight:500;font-size:16px;padding:10px 18px;border-radius:10px;">${escapeHtml(action.label)}</a></p>
 <p style="margin:0 0 8px;font-size:14px;line-height:21px;color:${colors.ink500};">If the button does not work, open this link:<br><a href="${escapeHtml(action.url)}" style="color:${colors.accent};word-break:break-all;">${escapeHtml(action.url)}</a></p>
 <p style="margin:16px 0 0;font-size:14px;line-height:21px;color:${colors.ink500};">${escapeHtml(footnote)}</p>
+${footerAction ? `<p><a href="${escapeHtml(footerAction.url)}" style="color:${colors.accent};">${escapeHtml(footerAction.label)}</a></p>` : ''}
 </div>
 </body>
 </html>`;
@@ -44,6 +46,7 @@ ${paragraphs.map(p => `<p style="margin:0 0 16px;font-size:16px;line-height:26px
         ...paragraphs,
         `${action.label}: ${action.url}`,
         footnote,
+        ...(footerAction ? [`${footerAction.label}: ${footerAction.url}`] : []),
         `${brand.name} · ${brand.url}`
     ].join('\n\n');
 
@@ -79,4 +82,11 @@ export function signInEmail({ to, url }: { to: string; url: string }) {
         action: { label: 'Sign in', url },
         footnote: 'If you did not ask to sign in, ignore this email.'
     });
+}
+
+export function notificationVerificationEmail({ to, url }: { to: string; url: string }) {
+    return layoutEmail({ to, subject: 'Confirm reply notifications on uier',
+        paragraphs: ['Confirm this address to receive replies and status changes for the thread you chose. Commenting does not require email or an account.'],
+        action: { label: 'Confirm reply notifications', url },
+        footnote: 'This link expires in 24 hours. If you did not request it, ignore this email. Every digest includes an unsubscribe link.' });
 }

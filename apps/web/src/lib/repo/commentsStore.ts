@@ -1,4 +1,4 @@
-import type { DbComment, DbScreenshot, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
@@ -19,12 +19,19 @@ export type AppendResult = 'ok' | 'full' | 'not_found';
  * so every query is a single-partition query.
  */
 export type CommentsStore = {
+    /** Durable notification discovery, across projects, without the inbox's display cap. */
+    listNotificationPending(): Promise<DbComment[]>;
     /** Canonical view, newest first. Only legacy records use a base-path query-string fallback. */
     list(domain: string, path: string, limit: number): Promise<DbComment[]>;
     /** Every comment of the partition (all pages), newest first */
     listAll(domain: string, limit: number): Promise<DbComment[]>;
+    /** All thread activity, without message text or images; authoritative badge counts. */
+    listActivity(domain: string): Promise<DbCommentActivity[]>;
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
+    getSubmission(domain: string, id: string): Promise<DbSubmission | null>;
+    /** Receipt + create/conditional replacement + optional image: one partition transaction. */
+    commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot): Promise<'ok' | 'conflict'>;
     /** Replaces the comment only when it was not changed since it was read (`etag`) */
     replace(comment: DbComment, etag: string): Promise<ConditionalWriteResult>;
     /**
@@ -46,6 +53,8 @@ export type CommentsStore = {
 
     /** Stores a comment's screenshot (a document of its own in the comment's partition) */
     createScreenshot(screenshot: DbScreenshot): Promise<void>;
+    /** Atomically swaps image and comment metadata, conditional on the authorized comment version. */
+    replaceScreenshot(comment: DbComment, etag: string, screenshot: DbScreenshot): Promise<ConditionalWriteResult>;
     getScreenshot(domain: string, commentId: string): Promise<DbScreenshot | null>;
     /** Deletes a comment's screenshot; nothing when there is none */
     deleteScreenshot(domain: string, commentId: string): Promise<void>;

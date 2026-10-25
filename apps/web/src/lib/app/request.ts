@@ -1,13 +1,8 @@
 import { headers } from 'next/headers';
-import { brand } from '@uier/brand';
 import { isLocalRuntime } from '../comments/environment';
 import { ipRateLimitBucket, isLoopbackIp } from '../comments/visitor';
-
-/** The environment of this deployment (inlined at build time by the deploy workflow, see next.config.ts), if any */
-export function deploymentEnvironment(): 'production' | 'preview' | undefined {
-    const value = process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV;
-    return value === 'production' || value === 'preview' ? value : undefined;
-}
+import { configuredAppBaseUrl, deploymentEnvironment } from './deployment';
+export { deploymentEnvironment } from './deployment';
 
 /**
  * Base URL for links the app sends (emails) and redirects to: `UIER_BASE_URL` when set, uier.io in
@@ -17,11 +12,9 @@ export function deploymentEnvironment(): 'production' | 'preview' | undefined {
  * sign-in links to another site, so `UIER_BASE_URL` is required there.
  */
 export async function appBaseUrl() {
-    const configured = process.env.UIER_BASE_URL?.trim();
+    const configured = configuredAppBaseUrl();
     if (configured)
-        return configured.replace(/\/+$/, '');
-    if (deploymentEnvironment() === 'production')
-        return brand.url;
+        return configured;
     if (deploymentEnvironment() !== 'preview' && !isLocalRuntime())
         throw new Error('UIER_BASE_URL is required outside Vercel deployments and local development.');
 

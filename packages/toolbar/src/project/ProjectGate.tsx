@@ -1,11 +1,12 @@
-import { createContext, type PropsWithChildren, useContext, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { createContext, type PropsWithChildren, useContext, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close } from '@signalco/ui-icons';
 import { toolbarConfig } from '../config';
-import { apiRequest, projectViewerQueryKey, required } from '../hooks/api';
+import { apiRequest, advanceReviewerRevision, clearReviewerCache, projectViewerQueryKey, required, CommentsApiError, commentsQueryKeyPrefix } from '../hooks/api';
+import { activityQueryKey } from '../hooks/useComments';
 import { InkScope } from '../components/InkScope';
 import { consumeReviewCode, getReviewToken, setReviewToken } from './projectSession';
 import { checkInstallationReady } from './installationCheck';
@@ -14,7 +15,7 @@ import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
     project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; pageState?: PageStatePolicy };
-    viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean };
+    viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
     signInUrl: string;
@@ -45,12 +46,16 @@ async function loadReviewInfo() {
 
     const info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
     if (getReviewToken() && info.viewer.kind !== 'member') {
+        advanceReviewerRevision();
         setReviewToken(undefined);
+        throw new CommentsApiError('sign_in_required', 'This review session ended. Open the review link again.', 401);
     }
     return info;
 }
 
 export type ProjectViewer = {
+    isMember?: boolean;
+    draftScope?: string;
     pageState: PageStatePolicy;
     /** Guests tag their comments with a name; members comment under their account name */
     needsName: boolean;
@@ -119,19 +124,34 @@ type ProjectGateProps = PropsWithChildren<{
  * and still lets the reviewer exit the review.
  */
 export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
+    const client = useQueryClient();
+    const previousScope = useRef<string | undefined>(undefined);
     const { data: info, error, isPending } = useQuery({
         queryKey: projectViewerQueryKey,
         queryFn: loadReviewInfo,
         staleTime: Infinity,
+        refetchOnWindowFocus: 'always',
+        refetchOnReconnect: 'always',
         retry: 1
     });
-    useEffect(() => { void checkInstallationReady(info, error); }, [info, error]);
+    useEffect(() => {
+        void checkInstallationReady(info, error);
+        const scope = info?.viewer.draftScope ?? info?.viewer.kind;
+        const changed = Boolean(previousScope.current && scope && previousScope.current !== scope);
+        if (scope) previousScope.current = scope;
+        if (changed || (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) || (info && !info.canComment)) {
+            clearReviewerCache(client);
+        }
+    }, [client, info, error]);
 
     if (isPending) {
         return null;
     }
 
-    if (error || !info) {
+    if (error instanceof CommentsApiError && error.code === 'sign_in_required')
+        return <ProjectNotice text="This review session ended. Open the review link again." onExitReview={onExitReview} />;
+
+    if (!info) {
         console.warn('uier-toolbar: The project could not be loaded on this site', error);
         return <ProjectNotice text="uier can't open this project here. Check the site addresses in its settings." onExitReview={onExitReview} />;
     }
@@ -150,7 +170,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     return (
-        <ProjectViewerContext.Provider value={{ needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
+        <ProjectViewerContext.Provider value={{ isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope, needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
             {children}
         </ProjectViewerContext.Provider>
     );

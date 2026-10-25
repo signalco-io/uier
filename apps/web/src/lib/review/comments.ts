@@ -1,22 +1,33 @@
+import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
+import { moveMentions } from '@uier/toolbar/mentions';
+import { withNotificationEvent } from '../notifications/events';
+import { commitNewSubmission, commitReplySubmission, recoverSubmission, submission } from '../comments/submissions';
 import { withEditedThreadItem } from '../comments/editing';
 import type { EditThreadItemInput } from '../comments/validation';
-import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
-import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
+import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
-import { actorAuthorId, type ProjectActor } from './actor';
+import { actorAuthorId, memberActor, assertWriter, type ProjectActor } from './actor';
+import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
+import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
+import type { ParsedScreenshot } from '../comments/screenshot';
 
 /** Most comments the app loads for a project (all pages) */
 export const MAX_PROJECT_COMMENTS = 1000;
 const MAX_UPDATE_ATTEMPTS = 8;
+
+function mentionRecipients(mentions: readonly DbMention[] = []) {
+    return [...new Set(mentions.map(mention => `user:${mention.userId}`))];
+}
 
 /** Project comments live in the comments container under their own partition */
 export function projectPartition(projectId: string) {
@@ -43,7 +54,7 @@ function isAdmin(actor: ProjectActor) {
 // Permissions of project comments. Members review together: any member can mark a comment done.
 // The author and the workspace admins can edit and delete it; only admins make it private.
 
-export function canSeeComment(comment: DbComment, actor: ProjectActor) {
+export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path'>, actor: ProjectActor) {
     return !(comment.private || isPrivateAppFeedback(comment)) || isAdmin(actor) || isAuthor(comment.authorId, actor);
 }
 
@@ -100,14 +111,14 @@ async function updateComment<T extends DbComment | null>(
     store: CommentsStore,
     partition: string,
     id: string,
-    update: (comment: DbComment) => T
+    update: (comment: DbComment) => T | Promise<T>
 ): Promise<T> {
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
         const stored = await getStoredComment(store, partition, id);
         if (!stored)
             throw apiErrors.notFound();
 
-        const updated = update(stored.comment);
+        const updated = await update({ ...stored.comment, activity: threadActivity(stored.comment) });
         const result = updated
             ? await store.replace(updated, stored.etag)
             : await store.delete(partition, id, stored.etag);
@@ -147,6 +158,7 @@ export type NewProjectComment = CreateCommentInput & {
     pageStateVersion?: 1;
     /** Origin of the site it was left on (one of the project's addresses) */
     origin: string;
+    mentions?: DbMention[];
     /** Guests: the name they gave */
     authorName?: string;
 };
@@ -158,6 +170,12 @@ export async function createProjectComment(request: Request, project: DbProject,
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    const attempt = submission(partition, authorId, input.idempotencyKey, {
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
+        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin
+    });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return visibleOrThrow(recovered, actor);
     await enforceNewCommentLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) }, input.path);
     const screenshot = await availableScreenshot(store, partition, input.screenshot);
 
@@ -188,13 +206,17 @@ export async function createProjectComment(request: Request, project: DbProject,
         device: compactDevice(input.device),
         resolved: false,
         authorId,
+        activity: { sequence: 1, byActor: { [authorId]: 1 } },
         createdAt: now,
         updatedAt: now
     };
+    comment.thread.items[0]!.mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
-    await createWithScreenshot(store, comment, screenshot);
-    return comment;
+    const recorded = withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions));
+    if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
+    await createWithScreenshot(store, recorded, screenshot);
+    return recorded;
 }
 
 /** The screenshot of a comment the actor can see */
@@ -208,6 +230,15 @@ export async function getProjectScreenshot(project: DbProject, actor: ProjectAct
     return screenshot;
 }
 
+export async function replaceProjectScreenshot(project: DbProject, actor: ProjectActor, id: string,
+    input: { screenshot: ParsedScreenshot; expectedRevision: string | null }) {
+    assertWriter(actor);
+    return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, input, comment => {
+        visibleOrThrow(comment, actor);
+        if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can replace this screenshot.');
+    });
+}
+
 /**
  * Rewrite suggestions call a paid AI model: limited per reviewer and per project in the project's
  * partition, and per IP and in total across the app (the same counters as `POST /api/rewrite`)
@@ -216,13 +247,18 @@ export async function enforceProjectRewriteLimits(request: Request, project: DbP
     await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request) });
 }
 
-export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string }) {
+export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
     const authorId = actorAuthorId(actor);
     if (!authorId)
         throw apiErrors.invalidRequest('Comments need a visitor id.');
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    const attempt = submission(partition, authorId, input.idempotencyKey, {
+        operation: 'reply', id, text: input.text, mentions: input.mentions ?? [], authorName: actor.kind === 'guest' ? input.authorName : undefined
+    });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return visibleOrThrow(recovered, actor);
     const stored = await getStoredComment(store, partition, id);
     if (!stored)
         throw apiErrors.notFound();
@@ -231,55 +267,72 @@ export async function replyToProjectComment(request: Request, project: DbProject
     await enforceReplyLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) });
 
     const now = nowIso();
-    const result = await store.appendThreadItem(partition, id, {
-        id: `item_${nanoid()}`,
-        text: input.text,
-        authorId,
+    const itemId = `item_${nanoid()}`;
+    if (attempt) return await commitReplySubmission(store, attempt, id, {
+        id: itemId, text: input.text, authorId,
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
-        createdAt: now
-    }, MAX_THREAD_ITEMS, now);
-    if (result === 'not_found')
-        throw apiErrors.notFound();
-    if (result === 'full')
-        throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
-
-    const updated = await store.get(partition, id);
-    if (!updated)
-        throw apiErrors.notFound();
-    return updated.comment;
+        mentions: input.mentions, createdAt: now
+    }, comment => visibleOrThrow(comment, actor), async (previous, updated) => {
+        const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
+        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions));
+    });
+    return await updateComment(store, partition, id, async comment => {
+        visibleOrThrow(comment, actor);
+        const items = threadItems(comment);
+        if (items.length >= MAX_THREAD_ITEMS)
+            throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
+        const mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
+        const updated = { ...withThreadActivity(comment, authorId), updatedAt: now, thread: { ...comment.thread, items: [...items, {
+            id: itemId, text: input.text, authorId,
+            authorName: actor.kind === 'guest' ? input.authorName : undefined,
+            mentions, createdAt: now
+        }] } };
+        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions));
+    });
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment) {
-    return await updateComment(getCommentsStore(), projectPartition(project.id), id, comment => {
+async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>) {
+    return await updateComment(getCommentsStore(), projectPartition(project.id), id, async comment => {
         visibleOrThrow(comment, actor);
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
-        return { ...change(comment), updatedAt: nowIso() };
+        return { ...await change(comment), updatedAt: nowIso() };
     });
 }
 
 export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean) {
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
-        comment => ({ ...comment, resolved }));
+        comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
+            { ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened'));
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
     return await changeComment(project, actor, id,
         () => canMakeCommentPrivate(actor),
-        comment => ({ ...comment, private: isPrivate }));
+        async comment => {
+            const updated = { ...comment, private: isPrivate };
+            if (updated.assigneeId) {
+                const recipient = await memberActor(project, updated.assigneeId);
+                if (!recipient || !canSeeComment(updated, recipient)) delete updated.assigneeId;
+            }
+            return updated;
+        });
 }
 
-/** Assigns the comment to a member (`assigneeId` is a user id the caller checked) or nobody */
+/** One assignment service for the app and toolbar; access is always checked here. */
 export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null) {
     return await changeComment(project, actor, id,
         () => actor.kind === 'member',
-        (comment) => {
-            const updated = { ...comment, assigneeId: assigneeId ?? undefined };
-            if (!assigneeId)
-                delete updated.assigneeId;
-            return updated;
+        async (comment) => {
+            await assertParticipantEditor(project, actor, comment);
+            if (assigneeId) await assertEligibleParticipant(project, comment, assigneeId);
+            if ((comment.assigneeId ?? null) === assigneeId) return comment;
+            const updated = { ...withThreadActivity(comment, actorAuthorId(actor)!), assigneeId: assigneeId ?? undefined };
+            if (!assigneeId) delete updated.assigneeId;
+            const recipients = [...new Set([comment.assigneeId, assigneeId].filter((id): id is string => Boolean(id)).map(id => `user:${id}`))];
+            return withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', nowIso(), recipients);
         });
 }
 
@@ -291,14 +344,22 @@ export async function editProjectCommentText(project: DbProject, actor: ProjectA
             const [first, ...replies] = threadItems(comment);
             if (!first)
                 throw apiErrors.notFound();
-            return { ...comment, thread: { ...comment.thread, items: [{ ...first, text, editedAt: nowIso() }, ...replies] } };
+            return { ...comment, thread: { ...comment.thread, items: [{ ...first, text, mentions: moveMentions(first.text, text, first.mentions ?? []), editedAt: nowIso() }, ...replies] } };
         });
 }
 
 /** The toolbar edits one message, retaining the thread's author, anchor, image and context. */
-export async function editProjectCommentItem(project: DbProject, actor: ProjectActor, id: string, itemId: string, input: EditThreadItemInput) {
+export async function editProjectCommentItem(project: DbProject, actor: ProjectActor, id: string, itemId: string, input: EditThreadItemInput & { mentions?: DbMention[] }) {
     return await changeComment(project, actor, id, () => true,
-        comment => withEditedThreadItem(comment, itemId, input, item => canEditItem(item, actor)));
+        async comment => {
+            const edited = withEditedThreadItem(comment, itemId, input, item => canEditItem(item, actor));
+            const previous = comment.thread.items.find(item => item.id === itemId);
+            const mentions = await validateMentions(project, actor, comment, input.text, input.mentions, previous);
+            const updated = { ...edited, thread: { ...edited.thread, items: edited.thread.items.map(item => item.id === itemId ? { ...item, mentions } : item) } };
+            const existing = new Set(previous?.mentions?.map(mention => mention.userId));
+            const recipients = mentionRecipients(mentions.filter(mention => !existing.has(mention.userId)));
+            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients) : updated;
+        });
 }
 
 /** Deletes the whole thread (the app: the author or an admin) */

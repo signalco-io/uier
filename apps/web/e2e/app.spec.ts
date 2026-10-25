@@ -197,6 +197,7 @@ test('the sidebar has the sections, the active projects and the account', async 
     // Small screens close the sheet after a link
     await closeAppNavigation(page);
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Sidebar site');
+    await expect(page).toHaveTitle('Sidebar site · uier');
     await expectNoAxeViolations(page);
     await expect((await appNavigation(page)).getByRole('link', { name: 'Sidebar site' })).toHaveAttribute('aria-current', 'page');
 

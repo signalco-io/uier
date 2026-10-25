@@ -44,7 +44,7 @@ const selectionPosition = {
     endType: 'text'
 };
 
-const commentKeys = ['createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'resolved', 'thread'];
+const commentKeys = ['activity', 'createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'resolved', 'thread'];
 const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
 
 type CommentDto = {
@@ -689,7 +689,7 @@ test('visitor: guest name and signing out', async ({ newVisitor }) => {
     expect(visitorCookie(before)).toBeUndefined();
 
     const comment = await created(await createComment(visitor, path));
-    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ name: comment.thread.items[0]!.author.name });
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ name: comment.thread.items[0]!.author.name, draftScope: expect.stringMatching(/^[a-f0-9]{64}$/) });
 
     // Signing out removes the cookie; the comment stays but is no longer the visitor's
     const signOut = await visitor.delete('/api/visitor');

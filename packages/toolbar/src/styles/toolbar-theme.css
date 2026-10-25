@@ -35,4 +35,13 @@
             transition-duration: 0.01ms !important;
         }
     }
+
+    /* The kit's compact controls are 28–36 px. Keep their touch hit areas at the
+       brand's 44 px minimum, including movement handles and thread actions. */
+    @media (pointer: coarse) {
+        [data-uier-root] button {
+            min-width: 44px;
+            min-height: 44px;
+        }
+    }
 }

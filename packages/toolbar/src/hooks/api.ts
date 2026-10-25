@@ -1,5 +1,6 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
-import { projectHeaders } from '../project/projectSession';
+import { getVisitorToken, projectHeaders } from '../project/projectSession';
 import { reviewVerification } from '../project/verification';
 
 // Requests to the uier API (comments, visitor) and the query keys of its data
@@ -80,7 +81,7 @@ async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' 
             credentials: toolbarConfig.project ? 'omit' : 'include',
             headers: {
                 ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
-                ...(toolbarConfig.project ? projectHeaders() : {}),
+                ...(toolbarConfig.project ? projectHeaders() : { 'X-Uier-Visitor': getVisitorToken() }),
                 ...(verification ? { 'X-Uier-Verification': verification } : {})
             },
             body: hasBody ? JSON.stringify(init.body) : undefined
@@ -144,6 +145,7 @@ export function required<T>(value: T | undefined): T {
 
 /** Prefix of the comments queries of every page */
 export const commentsQueryKeyPrefix = ['comments'] as const;
+export const activityQueryKey = ['review-activity'] as const;
 
 export const visitorQueryKey = ['visitor'] as const;
 
@@ -152,3 +154,17 @@ export const screenshotQueryKey = (commentId: string) => ['screenshot', commentI
 
 /** A project's reviewer and settings (project/ProjectGate.tsx) */
 export const projectViewerQueryKey = ['project-viewer'] as const;
+
+// A pending acknowledgement must not cross sign-out or a revoked review session.
+let reviewerRevision = 0;
+export const currentReviewerRevision = () => reviewerRevision;
+export function advanceReviewerRevision() { reviewerRevision++; }
+
+export function clearReviewerCache(client: QueryClient) {
+    advanceReviewerRevision();
+    void client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
+    void client.cancelQueries({ queryKey: activityQueryKey });
+    client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
+    client.setQueryData(activityQueryKey, { unread: 0, open: 0, done: 0, total: 0 });
+    client.removeQueries({ queryKey: ['screenshot'] });
+}

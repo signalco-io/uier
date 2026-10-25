@@ -1,12 +1,14 @@
-import type { SqlParameter } from '@azure/cosmos';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCounter, type DbScreenshot, type DbSequence } from '../db/schema';
+import { withThreadActivity } from '../comments/activity';
+import { withNotificationEvent } from '../notifications/events';
+import type { OperationInput, SqlParameter } from '@azure/cosmos';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
-function errorCode(error: unknown) {
+function errorCode(error: unknown): number | string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error
         ? (error as { code?: number | string }).code
-        : undefined;
+        : typeof error === 'object' && error !== null && 'cause' in error ? errorCode(error.cause) : undefined;
 }
 
 /** Removes Cosmos system properties (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) */
@@ -35,6 +37,12 @@ async function queryAll<T>(domain: string, query: string, parameters: SqlParamet
 
 export function createCosmosCommentsStore(): CommentsStore {
     return {
+        async listNotificationPending() {
+            const { resources } = await cosmosDataContainerComments().items.query<Record<string, unknown>>({
+                query: 'SELECT * FROM c WHERE c.notificationPending = true AND IS_DEFINED(c.projectId) AND IS_DEFINED(c.path)'
+            }).fetchAll();
+            return resources.map(withoutSystemProperties);
+        },
         async list(domain, path, limit) {
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
@@ -60,6 +68,37 @@ export function createCosmosCommentsStore(): CommentsStore {
             } catch (error) {
                 if (errorCode(error) === 404)
                     return null;
+                throw error;
+            }
+        },
+        async getSubmission(domain, id) {
+            try {
+                const { resource } = await cosmosDataContainerComments().item(id, domain).read<DbSubmission>();
+                return resource?.type === 'submission' ? resource : null;
+            } catch (error) {
+                if (errorCode(error) === 404) return null;
+                throw error;
+            }
+        },
+        async commitSubmission(receipt, comment, etag, screenshot) {
+            const operations: OperationInput[] = [
+                { operationType: 'Create', resourceBody: receipt },
+                etag
+                    ? { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag }
+                    : { operationType: 'Create', resourceBody: comment },
+                ...(screenshot ? [{ operationType: 'Create' as const, resourceBody: screenshot }] : [])
+            ];
+            try {
+                const response = await cosmosDataContainerComments().items.batch(operations, receipt.domain);
+                const failed = response.result?.find(result => result.statusCode >= 400 && result.statusCode !== 424)?.statusCode;
+                const code = failed ?? response.code;
+                if (code === 409 || code === 412 || code === 404) return 'conflict';
+                if (!code || code < 200 || code >= 300 || response.result?.some(result => result.statusCode >= 400))
+                    throw new Error(`Submission transaction failed (${code})`);
+                return 'ok';
+            } catch (error) {
+                // The SDK wraps transaction failures in Error.cause.
+                if ([404, 409, 412].includes(Number(errorCode(error)))) return 'conflict';
                 throw error;
             }
         },
@@ -96,28 +135,63 @@ export function createCosmosCommentsStore(): CommentsStore {
                 throw error;
             }
         },
+        async listActivity(domain) {
+            // No TOP: badge counts and unread selection must include threads outside the text list.
+            // Modern records need only the compact activity map; legacy records need item authors.
+            return await queryAll<DbCommentActivity>(domain,
+                `SELECT c.id, c.domain, c.path, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
+                    IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
+                 FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
+        },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
-            try {
-                // Conditional patch: atomic, so concurrent replies never overwrite each other
-                await cosmosDataContainerComments().item(id, domain).patch<DbComment>({
-                    condition: `FROM c WHERE ARRAY_LENGTH(c.thread.items) < ${maxItems}`,
-                    operations: [
-                        { op: 'add', path: '/thread/items/-', value: item },
-                        { op: 'set', path: '/updatedAt', value: updatedAt }
-                    ]
-                });
-                return 'ok';
-            } catch (error) {
-                const code = errorCode(error);
-                if (code === 412)
-                    return 'full';
-                if (code === 404)
-                    return 'not_found';
-                throw error;
+            // Item and activity cursor share one etag-protected write. A patch cannot derive
+            // a cursor for legacy threads or record the actor's latest sequence atomically.
+            const target = cosmosDataContainerComments().item(id, domain);
+            for (let attempt = 0; attempt < 16; attempt++) {
+                try {
+                    const stored = await target.read<DbComment>();
+                    if (!stored.resource || !stored.etag) return 'not_found';
+                    const current = withoutSystemProperties(stored.resource as unknown as Record<string, unknown>);
+                    if (current.thread.items.length >= maxItems) return 'full';
+                    const updated = {
+                        ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy'), item.authorId ?? 'legacy', 'reply', updatedAt),
+                        thread: { ...current.thread, items: [...current.thread.items, item] }, updatedAt
+                    };
+                    await target.replace(updated, { accessCondition: { type: 'IfMatch', condition: stored.etag } });
+                    return 'ok';
+                } catch (error) {
+                    const code = errorCode(error);
+                    if (code === 404) return 'not_found';
+                    if (code !== 412) throw error;
+                    await new Promise(resolve => setTimeout(resolve, 10 * (attempt + 1) + Math.random() * 25));
+                }
             }
+            throw new Error(`Comment ${id} changed too often while replying`);
         },
         async createScreenshot(screenshot) {
             await cosmosDataContainerComments().items.create<DbScreenshot>(screenshot);
+        },
+        async replaceScreenshot(comment, etag, screenshot) {
+            // One partition transaction: a failed metadata write never destroys the old image.
+            try {
+                const response = await cosmosDataContainerComments().items.batch([
+                    { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag },
+                    { operationType: 'Upsert', resourceBody: screenshot }
+                ], comment.domain);
+                const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
+                    .filter((code): code is number => typeof code === 'number');
+                if (codes.includes(412)) return 'conflict';
+                if (codes.includes(404)) return 'not_found';
+                if (response.result?.length !== 2 || codes.some(code => code < 200 || code >= 300))
+                    throw new Error('Screenshot replacement transaction failed.');
+                return 'ok';
+            } catch (error) {
+                // The SDK may wrap a top-level failure in Error.cause.
+                const code = errorCode(error) ?? (error instanceof Error ? errorCode(error.cause) : undefined);
+                if (code === 412) return 'conflict';
+                if (code === 404) return 'not_found';
+                throw error;
+            }
         },
         async getScreenshot(domain, commentId) {
             try {
