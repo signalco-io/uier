@@ -150,7 +150,7 @@ export default function PrivacyPolicyPage() {
                 If a guest separately chooses Email me replies, we store the address with that browser
                 identity and thread, and send a confirmation link. The address is used for replies and
                 status changes only after confirmation. Pending addresses expire after 24 hours;
-                unsubscribing removes the address. Signing out of the toolbar does not unsubscribe email.
+                unsubscribing removes the address from the subscription. Signing out of the toolbar does not unsubscribe email.
             </p>
             <p>
                 We store notification preferences, activity sequence metadata and delivery records in
@@ -160,7 +160,8 @@ export default function PrivacyPolicyPage() {
                 contain project names and authorized thread links, without comment text or images.
                 Every digest links to unsubscribe or manage notifications. Preferences and delivery
                 evidence remain until revoked or the associated data is removed. Delivery records can
-                include the recipient address and the exact email while a send is pending. We do not
+                include the recipient address and the exact email while a send is pending or its result is uncertain.
+                Unsubscribe prevents further sends. We do not
                 add notification cookies or store guest email addresses in your browser.
             </p>
 

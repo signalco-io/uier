@@ -12,7 +12,7 @@ control requests an address. A confirmation email expires in 24 hours and requir
 button click; opening the link does not subscribe. Confirmation follows only that thread and
 only future activity. Subscription does not create an account or grant project access.
 Verification requests are limited to five per address and guest per hour, and twenty per IP
-bucket per hour. Unsubscribe removes the guest email immediately. Signing out clears the browser
+bucket per hour. Unsubscribe removes the address from the guest subscription immediately. Signing out clears the browser
 identity but does not unsubscribe an already verified address; use its email unsubscribe link.
 
 ## Activity and delivery contract (#83, #84, #91)
@@ -80,7 +80,8 @@ the toolbar/app always offers current controls. Changing a subscription invalida
 
 Pending guest addresses expire after 24 hours. Verified subscriptions and preferences persist until
 revoked; unsubscribe deletes the guest address. Event metadata and delivery evidence remain with
-the project until removed, without duplicating comment content. Preview/local deployments follow
+the project until removed, without duplicating comment content. Failed or uncertain provider attempts can retain the
+addressed pending email until reconciled; unsubscribe still prevents further sends. Preview/local deployments follow
 the existing no-mail model and expose verification links for testing; the scheduled worker runs
 only against production.
 
