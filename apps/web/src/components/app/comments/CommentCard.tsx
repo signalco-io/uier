@@ -65,6 +65,7 @@ import { initials } from '../initials';
 import { DateTime } from './DateTime';
 import { CommentReproduction } from './CommentReproduction';
 import { NotificationControls } from './NotificationControls';
+import { CopyIssue } from './CopyIssue';
 import { deviceLabels, kindLabels } from './commentLabels';
 import {
     markCommentReadAction,
@@ -272,6 +273,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                     )}
 
                     <NotificationControls projectId={projectId} threadId={comment.id} following={comment.following} />
+                    <CopyIssue key={comment.id} projectId={projectId} commentId={comment.id} />
                     <CommentReproduction context={comment.reproduction} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm">
                         <StateBadge resolved={comment.resolved} />

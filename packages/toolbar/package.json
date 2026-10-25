@@ -27,6 +27,10 @@
         "./mentions": {
             "types": "./src/mentions.ts",
             "default": "./dist/mentions.js"
+        },
+        "./feedback-context": {
+            "types": "./src/feedbackContext.ts",
+            "default": "./dist/feedbackContext.js"
         }
     },
     "scripts": {

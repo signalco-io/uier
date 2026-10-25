@@ -11,6 +11,7 @@ import { CommentThreadHeader } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
+import { CopyIssue } from './CopyIssue';
 
 /** A thread: its first and last message, and "Show all" for the ones between */
 export function CommentThread({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
@@ -67,6 +68,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
         <Stack ref={threadRef} className="py-2">
             <div className="px-4 pb-1 pt-2">
                 <CommentThreadHeader comment={commentItem} />
+                <CopyIssue key={commentItem.id} commentId={commentItem.id} />
             </div>
             {(commentItem.permissions?.assign || commentItem.assignee) && <CommentAssignment comment={commentItem} />}
             {commentItem.activity && (
