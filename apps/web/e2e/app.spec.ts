@@ -216,7 +216,19 @@ test('the sidebar has the sections, the active projects and the account', async 
 });
 
 test('feedback on the app opens uier\'s toolbar and stays private', async ({ page, browser }, testInfo) => {
-    await signIn(page, uniqueEmail('feedback'));
+    // An earlier guest identity must not override the signed-in account.
+    const guestWrite = await page.request.post('/api/comments', { data: {
+        path: `/e2e/guest-before-sign-in-${Date.now()}-${testInfo.project.name}`, kind: 'feedback', position: { type: 'page' }, text: 'Guest feedback'
+    } });
+    expect(guestWrite.status(), await guestWrite.text()).toBe(201);
+    const guest = await (await page.request.get('/api/visitor')).json();
+    expect(guest.name).toMatch(/^Guest /);
+    const email = uniqueEmail('feedback');
+    await signIn(page, email);
+    const name = email.split('@')[0]!;
+    const member = await (await page.request.get('/api/visitor')).json();
+    expect(member).toMatchObject({ name, member: true });
+    expect(member.draftScope).not.toBe(guest.draftScope);
     await page.goto('/app/projects');
     // In the sidebar's footer, with the account (not in the navigation)
     const giveFeedback = page.getByRole('button', { name: 'Give feedback' });
@@ -231,13 +243,20 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await dialog.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    await toolbar(page).getByRole('button', { name: 'Profile', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText(name);
+    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText('You are signed in to uier.');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toBeHidden();
     await expectNoAxeViolations(page);
 
     // App pages show private projects: only the author (and the team, in the app) sees it
     const pageComments = new URL('/api/comments?path=/app/projects', page.url()).href;
     const siteComments = new URL('/api/comments?scope=site', page.url()).href;
     const texts = (comments: { thread: { items: { text: string }[] } }[]) => comments.map(comment => comment.thread.items[0]?.text);
-    expect(texts(await (await page.request.get(pageComments)).json())).toContain(text);
+    const saved = (await (await page.request.get(pageComments)).json()).find((comment: { thread: { items: { text: string }[] } }) => comment.thread.items[0]?.text === text);
+    expect(saved.isMine).toBe(true);
+    expect(saved.thread.items[0].author).toEqual({ name, isMe: true });
     const other = await newVisitor(browser, testInfo);
     expect(texts(await (await other.context.request.get(pageComments)).json())).not.toContain(text);
     expect(texts(await (await other.context.request.get(siteComments)).json())).not.toContain(text);
@@ -250,6 +269,30 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await appNavigation(page);
     await giveFeedback.click();
     await expect(dialog).toBeVisible();
+
+    // All app users can switch to the shared feedback project as commenters, and see their
+    // own feedback under the same identity used by the toolbar. A second account cannot see it.
+    await page.goto('/app/projects');
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' }))
+        .toHaveAttribute('href', '/app/projects/uier00000001');
+    await page.goto('/app/projects/uier00000001');
+    await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);
+
+    const second = await newVisitor(browser, testInfo);
+    await signIn(second.page, uniqueEmail('feedback-other'), { from: new URL('/app/sign-in', page.url()).href });
+    expect(texts(await (await second.context.request.get(pageComments)).json())).not.toContain(text);
+    await second.context.close();
+
+    // The same account in a fresh browser can still read and manage its earlier feedback.
+    const returning = await newVisitor(browser, testInfo);
+    await signIn(returning.page, email, { from: new URL('/app/sign-in', page.url()).href });
+    const sameAccount = (await (await returning.context.request.get(pageComments)).json()).find((comment: { id: string }) => comment.id === saved.id);
+    expect(sameAccount.isMine).toBe(true);
+    await returning.context.close();
 });
 
 test('the account page saves the name and signs out', async ({ page }) => {

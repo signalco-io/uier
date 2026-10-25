@@ -3,6 +3,9 @@ import { isLocalRuntime, keyedHash } from './environment';
 import { VISITOR_COOKIE_MAX_AGE_SECONDS, VISITOR_COOKIE_NAME, VISITOR_TOKEN_BYTES } from './limits';
 
 export type Visitor = {
+    /** Account name for a signed-in reviewer on uier's own public project. */
+    name?: string;
+    member?: boolean;
     /**
      * sha256(token) hex - stored with comments; the raw token is never stored or returned.
      * Missing on reads by a visitor who never wrote anything (no cookie yet).

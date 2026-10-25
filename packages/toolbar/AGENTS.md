@@ -36,7 +36,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | --- | --- |
 | `components/CommentsGlobal.tsx` | top level: pins (in page order), point mode and its keyboard path, selection handling, focus after posting, the first-run hint; collapsing hides the on-page review layer and cancels placement/selection controls, keeping draft text and inbox state |
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
-| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest name) and the options (reset moved toolbar, view project, exit review, sign out) popovers |
+| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest or account name) and the options (reset moved toolbar, view project, exit review, sign out) popovers; on uier's own pages, account sign-out stays in the app's account menu |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
 | `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, in their own styled shadow root; never auto-focus on load |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; `CommentThreadHeader.tsx` is the status, Mark as done / Reopen and Copy link (`?uier-comment=`, `src/review.ts`) |
