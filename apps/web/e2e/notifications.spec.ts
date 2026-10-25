@@ -28,7 +28,7 @@ test('guest comments without email, then separately verifies and revokes reply n
         await guest.page.getByLabel('Email for replies').fill(uniqueEmail('notification-guest'));
         await guest.page.screenshot({ path: testInfo.outputPath('guest-reply-opt-in.png') });
         await guest.page.getByRole('button', { name: 'Send verification link' }).click();
-        await expect(guest.page.getByRole('status')).toContainText('Check your email');
+        await expect(guest.page.getByRole('status').filter({ hasText: 'Check your email' })).toBeVisible();
         const url = await guest.page.getByRole('link', { name: 'Open verification link' }).getAttribute('href');
         const verification = await guest.context.newPage();
         await verification.goto(url!);
@@ -38,11 +38,19 @@ test('guest comments without email, then separately verifies and revokes reply n
         await expect(verification.getByRole('button', { name: 'Confirm reply notifications' })).toBeVisible();
         for (const colorScheme of ['light', 'dark'] as const) {
             await verification.emulateMedia({ colorScheme });
+            await verification.reload();
+            await expect(verification.getByRole('button', { name: 'Confirm reply notifications' })).toBeVisible();
+            await expect(verification.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+            await verification.evaluate(async () => {
+                // Flush the new theme before waiting for its finite color transitions.
+                getComputedStyle(document.body).color;
+                await Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished));
+            });
             await expectNoAxeViolations(verification);
             await verification.screenshot({ path: testInfo.outputPath(`notifications-${colorScheme}.png`) });
         }
         await verification.getByRole('button', { name: 'Confirm reply notifications' }).click();
-        await expect(verification.getByRole('status')).toContainText('Reply notifications confirmed');
+        await expect(verification.getByRole('status').filter({ hasText: 'Reply notifications confirmed' })).toBeVisible();
         await guest.page.reload();
         await commentBubble(guest.page, 1).click();
         await openThread(guest.page).getByRole('button', { name: 'Unfollow thread' }).click();
