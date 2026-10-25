@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -59,9 +59,15 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     const announce = useAnnounce();
     const rootRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLButtonElement>(null);
-    const [editing, setEditing] = useState<{ originalText: string }>();
     const drafts = useDrafts();
     const editDraftKey = `edit:${comment.id}:${threadItem.id}`;
+    const sharedPending = useSyncExternalStore(
+        listener => drafts.subscribe(editDraftKey, listener),
+        () => drafts.pending(editDraftKey));
+    const [editing, setEditing] = useState<{ originalText: string } | undefined>(() => {
+        const saved = drafts.details(editDraftKey);
+        return saved && typeof saved.originalText === 'string' ? { originalText: saved.originalText } : undefined;
+    });
 
     // The author deleted it after others replied: a placeholder, without author or actions
     if (threadItem.deleted) {
@@ -79,7 +85,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     // Public actions belong to the author. Project DTOs include author/admin permissions.
     const canDelete = first ? (comment.permissions?.delete ?? comment.isMine) : (threadItem.canDelete ?? isMe);
     const canEdit = first ? (comment.permissions?.edit ?? comment.isMine) : (threadItem.canEdit ?? isMe);
-    const pending = deleteComment.isPending || deleteReply.isPending || edit.isPending;
+    const pending = deleteComment.isPending || deleteReply.isPending || edit.isPending || sharedPending;
     const error = deleteComment.error ?? deleteReply.error;
     const finishEdit = () => {
         drafts.delete(editDraftKey);
@@ -131,7 +137,16 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             confirmText={deleteConfirmText(comment, first)}
                             disabled={pending}
                             onDelete={canDelete ? handleDelete : undefined}
-                            onEdit={canEdit ? () => { edit.reset(); setEditing({ originalText: text }); } : undefined} />
+                            onEdit={canEdit ? () => {
+                                edit.reset();
+                                const existing = drafts.details(editDraftKey);
+                                const snapshot = existing && typeof existing.originalText === 'string' ? existing : undefined;
+                                if (!snapshot) {
+                                    drafts.setDetails(editDraftKey, { originalText: text });
+                                    if (!existing) drafts.set(editDraftKey, text);
+                                }
+                                setEditing({ originalText: snapshot?.originalText ?? text });
+                            } : undefined} />
                     )}
                 </Row>
             </Row>

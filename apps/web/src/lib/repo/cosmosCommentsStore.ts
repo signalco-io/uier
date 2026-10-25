@@ -1,12 +1,12 @@
-import type { SqlParameter } from '@azure/cosmos';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCounter, type DbScreenshot, type DbSequence } from '../db/schema';
+import type { OperationInput, SqlParameter } from '@azure/cosmos';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
-function errorCode(error: unknown) {
+function errorCode(error: unknown): number | string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error
         ? (error as { code?: number | string }).code
-        : undefined;
+        : typeof error === 'object' && error !== null && 'cause' in error ? errorCode(error.cause) : undefined;
 }
 
 /** Removes Cosmos system properties (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) */
@@ -60,6 +60,37 @@ export function createCosmosCommentsStore(): CommentsStore {
             } catch (error) {
                 if (errorCode(error) === 404)
                     return null;
+                throw error;
+            }
+        },
+        async getSubmission(domain, id) {
+            try {
+                const { resource } = await cosmosDataContainerComments().item(id, domain).read<DbSubmission>();
+                return resource?.type === 'submission' ? resource : null;
+            } catch (error) {
+                if (errorCode(error) === 404) return null;
+                throw error;
+            }
+        },
+        async commitSubmission(receipt, comment, etag, screenshot) {
+            const operations: OperationInput[] = [
+                { operationType: 'Create', resourceBody: receipt },
+                etag
+                    ? { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag }
+                    : { operationType: 'Create', resourceBody: comment },
+                ...(screenshot ? [{ operationType: 'Create' as const, resourceBody: screenshot }] : [])
+            ];
+            try {
+                const response = await cosmosDataContainerComments().items.batch(operations, receipt.domain);
+                const failed = response.result?.find(result => result.statusCode >= 400 && result.statusCode !== 424)?.statusCode;
+                const code = failed ?? response.code;
+                if (code === 409 || code === 412 || code === 404) return 'conflict';
+                if (!code || code < 200 || code >= 300 || response.result?.some(result => result.statusCode >= 400))
+                    throw new Error(`Submission transaction failed (${code})`);
+                return 'ok';
+            } catch (error) {
+                // The SDK wraps transaction failures in Error.cause.
+                if ([404, 409, 412].includes(Number(errorCode(error)))) return 'conflict';
                 throw error;
             }
         },

@@ -175,3 +175,13 @@ export function isCommentDocument(document: object): boolean {
     const { path, type } = document as { path?: unknown; type?: unknown };
     return typeof path === 'string' && type !== 'counter' && type !== 'sequence' && type !== 'screenshot';
 }
+
+/** An atomic submission receipt. No user text or image, and no public route accepts its id. */
+export type DbSubmission = {
+    id: string;
+    domain: string;
+    type: 'submission';
+    fingerprint: string;
+    commentId: string;
+    ttl: number;
+};

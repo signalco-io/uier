@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
+import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore, type Ref } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -71,7 +71,10 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const counterId = useId();
     const drafts = useDrafts();
     const announce = useAnnounce();
-    const [text, setTextState] = useState(() => drafts.get(draftKey) ?? initialText ?? '');
+    const text = useSyncExternalStore(
+        listener => drafts.subscribe(draftKey, listener),
+        () => drafts.get(draftKey) ?? initialText ?? '');
+    const [storageAvailable, setStorageAvailable] = useState(drafts.available);
     const trimmedText = text.trim();
     // Guests of a project tag their comments with their name, asked once and kept on this site
     const { needsName } = useProjectViewer();
@@ -82,15 +85,14 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const showCounter = text.length >= counterThreshold;
     const submittingRef = useRef(false);
     const [submitting, setSubmitting] = useState(false);
-    const busy = pending || submitting;
+    const sharedPending = useSyncExternalStore(
+        listener => drafts.subscribe(draftKey, listener),
+        () => drafts.pending(draftKey));
+    const busy = pending || submitting || sharedPending;
 
     const setText = (value: string) => {
-        setTextState(value);
-        if (value.length) {
-            drafts.set(draftKey, value);
-        } else {
-            drafts.delete(draftKey);
-        }
+        drafts.set(draftKey, value);
+        setStorageAvailable(drafts.available());
     };
 
     useImperativeHandle(ref, () => ({
@@ -161,7 +163,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!trimmedText.length || pending || submittingRef.current) {
+        if (!trimmedText.length || busy || drafts.pending(draftKey) || submittingRef.current) {
             return;
         }
         if (askName) {
@@ -176,8 +178,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         submittingRef.current = true;
         setSubmitting(true);
         try {
-            await onSubmit(trimmedText);
-            setText('');
+            await drafts.run(draftKey, () => onSubmit(trimmedText));
+            drafts.delete(draftKey);
         } catch {
             // Shown by `error`; keep the text so it can be sent again
         } finally {
@@ -194,7 +196,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     };
 
     const handleDiscard = () => {
-        setText('');
+        drafts.delete(draftKey);
         onDiscard?.();
     };
 
@@ -249,7 +251,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     )}
                     style={{ maxHeight: textareaMaxHeight }} />
                 <CommentsErrorMessage error={error} />
-                {submitting && <p role="status" className="m-0 text-xs text-muted-foreground">Saving...</p>}
+                {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">Browser storage is unavailable. Keep this page open to keep your draft.</p>}
+                {error != null && <p className="m-0 text-xs text-muted-foreground">Your draft is kept. Try sending again.</p>}
+                {busy && <p role="status" className="m-0 text-xs text-muted-foreground">Saving...</p>}
                 <Row justifyContent="space-between" spacing={1}>
                     <span
                         id={counterId}
@@ -266,7 +270,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     </span>
                     <Row spacing={1}>
                         {onCancel && <Button variant="plain" size="sm" type="button" disabled={busy} onClick={onCancel}>Cancel</Button>}
-                        {onDiscard && text.length > 0 && (
+                        {!onCancel && text.length > 0 && (
                             <Button
                                 variant="plain"
                                 size="sm"

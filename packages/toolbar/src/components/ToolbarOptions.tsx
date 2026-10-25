@@ -8,6 +8,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close, ExternalLink, LogOut, MoreHorizontal } from '@signalco/ui-icons';
+import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
@@ -28,7 +29,8 @@ type ToolbarOptionsProps = {
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
-    const { query: visitor, signOut } = useVisitor();
+    const drafts = useDrafts();
+    const { query: visitor, signOut } = useVisitor({ onSignedOut: () => drafts.clear() });
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
     const [confirmingSignOut, setConfirmingSignOut] = useState(false);

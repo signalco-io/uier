@@ -7,6 +7,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { orderBy } from '@signalco/js';
 import { useComments } from '../hooks/useComments';
 import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
+import { captureCommentScreenshot } from '../screenshot';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
@@ -44,6 +45,9 @@ function prefersReducedMotion() {
 type CommentBubbleProps = {
     /** Opens the thread once the pin is on the page (a comment that was just posted, or a comment link) */
     autoOpen?: boolean;
+    initiallyClosed?: boolean;
+    /** Keep a recovered draft reachable beside saved pins on the same element. */
+    draftPinOffset?: number;
     onAutoOpened?: () => void;
     onCreated?: (comment: CommentItem) => void;
     onCanceled?: () => void;
@@ -76,6 +80,13 @@ export function CommentBubble(props: CommentBubbleProps) {
     const { rects: placementRects, textMissing } = useCommentPlacement(position);
     const lastRect = orderBy(placementRects, r => r.bottom).at(-1);
     const { create, reply } = useComments();
+    const capture = useRef<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> } | undefined>(undefined);
+    useEffect(() => {
+        if (creating) capture.current = {
+            device: props.draft.device ?? getDeviceInfo(),
+            screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement)
+        };
+    }, [creating, position, rootElement, props.draft]);
     const mutation = creating ? create : reply;
     // A deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted).length ?? 0;
@@ -98,22 +109,24 @@ export function CommentBubble(props: CommentBubbleProps) {
             text,
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
-            device: draft.device ?? getDeviceInfo(),
-            screenshot: await draft.screenshot
+            device: capture.current?.device ?? getDeviceInfo(),
+            screenshot: await capture.current?.screenshot
         });
         drafts.delete(draftKey);
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
         onCreated?.(created);
     };
 
-    const [open, setOpen] = useState(creating);
+    const [open, setOpen] = useState(creating && !props.initiallyClosed);
     const handleOpenChange = (open: boolean) => {
+        if (open && creating) capture.current = { device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) };
         if (!open) {
             mutation.reset();
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
             // back. A rewrite whose text is still the selected text has nothing to keep.
             const text = drafts.get(draftKey)?.trim();
             if (creating && (!text?.length || (rewriting && text === selectedText?.trim()))) {
+                drafts.delete(draftKey);
                 onCanceled?.();
             }
         }
@@ -122,6 +135,7 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     const handleDiscard = () => {
         mutation.reset();
+        drafts.delete(draftKey);
         onCanceled?.();
     };
 
@@ -182,7 +196,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         )}
                         style={{
                             left: bubbleLeft(lastRect),
-                            top: (lastRect?.bottom ?? 0) + 16,
+                            top: (lastRect?.bottom ?? 0) + 16 + (creating ? props.draftPinOffset ?? 0 : 0),
                             transform: 'translate(-50%, -50%)',
                             willChange: 'left, top'
                         }}>

@@ -4,6 +4,7 @@ import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentDeviceInfo, CommentItem, CommentItemPosition, CommentKind } from '../components/@types/Comments';
 import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey } from './api';
+import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import { getGuestName } from '../project/projectSession';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
@@ -24,6 +25,7 @@ export function commentUrl(commentId: string) {
 }
 
 export type CreateCommentInput = {
+    idempotencyKey?: string;
     position: CommentItemPosition;
     /** `comment` (default) for pinned comments; `feedback` and `bug` with a `page` position */
     kind?: CommentKind;
@@ -39,10 +41,10 @@ async function getComments(path: string) {
     return Array.isArray(comments) ? comments : [];
 }
 
-async function createComment(path: string, { position, kind, text, quotedText, device, screenshot }: CreateCommentInput) {
+async function createComment(path: string, { idempotencyKey, position, kind, text, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { path, position, kind, text, quotedText, device, screenshot, authorName: guestAuthorName() }
+        body: { idempotencyKey, path, position, kind, text, quotedText, device, screenshot, authorName: guestAuthorName() }
     }));
 }
 
@@ -51,10 +53,10 @@ export function getCommentScreenshot(commentId: string) {
     return apiImage(`${commentUrl(commentId)}/screenshot`);
 }
 
-async function replyToComment({ commentId, text }: { commentId: string; text: string }) {
+async function replyToComment({ commentId, text, idempotencyKey }: { commentId: string; text: string; idempotencyKey?: string }) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies`, {
         method: 'POST',
-        body: { text, authorName: guestAuthorName() }
+        body: { text, idempotencyKey, authorName: guestAuthorName() }
     }));
 }
 
@@ -128,6 +130,7 @@ export function useComments(): {
 } {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
+    const drafts = useDrafts();
     const queryKey = commentsQueryKey(path);
 
     const query = useQuery({
@@ -154,7 +157,11 @@ export function useComments(): {
     };
 
     const create = useMutation({
-        mutationFn: (input: CreateCommentInput) => createComment(path, input),
+        mutationFn: (input: CreateCommentInput) => {
+            const key = input.kind === 'rewrite' ? newRewriteDraftKey : input.kind === 'feedback' || input.kind === 'bug' ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, ...content } = input;
+            return createComment(path, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content })) });
+        },
         onSuccess: (comment: CommentItem) => {
             client.setQueryData<CommentItem[]>(queryKey, (current) => withComment(current ?? [], comment));
             client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && withComment(current, comment));
@@ -164,7 +171,9 @@ export function useComments(): {
     });
 
     const reply = useMutation({
-        mutationFn: replyToComment,
+        mutationFn: (input: { commentId: string; text: string }) => replyToComment({
+            ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify(input))
+        }),
         onSuccess: handleWritten,
         onSettled: handleSettled
     });

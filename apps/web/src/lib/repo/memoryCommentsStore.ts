@@ -1,4 +1,4 @@
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbScreenshot, type DbSequence } from '../db/schema';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
@@ -6,7 +6,7 @@ const MAX_COMMENTS_PER_DOMAIN = 5000;
 
 type MemoryEntry = {
     /** A comment, the domain's comment numbers or a screenshot: as in Cosmos DB, they share the partition */
-    document: DbComment | DbSequence | DbScreenshot;
+    document: DbComment | DbSequence | DbScreenshot | DbSubmission;
     version: number;
     /** Milliseconds; emulates Cosmos `_ts` (last modification) for TTL */
     modifiedAt: number;
@@ -89,6 +89,20 @@ export function getMemoryCommentsStore(): CommentsStore {
             const entry = domainEntries(domain).get(id);
             const comment = commentOf(entry);
             return entry && comment ? { comment: clone(comment), etag: String(entry.version) } : null;
+        },
+        async getSubmission(domain, id) {
+            const document = domainEntries(domain).get(id)?.document;
+            return document && 'type' in document && document.type === 'submission' ? clone(document) : null;
+        },
+        async commitSubmission(receipt, comment, etag, screenshot) {
+            const entries = domainEntries(receipt.domain);
+            const previous = entries.get(comment.id);
+            if (entries.has(receipt.id) || (etag ? !previous || String(previous.version) !== etag : previous)) return 'conflict';
+            // No await between checking and applying: mirrors the Cosmos transaction.
+            for (const document of [receipt, comment, ...(screenshot ? [screenshot] : [])]) {
+                entries.set(document.id, { document: clone(document), version: ++state().version, modifiedAt: Date.now() });
+            }
+            return 'ok';
         },
         async create(comment) {
             const entries = domainEntries(comment.domain);

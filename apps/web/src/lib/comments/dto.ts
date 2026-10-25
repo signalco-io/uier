@@ -43,6 +43,7 @@ export type CommentDto = {
 
 /** `GET /api/visitor` */
 export type VisitorDto = {
+    draftScope?: string;
     /** The visitor's guest name (`Guest XXXX`), `null` before their first comment or reply */
     name: string | null;
 };

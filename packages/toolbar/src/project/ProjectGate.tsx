@@ -14,7 +14,7 @@ import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
     project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; pageState?: PageStatePolicy };
-    viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean };
+    viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
     signInUrl: string;
@@ -51,6 +51,7 @@ async function loadReviewInfo() {
 }
 
 export type ProjectViewer = {
+    draftScope?: string;
     pageState: PageStatePolicy;
     /** Guests tag their comments with a name; members comment under their account name */
     needsName: boolean;
@@ -150,7 +151,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     return (
-        <ProjectViewerContext.Provider value={{ needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
+        <ProjectViewerContext.Provider value={{ draftScope: info.viewer.draftScope, needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
             {children}
         </ProjectViewerContext.Provider>
     );

@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from '../comments/submissions';
 import { withEditedThreadItem } from '../comments/editing';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
@@ -6,7 +7,7 @@ import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
-import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotInfo } from '../comments/service';
+import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
 import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
@@ -160,6 +161,12 @@ export async function createProjectComment(request: Request, project: DbProject,
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    const attempt = submission(partition, authorId, input.idempotencyKey, {
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text,
+        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin
+    });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return visibleOrThrow(recovered, actor);
     await enforceNewCommentLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) }, input.path);
     const screenshot = await availableScreenshot(store, partition, input.screenshot);
 
@@ -194,6 +201,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     };
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
+    if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, comment, screenshot ? screenshotDocument(comment, screenshot) : undefined), actor);
     await createWithScreenshot(store, comment, screenshot);
     return comment;
 }
@@ -226,13 +234,18 @@ export async function enforceProjectRewriteLimits(request: Request, project: DbP
     await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request) });
 }
 
-export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string }) {
+export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; idempotencyKey?: string }) {
     const authorId = actorAuthorId(actor);
     if (!authorId)
         throw apiErrors.invalidRequest('Comments need a visitor id.');
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    const attempt = submission(partition, authorId, input.idempotencyKey, {
+        operation: 'reply', id, text: input.text, authorName: actor.kind === 'guest' ? input.authorName : undefined
+    });
+    const recovered = await recoverSubmission(store, attempt);
+    if (recovered) return visibleOrThrow(recovered, actor);
     const stored = await getStoredComment(store, partition, id);
     if (!stored)
         throw apiErrors.notFound();
@@ -241,13 +254,15 @@ export async function replyToProjectComment(request: Request, project: DbProject
     await enforceReplyLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) });
 
     const now = nowIso();
-    const result = await store.appendThreadItem(partition, id, {
+    const item: DbThreadItem = {
         id: `item_${nanoid()}`,
         text: input.text,
         authorId,
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
         createdAt: now
-    }, MAX_THREAD_ITEMS, now);
+    };
+    if (attempt) return await commitReplySubmission(store, attempt, id, item, comment => visibleOrThrow(comment, actor));
+    const result = await store.appendThreadItem(partition, id, item, MAX_THREAD_ITEMS, now);
     if (result === 'not_found')
         throw apiErrors.notFound();
     if (result === 'full')

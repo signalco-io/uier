@@ -1,3 +1,4 @@
+import { DraftsProvider } from '../hooks/useDrafts';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Divider } from '@signalco/ui-primitives/Divider';
@@ -8,6 +9,10 @@ import { CommentItem } from './@types/Comments';
 
 /** A thread: its first and last message, and "Show all" for the ones between */
 export function CommentThread({ commentItem }: { commentItem: CommentItem; }) {
+    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} /></DraftsProvider>;
+}
+
+function ThreadContents({ commentItem }: { commentItem: CommentItem; }) {
     const [expanded, setExpanded] = useState(false);
     // "Show all" goes away once used (it is the only way to expand): the focus moves to the first
     // message it showed instead of getting lost
