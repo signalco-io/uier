@@ -56,8 +56,8 @@ function errorCodeFromStatus(status: number): CommentsApiErrorCode {
     }
 }
 
-/** A request to the uier API; errors are thrown as {@link CommentsApiError} */
-export async function apiRequest<T>(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }): Promise<T | undefined> {
+/** A request to the uier API, answered with 2xx; errors are thrown as {@link CommentsApiError} */
+async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }): Promise<Response> {
     const hasBody = init?.body !== undefined;
     let response: Response;
     try {
@@ -94,13 +94,33 @@ export async function apiRequest<T>(url: string, init?: { method?: 'GET' | 'POST
             Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
             typeof body?.reason === 'string' ? body.reason : undefined);
     }
+    return response;
+}
 
+/** A request to the uier API with a JSON answer; errors are thrown as {@link CommentsApiError} */
+export async function apiRequest<T>(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }): Promise<T | undefined> {
+    const response = await apiFetch(url, init);
     if (response.status === 204) {
         return undefined;
     }
 
     const text = await response.text();
     return text.length ? JSON.parse(text) as T : undefined;
+}
+
+/**
+ * An image of the uier API as a data URL. Fetched, not loaded by an `<img src>`: a project's
+ * reviewers are identified by headers, and a reviewed site's CSP allows `data:` images (the
+ * install guide's sources) but not necessarily the API's origin.
+ */
+export async function apiImage(url: string): Promise<string> {
+    const blob = await (await apiFetch(url)).blob();
+    return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new CommentsApiError('network_error', 'The image could not be read', 0));
+        reader.readAsDataURL(blob);
+    });
 }
 
 export function required<T>(value: T | undefined): T {
@@ -114,6 +134,9 @@ export function required<T>(value: T | undefined): T {
 export const commentsQueryKeyPrefix = ['comments'] as const;
 
 export const visitorQueryKey = ['visitor'] as const;
+
+/** Screenshots of comments (`GET .../comments/<id>/screenshot`), per comment */
+export const screenshotQueryKey = (commentId: string) => ['screenshot', commentId] as const;
 
 /** A project's reviewer and settings (project/ProjectGate.tsx) */
 export const projectViewerQueryKey = ['project-viewer'] as const;

@@ -1,4 +1,4 @@
-import type { DbComment, DbThreadItem } from '../db/schema';
+import type { DbComment, DbScreenshot, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
@@ -43,6 +43,12 @@ export type CommentsStore = {
 
     /** The domain's next comment number (1, 2, 3, ...), atomically: its public id (`#12`) */
     nextCommentNumber(domain: string): Promise<number>;
+
+    /** Stores a comment's screenshot (a document of its own in the comment's partition) */
+    createScreenshot(screenshot: DbScreenshot): Promise<void>;
+    getScreenshot(domain: string, commentId: string): Promise<DbScreenshot | null>;
+    /** Deletes a comment's screenshot; nothing when there is none */
+    deleteScreenshot(domain: string, commentId: string): Promise<void>;
 };
 
 let warnedAboutMemoryStore = false;

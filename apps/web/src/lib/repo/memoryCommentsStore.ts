@@ -1,12 +1,12 @@
-import { commentSequenceId, isCommentDocument, type DbComment, type DbSequence } from '../db/schema';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbScreenshot, type DbSequence } from '../db/schema';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
 
 type MemoryEntry = {
-    /** A comment, or the domain's comment numbers: as in Cosmos DB, they share the partition */
-    document: DbComment | DbSequence;
+    /** A comment, the domain's comment numbers or a screenshot: as in Cosmos DB, they share the partition */
+    document: DbComment | DbSequence | DbScreenshot;
     version: number;
     /** Milliseconds; emulates Cosmos `_ts` (last modification) for TTL */
     modifiedAt: number;
@@ -97,8 +97,10 @@ export function getMemoryCommentsStore(): CommentsStore {
 
             if (entries.size >= MAX_COMMENTS_PER_DOMAIN) {
                 const oldestId = [...entries].find(([, entry]) => commentOf(entry))?.[0];
-                if (oldestId)
+                if (oldestId) {
                     entries.delete(oldestId);
+                    entries.delete(screenshotDocumentId(oldestId));
+                }
             }
 
             entries.set(comment.id, { document: clone(comment), version: ++state().version, modifiedAt: Date.now() });
@@ -140,6 +142,19 @@ export function getMemoryCommentsStore(): CommentsStore {
             };
             entries.set(id, { document: comment, version: ++state().version, modifiedAt: Date.now() });
             return 'ok';
+        },
+        async createScreenshot(screenshot) {
+            const entries = domainEntries(screenshot.domain);
+            if (entries.has(screenshot.id))
+                throw new Error(`Screenshot ${screenshot.id} already exists`);
+            entries.set(screenshot.id, { document: clone(screenshot), version: ++state().version, modifiedAt: Date.now() });
+        },
+        async getScreenshot(domain, commentId) {
+            const document = domainEntries(domain).get(screenshotDocumentId(commentId))?.document;
+            return document && 'type' in document && document.type === 'screenshot' ? clone(document) : null;
+        },
+        async deleteScreenshot(domain, commentId) {
+            domainEntries(domain).delete(screenshotDocumentId(commentId));
         },
         async nextCommentNumber(domain) {
             // A document in the partition, as in Cosmos DB; a missing one continues after the highest stored

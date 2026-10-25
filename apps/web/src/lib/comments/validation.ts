@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
     MAX_REWRITE_INSTRUCTION_LENGTH,
@@ -121,13 +122,29 @@ export const deviceSchema = z.object({
     os: deviceLabelSchema.optional()
 });
 
+/**
+ * A screenshot of the commented part of the page, as a data URL. Its type and size are read from
+ * the image (screenshot.ts), never taken from the client.
+ */
+const screenshotSchema = z.string()
+    .max(MAX_SCREENSHOT_DATA_URL_LENGTH)
+    .transform((value, ctx) => {
+        const parsed = parseScreenshot(value);
+        if (typeof parsed === 'string') {
+            ctx.addIssue({ code: 'custom', message: parsed });
+            return z.NEVER;
+        }
+        return parsed;
+    });
+
 export const createCommentSchema = z.object({
     path: pathSchema,
     position: positionSchema,
     kind: kindSchema.default('comment'),
     text: textSchema,
     quotedText: quotedTextSchema.optional(),
-    device: deviceSchema.optional()
+    device: deviceSchema.optional(),
+    screenshot: screenshotSchema.optional()
 }).refine(
     input => {
         switch (input.kind) {

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
+import { jpegImage, pngImage, webpImage } from './support/images';
 
 // Comments API (app/api/comments) against `next start` with the in-memory store. Every request
 // context is a separate anonymous visitor (own `uier_visitor` cookie). Each test writes to pages
@@ -52,6 +53,7 @@ type CommentDto = {
     position: Record<string, unknown>;
     /** Public id, numbered per site */
     number?: number;
+    screenshot?: { width: number; height: number };
     kind: string;
     // A deleted first item has only `id`, `deleted` and `createdAt`
     thread: { items: { id: string; text: string; quotedText?: string; author: { name: string; isMe: boolean }; createdAt?: string; deleted?: true }[] };
@@ -601,6 +603,80 @@ test('rewrite suggestions: limited per visitor once the visitor has the cookie',
     expect(Number(limited.headers()['retry-after'])).toBeGreaterThan(0);
 });
 
+test('a comment can carry a screenshot of the page', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const author = await newVisitor();
+    const visitor = await newVisitor();
+
+    // Type and size come from the image
+    const withScreenshot = await created(await createComment(author, path, { text: 'With a screenshot', screenshot: webpImage }));
+    expect(withScreenshot.screenshot).toEqual({ width: 3, height: 2 });
+    for (const [image, type] of [[pngImage, 'image/png'], [jpegImage, 'image/jpeg']] as const) {
+        const comment = await created(await createComment(author, path, { text: type, screenshot: image }));
+        expect(comment.screenshot).toEqual({ width: 3, height: 2 });
+        const response = await visitor.get(`/api/comments/${comment.id}/screenshot`);
+        expect(response.headers()['content-type']).toBe(type);
+    }
+
+    // Anyone who can see the comment gets the image, as it was sent
+    const image = await visitor.get(`/api/comments/${withScreenshot.id}/screenshot`);
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toBe('image/webp');
+    expect(image.headers()['x-content-type-options']).toBe('nosniff');
+    expect(Buffer.from(await image.body()).equals(Buffer.from(webpImage.split(',')[1]!, 'base64'))).toBe(true);
+    expect((await listComments(visitor, path)).find(c => c.id === withScreenshot.id)?.screenshot).toEqual({ width: 3, height: 2 });
+
+    // Without one: nothing to fetch
+    const without = await created(await createComment(author, path, { text: 'Without a screenshot' }));
+    expect(Object.keys(without)).not.toContain('screenshot');
+    await expectError(await visitor.get(`/api/comments/${without.id}/screenshot`), 404, 'not_found');
+    await expectError(await visitor.get('/api/comments/not!an!id/screenshot'), 404, 'not_found');
+
+    // Deleted with the comment
+    expect((await author.delete(`/api/comments/${withScreenshot.id}`)).status()).toBe(204);
+    await expectError(await visitor.get(`/api/comments/${withScreenshot.id}/screenshot`), 404, 'not_found');
+});
+
+test('a screenshot goes with its author\'s text; the replies stay', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const author = await newVisitor();
+    const visitor = await newVisitor();
+    const comment = await created(await createComment(author, path, { screenshot: pngImage }));
+    await created(await visitor.post(`/api/comments/${comment.id}/replies`, { data: { text: 'Seen it' } }));
+
+    const kept = await author.delete(`/api/comments/${comment.id}`);
+    expect(kept.status()).toBe(200);
+    expect(Object.keys(await kept.json() as CommentDto)).not.toContain('screenshot');
+    await expectError(await visitor.get(`/api/comments/${comment.id}/screenshot`), 404, 'not_found');
+});
+
+test('screenshots are validated', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+    const png = (width: number, height: number, extra = 0) => {
+        const bytes = Buffer.alloc(33 + extra);
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes, 0);
+        bytes.write('IHDR', 12, 'latin1');
+        bytes.writeUInt32BE(width, 16);
+        bytes.writeUInt32BE(height, 20);
+        return `data:image/png;base64,${bytes.toString('base64')}`;
+    };
+
+    for (const screenshot of [
+        pngImage.replace('image/png', 'image/webp'),
+        'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
+        'https://example.com/screenshot.png',
+        png(5000, 10),
+        png(10, 10, 520 * 1024),
+        42
+    ]) {
+        await expectError(await createComment(visitor, path, { screenshot }), 400, 'invalid_request');
+    }
+    // Larger than a comment with a screenshot can be
+    await expectError(await createComment(visitor, path, { screenshot: png(10, 10, 600 * 1024) }), 413, 'too_large');
+    expect(await listComments(visitor, path)).toEqual([]);
+});
+
 test('visitor: guest name and signing out', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();
@@ -689,10 +765,11 @@ test('requests are validated', async ({ newVisitor }) => {
 
     // Body that is not JSON
     await expectError(await visitor.post('/api/comments', { headers: { 'Content-Type': 'application/json' }, data: '{"path":' }), 400, 'invalid_request');
-    // Bodies above 16 KB
-    await expectError(await createComment(visitor, path, { text: 'x'.repeat(17 * 1024) }), 413, 'too_large');
+    // A new comment's body up to 16 KB and a screenshot (about 700 KB), other writes up to 16 KB
+    await expectError(await createComment(visitor, path, { text: 'x'.repeat(720 * 1024) }), 413, 'too_large');
 
     const comment = await created(await createComment(visitor, path, { text: 'x'.repeat(1000) }));
+    await expectError(await visitor.post(`/api/comments/${comment.id}/replies`, { data: { text: 'x'.repeat(17 * 1024) } }), 413, 'too_large');
     await expectError(await visitor.post(`/api/comments/${comment.id}/replies`, { data: { text: 'x'.repeat(1001) } }), 400, 'invalid_request');
     await expectError(await visitor.patch(`/api/comments/${comment.id}`, { data: { resolved: 'yes' } }), 400, 'invalid_request');
 

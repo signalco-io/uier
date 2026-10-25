@@ -1,5 +1,5 @@
 import type { SqlParameter } from '@azure/cosmos';
-import { commentSequenceId, isCommentDocument, type DbComment, type DbCounter, type DbSequence } from '../db/schema';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCounter, type DbScreenshot, type DbSequence } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
 
@@ -51,7 +51,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async get(domain, id): Promise<StoredComment | null> {
             const response = await cosmosDataContainerComments().item(id, domain).read<Record<string, unknown>>();
-            // The partition's counters and sequence are not comments
+            // The partition's counters, sequence and screenshots are not comments
             if (!response.resource || !response.etag || !isCommentDocument(response.resource))
                 return null;
             return { comment: withoutSystemProperties(response.resource), etag: response.etag };
@@ -107,6 +107,29 @@ export function createCosmosCommentsStore(): CommentsStore {
                 if (code === 404)
                     return 'not_found';
                 throw error;
+            }
+        },
+        async createScreenshot(screenshot) {
+            await cosmosDataContainerComments().items.create<DbScreenshot>(screenshot);
+        },
+        async getScreenshot(domain, commentId) {
+            try {
+                const { resource } = await cosmosDataContainerComments().item(screenshotDocumentId(commentId), domain).read<Record<string, unknown>>();
+                return resource?.type === 'screenshot'
+                    ? withoutSystemProperties(resource) as unknown as DbScreenshot
+                    : null;
+            } catch (error) {
+                if (errorCode(error) === 404)
+                    return null;
+                throw error;
+            }
+        },
+        async deleteScreenshot(domain, commentId) {
+            try {
+                await cosmosDataContainerComments().item(screenshotDocumentId(commentId), domain).delete();
+            } catch (error) {
+                if (errorCode(error) !== 404)
+                    throw error;
             }
         },
         async nextCommentNumber(domain) {

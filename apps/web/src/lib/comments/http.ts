@@ -48,7 +48,7 @@ export const apiErrors = {
     botDetected: () => new ApiError(403, 'bot_detected', 'Automated requests are not allowed. Please try again from your browser.'),
     notFound: (message = 'Comment not found.') => new ApiError(404, 'not_found', message),
     conflict: () => new ApiError(409, 'conflict', 'The comment changed while saving. Please try again.', 1),
-    tooLarge: () => new ApiError(413, 'too_large', `Request body is too large (maximum ${MAX_BODY_BYTES} bytes).`),
+    tooLarge: (maxBytes = MAX_BODY_BYTES) => new ApiError(413, 'too_large', `Request body is too large (maximum ${maxBytes} bytes).`),
     unsupportedMediaType: () => new ApiError(415, 'unsupported_media_type', 'Request body must be sent as application/json.'),
     rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason),
     commentsDisabled: () => new ApiError(403, 'comments_disabled', 'Comments are turned off for this project.'),
@@ -79,10 +79,10 @@ function resolveDomain(request: Request) {
     return host;
 }
 
-async function readBodyText(request: Request) {
+async function readBodyText(request: Request, maxBytes: number) {
     const contentLength = Number(request.headers.get('content-length'));
-    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES)
-        throw apiErrors.tooLarge();
+    if (Number.isFinite(contentLength) && contentLength > maxBytes)
+        throw apiErrors.tooLarge(maxBytes);
 
     if (!request.body)
         throw apiErrors.invalidRequest('Request body is required.');
@@ -97,9 +97,9 @@ async function readBodyText(request: Request) {
             break;
 
         size += value.byteLength;
-        if (size > MAX_BODY_BYTES) {
+        if (size > maxBytes) {
             await reader.cancel().catch(() => undefined);
-            throw apiErrors.tooLarge();
+            throw apiErrors.tooLarge(maxBytes);
         }
         chunks.push(value);
     }
@@ -122,12 +122,13 @@ async function readBodyText(request: Request) {
  * Reads (max {@link MAX_BODY_BYTES}) and validates a JSON body. Unknown fields are stripped.
  * Only `application/json` is accepted: other types could be sent cross-site without a CORS preflight.
  */
-export async function parseJsonBody<TSchema extends z.ZodType>(request: Request, schema: TSchema): Promise<z.output<TSchema>> {
+/** The JSON body, validated; at most `maxBytes` (a new comment with a screenshot may be larger) */
+export async function parseJsonBody<TSchema extends z.ZodType>(request: Request, schema: TSchema, maxBytes = MAX_BODY_BYTES): Promise<z.output<TSchema>> {
     const contentType = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
     if (contentType !== 'application/json')
         throw apiErrors.unsupportedMediaType();
 
-    const text = await readBodyText(request);
+    const text = await readBodyText(request, maxBytes);
     let json: unknown;
     try {
         json = JSON.parse(text);

@@ -50,6 +50,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentSelectionPopover.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
 | `components/info/` | `getDeviceInfo` (read when a comment is posted) and `CommentDeviceMeta` ("Desktop · 1280×720") |
+| `src/screenshot.ts`, `components/CommentScreenshot.tsx` | optional screenshots: the region of a comment, drawn from the page without the toolbar (`modern-screenshot`, the scroll as a negative margin so fixed elements stay, fonts inlined), encoded under the API's limits; the camera icon and the screenshot in a thread (fetched as a data URL, opens full size) |
 | `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages (review mode), the status filter and search (`CommentsFilter.tsx`) |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
@@ -71,7 +72,8 @@ starts the review: the project whose comments apply is the script's `data-uier-p
   assumptions about the host's fonts or variables, no `document.body` styling.
 - UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
-- Keep the bundle small: no new large dependencies without a reason.
+- Keep the bundle small: no new large dependencies without a reason (`modern-screenshot`, about
+  25 KB, draws screenshots; there is no lighter way that keeps the page's own CSS).
 
 ## Working on it
 

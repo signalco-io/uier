@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="24 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="25 October 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -48,12 +48,17 @@ export default function PrivacyPolicyPage() {
                     details about the device it came from: its size (desktop, tablet or mobile), the window
                     size, the pixel ratio, the browser name and version, and the operating system;
                 </li>
-                <li>an author id: a hash of the random token in your <code>uier_visitor</code> cookie.</li>
+                <li>an author id: a hash of the random token in your <code>uier_visitor</code> cookie;</li>
+                <li>
+                    if you add one, a screenshot of the part of the page the comment is about. The toolbar takes it in
+                    your browser, as the page looks to you, so it shows whatever the page shows there. Nothing is sent
+                    until you post the comment, and you can remove the screenshot before you do.
+                </li>
             </ul>
             <p>
                 Other visitors see the text, the time, the device size, the window size (so a reviewer can see
-                the page as you saw it) and a guest name such as &ldquo;Guest 3F2A&rdquo;, derived from the author
-                id. They never see the author id, your browser, operating system or pixel ratio. Comments are
+                the page as you saw it), the screenshot if there is one, and a guest name such as &ldquo;Guest
+                3F2A&rdquo;, derived from the author id. They never see the author id, your browser, operating system or pixel ratio. Comments are
                 public, so do not put personal information in them.
             </p>
 
@@ -173,6 +178,7 @@ export default function PrivacyPolicyPage() {
             <h2>How long we keep it</h2>
             <ul>
                 <li>Comments and replies: 90 days after their last change, then they are deleted automatically. You can delete your own earlier in the toolbar.</li>
+                <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
                 <li>Comments in projects: until their author or a project admin deletes them.</li>

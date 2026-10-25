@@ -15,6 +15,7 @@ import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
+import { captureScreenshot, toolbarHost, windowRegion } from '../screenshot';
 import { floatingShadowClassName } from './@types/Comments';
 
 type FeedbackKind = 'feedback' | 'bug';
@@ -47,12 +48,13 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
         }
     };
 
-    const handleSubmit = async (text: string) => {
+    const handleSubmit = async (text: string, screenshot?: string) => {
         await create.mutateAsync({
             position: { type: 'page' },
             kind,
             text,
-            device: getDeviceInfo()
+            device: getDeviceInfo(),
+            screenshot
         });
         drafts.delete(feedbackDraftKey);
         handleOpenChange(false);
@@ -108,7 +110,9 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
                 autoFocus
                 pending={create.isPending}
                 error={create.error}
-                onSubmit={handleSubmit} />
+                onSubmit={handleSubmit}
+                // Feedback is about the page: the screenshot is the window
+                onCaptureScreenshot={() => captureScreenshot(windowRegion(), toolbarHost(rootElement))} />
         </Popper>
     );
 }

@@ -12,6 +12,7 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentKindLabel } from './CommentKindLabel';
 import { CommentDeviceMeta } from './info/CommentDeviceMeta';
+import { CommentScreenshot } from './CommentScreenshot';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
 
 function parseDate(value: string | undefined) {
@@ -129,6 +130,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                 </blockquote>
             )}
             <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{text}</Typography>
+            {first && <CommentScreenshot comment={comment} />}
             {first && <CommentDeviceMeta device={comment.device} />}
             <CommentsErrorMessage error={error} />
         </Stack>

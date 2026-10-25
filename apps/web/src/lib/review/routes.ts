@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, isValidId, pathSchema, replySchema, rewriteRequestSchema } from '../comments/validation';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
-import { MAX_LIST_COMMENTS } from '../comments/limits';
+import { MAX_COMMENT_BODY_BYTES, MAX_LIST_COMMENTS } from '../comments/limits';
+import { screenshotResponse } from '../comments/screenshot';
 import { withinListResponseSize } from '../comments/dto';
 import { projectOrigins } from '../app/projects';
 import { appBaseUrl } from '../app/request';
@@ -13,6 +14,7 @@ import {
     deleteProjectCommentItem,
     enforceProjectRewriteLimits,
     getProjectComment,
+    getProjectScreenshot,
     listProjectComments,
     replyToProjectComment,
     setProjectCommentResolved
@@ -101,7 +103,8 @@ const createSchema = createCommentSchema.extend({ authorName: guestNameSchema.op
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
-    const input = await parseJsonBody(request, createSchema);
+    // A screenshot makes the body larger than other writes
+    const input = await parseJsonBody(request, createSchema, MAX_COMMENT_BODY_BYTES);
     const authorName = writerName(actor, input.authorName);
     const origin = siteOrigin ?? projectOrigins(project)[0]!;
     const comment = await createProjectComment(request, project, actor, { ...input, authorName, origin });
@@ -152,4 +155,9 @@ export async function deleteReviewCommentItem(context: ReviewApiContext, { id, i
     if (!target || (itemId !== undefined && !isValidId(itemId)))
         throw apiErrors.notFound('Reply not found.');
     return await commentResponse(context, await deleteProjectCommentItem(project, actor, comment.id, target));
+}
+
+/** GET /api/review/<code>/comments/<id>/screenshot: the screenshot of a comment the reviewer can see */
+export async function getReviewScreenshot({ project, actor }: ReviewApiContext, { id }: { id: string }) {
+    return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id)));
 }

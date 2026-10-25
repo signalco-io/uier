@@ -175,6 +175,51 @@ test('a React site adds the project\'s toolbar with the React component', async 
     await guest.context.close();
 });
 
+test('a screenshot with a comment on the project\'s site, shown in the toolbar and the app', async ({ page, request, browser }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setAccess(page, projectId, 'Anyone with the link');
+
+    // The guest takes it with the comment; the site's CSP (the install guide's sources) allows it
+    const guest = await anonymousVisitor(browser, testInfo);
+    const violations = await watchCsp(guest.page);
+    await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await guest.page.getByRole('button', { name: 'Add comment' }).click();
+    const heading = await guest.page.getByRole('heading', { level: 1 }).boundingBox();
+    await guest.page.mouse.click(heading!.x + 20, heading!.y + heading!.height / 2);
+    const draft = guest.page.getByRole('dialog', { name: 'New comment' });
+    await draft.getByRole('textbox', { name: 'Your name' }).fill('Dana');
+    await draft.getByRole('textbox', { name: 'Comment' }).fill('The price is hard to find.');
+    await draft.getByRole('button', { name: 'Add a screenshot' }).click();
+    await expect(draft.getByRole('img', { name: 'Screenshot to send with the comment' })).toBeVisible();
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+
+    // The thread fetches it from the review API (with the reviewer's headers, as a data: image)
+    const shown = openThread(guest.page).getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    await expect(shown).toBeVisible();
+    await expect.poll(async () => await shown.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    expect(violations).toEqual([]);
+    await guest.context.close();
+
+    // The review API serves it to the project's sites only
+    const headers = { Origin: siteOrigin(), 'X-Uier-Visitor': randomBytes(32).toString('base64url') };
+    const [comment] = await (await request.get(`/api/review/${projectId}/comments?path=/${projectId}/pricing`, { headers })).json() as { id: string; screenshot?: { width: number; height: number } }[];
+    expect(comment!.screenshot?.width).toBeGreaterThan(0);
+    const image = await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers });
+    expect(image.status()).toBe(200);
+    expect(image.headers()['content-type']).toMatch(/^image\/(webp|jpeg)$/);
+    expect(image.headers()['access-control-allow-origin']).toBe(siteOrigin());
+    expect((await request.get(`/api/review/${projectId}/comments/${comment!.id}/screenshot`, { headers: { ...headers, Origin: siteOrigin('elsewhere') } })).status()).toBe(403);
+
+    // The app shows it on the comment, and opens it full size
+    await page.goto(`/app/projects/${projectId}`);
+    const card = page.getByRole('article', { name: 'Comment by Dana' });
+    const appImage = card.getByRole('img', { name: 'Screenshot of the commented part of the page' });
+    await expect(appImage).toBeVisible();
+    await expect.poll(async () => await appImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(comment!.screenshot!.width);
+    await expect(card.getByRole('link', { name: 'Screenshot of the commented part of the page' }))
+        .toHaveAttribute('href', `/app/projects/${projectId}/comments/${comment!.id}/screenshot`);
+});
+
 test('comments off: the toolbar says so and the API refuses', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
     await setAccess(page, projectId, 'Comments off');

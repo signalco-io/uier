@@ -33,6 +33,9 @@ export const KnownPageLinks = {
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
     projectInstall: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/install`,
+    /** The screenshot of a project comment (an image, for the signed-in app) */
+    projectCommentScreenshot: (projectId: string, commentId: string) =>
+        `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,
     /** Opens a project URL in review mode, signed in, optionally at a comment (see app/review) */
     projectReview: (projectId: string, url?: string, commentId?: string) => {
         const query = new URLSearchParams();

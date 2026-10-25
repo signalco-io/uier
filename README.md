@@ -206,6 +206,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `DELETE .../replies/<itemId>` | replies, done (`resolved`), deleting |
+| `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
@@ -307,9 +308,10 @@ trailing slash).
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
 | `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
-| `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device? }` | `201` the new comment. `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
+| `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](#screenshots)). `kind` is `comment` (default; `position` is a point or a text selection), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
+| `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
@@ -347,7 +349,7 @@ authors and timestamps are always set by the server. Selectors must have the for
 (`#id` or `tag.class:nth-of-type(n)` joined by `>`), so a stored comment can't break `querySelector` in
 visitors' browsers. Responses never contain author ids, IP hashes, the TTL or device details other than the coarse size
 (`desktop`/`tablet`/`mobile`) and the viewport the comment was left from (`windowSize`, `[width, height]` in CSS
-pixels, read when it is posted). Texts are shown as plain text only (no markdown, no links).
+pixels, read when it is posted), and only the size of a screenshot (the image has its own route). Texts are shown as plain text only (no markdown, no links).
 
 **Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
 for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
@@ -367,7 +369,8 @@ carry no IP-derived data:
 
 | Limit | Value |
 | --- | --- |
-| Request body | 16 KB (`413`) |
+| Request body | 16 KB (`413`); a new comment with a screenshot about 700 KB |
+| Screenshots | PNG, JPEG or WebP, 512 KB and 4096 px on a side; 300 per domain or project per day |
 | Comment / reply text | 1-1000 characters after trimming, at least one visible character; bidirectional override characters are removed; quoted text up to 1000 |
 | Path / selectors / selected text | 512 / 1024 / 2000 characters |
 | Thread | 50 messages (replies are appended atomically) |
@@ -414,6 +417,26 @@ renaming the Vercel team or project, or switching the project to the global issu
 `COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). All of these variables are managed by
 Pulumi (see [Infrastructure](#infrastructure)).
 
+### Screenshots
+
+A new comment or feedback can take an optional screenshot of the part of the page it is about
+([#32](https://github.com/signalco-io/uier/issues/32)). The toolbar takes it in the reviewer's browser when they
+ask for it ([`packages/toolbar/src/screenshot.ts`](packages/toolbar/src/screenshot.ts), with
+[`modern-screenshot`](https://github.com/qq15725/modern-screenshot)): the page as it is in the window, drawn from
+its DOM and CSS without the toolbar, cut to the comment's element or text with some room around it (the whole
+window for feedback and bug reports), as WebP (JPEG where the browser can't make WebP) of at most 480 KB.
+Images, fonts and stylesheets from other sites that don't allow it (CORS, or the site's CSP `connect-src`),
+`<canvas>`, video, iframes and `backdrop-filter` come out empty or plain.
+
+It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
+may then be up to about 700 KB. The server reads the type and size from the image itself (PNG, JPEG or WebP, at
+most 512 KB and 4096 px on a side) and stores it as a document of its own in the comment's partition
+(`type: 'screenshot'`, id `$screenshot_<comment id>`, which no route accepts, with the comment's `ttl`); the comment
+keeps `screenshot: { contentType, width, height, bytes }`. Anyone who can see the comment gets the image from
+`GET .../comments/<id>/screenshot`; the app shows it on the comment
+(`/app/projects/<project>/comments/<id>/screenshot`). It is deleted with the comment, or with its author's text
+when others replied. A site gets at most 300 screenshots a day.
+
 ### Rewrite suggestions
 
 The toolbar's **Rewrite** action (selected text) can ask for AI suggestions: `POST /api/rewrite` (a project's
@@ -454,7 +477,8 @@ There is no moderation UI yet. Remove comments directly in Cosmos DB:
    `CONTAINS(c.thread.items[0].text, 'spam')`, `c.authorId = '<authorId of a known abusive comment>'`.
    Rate-limit counters are in the same container (`c.type = 'counter'`, no `path`) and expire by themselves.
    So is each partition's comment numbers' sequence (`c.type = 'sequence'`, id `$sequence_comments`): do not
-   delete it, or numbering continues after the highest number still stored.)
+   delete it, or numbering continues after the highest number still stored. A comment's screenshot is a
+   document of its own (`c.type = 'screenshot'`, id `$screenshot_<comment id>`): delete it with the comment.)
 3. Open the document and **Delete** it to remove the whole comment, or remove the offending entry from
    `thread.items` and **Update** to remove a single reply. If only a deleted first item (`deletedAt`) would be
    left, delete the document instead. Changes are visible immediately (the API does not cache).

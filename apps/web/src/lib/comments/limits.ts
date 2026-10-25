@@ -8,6 +8,15 @@ const DAY = 24 * HOUR;
 /** Maximum accepted request body size in bytes (larger bodies are rejected with 413). */
 export const MAX_BODY_BYTES = 16 * 1024;
 
+/**
+ * Screenshots of the commented part of the page (screenshot.ts): at most this many bytes (a
+ * WebP of the region is usually far smaller) and pixels on a side
+ */
+export const MAX_SCREENSHOT_BYTES = 512 * 1024;
+export const MAX_SCREENSHOT_DIMENSION = 4096;
+/** Body of a new comment with a screenshot: the comment, and the screenshot as a base64 data URL */
+export const MAX_COMMENT_BODY_BYTES = MAX_BODY_BYTES + Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64;
+
 /** Validation limits */
 export const MAX_TEXT_LENGTH = 1000;
 export const MAX_QUOTED_TEXT_LENGTH = 1000;
@@ -65,6 +74,10 @@ export const RATE_LIMIT_APP_REWRITES = 1000;
 export const REWRITE_MAX_OUTPUT_TOKENS = 4096;
 /** Longest instruction a reviewer can give with a rewrite request */
 export const MAX_REWRITE_INSTRUCTION_LENGTH = 300;
+
+/** Screenshots per site (domain or project) per day, so one site's storage can't grow without bounds */
+export const SCREENSHOTS_WINDOW_SECONDS = DAY;
+export const RATE_LIMIT_DOMAIN_SCREENSHOTS = 300;
 
 /** Retention of anonymous comments (Cosmos DB per-item TTL, counted from the last modification) */
 export const COMMENT_TTL_SECONDS = 90 * DAY;

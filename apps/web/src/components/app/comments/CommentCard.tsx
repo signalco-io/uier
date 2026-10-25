@@ -213,6 +213,19 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                 ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
                 : <p className="m-0 whitespace-pre-wrap break-words text-sm">{comment.text}{comment.edited && <span className="text-muted-foreground"> (edited)</span>}</p>}
 
+            {comment.screenshot && (
+                // The author's screenshot of the commented part of the page; opens full size
+                <a href={comment.screenshot.url} target="_blank" rel="noopener" className="block self-start rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <img
+                        src={comment.screenshot.url}
+                        width={comment.screenshot.width}
+                        height={comment.screenshot.height}
+                        alt="Screenshot of the commented part of the page"
+                        loading="lazy"
+                        className="block h-auto max-h-64 w-auto max-w-full rounded-md border" />
+                </a>
+            )}
+
             <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
                 <dt className="text-muted-foreground">Page</dt>
                 <dd className="m-0 min-w-0">
