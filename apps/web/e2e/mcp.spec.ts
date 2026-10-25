@@ -11,7 +11,7 @@ test('a person grants selected feedback access, connects a compatible client, an
     const section = page.getByRole('region', { name: 'Coding agents' });
     await section.getByLabel('Credential label').fill('My coding tool');
     await section.getByRole('button', { name: 'Create credential', exact: true }).click();
-    await expect(section.getByRole('status')).toContainText('Choose at least one project.');
+    await expect(section.getByRole('alert')).toContainText('Choose at least one project.');
     await expect(section.getByLabel('Credential label')).toHaveValue('My coding tool');
     await section.getByRole('checkbox', { name: 'Client review', exact: true }).check();
     await expect(section.getByRole('checkbox', { name: 'Read feedback', exact: true })).toBeChecked();

@@ -16,6 +16,8 @@ import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
 import { getReadSequence } from '../src/lib/comments/readState';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
+import { withNotificationEvent } from '../src/lib/notifications/events';
+import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { pngImage } from './support/images';
 
 const originalEnv = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET, UIER_BASE_URL: process.env.UIER_BASE_URL };
@@ -91,6 +93,9 @@ test('official HTTP client reads context and image, then records approved reply/
         saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
         expect(saved.resolved).toBe(false);
         expect(threadActivity(saved).sequence).toBe(5);
+        const publicAudit = withNotificationEvent({ ...saved, projectId: PUBLIC_PROJECT_ID }, `user:${f.user.id}`, 'resolved', undefined, undefined, { credentialId: credential.id, name: credential.name });
+        expect(publicAudit.notificationPending).toBe(false);
+        expect(publicAudit.notificationEvents?.at(-1)?.agent?.credentialId).toBe(credential.id);
         await updateProject(f.project.workspaceId, f.project.id, { access: 'disabled' });
         expect(data(await client.callTool({ name: 'reply_to_feedback', arguments: { ...reply, idempotencyKey: idempotencyKey() } })).error).toBe('comments_disabled');
     } finally { await client.close(); }
