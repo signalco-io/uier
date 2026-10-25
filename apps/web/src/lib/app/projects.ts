@@ -88,6 +88,25 @@ export function projectOrigins(project: Pick<DbProject, 'urls'>) {
     return [...new Set(project.urls.map(url => new URL(url).origin))];
 }
 
+/** Same-origin embeds have no cross-origin context; retain their configured API origin too. */
+export function projectReviewOrigin(project: Pick<DbProject, 'urls'>, request: Request, siteOrigin?: string) {
+    const origins = projectOrigins(project);
+    if (siteOrigin && origins.includes(siteOrigin)) return siteOrigin;
+    const requestUrl = new URL(request.url);
+    let own = requestUrl.origin;
+    // Next can use an internal hostname in request.url. Match the browser-facing host,
+    // with the same protocol handling as review CORS, against configured origins only.
+    const host = request.headers.get('host');
+    if (host) {
+        const protocol = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || requestUrl.protocol.slice(0, -1);
+        try {
+            const candidate = new URL(`${protocol}://${host}`);
+            if (!candidate.username && !candidate.password) own = candidate.origin;
+        } catch { /* Invalid hosts cannot add a project origin. */ }
+    }
+    return origins.includes(own) ? own : origins[0];
+}
+
 /** The toolbar's review link parameter (packages/toolbar/src/review.ts) */
 export const TOOLBAR_CODE_PARAM = 'toolbar-code';
 
@@ -162,6 +181,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
 
 export type ProjectUpdate = Partial<{
     pageState: PageStatePolicy;
+    environments: import('./environments').ProjectEnvironment[];
     name: string;
     clientName: string | undefined;
     urls: string[];

@@ -1,3 +1,4 @@
+import { originSql } from './originFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import type { OperationInput, SqlParameter } from '@azure/cosmos';
@@ -43,19 +44,21 @@ export function createCosmosCommentsStore(): CommentsStore {
             }).fetchAll();
             return resources.map(withoutSystemProperties);
         },
-        async list(domain, path, limit) {
+        async list(domain, path, limit, originFilter) {
+            const filter = originSql(originFilter);
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter} ORDER BY c.createdAt DESC`,
-                [...pathParameters(path), { name: '@limit', value: limit }]);
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause} ORDER BY c.createdAt DESC`,
+                [...filter.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
             return resources.map(withoutSystemProperties);
         },
-        async listAll(domain, limit) {
+        async listAll(domain, limit, originFilter) {
+            const filter = originSql(originFilter);
             // Rate-limit counters and the comment numbers' sequence share the partition; they have no `path`
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
-                'SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path) ORDER BY c.createdAt DESC',
-                [{ name: '@limit', value: limit }]);
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause} ORDER BY c.createdAt DESC`,
+                [...filter.parameters, { name: '@limit', value: limit }]);
             return resources.map(withoutSystemProperties);
         },
         async get(domain, id): Promise<StoredComment | null> {
@@ -139,7 +142,7 @@ export function createCosmosCommentsStore(): CommentsStore {
             // No TOP: badge counts and unread selection must include threads outside the text list.
             // Modern records need only the compact activity map; legacy records need item authors.
             return await queryAll<DbCommentActivity>(domain,
-                `SELECT c.id, c.domain, c.path, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
+                `SELECT c.id, c.domain, c.path, c.origin, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
                  FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
         },

@@ -1,3 +1,5 @@
+import { configuredEnvironments } from '@/src/lib/app/environments';
+import { ProjectEnvironmentsForm } from '@/src/components/app/projects/ProjectSettingsForms';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireAdminContext } from '@/src/lib/app/context';
@@ -40,6 +42,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
             <ProjectClientNameForm projectId={project.id} clientName={project.clientName} />
             <ProjectAccessForm projectId={project.id} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />
+            <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
             <ProjectPageStateForm projectId={project.id} policy={project.pageState} />
             <Section
                 id="usage"

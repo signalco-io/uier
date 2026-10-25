@@ -1,10 +1,12 @@
+import { feedbackSource } from '../app/environments';
+import { commentPath } from '../comments/dto';
 import { randomUUID } from 'node:crypto';
 import type { AppDoc, DbProject } from '../app/model';
 import { getAppStore, updateDoc } from '../app/store';
 import { sha256Hex } from '../app/tokens';
 import { getUser } from '../app/users';
 import { getMember, listWorkspaceMembers, memberCanAccessProject } from '../app/workspaces';
-import { findProject, projectOrigins } from '../app/projects';
+import { findProject } from '../app/projects';
 import { memberActor, type ProjectActor } from '../review/actor';
 import { canSeeComment } from '../review/comments';
 import type { DbComment } from '../db/schema';
@@ -117,22 +119,23 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
             manage = (await notificationPreference(project.id, delivery.actorId))!;
         }
     }
-    const origin = comment.origin && projectOrigins(project).includes(comment.origin) ? comment.origin : projectOrigins(project)[0]!;
-    const page = new URL(comment.path, origin);
-    // Stored path is server-canonicalized; validate again before making an email link.
-    if (page.origin !== origin) throw new Error('Invalid notification page origin');
-    let url: string;
-    if (delivery.userId) url = `${baseUrl}${KnownPageLinks.projectReview(project.id, page.toString(), comment.id)}`;
-    else {
-        page.searchParams.set('toolbar-code', project.id);
-        page.searchParams.set('uier-comment', comment.id);
-        url = page.toString();
-    }
+    const source = feedbackSource(project, comment.origin);
     const manageUrl = notificationManageUrl(baseUrl, notificationToken(manage, mode));
+    let url = delivery.userId ? `${baseUrl}${KnownPageLinks.project(project.id)}?environment=${source.environment}` : manageUrl;
+    if (source.available && source.origin) {
+        const page = new URL(commentPath(comment), source.origin);
+        if (page.origin !== source.origin) throw new Error('Invalid notification page origin');
+        if (delivery.userId) url = `${baseUrl}${KnownPageLinks.projectReview(project.id, page.toString(), comment.id)}`;
+        else {
+            page.searchParams.set('toolbar-code', project.id);
+            page.searchParams.set('uier-comment', comment.id);
+            url = page.toString();
+        }
+    }
     return layoutEmail({ to: context.email!, subject: `Review activity in ${project.name}`,
         paragraphs: [`There is new activity in thread ${comment.number ? `#${comment.number}` : ''} on ${project.name}.`,
-            'Open the thread to read the latest feedback, replies and status changes.'],
-        action: { label: 'Open thread', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
+            source.available ? 'Open the thread to read the latest feedback, replies and status changes.' : 'The original site address is unavailable. Project members can read the feedback in the app history.'],
+        action: { label: source.available ? 'Open thread' : delivery.userId ? 'Open feedback history' : 'Manage notifications', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
         footerAction: { label: mode === 'project' ? 'Manage project emails' : 'Unsubscribe from thread', url: manageUrl } });
 }
 

@@ -1,3 +1,4 @@
+import { useProjectViewer } from '../project/ProjectGate';
 import { createContext, useContext } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { useCommentPlacement, type AnchorState } from '../hooks/useCommentItemRects';
@@ -21,17 +22,21 @@ export function describeAnchor(position: CommentItemPosition) {
 export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
     const { path } = useContext(CommentsBootstrapperContext);
     const request = useContext(ReattachContext);
-    const { state } = useCommentPlacement(comment.path === path ? comment.position : undefined);
+    const { currentEnvironment } = useProjectViewer();
+    const samePage = comment.path === path && (!comment.source || comment.source.environment === currentEnvironment);
+    const originalSource = !comment.source || (comment.source.available && comment.source.origin === window.location.origin);
+    const { state } = useCommentPlacement(samePage ? comment.position : undefined);
     if (comment.position.type === 'page') return null;
     const canEdit = (comment.permissions?.edit ?? comment.isMine) && !comment.thread.items[0]?.deleted;
     return <div className="px-4 py-2 text-xs text-muted-foreground">
-        {comment.path === path && <p className="m-0" data-uier-anchor-state={state}>{anchorStateText[state]}</p>}
+        {samePage && <p className="m-0" data-uier-anchor-state={state}>{anchorStateText[state]}</p>}
         {comment.anchorContext && <details className="mt-2">
             <summary className="cursor-pointer min-h-11 flex items-center">Anchor changed {comment.anchorContext.changes} {comment.anchorContext.changes === 1 ? 'time' : 'times'}</summary>
             <p className="break-words">Original {describeAnchor(comment.anchorContext.original)}</p>
             <p className="break-words">Previous {describeAnchor(comment.anchorContext.previous)}</p>
             <p>Changed {new Date(comment.anchorContext.changedAt).toLocaleString()}</p>
         </details>}
-        {canEdit && comment.path === path && <Button size="sm" variant="plain" className="min-h-11 mt-1" onClick={() => request(comment)}>Reattach comment</Button>}
+        {canEdit && samePage && !originalSource && <p className="m-0">Open the original reviewed site to reattach.</p>}
+        {canEdit && samePage && originalSource && <Button size="sm" variant="plain" className="min-h-11 mt-1" onClick={() => request(comment)}>Reattach comment</Button>}
     </div>;
 }

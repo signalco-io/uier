@@ -25,7 +25,7 @@ and private-thread visibility before requesting it.
 | `kind`, `status` | Saved feedback type and current open/done status. |
 | `feedback` | First message or `null`: id, deletion state, exact current saved text, quoted text, display author and saved creation/edit times. Deleted placeholders omit text, quote and author. |
 | `anchor` | Whole page, saved element selector or selected text, selectors and offsets. This describes saved evidence, not a claim that the element still exists. Deleted/missing first items retain only anchor type. |
-| `source` | Canonical stored `path`, permitted original `origin` when available. Optional `environment` is reserved for the authorized environment view introduced by #94. |
+| `source` | Canonical stored `path`, permitted original `origin` when available. Optional `environment` is the current configured label or historical-source fallback. It follows the same member/current-origin permission rules as the source context; labels do not retarget links. |
 | `links` | Optional approved page URL and token-free comment review entry. Removed/unavailable origins do not fall back to a different address. |
 | `reproduction` | Original coarse device/viewport; original browser, OS, pixel ratio and capture time only for members who can already view those fields. Never measurements from the exporting browser. |
 | `screenshot` | `{ state: 'unavailable' }`, or `protected` with an existing access-checked URL, dimensions and optional evidence revision. No image bytes, credentials or signed public bypass. |

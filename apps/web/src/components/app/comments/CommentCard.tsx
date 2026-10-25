@@ -124,6 +124,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
 
     const copyLink = async () => {
         try {
+            if (!comment.source.available) return;
             await navigator.clipboard.writeText(new URL(reviewLink, window.location.href).toString());
             toast.success('Link copied. It opens the page at this comment.');
         } catch {
@@ -177,7 +178,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="min-w-48">
                                 <DropdownMenuGroup>
-                                    <DropdownMenuItem onSelect={copyLink}>
+                                    <DropdownMenuItem disabled={!comment.source.available} onSelect={copyLink}>
                                         <LinkIcon />
                                         Link to comment
                                     </DropdownMenuItem>
@@ -297,11 +298,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                             </Badge>
                         )}
                         <a
-                            href={reviewLink}
+                            href={comment.source.available ? reviewLink : undefined}
+                            aria-disabled={!comment.source.available}
                             target="_blank"
                             rel="noopener"
                             className="inline-flex min-w-0 max-w-full items-center gap-1 font-mono text-[13px] text-muted-foreground hover:text-foreground hover:underline">
-                            <span className="truncate">{comment.url.replace(/^https?:\/\//, '')}</span>
+                            <span className="truncate">{comment.source.label} · {comment.url.replace(/^https?:\/\//, '')}</span>
                             <ExternalLinkIcon aria-hidden="true" className="size-3.5 shrink-0" />
                         </a>
                         {comment.assignee

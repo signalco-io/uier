@@ -201,6 +201,6 @@ export type DbSubmission = {
 };
 
 /** Lightweight activity projection; legacy threads need only item authors and deletion markers. */
-export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'private' | 'authorId' | 'resolved' | 'createdAt' | 'activity'> & {
+export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'createdAt' | 'activity'> & {
     thread: { items: Pick<DbThreadItem, 'authorId' | 'deletedAt'>[] };
 };

@@ -51,6 +51,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
 
     const handleCopyLink = async () => {
         const link = commentLink(comment, review);
+        if (!link) return;
         try {
             await navigator.clipboard.writeText(link);
             setUncopiedLink(undefined);
@@ -99,7 +100,8 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                     <IconButton
                         size="xs"
                         variant="plain"
-                        title="Copy link"
+                        disabled={comment.source?.available === false}
+                        title={comment.source?.available === false ? 'Original source unavailable' : 'Copy link'}
                         aria-label="Copy link"
                         onClick={handleCopyLink}>
                         <Link size={16} />
@@ -107,6 +109,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                 </Row>
             </Row>
             <CopyIssueResult state={issue} />
+            {comment.source && <p className="m-0 break-words text-xs text-muted-foreground">{comment.source.label}{comment.source.origin && comment.source.origin !== comment.source.label ? ` · ${comment.source.origin}` : ''}{!comment.source.available ? ' · Original source unavailable' : ''}</p>}
             <CommentsErrorMessage error={resolve.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">

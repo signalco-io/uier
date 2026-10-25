@@ -14,6 +14,13 @@ export const metadata: Metadata = {
 
 const items = [
     {
+        name: 'uier:environment:v1:<api>:<project>:<reviewer>',
+        type: 'Local storage',
+        when: 'You choose an environment filter in the project inbox',
+        purpose: 'Remembers the selected environment or history view for this project and reviewer on this site. It contains no comment text, image or authentication token.',
+        duration: 'Until you clear your browser data'
+    },
+    {
         name: 'uier:draft:v1:<scope>:<item>',
         type: 'Local storage',
         when: 'You start or change a feedback draft',
@@ -134,7 +141,7 @@ export default function CookiePolicyPage() {
 
             <p>
                 Drafts, toolbar position and panel-side preferences are also stored on reviewed sites. Drafts expire after seven days; signing out clears that reviewer’s drafts for the project on that site. Signing out removes
-                the identity keys listed above; movement preferences remain until you reset them or clear site data.
+                the identity keys listed above; movement and environment filter preferences remain until you reset them or clear site data.
             </p>
 
             <h2>Third parties</h2>

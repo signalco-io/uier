@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: RouteContext<'/app/revie
 
     const target = await reviewTarget(context, projectId, requestUrl.searchParams.get('url'), requestUrl.searchParams.get('comment'));
     if (!target)
-        return new Response('This project does not exist, or you do not have access to it.', { status: 404 });
+        return new Response('This project or comment is unavailable. Its original site address may have been removed, or you may no longer have access.', { status: 404 });
 
     return NextResponse.redirect(target);
 }

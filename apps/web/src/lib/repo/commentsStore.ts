@@ -1,3 +1,4 @@
+import type { OriginFilter } from './originFilter';
 import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
@@ -22,9 +23,9 @@ export type CommentsStore = {
     /** Durable notification discovery, across projects, without the inbox's display cap. */
     listNotificationPending(): Promise<DbComment[]>;
     /** Canonical view, newest first. Only legacy records use a base-path query-string fallback. */
-    list(domain: string, path: string, limit: number): Promise<DbComment[]>;
+    list(domain: string, path: string, limit: number, originFilter?: OriginFilter): Promise<DbComment[]>;
     /** Every comment of the partition (all pages), newest first */
-    listAll(domain: string, limit: number): Promise<DbComment[]>;
+    listAll(domain: string, limit: number, originFilter?: OriginFilter): Promise<DbComment[]>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
     get(domain: string, id: string): Promise<StoredComment | null>;

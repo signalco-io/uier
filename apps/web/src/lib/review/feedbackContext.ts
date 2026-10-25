@@ -1,3 +1,4 @@
+import { feedbackSource } from '../app/environments';
 import { KnownPageLinks } from '../../knownPages';
 import { projectOrigins } from '../app/projects';
 import type { DbProject } from '../app/model';
@@ -33,6 +34,7 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
     }
     return feedbackExport(dto, {
         projectId: project.id, pageUrl,
+        environment: actor.kind === 'member' || pageUrl ? feedbackSource(project, comment.origin).label : undefined,
         commentUrl,
         screenshotUrl: screenshot ? new URL(actor.kind === 'member'
             ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)

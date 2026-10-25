@@ -5,6 +5,7 @@ import type { ReproductionContext } from './reproduction';
 /** Input must already have passed visibility checks and DTO projection. Never accept a DbComment here. */
 export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionContext }, options: {
     projectId?: string;
+    environment?: string;
     pageUrl?: string;
     commentUrl?: string;
     screenshotUrl?: string;
@@ -25,7 +26,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         anchor: !available || position.type === 'page' ? { type: position.type }
             : position.type === 'point' ? { type: 'point', selector: position.selector }
             : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector },
-        source: { path: dto.path, ...(options.pageUrl ? { origin: new URL(options.pageUrl).origin } : {}) },
+        source: { path: dto.path, ...(options.environment ? { environment: options.environment } : {}), ...(options.pageUrl ? { origin: new URL(options.pageUrl).origin } : {}) },
         links: { page: options.pageUrl, comment: options.commentUrl },
         reproduction: available ? {
             device: dto.device?.size, windowSize: dto.device?.windowSize,

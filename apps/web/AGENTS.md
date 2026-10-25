@@ -223,6 +223,12 @@ Retain the original and immediately previous position plus change time/count in 
 actor identifiers. DTOs allowlist its fields. It follows comment visibility and retention; no image or
 message is replaced. Keep the privacy policy and toolbar guide aligned with this context.
 
+- `src/lib/app/environments.ts` owns origin labels, explicit alias groups and historical-source
+  fallback. Apply `environmentFilter` before storage limits and before activity/unread selection;
+  Cosmos and memory stores share `repo/originFilter.ts`. Do not infer missing origins or retarget
+  removed sources. App direct-comment redirects load the authorized stored thread and retain its
+  permitted original source plus canonical saved page state. Environment filters never grant access.
+
 ## Feedback export
 
 The public and review `comments/:id/context` routes and the app `copyIssueAction` read fresh

@@ -11,7 +11,7 @@ export async function commentResponse(context: ReviewApiContext, comment: DbComm
         return new Response(null, { status: 204 });
     const actorId = actorAuthorId(context.actor);
     const [names, participants, readSequence] = await Promise.all([authorNames([comment]), participantNames(context.project), actorId ? getReadSequence(comment.domain, actorId, comment.id) : 0]);
-    const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants);
+    const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants, context.project);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     const notifications = (await threadNotificationStates(context.project, context.actor, [comment])).get(comment.id);
