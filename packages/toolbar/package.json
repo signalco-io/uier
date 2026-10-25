@@ -23,6 +23,10 @@
         "./page-state": {
             "types": "./src/pageState.ts",
             "default": "./dist/pageState.js"
+        },
+        "./mentions": {
+            "types": "./src/mentions.ts",
+            "default": "./dist/mentions.js"
         }
     },
     "scripts": {

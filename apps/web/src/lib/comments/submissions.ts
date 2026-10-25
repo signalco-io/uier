@@ -1,10 +1,10 @@
-import { withThreadActivity } from './activity';
 import { withNotificationEvent } from '../notifications/events';
 import { createHash } from 'node:crypto';
 import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
 import type { CommentsStore } from '../repo/commentsStore';
 import { ApiError, apiErrors } from './http';
 import { MAX_THREAD_ITEMS } from './limits';
+import { withThreadActivity } from './activity';
 
 /** Longer than the seven-day local draft lifetime; receipts contain hashes and ids only. */
 export const submissionTtlSeconds = 30 * 24 * 60 * 60;
@@ -63,20 +63,21 @@ export async function commitNewSubmission(store: CommentsStore, attempt: Submiss
 }
 
 export async function commitReplySubmission(store: CommentsStore, attempt: Submission, id: string, item: DbThreadItem,
-    visible: (comment: DbComment) => unknown = () => undefined) {
+    visible: (comment: DbComment) => unknown = () => undefined,
+    prepare?: (previous: DbComment, updated: DbComment) => DbComment | Promise<DbComment>) {
     for (let retry = 0; retry < 8; retry++) {
         const recovered = await recoverSubmission(store, attempt);
-        if (recovered) { visible(recovered); return recovered; }
+        if (recovered) { await visible(recovered); return recovered; }
         const stored = await store.get(attempt.domain, id);
         if (!stored) throw apiErrors.notFound();
-        visible(stored.comment);
+        await visible(stored.comment);
         if (stored.comment.thread.items.length >= MAX_THREAD_ITEMS)
             throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
-        const comment = withNotificationEvent({ ...withThreadActivity(stored.comment, item.authorId ?? 'legacy'),
-            thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt },
-            item.authorId ?? 'legacy', 'reply', item.createdAt);
+        const updated = { ...withThreadActivity(stored.comment, item.authorId ?? 'legacy'), thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
+        const comment = prepare ? await prepare(stored.comment, updated)
+            : withNotificationEvent(updated, item.authorId ?? 'legacy', 'reply', item.createdAt);
         const saved = await commit(store, attempt, comment, stored.etag);
-        if (saved) { visible(saved); return saved; }
+        if (saved) { await visible(saved); return saved; }
     }
     throw apiErrors.conflict();
 }

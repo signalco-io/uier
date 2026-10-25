@@ -6,7 +6,6 @@ import { actionResult, UserFacingError, type ActionState } from '../../../lib/ap
 import { appContextOrThrow } from '../../../lib/app/context';
 import { getVisibleProject } from '../../../lib/app/projects';
 import { appActor } from '../../../lib/app/projectComments';
-import { listProjectMembers } from '../../../lib/app/members';
 import { ApiError } from '../../../lib/comments/http';
 import {
     getProjectComment,
@@ -54,9 +53,7 @@ export async function setCommentPrivateAction(projectId: string, commentId: stri
 }
 
 export async function setCommentAssigneeAction(projectId: string, commentId: string, assigneeId: string | null) {
-    return await commentAction(projectId, async ({ context, project, actor }) => {
-        if (assigneeId && !(await listProjectMembers(context.workspace.id, project.id)).some(({ member }) => member.userId === assigneeId))
-            throw new UserFacingError('Only people with access to the project can be assigned.');
+    return await commentAction(projectId, async ({ project, actor }) => {
         await setProjectCommentAssignee(project, actor, commentId, assigneeId);
     });
 }

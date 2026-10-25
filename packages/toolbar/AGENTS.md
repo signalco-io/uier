@@ -108,6 +108,10 @@ starts the review: the project whose comments apply is the script's `data-uier-p
   are in `apps/web/e2e/anchors.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.
 
+Assignment uses `CommentAssignment` and the shared review service. `useParticipants` fetches
+a member-only, thread-filtered directory; composer mention ranges are maintained by `mentions.ts`.
+Never infer recipients from display names or reveal account ids in guest DTOs.
+
 - The badge is unread activity, not unresolved feedback. `useCommentsRefresh` is the sole 15-second
   foreground scheduler (focus/online/visibility/expansion refresh immediately). Read receipts merge
   monotonically across page/site caches. Inbox previews do not mark every listed thread read;

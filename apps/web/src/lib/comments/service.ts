@@ -294,7 +294,7 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
     const subject = rateLimitSubject(context);
     const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text });
     const recovered = await recoverSubmission(store, attempt);
-    if (recovered) return toDto(recovered, context);
+    if (recovered) { assertVisible(recovered, context); return toDto(recovered, context); }
     const target = await store.get(context.domain, id);
     if (!target) throw apiErrors.notFound();
     assertVisible(target.comment, context);

@@ -126,7 +126,13 @@ export default function PrivacyPolicyPage() {
                 under their account name, guests under the name they give. Who sees the comments is the
                 project&rsquo;s choice: its members, or anyone with its review link. A comment an admin makes
                 private is visible only to the project&rsquo;s admins and its author. Members can assign comments
-                to each other and mark them done.
+                to eligible members and mark them done. We store the assignee&rsquo;s account id. A selected
+                @mention stores the recipient&rsquo;s account id and its range in the message text, so names can
+                change without changing the recipient. Unsent selections are kept with the browser-local draft
+                for up to seven days and are cleared on discard, submission or sign-out. Only signed-in project members can look up participants;
+                suggestions contain names and opaque account ids, never email addresses. Assignments and mentions
+                do not invite anyone or change access. Private threads can only target people who can already see
+                them. Removed participants appear as former members and cannot receive new assignments or mentions.
             </p>
             <p>
                 On that site, the toolbar keeps in the browser&rsquo;s local storage a review token while you are

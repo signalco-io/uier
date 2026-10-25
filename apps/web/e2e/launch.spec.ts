@@ -39,6 +39,8 @@ async function post(page: Page, action: () => Promise<unknown>, projectId: strin
 }
 
 async function expectSavedImage(page: Page) {
+    // Assignment and follow/read controls can put lazy evidence below the mobile fold.
+    await thread(page).getByRole('region', { name: 'Screenshot evidence' }).scrollIntoViewIfNeeded();
     const thumbnail = thread(page).getByRole('button', { name: imageLabel });
     await expect(thumbnail).toBeVisible();
     await expect.poll(() => thumbnail.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);

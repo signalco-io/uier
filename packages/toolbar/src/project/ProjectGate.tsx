@@ -54,6 +54,7 @@ async function loadReviewInfo() {
 }
 
 export type ProjectViewer = {
+    isMember?: boolean;
     draftScope?: string;
     pageState: PageStatePolicy;
     /** Guests tag their comments with a name; members comment under their account name */
@@ -169,7 +170,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     return (
-        <ProjectViewerContext.Provider value={{ draftScope: info.viewer.draftScope, needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
+        <ProjectViewerContext.Provider value={{ isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope, needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy }}>
             {children}
         </ProjectViewerContext.Provider>
     );

@@ -546,8 +546,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     };
     expect(await list(ana, about)).toHaveLength(1);
     // Guests resolve and delete only their own comments
-    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false });
-    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true });
+    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false, assign: false });
+    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true, assign: false });
 
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText('2 comments');

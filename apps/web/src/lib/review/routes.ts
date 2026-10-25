@@ -21,9 +21,11 @@ import {
     getProjectScreenshot,
     replyToProjectComment,
     setProjectCommentResolved,
+    setProjectCommentAssignee,
     replaceProjectScreenshot
 } from './comments';
-import { authorNames, toReviewCommentDto } from './dto';
+import { authorNames, participantNames, toReviewCommentDto } from './dto';
+import { eligibleParticipants, mentionsSchema } from './participants';
 import type { ReviewApiContext } from './http';
 import type { DbComment } from '../db/schema';
 
@@ -39,7 +41,9 @@ function viewerDto(actor: ProjectActor) {
 async function commentResponse(context: ReviewApiContext, comment: DbComment | null, status = 200) {
     if (!comment)
         return new Response(null, { status: 204 });
-    const dto = toReviewCommentDto(comment, context.actor, await authorNames([comment]), projectOrigins(context.project), actorAuthorId(context.actor) ? await getReadSequence(comment.domain, actorAuthorId(context.actor)!, comment.id) : 0);
+    const actorId = actorAuthorId(context.actor);
+    const [names, participants, readSequence] = await Promise.all([authorNames([comment]), participantNames(context.project), actorId ? getReadSequence(comment.domain, actorId, comment.id) : 0]);
+    const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     const notifications = (await threadNotificationStates(context.project, context.actor, [comment])).get(comment.id);
@@ -83,7 +87,7 @@ export async function createReviewSession({ request, project }: ReviewApiContext
     return Response.json({ token: session.token, viewer: viewerDto(session.actor) }, { status: 201 });
 }
 
-const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional() });
+const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional() });
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
@@ -95,13 +99,13 @@ export async function createReviewComment(context: ReviewApiContext) {
     return await commentResponse(context, comment, 201);
 }
 
-const replyInputSchema = replySchema.extend({ authorName: guestNameSchema.optional() });
+const replyInputSchema = replySchema.extend({ authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional() });
 
 export async function replyToReviewComment(context: ReviewApiContext, { id }: { id: string }) {
     const { request, project, actor } = context;
     const input = await parseJsonBody(request, replyInputSchema);
     const authorName = writerName(actor, input.authorName);
-    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, idempotencyKey: input.idempotencyKey });
+    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, mentions: input.mentions, idempotencyKey: input.idempotencyKey });
     return await commentResponse(context, comment, 201);
 }
 
@@ -144,7 +148,7 @@ export async function deleteReviewCommentItem(context: ReviewApiContext, { id, i
 /** PATCH of one message, including the first item, with a stale-edit check. */
 export async function editReviewCommentItem(context: ReviewApiContext, { id, itemId }: { id: string; itemId: string }) {
     assertWriter(context.actor);
-    const input = await parseJsonBody(context.request, editThreadItemSchema);
+    const input = await parseJsonBody(context.request, editThreadItemSchema.extend({ mentions: mentionsSchema.optional() }));
     if (!isValidId(itemId)) throw apiErrors.notFound();
     return await commentResponse(context, await editProjectCommentItem(context.project, context.actor, commentId(id), itemId, input));
 }
@@ -152,6 +156,19 @@ export async function editReviewCommentItem(context: ReviewApiContext, { id, ite
 /** GET /api/review/<code>/comments/<id>/screenshot: the screenshot of a comment the reviewer can see */
 export async function getReviewScreenshot({ project, actor }: ReviewApiContext, { id }: { id: string }) {
     return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id)));
+}
+
+/** Participant lookup is member-only and uses the same visibility rule as a thread read. */
+export async function listReviewParticipants(context: ReviewApiContext) {
+    const id = new URL(context.request.url).searchParams.get('commentId');
+    const comment = id ? await getProjectComment(context.project, context.actor, commentId(id)) : undefined;
+    if (id && !comment) throw apiErrors.notFound();
+    return Response.json(await eligibleParticipants(context.project, context.actor, comment ?? undefined));
+}
+
+export async function assignReviewComment(context: ReviewApiContext, { id }: { id: string }) {
+    const { assigneeId } = await parseJsonBody(context.request, z.object({ assigneeId: z.string().max(128).nullable() }));
+    return await commentResponse(context, await setProjectCommentAssignee(context.project, context.actor, commentId(id), assigneeId));
 }
 
 export async function replaceReviewScreenshot(context: ReviewApiContext, { id }: { id: string }) {

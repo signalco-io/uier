@@ -224,6 +224,29 @@ error boundary, so one bad comment never breaks the toolbar.
   comment on another page links to its thread there (`?uier-comment=`, always on this site). The status and
   search are kept while the inbox is closed; Escape clears a search first. The showcase includes other public pages too.
 
+### Assignment and mentions
+
+Signed-in project members can change a thread's assignee in its toolbar details or inbox.
+The app and toolbar use the same assignment service. Assigned to me combines with page,
+status and search filters. Guests see the assignee's name but cannot change assignment or
+look up the participant directory. Removed members appear as Former member (no access);
+the assignment can be cleared or changed.
+
+In a member's composer, type @ to search eligible participants. Arrow keys move through
+suggestions; Enter or Tab selects without posting; Escape dismisses. Touch/click selects
+the same account. A short opaque account suffix distinguishes duplicate display names.
+Selection saves an account id and a text range, not a display-name match. Editing through
+a mention turns it back into plain text. Names update when reading saved mentions; removed
+accounts appear as Former member. New mention and assignment targets must currently have
+project access and visibility of the thread (private threads: admins and the author).
+Neither action creates membership or bypasses private-thread checks.
+Assignment changes and newly selected mention recipients use the shared unread activity
+cursor and five-minute email digest. A post with mentions still creates one event. Repeated
+assignment selections and edits retaining the same recipients create no extra event. The
+actor, read activity, muted projects, explicitly unfollowed threads, removed members and
+people without private-thread access are suppressed by the shared notification delivery.
+Unassignment targets the previous assignee, subject to the same rules.
+
 ## UI and styles
 
 - `src/index.tsx` mounts the toolbar into an open shadow root on `<div id="uier-toolbar">` (open so

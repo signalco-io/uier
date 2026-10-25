@@ -92,9 +92,9 @@ export function CommentBubble(props: CommentBubbleProps) {
     // A deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted).length ?? 0;
 
-    const handleSubmit = async (text: string) => {
+    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
         if (props.commentItem) {
-            await reply.mutateAsync({ commentId: props.commentItem.id, text });
+            await reply.mutateAsync({ commentId: props.commentItem.id, text, mentions });
             drafts.delete(draftKey);
             announce('Reply posted');
             return;
@@ -108,6 +108,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             position: draft.position,
             kind: rewriting ? 'rewrite' : undefined,
             text,
+            mentions,
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
             device: capture.current?.device ?? getDeviceInfo(),
@@ -252,6 +253,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 )}
                 <div className="shrink-0">
                     <CommentComposer
+                        commentId={commentItem?.id}
                         ref={composerRef}
                         label={rewriting ? 'Suggested text' : (creating ? 'Comment' : 'Reply')}
                         placeholder={rewriting ? 'Your version of the text...' : (creating ? 'Leave feedback...' : 'Reply...')}

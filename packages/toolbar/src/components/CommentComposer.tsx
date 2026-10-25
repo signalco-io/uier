@@ -8,6 +8,9 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Send } from '@signalco/ui-icons';
+import { useParticipants, type Participant } from '../hooks/useParticipants';
+import { mentionQuery, moveMentions } from '../mentions';
+import type { Mention } from './@types/Comments';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
@@ -17,6 +20,7 @@ import { getGuestName, setGuestName } from '../project/projectSession';
 
 /** Longest guest name the review API accepts */
 const guestNameMaxLength = 80;
+const noMentions: Mention[] = [];
 
 // Show the character counter when the text gets close to the limit
 const counterThreshold = commentTextMaxLength - 100;
@@ -39,6 +43,8 @@ export type CommentComposerHandle = {
 
 type CommentComposerProps = {
     initialText?: string;
+    initialMentions?: Mention[];
+    commentId?: string;
     /** Editing has a labeled Save button and a separate cancel action. */
     onCancel?: () => void;
     ref?: Ref<CommentComposerHandle>;
@@ -54,7 +60,7 @@ type CommentComposerProps = {
     pending?: boolean;
     error?: unknown;
     /** Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form. */
-    onSubmit: (text: string) => Promise<unknown>;
+    onSubmit: (text: string, mentions?: Mention[]) => Promise<unknown>;
     /** Shows a "Discard" button while there is text (new comments) */
     onDiscard?: () => void;
 };
@@ -64,7 +70,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard, initialText, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -76,8 +82,22 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         () => drafts.get(draftKey) ?? initialText ?? '');
     const [storageAvailable, setStorageAvailable] = useState(drafts.available);
     const trimmedText = text.trim();
+    const mentions = useSyncExternalStore(
+        listener => drafts.subscribe(draftKey, listener),
+        () => drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions));
+    const [caret, setCaret] = useState(0);
+    const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+    const [activeSuggestion, setActiveSuggestion] = useState(0);
+    const listId = useId();
+    const query = suggestionsDismissed ? undefined : mentionQuery(text, caret);
+    const participants = useParticipants(commentId, Boolean(query));
+    const suggestions = query ? participants.data?.filter(person => person.name.toLocaleLowerCase().includes(query.search)).slice(0, 8) ?? [] : [];
+    const selectedIndex = Math.min(activeSuggestion, Math.max(0, suggestions.length - 1));
+    const showSuggestions = Boolean(query && suggestions.length);
+
     // Guests of a project tag their comments with their name, asked once and kept on this site
-    const { needsName } = useProjectViewer();
+    const { needsName, isMember } = useProjectViewer();
+    const mentionHintId = useId();
     const [savedName, setSavedName] = useState(() => needsName ? getGuestName() : undefined);
     const askName = needsName && !savedName;
     const [name, setName] = useState('');
@@ -91,7 +111,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const busy = pending || submitting || sharedPending;
 
     const setText = (value: string) => {
+        const next = moveMentions(text, value, mentions).map(({ userId, start, end }) => ({ userId, start, end }));
         drafts.set(draftKey, value);
+        drafts.setDetails(draftKey, { mentions: next });
         setStorageAvailable(drafts.available());
     };
 
@@ -178,7 +200,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         submittingRef.current = true;
         setSubmitting(true);
         try {
-            await drafts.run(draftKey, () => onSubmit(trimmedText));
+            const leading = text.length - text.trimStart().length;
+            const selected = mentions.filter(mention => mention.end <= text.trimEnd().length).map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
+            await drafts.run(draftKey, () => onSubmit(trimmedText, selected));
             drafts.delete(draftKey);
         } catch {
             // Shown by `error`; keep the text so it can be sent again
@@ -188,7 +212,30 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         }
     };
 
+    const selectMention = (person: Participant) => {
+        if (!query) return;
+        const label = `@${person.name}`;
+        const value = text.slice(0, query.start) + label + ' ' + text.slice(query.end);
+        if (value.length > commentTextMaxLength) return;
+        const kept = moveMentions(text, value, mentions);
+        setText(value);
+        const selected = [...kept, { userId: person.id, start: query.start, end: query.start + label.length }].sort((a, b) => a.start - b.start);
+        drafts.setDetails(draftKey, { mentions: selected.map(({ userId, start, end }) => ({ userId, start, end })) });
+        setSuggestionsDismissed(true);
+        const next = query.start + label.length + 1;
+        requestAnimationFrame(() => { textareaRef.current?.focus(); textareaRef.current?.setSelectionRange(next, next); setCaret(next); });
+        announce(`Mentioned ${person.name}`);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (showSuggestions && !e.nativeEvent.isComposing) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault(); setActiveSuggestion((selectedIndex + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length); return;
+            }
+            if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) { e.preventDefault(); selectMention(suggestions[selectedIndex]!); return; }
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSuggestionsDismissed(true); return; }
+        }
+
         if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             formRef.current?.requestSubmit();
@@ -234,14 +281,18 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     name="text"
                     rows={2}
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setSuggestionsDismissed(false); setActiveSuggestion(0); }}
+                    onSelect={e => setCaret(e.currentTarget.selectionStart)}
+                    aria-autocomplete={showSuggestions ? 'list' : undefined}
+                    aria-controls={showSuggestions ? listId : undefined}
+                    aria-activedescendant={showSuggestions ? `${listId}-${selectedIndex}` : undefined}
                     onKeyDown={handleKeyDown}
                     onFocus={handleFocus}
                     maxLength={commentTextMaxLength}
                     readOnly={busy}
                     placeholder={placeholder}
                     aria-label={label}
-                    aria-describedby={showCounter ? counterId : undefined}
+                    aria-describedby={[showCounter ? counterId : '', isMember ? mentionHintId : ''].filter(Boolean).join(' ') || undefined}
                     autoComplete="off"
                     className={cx(
                         'block w-full resize-none overflow-y-auto rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground',
@@ -250,6 +301,15 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                     style={{ maxHeight: textareaMaxHeight }} />
+                {isMember && <p id={mentionHintId} className="m-0 text-xs text-secondary-foreground">Type @ to mention someone with access.</p>}
+                {showSuggestions && <div id={listId} role="listbox" aria-label="Mention people" className="max-h-48 overflow-y-auto rounded-xl border p-1">
+                    {suggestions.map((person, index) => <Button key={person.id} id={`${listId}-${index}`} role="option" aria-selected={index === selectedIndex}
+                        variant="plain" size="sm" className={cx('min-h-11 w-full justify-start', index === selectedIndex && 'bg-muted')}
+                        onMouseDown={e => e.preventDefault()} onClick={() => selectMention(person)}>
+                        {person.name}<span className="ml-2 font-mono text-xs text-secondary-foreground">{person.id.slice(-6)}</span>
+                    </Button>)}
+                </div>}
+                {query && participants.error && <p role="status" className="m-0 text-xs text-muted-foreground">People could not be loaded. You can still post without a mention.</p>}
                 <CommentsErrorMessage error={error} />
                 {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">Browser storage is unavailable. Keep this page open to keep your draft.</p>}
                 {error != null && <p className="m-0 text-xs text-muted-foreground">Your draft is kept. Try sending again.</p>}

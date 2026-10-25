@@ -52,11 +52,12 @@ export function ToolbarFeedback({ onOpen }: { onOpen?: () => void }) {
         }
     };
 
-    const handleSubmit = async (text: string) => {
+    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
         await create.mutateAsync({
             position: { type: 'page' },
             kind,
             text,
+            mentions,
             device: device.current,
             screenshot: await screenshot.current
         });
