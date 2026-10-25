@@ -26,6 +26,7 @@ test('guest comments without email, then separately verifies and revokes reply n
         await expect(commentBubble(guest.page, 1)).toBeVisible();
         await openThread(guest.page).getByRole('button', { name: 'Email me replies' }).click();
         await guest.page.getByLabel('Email for replies').fill(uniqueEmail('notification-guest'));
+        await guest.page.screenshot({ path: testInfo.outputPath('guest-reply-opt-in.png') });
         await guest.page.getByRole('button', { name: 'Send verification link' }).click();
         await expect(guest.page.getByRole('status')).toContainText('Check your email');
         const url = await guest.page.getByRole('link', { name: 'Open verification link' }).getAttribute('href');
@@ -38,6 +39,7 @@ test('guest comments without email, then separately verifies and revokes reply n
         for (const colorScheme of ['light', 'dark'] as const) {
             await verification.emulateMedia({ colorScheme });
             await expectNoAxeViolations(verification);
+            await verification.screenshot({ path: testInfo.outputPath(`notifications-${colorScheme}.png`) });
         }
         await verification.getByRole('button', { name: 'Confirm reply notifications' }).click();
         await expect(verification.getByRole('status')).toContainText('Reply notifications confirmed');

@@ -1,6 +1,7 @@
 import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from '../comments/submissions';
+import { withNotificationEvent } from '../notifications/events';
 import { withEditedThreadItem } from '../comments/editing';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem } from '../db/schema';
@@ -203,9 +204,10 @@ export async function createProjectComment(request: Request, project: DbProject,
     };
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
-    if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, comment, screenshot ? screenshotDocument(comment, screenshot) : undefined), actor);
-    await createWithScreenshot(store, comment, screenshot);
-    return comment;
+    const recorded = withNotificationEvent(comment, authorId, 'comment', now);
+    if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
+    await createWithScreenshot(store, recorded, screenshot);
+    return recorded;
 }
 
 /** The screenshot of a comment the actor can see */
@@ -289,7 +291,8 @@ async function changeComment(project: DbProject, actor: ProjectActor, id: string
 export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean) {
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
-        comment => Boolean(comment.resolved) === resolved ? comment : ({ ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }));
+        comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
+            { ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened'));
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
