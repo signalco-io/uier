@@ -37,13 +37,13 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | --- | --- |
 | `components/CommentsGlobal.tsx` | top level: pins (in page order), point mode and its keyboard path, selection handling, focus after posting, the first-run hint; collapsing hides the on-page review layer and cancels placement/selection controls, keeping draft text and inbox state |
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
-| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest or account name) and the options (reset moved toolbar, view project, exit review, sign out) popovers; on uier's own pages, account sign-out stays in the app's account menu |
+| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest or account name) and the options (reset moved toolbar, view project, exit review, sign out) popovers; on uier's own pages, account sign-out stays in the app's account menu. Options always ends with "Powered by uier", a link to uier.io (the toolbar runs on other people's sites) |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
 | `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, in their own styled shadow root; never auto-focus on load |
-| `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; `CommentThreadHeader.tsx` is the status, Mark as done / Reopen and Copy link (`?uier-comment=`, `src/review.ts`) |
+| `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; one thread layout for popover and inbox: `CommentThreadHeader.tsx` is one row (status, `#id`, the blue unread dot, then icon actions with tooltips: Mark as read, Mark as done / Reopen, Copy issue, Copy link `?uier-comment=`, `src/review.ts`); messages have an avatar column and no dividers |
 | `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins |
-| `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line), keeps drafts |
-| `components/CommentThreadItemMenu.tsx` | item options (edit with Save/Cancel and stale-edit protection; delete with a confirmation); `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns focus to the menu |
+| `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line) in one bordered box with its hint or counter and the send button, keeps drafts |
+| `components/CommentThreadItemMenu.tsx` | item options (edit with Save/Cancel and stale-edit protection; Reattach comment on the first message; delete with a confirmation); `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns focus to the menu |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...) |
 | `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted", "Comment deleted", "Reply deleted") |
@@ -52,10 +52,10 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`), clickable for saved comments |
 | `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite; ink and the pill's height (36 px buttons), the add-comment pin and the custom rewrite icon (text lines and a pencil) |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions under a rewrite's text box (`POST /api/rewrite`) |
-| `components/info/` | `getDeviceInfo` (read when feedback/capture starts) and `CommentDeviceMeta` (coarse device/viewport for everyone, expandable/copyable original reproduction details only when the API supplies the member-only `reproduction` field) |
+| `components/info/` | `getDeviceInfo` (read when feedback/capture starts) and `CommentDeviceMeta`: a desktop/tablet/mobile icon next to the first message's time, its tooltip and name the size and viewport (and browser); a click shows them, with the copyable reproduction details only when the API supplies the member-only `reproduction` field |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx` | automatic screenshots: the region of a new comment, drawn from the page without the toolbar (`modern-screenshot`, the scroll as a negative margin so fixed elements stay, fonts inlined), encoded under the API's limits; capture starts from the feedback event, restored/reopened drafts refresh it without persisting images, and saved thumbnails expand in a shadow-root popover |
 | `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx`, `hooks/useReplaceScreenshot.ts` | saved evidence upload/paste and opaque rectangle redaction, using shared API limits; replacements invalidate cached originals and update all comment lists. Redaction opens only from expanded saved details; composers never preview images |
-| `components/sidebar/` | the inbox sidebar (ink, radius 16): this page and the site's other pages in both modes, the status filter and search (`CommentsFilter.tsx`); a group renders its first 20 threads with the panel and the rest in a deferred render, so a long inbox opens without a long task |
+| `components/sidebar/` | the inbox sidebar (ink, radius 16): the search on top, then `PagePicker` (the UI kit's select: this page by default, all pages, or one other page with its matching count; typing the start of a path jumps to it) with the Unread and Assigned to me chips, then the Open/Done/All tabs counted for the chosen pages, then the list (`useInboxComments.ts`, `CommentsFilter.tsx`). Cards end with Show on page (this page) or a link to their page; an empty "this page" offers the other pages' matches; Unread lists all pages. The list renders its first 20 threads with the panel and the rest in a deferred render, so a long inbox opens without a long task |
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
 | `project/verification.ts` | cross-origin writes get a BotID proof through the API's `/review-verification` frame (no cookies); checks message origin and source, caches the proof in memory for under five minutes, fails closed |
@@ -130,7 +130,9 @@ Never infer recipients from display names or reveal account ids in guest DTOs.
 
 ## Anchor recovery
 
-`CommentAnchorDetails` explains resolution and exposes author/admin reattachment in thread details.
+`CommentAnchorDetails` shows anchors that need attention (moved text, hidden, missing, ambiguous) with
+Reattach comment; a matching anchor stays quiet (`data-uier-anchor-state` only) and author/admin
+reattachment is in the first message's menu (`useReattach`).
 `CommentsGlobal` reuses the point overlay and selection offsets, with a dockable confirm/cancel panel
 and compact instructions while choosing. The saved thread is changed only after confirmation; collapse
 cancels choosing. Anchor updates use `PATCH .../anchor`, the saved page key and expected revision.
@@ -141,7 +143,7 @@ Keep original and previous context, and never invent fallback pins for missing o
   current environment; inbox lists and activity use the visible saved Environment selection.
   Scope query keys by that selection and reviewer. A thread's server-provided `source` owns its
   original link; missing/removed sources have no executable link. Keep foreign-environment items
-  out of This page/Show on page even when paths match. Direct links override saved filters for the
+  out of This page/Show on page even when paths match (the page picker keys pages by environment and path). Direct links override saved filters for the
   visit. Filter preferences use the versioned `uier:environment:v1:` key and contain no credentials.
 
 ## Feedback export

@@ -5,7 +5,7 @@ import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/
 import { pngImage } from './support/images';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { newVisitor, toolbar } from './support/toolbar';
+import { chooseInboxPages, newVisitor, toolbar } from './support/toolbar';
 
 // Local regression budgets and methodology are in docs/mvp-launch-verification.md.
 // Measurements include browser event-to-next-frame timing, not Playwright round-trip time.
@@ -90,6 +90,9 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         await expect(toolbar(guest.page)).toBeVisible();
         await guest.page.getByRole('button', { name: /^Inbox/ }).click();
         const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
+        // This page has 80 of them; all pages list the 100
+        await expect(inbox.getByRole('article')).toHaveCount(80);
+        await chooseInboxPages(guest.page, /^All pages/);
         await expect(inbox.getByRole('article')).toHaveCount(100);
         // Filters can fill a short mobile viewport. Scroll saved evidence into view before
         // checking its lazy image; offscreen images must stay unloaded.

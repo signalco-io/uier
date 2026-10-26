@@ -61,7 +61,8 @@ still downloaded and parsed when a review is inactive; absence of a toolbar does
 - An inactive project review may make **one background session POST**, and **zero comment API/font requests**, in the load plus eight host clicks
   and a **1,200 ms observation window**. This is a short deterministic guard, not an all-day idle
   measurement.
-- Opening the 100-thread inbox may perform at most **four comment-list GETs**. Fewer than all
+- Opening the 100-thread inbox (it opens on this page's 80 threads; the test then picks All pages) may
+  perform at most **four comment-list GETs**. Fewer than all
   **25 screenshot requests** must load before scrolling. These protect lazy evidence loading and
   bounded initial reads; the other observed request paths, byte sizes and timings are retained.
   Browser instrumentation may omit CORS preflights; cached requests can report unavailable/negative

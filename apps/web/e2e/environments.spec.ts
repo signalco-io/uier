@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { commentBubbles } from './support/toolbar';
+import { chooseInboxPages, commentBubbles } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -52,8 +52,9 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(inbox.getByRole('article')).toHaveCount(1);
     await inbox.getByRole('combobox', { name: 'Environment', exact: true }).click();
     await page.getByRole('option', { name: 'All environments', exact: true }).click();
-    await expect(inbox.getByRole('article')).toHaveCount(3);
     await expect(inbox.getByRole('region', { name: 'This page', exact: true }).getByRole('article')).toHaveCount(1);
+    await chooseInboxPages(page, /^All pages/);
+    await expect(inbox.getByRole('article')).toHaveCount(3);
     const foreign = inbox.getByRole('article').filter({ hasText: 'Staging feedback' });
     await expect(foreign.getByRole('button', { name: 'Show on page' })).toHaveCount(0);
     await expect(foreign.locator('[data-uier-anchor-state]')).toHaveCount(0);
@@ -71,6 +72,8 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(commentBubbles(page)).toHaveCount(1);
     await page.getByRole('button', { name: /^Inbox/ }).click();
     await expect(inbox.getByRole('combobox', { name: 'Environment', exact: true })).toContainText('All environments');
+    await expect(inbox.getByRole('article')).toHaveCount(1);
+    await chooseInboxPages(page, /^All pages/);
     await expect(inbox.getByRole('article')).toHaveCount(3);
     await page.goto(href!);
     await expect(page).toHaveURL(new RegExp('staging\\.localhost'));

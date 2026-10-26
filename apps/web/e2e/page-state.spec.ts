@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { commentBubbles, openThread } from './support/toolbar';
+import { chooseInboxPages, commentBubbles, openThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -81,6 +81,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await expect(commentBubbles(page)).toHaveCount(1);
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await chooseInboxPages(page, /^All pages/);
     const linkA = inbox.getByRole('link', { name: `Open on ${viewA}`, exact: true });
     const href = await linkA.getAttribute('href');
     expect(href).toContain(`uier-comment=${savedA.id}`);

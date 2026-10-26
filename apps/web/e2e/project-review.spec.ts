@@ -5,7 +5,7 @@ import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
-import { commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { pngImage } from './support/images';
 
 // The review flow of a project (issue #34): a reviewed site on another origin embeds the toolbar
@@ -297,7 +297,9 @@ test('guest edits and original reproduction details persist; only members see an
     });
     expect(forbidden.status()).toBe(403);
     const guestThread = openThread(guest.page);
-    await expect(guestThread.getByRole('button', { name: 'Reproduction details' })).toHaveCount(0);
+    // Guests see the device, never the member-only reproduction details
+    await guestThread.getByRole('button', { name: /^Device:/ }).click();
+    await expect(guestThread.getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
     await guestThread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Original reply.');
     await guestThread.getByRole('button', { name: 'Post reply', exact: true }).click();
     await guestThread.getByRole('button', { name: 'More options for your reply' }).click();
@@ -313,8 +315,11 @@ test('guest edits and original reproduction details persist; only members see an
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}${path}?session_token=never-copy-this#private`)}`);
     await page.locator('[data-uier-comment]').click();
     const thread = openThread(page);
+    // The device icon names the browser; a click shows it with the reproduction details
+    const device = thread.getByRole('button', { name: /^Device:/ });
+    await expect(device).toHaveAccessibleName(/Example Browser \(123\) · Example OS/);
+    await device.click();
     await expect(thread).toContainText('Example Browser (123) · Example OS');
-    await thread.getByRole('button', { name: 'Reproduction details', exact: true }).click();
     await expect(thread.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
     await thread.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
     const copied = await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext);
@@ -328,7 +333,7 @@ test('guest edits and original reproduction details persist; only members see an
     await expect(thread).toContainText('Admin clarified the report. (edited)');
     await page.reload();
     await page.locator('[data-uier-comment]').click();
-    await openThread(page).getByRole('button', { name: 'Reproduction details', exact: true }).click();
+    await openThread(page).getByRole('button', { name: /^Device:/ }).click();
     await openThread(page).getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
     expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
 
@@ -533,13 +538,14 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
         [1, `/${projectId}/pricing`]
     ]);
 
-    // The toolbar on the pricing page: this page, and the checkout page under "Other pages"
+    // The toolbar on the pricing page: this page, and the checkout page in the page picker
     const guest = await anonymousVisitor(browser, testInfo);
     await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
     await guest.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = guest.page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByRole('article', { name: 'Comment #1' })).toContainText('Show yearly prices.');
-    const other = sidebar.getByRole('region', { name: 'Other pages' }).getByRole('article', { name: 'Comment #2' });
+    await chooseInboxPages(guest.page, new RegExp(`^/${projectId}/checkout`));
+    const other = sidebar.getByRole('region', { name: `/${projectId}/checkout` }).getByRole('article', { name: 'Comment #2' });
     await expect(other).toContainText('The pay button is hidden.');
     await expect(other.getByRole('link', { name: `Open on /${projectId}/checkout` }))
         .toHaveAttribute('href', `${siteOrigin()}/${projectId}/checkout?toolbar-code=${projectId}&uier-comment=${checkout.id}`);

@@ -1,11 +1,9 @@
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
-import { Divider } from '@signalco/ui-primitives/Divider';
 import { Button } from '@signalco/ui-primitives/Button';
 import { useReadComment } from '../hooks/useComments';
-import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { CommentThreadItem } from './CommentThreadItem';
 import { CommentAssignment } from './CommentAssignment';
 import { CommentThreadHeader } from './CommentThreadHeader';
@@ -65,69 +63,45 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     const messagesCount = commentItem.thread.items.filter(item => !item.deleted).length;
 
     return (
-        <Stack ref={threadRef} className="py-2">
-            <div className="px-4 pb-1 pt-2">
-                <CommentThreadHeader comment={commentItem} />
-            </div>
+        <Stack ref={threadRef} spacing={3} className="px-4 py-3">
+            <CommentThreadHeader comment={commentItem} />
             {(commentItem.permissions?.assign || commentItem.assignee) && <CommentAssignment comment={commentItem} />}
-            {commentItem.activity && (
-                <div className="flex items-center justify-between gap-2 px-4">
-                    <span className={commentItem.activity.unread ? 'text-xs text-[hsl(var(--brand-accent-text))]' : 'text-xs text-muted-foreground'}>{commentItem.activity.unread ? 'Unread' : 'Read'}</span>
-                    <Button size="xs" variant="plain" aria-label="Mark as read"
-                        disabled={!commentItem.activity.unread || read.isPending}
-                        className="pointer-coarse:min-h-11"
-                        onClick={() => read.mutate(commentItem)}>
-                        Mark as read
-                    </Button>
-                    <CommentsErrorMessage error={read.error} />
-                </div>
-            )}
-            {threadFistItem && (
-                <>
-                    <div className="px-4 py-2 pb-3">
-                        <CommentThreadItem
-                            first
-                            comment={commentItem}
-                            threadItem={threadFistItem} />
-                    </div>
-                    {threadLastItem && <Divider />}
-                </>
-            )}
-            {expanded && restComments.map((item, index) => (
-                <Fragment key={item.id}>
+            {/* The messages, one under the other like a chat; the avatars make the column */}
+            <Stack spacing={2}>
+                {threadFistItem && (
+                    <CommentThreadItem
+                        first
+                        comment={commentItem}
+                        threadItem={threadFistItem} />
+                )}
+                {expanded && restComments.map((item, index) => (
                     <div
+                        key={item.id}
                         ref={index === 0 ? firstRevealedRef : undefined}
                         tabIndex={index === 0 ? -1 : undefined}
-                        className="px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                        className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <CommentThreadItem
                             comment={commentItem}
                             threadItem={item} />
                     </div>
-                    <Divider />
-                </Fragment>
-            ))}
-            {!expanded && restComments.length > 0 && (
-                <Button
-                    variant="plain"
-                    className="rounded-none text-muted-foreground pointer-coarse:h-11"
-                    onClick={() => setExpanded(true)}>
-                    Show all {messagesCount} messages
-                </Button>
-            )}
-            {threadLastItem && (
-                <>
-                    {!expanded && restComments.length > 0 && <Divider />}
-                    <div className="px-4 py-2 pt-3">
-                        <CommentThreadItem
-                            comment={commentItem}
-                            threadItem={threadLastItem} />
-                    </div>
-                </>
-            )}
+                ))}
+                {!expanded && restComments.length > 0 && (
+                    <Button
+                        variant="plain"
+                        size="xs"
+                        className="ml-6 self-start text-muted-foreground"
+                        onClick={() => setExpanded(true)}>
+                        Show all {messagesCount} messages
+                    </Button>
+                )}
+                {threadLastItem && (
+                    <CommentThreadItem
+                        comment={commentItem}
+                        threadItem={threadLastItem} />
+                )}
+            </Stack>
             <CommentAnchorDetails comment={commentItem} />
-            {toolbarConfig.project && commentItem.notifications?.eligible && <div className="px-4 pt-2">
-                <ThreadNotifications comment={commentItem} />
-            </div>}
+            {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
         </Stack>
     );
 }

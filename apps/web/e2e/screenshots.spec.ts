@@ -86,7 +86,7 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     await expect(thread.getByText('Keep the feedback if capture fails.')).toBeVisible();
-    await expect(thread.getByText('No screenshot available.')).toBeVisible();
+    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
     expect((await savedComment(page, 'Keep the feedback if capture fails.')).screenshot).toBeUndefined();
     await context.close();
 });

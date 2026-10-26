@@ -3,6 +3,8 @@ import type { Locator, Page } from '@playwright/test';
 import {
     addToolbarScript,
     animationsFinished,
+    chooseInboxPages,
+    inboxPages,
     isolatedOrigin,
     newVisitor,
     openLanding,
@@ -11,8 +13,9 @@ import {
 } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
-// The inbox sidebar: this page's comments and the other pages' (review mode), searched and
-// filtered by status, each with its public id; threads show their first and last message.
+// The inbox sidebar: this page's comments by default, another page's or all pages' from the page
+// picker (review mode), searched and filtered by status, each with its public id; threads show
+// their first and last message.
 
 type SavedComment = { id: string; number: number };
 
@@ -46,13 +49,13 @@ async function comment(page: Page, path: string, text: string, { replies = [] as
     return saved;
 }
 
-/** The group lists these comments (by public id), in this order */
+/** The list shows these comments (by public id), in this order */
 async function expectListed(group: Locator, ids: string[]) {
     await expect.poll(async () => await group.getByRole('article').evaluateAll(articles =>
         articles.map(article => article.getAttribute('aria-label')))).toEqual(ids);
 }
 
-test('inbox: this page and other pages, searched and filtered by status', async ({ browser, request }, testInfo) => {
+test('inbox: this page by default, other pages from the picker, searched and filtered by status', async ({ browser, request }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
     await page.goto(`${origin}/brand?review=true`);
@@ -90,36 +93,47 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await inbox.click();
     await expect(inbox).toHaveAttribute('aria-expanded', 'true');
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
-    const thisPage = sidebar.getByRole('region', { name: 'This page' });
-    const otherPages = sidebar.getByRole('region', { name: 'Other pages' });
+    const thisPage = sidebar.getByRole('region', { name: 'This page', exact: true });
+    const allPages = sidebar.getByRole('region', { name: 'All pages', exact: true });
+    const pagesButton = inboxPages(page);
+    const pageOptions = page.getByRole('listbox');
+    const choosePage = (name: RegExp) => chooseInboxPages(page, name);
 
-    // Open comments, newest first, with their public id and status
+    // This page first: its open comments, newest first, with their public id and status
+    await expect(pagesButton).toContainText('This page');
     await expectListed(thisPage, ['Comment #5', 'Comment #1']);
-    await expectListed(otherPages, ['Comment #3']);
     const subtitleCard = thisPage.getByRole('article', { name: 'Comment #1' });
     await expect(subtitleCard).toContainText('Status: Open');
     await expect(subtitleCard).toContainText('Comment #1');
     await expect(sidebar.getByText('Name the colours.')).toHaveCount(0);
 
-    // A thread shows its first and last message; Show all shows the rest, in both groups
-    const policyCard = otherPages.getByRole('article', { name: 'Comment #3' });
-    for (const [card, first, hidden, last] of [
-        [subtitleCard, 'The heading could use a subtitle.', ['First reply.', 'Second reply.'], 'Third reply.'],
-        [policyCard, 'Link the security policy.', ['Where?', 'In the footer.'], 'Added it there.']
-    ] as const) {
-        await expect(card.getByText(first)).toBeVisible();
-        await expect(card.getByText(last)).toBeVisible();
-        for (const text of hidden) {
-            await expect(card.getByText(text)).toHaveCount(0);
-        }
-        await card.getByRole('button', { name: 'Show all 4 messages' }).click();
-        for (const text of hidden) {
-            await expect(card.getByText(text)).toBeVisible();
-        }
-        // The button is gone: the focus is on the first message it showed
-        await expect(card.locator('[tabindex="-1"]')).toBeFocused();
-        await expect(card.locator('[tabindex="-1"]')).toContainText(hidden[0]);
+    // The picker: this page, all pages and the other pages, with their open comments
+    await pagesButton.click();
+    await expect(pageOptions.getByRole('option', { name: /^This page/ })).toHaveAttribute('data-state', 'checked');
+    await expect(pageOptions.getByRole('option', { name: /^All pages\D*3$/ })).toBeVisible();
+    await expect(pageOptions.getByRole('option')).toHaveCount(3);
+    // (While the select is open it hides the rest of the page from assistive technologies, like a
+    // dialog; the scans below run with it closed.)
+    await pageOptions.getByRole('option', { name: /^\/security\D*1$/ }).click();
+    await expect(pageOptions).toBeHidden();
+    await expect(pagesButton).toContainText('/security');
+    const security = sidebar.getByRole('region', { name: '/security', exact: true });
+    await expectListed(security, ['Comment #3']);
+
+    // A thread shows its first and last message; Show all shows the rest
+    const policyCard = security.getByRole('article', { name: 'Comment #3' });
+    await expect(policyCard.getByText('Link the security policy.')).toBeVisible();
+    await expect(policyCard.getByText('Added it there.')).toBeVisible();
+    for (const text of ['Where?', 'In the footer.']) {
+        await expect(policyCard.getByText(text)).toHaveCount(0);
     }
+    await policyCard.getByRole('button', { name: 'Show all 4 messages' }).click();
+    for (const text of ['Where?', 'In the footer.']) {
+        await expect(policyCard.getByText(text)).toBeVisible();
+    }
+    // The button is gone: the focus is on the first message it showed
+    await expect(policyCard.locator('[tabindex="-1"]')).toBeFocused();
+    await expect(policyCard.locator('[tabindex="-1"]')).toContainText('Where?');
 
     // The other page's comment links to its thread there, in the review
     const policyLink = policyCard.getByRole('link', { name: 'Open on /security' });
@@ -127,45 +141,47 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await animationsFinished(sidebar);
     await expectNoAxeViolations(page);
 
-    // Search: pages, messages and public ids, in both groups ("/security" is only in the page path)
+    // Back on this page, Show all works the same
+    await choosePage(/^This page/);
+    await subtitleCard.getByRole('button', { name: 'Show all 4 messages' }).click();
+    for (const text of ['First reply.', 'Second reply.']) {
+        await expect(subtitleCard.getByText(text)).toBeVisible();
+    }
+
+    // Search on this page: "/security" is only in another page's path, which the empty list offers
     const search = sidebar.getByRole('searchbox', { name: 'Search comments' });
     await search.fill('/security');
-    await expect(thisPage).toContainText('No matches');
-    await expectListed(otherPages, ['Comment #3']);
+    await expect(thisPage).toContainText('No matches on this page');
+    await thisPage.getByRole('button', { name: 'Show 1 on other pages' }).click();
+    await expect(pagesButton).toContainText('All pages');
+    await expectListed(allPages, ['Comment #3']);
     await expect(sidebar.getByRole('status').filter({ hasText: '1 comment found' })).toBeAttached();
+    // Messages and public ids, on every page
     await search.fill('second REPLY');
-    await expect(otherPages).toContainText('No matches');
-    await expectListed(thisPage, ['Comment #1']);
+    await expectListed(allPages, ['Comment #1']);
     await search.fill('#5');
-    await expectListed(thisPage, ['Comment #5']);
+    await expectListed(allPages, ['Comment #5']);
     // Escape clears a search first, and the inbox stays
     await search.press('Escape');
     await expect(search).toHaveValue('');
     await expect(sidebar).toBeVisible();
-    await expectListed(thisPage, ['Comment #5', 'Comment #1']);
-    await search.fill('#5');
-    await expect(otherPages).toContainText('No matches');
+    await expectListed(allPages, ['Comment #5', 'Comment #3', 'Comment #1']);
 
     // Status: done comments, then all of them, still searched
-    await search.fill('');
     await sidebar.getByRole('button', { name: /^Done \d+$/ }).click();
-    await expectListed(thisPage, ['Comment #2']);
-    await expectListed(otherPages, ['Comment #6', 'Comment #4']);
-    await expect(otherPages.getByRole('article', { name: 'Comment #4' })).toContainText('Status: Done');
+    await expectListed(allPages, ['Comment #6', 'Comment #4', 'Comment #2']);
+    await expect(allPages.getByRole('article', { name: 'Comment #4' })).toContainText('Status: Done');
     await search.fill('contact');
-    await expect(thisPage).toContainText('No matches');
-    await expectListed(otherPages, ['Comment #4']);
+    await expectListed(allPages, ['Comment #4']);
     // Only in the quoted text, then only in another visitor's guest name
     await search.fill('vulnerability');
-    await expect(thisPage).toContainText('No matches');
-    await expectListed(otherPages, ['Comment #6']);
+    await expectListed(allPages, ['Comment #6']);
     await search.fill(guestName);
-    await expectListed(thisPage, ['Comment #2']);
-    await expect(otherPages).toContainText('No matches');
+    await expectListed(allPages, ['Comment #2']);
     await sidebar.getByRole('button', { name: /^All \d+$/ }).click();
     await search.fill('');
-    await expectListed(thisPage, ['Comment #5', 'Comment #2', 'Comment #1']);
-    await expectListed(otherPages, ['Comment #6', 'Comment #4', 'Comment #3']);
+    await expectListed(allPages, ['Comment #6', 'Comment #5', 'Comment #4', 'Comment #3', 'Comment #2', 'Comment #1']);
+    await expect(sidebar.getByRole('button', { name: 'All 6', exact: true })).toBeVisible();
 
     // The Inbox button closes it again; it opens as it was
     await inbox.click();
@@ -173,9 +189,10 @@ test('inbox: this page and other pages, searched and filtered by status', async 
     await expect(inbox).toHaveAttribute('aria-expanded', 'false');
     await inbox.click();
     await expect(sidebar.getByRole('button', { name: /^All \d+$/ })).toHaveAttribute('aria-pressed', 'true');
-    await expectListed(otherPages, ['Comment #6', 'Comment #4', 'Comment #3']);
+    await expectListed(allPages, ['Comment #6', 'Comment #5', 'Comment #4', 'Comment #3', 'Comment #2', 'Comment #1']);
 
     // Show on page: the inbox closes and the thread opens on its pin
+    await choosePage(/^This page/);
     await thisPage.getByRole('article', { name: 'Comment #1' }).getByRole('button', { name: 'Show on page' }).click();
     await expect(sidebar).toBeHidden();
     await expect(openThread(page).getByText('The heading could use a subtitle.')).toBeVisible();
@@ -184,6 +201,7 @@ test('inbox: this page and other pages, searched and filtered by status', async 
 
     // The link goes to the other page, where the thread opens
     await inbox.click();
+    await choosePage(/^\/security/);
     await policyCard.getByRole('link', { name: 'Open on /security' }).click();
     await page.waitForURL(url => url.pathname === '/security');
     await addToolbarScript(page);
@@ -204,7 +222,11 @@ test('inbox: the showcase lists comments on other public pages', async ({ browse
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('region', { name: 'This page' }).getByText('Pinned on the landing page.')).toBeVisible();
-    await expect(sidebar.getByRole('region', { name: 'Other pages' }).getByText('Somewhere else.')).toBeVisible();
+    await expect(sidebar.getByText('Somewhere else.')).toHaveCount(0);
+    await chooseInboxPages(page, /^All pages/);
+    const allPages = sidebar.getByRole('region', { name: 'All pages' });
+    await expect(allPages.getByText('Pinned on the landing page.')).toBeVisible();
+    await expect(allPages.getByText('Somewhere else.')).toBeVisible();
 
     await context.close();
 });
@@ -229,6 +251,7 @@ test('inbox: a comment\'s link never leaves the site', async ({ browser }, testI
     };
     await page.route('**/api/comments?scope=site', route => route.fulfill({ json: [sneaky] }));
     await page.getByRole('button', { name: /^Inbox/ }).click();
+    await chooseInboxPages(page, /^All pages/);
     const link = page.getByRole('complementary', { name: 'Comments' }).getByRole('article', { name: 'Comment #7' }).getByRole('link');
     const href = await link.getAttribute('href');
     expect(new URL(href!).origin).toBe(origin);
