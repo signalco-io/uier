@@ -214,8 +214,9 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
     const done = is('done', 'leave');
 
     return (
-        // data-landing-scene: the e2e accessibility scan skips this picture (e2e/accessibility.ts)
-        <div data-landing-scene="" aria-hidden="true" className="rounded-3xl border bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:shadow-none">
+        // Decorative (data-uier-decorative): the toolbar's screenshots keep its box only and its
+        // changes do not make the toolbar measure the page again; the e2e axe scan skips it
+        <div data-uier-decorative="" aria-hidden="true" className="rounded-3xl border bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:shadow-none">
             <div className="flex items-center gap-1.5 px-2 pb-2.5 pt-1">
                 <span className="size-2.5 rounded-full bg-muted" />
                 <span className="size-2.5 rounded-full bg-muted" />
