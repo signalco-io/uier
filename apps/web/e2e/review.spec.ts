@@ -143,9 +143,9 @@ test('collapse hides page annotations, preserves reply text and restores current
     await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
     await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
     await expect(openThread(page)).toHaveCount(0);
-    await selectText(page, brand.description);
+    await selectText(page, brand.shortDescription);
     await expect(selectionToolbar(page)).toHaveCount(0);
-    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(brand.description);
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(brand.shortDescription);
 
     // The page can move underneath the hidden layer; expanding must measure it again.
     await page.getByRole('heading', { level: 1 }).evaluate(element => { element.style.marginTop = '120px'; });
@@ -175,7 +175,7 @@ test('collapse hides page annotations, preserves reply text and restores current
     expect(saved.every(comment => !comment.resolved && comment.thread.items.length === 1)).toBe(true);
     await expand.click();
     await expect(commentBubbles(page)).toHaveCount(2);
-    await selectText(page, brand.description);
+    await selectText(page, brand.shortDescription);
     await expect(selectionToolbar(page)).toBeVisible();
     await collapse.click();
     await expect(selectionToolbar(page)).toHaveCount(0);

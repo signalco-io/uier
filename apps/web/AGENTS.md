@@ -10,7 +10,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, users, account), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
@@ -27,7 +27,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
 | `app/not-found.tsx`, `app/(rest)/error.tsx` | the 404 page and the error boundary, both a `StatusPage` (`src/components/StatusPage.tsx`: logo, a browser frame with a pin on the empty spot, what happened, where to go) |
-| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo` remains a visual specimen on `/brand`; the landing thread is live) |
+| `src/components/marketing/` | `ContentPage` (the building blocks of every public page, landing included: header with a one-sentence lead, section heading, section (heading beside its content on wide screens, like the landing's questions; `wide` stacks them, for the brand page's specimens), `Panel` of hairline-divided cells with `Tile`, `CheckList`, `InlineLink`), `HowItWorks` (the landing's cover: one animated loop on the example site from adding the script tag to a thread marked as done, under a row with its heading, a caption and Pause), `LandingSpecimens` (static, `aria-hidden` pictures of the review layer and the app for the landing's feature tiles; example content is an imaginary restaurant site, a different part of it than the walkthrough shows), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), `ReviewThreadDemo` (a visual specimen on `/brand`; the landing thread is live) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
@@ -63,19 +63,40 @@ that the assets (favicon, icons, manifest, OG image) are served, and that it pas
 
 Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
 review layer is shown with persisted starter threads (the toolbar renders `data-uier-thread` slots, pins and highlights), one solid
-"Get started" and one outlined secondary action, no badges above the headline.
+"Get started" and one outlined secondary action, no badges above the headline. The cover beside the
+headline is the how-it-works scene (`HowItWorks`); the headline thread's live slot is in "Try it on
+this page", and the description stays a direct child of the hero's first column (tests select it as
+`main>section>div>p`).
 
 Sections, in order, each with an `h2` whose id the navigation and footer link to (`KnownPages`):
-how it works (`#how-it-works`), features (`#features`), get started (`#get-started`), pricing
-(`#pricing`, `LandingPricing`) and questions (`#faq`, `LandingFaq`, native `<details>`).
+how it works (`#how-it-works`, the small heading over the cover scene), features (`#features`), get
+started (`#get-started`), pricing (`#pricing`, `LandingPricing`) and questions (`#faq`,
+`LandingFaq`, native `<details>`).
 
-- **Only what the toolbar does today.** Every step, feature and answer describes behaviour you can
-  try on the page (check `packages/toolbar` before adding one). The showcase runs on every public
-  marketing page and its inbox includes other public pages. Project
-  embeds work on their configured addresses, with headers for identity and BotID proofs for writes.
-- **Get started** goes to `#get-started`, which starts the one supported flow: leaving a comment
-  with the showcase toolbar on this page. Point it at the app (and update the test) once
-  onboarding exists.
+- **Only what uier does today.** Every step, feature and answer describes behaviour that ships: in
+  the toolbar (check `packages/toolbar`) or in the app's projects (check `src/lib`) before adding
+  one. Say which parts can be tried on the page itself: the showcase is a guest, so mentions,
+  assignment, environments and the MCP connector only work in a project. The showcase runs on
+  every public marketing page and its inbox includes other public pages. Project embeds work on
+  their configured addresses, with headers for identity and BotID proofs for writes.
+- **Pictures are specimens.** The cover scene and the feature tiles are built from the tokens and
+  `<Pin />` (`HowItWorks`, `LandingSpecimens`), hidden from assistive technologies, never
+  screenshots; keep their text out of the strings the e2e tests look up on the page (the FAQ's
+  "add one script tag to your site", the description). The starter thread "Try it here" is pinned
+  to the "Try it on this page" box by `id="first-step-comment-anchor"`; the id is stored in
+  production, so keep it.
+- **One section moves.** The how-it-works scene is a timeline of phases (`phases` in
+  `HowItWorks.tsx`); everything in it is always rendered and shown or hidden with the brand's fade,
+  and the pointer's targets are measured from the scene, so it follows any width. It plays only
+  while in view, Pause stops it, and with reduced motion it shows one still frame. Its canvas is
+  `data-uier-decorative` with a `min-height`: the toolbar's screenshots keep its box but not its
+  content (copying it made every capture on the landing page much slower). The e2e axe scan skips
+  the scene (`data-landing-scene`): it is a picture, and a frame caught mid-fade has low contrast. Keep the other sections still, and keep each section's layout
+  different from its neighbours.
+- **Get started** (the hero and pricing) opens `/app`, like the navigation's "Sign in": signed-out
+  visitors land on sign in, signed-in people in the app. The `#get-started` section below the
+  features still offers both paths: trying the showcase toolbar on this page, or a project for
+  your own site.
 - **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
   or limits. The app has no billing page while everything is free.
 

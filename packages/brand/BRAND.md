@@ -227,10 +227,26 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
 
 ## Marketing and metadata
 
-- Hero: the tagline as the display line, the longer description under it, one solid "Get
-  started" and one outlined secondary action. No pills or badges above the headline.
+- Hero: the tagline as the display line, the one-line description (`brand.shortDescription`)
+  under it, one solid "Get started" and one outlined secondary action. No pills or badges above the headline. The cover
+  beside it is the how-it-works scene: the product playing on an example site in a browser frame
+  (radius 24, hero media), built from the tokens, never a screenshot.
 - Show the product by putting the review layer on the page itself (a pinned thread on the
-  headline, the toolbar at the bottom) rather than a screenshot in a fake browser.
+  headline, the toolbar at the bottom) rather than a screenshot in a fake browser. Where a
+  section needs a picture, use a small static piece of the product built from the tokens (a pin,
+  a thread, the ink inbox), not a screenshot; the example content is an imaginary site.
+- Navigation: the section links, then one solid "Sign in" that opens the app. "Get started"
+  opens the app too.
+- Page headers: the title and one short sentence. Sections are separated by whitespace (64 px
+  and more), not rules; on wide screens a section's heading stays in view beside its content
+  (the landing's questions, the content pages), unless the content needs the full width. Related
+  items sit in one bordered panel divided by hairlines rather than in a row of separate cards. Keep steps and
+  tiles to a title and one or two short sentences, and do not give two neighbouring sections the
+  same layout.
+- At most one thing moves on its own: the landing's cover, the how-it-works scene, a loop that
+  plays the product on an example site. Things in it come and go with the enter and exit motion above; the
+  pointer and the text selection move with ease-out and no overshoot. It plays only in view, has a
+  Pause button and shows one still frame with reduced motion.
 - Footer: on every page, with "A signalco project" in the bottom line. Contact and social links
   use `brand.contact` and `brand.social`; uier has no mailboxes or social accounts of its own, so
   they are signalco's (contact@signalco.io, @signalco_io on X) and the GitHub repository.

@@ -310,7 +310,9 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             height: view.height,
             scale,
             backgroundColor: pageBackground(),
-            filter: node => node !== exclude && !(node instanceof Element && node.hasAttribute('data-uier-thread')),
+            // Not the toolbar, inline threads (the toolbar's too) or a decorative element's content: an
+            // animation or illustration the site marked `data-uier-decorative` (README) keeps its box
+            filter: node => node !== exclude && !(node instanceof Element && node.hasAttribute('data-uier-thread')) && !node.parentElement?.closest('[data-uier-decorative]'),
             // The scroll position as a margin, not a transform: fixed and sticky elements stay put.
             // `<html>` is not the page's root in the copy: its overflow would clip it.
             style: { marginTop: `${-scroll.y}px`, marginLeft: `${-scroll.x}px`, overflow: 'visible' },
