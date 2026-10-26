@@ -193,9 +193,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   scheme these use HTTP; other sites use HTTPS. Explicit `http://` or `https://` is preserved.
   The toolbar accepts only configured origins, including the scheme and port. Local sites
   open on the reviewer's own computer, so each reviewer needs the site running locally.
-  - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
+  - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install?onboarding=1`
     (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
-    the sources to add to it).
+    the sources to add to it). Both pages show the two-step progress (Your site, Add the script); the Install
+    tab on its own is the guide without it.
   - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
     Comments, Install and Settings.
   - Comments `/app/projects/<code>`: the guest link (in guest mode) and the project's **comments**, as a

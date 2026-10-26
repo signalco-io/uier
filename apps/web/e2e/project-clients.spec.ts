@@ -88,7 +88,7 @@ test('client names validate, normalize, persist in details and can be cleared', 
     await expect(input).toHaveValue('x'.repeat(81));
     await input.fill('  North   & South  ');
     await page.getByRole('button', { name: 'Create project' }).click();
-    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install$/);
+    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install\?onboarding=1$/);
     const projectId = page.url().split('/').at(-2)!;
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByText('Client: North & South', { exact: true })).toBeVisible();

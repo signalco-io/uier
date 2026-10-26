@@ -38,8 +38,8 @@ export async function createProject(page: Page, { urls, name, clientName }: { ur
     if (clientName !== undefined)
         await fillClientName(page.getByLabel('Client name (optional)'), clientName);
     await page.getByRole('button', { name: 'Create project' }).click();
-    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install$/);
-    const projectId = /\/app\/projects\/([0-9a-z]{12})\/install$/.exec(page.url())?.[1];
+    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install\?onboarding=1$/);
+    const projectId = /\/app\/projects\/([0-9a-z]{12})\/install\?onboarding=1$/.exec(page.url())?.[1];
     if (!projectId)
         throw new Error(`No project id in ${page.url()}`);
     return projectId;
