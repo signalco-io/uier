@@ -20,10 +20,8 @@ export type InboxListState = {
     refetch: () => void;
 };
 
-function createdTime(comment: CommentItem) {
-    const value = Date.parse(comment.createdAt ?? comment.thread.items[0]?.createdAt ?? '');
-    return Number.isNaN(value) ? comment.number ?? 0 : value;
-}
+/** Newest first (ISO 8601 times sort as text) */
+const newestFirst = (a: CommentItem, b: CommentItem) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
 
 /** The path of a `page:<environment>|<path>` key */
 export function pageKeyPath(key: CommentsPageFilter) {
@@ -60,7 +58,7 @@ export function useInboxComments(filter: CommentsFilter) {
         state = currentQuery;
     } else if (scope === 'all') {
         scoped = currentSearched && othersSearched
-            ? [...currentSearched, ...othersSearched].sort((a, b) => createdTime(b) - createdTime(a))
+            ? [...currentSearched, ...othersSearched].sort(newestFirst)
             : undefined;
         state = {
             isPending: currentQuery.isPending || siteQuery.isPending,
@@ -76,15 +74,12 @@ export function useInboxComments(filter: CommentsFilter) {
         list?.filter(comment => matchesStatus(comment, status));
     const comments = withStatus(scoped);
 
-    // The whole site without a search or filter: the activity summary has the full counts
-    const unfiltered = !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe;
-    const counts: Record<CommentsStatusFilter, number> = scope === 'all' && unfiltered && activity
-        ? { unresolved: activity.open, resolved: activity.done, all: activity.total }
-        : {
-            unresolved: withStatus(scoped, 'unresolved')?.length ?? 0,
-            resolved: withStatus(scoped, 'resolved')?.length ?? 0,
-            all: scoped?.length ?? 0
-        };
+    // Of the listed comments (the site's list has the newest ones only, see `siteCapped`)
+    const counts: Record<CommentsStatusFilter, number> = {
+        unresolved: withStatus(scoped, 'unresolved')?.length ?? 0,
+        resolved: withStatus(scoped, 'resolved')?.length ?? 0,
+        all: scoped?.length ?? 0
+    };
 
     // Other pages in the order of their newest comment, counted with the search and status
     const pages = new Map<`page:${string}`, InboxPage>();

@@ -1,7 +1,6 @@
 import { useProjectViewer } from '../project/ProjectGate';
 import { createContext, useContext } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
 import { Info } from '@signalco/ui-icons';
 import { useCommentPlacement, type AnchorState } from '../hooks/useCommentItemRects';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
@@ -42,9 +41,6 @@ export function useReattach(comment: CommentItem) {
     };
 }
 
-/** Only states that need attention are shown; a matching anchor stays quiet */
-const noticeStates: AnchorState[] = ['restored', 'hidden', 'missing', 'ambiguous'];
-
 /**
  * Where the thread's pin is on this page, when that needs attention (moved text, a hidden, missing
  * or ambiguous target), with "Reattach comment"; how often the anchor changed. A matching anchor
@@ -54,15 +50,15 @@ export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
     const reattach = useReattach(comment);
     const { state } = useCommentPlacement(reattach.samePage ? comment.position : undefined);
     if (comment.position.type === 'page') return null;
-    const notice = reattach.samePage && noticeStates.includes(state);
-    const warning = state === 'missing' || state === 'ambiguous';
+    // Only states that need attention are shown; a matching anchor stays quiet
+    const notice = state !== 'exact' && state !== 'page';
     const offSource = reattach.canEdit && reattach.samePage && !reattach.originalSource;
     if (!reattach.samePage && !comment.anchorContext) return null;
 
     return (
         <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
             {reattach.samePage && (notice ? (
-                <div data-uier-anchor-state={state} className={cx('flex items-start gap-2 rounded-lg border px-2.5 py-2', warning && 'text-foreground')}>
+                <div data-uier-anchor-state={state} className="flex items-start gap-2 rounded-lg border px-2.5 py-2">
                     <Info size={14} aria-hidden="true" className="mt-px shrink-0" />
                     <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                         <p className="m-0">{anchorStateText[state]}</p>

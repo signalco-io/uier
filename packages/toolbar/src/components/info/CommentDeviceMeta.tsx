@@ -51,7 +51,7 @@ export function CommentDeviceButton({ device, reproduction, expanded, controls, 
         <IconButton
             size="xs"
             variant="plain"
-            className="size-6 shrink-0 text-muted-foreground hover:text-foreground aria-expanded:text-foreground"
+            className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
             title={summary}
             aria-label={`Device: ${summary}`}
             aria-expanded={expanded}
@@ -69,7 +69,7 @@ export function CommentDeviceDetails({ id, device, reproduction }: DeviceProps &
     const summary = deviceSummary(device);
 
     return (
-        <div id={id} className="flex min-w-0 flex-col gap-1.5 rounded-lg border bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
+        <div id={id} className="flex min-w-0 flex-col gap-1.5 rounded-lg border px-2.5 py-2 text-xs text-muted-foreground">
             {summary && <p className="m-0 font-mono tabular-nums text-foreground" title="Device and viewport the comment was left from">{summary}</p>}
             {reproduction && <>
                 <p className="m-0">{browserSummary(reproduction)}</p>

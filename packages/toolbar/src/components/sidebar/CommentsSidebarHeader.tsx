@@ -48,24 +48,16 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     );
 }
 
-/** A filter that is on or off, as a small rounded toggle next to the page picker */
-export function FilterChip({ pressed, onClick, className, children }: {
+/** A filter that is on or off, as a rounded toggle next to the page picker (as tall as it) */
+export function FilterChip({ pressed, onClick, children }: {
     pressed: boolean;
     onClick: () => void;
-    className?: string;
     children: React.ReactNode;
 }) {
     return (
-        <button
-            type="button"
-            aria-pressed={pressed}
-            onClick={onClick}
-            className={cx(
-                'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                pressed ? 'border-foreground/40 bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-                className
-            )}>
+        <Button variant="outlined" aria-pressed={pressed} onClick={onClick}
+            className={cx('shrink-0 rounded-full', pressed ? 'bg-accent' : 'text-muted-foreground')}>
             {children}
-        </button>
+        </Button>
     );
 }

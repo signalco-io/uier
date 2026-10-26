@@ -171,7 +171,6 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                         target="_blank"
                         rel="noopener"
                         startDecorator={<Mark size={16} aria-hidden="true" />}
-                        endDecorator={<ExternalLink size={14} aria-hidden="true" className="ml-auto" />}
                         onClick={() => handleOpenChange(false)}>
                         Powered by uier
                     </Button>

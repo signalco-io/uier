@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { SelectItems } from '@signalco/ui-primitives/SelectItems';
-import { File, Layers } from '@signalco/ui-icons';
+import { File } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { useInkContainer } from '../InkScope';
 import type { CommentsPageFilter } from './CommentsFilter';
@@ -19,15 +19,9 @@ export function pageLabel(value: CommentsPageFilter) {
     return value === 'current' ? 'This page' : value === 'all' ? 'All pages' : pageKeyPath(value);
 }
 
-/** An option's name and its matching comments */
+/** An option's name (with another environment's label) and its matching comments */
 function PageOption({ label, count, detail }: { label: string; count: number; detail?: string }) {
-    return (
-        <span className="flex min-w-0 items-baseline gap-2">
-            <span className="truncate">{label}</span>
-            {detail && <span className="truncate text-xs text-muted-foreground">{detail}</span>}
-            <span className="ml-auto text-xs tabular-nums text-muted-foreground">{count}</span>
-        </span>
-    );
+    return <span className="flex gap-2">{label}{detail && ` · ${detail}`}<span className="text-muted-foreground">{count}</span></span>;
 }
 
 /**
@@ -43,12 +37,12 @@ export function PagePicker({ value, pages, currentCount, otherCount, onChange }:
         <SelectItems<CommentsPageFilter>
             container={container ?? undefined}
             placeholder="Pages"
-            className="min-w-0 flex-1 [&_[role=combobox]]:h-8"
+            className="min-w-0 flex-1"
             value={value}
             onValueChange={onChange}
             items={[
                 { value: 'current', icon: pageIcon, label: <PageOption label="This page" count={currentCount} /> },
-                { value: 'all', icon: <Layers size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />, label: <PageOption label="All pages" count={currentCount + otherCount} /> },
+                { value: 'all', icon: pageIcon, label: <PageOption label="All pages" count={currentCount + otherCount} /> },
                 ...pages.map(page => ({
                     value: page.key,
                     icon: pageIcon,

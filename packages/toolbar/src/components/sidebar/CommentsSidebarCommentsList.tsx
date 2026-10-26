@@ -72,14 +72,7 @@ function CardFooter({ children }: { children: ReactNode }) {
 function OtherPage({ comment }: { comment: CommentItem }) {
     const { review } = useContext(CommentsBootstrapperContext);
     if (comment.source?.available === false) {
-        return (
-            <CardFooter>
-                <p className="m-0 flex min-h-7 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
-                    <File size={14} aria-hidden="true" className="shrink-0" />
-                    <span className="truncate font-mono">{comment.path}</span> · Original source unavailable
-                </p>
-            </CardFooter>
-        );
+        return <CardFooter><p className="m-0 truncate px-2 font-mono text-xs text-muted-foreground">{comment.path} · Original source unavailable</p></CardFooter>;
     }
 
     return (
@@ -87,7 +80,7 @@ function OtherPage({ comment }: { comment: CommentItem }) {
             {/* Opens the thread on its original permitted origin, including grouped aliases */}
             <a
                 href={commentLink(comment, review)}
-                className="flex min-h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
+                className="flex min-w-0 items-center gap-1.5 rounded-md p-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
                 <span className="sr-only">Open on </span>
                 <File size={14} aria-hidden="true" className="shrink-0" />
                 <span className="truncate font-mono">{comment.path}</span>

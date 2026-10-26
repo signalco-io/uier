@@ -22,7 +22,7 @@ export function CommentAssignment({ comment }: { comment: CommentItem }) {
         {comment.permissions?.assign ? (
             <Button ref={triggerRef} size="xs" variant="plain" aria-expanded={open}
                 aria-label={`${assigned}. Change assignee`}
-                className="-ml-2 self-start font-normal text-muted-foreground hover:text-foreground aria-expanded:text-foreground"
+                className="-ml-2 self-start font-normal text-muted-foreground hover:text-foreground"
                 endDecorator={<ExpandDown size={14} aria-hidden="true" />}
                 onClick={() => setOpen(!open)}>
                 {assigned}
