@@ -44,6 +44,7 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
         <FieldSet className="gap-3">
             <FieldLegend variant="label" className={cn('mb-0', hideLegend && 'sr-only')}>Site addresses</FieldLegend>
             {description && <FieldDescription>{description}</FieldDescription>}
+            <FieldDescription>Local addresses such as localhost:3000 use HTTP by default. Include https:// for local HTTPS.</FieldDescription>
             <div className="flex flex-col gap-2">
                 {rows.map((row, index) => (
                     <div key={row.key} className="flex items-center gap-2">

@@ -5,7 +5,7 @@ import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/
 import { pngImage } from './support/images';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { newVisitor, toolbar } from './support/toolbar';
+import { chooseInboxPages, newVisitor, toolbar } from './support/toolbar';
 
 // Local regression budgets and methodology are in docs/mvp-launch-verification.md.
 // Measurements include browser event-to-next-frame timing, not Playwright round-trip time.
@@ -23,7 +23,7 @@ async function hostClicks(page: Page) {
     return await page.evaluate(start => performance.getEntriesByName('host-click-to-frame').slice(start).map(entry => entry.duration), start);
 }
 
-test('inactive review and a 100-thread inbox stay within measured bundle, request and host-interaction budgets', async ({ page, browser, request }, testInfo) => {
+test('inactive review and a 100-thread inbox stay within measured bundle, request and host-interaction budgets', async ({ page, browser, request, baseURL }, testInfo) => {
     await signIn(page, uniqueEmail('launch-budget'));
     const projectId = await createProject(page, { urls: [site.origin()], name: 'Launch budgets' });
     await setProjectAccess(page, projectId, 'Anyone with the link');
@@ -81,7 +81,8 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         // A fixed observation window, not a claim about an entire idle session.
         await guest.page.waitForTimeout(1200);
         const inactiveRequests = [...requests];
-        expect(inactiveRequests).toEqual([]);
+        // The only inactive API work is the single, bounded background account check.
+        expect(inactiveRequests).toEqual([{ path: `${new URL(baseURL!).hostname}/api/review/${projectId}/sso`, method: 'POST' }]);
         expect(bundle.raw).toBeLessThan(750_000);
         expect(bundle.gzip).toBeLessThan(220_000);
 
@@ -89,6 +90,9 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         await expect(toolbar(guest.page)).toBeVisible();
         await guest.page.getByRole('button', { name: /^Inbox/ }).click();
         const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
+        // This page has 80 of them; all pages list the 100
+        await expect(inbox.getByRole('article')).toHaveCount(80);
+        await chooseInboxPages(guest.page, /^All pages/);
         await expect(inbox.getByRole('article')).toHaveCount(100);
         // Filters can fill a short mobile viewport. Scroll saved evidence into view before
         // checking its lazy image; offscreen images must stay unloaded.

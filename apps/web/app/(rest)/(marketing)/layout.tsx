@@ -1,5 +1,6 @@
 import { Container } from '@signalco/ui-primitives/Container';
 import { PageNav } from '@signalco/ui/Nav';
+import { Button } from '@signalco/ui-primitives/Button';
 import { Logo } from '@uier/brand/Logo';
 import { SiteFooter } from '../../../src/components/marketing/SiteFooter';
 import { KnownPages } from '../../../src/knownPages';
@@ -17,7 +18,11 @@ export default function RootMarketingLayout({ children, }: {
 }) {
     return (
         <>
-            <PageNav logo={<Logo size={18} />} links={navLinks} />
+            {/* /app: signed-out visitors go to sign in (proxy.ts), signed-in people straight into the app.
+                These pages are static, so the label does not depend on the session. */}
+            <PageNav logo={<Logo size={18} />} links={navLinks}>
+                <Button variant="solid" href={KnownPages.App}>Sign in</Button>
+            </PageNav>
             {/* While the review toolbar is mounted (showcase on public pages, review mode through review links),
                 its pill sits at the bottom of the window (bottom 16px, 48px tall): the padding lets the
                 end of the page scroll clear of it, and the scroll padding keeps focused links from

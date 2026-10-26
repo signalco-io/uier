@@ -1,7 +1,7 @@
 import { brand } from '@uier/brand';
 import { KnownPages } from '../../knownPages';
 import { getAppStore, type AppStore } from '../app/store';
-import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef, type DbWorkspace } from '../app/model';
+import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../app/model';
 import type { DbComment } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { isLocalRuntime } from './environment';
@@ -10,7 +10,8 @@ export const PUBLIC_PROJECT_ID = 'uier00000001';
 export const PUBLIC_PROJECT_PARTITION = `project:${PUBLIC_PROJECT_ID}`;
 export const HEADLINE_COMMENT_ID = 'comment_uier_headline';
 export const STEP_COMMENT_ID = 'comment_uier_first_step';
-const workspaceId = 'w_uier_public';
+export const PUBLIC_WORKSPACE_ID = 'w_uier_public';
+const workspaceId = PUBLIC_WORKSPACE_ID;
 const createdAt = '2026-10-25T00:00:00.000Z';
 
 // The page key may carry query or hash state after the pathname
@@ -74,6 +75,28 @@ async function createIfMissing(store: CommentsStore, comment: DbComment) {
     }
 }
 
+/** All account holders can review uier. Existing team roles and project access are retained. */
+export async function joinPublicProject(user: DbUser, app = getAppStore()): Promise<DbMember> {
+    const member: DbMember = {
+        id: memberId(user.id), pk: workspacePk(workspaceId), type: 'member', workspaceId,
+        userId: user.id, email: user.email, role: 'commenter', projects: [PUBLIC_PROJECT_ID],
+        createdAt: new Date().toISOString(), ttl: -1
+    };
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const stored = await app.get<DbMember>(member.pk, member.id);
+        if (!stored) {
+            if (await app.create(member)) return member;
+            continue;
+        }
+        const existing = stored.doc;
+        if (existing.role === 'admin' || existing.projects === 'all' || existing.projects.includes(PUBLIC_PROJECT_ID))
+            return existing;
+        const updated = { ...existing, projects: [...existing.projects, PUBLIC_PROJECT_ID] };
+        if (await app.replace(updated, stored.etag) === 'ok') return updated;
+    }
+    throw new Error('Could not join the uier feedback project');
+}
+
 /** The public project and initial threads, provisioned in the deployment's own containers. */
 export async function provisionPublicProject(app: AppStore, comments: CommentsStore, legacyDomain?: string) {
     const project: DbProject = {
@@ -84,6 +107,14 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
     await app.create<DbWorkspace>({ id: workspaceId, pk: workspacePk(workspaceId), type: 'workspace', name: brand.name, createdBy: 'system', createdAt, ttl: -1 });
     await app.create(project);
     await app.create<DbProjectRef>({ id: PUBLIC_PROJECT_ID, pk: projectRefPk(PUBLIC_PROJECT_ID), type: 'project-ref', workspaceId, ttl: -1 });
+
+    // Backfill existing accounts once, with a receipt only after every membership was saved.
+    const membersMigrationId = 'public-feedback-members-v1';
+    if (!await app.get(project.pk, membersMigrationId)) {
+        for (const user of await app.query<DbUser>({ type: 'user' }))
+            await joinPublicProject(user, app);
+        await app.create<AppDoc>({ id: membersMigrationId, pk: project.pk, type: 'migration', ttl: -1 });
+    }
 
     // Keep existing production feedback accessible. Copy once; leave the source untouched.
     const migrationId = 'public-feedback-migration-v1';

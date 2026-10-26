@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { isLocalRuntime } from '../comments/environment';
 import { signToken, verifyToken } from './tokens';
 import { getUser } from './users';
+import { reviewSsoCookie, REVIEW_SSO_COOKIE_NAME, reviewSsoCookieOptions } from './reviewSsoCookie';
 
 export const SESSION_COOKIE_NAME = 'uier_session';
 export const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -22,11 +23,16 @@ function cookieOptions(maxAge: number) {
 
 /** Signs the user in on this browser (server actions and route handlers only) */
 export async function startSession(userId: string) {
-    (await cookies()).set(SESSION_COOKIE_NAME, signToken<SessionPayload>('session', { uid: userId }, SESSION_TTL_SECONDS), cookieOptions(SESSION_TTL_SECONDS));
+    const jar = await cookies();
+    const token = signToken<SessionPayload>('session', { uid: userId }, SESSION_TTL_SECONDS);
+    jar.set(SESSION_COOKIE_NAME, token, cookieOptions(SESSION_TTL_SECONDS));
+    const companion = reviewSsoCookie(token);
+    if (companion) jar.set(companion);
 }
 
 export async function endSession() {
     (await cookies()).delete(SESSION_COOKIE_NAME);
+    (await cookies()).set(REVIEW_SSO_COOKIE_NAME, '', { ...reviewSsoCookieOptions, maxAge: 0 });
 }
 
 /** The signed-in user, or `null` (an invalid, expired or orphaned session counts as signed out) */

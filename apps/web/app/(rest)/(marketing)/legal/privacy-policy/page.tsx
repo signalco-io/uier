@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
                     details about the device it came from: its size (desktop, tablet or mobile), the window
                     size, the pixel ratio, the browser name and version, and the operating system;
                 </li>
-                <li>an author id: a hash of the random token in your <code>uier_visitor</code> cookie;</li>
+                <li>an author id: your account id when signed in on {brand.domain}, otherwise a hash of the random token in your <code>uier_visitor</code> cookie;</li>
                 <li>
                     a screenshot of the part of the page the comment is about, when capture succeeds. Capture starts
                     automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
@@ -73,7 +73,8 @@ export default function PrivacyPolicyPage() {
             <p>
                 Other visitors see the text, the time, the device size, the window size (so a reviewer can see
                 the page as you saw it), the screenshot if there is one, and a guest name such as &ldquo;Guest
-                3F2A&rdquo;, derived from the author id. Public and guest views never expose the author id, browser,
+                3F2A&rdquo;, derived from the author id. If you are signed in on {brand.domain}, comments and replies show your current account name.
+                Feedback on app pages is private to its author and the uier team. Public and guest views never expose the author id, browser,
                 operating system, pixel ratio or capture-start time. Authorized members of a project can view and copy
                 those reproduction details for that project, except the author id. Unsupported browser details are shown
                 as unknown. The copied page link contains only the stored page path and any approved view state, with no review tokens. Comments on the public
@@ -124,6 +125,12 @@ export default function PrivacyPolicyPage() {
                 in the link. The invitation is deleted when you accept it, when the admin revokes it, or after 7
                 days. Accepting it creates your account if you don&rsquo;t have one yet.
             </p>
+            <p>
+                Every account automatically joins the uier feedback project as a commenter, so you can review
+                uier and find your feedback in the app. No invitation email is sent for this membership. Other
+                members can see your display name on public feedback; your email is not included in toolbar
+                participant suggestions. Private app feedback remains visible only to its author and the team.
+            </p>
 
             <h3>Comments in projects</h3>
             <p>
@@ -144,6 +151,16 @@ export default function PrivacyPolicyPage() {
                 On that site, the toolbar keeps in the browser&rsquo;s local storage a review token while you are
                 signed in to the project, or, as a guest, a random visitor id that recognises your comments and
                 the name you gave. Signing out in the toolbar removes them.
+            </p>
+            <p>
+                If you are already signed in to {brand.domain}, an empty frame can authenticate you in the
+                background on a configured project site. A separate HttpOnly, Secure cookie authorizes only
+                this review handoff; we check the requesting site and your current project membership.
+                Browsers that block cross-site cookies or frames keep the explicit sign-in link. We do not
+                open a popup or request storage access. Toolbar sign-out disables automatic sign-in on that
+                site until you use an authenticated review link. A pending link code is kept in tab storage
+                for up to ten minutes to survive the reviewed site&rsquo;s own authentication redirects.
+                The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> describes these keys and controls.
             </p>
 
             <h3>Read activity</h3>

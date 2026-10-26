@@ -10,14 +10,15 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
-| `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; all other pages remain unframeable |
+| `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
+| `app/review-session/`, `app/api/review/[projectId]/sso/` | empty frame and same-origin cookie endpoint for background member sign-in; validate the actual message parent origin against project addresses and recheck membership. Only accepts the separate `review-sso` cookie purpose, never the app cookie; no CORS, no cache, no storage-access prompts |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
@@ -26,7 +27,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
 | `app/not-found.tsx`, `app/(rest)/error.tsx` | the 404 page and the error boundary, both a `StatusPage` (`src/components/StatusPage.tsx`: logo, a browser frame with a pin on the empty spot, what happened, where to go) |
-| `src/components/marketing/` | `ContentPage` (header, section and tile of the content pages), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), landing sections (`ReviewThreadDemo` remains a visual specimen on `/brand`; the landing thread is live) |
+| `src/components/marketing/` | `ContentPage` (the building blocks of every public page, landing included: header with a one-sentence lead, section heading, section (heading beside its content on wide screens, like the landing's questions; `wide` stacks them, for the brand page's specimens), `Panel` of hairline-divided cells with `Tile`, `CheckList`, `InlineLink`), `HowItWorks` (the landing's cover: one animated loop on the example site from adding the script tag to a thread marked as done, under a row with its heading, a caption and Pause), `LandingSpecimens` (static, `aria-hidden` pictures of the review layer and the app for the landing's feature tiles; example content is an imaginary restaurant site, a different part of it than the walkthrough shows), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), `ReviewThreadDemo` (a visual specimen on `/brand`; the landing thread is live) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
@@ -62,19 +63,40 @@ that the assets (favicon, icons, manifest, OG image) are served, and that it pas
 
 Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
 review layer is shown with persisted starter threads (the toolbar renders `data-uier-thread` slots, pins and highlights), one solid
-"Get started" and one outlined secondary action, no badges above the headline.
+"Get started" and one outlined secondary action, no badges above the headline. The cover beside the
+headline is the how-it-works scene (`HowItWorks`); the headline thread's live slot is in "Try it on
+this page", and the description stays a direct child of the hero's first column (tests select it as
+`main>section>div>p`).
 
 Sections, in order, each with an `h2` whose id the navigation and footer link to (`KnownPages`):
-how it works (`#how-it-works`), features (`#features`), get started (`#get-started`), pricing
-(`#pricing`, `LandingPricing`) and questions (`#faq`, `LandingFaq`, native `<details>`).
+how it works (`#how-it-works`, the small heading over the cover scene), features (`#features`), get
+started (`#get-started`), pricing (`#pricing`, `LandingPricing`) and questions (`#faq`,
+`LandingFaq`, native `<details>`).
 
-- **Only what the toolbar does today.** Every step, feature and answer describes behaviour you can
-  try on the page (check `packages/toolbar` before adding one). The showcase runs on every public
-  marketing page and its inbox includes other public pages. Project
-  embeds work on their configured addresses, with headers for identity and BotID proofs for writes.
-- **Get started** goes to `#get-started`, which starts the one supported flow: leaving a comment
-  with the showcase toolbar on this page. Point it at the app (and update the test) once
-  onboarding exists.
+- **Only what uier does today.** Every step, feature and answer describes behaviour that ships: in
+  the toolbar (check `packages/toolbar`) or in the app's projects (check `src/lib`) before adding
+  one. Say which parts can be tried on the page itself: the showcase is a guest, so mentions,
+  assignment, environments and the MCP connector only work in a project. The showcase runs on
+  every public marketing page and its inbox includes other public pages. Project embeds work on
+  their configured addresses, with headers for identity and BotID proofs for writes.
+- **Pictures are specimens.** The cover scene and the feature tiles are built from the tokens and
+  `<Pin />` (`HowItWorks`, `LandingSpecimens`), hidden from assistive technologies, never
+  screenshots; keep their text out of the strings the e2e tests look up on the page (the FAQ's
+  "add one script tag to your site", the description). The starter thread "Try it here" is pinned
+  to the "Try it on this page" box by `id="first-step-comment-anchor"`; the id is stored in
+  production, so keep it.
+- **One section moves.** The how-it-works scene is a timeline of phases (`phases` in
+  `HowItWorks.tsx`); everything in it is always rendered and shown or hidden with the brand's fade,
+  and the pointer's targets are measured from the scene, so it follows any width. It plays only
+  while in view, Pause stops it, and with reduced motion it shows one still frame. Its canvas is
+  `data-uier-decorative` with a `min-height`: the toolbar's screenshots keep its box but not its
+  content (copying it made every capture on the landing page much slower). The e2e axe scan skips
+  the scene (`data-landing-scene`): it is a picture, and a frame caught mid-fade has low contrast. Keep the other sections still, and keep each section's layout
+  different from its neighbours.
+- **Get started** (the hero and pricing) opens `/app`, like the navigation's "Sign in": signed-out
+  visitors land on sign in, signed-in people in the app. The `#get-started` section below the
+  features still offers both paths: trying the showcase toolbar on this page, or a project for
+  your own site.
 - **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
   or limits. The app has no billing page while everything is free.
 
@@ -116,6 +138,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## The app
 
+- `reviewSsoCookie.ts` owns the HttpOnly/Secure/SameSite=None companion, restricted to `/api/review`.
+  Sign-in and first-party app requests seed it with no longer lifetime than the SameSite=Lax app session;
+  sign-out expires both. It cannot authenticate app routes. Browser-blocked handoffs silently retain the
+  explicit review-link fallback. Comment writes continue to require the existing browser verification.
+
 - **UI: shadcn/ui.** The app (`app/(rest)/(app)`) is built from the components in `src/components/ui`,
   added with `pnpm dlx shadcn@latest add <name>` (run in `apps/web`; the shadcn skill in
   `.claude/skills/shadcn` has the rules: `Field` for forms, `Empty` for empty states, `Badge`, `Item`,
@@ -131,6 +158,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
   `projects/[projectId]/layout.tsx`; its pages render the tab content.
+- Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
+  `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
+  and ports are preserved. Review CORS and redirects still require an exact configured origin.
 - Client names are optional project labels (`clientName`), not address/environment configuration or client entities.
   `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit is 80 characters.
   The list builds client choices only after `listVisibleProjects` and preserves the client/status query filters.
@@ -206,6 +236,14 @@ retain independent host partitions for tests. On a project's site the
 script's `data-uier-project` decides the project, and `?review=true` there reviews that project
 (`e2e/project-review.spec.ts`). The marketing layout embeds the toolbar with its React component
 (`@uier/toolbar/react`, see `ToolbarScript`).
+
+Every account joins `w_uier_public` as a commenter scoped to the feedback project. Provisioning
+backfills existing accounts with a durable receipt; account creation/sign-in and app context ensure
+membership afterwards without email invitations. Preserve existing admins and the user's selected
+workspace; this membership must not suppress their own workspace/onboarding. On the public project's
+same-origin comments API, `uier_session` takes precedence over guest identity. Store `user:<id>` just
+as the review API does, resolve current account names for DTOs, and keep private app feedback
+author-only in the public API. Guest comments are not automatically reassigned on sign-in.
 
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs

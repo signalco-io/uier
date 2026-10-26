@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAppStore, updateDoc } from './store';
 import { emailPk, userPk, type DbUser, type DbUserEmail } from './model';
 import { MAX_NAME_LENGTH } from './limits';
+import { ensurePublicProject, joinPublicProject } from '../comments/publicProject';
 
 export const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email('Enter a valid email address.'));
 
@@ -33,7 +34,7 @@ export async function findOrCreateUser(email: string): Promise<DbUser> {
         if (existing) {
             const user = await getUser(existing.doc.userId);
             if (user)
-                return user;
+                return enrollUser(user);
         }
 
         const now = new Date().toISOString();
@@ -56,13 +57,19 @@ export async function findOrCreateUser(email: string): Promise<DbUser> {
             await store.delete(existing.doc.pk, existing.doc.id);
         }
         if (await store.create<DbUserEmail>({ type: 'user-email', id: email, pk: emailPk(email), userId: user.id }))
-            return user;
+            return enrollUser(user);
 
         // Created concurrently by another request
         await store.delete(user.pk, user.id);
     }
 
     throw new Error('Could not create the user');
+}
+
+async function enrollUser(user: DbUser) {
+    await ensurePublicProject();
+    await joinPublicProject(user);
+    return user;
 }
 
 export async function updateUserName(userId: string, name: string) {

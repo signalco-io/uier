@@ -143,9 +143,9 @@ test('collapse hides page annotations, preserves reply text and restores current
     await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
     await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
     await expect(openThread(page)).toHaveCount(0);
-    await selectText(page, brand.description);
+    await selectText(page, brand.shortDescription);
     await expect(selectionToolbar(page)).toHaveCount(0);
-    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(brand.description);
+    expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(brand.shortDescription);
 
     // The page can move underneath the hidden layer; expanding must measure it again.
     await page.getByRole('heading', { level: 1 }).evaluate(element => { element.style.marginTop = '120px'; });
@@ -175,7 +175,7 @@ test('collapse hides page annotations, preserves reply text and restores current
     expect(saved.every(comment => !comment.resolved && comment.thread.items.length === 1)).toBe(true);
     await expand.click();
     await expect(commentBubbles(page)).toHaveCount(2);
-    await selectText(page, brand.description);
+    await selectText(page, brand.shortDescription);
     await expect(selectionToolbar(page)).toBeVisible();
     await collapse.click();
     await expect(selectionToolbar(page)).toHaveCount(0);
@@ -228,8 +228,12 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expectNoAxeViolations(page);
     await page.keyboard.press('Escape');
     await expect(profile).toBeHidden();
-    // Nothing to sign out of yet, and the landing page has no review to exit
-    await expect(page.getByRole('button', { name: 'Options', exact: true })).toHaveCount(0);
+    // Nothing to sign out of yet, and the landing page has no review to exit: Options only links to uier.io
+    await page.getByRole('button', { name: 'Options', exact: true }).click();
+    await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
+    await expect(options(page).getByRole('button')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(options(page)).toBeHidden();
 
     // The first comment gives the visitor a guest name
     await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
@@ -257,7 +261,10 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
 
     // The comment stays, but this browser can no longer resolve it
     expect((await context.cookies()).map(cookie => cookie.name)).not.toContain('uier_visitor');
-    await expect(page.getByRole('button', { name: 'Options', exact: true })).toHaveCount(0);
+    const signedOutOptions = await openOptions(page);
+    await expect(signedOutOptions.getByRole('button', { name: 'Sign out...' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(signedOutOptions).toBeHidden();
     await commentBubble(page, 1).click();
     await expect(openThread(page).getByText(name, { exact: true })).toBeVisible();
     await expect(openThread(page).getByRole('button', { name: 'Mark as done' })).toHaveCount(0);

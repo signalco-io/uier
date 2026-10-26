@@ -74,7 +74,9 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await expect(inbox(first.page)).toHaveAccessibleName('Inbox, 1 unread thread');
         await inbox(first.page).click();
         await first.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
-        const otherGroup = first.page.getByRole('region', { name: 'Other pages' });
+        // Unread lists every page, like the pill's count
+        await expect(first.page.getByRole('combobox', { name: 'Pages' })).toContainText('All pages');
+        const otherGroup = first.page.getByRole('region', { name: 'All pages' });
         await expect(otherGroup.getByRole('article', { name: `Comment #${otherComment.number}` })).toContainText('Feedback on another page');
         await expectNoAxeViolations(first.page);
         await first.page.getByRole('button', { name: 'Close sidebar' }).click();

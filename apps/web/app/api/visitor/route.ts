@@ -5,7 +5,8 @@ import { displayName, expiredVisitorCookie } from '../../../src/lib/comments/vis
 
 // GET /api/visitor - who the toolbar's profile shows
 export const GET = commentsApiHandler(async ({ visitor }) => Response.json({
-    name: visitor.hasCookie ? displayName(visitor.authorId) : null,
+    name: visitor.name ?? (visitor.hasCookie ? displayName(visitor.authorId) : null),
+    ...(visitor.member ? { member: true } : {}),
     draftScope: visitor.authorId ? keyedHash('draft-scope', visitor.authorId) : undefined
 } satisfies VisitorDto));
 
