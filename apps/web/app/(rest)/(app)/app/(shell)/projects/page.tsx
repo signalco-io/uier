@@ -7,6 +7,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
+import { clientNames } from '@/src/lib/app/clients';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
@@ -25,8 +26,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
     const { status: statusParam, client: clientParam } = await searchParams;
     const status = statusParam === 'done' ? 'done' : 'active';
     const projects = await listVisibleProjects(context);
-    const clients = [...new Set(projects.flatMap(project => project.clientName ? [project.clientName] : []))]
-        .sort((a, b) => a.localeCompare(b));
+    const clients = clientNames(projects);
     const client = typeof clientParam === 'string' && (clientParam === 'none' || clients.some(name => clientParam === `name:${name}`))
         ? clientParam : undefined;
     const matching = projects.filter(project => !client || (client === 'none' ? !project.clientName : `name:${project.clientName}` === client));

@@ -163,9 +163,10 @@ The signed-in app at [uier.io/app](https://uier.io/app) ("Get started" on the la
 actions that check the session and the role every time.
 
 The app is a sidebar layout (shadcn/ui `Sidebar`, inset variant): the workspace at the top (a menu switches
-between workspaces), Users (admins), the active projects for quick switching (their header links to all
-projects and, for admins, to a new one), and at the bottom "Give feedback" (uier's own toolbar, see
-[public feedback](#landing-page-showcase-and-public-feedback)) and the account menu (account, theme, sign out). It
+between workspaces), the active projects for quick switching (their header links to all projects and, for
+admins, to a new one), and at the bottom Clients (once a project has a client), Users (admins), "Give feedback"
+(uier's own toolbar, see [public feedback](#landing-page-showcase-and-public-feedback)) and the account menu
+(account, theme, sign out). It
 collapses to icons on desktop (`Ctrl/Cmd+B`) and opens as a sheet on small screens. A top bar holds the
 breadcrumbs. uier is free, so there is no billing page; pricing is the landing page's `brand.pricing` promise.
 
@@ -182,7 +183,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
   active or done projects as cards with their open comments, who can comment and review links.
   An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
-  in settings. It appears in project details and cards. The client filter sits beside Active/Done,
+  in settings; the field suggests the existing clients as you type, and any other name adds a new one. It
+  appears in project details and cards. The client filter sits beside Active/Done,
   offers All clients and No client, and stays selected in the URL across status changes and reloads.
   Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
@@ -223,6 +225,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;
     Exit review suppresses automatic opening in that tab. Pending one-use codes survive host redirects
     in session storage for at most ten minutes and are removed after exchange or definitive rejection.
+- **Clients** (`/app/clients`): the client names of the projects the member can see, each with its projects
+  and how many are active or done. A client opens the projects list filtered to it (its done projects when
+  none is active). Clients are labels on projects, not records of their own: a client with no projects left
+  is gone.
 - **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
   remove people (the last admin stays) and revoke invitations. A removed member's review token stops

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 // The signed-in app against `next start` with UIER_LOCAL=1: no email is sent, so the sign-in page
 // shows the link it would have emailed ("Open the sign-in link"), and the stores are in memory.
@@ -36,13 +36,22 @@ export async function createProject(page: Page, { urls, name, clientName }: { ur
     if (name)
         await page.getByLabel('Project name').fill(name);
     if (clientName !== undefined)
-        await page.getByLabel('Client name (optional)').fill(clientName);
+        await fillClientName(page.getByLabel('Client name (optional)'), clientName);
     await page.getByRole('button', { name: 'Create project' }).click();
     await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install\?onboarding=1$/);
     const projectId = /\/app\/projects\/([0-9a-z]{12})\/install\?onboarding=1$/.exec(page.url())?.[1];
     if (!projectId)
         throw new Error(`No project id in ${page.url()}`);
     return projectId;
+}
+
+/**
+ * Types a project's client name and moves on with Tab, as people do. Tab closes the field's suggestions,
+ * which hide the rest of the page from assistive technology while they are open.
+ */
+export async function fillClientName(field: Locator, value: string) {
+    await field.fill(value);
+    await field.press('Tab');
 }
 
 export type ProjectAccessLabel = 'Invited people' | 'Anyone with the link' | 'Comments off';

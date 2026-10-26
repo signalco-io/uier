@@ -32,6 +32,8 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
     }
     if (section === 'users')
         return [{ label: 'Users', href: KnownPages.AppUsers }];
+    if (section === 'clients')
+        return [{ label: 'Clients', href: KnownPages.AppClients }];
     if (section === 'account')
         return [{ label: 'Account', href: KnownPages.AppAccount }];
     return [];
