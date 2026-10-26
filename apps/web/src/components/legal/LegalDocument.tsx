@@ -25,16 +25,17 @@ type LegalDocumentProps = PropsWithChildren<{
  */
 export function LegalDocument({ href, title, effective, children }: LegalDocumentProps) {
     return (
-        <main className="flex flex-col gap-8 py-10">
-            <nav aria-label="Legal documents" className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        <main className="grid grid-cols-1 gap-10 pt-12 md:pt-20 lg:grid-cols-[200px_minmax(0,720px)] lg:gap-16">
+            {/* A row of links on small screens, a list that stays in view beside the text on wide ones */}
+            <nav aria-label="Legal documents" className="flex flex-wrap gap-x-4 gap-y-2 text-sm lg:sticky lg:top-24 lg:-ml-3 lg:flex-col lg:gap-0.5 lg:self-start">
                 {legalDocuments.map(document => (
                     <a
                         key={document.href}
                         href={document.href}
                         aria-current={document.href === href ? 'page' : undefined}
                         className={cx(
-                            'underline-offset-4 hover:text-foreground hover:underline',
-                            document.href === href ? 'font-medium text-foreground' : 'text-muted-foreground'
+                            'rounded-md transition-colors duration-[120ms] hover:text-foreground lg:px-3 lg:py-1.5 lg:hover:bg-muted',
+                            document.href === href ? 'font-medium text-foreground lg:bg-muted' : 'text-muted-foreground'
                         )}>
                         {document.label}
                     </a>
@@ -42,7 +43,7 @@ export function LegalDocument({ href, title, effective, children }: LegalDocumen
             </nav>
             <article
                 className={cx(
-                    'flex max-w-[720px] flex-col gap-4 text-base leading-relaxed',
+                    'flex min-w-0 max-w-[720px] flex-col gap-4 text-base leading-relaxed',
                     '[&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:leading-snug [&_h2]:tracking-[-0.015em]',
                     '[&_h3]:mt-2 [&_h3]:text-base [&_h3]:font-semibold',
                     '[&_ul:not([class])]:flex [&_ul:not([class])]:list-disc [&_ul:not([class])]:flex-col [&_ul:not([class])]:gap-1.5 [&_ul:not([class])]:pl-5',

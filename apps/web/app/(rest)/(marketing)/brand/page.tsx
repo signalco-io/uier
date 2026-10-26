@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
@@ -16,6 +16,7 @@ import { Badge as AppBadge } from '../../../../src/components/ui/badge';
 import { Button as AppButton } from '../../../../src/components/ui/button';
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
+import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 
 // The living brand page. Everything here renders from @uier/brand and the UI kit with the
 // brand tokens applied, so it shows the brand as it ships. The written rules: packages/brand/BRAND.md.
@@ -40,29 +41,9 @@ const sections = [
     { id: 'assets', title: 'Assets' }
 ];
 
-function Section({ id, title, lead, children }: PropsWithChildren<{ id: string; title: string; lead?: ReactNode; }>) {
-    return (
-        <section id={id} className="flex scroll-mt-24 flex-col gap-6 border-t py-12">
-            <div className="flex flex-col gap-2">
-                <h2 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">{title}</h2>
-                {lead && <p className="max-w-[720px] text-base leading-relaxed text-muted-foreground">{lead}</p>}
-            </div>
-            {children}
-        </section>
-    );
-}
-
-function Tile({ title, children }: PropsWithChildren<{ title: string; }>) {
-    return (
-        <div className="flex flex-col gap-2 rounded-2xl border p-5">
-            <span className="text-[15px] font-semibold">{title}</span>
-            <span className="text-[13px] leading-relaxed text-muted-foreground">{children}</span>
-        </div>
-    );
-}
-
-function InlineLink({ href, children }: PropsWithChildren<{ href: string; }>) {
-    return <a href={href} className="font-medium text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground">{children}</a>;
+/** The brand page's sections take the full width: their specimens need it */
+function Section(props: ComponentProps<typeof PageSection>) {
+    return <PageSection wide {...props} />;
 }
 
 function Spec({ children }: PropsWithChildren) {
@@ -87,14 +68,13 @@ const spacing = [
 export default function BrandPage() {
     return (
         <main className="flex flex-col pb-16">
-            <header className="flex flex-wrap items-start justify-between gap-6 py-10">
+            <header className="flex flex-wrap items-start justify-between gap-6 pt-12 md:pt-20">
                 <div className="flex max-w-[720px] flex-col gap-5">
                     <Logo size={44} />
                     <h1 className="text-[40px] font-semibold leading-[1.1] tracking-[-0.03em]">{brand.name} brand</h1>
                     <p className="text-lg leading-relaxed text-muted-foreground">
-                        How {brand.name} looks and sounds. This page renders from the <code className="font-mono text-base">@uier/brand</code> package
-                        and the UI kit with the brand tokens applied, so it always shows the brand as it ships.
-                        The written rules are in <InlineLink href={brandMdUrl}>BRAND.md</InlineLink>; the code is in <InlineLink href={packageUrl}>packages/brand</InlineLink>.
+                        How {brand.name} looks and sounds, rendered live from <InlineLink href={packageUrl}>packages/brand</InlineLink>.
+                        The rules are in <InlineLink href={brandMdUrl}>BRAND.md</InlineLink>.
                     </p>
                     <nav aria-label="Sections" className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                         {sections.map(section => (
@@ -106,11 +86,11 @@ export default function BrandPage() {
             </header>
 
             <Section id="principles" title="Quiet, precise, rounded, and a little pointed." lead="The brand follows the product. Three principles decide most questions.">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Panel className="md:grid-cols-3">
                     <Tile title="Minimal">One typeface, one accent, borders instead of shadows. Nothing on screen that is not doing work.</Tile>
                     <Tile title="Rounded">Every corner is soft: 8 px on controls, 12 on cards, 16 on panels, full pills for the toolbar and pins.</Tile>
                     <Tile title="Pointed">The mark keeps one sharp corner so it can point at what you are reviewing. Copy is short and direct.</Tile>
-                </div>
+                </Panel>
             </Section>
 
             <Section id="name" title="Name and voice">

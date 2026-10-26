@@ -10,13 +10,13 @@ export const dynamic = 'force-dynamic';
 export default async function NotificationsPage({ searchParams }: PageProps<'/notifications'>) {
     const { token } = await searchParams;
     const inspected = await inspectNotificationToken(token);
-    return <div className="max-w-2xl pb-12">
+    return <div className="flex max-w-2xl flex-col gap-10 pb-12">
         <PageHeader title="Email notifications" lead={inspected?.payload.mode === 'verify'
             ? 'Confirm your address to receive replies and status changes for this thread.'
             : 'Manage the emails sent to you about this review.'} />
         {inspected && typeof token === 'string'
             ? <NotificationForm token={token} mode={inspected.payload.mode} />
-            : <div className="flex flex-col gap-4 rounded-xl border p-6">
+            : <div className="flex flex-col gap-4 rounded-2xl border p-6">
                 <p>This link has expired or is no longer active. You can manage notifications in the thread toolbar.</p>
                 <Button href="/app/projects" variant="outlined">Open your projects</Button>
             </div>}

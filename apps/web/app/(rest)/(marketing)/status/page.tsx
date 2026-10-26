@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
-import { InlineLink, PageHeader, PageSection } from '../../../../src/components/marketing/ContentPage';
+import { InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
 import { getServiceStatus, STATUS_CACHE_SECONDS, type ServiceState } from '../../../../src/lib/status/serviceStatus';
 
 // Shows only what the live checks in src/lib/status measure, when the page is requested. No uptime
@@ -42,7 +42,7 @@ export default async function StatusPage() {
         <main className="flex flex-col pb-16">
             <PageHeader
                 title="Status"
-                lead={`Live checks of ${brand.name}'s services, run on the server when this page loads.`}>
+                lead={`Live checks of ${brand.name}'s services, run when this page loads.`}>
                 <p className="flex items-center gap-2 text-base font-medium" role="status">
                     <StateDot state={report.state} />
                     {report.state === 'operational' ? 'All services are operational.' : 'Some services are not responding.'}
@@ -50,9 +50,9 @@ export default async function StatusPage() {
             </PageHeader>
 
             <PageSection id="services" title="Services">
-                <ul className="flex flex-col overflow-hidden rounded-2xl border">
+                <Panel as="ul">
                     {report.services.map(service => (
-                        <li key={service.id} className="flex flex-col gap-1 border-t p-5 first:border-t-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+                        <li key={service.id} className="flex flex-col gap-1 p-6 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
                             <div className="flex flex-col gap-1">
                                 <span className="font-medium">{service.name}</span>
                                 <span className="text-sm text-muted-foreground">{service.description}</span>
@@ -63,7 +63,7 @@ export default async function StatusPage() {
                             </span>
                         </li>
                     ))}
-                </ul>
+                </Panel>
                 <p className="text-sm text-muted-foreground">
                     Checked <time dateTime={report.checkedAt} className="font-mono tabular-nums">{formatUtc(report.checkedAt)}</time>
                 </p>

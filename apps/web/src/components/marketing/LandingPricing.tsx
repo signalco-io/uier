@@ -1,34 +1,39 @@
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { KnownPages } from '../../knownPages';
+import { CheckList, InlineLink, Panel } from './ContentPage';
 
 // The approved pricing decision (brand.pricing, word for word). There is one offering and it is
-// free: no tiers, prices, trials or limits are shown, because none exist.
+// free: no tiers, prices, trials or limits are shown, because none exist. So this is a statement
+// with what it covers, not a plan card.
 
 const included = [
-    'Comments pinned to elements and to selected text',
-    'Replies from anyone on the page',
-    'Resolve and reopen threads',
-    'An inbox with every thread on the page',
-    'No account, nothing to install'
+    'Projects for your sites, with review links',
+    'Your team and reviewers, invited by email',
+    'Comments on elements and selected text',
+    'Screenshots and browser details with new comments',
+    'Replies, mentions and assignment',
+    'Email notifications for the threads you follow',
+    'An inbox for every page of the site',
+    'Issue export and the MCP connector'
 ];
 
+/** The pricing section's content: its `h2` has the id `pricing` the section is labelled by */
 export function LandingPricing() {
     return (
-        <div className="flex flex-col gap-6 rounded-2xl border p-8 md:max-w-[420px]">
-            <div className="flex flex-col gap-1">
-                <h3 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">Free</h3>
-                <p className="text-sm text-muted-foreground">Everything {brand.name} does today.</p>
+        <Panel className="lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div className="flex flex-col items-start gap-5 p-8 md:p-10">
+                <h2 id="pricing" className="text-[40px] font-semibold leading-[1.1] tracking-[-0.03em]">Free, and it stays free</h2>
+                <p className="text-base leading-relaxed text-muted-foreground">{brand.pricing}</p>
+                <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-3">
+                    <Button variant="solid" size="lg" href={KnownPages.App}>Get started</Button>
+                    <span className="text-sm text-muted-foreground">The code is <InlineLink href={KnownPages.OpenSource}>open source</InlineLink>.</span>
+                </div>
             </div>
-            <ul className="flex flex-col gap-3 text-sm">
-                {included.map(item => (
-                    <li key={item} className="flex items-start gap-2.5">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-0.5 shrink-0"><path d="M20 6 9 17l-5-5" /></svg>
-                        {item}
-                    </li>
-                ))}
-            </ul>
-            <Button variant="solid" size="lg" href={KnownPages.GetStarted} className="self-start">Get started</Button>
-        </div>
+            <div className="flex flex-col gap-5 bg-muted/50 p-8 md:p-10">
+                <h3 className="text-base font-semibold">Included today</h3>
+                <CheckList items={included} columns={2} />
+            </div>
+        </Panel>
     );
 }
