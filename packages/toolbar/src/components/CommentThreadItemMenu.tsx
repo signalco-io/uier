@@ -21,6 +21,8 @@ type CommentThreadItemMenuProps = {
     disabled?: boolean;
     onDelete?: () => void;
     onEdit?: () => void;
+    /** Pick the thread's element or text again (the first message of a thread on its own page) */
+    onReattach?: () => void;
     triggerRef?: Ref<HTMLButtonElement>;
 };
 
@@ -29,12 +31,13 @@ type CommentThreadItemMenuProps = {
  * portals into the page's body) so it renders inside the toolbar's shadow root.
  * Deleting asks first, with `confirmText`: it can take the visitor's replies or the whole thread with it.
  */
-export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete, onEdit, triggerRef }: CommentThreadItemMenuProps) {
+export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete, onEdit, onReattach, triggerRef }: CommentThreadItemMenuProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const deleteRef = useRef<HTMLButtonElement>(null);
     const editRef = useRef<HTMLButtonElement>(null);
+    const reattachRef = useRef<HTMLButtonElement>(null);
     const confirmRef = useRef<HTMLButtonElement>(null);
 
     const handleOpenChange = (next: boolean) => {
@@ -59,7 +62,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
     const contentProps = {
         onOpenAutoFocus: (event: Event) => {
             event.preventDefault();
-            (editRef.current ?? deleteRef.current)?.focus();
+            (editRef.current ?? reattachRef.current ?? deleteRef.current)?.focus();
         }
     };
 
@@ -76,10 +79,11 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     ref={triggerRef}
                     size="xs"
                     variant="plain"
+                    className="size-6 text-muted-foreground hover:text-foreground"
                     title="More options"
                     aria-label={`More options for ${own ? 'your' : 'this'} ${kind}`}
                     disabled={disabled}>
-                    <MoreHorizontal />
+                    <MoreHorizontal size={16} />
                 </IconButton>
             )}
             {...contentProps}>
@@ -106,6 +110,12 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                         <Button ref={editRef} variant="plain" size="sm" fullWidth className="justify-start"
                             onClick={() => { handleOpenChange(false); onEdit(); }}>
                             Edit
+                        </Button>
+                    )}
+                    {onReattach && (
+                        <Button ref={reattachRef} variant="plain" size="sm" fullWidth className="justify-start"
+                            onClick={() => { handleOpenChange(false); onReattach(); }}>
+                            Reattach comment
                         </Button>
                     )}
                     {onDelete && (

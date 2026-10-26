@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { HEADLINE_COMMENT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';
-import { commentBubbles, openThread, toolbar } from './support/toolbar';
+import { chooseInboxPages, commentBubbles, openThread, toolbar } from './support/toolbar';
 
 test('the headline thread is live and anonymous replies survive a reload', async ({ page }, testInfo) => {
     await page.goto('/');
@@ -49,7 +49,8 @@ test('anonymous visitors can comment on another public page and keep the comment
     await expect(page.getByRole('complementary', { name: 'Comments' }).getByText(text)).toBeVisible();
     await page.goto(`${baseURL}/`);
     await page.getByRole('button', { name: /^Inbox/ }).click();
-    await expect(page.getByRole('region', { name: 'Other pages' }).getByText(text)).toBeVisible();
+    await chooseInboxPages(page, /^All pages/);
+    await expect(page.getByRole('region', { name: 'All pages' }).getByText(text)).toBeVisible();
     await context.close();
 });
 

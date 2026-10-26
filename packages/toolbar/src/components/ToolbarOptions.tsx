@@ -6,8 +6,10 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
+import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close, ExternalLink, LogOut, MoreHorizontal } from '@signalco/ui-icons';
+import { BRAND_URL, Mark } from '@uier/brand';
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
@@ -25,8 +27,8 @@ type ToolbarOptionsProps = {
 };
 
 /**
- * The toolbar's options: view the project, exit the review, sign out. Only the options that
- * apply are listed; without any, there is no options button.
+ * The toolbar's options: view the project, exit the review, sign out (only the ones that apply),
+ * and always a link to uier.io, since the toolbar shows on other people's sites.
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
     const { rootElement, mode } = useContext(CommentsBootstrapperContext);
@@ -69,9 +71,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
         onExitReview?.();
     };
 
-    if (!projectUrl && !onExitReview && !name && !onResetPosition) {
-        return null;
-    }
+    const hasActions = Boolean(projectUrl || onExitReview || name || onResetPosition);
 
     return (
         <Popper
@@ -156,6 +156,21 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                             Sign out...
                         </Button>
                     )}
+                    {hasActions && <Divider className="my-1" />}
+                    {/* The referrer (the reviewed site's origin) tells uier.io where people came from */}
+                    <Button
+                        variant="plain"
+                        size="sm"
+                        fullWidth
+                        className="justify-start text-muted-foreground hover:text-foreground"
+                        href={BRAND_URL}
+                        target="_blank"
+                        rel="noopener"
+                        startDecorator={<Mark size={16} aria-hidden="true" />}
+                        endDecorator={<ExternalLink size={14} aria-hidden="true" className="ml-auto" />}
+                        onClick={() => handleOpenChange(false)}>
+                        Powered by uier
+                    </Button>
                 </Stack>
             )}
         </Popper>

@@ -1,107 +1,43 @@
-import { useProjectViewer } from '../../project/ProjectGate';
-import { ReactNode, useContext, useDeferredValue, useEffect, useId, useState } from 'react';
-import { UseQueryResult } from '@tanstack/react-query';
+import { ReactNode, useContext, useDeferredValue, useEffect, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { ArrowUpRight, MapPin } from '@signalco/ui-icons';
+import { ArrowUpRight, File, MapPin } from '@signalco/ui-icons';
 import { CommentThread } from '../CommentThread';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
-import { commentKey, useComments, useSiteComments, useActivitySummary } from '../../hooks/useComments';
+import { commentKey } from '../../hooks/useComments';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { commentLink } from '../../review';
-import { CommentItem, commentsListMaxLength } from '../@types/Comments';
-import { CommentsFilter, matchesFilter } from './CommentsFilter';
+import { CommentItem } from '../@types/Comments';
+import { CommentsFilter } from './CommentsFilter';
+import { pageLabel } from './PagePicker';
+import type { useInboxComments } from './useInboxComments';
 
 /** How long the search waits after the last keystroke before it announces the count */
 const countAnnouncementDelayMs = 500;
 
 /**
- * Threads a group renders with the inbox; the rest follow in a background render React splits into
+ * Threads the list renders with the inbox; the rest follow in a background render React splits into
  * short slices, so a long inbox opens without one long task (e2e/launch-performance.spec.ts)
  */
 const firstThreads = 20;
 
 function emptyText(filter: CommentsFilter) {
+    const where = (filter.page ?? 'current') === 'current' ? ' on this page' : '';
     if (filter.keywords?.trim()) {
-        return 'No matches';
+        return `No matches${where}`;
     }
-    if (filter.unread) return 'No unread comments';
+    if (filter.unread) return `No unread comments${where}`;
     switch (filter.status) {
-        case 'resolved': return 'No done comments';
-        case 'all': return 'No comments';
-        default: return 'No open comments';
+        case 'resolved': return `No done comments${where}`;
+        case 'all': return `No comments${where}`;
+        default: return `No open comments${where}`;
     }
 }
 
 function countText(count: number) {
     return `${count} ${count === 1 ? 'comment' : 'comments'}`;
-}
-
-type CommentsGroupProps = {
-    title: string;
-    query: UseQueryResult<CommentItem[], Error>;
-    /** The group's comments that match the filter */
-    comments: CommentItem[] | undefined;
-    filter: CommentsFilter;
-    /** Where the comment is: on this page or on another one */
-    renderPlace: (comment: CommentItem) => ReactNode;
-    /** Under the list, e.g. that older comments are not listed */
-    note?: string;
-};
-
-function CommentsGroup({ title, query, comments, filter, renderPlace, note }: CommentsGroupProps) {
-    const headingId = useId();
-    const { error, isPending, refetch } = query;
-    const shownCount = useDeferredValue(comments?.length ?? 0, Math.min(comments?.length ?? 0, firstThreads));
-
-    let content: ReactNode;
-    if (isPending) {
-        content = <div className="p-1 text-sm text-muted-foreground">Loading comments...</div>;
-    } else if (error && !comments) {
-        content = (
-            <Stack spacing={1} alignItems="start" className="p-1 text-sm">
-                <CommentsErrorMessage error={error} />
-                <Button variant="outlined" size="sm" onClick={() => refetch()}>Try again</Button>
-            </Stack>
-        );
-    } else if (!comments?.length) {
-        content = <div className="p-1 text-sm text-muted-foreground">{emptyText(filter)}</div>;
-    } else {
-        content = (
-            <Stack spacing={1}>
-                {comments.slice(0, shownCount).map((comment) => (
-                    <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
-                        <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="rounded-xl border bg-card">
-                            {renderPlace(comment)}
-                            <CommentThread commentItem={comment} />
-                        </article>
-                    </CommentErrorBoundary>
-                ))}
-            </Stack>
-        );
-    }
-
-    return (
-        <section aria-labelledby={headingId}>
-            <Stack spacing={1}>
-                <Row spacing={1} className="px-1">
-                    <Typography id={headingId} component="h3" level="body2" semiBold className="text-foreground">{title}</Typography>
-                    {comments && (
-                        <span className="text-xs tabular-nums text-muted-foreground">
-                            <span aria-hidden="true">{comments.length}</span>
-                            <span className="sr-only">{countText(comments.length)}</span>
-                        </span>
-                    )}
-                </Row>
-                {content}
-                {note && <div className="px-1 text-xs text-muted-foreground">{note}</div>}
-            </Stack>
-        </section>
-    );
 }
 
 /**
@@ -115,52 +51,73 @@ function ShowOnPage({ comment, onShowOnPage }: { comment: CommentItem; onShowOnP
     }
 
     return (
-        <div className="px-2 pt-1">
+        <CardFooter>
             <Button
                 size="xs"
                 variant="plain"
-                className="text-muted-foreground pointer-coarse:h-11"
+                className="text-muted-foreground hover:text-foreground"
                 startDecorator={<MapPin size={14} aria-hidden="true" />}
                 onClick={() => onShowOnPage(comment.id)}>
                 Show on page
             </Button>
-        </div>
+        </CardFooter>
+    );
+}
+
+function CardFooter({ children }: { children: ReactNode }) {
+    return <div className="flex min-w-0 items-center border-t px-2 py-1">{children}</div>;
+}
+
+/** Where another page's comment is: a link that opens its thread there, in the review */
+function OtherPage({ comment }: { comment: CommentItem }) {
+    const { review } = useContext(CommentsBootstrapperContext);
+    if (comment.source?.available === false) {
+        return (
+            <CardFooter>
+                <p className="m-0 flex min-h-7 min-w-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+                    <File size={14} aria-hidden="true" className="shrink-0" />
+                    <span className="truncate font-mono">{comment.path}</span> · Original source unavailable
+                </p>
+            </CardFooter>
+        );
+    }
+
+    return (
+        <CardFooter>
+            {/* Opens the thread on its original permitted origin, including grouped aliases */}
+            <a
+                href={commentLink(comment, review)}
+                className="flex min-h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
+                <span className="sr-only">Open on </span>
+                <File size={14} aria-hidden="true" className="shrink-0" />
+                <span className="truncate font-mono">{comment.path}</span>
+                <ArrowUpRight size={14} aria-hidden="true" className="shrink-0" />
+            </a>
+        </CardFooter>
     );
 }
 
 type CommentsSidebarCommentsListProps = {
+    inbox: ReturnType<typeof useInboxComments>;
     filter: CommentsFilter;
     onShowOnPage: (commentId: string) => void;
+    /** Lists every page (from "this page" with nothing to show) */
+    onShowAllPages: () => void;
 };
 
 /**
- * The inbox's comments in two groups: this page (the page's own list, as its pins) and the site's
- * other pages (`GET /api/comments?scope=site`), newest first, including the public showcase.
+ * The inbox's comments for the chosen pages, newest first. A comment of this page can be shown
+ * on its pin; another page's links to its thread there. With nothing on this page, it offers the
+ * other pages' matching comments.
  */
-export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSidebarCommentsListProps) {
-    const { review } = useContext(CommentsBootstrapperContext);
-    const { path, query: pageQuery } = useComments();
-    const withOtherPages = true;
-    const siteQuery = useSiteComments(withOtherPages, Boolean(filter.unread));
-    const { data: activity } = useActivitySummary();
-
-    const { environment, currentEnvironment } = useProjectViewer();
-    const isCurrentPage = (comment: CommentItem) => comment.path === path && (!comment.source || comment.source.environment === currentEnvironment);
-    const showCurrent = !environment || environment === 'all' || environment === currentEnvironment;
-    const pageComments = showCurrent ? (filter.unread ? siteQuery.data?.filter(isCurrentPage) : pageQuery.data)?.filter(c => matchesFilter(c, filter)) : [];
-    const otherComments = withOtherPages
-        ? siteQuery.data?.filter(c => !isCurrentPage(c) && matchesFilter(c, filter))
-        : undefined;
-    // The API lists the site's newest comments only
-    const siteCapped = (filter.unread ? activity?.unread ?? 0 : activity?.total ?? 0) > (siteQuery.data?.length ?? 0) || (siteQuery.data?.length ?? 0) >= commentsListMaxLength;
+export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onShowAllPages }: CommentsSidebarCommentsListProps) {
+    const { comments, state, scope, otherCount, siteCapped, isCurrentPage, loading } = inbox;
+    const shownCount = useDeferredValue(comments?.length ?? 0, Math.min(comments?.length ?? 0, firstThreads));
     const searching = Boolean(filter.keywords?.trim());
 
-    // The count is announced once the typing stopped and every group has loaded, so screen readers
-    // don't hear a count for every keystroke, or one without the other pages
-    const loading = pageQuery.isPending || (withOtherPages && siteQuery.isPending);
-    const countMessage = searching
-        ? `${countText((pageComments?.length ?? 0) + (otherComments?.length ?? 0))} found`
-        : '';
+    // The count is announced once the typing stopped and the lists have loaded, so screen readers
+    // don't hear a count for every keystroke
+    const countMessage = searching ? `${countText(comments?.length ?? 0)} found` : '';
     const [announcedCount, setAnnouncedCount] = useState('');
     useEffect(() => {
         if (loading) {
@@ -170,38 +127,54 @@ export function CommentsSidebarCommentsList({ filter, onShowOnPage }: CommentsSi
         return () => window.clearTimeout(timeout);
     }, [countMessage, filter.keywords, loading]);
 
+    let content: ReactNode;
+    if (state.isPending) {
+        content = <div className="p-1 text-sm text-muted-foreground">Loading comments...</div>;
+    } else if (state.error && !comments) {
+        content = (
+            <Stack spacing={1} alignItems="start" className="p-1 text-sm">
+                <CommentsErrorMessage error={state.error} />
+                <Button variant="outlined" size="sm" onClick={() => state.refetch()}>Try again</Button>
+            </Stack>
+        );
+    } else if (!comments?.length) {
+        content = (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                <p className="m-0">{emptyText(filter)}</p>
+                {scope === 'current' && otherCount > 0 && (
+                    <Button size="sm" variant="outlined" onClick={onShowAllPages}>
+                        Show {otherCount} on other pages
+                    </Button>
+                )}
+            </div>
+        );
+    } else {
+        content = (
+            <Stack spacing={2}>
+                {comments.slice(0, shownCount).map((comment) => (
+                    <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
+                        <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="overflow-hidden rounded-xl border bg-card">
+                            <CommentThread commentItem={comment} />
+                            {isCurrentPage(comment)
+                                ? !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
+                                : <OtherPage comment={comment} />}
+                        </article>
+                    </CommentErrorBoundary>
+                ))}
+            </Stack>
+        );
+    }
+
     return (
-        <Stack spacing={3}>
-            <CommentsGroup
-                title="This page"
-                query={filter.unread ? siteQuery : pageQuery}
-                comments={pageComments}
-                filter={filter}
-                renderPlace={(comment) => !comment.resolved && comment.position.type !== 'page' && (
-                    <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
-                )} />
-            {withOtherPages && (
-                <CommentsGroup
-                    title="Other pages"
-                    query={siteQuery}
-                    comments={otherComments}
-                    filter={filter}
-                    note={siteCapped ? 'Older comments are not listed.' : undefined}
-                    renderPlace={(comment) => comment.source?.available === false ? <p className="m-0 px-4 pt-3 font-mono text-xs text-muted-foreground">{comment.path} · Original source unavailable</p> : (
-                        // Opens the thread on its original permitted origin, including grouped aliases.
-                        <a
-                            href={commentLink(comment, review)}
-                            className="flex min-w-0 items-center gap-1 rounded-t-xl px-4 pt-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring pointer-coarse:min-h-11">
-                            <span className="sr-only">Open on </span>
-                            <span className="truncate font-mono">{comment.path}</span>
-                            <ArrowUpRight size={14} aria-hidden="true" className="shrink-0" />
-                        </a>
-                    )} />
-            )}
+        <section aria-label={pageLabel(scope)}>
+            <Stack spacing={2}>
+                {content}
+                {siteCapped && <div className="px-1 text-xs text-muted-foreground">Older comments are not listed.</div>}
+            </Stack>
             {/* Always there, so screen readers announce the count when a search changes it */}
             <div role="status" className="sr-only">
                 {announcedCount}
             </div>
-        </Stack>
+        </section>
     );
 }

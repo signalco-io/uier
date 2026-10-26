@@ -5,11 +5,15 @@
  * metadata, the web manifest, generated images (OG, icons) and documentation.
  * The rules behind them are in BRAND.md.
  */
+
+/** The site; a constant of its own so a bundle that only links to uier.io (the toolbar) skips the rest */
+export const BRAND_URL = 'https://uier.io';
+
 export const brand = {
     /** Always lowercase, even at the start of a sentence. Read "you-eye-er". */
     name: 'uier',
     domain: 'uier.io',
-    url: 'https://uier.io',
+    url: BRAND_URL,
     tagline: 'Say it on the page.',
     description: 'Review any live website by leaving comments directly on it. Every comment stays pinned to the element it is about, with the browser and viewport it was left from.',
     shortDescription: 'Review any live website by leaving comments directly on it.',

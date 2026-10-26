@@ -7,6 +7,10 @@ import { apiRequest, commentsQueryKeyPrefix } from '../hooks/api';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import type { CommentItem } from './@types/Comments';
 
+const memberHelp = 'Owners and admins get new feedback. Members follow threads they post in. Replies and status changes are batched for 5 minutes.';
+const quietButtonClassName = '-ml-2 font-normal text-muted-foreground hover:text-foreground';
+
+/** Email about this thread: follow it (members, or guests after confirming an address) and mute the project */
 export function ThreadNotifications({ comment }: { comment: CommentItem }) {
     const client = useQueryClient();
     const [email, setEmail] = useState('');
@@ -24,12 +28,14 @@ export function ThreadNotifications({ comment }: { comment: CommentItem }) {
     });
     if (!state?.eligible) return null;
     return <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-        <div className="flex flex-wrap items-center gap-2">
-            <Button size="xs" variant="plain" className="pointer-coarse:min-h-11" disabled={follow.isPending} onClick={() => {
+        <div className="flex flex-wrap items-center gap-x-3">
+            <Button size="xs" variant="plain" className={quietButtonClassName}
+                title={state.member ? memberHelp : undefined} disabled={follow.isPending} onClick={() => {
                 if (!state.member && !state.following) setEditing(!editing);
                 else follow.mutate(!state.following);
             }}>{state.following ? 'Unfollow thread' : state.member ? 'Follow thread' : 'Email me replies'}</Button>
-            {state.member && <Button size="xs" variant="plain" className="pointer-coarse:min-h-11" disabled={mute.isPending} onClick={() => mute.mutate()}>
+            {state.member && <Button size="xs" variant="plain" className={quietButtonClassName}
+                title={memberHelp} disabled={mute.isPending} onClick={() => mute.mutate()}>
                 {state.muted ? 'Unmute project emails' : 'Mute project emails'}
             </Button>}
         </div>
@@ -40,7 +46,6 @@ export function ThreadNotifications({ comment }: { comment: CommentItem }) {
         </form>}
         {state.pending && <p role="status">Check your email to confirm reply notifications.</p>}
         {verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer" className="underline">Open verification link</a>}
-        {state.member && <p>{state.muted ? 'Project emails are muted.' : 'Owners and admins get new feedback. Members follow threads they post in. Replies and status changes are batched for 5 minutes.'}</p>}
         <CommentsErrorMessage error={follow.error ?? mute.error} />
     </div>;
 }
