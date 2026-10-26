@@ -14,7 +14,6 @@
  */
 import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
 import { GEIST_FONTS_URL } from '@uier/brand';
-import { decorativeAttribute, isInDecorative } from './decorative';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
 import type { CommentItemPosition } from './components/@types/Comments';
 
@@ -40,7 +39,6 @@ const maxSide = 2400;
 const maxScale = 2;
 /** Marks elements scrolled inside the page while their copy is made */
 const scrollAttribute = 'data-uier-screenshot-scroll';
-const sizeAttribute = 'data-uier-screenshot-size';
 
 /** The window without its scrollbars (in quirks mode `<html>` is as tall as the page; `<body>` is the window) */
 function windowSize() {
@@ -228,28 +226,6 @@ function markScrolledElements() {
 }
 
 /**
- * Decorative parts of the page (`data-uier-decorative`) are left out of the copy but keep their
- * box: the copy does not take sizes from the page, so their size goes in a mark.
- */
-function markDecorativeElements() {
-    const marked = [...document.querySelectorAll<HTMLElement>(`[${decorativeAttribute}]`)];
-    for (const element of marked)
-        element.setAttribute(sizeAttribute, `${element.offsetWidth},${element.offsetHeight}`);
-    return () => marked.forEach(element => element.removeAttribute(sizeAttribute));
-}
-
-/** In the copy: a marked decorative element is an empty box of its size, and the mark goes */
-function keepDecorativeSize(cloned: Node) {
-    if (!(cloned instanceof HTMLElement) || !cloned.hasAttribute(sizeAttribute)) {
-        return;
-    }
-    const [width = 0, height = 0] = (cloned.getAttribute(sizeAttribute) ?? '').split(',').map(Number);
-    cloned.removeAttribute(sizeAttribute);
-    cloned.style.width = `${width}px`;
-    cloned.style.height = `${height}px`;
-}
-
-/**
  * In the copy: a marked element's children move by its scroll, and the mark goes. (A transform:
  * fixed and sticky elements inside such an element move with it, unlike in the page.)
  */
@@ -326,8 +302,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
     const scroll = { x: window.scrollX, y: window.scrollY };
     const scale = Math.min(window.devicePixelRatio || 1, maxScale);
     const cssText = await fontFaceCss();
-    const unmarkScrolled = markScrolledElements();
-    const unmarkDecorative = markDecorativeElements();
+    const unmark = markScrolledElements();
     let page: HTMLCanvasElement;
     try {
         const context = await createContext(document.documentElement, {
@@ -335,8 +310,9 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             height: view.height,
             scale,
             backgroundColor: pageBackground(),
-            // Not the toolbar, inline threads (they are the toolbar's too) or a decorative element's content
-            filter: node => node !== exclude && !(node instanceof Element && node.hasAttribute('data-uier-thread')) && !isInDecorative(node.parentNode),
+            // Not the toolbar, inline threads (the toolbar's too) or a decorative element's content: an
+            // animation or illustration the site marked `data-uier-decorative` (README) keeps its box
+            filter: node => node !== exclude && !(node instanceof Element && node.hasAttribute('data-uier-thread')) && !node.parentElement?.closest('[data-uier-decorative]'),
             // The scroll position as a margin, not a transform: fixed and sticky elements stay put.
             // `<html>` is not the page's root in the copy: its overflow would clip it.
             style: { marginTop: `${-scroll.y}px`, marginLeft: `${-scroll.x}px`, overflow: 'visible' },
@@ -344,10 +320,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             // The library first waits for every image and video of the page to load: not long, as
             // lazy images below the window never do
             timeout: 1_000,
-            onCloneEachNode: cloned => {
-                restoreScroll(cloned);
-                keepDecorativeSize(cloned);
-            }
+            onCloneEachNode: restoreScroll
         });
         // Then images are fetched to be drawn: that may take longer
         context.timeout = 10_000;
@@ -357,8 +330,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             destroyContext(context);
         }
     } finally {
-        unmarkScrolled();
-        unmarkDecorative();
+        unmark();
     }
 
     // The region, at most `maxSide` pixels on a side

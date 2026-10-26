@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import { isInDecorative } from '../decorative';
 
 // One set of listeners for every pin and highlight: a number that changes (once per frame at most)
 // when anything on the page may have moved, so positions are measured again.
@@ -32,12 +31,8 @@ function start() {
         resizeObserver?.observe(document.body);
     }
     // The page changed (a `<details>` opened, content was added or edited). The toolbar's own
-    // updates are in its shadow root, which this doesn't observe; changes inside a decorative part
-    // of the page (an animation, `data-uier-decorative`) move nothing else.
-    mutationObserver = new MutationObserver(records => {
-        if (records.some(record => !isInDecorative(record.target)))
-            schedule();
-    });
+    // updates are in its shadow root, which this doesn't observe.
+    mutationObserver = new MutationObserver(schedule);
     mutationObserver.observe(document.body ?? document.documentElement, {
         subtree: true,
         childList: true,

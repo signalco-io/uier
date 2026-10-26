@@ -214,9 +214,8 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
     const done = is('done', 'leave');
 
     return (
-        // Decorative (data-uier-decorative): the toolbar's screenshots keep its box only and its
-        // changes do not make the toolbar measure the page again; the e2e axe scan skips it
-        <div data-uier-decorative="" aria-hidden="true" className="rounded-3xl border bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:shadow-none">
+        // data-landing-scene: the e2e axe scan skips this picture (e2e/accessibility.ts)
+        <div data-landing-scene="" aria-hidden="true" className="rounded-3xl border bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:shadow-none">
             <div className="flex items-center gap-1.5 px-2 pb-2.5 pt-1">
                 <span className="size-2.5 rounded-full bg-muted" />
                 <span className="size-2.5 rounded-full bg-muted" />
@@ -226,7 +225,9 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
                     <span className={cx('font-medium text-foreground transition-opacity duration-150 ease-out', reviewing ? 'opacity-100' : 'opacity-0')}>?review=true</span>
                 </span>
             </div>
-            <div ref={canvas} className="relative h-[400px] overflow-hidden rounded-2xl border bg-background p-6 sm:h-[380px] sm:p-8">
+            {/* Decorative: the toolbar's screenshots leave its content out (copying it made every capture
+                on this page much slower); the min-height keeps its box, as screenshots do not copy heights */}
+            <div ref={canvas} data-uier-decorative="" className="relative h-[400px] min-h-[400px] overflow-hidden rounded-2xl border bg-background p-6 sm:h-[380px] sm:min-h-[380px] sm:p-8">
                 <div className="flex items-center justify-between text-sm">
                     <span className="font-semibold">Trattoria</span>
                     <span className="flex gap-4 text-xs text-muted-foreground"><span>Menu</span><span>Visit</span><span>Book</span></span>

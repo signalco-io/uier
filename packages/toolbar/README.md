@@ -141,13 +141,13 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
 
 ### Decorative parts of a page
 
-Mark an animation or an illustration that changes on its own with `data-uier-decorative`
-(`src/decorative.ts`). Automatic screenshots keep its box but leave its content out (copying a busy
-element makes every capture slower), and changes inside it do not make the toolbar measure the page again.
-Its size must not depend on those changes. uier.io's landing page marks its how-it-works scene this way.
+Mark an animation or a busy illustration with `data-uier-decorative`: automatic screenshots leave its
+content out, because copying it makes every capture on the page slower. Screenshots do not copy heights,
+so give it a `min-height` to keep its box the same size in them. uier.io's landing page marks its
+how-it-works scene this way.
 
 ```html
-<div data-uier-decorative aria-hidden="true">…</div>
+<div data-uier-decorative aria-hidden="true" style="min-height: 380px">…</div>
 ```
 
 ## Comments API

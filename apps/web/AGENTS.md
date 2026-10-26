@@ -88,11 +88,10 @@ started (`#get-started`), pricing (`#pricing`, `LandingPricing`) and questions (
 - **One section moves.** The how-it-works scene is a timeline of phases (`phases` in
   `HowItWorks.tsx`); everything in it is always rendered and shown or hidden with the brand's fade,
   and the pointer's targets are measured from the scene, so it follows any width. It plays only
-  while in view, Pause stops it, and with reduced motion it shows one still frame. It is marked
-  `data-uier-decorative`: the toolbar's screenshots keep its box but not its content (copying it
-  made every capture on the landing page much slower) and its changes do not make the toolbar
-  measure the page again; the e2e axe scan skips it too (a picture, and a frame caught mid-fade has
-  low contrast). Keep the other sections still, and keep each section's layout
+  while in view, Pause stops it, and with reduced motion it shows one still frame. Its canvas is
+  `data-uier-decorative` with a `min-height`: the toolbar's screenshots keep its box but not its
+  content (copying it made every capture on the landing page much slower). The e2e axe scan skips
+  the scene (`data-landing-scene`): it is a picture, and a frame caught mid-fade has low contrast. Keep the other sections still, and keep each section's layout
   different from its neighbours.
 - **Get started** (the hero and pricing) opens `/app`, like the navigation's "Sign in": signed-out
   visitors land on sign in, signed-in people in the app. The `#get-started` section below the
