@@ -186,6 +186,11 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   offers All clients and No client, and stays selected in the URL across status changes and reloads.
   Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
+  Addresses can include localhost, its subdomains, and loopback IPs for local development
+  (for example `localhost:3000/app`, `preview.localhost:5173`, or `127.0.0.1:8080`). Without a
+  scheme these use HTTP; other sites use HTTPS. Explicit `http://` or `https://` is preserved.
+  The toolbar accepts only configured origins, including the scheme and port. Local sites
+  open on the reviewer's own computer, so each reviewer needs the site running locally.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install?onboarding=1`
     (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
     the sources to add to it). Both pages show the two-step progress (Your site, Add the script); the Install
@@ -210,6 +215,14 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
     targets.
+  - Project embeds also try background sign-in through the hidden `/review-session` frame. A signed-in
+    member can start reviewing a configured site without a link or top-level navigation. The separate
+    `uier_review_sso` HttpOnly, Secure, SameSite=None cookie only authorizes project review handoffs;
+    the app session stays SameSite=Lax. Existing logins receive it on their next app visit. Browsers that
+    block cross-site cookies or frames keep the explicit link flow. No storage-access prompts are opened.
+    Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;
+    Exit review suppresses automatic opening in that tab. Pending one-use codes survive host redirects
+    in session storage for at most ten minutes and are removed after exchange or definitive rejection.
 - **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
   remove people (the last admin stays) and revoke invitations. A removed member's review token stops
@@ -256,6 +269,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | --- | --- |
 | `GET /api/review/<code>` | the project (name, who can comment, page-state policy), the reviewer and whether they can comment, the sign-in URL |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
+| `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
@@ -265,8 +279,8 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
-  visitor id (`X-Uier-Visitor`) and the name they give. No cookies: the API is another site than the
-  reviewed one.
+  visitor id (`X-Uier-Visitor`) and the name they give. Comment requests use headers, without cookies;
+  only the same-origin background handoff uses its separate cookie inside the uier frame.
 - **Who can comment** is enforced here: `403 comments_disabled` when comments are off, `401
   sign_in_required` for anyone but members when the project is for invited people.
 - **CORS**: only the project's own site addresses get `Access-Control-Allow-Origin` (no credentials);
@@ -279,7 +293,8 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
   empty frame on uier's origin so BotID can verify there, without third-party cookies. The frame checks
   its parent's browser-supplied origin against the project's addresses and returns a signed five-minute
   proof. Every cross-origin write needs that proof in `X-Uier-Verification`, bound to its origin, project
-  and reviewer. Only `/review-verification` can be framed; other pages keep their framing protection.
+  and reviewer. Only `/review-verification` and the empty `/review-session` background sign-in bridge
+  can be framed; other pages keep their framing protection.
   The install guide includes `frame-src` for the API origin. BotID failures stop writes.
 
 Data lives in the Cosmos DB container `app` (`app-preview` on previews), partition key `/pk`:
@@ -332,6 +347,12 @@ cold starts: it preserves replies, status and numbers. Production feedback previ
 Previews use only their configured preview containers. Local subdomains keep independent, unseeded
 partitions for testing.
 
+Every uier account automatically joins this workspace as a commenter of the feedback project.
+Existing accounts are enrolled by a one-time, resumable provisioning backfill; sign-in and app
+requests also ensure membership. Existing team admins keep their roles. This grants project access
+directly, with no invitation email or acceptance step, and keeps each person's current workspace
+and new-user onboarding as the default. Switch to the **uier** workspace to view the project.
+
 The hero's `data-uier-thread="comment_uier_headline"` slot renders a live thread in an open shadow
 root, sharing the toolbar's components, queries and anonymous visitor cookie. Both hero pins and the
 text highlight come from stored comments. The inbox includes other public pages. Explicit review
@@ -342,6 +363,10 @@ The app's **Give feedback** button (sidebar, above the account) opens the same t
 people's private projects, so on the public project every comment on an `/app` page is **private**: only its
 author and the uier team (the public project's admins, in the app) see it, in both comments APIs, whichever
 toolbar left it. Comments the team makes private there are hidden from other visitors as well.
+On uier's own pages the signed-in app session takes precedence over a guest cookie or visitor header:
+the toolbar profile, comments, replies, drafts and read state use the account identity and current
+display name. Signed-out visitors retain their guest identity; earlier guest feedback is not claimed
+by signing in. Account sign-out remains in the app's account menu.
 
 ### `/toolbar.js`
 
@@ -359,7 +384,8 @@ project's script tag from the app's install guide:
 <script src="https://uier.io/toolbar.js" data-uier-project="<project code>" defer></script>
 ```
 
-and the toolbar starts on its pages opened with a review link, `?toolbar-code=<project code>` (the links the app
+and the toolbar starts automatically for an authenticated project member when browser policy allows it,
+or on pages opened with a review link, `?toolbar-code=<project code>` (the links the app
 gives out) or `?review=true` (review mode, the default; options in
 [`packages/toolbar/README.md`](packages/toolbar/README.md#embedding)). The link only starts the review: the
 project whose comments apply is the script's `data-uier-project`, so `?review=true` on a project's site reviews

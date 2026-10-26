@@ -115,6 +115,7 @@ test('missing browser hints stay unknown and public feedback never exposes repro
     const saved = await response.json();
     expect(saved.device).toEqual({ size: sent.device.size, windowSize: sent.device.windowSize });
     expect(saved.reproduction).toBeUndefined();
-    await expect(openThread(page).getByRole('button', { name: 'Reproduction details' })).toHaveCount(0);
+    await openThread(page).getByRole('button', { name: /^Device:/ }).click();
+    await expect(openThread(page).getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
     await context.close();
 });

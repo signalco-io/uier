@@ -19,7 +19,7 @@ import { expectNoAxeViolations } from './accessibility';
 // Every test uses its own origin (see `isolatedOrigin`), so it only sees its own comments.
 
 // The landing page's description paragraph (selected to leave a text comment)
-const heroText = brand.description;
+const heroText = brand.shortDescription;
 
 /** Status of a comments API call made from the page (with the visitor's cookie and BotID headers) */
 async function apiStatus(page: Page, path: string, method: 'PATCH' | 'DELETE', body?: unknown) {

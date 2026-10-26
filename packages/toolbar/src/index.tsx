@@ -3,9 +3,11 @@ import { GEIST_FONTS_URL } from '@uier/brand';
 import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
-import { endReviewSession, resolveReviewSession, ReviewSession } from './review';
+import { backgroundReviewExited, endReviewSession, resolveReviewSession, startBackgroundReview, ReviewSession } from './review';
 import { openFeedbackEvent, requestFeedbackOnMount } from './openFeedback';
 import { startInstallationCheck } from './project/installationCheck';
+import { backgroundSignIn } from './project/backgroundSession';
+import { loadReviewInfo } from './project/ProjectGate';
 
 startInstallationCheck();
 
@@ -122,5 +124,16 @@ if (toolbarConfig.mode === 'showcase') {
     if (review) {
         console.debug('uier-toolbar: In review, mounting...');
         whenBodyReady(() => MountOnPage('review', review));
+    } else if (toolbarConfig.project && !backgroundReviewExited()) {
+        // Ordinary visitors see nothing. Only a verified project member starts a review silently.
+        whenBodyReady(() => {
+            void backgroundSignIn().then(async signedIn => {
+                if (!signedIn) return;
+                const info = await loadReviewInfo();
+                if (info.viewer.kind !== 'member' || !info.canComment) return;
+                const session = startBackgroundReview(toolbarConfig.project!);
+                if (session) MountOnPage('review', session);
+            }).catch(() => { /* A blocked or unavailable bridge leaves review links as the fallback. */ });
+        });
     }
 }

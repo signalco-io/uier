@@ -8,12 +8,14 @@ test('landing page renders', async ({ page }) => {
     expect(response?.status()).toBe(200);
     await expect(page).toHaveTitle(`${brand.name} · ${brand.tagline}`);
     await expect(page.getByRole('heading', { level: 1, name: brand.tagline })).toBeVisible();
-    // Get started leads to the section that starts the supported flow: trying the toolbar on this page
+    // Get started opens the app like the navigation's Sign in: sign in, or the app when signed in
     const getStarted = page.getByRole('link', { name: 'Get started' });
     await expect(getStarted.first()).toBeVisible();
     for (const link of await getStarted.all())
-        await expect(link).toHaveAttribute('href', '/#get-started');
+        await expect(link).toHaveAttribute('href', '/app');
     await expect(page.getByRole('main').getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/#how-it-works');
+    // Sign in leads into the app: signed-out visitors land on sign in, signed-in people in the app
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/app');
     await expect(page.getByText(new RegExp(`© \\d{4} ${brand.name}`))).toBeVisible();
 });
 
@@ -53,7 +55,7 @@ test('landing page sections are reachable from the navigation', async ({ page })
     for (const [id, heading] of [
         ['how-it-works', 'How it works'],
         ['features', 'What it does'],
-        ['get-started', 'Get started on this page'],
+        ['get-started', 'Get started'],
         ['pricing', 'Free, and it stays free'],
         ['faq', 'Questions']
     ] as const) {
@@ -70,8 +72,9 @@ test('pricing states the free offering and nothing else', async ({ page }) => {
     await page.goto('/');
     const pricing = page.getByRole('region', { name: 'Free, and it stays free' });
     await expect(pricing.getByText(brand.pricing)).toBeVisible();
-    await expect(pricing.getByRole('heading', { name: 'Free', exact: true })).toBeVisible();
-    await expect(pricing.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/#get-started');
+    await expect(pricing.getByRole('heading', { level: 2, name: 'Free, and it stays free' })).toBeVisible();
+    await expect(pricing.getByRole('heading', { level: 3, name: 'Included today' })).toBeVisible();
+    await expect(pricing.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/app');
     // No invented prices, tiers or trials
     await expect(pricing).not.toContainText(/[$€£]\s?\d|\/\s?mo\b|per month|per year|trial|pro plan|enterprise/i);
 });

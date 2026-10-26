@@ -45,8 +45,15 @@ const items = [
         name: 'uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
-        purpose: 'Keeps you signed in. Holds a signed token with your account id; signing out removes it.',
+        purpose: 'Keeps you signed in and identifies your feedback on uier.io by your account name, taking precedence over a guest identity. Holds a signed token with your account id; signing out in the app removes it.',
         duration: '30 days'
+    },
+    {
+        name: 'uier_review_sso',
+        type: 'Cookie (HttpOnly, Secure, SameSite=None)',
+        when: 'You sign in or visit the signed-in app',
+        purpose: 'Lets an empty uier frame sign you into a project on a configured site when your browser allows cross-site cookies. It cannot sign you into the app. The server checks your current project access; signing out of the app removes it.',
+        duration: 'Until the app session expires, at most 30 days'
     },
     {
         name: 'uier_workspace',
@@ -122,14 +129,18 @@ export default function CookiePolicyPage() {
             <p>
                 All of them are needed for something you chose to do, so we do not ask for consent first.
                 The cookies are <code>HttpOnly</code> (scripts on the page cannot read them), <code>Secure</code>
-                and <code>SameSite=Lax</code>.
+                and <code>SameSite=Lax</code>, except the separate background sign-in cookie described above,
+                which uses <code>SameSite=None</code> and is restricted to the review API.
             </p>
 
             <h2>On sites that use {brand.name}</h2>
             <p>
                 When you review a site that embeds the {brand.name} toolbar for a project, the toolbar keeps these keys
-                in that site&rsquo;s local storage. They are set only once you open a review link or comment, and the
-                toolbar&rsquo;s Sign out removes them.
+                in that site&rsquo;s local storage once you open a review link, comment or sign in automatically.
+                The toolbar&rsquo;s Sign out removes the identity keys.
+                Background sign-in uses an empty frame on {brand.domain} and the separate cookie above to
+                check your existing account and project access. Blocked cookies or frames leave the explicit
+                sign-in link available. We do not open popups or ask for storage access.
                 Before writing, an empty frame on {brand.domain} verifies your browser with BotID. Its signed
                 proof lasts five minutes and is kept only in memory. This needs no third-party cookies.
             </p>
@@ -137,11 +148,16 @@ export default function CookiePolicyPage() {
                 <li><code>uier:review-token:&lt;project&gt;</code>: keeps you signed in to the project on that site (30 days).</li>
                 <li><code>uier:visitor</code>: a random id that recognises a guest&rsquo;s comments and read state. Read state is limited to this browser and site; clearing the id starts a new identity.</li>
                 <li><code>uier:guest-name</code>: the name a guest comments under.</li>
+                <li><code>uier:review-code:v1:&lt;api&gt;:&lt;project&gt;</code> (session storage): a pending one-use sign-in code, saved before URL removal so a host redirect cannot lose it. It expires after ten minutes and is cleared after exchange, definitive rejection or toolbar sign-out.</li>
+                <li><code>uier:auto-sign-in-disabled:&lt;api&gt;:&lt;project&gt;</code> (local storage): remembers toolbar sign-out until you use an explicit authenticated review link.</li>
+                <li><code>uier:review-exited</code> (session storage): prevents automatic reopening after Exit review in this tab, until you use a review link.</li>
             </ul>
 
             <p>
                 Drafts, toolbar position and panel-side preferences are also stored on reviewed sites. Drafts expire after seven days; signing out clears that reviewer’s drafts for the project on that site. Signing out removes
-                the identity keys listed above; movement and environment filter preferences remain until you reset them or clear site data.
+                the identity keys listed above; the automatic sign-in opt-out, movement and environment filter preferences remain until reset or you clear site data.
+                Signing out of the app stops future background sign-ins; project review tokens already stored
+                on other sites last until they expire or you sign out in those toolbars.
             </p>
 
             <h2>Third parties</h2>

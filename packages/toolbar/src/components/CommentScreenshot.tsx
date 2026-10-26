@@ -3,6 +3,8 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { Upload } from '@signalco/ui-icons';
 import { Input } from '@signalco/ui-primitives/Input';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +17,22 @@ import { useReplaceScreenshot } from '../hooks/useReplaceScreenshot';
 import { ScreenshotRedaction } from './ScreenshotRedaction';
 
 export const screenshotAlt = 'Screenshot of the commented part of the page';
+
+const imageLimits = 'PNG, JPEG or WebP. Up to 512 KB and 4096 pixels on each side.';
+
+/** Lucide's clipboard-paste (the UI kit has no clipboard icon), drawn like the kit's icons next to it */
+function PasteIcon({ size = 16 }: { size?: number }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M11 14h10" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v1.344" />
+            <path d="m17 18 4-4-4-4" />
+            <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793-1.113" />
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+        </svg>
+    );
+}
 
 /** Whether the element is in (or near) the window, once; scrolled containers count (the inbox) */
 function useSeen<T extends Element>() {
@@ -38,9 +56,10 @@ function useSeen<T extends Element>() {
 }
 
 /**
- * The screenshot under a thread's first message. The image is fetched when it comes into view (the
- * inbox lists many threads), once per image revision; until then a placeholder of its
- * size keeps the thread from jumping.
+ * The screenshot under a thread's first message, with icon buttons to upload or paste a new one
+ * for its author (the limits are in their tooltips). The image is fetched when it comes into view
+ * (the inbox lists many threads), once per image revision; until then a placeholder of its size
+ * keeps the thread from jumping. Without a screenshot and nothing to do, it renders nothing.
  */
 export function CommentScreenshot({ comment }: { comment: CommentItem }) {
     const size = comment.screenshot;
@@ -92,13 +111,17 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
         throw new Error('The clipboard contains no PNG, JPEG or WebP image.');
     };
 
-    return <section ref={sectionRef} aria-label="Screenshot evidence" className="flex flex-col gap-2" onPaste={event => {
+    if (!size && !canReplace) {
+        return null;
+    }
+
+    return <section ref={sectionRef} aria-label="Screenshot evidence" className="flex flex-wrap items-center gap-1" onPaste={event => {
         if (!canReplace || busy || editing) return;
         const file = [...event.clipboardData.files][0];
         if (file) { event.preventDefault(); void supply(async () => file); }
     }}>
-        {!size ? <p className="m-0 text-xs text-muted-foreground">No screenshot available.</p>
-            : isError ? <p className="m-0 text-xs text-muted-foreground">The screenshot is no longer available.</p>
+        {!size ? <span className="mr-1 text-xs text-muted-foreground">No screenshot</span>
+            : isError ? <span className="mr-1 text-xs text-muted-foreground">The screenshot is no longer available.</span>
             : data
         ? (
             <Popper
@@ -108,9 +131,9 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                 aria-label="Screenshot"
                 className="z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3"
                 trigger={(
-                    <Button variant="plain" className="block h-auto w-24 cursor-zoom-in p-0" aria-label={screenshotAlt} title="Expand screenshot">
+                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={screenshotAlt} title="Expand screenshot">
                         <img src={data} width={size.width} height={size.height} alt={screenshotAlt}
-                            className="block h-16 w-24 rounded-md border object-contain" />
+                            className="block h-16 w-24 rounded-lg border object-contain" />
                     </Button>
                 )}>
                 <Button variant="plain" className="min-h-11 self-end" disabled={busy} onClick={() => { setOpen(false); setEditing(false); }}>Close screenshot</Button>
@@ -127,7 +150,7 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
             <div
                 ref={placeholderRef}
                 aria-hidden="true"
-                className="h-16 w-24 animate-pulse rounded-md border bg-muted"
+                className="mr-1 h-16 w-24 animate-pulse rounded-lg border bg-muted"
                 style={{ aspectRatio: `${size.width} / ${size.height}` }} />
         )}
         {canReplace && <>
@@ -137,14 +160,19 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                     event.target.value = '';
                     if (file) void supply(async () => file);
                 }} />
-            <div className="flex flex-wrap gap-1">
-                <Button variant="plain" className="min-h-11" disabled={busy || editing} onClick={() => sectionRef.current?.querySelector('input')?.click()}>Upload image</Button>
-                <Button variant="plain" className="min-h-11" disabled={busy || editing} onClick={() => { void supply(clipboard); }}>Paste image</Button>
-            </div>
-            <p className="m-0 text-xs text-muted-foreground">PNG, JPEG or WebP. Up to 512 KB and 4096 pixels on each side.</p>
+            <IconButton size="xs" variant="plain" className="size-7 text-muted-foreground hover:text-foreground"
+                title={`Upload image. ${imageLimits}`} aria-label="Upload image"
+                disabled={busy || editing} onClick={() => sectionRef.current?.querySelector('input')?.click()}>
+                <Upload size={16} />
+            </IconButton>
+            <IconButton size="xs" variant="plain" className="size-7 text-muted-foreground hover:text-foreground"
+                title={`Paste image. ${imageLimits}`} aria-label="Paste image"
+                disabled={busy || editing} onClick={() => { void supply(clipboard); }}>
+                <PasteIcon />
+            </IconButton>
         </>}
-        {busy && <p role="status" className="m-0 text-xs text-muted-foreground">Saving replacement...</p>}
-        {message && <p role="status" className="m-0 text-xs text-muted-foreground">{message}</p>}
-        {failure && <p role="alert" className={`m-0 text-xs ${destructiveTextClassName}`}>{failure}</p>}
+        {busy && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">Saving replacement...</p>}
+        {message && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">{message}</p>}
+        {failure && <p role="alert" className={`m-0 basis-full text-xs ${destructiveTextClassName}`}>{failure}</p>}
     </section>;
 }
