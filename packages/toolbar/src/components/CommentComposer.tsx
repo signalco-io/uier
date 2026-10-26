@@ -102,7 +102,6 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
 
     // Guests of a project tag their comments with their name, asked once and kept on this site
     const { needsName, isMember } = useProjectViewer();
-    const mentionHintId = useId();
     const [savedName, setSavedName] = useState(() => needsName ? getGuestName() : undefined);
     const askName = needsName && !savedName;
     const [name, setName] = useState('');
@@ -284,7 +283,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         <form ref={formRef} onSubmit={handleSubmit} aria-busy={busy}>
             <Stack spacing={1} className="bg-card px-3 py-3">
                 {Boolean(quote?.length) && (
-                    <blockquote className="m-0 line-clamp-3 border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm text-secondary-foreground">
+                    <blockquote className="m-0 line-clamp-3 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
                         {quote}
                     </blockquote>
                 )}
@@ -308,6 +307,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         )}
                     </>
                 )}
+                {/* One box: the text, then its hint or counter and the buttons; the box shows the focus */}
+                <div className={cx('rounded-lg border border-input bg-background', inputFocusRingClassName)}>
                 <textarea
                     ref={textareaRef}
                     id={inputId}
@@ -325,16 +326,61 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     readOnly={busy}
                     placeholder={placeholder}
                     aria-label={label}
-                    aria-describedby={[showCounter ? counterId : '', isMember ? mentionHintId : ''].filter(Boolean).join(' ') || undefined}
+                    aria-describedby={showCounter || isMember ? counterId : undefined}
                     autoComplete="off"
                     className={cx(
-                        'block w-full resize-none overflow-y-auto rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground',
+                        'block w-full resize-none overflow-y-auto rounded-t-lg border-0 bg-transparent px-3 pb-1 pt-2.5 text-sm text-foreground',
                         'placeholder:text-muted-foreground',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                        'focus-visible:outline-none',
                         'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                     style={{ maxHeight: textareaMaxHeight }} />
-                {isMember && <p id={mentionHintId} className="m-0 text-xs text-secondary-foreground">Type @ to mention someone with access.</p>}
+                <Row justifyContent="space-between" spacing={1} className="py-1.5 pl-3 pr-1.5">
+                    <span
+                        id={counterId}
+                        className={cx(
+                            'min-w-0 truncate text-xs tabular-nums',
+                            text.length >= commentTextMaxLength ? destructiveTextClassName : 'text-muted-foreground'
+                        )}>
+                        {showCounter ? (
+                            <>
+                                {text.length}/{commentTextMaxLength}
+                                <span className="sr-only"> characters</span>
+                            </>
+                        ) : isMember && (
+                            <>
+                                <span aria-hidden="true" title="Type @ to mention someone with access.">@ to mention</span>
+                                <span className="sr-only">Type @ to mention someone with access.</span>
+                            </>
+                        )}
+                    </span>
+                    <Row spacing={0.5} className="shrink-0">
+                        {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>Cancel</Button>}
+                        {!onCancel && text.length > 0 && (
+                            <Button
+                                variant="plain"
+                                size="xs"
+                                type="button"
+                                disabled={busy}
+                                onClick={handleDiscard}>
+                                Discard
+                            </Button>
+                        )}
+                        {onCancel ? (
+                            <Button type="submit" variant="solid" size="xs" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
+                        ) : <IconButton
+                            variant="solid"
+                            size="xs"
+                            type="submit"
+                            className="size-7 rounded-md"
+                            title={submitLabel}
+                            aria-label={submitLabel}
+                            disabled={!trimmedText.length || busy}>
+                            <Send size={14} />
+                        </IconButton>}
+                    </Row>
+                </Row>
+                </div>
                 {showSuggestions && <div id={listId} role="listbox" aria-label="Mention people" className="max-h-48 overflow-y-auto rounded-xl border p-1">
                     {suggestions.map((person, index) => <Button key={person.id} id={`${listId}-${index}`} role="option" aria-selected={index === selectedIndex}
                         variant="plain" size="sm" className={cx('min-h-11 w-full justify-start', index === selectedIndex && 'bg-muted')}
@@ -347,45 +393,6 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">Browser storage is unavailable. Keep this page open to keep your draft.</p>}
                 {error != null && <p className="m-0 text-xs text-muted-foreground">Your draft is kept. Try sending again.</p>}
                 {busy && <p role="status" className="m-0 text-xs text-muted-foreground">Saving...</p>}
-                <Row justifyContent="space-between" spacing={1}>
-                    <span
-                        id={counterId}
-                        className={cx(
-                            'text-xs tabular-nums',
-                            text.length >= commentTextMaxLength ? destructiveTextClassName : 'text-muted-foreground'
-                        )}>
-                        {showCounter && (
-                            <>
-                                {text.length}/{commentTextMaxLength}
-                                <span className="sr-only"> characters</span>
-                            </>
-                        )}
-                    </span>
-                    <Row spacing={1}>
-                        {onCancel && <Button variant="plain" size="sm" type="button" disabled={busy} onClick={onCancel}>Cancel</Button>}
-                        {!onCancel && text.length > 0 && (
-                            <Button
-                                variant="plain"
-                                size="sm"
-                                type="button"
-                                disabled={busy}
-                                onClick={handleDiscard}>
-                                Discard
-                            </Button>
-                        )}
-                        {onCancel ? (
-                            <Button type="submit" size="sm" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
-                        ) : <IconButton
-                            variant="solid"
-                            size="sm"
-                            type="submit"
-                            title={submitLabel}
-                            aria-label={submitLabel}
-                            disabled={!trimmedText.length || busy}>
-                            <Send size={16} />
-                        </IconButton>}
-                    </Row>
-                </Row>
             </Stack>
         </form>
     );

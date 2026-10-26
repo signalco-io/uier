@@ -8,6 +8,7 @@ import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbComm
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { toCommentDto, withinListResponseSize, type CommentDto } from './dto';
+import { authorNames } from './authorNames';
 import { isLocalRuntime } from './environment';
 import { ApiError, apiErrors, writerId, type CommentsApiContext } from './http';
 import {
@@ -91,7 +92,7 @@ function assertVisible(comment: DbComment, context: CommentsApiContext) {
 
 async function toDto(comment: DbComment, context: CommentsApiContext): Promise<CommentDto> {
     assertVisible(comment, context);
-    const dto = toCommentDto(comment, context.visitor.authorId);
+    const dto = toCommentDto(comment, context.visitor.authorId, await authorNames([comment]));
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     return { ...dto, activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
@@ -154,9 +155,10 @@ export async function listComments(context: CommentsApiContext, path: string | n
         comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
     }
     comments = comments.filter(comment => isVisible(comment, context));
+    const names = await authorNames(comments);
     const reads = await loadReadSequences(context.domain, context.visitor.authorId);
     return withinListResponseSize(comments.flatMap(comment => {
-        const dto = toCommentDto(comment, context.visitor.authorId);
+        const dto = toCommentDto(comment, context.visitor.authorId, names);
         return dto ? [{ ...dto, activity: readActivity(comment, context.visitor.authorId, reads.get(comment.id)) }] : [];
     }));
 }

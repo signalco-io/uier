@@ -21,6 +21,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(page.locator(`[data-uier-comment="${comment.id}"]`)).toHaveCount(0);
         await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
         const inbox = page.getByRole('complementary', { name: 'Comments' });
+        // A matching anchor is quiet: reattaching it is in the comment's menu
+        const reattachFromMenu = async () => {
+            await inbox.getByRole('button', { name: /^More options for (your|this) comment$/ }).click();
+            await page.getByRole('dialog', { name: 'Comment options' }).getByRole('button', { name: 'Reattach comment', exact: true }).click();
+        };
         await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Recover this');
         await expect(inbox.getByText('Target is missing from this page.')).toBeVisible();
         await inbox.getByRole('button', { name: 'Move comments panel' }).focus();
@@ -43,14 +48,15 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.mouse.click(target!.x + target!.width / 2, target!.y + target!.height / 2);
         await expect(panel.getByRole('button', { name: 'Confirm anchor' })).toBeEnabled();
         await panel.getByRole('button', { name: 'Confirm anchor' }).click();
-        await expect(inbox.getByText('Anchor matches the saved position.')).toBeVisible();
+        await expect(inbox.locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', 'exact');
+        await expect(inbox.getByRole('button', { name: 'Reattach comment', exact: true })).toHaveCount(0);
         const first = await load();
         expect(first.position.type).toBe('point');
         expect(first.anchorContext).toMatchObject({ original: comment.position, previous: comment.position, changes: 1 });
         expect(first.thread).toEqual(comment.thread);
         expect(first.screenshot).toEqual(comment.screenshot);
 
-        await inbox.getByRole('button', { name: 'Reattach comment', exact: true }).click();
+        await reattachFromMenu();
         await panel.getByRole('button', { name: 'Choose text', exact: true }).click();
         await selectText(page, 'leaving comments directly');
         await page.getByRole('button', { name: 'Use selected text' }).click();
@@ -77,7 +83,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(inbox.getByText('Original Text: Original target')).toBeVisible();
         await expect(inbox.locator('blockquote')).toHaveText('Original target');
         // Collapse during an unconfirmed choice cancels it and hides the candidate annotations.
-        await inbox.getByRole('button', { name: 'Reattach comment', exact: true }).click();
+        await reattachFromMenu();
         await panel.getByRole('button', { name: 'Choose element', exact: true }).click();
         const pageLink = page.getByRole('main').getByRole('link', { name: 'How it works', exact: true });
         await pageLink.focus();

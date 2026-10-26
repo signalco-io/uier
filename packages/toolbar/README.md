@@ -14,7 +14,8 @@ site embeds it with its project's script tag from the uier app's install guide:
 <script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
 ```
 
-and the toolbar starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
+The toolbar opens automatically for signed-in project members when background authentication is available.
+Otherwise it starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
 app gives out, or `?review=true` ([Review links](#review-links)). The comments and settings that apply are
 those of the script's project, `data-uier-project` ([Projects](#projects)). The uier.io landing page uses
 showcase mode and no project:
@@ -62,7 +63,7 @@ and not published to npm yet.
 
 ### Review links
 
-In `review` mode the toolbar mounts only when the page is opened with a review link:
+In `review` mode signed-in members can open the toolbar in the background. Review links remain available:
 
 | Link | Review |
 | --- | --- |
@@ -91,10 +92,13 @@ The uier app's install guide gives each project its script tag, with the project
 With a project the toolbar uses the review API, `<API base URL>/api/review/<project>`, instead of
 `/api/comments`. The project's "who can comment" setting applies (`src/project/`):
 
-- **Invited people**: the pill says "Sign in to see and leave comments". Sign in opens the project's review
+- **Invited people**: a hidden `/review-session` frame first tries the existing uier login. It returns a
+  project token only for a current member on a configured site. When unavailable, the pill says
+  "Sign in to see and leave comments". Sign in opens the project's review
   link on uier (`/app/review/<project>?url=<this page>`), which signs the reviewer in and comes back with
   `?toolbar-code=<project>&uier-token=<single-use code>`. The toolbar exchanges the code for a review token
-  right away and removes it from the address. The token is kept in the site's `localStorage`
+  right away and removes it from the address, saving the pending code in tab storage for up to ten
+  minutes so a host authentication redirect cannot discard it before exchange. The token is kept in the site's `localStorage`
   (`uier:review-token:<project>`, 30 days) and sent as `Authorization: Bearer`.
 - **Anyone with the link** (guests): anyone with a review link comments. The first comment asks for the
   guest's name (`uier:guest-name`); a random visitor id (`uier:visitor`, sent as `X-Uier-Visitor`) recognises
@@ -107,7 +111,11 @@ can still end the review.
 
 Members mark any comment done; the author and the project's admins delete it (the API returns
 `permissions` and `canDelete`, and the thread shows only those actions). The profile shows the member's
-account name or the guest's name; Sign out forgets the token, name and visitor id on this site.
+account name or the guest's name; Sign out forgets the token, name and visitor id on this site and
+disables background sign-in until an explicit authenticated review link. Exit review also prevents
+automatic reopening in that tab. Background authentication uses a separate HttpOnly uier cookie and
+silently gives up after three seconds if cookies or framing are blocked; it never opens a popup or
+requests storage access. Comment APIs continue using headers and cookie-free browser verification.
 `?uier-comment=<comment id>` (from "Link to comment" in the app) opens that comment's thread. The API only
 answers the project's own site addresses (CORS), so the script works only on those sites. Sites with a
 Content-Security-Policy add the sources from the install guide's "Advanced" section, including uier's
@@ -189,7 +197,8 @@ error boundary, so one bad comment never breaks the toolbar.
   state; narrow screens use a full-width inset panel and retain the preferred side for wider screens.
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
-  first: the comments stay, but this browser can no longer resolve or delete them).
+  first: the comments stay, but this browser can no longer resolve or delete them). It always ends with
+  **Powered by uier**, a link to uier.io in a new tab (the toolbar shows on other people's sites).
 - Feedback and bug reports: the megaphone opens a dialog to choose feedback (heart) or a bug report (bug) and
   describe it. It is saved as a comment of that `kind` about the whole page (`position: { type: 'page' }`):
   no pin, but it is counted and listed in the inbox like any thread.
@@ -232,8 +241,9 @@ error boundary, so one bad comment never breaks the toolbar.
   Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
   [Screenshots](../../README.md#screenshots).
 - Every comment saves the device size, viewport and supported browser/OS hints when feedback starts (`getDeviceInfo`).
-  Public and guest threads show only size and viewport ("Desktop · 1280×720"). Authorized project members also get
-  expandable/copyable reproduction details: browser/version, OS, pixel ratio, original capture time and a safe page
+  A thread shows it as a desktop, tablet or phone icon next to the first message's time; its tooltip has the size
+  and viewport ("Desktop · 1280×720"), and a click shows them. Authorized project members also get copyable
+  reproduction details there: browser/version, OS, pixel ratio, original capture time and a safe page
   link. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
@@ -246,18 +256,21 @@ error boundary, so one bad comment never breaks the toolbar.
   Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../README.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
-- A thread starts with its status (**Open** or **Done**) and public id (`#12`, numbered per site), **Mark as
-  done** / **Reopen** for the comment's author, and **Copy link** for everyone. The link is the comment's page with `?uier-comment=<id>` (plus the review
+- A thread starts with its status (**Open** or **Done**), public id (`#12`, numbered per site) and a blue dot
+  while it is unread, then icon actions (named by their tooltips): **Mark as read** while unread, **Mark as
+  done** / **Reopen** for the comment's author, **Copy issue** and **Copy link** for everyone. The link is the comment's page with `?uier-comment=<id>` (plus the review
   link in a review, so the toolbar opens for whoever follows it); opening it opens the thread on its pin, or
   the inbox for a done thread or feedback. The parameter is then removed from the address. Done threads have
   no pin; the inbox lists them under "Done".
-- The inbox (the pill's inbox button opens and closes it; Esc and the close button close it too) lists
-  **This page** and the site's **Other pages** (`?scope=site`), newest first.
-  **Open**, **Done** and **All** filter by status, and the search box matches messages, quoted text, guest
-  names, page paths and public ids. A thread shows its first and last message; **Show all** shows the rest.
+- The inbox (the pill's inbox button opens and closes it; Esc and the close button close it too) starts with
+  the search box, which matches messages, quoted text, guest names, page paths and public ids whatever else is
+  chosen. Under it, the page picker (a select; typing the start of a path jumps to it) lists **This page** (the
+  default), **All pages** and each of the site's other pages (`?scope=site`) with their matching comments, next to the **Unread** and **Assigned to me** filters
+  (Unread shows every page and status, like the pill's count). **Open**, **Done** and **All** sit right above the
+  list, newest first; with nothing on this page, the list offers the other pages' matches. A thread shows its first and last message; **Show all** shows the rest.
   **Show on page** (only while the comment's pin can be placed) opens an open comment's thread on its pin; a
-  comment on another page links to its thread there (`?uier-comment=`, always on this site). The status and
-  search are kept while the inbox is closed; Escape clears a search first. The showcase includes other public pages too.
+  comment on another page links to its thread there (`?uier-comment=`, always on this site). The pages, status
+  and search are kept while the inbox is closed; Escape clears a search first. The showcase includes other public pages too.
 
 ### Assignment and mentions
 

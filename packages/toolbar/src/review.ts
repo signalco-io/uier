@@ -1,7 +1,7 @@
 /**
  * Review links and the review session.
  *
- * In `review` mode the toolbar mounts only when the page was opened with a review link:
+ * In `review` mode the toolbar mounts for an authenticated project member or a review link:
  *
  * - `?toolbar-code=<project code>`: the review link of a project, as the uier app makes them
  * - `?review=true`: a review link without a project code
@@ -18,6 +18,7 @@ export const reviewParamKey = 'review';
 export const toolbarCodeParamKey = 'toolbar-code';
 
 const reviewSessionStorageKey = 'uier:review';
+const reviewExitedKey = 'uier:review-exited';
 
 /** Letters, digits, `-` and `_`, up to 64 characters */
 const projectCodePattern = /^[A-Za-z0-9_-]{1,64}$/;
@@ -70,6 +71,18 @@ function saveSession(session: ReviewSession) {
     }
 }
 
+/** Background member sign-in may start a review, until the reviewer exits it in this tab. */
+export function startBackgroundReview(projectCode: string): ReviewSession | null {
+    try { if (window.sessionStorage.getItem(reviewExitedKey)) return null; } catch { /* Page only. */ }
+    const session = { projectCode };
+    saveSession(session);
+    return session;
+}
+
+export function backgroundReviewExited() {
+    try { return Boolean(window.sessionStorage.getItem(reviewExitedKey)); } catch { return false; }
+}
+
 /**
  * The review of this page: started by a review link in the URL, or continued from earlier in
  * this tab. `null` when the page is not being reviewed.
@@ -77,6 +90,7 @@ function saveSession(session: ReviewSession) {
 export function resolveReviewSession(): ReviewSession | null {
     const fromLink = readReviewLink(new URL(window.location.href));
     if (fromLink) {
+        try { window.sessionStorage.removeItem(reviewExitedKey); } catch { /* Page only. */ }
         saveSession(fromLink);
         return fromLink;
     }
@@ -88,6 +102,7 @@ export function resolveReviewSession(): ReviewSession | null {
 export function endReviewSession() {
     try {
         window.sessionStorage.removeItem(reviewSessionStorageKey);
+        window.sessionStorage.setItem(reviewExitedKey, '1');
     } catch {
         // Nothing was remembered
     }

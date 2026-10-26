@@ -182,7 +182,7 @@ export type CommentsApiHandlerOptions = {
 };
 
 /**
- * Wraps a comments API route handler: resolves the domain and the anonymous visitor, maps errors to
+ * Wraps a comments API route handler: resolves the domain and the account or guest, maps errors to
  * `{ error, message }` responses and disables caching. The visitor cookie is created only by a
  * successful write, so reading comments never places a cookie.
  */
@@ -192,7 +192,7 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
 ) {
     return async (request: Request, routeContext: { params: Promise<TParams> }) => {
         const write = isWrite(request);
-        const visitor = resolveVisitor(request, write && createVisitor);
+        let visitor: Visitor = {};
 
         let response: Response;
         try {
@@ -202,6 +202,11 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
             const publicProject = usesPublicProject(domain);
             if (publicProject)
                 await ensurePublicProject();
+            // Request-scoped Next.js APIs are loaded only when handling an actual public request.
+            const user = publicProject ? await (await import('../app/session')).getSessionUser() : null;
+            visitor = user
+                ? { authorId: `user:${user.id}`, name: user.name, member: true }
+                : resolveVisitor(request, write && createVisitor);
             response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor }, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);

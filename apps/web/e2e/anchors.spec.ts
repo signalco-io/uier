@@ -279,7 +279,8 @@ test('every comment keeps the viewport it was left from', async ({ browser }, te
         await composer.press('Enter');
         await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toBeFocused();
         await expect(openThread(page).getByText(text)).toBeVisible();
-        await expect(openThread(page).getByText(`${viewport[0]}×${viewport[1]}`)).toBeVisible();
+        // The device icon next to the time names the viewport
+        await expect(openThread(page).getByRole('button', { name: new RegExp(`^Device: .*${viewport[0]}×${viewport[1]}`) })).toBeVisible();
         await page.keyboard.press('Escape');
         await expect(openThread(page)).toBeHidden();
         return viewport;
@@ -304,8 +305,10 @@ test('every comment keeps the viewport it was left from', async ({ browser }, te
     await page.reload();
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
-    await expect(sidebar.getByText(`${first[0]}×${first[1]}`)).toBeVisible();
-    await expect(sidebar.getByText('Mobile · 700×600')).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: new RegExp(`^Device: .*${first[0]}×${first[1]}`) })).toBeVisible();
+    const mobile = sidebar.getByRole('button', { name: 'Device: Mobile · 700×600' });
+    await mobile.click();
+    await expect(sidebar.getByText('Mobile · 700×600', { exact: true })).toBeVisible();
 
     await context.close();
 });

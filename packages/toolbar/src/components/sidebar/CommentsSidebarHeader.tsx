@@ -1,4 +1,3 @@
-import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -8,12 +7,20 @@ import { PanelRightClose } from '@signalco/ui-icons';
 import { CommentsStatusFilter } from './CommentsFilter';
 import { PanelHandle } from '../DockablePanel';
 
-type CommentsSidebarHeaderProps = {
-    status: CommentsStatusFilter;
-    counts: Record<CommentsStatusFilter, number>;
-    onStatusChange: (status: CommentsStatusFilter) => void;
-    onClose: () => void;
-};
+/** The inbox's title row: the handle that moves it, its name and Close */
+export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
+    return (
+        <Row justifyContent="space-between">
+            <Row spacing={0.5} className="min-w-0">
+                <PanelHandle />
+                <Typography component="h2" level="body1" semiBold className="text-foreground">Comments</Typography>
+            </Row>
+            <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
+                <PanelRightClose />
+            </IconButton>
+        </Row>
+    );
+}
 
 const statuses = [
     { value: 'unresolved', label: 'Open' },
@@ -21,29 +28,36 @@ const statuses = [
     { value: 'all', label: 'All' }
 ] as const;
 
-export function CommentsSidebarHeader({ status, counts, onStatusChange, onClose }: CommentsSidebarHeaderProps) {
+/** Open, Done and All, with their counts for the chosen pages: underlined tabs right above the list */
+export function CommentsStatusTabs({ status, counts, onStatusChange }: {
+    status: CommentsStatusFilter;
+    counts: Record<CommentsStatusFilter, number>;
+    onStatusChange: (status: CommentsStatusFilter) => void;
+}) {
     return (
-        <Stack spacing={1}>
-            <Row justifyContent="space-between">
-                <Row spacing={0.5} className="min-w-0">
-                    <PanelHandle />
-                    <Typography component="h2" level="body1" semiBold className="text-foreground">Comments</Typography>
-                </Row>
-                <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
-                    <PanelRightClose />
-                </IconButton>
-            </Row>
-            {/* Underlined tabs, like the app's (shadcn's line tabs) */}
-            <Row role="group" aria-label="Show comments" spacing={2} className="border-b">
-                {statuses.map((s) => (
-                    <Button key={s.value} size="sm" variant="plain" aria-pressed={status === s.value}
-                        className={cx('-mb-px gap-1.5 rounded-none border-b-2 px-0.5 hover:bg-transparent active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-11',
-                            status === s.value ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
-                        onClick={() => onStatusChange(s.value)}>
-                        {s.label} <span className="font-normal tabular-nums text-muted-foreground">{counts[s.value]}</span>
-                    </Button>
-                ))}
-            </Row>
-        </Stack>
+        <Row role="group" aria-label="Show comments" spacing={2} className="border-b">
+            {statuses.map((s) => (
+                <Button key={s.value} size="sm" variant="plain" aria-pressed={status === s.value}
+                    className={cx('-mb-px gap-1.5 rounded-none border-b-2 px-0.5 hover:bg-transparent active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-11',
+                        status === s.value ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                    onClick={() => onStatusChange(s.value)}>
+                    {s.label} <span className="font-normal tabular-nums text-muted-foreground">{counts[s.value]}</span>
+                </Button>
+            ))}
+        </Row>
+    );
+}
+
+/** A filter that is on or off, as a rounded toggle next to the page picker (as tall as it) */
+export function FilterChip({ pressed, onClick, children }: {
+    pressed: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <Button variant="outlined" aria-pressed={pressed} onClick={onClick}
+            className={cx('shrink-0 rounded-full', pressed ? 'bg-accent' : 'text-muted-foreground')}>
+            {children}
+        </Button>
     );
 }
