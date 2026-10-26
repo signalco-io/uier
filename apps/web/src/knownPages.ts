@@ -31,7 +31,9 @@ export const KnownPages = {
 export const KnownPageLinks = {
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
-    projectInstall: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/install`,
+    /** The install guide; `onboarding` adds the progress of a project that was just created */
+    projectInstall: (projectId: string, { onboarding = false }: { onboarding?: boolean } = {}) =>
+        `/app/projects/${encodeURIComponent(projectId)}/install${onboarding ? '?onboarding=1' : ''}`,
     /** The screenshot of a project comment (an image, for the signed-in app) */
     projectCommentScreenshot: (projectId: string, commentId: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,
