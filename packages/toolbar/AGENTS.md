@@ -2,7 +2,8 @@
 
 The review toolbar: one classic-script bundle (`dist/index.js`, an IIFE with the CSS inlined) that a
 site includes and that mounts the comments UI into an open shadow root, when the page is opened with
-a review link (`?toolbar-code=<project code>` or `?review=true`, `review` mode; the review then lasts
+a review link (`?toolbar-code=<project code>` or `?review=true`) or a project member signs in silently
+(`review` mode; the review then lasts
 for the tab, `src/review.ts`), always (`showcase` mode, every public uier.io page) or when the page asks
 for feedback (`feedback` mode, the uier app's "Give feedback" button, `src/openFeedback.ts`). The link only
 starts the review: the project whose comments apply is the script's `data-uier-project`
@@ -36,7 +37,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | --- | --- |
 | `components/CommentsGlobal.tsx` | top level: pins (in page order), point mode and its keyboard path, selection handling, focus after posting, the first-run hint; collapsing hides the on-page review layer and cancels placement/selection controls, keeping draft text and inbox state |
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
-| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest name) and the options (reset moved toolbar, view project, exit review, sign out) popovers; Options always ends with "Powered by uier", a link to uier.io (the toolbar runs on other people's sites) |
+| `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest or account name) and the options (reset moved toolbar, view project, exit review, sign out) popovers; on uier's own pages, account sign-out stays in the app's account menu. Options always ends with "Powered by uier", a link to uier.io (the toolbar runs on other people's sites) |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
 | `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, in their own styled shadow root; never auto-focus on load |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; one thread layout for popover and inbox: `CommentThreadHeader.tsx` is one row (status, `#id`, the blue unread dot, then icon actions with tooltips: Mark as read, Mark as done / Reopen, Copy issue, Copy link `?uier-comment=`, `src/review.ts`); messages have an avatar column and no dividers |
@@ -58,6 +59,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `hooks/useComments.tsx`, `hooks/useVisitor.tsx` | React Query hooks against the comments and visitor APIs (`hooks/api.ts`: requests, errors, query keys); with a project, the project's review API. A change to a comment updates every cached list that has it (the page's and the site's) |
 | `project/ProjectGate.tsx`, `project/projectSession.ts` | project mode (`data-uier-project`): who the reviewer is and what the project allows (comments, or a notice with Exit review: sign in, comments off), the review token, guest name and visitor id in the reviewed site's `localStorage` |
 | `project/verification.ts` | cross-origin writes get a BotID proof through the API's `/review-verification` frame (no cookies); checks message origin and source, caches the proof in memory for under five minutes, fails closed |
+| `project/backgroundSession.ts` | silent member sign-in through `/review-session`; exact frame/origin/nonce checks, one three-second attempt per page, no popups or storage-access prompts. Sign-out opt-out and tab Exit review take precedence; only authorized members auto-open without a link |
 | `project/installationCheck.ts` | explicit `uier-check` nonce flow: public configuration/status reports to the install page, bounded lifetime, browser CSP evidence, read API and verification proof; never posts a test comment or sends tokens in a diagnostic report |
 | `pageState.ts`, `hooks/usePagePath.tsx` | shared browser/server canonical identity (pathname by default; approved query fields and optional hash routes), SPA history/hash subscriptions with cleanup and a fallback; exported as `@uier/toolbar/page-state` |
 | `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, explicit exact/restored/hidden/missing/ambiguous states; no pin for missing/ambiguous/hidden anchors; never throws (invalid selectors, out-of-range offsets) |
@@ -66,6 +68,10 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `hooks/useDrafts.tsx` | seven-day browser-local text/anchor/edit snapshots scoped to API/project/authorized reviewer/canonical page/item; `draftStorage.ts` handles expiry, discard, sign-out clearing, blocked storage and stable submission identities; captures stay in memory and refresh on reopen |
 
 ## Rules
+
+- Pending review codes are saved before URL removal in API/project-scoped session storage for ten
+  minutes, to survive host SSO redirects. Clear on successful exchange, definitive rejection or sign-out.
+  Background authentication may use its dedicated cookie; comment and verification APIs still use headers.
 
 - The review layer is always ink: the pill and the sidebar render inside `InkScope` (dark tokens)
   and pins are ink, whatever the host page looks like. Thread popovers and the hint use the theme

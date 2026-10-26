@@ -20,7 +20,7 @@ const controls = [
     },
     {
         title: 'Locked-down pages',
-        text: 'A Content Security Policy limits where scripts and connections can go. Only the empty browser verification page can be framed. Browsers do not guess content types.'
+        text: 'A Content Security Policy limits where scripts and connections can go. Only the empty browser verification and background sign-in pages can be framed. Browsers do not guess content types.'
     },
     {
         title: 'Anonymous identity',

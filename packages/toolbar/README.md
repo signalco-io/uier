@@ -14,7 +14,8 @@ site embeds it with its project's script tag from the uier app's install guide:
 <script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
 ```
 
-and the toolbar starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
+The toolbar opens automatically for signed-in project members when background authentication is available.
+Otherwise it starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
 app gives out, or `?review=true` ([Review links](#review-links)). The comments and settings that apply are
 those of the script's project, `data-uier-project` ([Projects](#projects)). The uier.io landing page uses
 showcase mode and no project:
@@ -62,7 +63,7 @@ and not published to npm yet.
 
 ### Review links
 
-In `review` mode the toolbar mounts only when the page is opened with a review link:
+In `review` mode signed-in members can open the toolbar in the background. Review links remain available:
 
 | Link | Review |
 | --- | --- |
@@ -91,10 +92,13 @@ The uier app's install guide gives each project its script tag, with the project
 With a project the toolbar uses the review API, `<API base URL>/api/review/<project>`, instead of
 `/api/comments`. The project's "who can comment" setting applies (`src/project/`):
 
-- **Invited people**: the pill says "Sign in to see and leave comments". Sign in opens the project's review
+- **Invited people**: a hidden `/review-session` frame first tries the existing uier login. It returns a
+  project token only for a current member on a configured site. When unavailable, the pill says
+  "Sign in to see and leave comments". Sign in opens the project's review
   link on uier (`/app/review/<project>?url=<this page>`), which signs the reviewer in and comes back with
   `?toolbar-code=<project>&uier-token=<single-use code>`. The toolbar exchanges the code for a review token
-  right away and removes it from the address. The token is kept in the site's `localStorage`
+  right away and removes it from the address, saving the pending code in tab storage for up to ten
+  minutes so a host authentication redirect cannot discard it before exchange. The token is kept in the site's `localStorage`
   (`uier:review-token:<project>`, 30 days) and sent as `Authorization: Bearer`.
 - **Anyone with the link** (guests): anyone with a review link comments. The first comment asks for the
   guest's name (`uier:guest-name`); a random visitor id (`uier:visitor`, sent as `X-Uier-Visitor`) recognises
@@ -107,7 +111,11 @@ can still end the review.
 
 Members mark any comment done; the author and the project's admins delete it (the API returns
 `permissions` and `canDelete`, and the thread shows only those actions). The profile shows the member's
-account name or the guest's name; Sign out forgets the token, name and visitor id on this site.
+account name or the guest's name; Sign out forgets the token, name and visitor id on this site and
+disables background sign-in until an explicit authenticated review link. Exit review also prevents
+automatic reopening in that tab. Background authentication uses a separate HttpOnly uier cookie and
+silently gives up after three seconds if cookies or framing are blocked; it never opens a popup or
+requests storage access. Comment APIs continue using headers and cookie-free browser verification.
 `?uier-comment=<comment id>` (from "Link to comment" in the app) opens that comment's thread. The API only
 answers the project's own site addresses (CORS), so the script works only on those sites. Sites with a
 Content-Security-Policy add the sources from the install guide's "Advanced" section, including uier's
