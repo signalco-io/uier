@@ -112,6 +112,40 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(comment).toContainText('Open');
 });
 
+test('a schemeless localhost address opens an HTTP review and accepts feedback only on its configured origin', async ({ page }) => {
+    await signIn(page, uniqueEmail('localhost'));
+    const origin = `http://localhost:${sitePort}`;
+    const projectId = await createProject(page, { urls: [`localhost:${sitePort}`], name: 'Local development' });
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const addresses = page.getByRole('region', { name: 'Site addresses' });
+    await expect(addresses.getByLabel('Main site address')).toHaveValue(origin);
+
+    // Saving a local path keeps its HTTP scheme after a reload.
+    await addresses.getByLabel('Main site address').fill(`localhost:${sitePort}/${projectId}/pricing/`);
+    await addresses.getByRole('button', { name: 'Save' }).click();
+    await expect(addresses.getByRole('status')).toHaveText('The addresses are saved.');
+    await page.reload();
+    await expect(addresses.getByLabel('Main site address')).toHaveValue(`${origin}/${projectId}/pricing`);
+
+    const apiPath = `/api/review/${projectId}`;
+    const allowed = await page.request.get(apiPath, { headers: { Origin: origin } });
+    expect(allowed.status()).toBe(200);
+    expect(allowed.headers()['access-control-allow-origin']).toBe(origin);
+    for (const otherOrigin of [`http://localhost:${sitePort === 65535 ? 65534 : sitePort + 1}`, `https://localhost:${sitePort}`]) {
+        const rejected = await page.request.get(apiPath, { headers: { Origin: otherOrigin } });
+        expect(rejected.status()).toBe(403);
+        expect(rejected.headers()['access-control-allow-origin']).toBeUndefined();
+    }
+
+    await page.goto(`/app/review/${projectId}`);
+    await expect(page).toHaveURL(`${origin}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await addPointComment(page, 'Feedback from localhost.');
+    await page.reload();
+    await expect(commentBubble(page, 1)).toBeVisible();
+    await page.goto(`/app/projects/${projectId}`);
+    await expect(page.getByRole('article', { name: 'Comment by you' })).toContainText('Feedback from localhost.');
+});
+
 test('guest mode: anyone with the link comments under their name', async ({ page, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');

@@ -180,7 +180,7 @@ test('project settings save the comment access, addresses and name', async ({ pa
     await page.reload();
     await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     await expect(addresses.getByLabel('Main site address')).toHaveValue('https://settings.example.com');
-    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('https://localhost:3000');
+    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('http://localhost:3000');
     // The new name in the header and the breadcrumbs, and on the projects page
     await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');

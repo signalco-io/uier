@@ -186,6 +186,11 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   offers All clients and No client, and stays selected in the URL across status changes and reloads.
   Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
+  Addresses can include localhost, its subdomains, and loopback IPs for local development
+  (for example `localhost:3000/app`, `preview.localhost:5173`, or `127.0.0.1:8080`). Without a
+  scheme these use HTTP; other sites use HTTPS. Explicit `http://` or `https://` is preserved.
+  The toolbar accepts only configured origins, including the scheme and port. Local sites
+  open on the reviewer's own computer, so each reviewer needs the site running locally.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install`
     (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
     the sources to add to it).

@@ -136,6 +136,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
   `projects/[projectId]/layout.tsx`; its pages render the tab content.
+- Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
+  `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
+  and ports are preserved. Review CORS and redirects still require an exact configured origin.
 - Client names are optional project labels (`clientName`), not address/environment configuration or client entities.
   `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit is 80 characters.
   The list builds client choices only after `listVisibleProjects` and preserves the client/status query filters.

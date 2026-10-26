@@ -28,7 +28,7 @@ export const projectPageStateSchema = z.object({
 /**
  * A site URL as typed by a person: `example.com`, `https://staging.example.com/app/`. Returns the
  * normalized URL (origin plus path, no query, hash or trailing slash) or `null` when it is not a
- * web address.
+ * web address. Schemeless localhost and loopback addresses default to HTTP; other sites use HTTPS.
  */
 export function normalizeSiteUrl(input: string) {
     const trimmed = input.trim();
@@ -37,7 +37,14 @@ export function normalizeSiteUrl(input: string) {
 
     let url: URL;
     try {
-        url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+        const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed);
+        url = new URL(hasScheme ? trimmed : `https://${trimmed}`);
+        const hostname = url.hostname.replace(/\.$/, '');
+        const loopback = hostname === 'localhost' || hostname.endsWith('.localhost')
+            || /^127(?:\.\d+){3}$/.test(hostname) || hostname === '[::1]';
+        // Reparse so an explicit port (including 443) survives the change of default scheme.
+        if (!hasScheme && loopback)
+            url = new URL(`http://${trimmed}`);
     } catch {
         return null;
     }
