@@ -4,6 +4,7 @@ import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace, getMember, listUserMemberships, ownWorkspaceId } from '../src/lib/app/workspaces';
 import { memberId, workspacePk, type DbWorkspace } from '../src/lib/app/model';
+import { PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProject';
 
 // A user's own workspace (`ensureOwnWorkspace`, run when the user is in no workspace at all): created
 // once with its creator as admin, and never handed back to a creator whom an admin removed.
@@ -19,6 +20,13 @@ test.afterAll(() => {
 
 const newUser = () => findOrCreateUser(`workspace-${randomUUID()}@example.com`);
 
+/** Workspaces the user is a member of, without uier's public feedback project every user joins */
+async function memberOf(userId: string) {
+    return (await listUserMemberships(userId))
+        .map(member => member.workspaceId)
+        .filter(workspaceId => workspaceId !== PUBLIC_WORKSPACE_ID);
+}
+
 async function ownWorkspaces(userId: string) {
     return (await getAppStore().query<DbWorkspace>({ type: 'workspace', where: { createdBy: userId } }))
         .map(workspace => workspace.id)
@@ -32,7 +40,7 @@ test('concurrent first requests create one own workspace with its creator as adm
     expect(new Set(members.map(member => member.workspaceId))).toEqual(new Set([ownWorkspaceId(user.id)]));
     expect(members.every(member => member.role === 'admin' && member.projects === 'all')).toBe(true);
     expect(await ownWorkspaces(user.id)).toEqual([ownWorkspaceId(user.id)]);
-    expect(await listUserMemberships(user.id)).toHaveLength(1);
+    expect(await memberOf(user.id)).toEqual([ownWorkspaceId(user.id)]);
 });
 
 test('a creator removed from their own workspace gets a new one, never the old one back', async () => {
@@ -48,7 +56,7 @@ test('a creator removed from their own workspace gets a new one, never the old o
     const second = ownWorkspaceId(user.id, 2);
     expect(new Set(again.map(member => member.workspaceId))).toEqual(new Set([second]));
     expect(await getMember(first.workspaceId, user.id)).toBeNull();
-    expect((await listUserMemberships(user.id)).map(member => member.workspaceId)).toEqual([second]);
+    expect(await memberOf(user.id)).toEqual([second]);
     expect(await ownWorkspaces(user.id)).toEqual([first.workspaceId, second].sort());
 
     // Removed from the second one too: a third, and still nothing in the earlier ones
