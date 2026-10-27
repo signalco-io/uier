@@ -1,0 +1,369 @@
+# Notion integration: implementation plan
+
+Status: plan, not shipped. Paths are repository-relative. Notion facts verified against developers.notion.com on 2026-10-25 and 2026-10-26; code facts against this repository on 2026-10-26.
+
+## 1. Goal and scope
+
+A workspace admin connects a project to a Notion database. Every thread the connecting admin can see, except private ones, becomes one Notion page that the scheduled worker keeps converged with the uier thread: properties (status, kind, environment, assignee, dates, links), feedback text and anchor, discussion, screenshot. Notion is a mirror; uier stays the source of truth.
+
+Ships, in phases: connect and disconnect through Notion OAuth; choosing a data source and mapping its properties, with a template page so most admins skip the form; page creation and property updates; replies, edits, deletions and privacy changes mirrored; screenshots uploaded; "Open in Notion" links in the app and the toolbar; a bounded backfill.
+
+Non-goals: two-way sync (phase 5 is a design only); webhooks; sending private threads (never, no switch); creating databases or properties through the API (not in the verified facts); a /status entry; permanent deletion of anything in Notion (the API has none); a Notion SDK; any sync from a request path or a detached promise; trashing pages when a project is marked done or its comments are turned off (open question 10).
+
+## 2. How it works
+
+A reviewer leaves or changes feedback on a project whose `DbProject.integrations.notion` pointer is set. The mutation's etag-protected write also bumps `syncVersion` and sets `syncPending` on the comment; hard deletes write a tombstone in the same partition batch. Every five minutes the `Review notifications` workflow runs the worker; after the email step comes the Notion step: discovery turns pending comments into per-thread `notion-sync` ledgers and clears the flag; processing leases each due ledger, re-authorizes, exports the thread through `projectFeedbackExport` under the connecting admin's membership, diffs the export against what the ledger says is in Notion, persists the attempt, then makes the minimal Notion calls. The ledger records page and block ids, hashes and cursors; app and toolbar read the page URL from it.
+
+```
+reviewer / app / MCP
+   |  mutation (etag write)              project.integrations.notion set?
+   v                                           |yes          (no: nothing changes)
+DbComment { syncVersion++, syncPending }  <----+
+   |  hard delete -> $tombstone_<id> in the same batch
+   v  every 5 min, GitHub Actions "Review notifications", second awaited step
+discoverNotionSync: listSyncPending() -> notion-sync ledger (requestedVersion = syncVersion)
+                    re-read comment -> clear syncPending only if syncVersion unchanged
+   v
+processNotionSync:  lease -> reauthorize (connection enabled, admin member, visibility, not private)
+                    -> projectFeedbackExport -> plan (properties, blocks) -> diff vs ledger.page
+                    -> persist attempt -> Notion calls -> ledger.page updated, processedVersion = through
+   v
+Notion data source: one page per thread      app + toolbar: "Open in Notion" from ledger.page.url
+```
+
+## 3. Notion facts the design depends on
+
+- Connection type: uier is one public connection (Notion's current name for a public integration) registered once in Notion's developer portal; customer admins authorize it through OAuth, so no customer creates anything in the portal. Internal connections and personal access tokens are single-workspace or single-user static tokens and do not fit. A public connection's installation scope is `Any workspace` or `Selected workspaces only` and cannot change after creation. Notion's security review applies only before a Marketplace listing; a public connection works with OAuth without one. Plain `http` redirect URIs are accepted only for `localhost`, not `127.0.0.1`.
+- OAuth: authorize URL with `client_id`, `redirect_uri`, `response_type=code`, `owner=user`, `state`; callback `?code&state` or `?error=access_denied`; `POST /v1/oauth/token` (HTTP Basic) returns `access_token`, `refresh_token`, `bot_id`, `workspace_id`, `workspace_name?`, `duplicated_template_id|null` (the id of the duplicated template page). Refresh rotates both tokens; no `expires_in`; removal in Notion gives `invalid_grant`; no revocation endpoint; access is per authorizing user and every authorization mints a fresh pair.
+- `Notion-Version: 2026-03-11` (`in_trash`, `position` instead of `after`). Schema lives on the data source (`GET /v1/data_sources/{id}`: `properties` keyed by name with `{id, name, type, options}`, `in_trash`, 404 when unshared); create with `parent {type:"data_source_id"}`; query with `PATCH /v1/data_sources/{id}/query`; search filtered to `data_source`. Trashed pages stay addressable with `in_trash: true`.
+- Writable properties: `title`, `rich_text`, `select {name}` (auto-created, no commas), `status {name}` (the option must exist in the schema; a page write never creates one, although since March 2026 the Update data source endpoint can, which uier does not use), `date {start}`, `url`, `files [{type:"file_upload"}]`; array writes replace; `properties` keys may be property names or ids on both `POST /v1/pages` and `PATCH /v1/pages/{id}` (verified against both references), so payloads are keyed by id. `PATCH /v1/pages/{id}` also accepts `erase_content: true` (deletes every child block, irreversible through the API) and `notifications: { mode: "silent" }`.
+- Blocks: `GET /v1/blocks/{id}/children` lists a block's or page's first-level children (paginated with `start_cursor`, `has_more`, `next_cursor`; a `child_database` block carries the database id); append children (100 per call, `position: { type: "after_block", after_block: { id } }`, or `start` / `end`, replacing the old `after`), `PATCH /v1/blocks/{id}` for same-type content, `DELETE /v1/blocks/{id}` trashes; `PATCH /v1/pages/{id}` updates properties and `in_trash`; `code` blocks need a `language`. Limits: 500 KB per request, 100 children per create, 100 per array, 2000 characters per rich text and URL.
+- Uploads: `POST /v1/file_uploads` returns `{id, upload_url, expiry_time}`; `POST /v1/file_uploads/{id}/send` (multipart `file`); attach within one hour, permanent afterwards; cap from `GET /v1/users/me` (5 MiB free).
+- Rate limits: 180 requests per minute per connection on Free/Plus, 600 on Business/Enterprise, plus a workspace budget shared by all connections whose `Retry-After` can exceed 60 s (`additional_data.rate_limit_reason`). 429 and 529 retry after `Retry-After`; `public_api_request_blocked` is never retried.
+
+## 4. Data model
+
+Comments container (partition `domain` = `project:<projectId>`):
+
+| Document | Change |
+| --- | --- |
+| `DbComment` (`apps/web/src/lib/db/schema.ts`) | add `syncVersion?: number` (+1 per mutation) and `syncPending?: boolean`; neither copied by `toCommentDto` / `toReviewCommentDto` |
+| `DbSyncTombstone` (new) | `id: $tombstone_<commentId>`, `domain`, `type: 'tombstone'`, `commentId`, `projectId`, `deletedAt`, `syncPending: true`, `ttl: 30 days`; no `path`, and `isCommentDocument` gains `type !== 'tombstone'`, so `get`, `list` and `listAll` never return it |
+
+App container (`app`, partition `/pk`, `defaultTtl -1`, so per-item `ttl` is honoured), rows for the README table:
+
+| Document (`type`) | `pk` | `id` | `ttl` | Fields |
+| --- | --- | --- | --- | --- |
+| `notion-connection` | `workspace:<workspaceId>` | `notion_<projectId>` | none | below |
+| `notion-oauth-state` | `user:<userId>` | `oauth_<sha256Hex(userId + ':' + projectId)>` | 600 s | `stateHash`, `workspaceId`, `projectId`, `createdAt`; one per (user, project), replaced on a new start, deleted on the callback |
+| `notion-sync` (ledger) | `notion:<projectId>` | `notion_<sha256Hex(projectId + ':' + commentId)>` | none, kept after disconnect | below |
+
+`DbProject` gains `integrations?: { notion?: { connectionId: string; since: string } }` and `ProjectUpdate` gains `integrations` (`apps/web/src/lib/app/projects.ts`). The pointer exists only while a connection has a data source; it is what `withSyncMark` tests. The TypeScript types live in `apps/web/src/lib/app/model.ts` as `NotionConnection`, `NotionOauthState` and `NotionSync` (`AppDoc & { type: ... }`); fields marked `?` below are optional.
+
+```json
+{
+  "type": "notion-connection", "pk": "workspace:w_1", "id": "notion_k3m9x2p7q4ab",
+  "workspaceId": "w_1", "projectId": "k3m9x2p7q4ab", "connectedBy": "u_admin",
+  "botId": "...", "notionWorkspaceId": "...", "notionWorkspaceName?": "<= 80 chars, control and bidi characters stripped",
+  "tokens?": { "keyId": "k1", "access": "<AES-GCM>", "refresh": "<AES-GCM>", "generation": 3, "issuedAt": "..." },
+  "refreshLease?": { "id": "uuid", "until": "..." },
+  "status": "connected | needs_reconnect | paused",
+  "statusCode?": "invalid_grant | mapping_invalid | data_source_missing | member_left | request_blocked | insufficient_capabilities",
+  "pausedUntil?": "...", "enabled": true,
+  "databaseId?": "...", "dataSourceId?": "...", "dataSourceName?": "<= 80 chars, stripped",
+  "mapping?": { "title": "<property id>", "uierId": "<property id>",
+               "status?": { "property": "<id>", "type": "status | select", "open": "Open", "done": "Done" },
+               "kind?": "<id>", "environment?": "<id>", "link?": "<id>", "page?": "<id>", "created?": "<id>", "assignee?": "<id>", "screenshot?": "<id>" },
+  "schema?": { "<property id>": { "name": "...", "type": "...", "options?": ["..."] } }, "schemaCheckedAt?": "...",
+  "maxFileUploadBytes": 5242880,
+  "backfill?": { "requestedAt": "...", "threadIds": ["..."], "marked": 0, "done": false },
+  "lastSyncedAt?": "...", "createdAt": "...", "updatedAt": "..."
+}
+```
+
+```json
+{
+  "type": "notion-sync", "pk": "notion:k3m9x2p7q4ab", "id": "notion_<sha256>",
+  "projectId": "k3m9x2p7q4ab", "threadId": "comment_...",
+  "requestedVersion": 7, "processedVersion": 5, "tombstoned": false,
+  "active": true, "failures": 0, "nextAttemptAt": "...", "lease?": { "id": "uuid", "until": "..." },
+  "attempt?": { "operationId": "uuid", "firstSentAt": "...", "through": 7, "step": "create | update | append | trash | untrash", "planHash": "sha256",
+               "fileUpload?": { "id": "...", "expiryTime": "...", "sent": false } },
+  "status": "queued | waiting | accepted | suppressed | failed | ambiguous", "lastCode?": "rate_limited",
+  "page?": { "id": "...", "url": "https://notion.so/...", "dataSourceId": "...", "notionWorkspaceId": "...", "propertiesHash": "...",
+            "headings": { "feedback": "...", "anchor": "...", "context": "...", "screenshot": "...", "discussion": "..." },
+            "feedbackBlockIds": ["..."], "anchorBlockIds": ["..."], "screenshotBlockId": "...",
+            "items": { "item_x": { "blockId": "...", "textHash": "..." } },
+            "screenshot?": { "revision": "...", "fileUploadId": "..." } }
+}
+```
+
+A server-side allowlist `NotionConnectionView` (`apps/web/src/lib/integrations/notion/view.ts`) is the only shape the settings page hands to the client component: `status`, `statusCode?`, `enabled`, `notionWorkspaceName?`, `dataSourceName?`, `mapping` (property ids and option names), the schema options the selects need, `lastSyncedAt?`, `pausedUntil?`, `backfill?` (`marked`, `done`), `needsReviewCount`. Never the document, never `tokens`, `botId`, `connectedBy` or the key id.
+
+Store additions (`apps/web/src/lib/repo/commentsStore.ts`, both `cosmosCommentsStore.ts` and `memoryCommentsStore.ts`): `listSyncPending(): Promise<(DbComment | DbSyncTombstone)[]>` (Cosmos: cross-partition `c.syncPending = true AND IS_DEFINED(c.projectId) AND (IS_DEFINED(c.path) OR c.type = 'tombstone')`, mapped with a `withoutSystemProperties` overload typed to the union; memory: `DbSyncTombstone` added to `MemoryEntry.document`, listing over `domainEntries(domain).values()` with `isCommentDocument(doc) || doc.type === 'tombstone'`; the worker separates the two by `type`), `deleteWithTombstone(domain, id, etag, tombstone)` (one batch: Delete ifMatch etag + Upsert tombstone), `deleteTombstone(domain, commentId)`. `apps/web/src/lib/notifications/retry.ts` exports `failureCode`, `MAX_FAILURES` and `backoffMs(failures)`, moved out of `delivery.ts` and shared by both ledgers.
+
+## 5. Connect and disconnect
+
+Both routes live under `app/(rest)/(app)/app/notion/` (so `proxy.ts` sends visitors without a session cookie to sign-in) and are declared in `apps/web/src/knownPages.ts`. A cookie that no longer verifies (`getAppContext()` null) redirects to `/app/sign-in?next=/app`; code and state are never carried through the sign-in document, the admin starts again.
+
+`GET /app/notion/connect?project=<id>` (`connect/route.ts`, `dynamic = 'force-dynamic'`): `getAppContext()`; not admin or `!isNotionConfigured()` redirects to settings with `?notion=unavailable`; `getProject(context.workspace.id, project)` or 404; `project.id === PUBLIC_PROJECT_ID` is 404. A `Sec-Fetch-Site` other than `same-origin` or `none` redirects to settings without minting (the session cookie is `sameSite: 'lax'`, so a cross-site link could otherwise start the flow). A `connected` connection with a data source redirects with `?notion=already`; `needs_reconnect`, `paused` or none continues, so "Reconnect" uses the same route. Mint `state = randomToken()` (nothing identifying leaves uier), write the `notion-oauth-state` document with `updateDoc` or `create` (one per user and project), answer 302 with `Cache-Control: no-store` to the authorize URL with `redirect_uri = `${await appBaseUrl()}/app/notion/callback``. The settings card links here with a plain `<a>` in `Button asChild`, never `next/link` (prefetch would mint state documents). On previews `isNotionConfigured()` is false, so no preview redirect URI is ever registered.
+
+`GET /app/notion/callback` (`callback/route.ts`): `getAppContext()`, then the pure `resolveOauthCallback({ user, state, code, error })` from `apps/web/src/lib/integrations/notion/oauth.ts`, then a redirect; the handler holds no logic. `resolveOauthCallback`: `isRandomToken(state)` or 400 "This connection link is not valid. Start again from the project settings."; for every outcome it first finds the state document whose `stateHash` equals `sha256Hex(state)` under `user:<uid>` and deletes it (`store.delete` must return true: single use and user binding in one step); `getMember(wid, uid)` must be admin and the project must exist in `wid` (the workspace cookie is not trusted); `error=access_denied` then redirects with `?notion=denied` and writes nothing; any other `error`, or an exchange that fails (`invalid_grant` from an expired or reused code, `invalid_client`, 429, timeout) redirects with `?notion=failed` and writes no connection. Exchange the code (15 s timeout), then `store.create` the connection with `status: 'connected'`, `enabled: false`, `maxFileUploadBytes: 5 MiB` (the real cap is read on the first worker run, so the callback does not depend on `GET /v1/users/me`), or `updateDoc` an existing one: `connectedBy = user.id`, new tokens, `generation + 1`, `notionWorkspaceId`, `notionWorkspaceName` and `botId` from the response, status reset, codes cleared; when `workspace_id` differs from the stored one, also clear `databaseId`, `dataSourceId`, `dataSourceName`, `mapping`, `schema`, set `enabled: false` and remove `project.integrations.notion`. A missing `workspace_name` shows as "Notion workspace" with the bot id in mono.
+
+Template: `duplicated_template_id` is a page id. Resolve it with `GET /v1/blocks/{id}/children` (paginated), take the first `child_database` block, then `GET /v1/databases/{childId}` to `data_sources[0]` (a `child_database` block id is the database id; a 404 there falls through to the manual picker); if `GET /v1/databases/{duplicated_template_id}` succeeds first (full-page database template) use it directly. Read the schema and apply the default mapping. When neither yields a data source, the connection is stored without one and the admin picks with "Load databases". Redirect to `${KnownPageLinks.projectSettings(id)}?notion=connected#notion`.
+
+Token storage (`apps/web/src/lib/app/secrets.ts`): AES-256-GCM via `node:crypto`, 12-byte random IV, 16-byte tag, serialized `k1.<iv>.<ciphertext>.<tag>` base64url; AAD `notion-connection:<workspaceId>:<projectId>:<access|refresh>`; key `NOTION_TOKEN_KEY` (32 random bytes, base64), required unless `isLocalRuntime()`, where a fixed key derived from `'uier-local-development'` is used, mirroring `serverSecret()`. The key is separate from `UIER_COMMENTS_SECRET` so each rotates alone; `k1` is the key id for a future `NOTION_TOKEN_KEY_PREVIOUS`. Decrypted tokens exist only in worker and action memory, never in DTOs, views, action results, ledgers or logs.
+
+Who may use the token: the worker, and the server actions Load databases, save mapping, Send existing comments, Turn on and Reconnect. Each first requires `getMember(connection.workspaceId, connection.connectedBy)?.role === 'admin'`; otherwise it wipes `tokens`, sets `needs_reconnect` / `member_left` and answers the "Member left" copy without decrypting. `revokeNotionGrantsOf(workspaceId, userId)` (`connection.ts`) does the same for every connection of the workspace whose `connectedBy` is the user; `removeMember` in `apps/web/src/lib/app/invitations.ts` calls it (there is no role-change action today; one added later must call it too). The grant is personal to the authorizing user, so it ends with their admin role.
+
+Refresh, race free (`connection.ts`): on 401 `unauthorized`, `refreshConnectionTokens(connection, generationUsed)`: (1) re-read; if `tokens.generation > generationUsed` return the current tokens; else `updateDoc` that throws `RefreshInProgress` when `refreshLease` is unexpired (ledger `waiting`, `nextAttemptAt = now + 60 s`; an action answers "Notion is busy. Try again in a minute.") and otherwise sets a 2-minute lease; (2) refresh grant; (3) one lease-checked `updateDoc` writes both ciphertexts, `generation + 1`, clears the lease; (4) `invalid_grant`: `needs_reconnect`, `invalid_grant`, tokens wiped; (5) other errors clear the lease and the caller backs off. Worker and actions share the lease. A crash between (2) and (3) loses the pair and ends in `needs_reconnect`; documented limitation.
+
+Disconnect (`disconnectNotionAction`, `appContextOrThrow({ admin: true })` + `adminProject(formData.get('projectId'))`, exported from `apps/web/src/components/app/projects/actions.ts`): removes `project.integrations.notion` through `updateProject`, deletes the connection document, sets the project's ledgers `active: false, status: 'suppressed'` but keeps them. Nothing is called in Notion. Reconnecting to the same data source adopts existing pages through the uier id query. The product has no project or workspace deletion today; when one arrives it must delete the connection, wipe tokens and delete the project's ledgers.
+
+## 6. Choosing the database and mapping properties
+
+Data sources are listed only inside a server action ("Load databases"), never at settings render: `POST /v1/search` with `{ filter: { property: 'object', value: 'data_source' }, page_size: 100 }`, paginated to 500, `in_trash` filtered, shown in a shadcn `Select` by `name` (bounded, stripped of control and bidi characters, untrusted) with the parent database id in mono when names collide; the template's data source is preselected.
+
+Schema: `GET /v1/data_sources/{id}`; keep per property `{ name, type, options }` under its id; 404 means not shared. The worker re-reads the schema when `schemaCheckedAt` is older than 24 hours or after a `validation_error`, and `GET /v1/users/me` for `maxFileUploadBytes` on the same cadence. Mapping is stored by property id and payloads are keyed by property id (accepted by create and update page), so a rename in Notion changes nothing; the cached schema is still re-read for types and option names. Defaults are applied by exact name and type match on first read; unmatched rows start as "Not sent". `title` (read only) and `uierId` (a `rich_text`, default "uier id") are required; the template carries both. Saving a different `dataSourceId` keeps the ledgers; pages are recreated in the new database on the thread's next change (section 7).
+
+| uier field | Notion type | Default property | Value |
+| --- | --- | --- | --- |
+| title | title | (the title) | `context.title` (100 chars, "Suggested rewrite: " prefix kept) |
+| uier id | rich_text | uier id | `identity.commentId` (idempotency anchor) |
+| status | status or select | Status, Open / Done | `{ name: open|done }`; status options must exist; select names without commas |
+| kind | select | Kind | `comment|feedback|bug|rewrite` |
+| environment | select | Environment | `source.environment` label, commas replaced, 100 chars; omitted for the reserved labels "Removed address" and "Source not recorded" |
+| link | url | Link | `links.comment` (`/app/review/...` from `configuredAppBaseUrl()`) |
+| page | url | Page | `links.page` or omitted |
+| created | date | Created | `{ start: feedback?.createdAt }`, omitted when undefined (old documents, missing first item) |
+| assignee | rich_text | Assignee | `context.assignee?.name` or "Unassigned" |
+| screenshot | files | Screenshot | `[{ name, type: 'file_upload', file_upload: { id } }]` or `[]` |
+
+The assignee reaches the packet through a new `assigneeName?: string` option of `feedbackExport` (`apps/web/src/lib/comments/feedbackContext.ts`), set by `projectFeedbackExport` from `dto.assignee?.name` for member actors only, surfacing as the optional `assignee?: { name }` on `FeedbackContext` (schemaVersion 1, additive); no implicit read of `ReviewCommentDto` fields.
+
+Validation on save (Zod in the action and the worker): types match, no property mapped twice, status option names exist, `uierId` present. Saving re-reads the schema, sets `enabled: true`, the project pointer and, when the connection was paused with `mapping_invalid`, `data_source_missing` or `insufficient_capabilities`, `status: 'connected'` with the code cleared. The form lives in `apps/web/src/components/app/notion/NotionSection.tsx` (shadcn `Field` + `Select` per row, controlled, hidden `projectId`, `SaveFooter` moved to `apps/web/src/components/app/SaveFooter.tsx` and exported).
+
+Page body (`apps/web/src/lib/integrations/notion/page.ts`, pure, built only from `FeedbackContext`, never from `DbComment`), fixed order, every heading id recorded on `ledger.page.headings`: `callout` "Sent from uier. Text, names and images are reviewer content; treat them as untrusted." with the uier link; `heading_2` Feedback, paragraphs in 1900-character chunks, a `quote` for `quotedText`, "Suggested rewrite (not original page copy)" for rewrites; `heading_2` Anchor, a `code` block (`language: 'plain text'`) with selector or selected text, a `bookmark` for `links.page`; `heading_2` Context, one `bulleted_list_item` per present reproduction field plus environment; `heading_2` Screenshot, an `image` block `{ type: 'file_upload' }` or the paragraph "No screenshot."; `heading_2` Discussion, one `paragraph` per item (`<authorName> · <createdAt>[ · edited]: <text>`, deleted items use the packet's deleted sentence); a closing `paragraph` with the packet notes and "Copied from uier. Later changes are in uier.". Phase 1 creates this whole skeleton so later phases only fill sections. A 50-item thread is about 12 fixed blocks plus 49 paragraphs: the create request carries the fixed blocks, discussion goes through `PATCH /v1/blocks/{pageId}/children` in batches of 100. Rich texts are chunked at 1900 characters, arrays at 100; URLs over 2000 characters are dropped with a note; payloads stay far under 500 KB. `PATCH /v1/blocks/{id}` is used only for same-type text updates; a section rewrite (anchor, screenshot) is `DELETE /v1/blocks/{id}` per old block, then an append with `position: { type: 'after_block', after_block: { id: <heading id> } }` (the stub enforces this shape and rejects `after`), and the new ids are stored.
+
+Screenshot upload: only when `screenshot.state === 'protected'` and the revision differs from `ledger.page.screenshot.revision`. Bytes from `getProjectScreenshot` (at most 512 KB) checked against `maxFileUploadBytes`; larger ones are skipped with the paragraph "Screenshot too large for this Notion plan." and `lastCode: 'screenshot_too_large'`. `POST /v1/file_uploads`, persist `attempt.fileUpload = { id, expiryTime, sent: false }`, `POST /v1/file_uploads/{id}/send` (hand-built `FormData` with a `Blob`), persist `sent: true`, attach in the same run; `ledger.page.screenshot.fileUploadId` is written only after the attach succeeded (the moment it becomes permanent). On a retry, `sent` false or `now >= expiryTime - 60 s` starts a new upload, never a resend; a `validation_error` on an attach past `expiryTime` is `pending` with a new upload, not `mapping_invalid`. An attached id is reused on rebuilds. External file URLs are never used because uier's screenshot URLs are access checked.
+
+## 7. Sync semantics
+
+The worker projects state; it does not replay event kinds. `withSyncMark(project, before, after)` (`apps/web/src/lib/integrations/syncSignal.ts`) returns `{ ...after, syncVersion: (after.syncVersion ?? 0) + 1, syncPending: true }` when `project.integrations?.notion` is set, `after.projectId !== PUBLIC_PROJECT_ID`, `after !== before` (the status no-op returns the same object and is not marked) and the thread is not private both before and after (`private || isPrivateAppFeedback`; a thread private from creation creates no ledger, the toggle in either direction does); else `after` unchanged. It is applied once per mutation, at the service layer that holds the project: `createProjectComment` (before the write), `replyToProjectComment` (both the `commitReplySubmission` prepare callback and the `updateComment` path; the MCP tools `reply_to_feedback`, `set_feedback_status` and `assign_feedback` reach these same functions), `changeComment.apply` (status, private, assignee, both edits), the two non-null branches of `deleteProjectCommentItem`, and a new optional `finalize(comment)` argument of `reattachAnchor` and `replaceSavedScreenshot`. Not in `withNotificationEvent` or `updateComment` (verified: `changeComment.apply` runs inside `updateComment`, so marking both would double count). `notificationEvents` and `notificationPending` are untouched.
+
+Tombstones: `updateComment` gains an optional fourth argument `onDelete?: (comment: DbComment, etag: string) => Promise<ConditionalWriteResult>`; when `update` returns null it calls `onDelete ?? ((_, etag) => store.delete(partition, id, etag))`, keeping the `not_found` and `conflict` mapping and the retry loop. `removeProjectComment` and `deleteProjectCommentItem` pass `(comment, etag) => project.integrations?.notion ? store.deleteWithTombstone(partition, id, etag, tombstone(comment)) : store.delete(partition, id, etag)`; `hadScreenshot` and `forgetScreenshot` stay as they are.
+
+| uier change | Notion operation |
+| --- | --- |
+| thread created, backfill | `POST /v1/pages` (properties + fixed skeleton), then discussion batches |
+| reply | append missing discussion paragraphs |
+| any item edit | `PATCH /v1/blocks/{blockId}` when `textHash` differs; first item also updates the title |
+| reply deleted / first item placeholder | `PATCH` the block to the deleted sentence; image block trashed; properties cleared |
+| resolve/reopen, assignee, environment, anchor | `PATCH /v1/pages/{id}` with changed properties only; anchor section rewritten |
+| screenshot new or replaced | upload; files property replaced; screenshot section rewritten |
+| made private | page emptied, then trashed: one `PATCH /v1/pages/{id}` with `erase_content: true`, the title "Removed from uier" and every mapped property cleared (status untouched), one append of the paragraph "This comment was made private in uier.", then `{ in_trash: true }`; ledger `suppressed`, page id kept |
+| visible again | `{ in_trash: false }`, then a full rebuild |
+| hard delete (tombstone) | the same emptying and `{ in_trash: true }` when the ledger has a `page`, otherwise no call; tombstone deleted; ledger created or updated as `accepted`, `tombstoned: true`, `requestedVersion = processedVersion` |
+| `ledger.page.dataSourceId !== connection.dataSourceId` | page treated as absent: uier id query in the current data source, create when none, old page untouched, code `page_moved_database` |
+
+Notion's trash is readable and restorable by its workspace members, and Notion keeps page history and attached files; `erase_content` is irreversible through the API but says nothing about page history, so emptying before trashing limits what stays there and nothing uier does removes it (section 11 says so). Updates to existing pages are sent with `notifications: { mode: 'silent' }` so a mirrored edit does not notify the Notion workspace; creates keep Notion's default.
+
+Ordering: one thread at a time under the ledger lease; across threads sequential by `nextAttemptAt`; discussion paragraphs appended in `createdAt` order, never reordered. Cursors: `requestedVersion` merged with `max` on discovery; a run sets `through = comment.syncVersion` at projection time; a mutation during the run raises `requestedVersion` and keeps the ledger active. Discovery clears `syncPending` only when `syncVersion` still equals what it saw, by etag replace, ignoring conflicts.
+
+Idempotency: one ledger per thread; `attempt.operationId` persisted before the first call; the `uier id` property equals the comment id. Before every `create` the worker queries `PATCH /v1/data_sources/{id}/query` with `{ filter: { property: <uier id name>, rich_text: { equals: commentId } }, page_size: 3 }`, ignoring hits with `in_trash: true`: one live hit is adopted (children listed once to rebuild the block map), zero creates a new page (a trashed hit was a deliberate Notion-side action and stays there), two or more stops as `ambiguous` with code `duplicate_pages`. A timed-out `create`, `update` or `append` is `pending`: the attempt is kept, `status: 'waiting'`, `nextAttemptAt = now + 60 s`, and the next attempt reconciles first (uier id query for `create`, children listing for `append` and `update`); `ambiguous` is reserved for `duplicate_pages` and for a reconciliation that still fails after `MAX_FAILURES`. Children are listed and diffed only on such a retry or when the block map is missing. No retry state lives in process memory.
+
+Private threads: never sent. `comment.private || isPrivateAppFeedback(comment)` is checked before export on every attempt, independent of the admin's rights, in addition to `canSeeComment` under `memberActor(project, connection.connectedBy)` (no `agent`: the worker writes nothing in uier). The public project is never marked and cannot be connected (explicit 404 in the connect route and the actions).
+
+Turned off (`enabled: false`): the connection and the project pointer stay; mutations keep marking and discovery keeps creating ledgers; `processNotionSync` skips ledgers of such a connection (`status: 'waiting'`, no calls, no failures). Turning on resumes and every waiting ledger converges with a full diff.
+
+Backfill: "Send existing comments" lists `listProjectComments(project, actor)` (newest 1000, the `MAX_PROJECT_COMMENTS` cap, stated in the copy), skips private threads and stores the thread ids on `connection.backfill`; each run marks the next 100 under etag, newest first; the card computes "Sending N of M" from the `accepted` ledgers among those ids (two equality queries on `pk: notion:<projectId>`, on render, not cached); every create needs a query plus a create, so 100 marks take at least two runs under the budget.
+
+Never done: permanent deletion; relying on Notion's trash as deletion; database or property changes; status option creation; writing to pages the ledger did not create or adopt in the current data source; reading Notion edits; calling Notion while paused, `needs_reconnect` or turned off; proactive refresh.
+
+## 8. Delivery worker
+
+`apps/web/src/lib/integrations/notion/delivery.ts` copies `processNotificationDelivery`: re-read; skip when `!active`, not due or leased; lease `{ id: randomUUID(), until: now + 5 min }` by etag replace; later saves through `updateDoc` with a lease-id check; attempt persisted before the external call; results mapped like email: `sent` clears the attempt (`accepted`); `pending` (429, 529, timeouts) keeps it, `status: 'waiting'`, `nextAttemptAt = now + Retry-After` (60 s when the header is missing or unparsable, capped at 24 h) and writes `pausedUntil` to every connection sharing the `botId` so sibling ledgers are skipped without calls; `failed` increments `failures` with `backoffMs = min(1 h, 60 s * 2^failures)` and stops at `MAX_FAILURES = 8`; `ambiguous` (`duplicate_pages`) sets `active: false`, keeps the attempt, stops for review; thrown errors store `error.name.slice(0, 80)`. `lastCode` carries `additional_data.rate_limit_reason` when present.
+
+Client (`client.ts`): `AbortSignal.timeout(20_000)` per call; `NotionApiError` carries only `{ status, code, retryAfter?, requestId }` and a fixed message, never a request or response body or header, so `actionResult`'s fallback log cannot leak Notion content; server actions catch it and rethrow `UserFacingError` with the card's copy. Every id used in a path or filter must match `/^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` and is encoded with `encodeURIComponent`; property ids are bounded to 64 characters of `[A-Za-z0-9%:_-]`; anything else is `invalid_notion_id` and pauses the connection as `mapping_invalid`.
+
+Budgets are keyed by Notion connection, not uier project: `runNotionWorker` groups connections by `botId`, spaces calls 400 ms apart and allows 150 calls per `botId` per run; an in-run map keyed by `notionWorkspaceId` makes a workspace-level 429 skip the other connections of that Notion workspace for the rest of the run and pause them too. The worker starts no new ledger after `NOTION_RUN_BUDGET_MS = 8 * 60 * 1000` (the job has 20 minutes shared with email); a budget exhausted mid-thread persists a `pending` attempt and never half-writes a page.
+
+| Notion answer | Ledger | Connection |
+| --- | --- | --- |
+| 429 `rate_limited`, 529 `service_overload` | `waiting`, no failure count | `pausedUntil` = `Retry-After` (default 60 s), on every connection of the bot |
+| `public_api_request_blocked` | `waiting` | `paused`, `request_blocked`, never retried |
+| 401 `unauthorized` | one refresh, one repeat | `needs_reconnect` on `invalid_grant` |
+| 403 (`restricted_resource`, or any 403 on pages or blocks: a missing Insert or Update content capability) | `waiting` | `paused`, `insufficient_capabilities` |
+| 404 data source, `in_trash` | `waiting` | `paused`, `data_source_missing` |
+| 404 on a page the ledger owns | `page` cleared, code `page_removed_in_notion`, recreated on the next change after the uier id query | none |
+| 400 `validation_error` on a page or block the ledger owns | first `GET /v1/pages/{page.id}` (counted): `in_trash: true` or not found is handled like the row above with code `page_trashed_in_notion`; a live page re-reads the schema, then `waiting` without failure count when a mapped property or option is gone, else `failed` | `paused`, `mapping_invalid` only when the page is live |
+| 409, 5xx, network | `failed` with backoff | none |
+| connecting admin gone or demoted | `suppressed` | `needs_reconnect`, `member_left`, tokens wiped |
+| `enabled: false` | `waiting`, no calls | none |
+
+Resume: saving the mapping clears `mapping_invalid`, `data_source_missing` and `insufficient_capabilities` (section 6); the worker also re-probes such a paused connection once per run with one `GET /v1/data_sources/{id}` when `schemaCheckedAt` is older than one hour and clears the pause when the probe and the mapping validation pass; `request_blocked` and `needs_reconnect` resume only through Reconnect. Scheduling: `apps/web/scripts/notifications-worker.ts` runs `runNotificationWorker` then `runNotionWorker(baseUrl)` (same production gate, `configuredAppBaseUrl()`), logs `[notion] Checked N sync ledgers; M require review; K deferred for time.` and keeps exit code 1 for `failed`/`ambiguous` ledgers only, never for `needs_reconnect`. `@uier/toolbar/feedback-context` resolves to `dist/feedbackContext.js`, which the workflow builds before the run, and the client is plain `fetch`, so `run-notifications.mjs` needs no new `external`. `.github/workflows/notifications.yml` gains the input `retry_notion_sync` mapped to `UIER_NOTION_RETRY_SYNC`; `retryNotionSync(id)` (`/^notion_[a-f0-9]{64}$/`) re-queues `failed`/`ambiguous` ledgers keeping the attempt. Documented escape hatch, not built: a sibling `notion-sync.yml` with its own concurrency group if Notion ever delays email digests, added to the `web` paths filter in `ci.yml`. Logs, in the worker and in actions, carry only the ledger id and a bounded code.
+
+## 9. App UI
+
+`Section id="notion" title="Notion"` inside the admin-only `ProjectSetup` block of `app/(rest)/(app)/app/(shell)/projects/[projectId]/settings/page.tsx`, after Environments, rendered by `apps/web/src/components/app/notion/NotionSection.tsx` (a client component built from shadcn `Section`, `Badge`, `Button`, `Field`, `Select`, `AlertDialog`, `FormMessage`, `SaveFooter`, lucide icons, `useActionState` + `actionResult()`). The page passes only the `NotionConnectionView` and the parsed `notion` query value: it destructures `searchParams` from `PageProps<'/app/projects/[projectId]/settings'>`, accepts only `denied`, `connected`, `already`, `unavailable`, `failed` and ignores anything else; the raw value is never echoed. Render reads only Cosmos documents. Commenters never see it.
+
+```
+Description:        Send this project's comments to a Notion database. New comments and status changes are sent within a few minutes. Private comments are not sent.
+Not available:      Notion is not available on this deployment.
+Not connected:      Nothing is sent until you connect a Notion workspace and choose a database.   [Connect Notion]
+?notion=denied:     Notion did not grant access. Try again when you are ready.
+?notion=failed:     Notion did not complete the connection. Try again.
+?notion=connected:  Notion is connected. Choose the database that receives the comments.
+Choose database:    [Load databases]  Database: <Select>
+Mapping saved:      The Notion settings are saved. New comments are sent within a few minutes.
+Mapping alerts:     Choose a text property for the uier id. / Add a status option named "Done" in Notion, or pick another option. / Select option names cannot contain commas.
+Database changed:   Comments are created again in the new database on their next change. Pages in the old database stay there.
+On:                 Badge "On" (green dot) · last sent <timestamp> (mono)   [Send existing comments] [Turn off] [Disconnect]
+Backfill:           Sending the newest 1000 comments. Comments already in Notion are updated, not duplicated. / Sending 37 of 120 comments.
+Off:                Turned off. Comments are not sent until you turn it on again.   [Turn on]
+Rate limited:       Notion is limiting requests. Sending resumes at <time>.
+Mapping invalid:    A mapped property is missing in Notion. Check the mapping.
+Data source gone:   uier cannot see this database. Share it with the uier connection in Notion, or choose another database.
+Capabilities:       Notion does not let uier add or change pages in this database. Share the database with the uier connection in Notion and allow it to insert and update content, then save the mapping again.
+Blocked:            Notion blocked requests from this connection. Reconnect to try again.
+Needs reconnect:    The Notion connection was removed or has expired. Reconnect to keep sending comments.   [Reconnect Notion]
+Member left:        The admin who connected Notion is no longer an admin here. Reconnect as yourself.
+Needs review:       N comments could not be sent. They are retried by the operator.
+Private note:       A comment made private after it was sent is emptied and moved to Notion's trash, where Notion keeps it under its own rules.
+Disconnect dialog:  Disconnect Notion? / uier stops sending comments. Pages already in Notion stay there. To fully remove access, also remove the uier connection in your Notion settings.   [Cancel] [Disconnect]
+Disconnected:       Notion is disconnected.
+```
+
+Phase 2 changes the description to "New comments, replies and status changes are sent within a few minutes." and phase 3 adds the screenshot sentence, each with the matching legal edit.
+
+Open in Notion: `ProjectCommentView.notion?: { url }` filled in `loadProjectComments(context, project, environment, { notionLinks: true })` (the comments page passes it; the settings usage block does not pay for it) from one `query<NotionSync>({ type: 'notion-sync', pk: notion:<projectId> })`, skipping `suppressed` and `tombstoned` ledgers (no link to a trashed page, also for the author of a private thread). `CommentCard` renders an anchor "Notion" after the source link with the same mono classes, `ExternalLinkIcon`, `target="_blank" rel="noopener"`, plus a `DropdownMenuItem` "Open in Notion" beside "Link to comment". Toolbar (phase 3): `ReviewCommentDto.links?: { external?: { provider: 'notion'; url: string }[] }` set in `toReviewCommentDto` only for `actor.kind === 'member'` from a ledger map passed by `readRoutes.ts` and `response.ts`, mirrored on the toolbar `CommentItem`, rendered in `CommentThreadHeader` next to "Copy link" inside the `!comment.pending` guard. Guests and the public showcase never receive it.
+
+## 10. Infrastructure and configuration
+
+```
+NOTION_CLIENT_ID            production, sensitive: false, from repository secret NOTION_CLIENT_ID
+NOTION_CLIENT_SECRET        production, sensitive: true,  from repository secret NOTION_CLIENT_SECRET
+NOTION_TOKEN_KEY            production, sensitive: true,  RandomBytes('uier-notion-token-key', 32).base64; protect: true on the RandomBytes resource, not on the variable
+NOTION_API_BASE_URL         code default https://api.notion.com; e2e/local override only, never on Vercel
+NOTION_OAUTH_AUTHORIZE_URL  code default; e2e override only
+```
+
+`infra/src/index.ts`: after the Anthropic block, create the two client variables only when both secrets are present and the key unconditionally, all with `envVarOptions` and `targets: ['production']`; previews get none (dynamic URL behind Vercel auth, no registrable redirect URI). `.github/workflows/pulumi_reusable.yml`: both secrets as `workflow_call.secrets` (`required: false`) and step env; `ci.yml` and `deploy.yml` pass them explicitly. `apps/web/.env.example` documents all variables in the Anthropic comment style and corrects the `UIER_BASE_URL` note (production uses `brand.url`). `isNotionConfigured()` (`apps/web/src/lib/integrations/notion/config.ts`) is `Boolean(NOTION_CLIENT_ID && NOTION_CLIENT_SECRET) && (Boolean(NOTION_TOKEN_KEY) || isLocalRuntime())`; without it the card shows "not available" and the routes answer 404. The worker already receives the sensitive `UIER_COMMENTS_SECRET` through `vercel pull`; phase 1a logs the key's presence once to confirm the same path. `infra/AGENTS.md` lists the key among the protected resources.
+
+Local development: a developer's own public connection, scope `Selected workspaces only` with their test workspace, in `apps/web/.env.local`, redirect URI `http://localhost:4004/app/notion/callback`; the worker never runs locally, the API spec drives it against the stub.
+
+Notion developer portal, done once by the owner:
+
+1. Create a public connection named uier with installation scope `Any workspace`. The scope is fixed at creation. `Selected workspaces only` refuses every customer workspace that is not on its list, and fixing it means a new connection with a new client id, which ends every grant made to the old one.
+2. Capabilities: Read, Update and Insert content; no user information; no comment capabilities.
+3. Redirect URIs: `https://uier.io/app/notion/callback` only. Developers use their own connection for `http://localhost:4004/app/notion/callback`, so production never accepts a localhost redirect.
+4. Details shown on Notion's consent screen: name uier, the uier mark as icon (`packages/brand/assets`), website `https://uier.io`, privacy policy `https://uier.io/legal/privacy-policy`, terms `https://uier.io/legal/terms-of-service`, support email `brand.contact.email`. The privacy and terms pages must already carry the phase 1 wording when the connection goes live.
+5. Template: a public Notion page holding one database whose data source has the properties of the defaults table, set as the connection's optional template.
+6. No Marketplace listing, so no Notion security review (open question 7), and no webhook subscription.
+7. Copy the client id and secret into the repository secrets `NOTION_CLIENT_ID` and `NOTION_CLIENT_SECRET`; README "Required GitHub configuration" gets two optional rows.
+
+## 11. Security and privacy
+
+| Threat | Defence |
+| --- | --- |
+| forged, replayed or cross-site OAuth start or callback | random state stored only as a hash under the user's partition, one per (user, project), deleted on every callback; `Sec-Fetch-Site` check on connect; admin membership re-read from the store |
+| stolen database or backup exposing tokens | AES-256-GCM with a key held only in Vercel, AAD bound to workspace, project and field |
+| tokens or ids reaching a browser | `NotionConnectionView` allowlist; the RSC payload is asserted free of `tokens`, `k1.`, `refresh`, `botId`, `connectedBy` |
+| two processes refreshing the same token | refresh lease, generation check before the call, atomic pair write |
+| demoted or removed admin's grant kept alive | tokens wiped by `revokeNotionGrantsOf` and by every token-using action; `memberActor(project, connectedBy)` rebuilt per attempt |
+| private or deleted content reaching Notion | actor-independent private check per attempt; privacy change and tombstone empty then trash the page |
+| feedback text or tokens in logs, ledgers, action results | `NotionApiError` without bodies; bounded codes and hashes only; console spy and leak regex in tests |
+| Notion content (names, titles, ids) treated as instructions or paths | stored bounded and stripped, rendered as text, never interpreted; ids validated by regex and encoded |
+| retry storms on blocked or broken connections | `request_blocked` never retried; paused connections skip without calls; ledgers wait without failure counts |
+| write amplification | marks and tombstones only for connected projects; tombstones expire in 30 days |
+| browser contact with Notion | none: CSP unchanged; connect is a server 302, the callback a same-origin route |
+
+Logging rules: `[notion] <ledgerId>: <code>` and the run summary only; never names, titles, text, URLs, tokens or Notion error messages.
+
+Privacy policy, new `<h3>` "Connected services" under "What we collect" after "Coding tool access", effective date bumped in the same PR; phase 1 wording (phase 2 adds "replies", phase 3 adds "and, when one was taken, the screenshot", each bumping the date again):
+
+```
+A workspace admin can connect a project to a Notion database. From then on uier sends that project's comments to that database: the comment text and quoted text, the names shown in uier, the page address and the place on the page, the device details saved with the comment, the status and the assignee. Private comments are not sent. If a comment is made private or deleted after it was sent, uier empties its Notion page and moves it to the trash; Notion keeps trashed pages, page history and uploaded images under its own terms, and uier cannot remove them. To do this uier keeps the access token Notion issues, encrypted, until the admin disconnects, is no longer an admin, or Notion revokes it. We also store the name and id of the connected Notion workspace, which admin connected it, and, per comment sent, the id and address of its Notion page and hashes of what was sent, so later changes update the same page. Notion Labs, Inc. is a US company; the admin who connects it is responsible for that transfer under their own agreement with Notion, and we cannot delete or correct copies held there.
+```
+
+Notion is not uier's processor and is not added to the processors list. Its closing sentence becomes: "We share data with no one else unless the law requires it, or a workspace admin connects a service to a project as described under Connected services; that service is not our processor and handles the copies under the admin's own agreement with it." The "In short" bullet gains "except copies a workspace admin sends to a connected service"; the account bullet gains "including services an admin connected". Legal basis: performance of the service the admin asked for, Art. 6(1)(b). "How long we keep it": "Notion connection: the encrypted token until the admin disconnects, is removed as an admin, or Notion revokes it; the page map for each sent comment: until the project is deleted on request." Terms: replace "Using uier on other websites is not available yet" and add that a connected service's own terms govern the copies it receives. Cookie policy: unchanged (the state is a URL parameter plus a server document).
+
+## 12. Testing
+
+Stub `apps/web/e2e/support/notionStub.ts` (erasable TypeScript, `node:http`), third `webServer` in `apps/web/playwright.config.ts` on `PORT + 2000`, `reuseExistingServer: false`; the Next server env gains `NOTION_CLIENT_ID`, `NOTION_CLIENT_SECRET`, `NOTION_TOKEN_KEY` (fixed test value), `NOTION_API_BASE_URL`, `NOTION_OAUTH_AUTHORIZE_URL`. Endpoints: readiness `GET /`; `GET /v1/oauth/authorize` with buttons "Allow access" and "Deny"; `POST /v1/oauth/token` (Basic check, code and rotating refresh grants, a used code or refresh token answers `invalid_grant`); `GET /v1/users/me`; `POST /v1/search`; `GET /v1/databases/:id`; `GET /v1/blocks/:id/children` (template page with a `child_database`); `GET /v1/data_sources/:id` (fixtures: template schema, one without Done, one trashed); `PATCH /v1/data_sources/:id/query` (returns trashed rows unless filtered); pages, blocks and file-upload endpoints backed by an in-memory page model that enforces `Notion-Version: 2026-03-11`, bearer tokens, `data_source_id` parents, id- or name-keyed properties, `erase_content`, 100 children, 2000 characters, 500 KB, `language` on code blocks, the `position` shape, and rejects `archived`, `after`, writes to trashed pages (400) and a second `send` on an upload. Markers in the thread text select faults; the stub reads them from the title and rich text of create and update bodies and from the OAuth state: `[notion:429]` (`Retry-After: 7`), `[notion:429-workspace]`, `[notion:529]`, `[notion:500]`, `[notion:timeout]`, `[notion:expired]`, `[notion:invalid_grant]`, `[notion:blocked]`, `[notion:page_gone]`, `[notion:page_trashed]`, `[notion:schema-drop]`, `[notion:deny]`. Inspection `GET /__stub/calls?filter=` and `DELETE /__stub/calls`; tests filter by their own comment id, never global counts.
+
+| Spec | Scenarios |
+| --- | --- |
+| `apps/web/e2e/notionCrypto.api.spec.ts` | round trip, distinct IVs, tampered tag and wrong AAD fail, key id prefix, local fallback only under `UIER_LOCAL` |
+| `apps/web/e2e/notionTransport.api.spec.ts` (injected `fetcher`) | headers per endpoint, multipart body, `Retry-After` to `pending` with the 60 s default, 529 like 429, blocked never retried, refresh once with generation guard, chunking at 1900 and 100, comma rule, id regex, `NotionApiError` has no body, console spy over worker and action paths |
+| `apps/web/e2e/notionOauth.api.spec.ts` (in-process `resolveOauthCallback`) | forged or non-random state, second use after `store.delete` returned false, another user's state, non-admin member, project in another workspace, `access_denied` and exchange failures write nothing and consume the state, reconnect accepted for `needs_reconnect`, workspace change clears the mapping, template resolved through `child_database` and through a full-page database |
+| `apps/web/e2e/notion.api.spec.ts` (in-process, model `notifications.api.spec.ts`) | mark once per mutation on connected projects only (all ten paths, an MCP-attributed reply included), never on the public project, a status no-op or a thread private before and after; tombstone through `onDelete`; one ledger under concurrent discovery, clear only when version unchanged, `notificationPending` untouched; create with name-keyed properties and uier id, old document without `createdAt`; reply, edit, deleted reply, resolve; private empties then trashes, untrash rebuilds; tombstone with and without a page; concurrent processes and a `[notion:timeout]` retry make one page; 429 honours 7 s and pauses every connection of the bot, a workspace 429 skips the sibling in the same run; `[notion:expired]` one refresh, concurrent refresh one token call, `invalid_grant` wipes tokens; blocked, schema-drop, `page_trashed` never pauses, data source switch recreates, removed member makes Load databases do zero calls and wipes tokens, `enabled: false` makes no calls; one upload per revision, no resend after a crash between send and attach; eight failures then manual retry; backfill adopts existing pages; `notion.url` exposed and hidden for suppressed ledgers; leak regex over recorded calls |
+| `apps/web/e2e/notion.spec.ts` (Desktop and Mobile Chrome) | connect through the stub, workspace name shown, a replayed callback URL answers the "not valid" message, load databases, defaults preselected, save, reload persists, mapping alerts, deny path, disconnect dialog, commenter sees no region, settings HTML and RSC payload free of `tokens`, `k1.`, `refresh`, `botId`, `connectedBy`, axe in light and dark |
+| existing | `notifications.api.spec.ts` asserts email discovery leaves `syncPending` alone; `feedback-context.api.spec.ts` covers `assignee` and member-only `links.external`; `status.spec.ts` unchanged |
+
+## 13. Documentation changes
+
+- `docs/notion-integration.md` (new): contract, mapping defaults, idempotency and reconciliation, pacing per bot, pause codes and recovery, disconnect and trash semantics, access rules, scheduler caveat ("a batching window, not a delivery guarantee"), Validation section naming the specs.
+- `docs/feedback-context.md`: scope "Nothing is published to an issue tracker" and "No new ... third-party processing" to Copy issue; add the optional `assignee` and `links.external` fields and the `assigneeName` option.
+- `README.md`: Settings bullet; document-type table rows for `notion-connection`, `notion-oauth-state`, `notion-sync`, the tombstone (and the missing `review-read`, `notification-delivery`, `mcp-credential` rows); a "Notion" subsection after "Coding tool access (MCP)"; "Copy feedback as an issue" re-qualified; Infrastructure variable list; secrets table rows; CI/CD table gains `notifications.yml`; Commands and e2e list mention the second stub.
+- `apps/web/AGENTS.md`: Layout rows for `src/lib/integrations/` (distinct from `integration.ts`), `components/app/notion/`, `components/app/SaveFooter.tsx`, the routes; a "Notion integration" section with the invariants; Testing paragraph for the stub.
+- `infra/AGENTS.md`, `apps/web/.env.example`: variables, the protected key and the preview rule.
+- `apps/web/app/(rest)/(marketing)/legal/privacy-policy/page.tsx`, `legal/terms-of-service/page.tsx`, `security/page.tsx` (tile "Connected services"; in-scope line adds `/app/notion/*` and `/api/mcp`), `SECURITY.md` (same wording), `apps/web/src/components/marketing/LandingFaq.tsx` ("Who can see my comments?" gains one clause). `packages/toolbar/README.md` and `packages/toolbar/AGENTS.md` ("Feedback export": the member-only `links.external` field and its rendering) in phase 3.
+
+## 14. Phases
+
+Phase 1: connect and first pages. Independently shippable and valuable: an admin connects, picks a database, and every new or changed thread gets a page with current properties, feedback and anchor inside the full skeleton; empty and trash on private or deleted; untrash. No discussion paragraphs, screenshots or backfill yet. Two PRs. PR 1a (no user-visible change): `apps/web/src/lib/app/secrets.ts`, `integrations/notion/config.ts`, `infra/src/index.ts`, `pulumi_reusable.yml`, `ci.yml`, `deploy.yml`, `.env.example`, `infra/AGENTS.md`, `notionCrypto.api.spec.ts`, presence log in `scripts/notifications-worker.ts`. PR 1b: every file named in sections 4 to 9 (the write path with `onDelete`, the three store files, `notifications/retry.ts`, `integrations/notion/*`, both routes, `knownPages.ts`, `NotionSection.tsx`, `SaveFooter.tsx`, the exported `adminProject`, `revokeNotionGrantsOf` in `users/actions.ts` and `invitations.ts`, the settings page with `searchParams`, `projectComments.ts`, `CommentCard.tsx`, the worker script and `notifications.yml`), the stub, `playwright.config.ts`, the four new specs, and every file of section 13 in its phase 1 wording. Exit: specs green; the portal shows the uier connection with installation scope `Any workspace` and only the production redirect URI; `pulumi preview` shows one new variable before the repository secrets are set and three after; after merge the owner connects a test project in production and a page appears within two runs with "0 require review"; the owner connects a second project to the same Notion workspace and the first still syncs (if Notion invalidates the earlier pair, open question 1 flips to one grant document per Notion workspace shared by its projects before phase 1 ships); legal pages carry the new date; no ids or tokens in the stub's recorded calls.
+
+Phase 2: discussion, edits and deletions. Files: `page.ts`, `delivery.ts`, `transport.ts`, `notion.api.spec.ts`, `NotionSection.tsx`, `privacy-policy/page.tsx`, `docs/notion-integration.md`. Exit: a 50-item thread syncs in one run; a page created in phase 1 gains discussion paragraphs without a children listing; a reply appends exactly one block; an edit patches it; a `[notion:timeout]` retry leaves one page and no duplicate blocks.
+
+Phase 3: screenshots and the toolbar link. Files: `transport.ts`, `page.ts`, `review/dto.ts`, `readRoutes.ts`, `response.ts`, `packages/toolbar/src/{feedbackContext.ts, components/@types/Comments.tsx, components/CommentThreadHeader.tsx}`, `packages/toolbar/README.md`, `packages/toolbar/AGENTS.md`, `NotionSection.tsx`, `privacy-policy/page.tsx`, `feedback-context.api.spec.ts`, `notion.spec.ts`. Exit: one upload per revision, reuse on rebuild, re-upload after expiry; guests never receive the link; toolbar bundle growth under 1 KB gzipped.
+
+Phase 4: backfill and operations. Files: `delivery.ts`, `actions.ts`, `NotionSection.tsx`, `docs/notion-integration.md`, `README.md`. Exit: a 30-thread fixture with 5 pre-existing pages backfills without duplicates across two simulated runs under the 150-call budget; the retry input re-queues a failed ledger once in the real workflow.
+
+Phase 5, design only: a receiver at `/api/notion/webhook` reads the raw body (`await request.text()`), verifies `X-Notion-Signature` with `timingSafeEqual` against `NOTION_WEBHOOK_VERIFICATION_TOKEN` (a Pulumi-managed production secret pasted from the one-time verification POST, which the route accepts and logs only as "verification token received"), answers 200 fast, stores `{ id, type, workspace_id, entity.id, authors }` as a `notion-event` document keyed by event id (a duplicate `create` is an already-seen retry; deliveries are at-most-once, up to 8 retries over 24 hours, out of order), resolves the connection by `workspace_id` and `entity.id` against `ledger.page.id`, and ignores events whose `authors` contain the connection's own `botId`. One public URL serves every workspace. Webhooks are signals only: the worker fetches the current page; loop prevention by bot id and `ledger.page.syncedStatus`. No code until the owner approves.
+
+## 15. Risks and open questions
+
+Risks: refresh pair lost between the token call and the write (ends in a visible `needs_reconnect`, never silent); duplicate pages after a timed-out create (reconciliation before every create, `duplicate_pages` stops); rate limits spanning runs (persisted `pausedUntil` per bot, pacing, per-run and wall-clock budgets, "sending" not "sent" copy); the shared 20-minute job (8-minute Notion budget; the sibling workflow is the documented split); schema drift (re-read, specific pause codes, ids with name resolution); a second authorization of the same Notion workspace invalidating the first pair (production exit test, contingency named); `vercel pull` and sensitive variables (already proven by `UIER_COMMENTS_SECRET`; PR 1a logs presence); the `child_database` block id doubling as the database id (the template branch falls back to the manual picker when `GET /v1/databases/{childId}` answers 404); a connection created with the wrong installation scope (fixed at creation; the portal checklist and the phase 1 exit check it before any customer authorizes); cron delays (copy says "within a few minutes", docs say batching window); legal drift (pages edited in every phase that changes what is sent).
+
+Open questions for the product owner, each with the assumed default:
+
+1. Per-project connection (default) or one authorization per workspace with per-project databases.
+2. Private threads never sent, no switch (default); an opt-in would first need a privacy policy change.
+3. A page deleted or trashed in Notion: recreate on the next change (default) or leave the thread unsynced.
+4. Trash the emptied Notion page when a thread is deleted in uier (default) or only empty it.
+5. Backfill capped at the newest 1000 threads (default) or add a continuation to `listAll` now.
+6. Operator-only retry through the workflow input (default) or a Retry button in the card.
+7. The connection stays off the Notion Marketplace (default) or is listed there, which needs Notion's security review; the `Any workspace` scope keeps that option open.
+8. Which Notion plan the first customers use (default Free/Plus, 180 requests per minute; budget constants stay editable).
+9. Who owns the Notion developer portal account and the repository secrets (default: the repository owner).
+10. Marking a project done or turning comments off leaves its Notion pages as they are (default), or trashes them through a project-level sweep that re-activates every ledger from the status and access actions.
+11. After switching databases, threads are recreated on their next change (default) or immediately by a backfill.
+
+## 16. Decision log
+
+- Winner: the converging ledgered mirror (design 2), chosen by two of three judges for idempotency and silent-mutation coverage; design 1's phasing and copy and design 3's write-path gate were grafted.
+- Mark gated on `project.integrations.notion` at the service layer, not in `withNotificationEvent` or `updateComment` (`changeComment.apply` runs inside `updateComment`); no mark for a status no-op or a thread private before and after.
+- `syncVersion` as the single cursor instead of `activity.sequence` (silent changes) or a second `updatedAt` cursor.
+- Required `uier id` property queried (trashed rows ignored) before every create; a timed-out call reconciles on retry instead of stopping as ambiguous.
+- Mapping and payloads keyed by property id; both page endpoints accept ids as keys (verified on 2026-10-26), so renames in Notion never break the mapping.
+- Emptying a page uses `erase_content: true` on the page update instead of deleting blocks one by one; updates to existing pages are sent silently.
+- Status options are never created even though Update data source can since March 2026: uier does not change a customer's schema; the card asks the admin to add the option.
+- Private threads never sent, checked independently of the actor; a page made private after sending is emptied then trashed, since Notion's trash is not deletion; `includePrivate` rejected because the privacy policy promises otherwise.
+- Project done or comments off leave Notion pages alone (open question 10): `updateProject` emits nothing, and trashing a finished project's pages is a product decision.
+- One uier public connection with installation scope `Any workspace`, unlisted: customers authorize it through OAuth and create nothing in the portal; internal connections and personal access tokens rejected (static, single-workspace or single-user tokens the customer would have to create and paste).
+- Template page (`duplicated_template_id`, a page id resolved through its `child_database` block) instead of `POST /v1/databases` (not verified).
+- Second awaited step in the existing worker with per-bot and wall-clock budgets; the separate workflow kept as an escape hatch.
+- Ledgers kept after disconnect, with `dataSourceId` recorded so a database switch recreates instead of patching the old page.
+- `pausedUntil` persisted per bot from `Retry-After` (60 s default) plus an in-run workspace map, instead of an in-process skip per project.
+- Data sources loaded in a server action; the client component receives an allowlisted view, never the connection document.
+- Random OAuth state stored as a hash, one per user and project, consumed on every callback; a signed payload rejected because it would carry ids to Notion's logs.
+- Grants end with the admin's role: tokens wiped on removal, demotion, `invalid_grant` and before any action uses them.
+- Shared `notifications/retry.ts` instead of duplicating `failureCode`, `MAX_FAILURES` and backoff.
+- A page removed or trashed in Notion is a normal event, never a connection pause; `needs_reconnect` never sets the exit code.
+- Children list-and-diff only on a retry of a persisted attempt or a missing block map; visible `uier:<itemId>` markers rejected.
+- Webhooks deferred to a design-only phase with raw-body HMAC, event-id dedupe and a Pulumi-held verification token; logging the token rejected.
+- No SDK: the client pins the version, reads `NOTION_API_BASE_URL` explicitly, surfaces `Retry-After`, validates ids and throws errors without bodies.
+- Notion is a recipient the admin chooses, not uier's processor; legal and card copy are phased so they never claim more than the shipped phase sends.
+- No /status entry: `ServiceState` has no "not configured" value and the e2e server has no network.
+- Cookie policy unchanged: the OAuth state is a URL parameter plus a server document.

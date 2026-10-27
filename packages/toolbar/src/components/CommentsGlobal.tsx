@@ -444,7 +444,8 @@ export function CommentsGlobal({
         }
         linkHandledRef.current = true;
         if (linked.path !== path) {
-            setSidebarFilter({ status: linked.resolved ? 'resolved' : 'unresolved', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
+            // Not this page's (any more): all pages, narrowed to its public id
+            setSidebarFilter({ status: linked.resolved ? 'resolved' : 'unresolved', page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
             setSidebarOpen(true);
             announce('This comment uses an earlier page-state setting. Its saved details are in the inbox.');
             return;

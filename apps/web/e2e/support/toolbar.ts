@@ -22,6 +22,19 @@ export const selectionToolbar = (page: Page) => page.getByRole('toolbar', { name
 /** Comment thread popover (only one is open at a time) */
 export const openThread = (page: Page) => page.getByRole('dialog');
 
+/** The open inbox's page picker (a select: this page, all pages, then the other pages) */
+export const inboxPages = (page: Page) => page.getByRole('complementary', { name: 'Comments' }).getByRole('combobox', { name: 'Pages' });
+
+/**
+ * Chooses which pages the open inbox lists: `/^This page/`, `/^All pages/` or another page's path
+ * (the options' names end with their count)
+ */
+export async function chooseInboxPages(page: Page, name: RegExp) {
+    await inboxPages(page).click();
+    await page.getByRole('listbox').getByRole('option', { name }).click();
+    await expect(page.getByRole('listbox')).toBeHidden();
+}
+
 /**
  * A fresh origin for one test: `<label>.localhost` resolves to the loopback address in Chromium
  * (no DNS needed), and the comments API partitions comments by host, so tests running in

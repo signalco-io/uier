@@ -8,6 +8,9 @@ export async function expectNoAxeViolations(page: Page) {
     await expect(page).toHaveTitle(/\S/);
     const accessibilityScanResults = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag21aaa'])
+        // The landing's animated scene is a picture (hidden from assistive technologies, text that
+        // is part of a picture is exempt from contrast): mid-fade frames would fail at random
+        .exclude('[data-landing-scene]')
         .analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
 }

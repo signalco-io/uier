@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
-import { InlineLink, PageHeader, PageSection, Tile } from '../../../../src/components/marketing/ContentPage';
+import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 import { KnownPages } from '../../../../src/knownPages';
 
 // Every control listed here is implemented and verifiable in this repository (apps/web/src/lib/comments,
@@ -20,7 +20,7 @@ const controls = [
     },
     {
         title: 'Locked-down pages',
-        text: 'A Content Security Policy limits where scripts and connections can go. Only the empty browser verification page can be framed. Browsers do not guess content types.'
+        text: 'A Content Security Policy limits where scripts and connections can go. Only the empty browser verification and background sign-in pages can be framed. Browsers do not guess content types.'
     },
     {
         title: 'Anonymous identity',
@@ -69,7 +69,7 @@ export default function SecurityPage() {
         <main className="flex flex-col pb-16">
             <PageHeader
                 title="Security"
-                lead={`How ${brand.domain} protects the comments left on it, and how to report a problem. The code is open source, so you can check how it works.`}>
+                lead={`How ${brand.domain} protects your comments, and how to report a problem.`}>
                 <div className="flex flex-wrap items-center gap-2.5">
                     <Button variant="solid" size="lg" href={`mailto:${brand.contact.security}`}>Report a vulnerability</Button>
                     <Button variant="outlined" size="lg" href={brand.repository}>Read the code</Button>
@@ -80,7 +80,7 @@ export default function SecurityPage() {
                 id="report"
                 title="Report a vulnerability"
                 lead={<>Email <InlineLink href={`mailto:${brand.contact.security}`}>{brand.contact.security}</InlineLink>. Please do not open a public issue for a security problem.</>}>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Panel className="md:grid-cols-2">
                     <Tile title="What to send">
                         <p>What you found, the steps or a request that reproduces it, and the impact you expect. A page address or a comment id helps.</p>
                         <p>We will investigate every legitimate report and do our best to fix the problem quickly.</p>
@@ -89,20 +89,20 @@ export default function SecurityPage() {
                         <p>Test with your own comments only. Do not read, change or delete other people&rsquo;s comments, do not overload the service, and do not post personal data.</p>
                         <p>In scope: {brand.domain}, its comments API, <code className="font-mono">/toolbar.js</code> and the code in the repository.</p>
                     </Tile>
-                </div>
+                </Panel>
             </PageSection>
 
             <PageSection
                 id="controls"
                 title="How uier is protected"
                 lead="The controls that are in place today.">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Panel className="md:grid-cols-2">
                     {controls.map(control => (
                         <Tile key={control.title} title={control.title}>
                             <p>{control.text}</p>
                         </Tile>
                     ))}
-                </div>
+                </Panel>
             </PageSection>
 
             <PageSection

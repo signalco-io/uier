@@ -31,7 +31,7 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
     const id = await savedFeedback(page);
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     const input = thread.getByLabel('Upload screenshot image');
-    await expect(thread.getByText('No screenshot available.')).toBeVisible();
+    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
     await input.setInputFiles({ name: 'invalid.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
     await expect(thread.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
     await input.setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });

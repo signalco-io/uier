@@ -12,8 +12,9 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { Section } from '../PageHeader';
-import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
+import { ClientNameInput } from './ClientNameInput';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
@@ -62,7 +63,8 @@ export function ProjectNameForm({ projectId, name }: { projectId: string; name: 
     );
 }
 
-export function ProjectClientNameForm({ projectId, clientName }: { projectId: string; clientName?: string }) {
+/** The client name, suggesting the existing `clients` */
+export function ProjectClientNameForm({ projectId, clientName, clients }: { projectId: string; clientName?: string; clients: string[] }) {
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectClientNameAction, null);
     const [value, setValue] = useState(clientName ?? '');
@@ -73,8 +75,7 @@ export function ProjectClientNameForm({ projectId, clientName }: { projectId: st
                 <input type="hidden" name="projectId" value={projectId} />
                 <Field>
                     <FieldLabel htmlFor={`${formId}-client`}>Client name (optional)</FieldLabel>
-                    <Input id={`${formId}-client`} name="clientName" value={value}
-                        onChange={event => setValue(event.target.value)} maxLength={MAX_CLIENT_NAME_LENGTH} className="max-w-md" />
+                    <ClientNameInput id={`${formId}-client`} value={value} onValueChange={setValue} clients={clients} className="max-w-md" />
                 </Field>
             </form>
         </Section>

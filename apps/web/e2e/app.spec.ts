@@ -53,12 +53,19 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Create a project' })).toBeVisible();
     await expect(page).toHaveTitle('Create project · uier');
+    // The onboarding progress: the site first, then the script
+    const progress = page.getByRole('list', { name: 'Onboarding progress' });
+    await expect(progress.getByRole('listitem')).toHaveCount(2);
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 2: Your site');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 2: Add the script');
     await expectNoAxeViolations(page);
 
     const projectId = await createProject(page, { urls: ['www.example.com/', 'https://staging.example.com/app/'] });
 
     // Install guide (the project's Install tab): the script with the project code, platform guidance and the CSP sources
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
+    await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 2: Your site (done)');
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 2: Add the script');
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(projectId, { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${projectId}"`).first()).toBeVisible();
@@ -88,6 +95,12 @@ test('onboarding creates a project with its addresses and shows the install guid
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toBeHidden();
     await expectNoAxeViolations(page);
+
+    // The Install tab itself is the plain guide, without the onboarding progress
+    await page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install$`));
+    await expect(page.getByRole('heading', { name: 'Copy the script' })).toBeVisible();
+    await expect(progress).toHaveCount(0);
 });
 
 test('review links open the project\'s own sites with the toolbar turned on', async ({ page }) => {
@@ -180,7 +193,7 @@ test('project settings save the comment access, addresses and name', async ({ pa
     await page.reload();
     await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     await expect(addresses.getByLabel('Main site address')).toHaveValue('https://settings.example.com');
-    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('https://localhost:3000');
+    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('http://localhost:3000');
     // The new name in the header and the breadcrumbs, and on the projects page
     await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');
@@ -216,7 +229,19 @@ test('the sidebar has the sections, the active projects and the account', async 
 });
 
 test('feedback on the app opens uier\'s toolbar and stays private', async ({ page, browser }, testInfo) => {
-    await signIn(page, uniqueEmail('feedback'));
+    // An earlier guest identity must not override the signed-in account.
+    const guestWrite = await page.request.post('/api/comments', { data: {
+        path: `/e2e/guest-before-sign-in-${Date.now()}-${testInfo.project.name}`, kind: 'feedback', position: { type: 'page' }, text: 'Guest feedback'
+    } });
+    expect(guestWrite.status(), await guestWrite.text()).toBe(201);
+    const guest = await (await page.request.get('/api/visitor')).json();
+    expect(guest.name).toMatch(/^Guest /);
+    const email = uniqueEmail('feedback');
+    await signIn(page, email);
+    const name = email.split('@')[0]!;
+    const member = await (await page.request.get('/api/visitor')).json();
+    expect(member).toMatchObject({ name, member: true });
+    expect(member.draftScope).not.toBe(guest.draftScope);
     await page.goto('/app/projects');
     // In the sidebar's footer, with the account (not in the navigation)
     const giveFeedback = page.getByRole('button', { name: 'Give feedback' });
@@ -231,13 +256,20 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await dialog.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    await toolbar(page).getByRole('button', { name: 'Profile', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText(name);
+    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText('You are signed in to uier.');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toBeHidden();
     await expectNoAxeViolations(page);
 
     // App pages show private projects: only the author (and the team, in the app) sees it
     const pageComments = new URL('/api/comments?path=/app/projects', page.url()).href;
     const siteComments = new URL('/api/comments?scope=site', page.url()).href;
     const texts = (comments: { thread: { items: { text: string }[] } }[]) => comments.map(comment => comment.thread.items[0]?.text);
-    expect(texts(await (await page.request.get(pageComments)).json())).toContain(text);
+    const saved = (await (await page.request.get(pageComments)).json()).find((comment: { thread: { items: { text: string }[] } }) => comment.thread.items[0]?.text === text);
+    expect(saved.isMine).toBe(true);
+    expect(saved.thread.items[0].author).toEqual({ name, isMe: true });
     const other = await newVisitor(browser, testInfo);
     expect(texts(await (await other.context.request.get(pageComments)).json())).not.toContain(text);
     expect(texts(await (await other.context.request.get(siteComments)).json())).not.toContain(text);
@@ -250,6 +282,35 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await appNavigation(page);
     await giveFeedback.click();
     await expect(dialog).toBeVisible();
+
+    // All app users can switch to the shared feedback project as commenters, and see their
+    // own feedback under the same identity used by the toolbar. A second account cannot see it.
+    await page.goto('/app/projects');
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' }))
+        .toHaveAttribute('href', '/app/projects/uier00000001');
+    await page.goto('/app/projects/uier00000001');
+    // This local feedback has a loopback origin, outside the public project's production environment.
+    await page.getByRole('combobox', { name: 'Environment', exact: true }).click();
+    await page.getByRole('option', { name: 'All environments', exact: true }).click();
+    await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Who can comment', exact: true })).toHaveCount(0);
+
+    const second = await newVisitor(browser, testInfo);
+    await signIn(second.page, uniqueEmail('feedback-other'), { from: new URL('/app/sign-in', page.url()).href });
+    expect(texts(await (await second.context.request.get(pageComments)).json())).not.toContain(text);
+    await second.context.close();
+
+    // The same account in a fresh browser can still read and manage its earlier feedback.
+    const returning = await newVisitor(browser, testInfo);
+    await signIn(returning.page, email, { from: new URL('/app/sign-in', page.url()).href });
+    const sameAccount = (await (await returning.context.request.get(pageComments)).json()).find((comment: { id: string }) => comment.id === saved.id);
+    expect(sameAccount.isMine).toBe(true);
+    await returning.context.close();
 });
 
 test('the account page saves the name and signs out', async ({ page }) => {
@@ -267,6 +328,7 @@ test('the account page saves the name and signs out', async ({ page }) => {
 
     await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/app\/sign-in$/);
+    expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_review_sso')).toBe(false);
     await page.goto('/app/projects');
     await expect(page).toHaveURL(/\/app\/sign-in\?next=/);
 });

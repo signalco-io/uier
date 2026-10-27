@@ -17,6 +17,7 @@ export const KnownPages = {
     AppProjects: '/app/projects',
     AppNewProject: '/app/projects/new',
     AppUsers: '/app/users',
+    AppClients: '/app/clients',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
 
@@ -31,7 +32,9 @@ export const KnownPages = {
 export const KnownPageLinks = {
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
-    projectInstall: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/install`,
+    /** The install guide; `onboarding` adds the progress of a project that was just created */
+    projectInstall: (projectId: string, { onboarding = false }: { onboarding?: boolean } = {}) =>
+        `/app/projects/${encodeURIComponent(projectId)}/install${onboarding ? '?onboarding=1' : ''}`,
     /** The screenshot of a project comment (an image, for the signed-in app) */
     projectCommentScreenshot: (projectId: string, commentId: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,
@@ -44,5 +47,13 @@ export const KnownPageLinks = {
             query.set('comment', commentId);
         const search = query.toString();
         return `/app/review/${encodeURIComponent(projectId)}${search ? `?${search}` : ''}`;
+    },
+    /** The projects list filtered to one client (the `client` filter of /app/projects) */
+    clientProjects: (clientName: string, status: 'active' | 'done' = 'active') => {
+        const query = new URLSearchParams();
+        if (status === 'done')
+            query.set('status', status);
+        query.set('client', `name:${clientName}`);
+        return `/app/projects?${query}`;
     }
 } as const;

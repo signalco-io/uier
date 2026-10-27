@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useId, useRef, useState, useSyncExternalStore } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -11,7 +11,8 @@ import { CommentThreadItemMenu } from './CommentThreadItemMenu';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentKindLabel } from './CommentKindLabel';
-import { CommentDeviceMeta } from './info/CommentDeviceMeta';
+import { CommentDeviceButton, CommentDeviceDetails, hasDeviceMeta } from './info/CommentDeviceMeta';
+import { useReattach } from './CommentAnchorDetails';
 import { CommentScreenshot } from './CommentScreenshot';
 import { CommentComposer } from './CommentComposer';
 import { useDrafts } from '../hooks/useDrafts';
@@ -57,6 +58,9 @@ function deleteConfirmText(comment: CommentItem, first: boolean | undefined) {
 export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
     const { delete: deleteComment, deleteReply, edit } = useComments();
     const announce = useAnnounce();
+    const reattach = useReattach(comment);
+    const deviceDetailsId = useId();
+    const [deviceOpen, setDeviceOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLButtonElement>(null);
     const drafts = useDrafts();
@@ -72,7 +76,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     // The author deleted it after others replied: a placeholder, without author or actions
     if (threadItem.deleted) {
         return (
-            <Typography level="body1" className="text-sm text-muted-foreground">Comment deleted</Typography>
+            <Typography level="body1" className="pl-8 text-sm text-muted-foreground">Comment deleted</Typography>
         );
     }
 
@@ -117,21 +121,31 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
         }
     };
 
+    const showDevice = first && hasDeviceMeta(comment.device, comment.reproduction);
+
     return (
-        <Stack ref={rootRef} spacing={1}>
-            <Row spacing={1} justifyContent="space-between">
-                <Row spacing={1} className="min-w-0">
-                    <Avatar size="sm" aria-hidden="true" className="shrink-0 font-semibold">{avatarText(authorName)}</Avatar>
-                    <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
-                        {isMe ? 'You' : authorName}
-                    </Typography>
-                    {createdAt && (
-                        <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                            <CommentTime date={createdAt} />
-                        </span>
-                    )}
-                </Row>
-                <Row className="shrink-0">
+        <div ref={rootRef} className="flex gap-2">
+            <Avatar size="sm" aria-hidden="true" className="shrink-0 border bg-accent text-[11px] font-semibold text-foreground">{avatarText(authorName)}</Avatar>
+            <Stack spacing={1} className="min-w-0 flex-1">
+                <Row spacing={1} justifyContent="space-between" className="min-h-6">
+                    <Row spacing={1} className="min-w-0">
+                        <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
+                            {isMe ? 'You' : authorName}
+                        </Typography>
+                        {createdAt && (
+                            <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                                <CommentTime date={createdAt} />
+                            </span>
+                        )}
+                        {showDevice && (
+                            <CommentDeviceButton
+                                device={comment.device}
+                                reproduction={comment.reproduction}
+                                expanded={deviceOpen}
+                                controls={deviceDetailsId}
+                                onToggle={() => setDeviceOpen(!deviceOpen)} />
+                        )}
+                    </Row>
                     {(canDelete || canEdit) && !editing && (
                         <CommentThreadItemMenu
                             triggerRef={menuRef}
@@ -140,6 +154,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             confirmText={deleteConfirmText(comment, first)}
                             disabled={pending}
                             onDelete={canDelete ? handleDelete : undefined}
+                            onReattach={first && reattach.available ? reattach.request : undefined}
                             onEdit={canEdit ? () => {
                                 edit.reset();
                                 const existing = drafts.details(editDraftKey);
@@ -152,25 +167,27 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             } : undefined} />
                     )}
                 </Row>
-            </Row>
-            {first && <CommentKindLabel kind={comment.kind} />}
-            {Boolean(quote?.length) && (
-                <blockquote className="m-0 line-clamp-4 border-l-2 border-muted-foreground bg-muted px-2 py-1 text-sm text-secondary-foreground">
-                    {quote}
-                </blockquote>
-            )}
-            {editing ? (
-                <CommentComposer label={first ? 'Edit comment' : 'Edit reply'} placeholder="Update the message" submitLabel="Save changes"
-                    commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
-                    onCancel={finishEdit} onSubmit={async (text, mentions) => {
-                        await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
-                        finishEdit();
-                        announce(first ? 'Comment edited' : 'Reply edited');
-                    }} />
-            ) : <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{displayText}{threadItem.editedAt && <span className="text-muted-foreground"> (edited)</span>}</Typography>}
-            {first && <CommentScreenshot comment={comment} />}
-            {first && <CommentDeviceMeta device={comment.device} reproduction={comment.reproduction} />}
-            <CommentsErrorMessage error={error} />
-        </Stack>
+                {showDevice && deviceOpen && (
+                    <CommentDeviceDetails id={deviceDetailsId} device={comment.device} reproduction={comment.reproduction} />
+                )}
+                {first && <CommentKindLabel kind={comment.kind} />}
+                {Boolean(quote?.length) && (
+                    <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
+                        {quote}
+                    </blockquote>
+                )}
+                {editing ? (
+                    <CommentComposer label={first ? 'Edit comment' : 'Edit reply'} placeholder="Update the message" submitLabel="Save changes"
+                        commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
+                        onCancel={finishEdit} onSubmit={async (text, mentions) => {
+                            await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
+                            finishEdit();
+                            announce(first ? 'Comment edited' : 'Reply edited');
+                        }} />
+                ) : <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{displayText}{threadItem.editedAt && <span className="text-muted-foreground"> (edited)</span>}</Typography>}
+                {first && <CommentScreenshot comment={comment} />}
+                <CommentsErrorMessage error={error} />
+            </Stack>
+        </div>
     );
 }

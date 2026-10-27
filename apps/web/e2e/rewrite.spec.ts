@@ -34,7 +34,7 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
         });
     });
     await openLanding(page, origin, { dismissHint: true });
-    expect(brand.description).toContain(selected);
+    expect(brand.shortDescription).toContain(selected);
 
     await selectText(page, selected);
     await selectionToolbar(page).getByRole('button', { name: 'Rewrite' }).click();

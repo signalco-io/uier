@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { brand } from '@uier/brand';
 import { KnownPages } from '../../knownPages';
-import { InlineLink } from './ContentPage';
+import { InlineLink, Panel } from './ContentPage';
 
 // Answers only what the product does today (the toolbar on uier.io, projects for your own sites in the
 // app); see BRAND.md, "Tagline and voice".
@@ -11,11 +11,19 @@ import { InlineLink } from './ContentPage';
 const questions: { question: string; answer: ReactNode }[] = [
     {
         question: `What is ${brand.name}?`,
-        answer: <>A way to review a live website on the page itself. A toolbar sits at the bottom of the page: pin a comment to an element or to selected text, reply in the thread and resolve it when it is done.</>
+        answer: <>A way to review a live website on the page itself. A toolbar sits at the bottom of the page: pin a comment to an element or to selected text, reply in the thread and resolve it when it is done. Projects bring it to your own sites, with your team and review links.</>
     },
     {
         question: `Can I use ${brand.name} on my own website?`,
         answer: <>Yes. Create a project in the <InlineLink href={KnownPages.App}>{brand.name} app</InlineLink>, add one script tag to your site and open a review link. You choose who can comment: the people you invite, or anyone with the link.</>
+    },
+    {
+        question: 'Does it work with my stack?',
+        answer: <>If you can add a script tag to the page, yes. The install guide in the app has steps for HTML, Next.js, React, WordPress, Webflow and Shopify, and lists the sources to allow if your site sends a Content-Security-Policy.</>
+    },
+    {
+        question: 'Can developers and AI agents use the feedback?',
+        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector with credentials you create in your account settings: read-only unless you allow more, limited to the projects you pick, and valid for 30 days.</>
     },
     {
         question: 'Do I need an account?',
@@ -49,16 +57,18 @@ const questions: { question: string; answer: ReactNode }[] = [
 
 export function LandingFaq() {
     return (
-        <div className="flex max-w-[720px] flex-col border-b">
+        <Panel>
             {questions.map(item => (
-                <details key={item.question} className="group border-t">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-md py-4 text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background [&::-webkit-details-marker]:hidden">
+                <details key={item.question} className="group px-6">
+                    {/* The margin keeps the focus ring (2px at 2px offset) inside the panel, which clips its cells */}
+                    <summary className="my-2 flex cursor-pointer list-none items-center justify-between gap-4 rounded-md py-3 text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background [&::-webkit-details-marker]:hidden">
                         {item.question}
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-muted-foreground transition-transform duration-150 ease-out group-open:-scale-y-100 motion-reduce:transition-none"><path d="m6 9 6 6 6-6" /></svg>
+                        {/* A plus that turns into a close mark when the answer is open */}
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-muted-foreground transition-transform duration-150 ease-out group-open:rotate-45 motion-reduce:transition-none"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
                     </summary>
-                    <p className="pb-5 pr-8 text-base leading-relaxed text-muted-foreground">{item.answer}</p>
+                    <p className="pb-6 pr-8 text-base leading-relaxed text-muted-foreground">{item.answer}</p>
                 </details>
             ))}
-        </div>
+        </Panel>
     );
 }

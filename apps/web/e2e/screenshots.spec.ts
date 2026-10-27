@@ -86,7 +86,7 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     await expect(thread.getByText('Keep the feedback if capture fails.')).toBeVisible();
-    await expect(thread.getByText('No screenshot available.')).toBeVisible();
+    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
     expect((await savedComment(page, 'Keep the feedback if capture fails.')).screenshot).toBeUndefined();
     await context.close();
 });
@@ -95,15 +95,20 @@ test('screenshots: selected-text comments and rewrite suggestions capture automa
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     for (const rewrite of [false, true]) {
-        await selectText(page, brand.description);
+        await selectText(page, brand.shortDescription);
         await page.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: rewrite ? 'Rewrite' : 'Add comment', exact: true }).click();
         const draft = page.getByRole('dialog', { name: rewrite ? 'New rewrite suggestion' : 'New comment' });
         await draft.getByRole('textbox', { name: rewrite ? 'Suggested text' : 'Comment', exact: true }).fill(rewrite ? 'A clearer description.' : 'Clarify this description.');
         await expect(draft.getByRole('img')).toHaveCount(0);
         await draft.getByRole('button', { name: rewrite ? 'Post suggestion' : 'Post comment' }).click();
-        // Long quoted text can put the lazy image below the thread's scroll viewport on touch.
+        // On touch the thread can be shorter than its messages, so the lazy image may be above or
+        // below the thread's scroll viewport: scroll its evidence section to the top of it.
         await page.getByRole('dialog', { name: 'Comment thread' }).getByRole('group', { name: 'Messages', exact: true })
-            .evaluate(element => element.scrollTo({ top: element.scrollHeight }));
+            .evaluate(messages => {
+                const evidence = messages.querySelector('section[aria-label="Screenshot evidence"]');
+                if (evidence)
+                    messages.scrollTop += evidence.getBoundingClientRect().top - messages.getBoundingClientRect().top;
+            });
         await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
         await page.keyboard.press('Escape');
         await page.evaluate(() => window.getSelection()?.removeAllRanges());

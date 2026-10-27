@@ -1,7 +1,79 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { appNavigation, closeAppNavigation, createProject, fillClientName, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
+
+test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
+    await signIn(page, uniqueEmail('clients-page'));
+    await createProject(page, { urls: ['plain.example.com'], name: 'Plain site' });
+    // No project has a client yet: no Clients section, and Users sits at the bottom of the navigation
+    let navigation = await appNavigation(page);
+    await expect(navigation.getByRole('link', { name: 'Clients' })).toHaveCount(0);
+    await expect(navigation.getByRole('link').last()).toHaveAccessibleName('Users');
+    await closeAppNavigation(page);
+    await page.goto('/app/clients');
+    await expect(page.getByText('No clients yet', { exact: true })).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    await createProject(page, { urls: ['acme.example.com'], name: 'Acme site', clientName: 'Acme Studio' });
+    navigation = await appNavigation(page);
+    const links = navigation.getByRole('link');
+    await expect(links.nth(-2)).toHaveAccessibleName('Clients');
+    await expect(links.last()).toHaveAccessibleName('Users');
+    await closeAppNavigation(page);
+
+    // The same input suggests the existing clients and takes a new name
+    await page.goto('/app/projects/new');
+    const client = page.getByLabel('Client name (optional)');
+    await client.click();
+    await expect(page.getByRole('option', { name: 'Acme Studio', exact: true })).toBeVisible();
+    await client.fill('Northwind');
+    await expect(page.getByRole('option')).toHaveCount(0);
+    await expect(page.getByText('New client', { exact: true })).toBeVisible();
+    await client.fill('acm');
+    await page.getByRole('option', { name: 'Acme Studio', exact: true }).click();
+    await expect(client).toHaveValue('Acme Studio');
+    await expect(page.getByRole('option')).toHaveCount(0);
+    await expectNoAxeViolations(page);
+    await page.getByLabel('Main site address').fill('shop.acme.example.com');
+    await page.getByLabel('Project name').fill('Acme shop');
+    await page.getByRole('button', { name: 'Create project' }).click();
+    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install/);
+    await expect(page.getByText('Client: Acme Studio', { exact: true })).toBeVisible();
+
+    // A client with only done projects opens the done ones
+    const doneId = await createProject(page, { urls: ['northwind.example.com'], name: 'Northwind site', clientName: 'Northwind' });
+    await page.goto(`/app/projects/${doneId}/settings`);
+    await page.getByRole('button', { name: 'Mark as done', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Reopen project' })).toBeVisible();
+
+    await page.goto('/app/clients');
+    await expect(page).toHaveTitle('Clients · uier');
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Clients');
+    const clients = page.getByRole('list', { name: 'Clients' }).getByRole('listitem');
+    await expect(clients).toHaveCount(2);
+    await expect(clients.nth(0)).toContainText('Acme Studio');
+    await expect(clients.nth(0)).toContainText('Acme shop, Acme site'); // Newest first, like the sidebar
+    await expect(clients.nth(0)).toContainText('2 active');
+    await expect(clients.nth(1)).toContainText('Northwind');
+    await expect(clients.nth(1)).toContainText('1 done');
+    await expectNoAxeViolations(page);
+    await page.screenshot({ path: testInfo.outputPath('clients-light.png'), fullPage: true });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.reload(); // Scan settled dark colors, outside the theme's color transition.
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    await expectNoAxeViolations(page);
+    await page.screenshot({ path: testInfo.outputPath('clients-dark.png'), fullPage: true });
+
+    await clients.nth(1).getByRole('link').click();
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects'
+        && url.searchParams.get('status') === 'done' && url.searchParams.get('client') === 'name:Northwind');
+    await expect(page.getByRole('list', { name: 'Done projects' }).getByRole('listitem')).toHaveCount(1);
+    await page.goto('/app/clients');
+    await clients.nth(0).getByRole('link').click();
+    await expect(page).toHaveURL(url => url.searchParams.get('client') === 'name:Acme Studio' && !url.searchParams.has('status'));
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')).toHaveCount(2);
+});
 
 test('client names validate, normalize, persist in details and can be cleared', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('client'));
@@ -16,7 +88,7 @@ test('client names validate, normalize, persist in details and can be cleared', 
     await expect(input).toHaveValue('x'.repeat(81));
     await input.fill('  North   & South  ');
     await page.getByRole('button', { name: 'Create project' }).click();
-    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install$/);
+    await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install\?onboarding=1$/);
     const projectId = page.url().split('/').at(-2)!;
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByText('Client: North & South', { exact: true })).toBeVisible();
@@ -27,17 +99,17 @@ test('client names validate, normalize, persist in details and can be cleared', 
     const client = page.getByRole('region', { name: 'Client', exact: true });
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('North & South');
     await client.getByLabel('Client name (optional)').evaluate(element => element.removeAttribute('maxlength'));
-    await client.getByLabel('Client name (optional)').fill('x'.repeat(81));
+    await fillClientName(client.getByLabel('Client name (optional)'), 'x'.repeat(81));
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('alert')).toHaveText('Use at most 80 characters for the client name.');
     await page.reload();
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('North & South');
-    await client.getByLabel('Client name (optional)').fill('A'.repeat(80));
+    await fillClientName(client.getByLabel('Client name (optional)'), 'A'.repeat(80));
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('status')).toHaveText('The client name is saved.');
     await page.reload();
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('A'.repeat(80));
-    await client.getByLabel('Client name (optional)').fill('  New   client  ');
+    await fillClientName(client.getByLabel('Client name (optional)'), '  New   client  ');
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('status')).toHaveText('The client name is saved.');
     await page.reload();
@@ -51,7 +123,7 @@ test('client names validate, normalize, persist in details and can be cleared', 
     await expectNoAxeViolations(page);
     await client.screenshot({ path: testInfo.outputPath('client-settings-dark.png') });
 
-    await client.getByLabel('Client name (optional)').fill('   ');
+    await fillClientName(client.getByLabel('Client name (optional)'), '   ');
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('status')).toHaveText('The client name is saved.');
     await page.reload();
@@ -129,7 +201,7 @@ test('client names and updates stay in the current workspace and out of guest DT
     const client = other.page.getByRole('region', { name: 'Client', exact: true });
     // An admin of a different workspace cannot use a known project id to update it.
     await client.locator('input[name="projectId"]').evaluate((element, id) => { (element as HTMLInputElement).value = id; }, projectId);
-    await client.getByLabel('Client name (optional)').fill('Unauthorized change');
+    await fillClientName(client.getByLabel('Client name (optional)'), 'Unauthorized change');
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('alert')).toHaveText('This project no longer exists.');
     await other.page.reload();

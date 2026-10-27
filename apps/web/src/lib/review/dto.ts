@@ -3,33 +3,13 @@ import { readActivity } from '../comments/activity';
 import type { DbComment, DbThreadItem } from '../db/schema';
 import { toCommentDto, type CommentDto } from '../comments/dto';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
-import { getUser } from '../app/users';
+export { authorNames } from '../comments/authorNames';
 import { listProjectMembers } from '../app/members';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, type ProjectActor } from './actor';
 import { canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
 
 const memberPrefix = 'user:';
-
-/**
- * Display names of the authors of these comments: members by their account name, guests by the
- * name they gave. Members are looked up once each.
- */
-export async function authorNames(comments: DbComment[]) {
-    const items = comments.flatMap(comment => Array.isArray(comment.thread?.items) ? comment.thread.items : []);
-    const memberIds = [...new Set(items
-        .map(item => item.authorId)
-        .filter((id): id is string => Boolean(id?.startsWith(memberPrefix)))
-        .map(id => id.slice(memberPrefix.length)))];
-    const extraIds = comments.map(comment => comment.assigneeId).filter((id): id is string => Boolean(id));
-    const users = await Promise.all([...new Set([...memberIds, ...extraIds])].map(id => getUser(id)));
-    const names = new Map<string, string>();
-    for (const user of users) {
-        if (user)
-            names.set(user.id, user.name);
-    }
-    return names;
-}
 
 /** An item's author name: the member's name, the guest's name, or "Guest" */
 export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName' | 'agent'>, names: Map<string, string>) {
@@ -62,7 +42,7 @@ export type ReviewCommentDto = CommentDto & {
  */
 export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0, participants = names, project?: DbProject): ReviewCommentDto | null {
     const authorId = actorAuthorId(actor);
-    const dto = toCommentDto(comment, authorId);
+    const dto = toCommentDto(comment, authorId, names);
     if (!dto)
         return null;
 

@@ -8,7 +8,8 @@ import { toolbarConfig } from '../config';
 import { apiRequest, advanceReviewerRevision, clearReviewerCache, projectViewerQueryKey, required, CommentsApiError, commentsQueryKeyPrefix } from '../hooks/api';
 import { activityQueryKey } from '../hooks/useComments';
 import { InkScope } from '../components/InkScope';
-import { consumeReviewCode, getReviewToken, setReviewToken } from './projectSession';
+import { clearReviewCode, consumeReviewCode, enableBackgroundSignIn, getReviewToken, setReviewToken } from './projectSession';
+import { backgroundSignIn } from './backgroundSession';
 import { checkInstallationReady } from './installationCheck';
 import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
 
@@ -29,7 +30,7 @@ let reviewCodeExchanged = false;
  * Signs the reviewer in with the review link's single-use code (once), then asks who they are and
  * what the project allows. A stored token that no longer works (access removed) is forgotten.
  */
-async function loadReviewInfo() {
+export async function loadReviewInfo() {
     const code = consumeReviewCode();
     if (code && !reviewCodeExchanged) {
         reviewCodeExchanged = true;
@@ -37,18 +38,25 @@ async function loadReviewInfo() {
             const session = await apiRequest<{ token: string }>(`${reviewApiUrl}/session`, { method: 'POST', body: { code } });
             if (session?.token) {
                 setReviewToken(session.token);
+                enableBackgroundSignIn();
+                clearReviewCode();
             }
         } catch (error) {
+            if (error instanceof CommentsApiError && error.status >= 400 && error.status < 500 && error.status !== 429 && error.code !== 'bot_detected') clearReviewCode();
             void checkInstallationReady(undefined, error);
             console.warn('uier-toolbar: The review link has expired', error);
         }
     }
 
-    const info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
+    if (!getReviewToken()) await backgroundSignIn();
+
+    let info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
     if (getReviewToken() && info.viewer.kind !== 'member') {
         advanceReviewerRevision();
         setReviewToken(undefined);
-        throw new CommentsApiError('sign_in_required', 'This review session ended. Open the review link again.', 401);
+        if (await backgroundSignIn()) info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
+        if (info.viewer.kind !== 'member')
+            throw new CommentsApiError('sign_in_required', 'This review session ended. Open the review link again.', 401);
     }
     return info;
 }

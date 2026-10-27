@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireAppContext, type AppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProject, listVisibleProjects } from '@/src/lib/app/projects';
+import { clientNames } from '@/src/lib/app/clients';
 import type { DbProject } from '@/src/lib/app/model';
 import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
@@ -30,7 +31,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
     return (
         <div className="flex max-w-3xl flex-col gap-6">
             <h2 className="sr-only">Settings</h2>
-            {context.isAdmin && <ProjectSetup project={project} />}
+            {context.isAdmin && <ProjectSetup project={project} clients={clientNames(await listVisibleProjects(context))} />}
             <Section
                 id="emails"
                 title="Email notifications"
@@ -43,11 +44,11 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
     );
 }
 
-function ProjectSetup({ project }: { project: DbProject }) {
+function ProjectSetup({ project, clients }: { project: DbProject; clients: string[] }) {
     return (
         <>
             <ProjectNameForm projectId={project.id} name={project.name} />
-            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} />
+            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} clients={clients} />
             <ProjectAccessForm projectId={project.id} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />
             <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
