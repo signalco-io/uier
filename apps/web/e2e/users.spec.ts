@@ -190,6 +190,48 @@ test('an invited admin gets every project, the users and the settings', async ({
     await person.context.close();
 });
 
+test('a removed workspace creator is not added back to their workspace', async ({ page, browser }, testInfo) => {
+    const { adminEmail: creatorEmail, alpha } = await adminWithProjects(page);
+    // The creator reviews Alpha, so the site keeps their review token
+    await page.goto(`/app/review/${alpha}`);
+    await expect(page).toHaveURL(`${site.origin('alpha')}/?toolbar-code=${alpha}`);
+    await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+
+    const secondAdmin = uniqueEmail('second-admin');
+    const link = await invite(page, { email: secondAdmin, role: 'Admin' });
+    const person = await newPerson(browser, testInfo);
+    await person.page.goto(link);
+    await person.page.getByRole('button', { name: 'Accept invitation' }).click();
+    await expect(person.page).toHaveURL(/\/app\/projects$/);
+
+    // The second admin removes the creator of the workspace
+    await person.page.goto('/app/users');
+    const people = person.page.getByRole('list', { name: 'People' });
+    const creatorRow = people.getByRole('listitem').filter({ hasText: creatorEmail });
+    await creatorRow.getByRole('button', { name: /^Remove / }).click();
+    await person.page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click();
+    await expect(creatorRow).toHaveCount(0);
+
+    // The creator's session still works, but opening the app gives them a new, empty workspace of
+    // their own instead of their admin membership back
+    await page.goto('/app/users');
+    const ownPeople = page.getByRole('list', { name: 'People' });
+    await expect(ownPeople.getByRole('listitem')).toHaveCount(1);
+    await expect(ownPeople).toContainText(creatorEmail);
+    await expect(ownPeople).not.toContainText(secondAdmin);
+    await page.goto('/app/projects');
+    await expect(page.getByRole('link', { name: 'Alpha' })).toHaveCount(0);
+    expect((await page.request.get(`/app/review/${alpha}`, { maxRedirects: 0 })).status()).toBe(404);
+
+    // Their review token stopped working on the site, and the workspace still has only the second admin
+    await page.goto(`${site.origin('alpha')}/${alpha}/?toolbar-code=${alpha}`);
+    await expect(toolbar(page)).toContainText('Sign in to see and leave comments.');
+    await person.page.reload();
+    await expect(people.getByRole('listitem')).toHaveCount(1);
+    await expect(people).not.toContainText(creatorEmail);
+    await person.context.close();
+});
+
 test('invitations validate, replace earlier ones and can be revoked', async ({ page }) => {
     const { adminEmail } = await adminWithProjects(page);
     const email = uniqueEmail('invitee');

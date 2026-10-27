@@ -1,4 +1,4 @@
-import type { SqlParameter } from '@azure/cosmos';
+import type { OperationInput, SqlParameter } from '@azure/cosmos';
 import { cosmosDataContainerApp, isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import type { AppDoc } from './model';
@@ -30,6 +30,11 @@ export type AppStore = {
     get<T extends AppDoc>(pk: string, id: string): Promise<StoredDoc<T> | null>;
     /** Returns `false` when a document with the same id already exists in the partition */
     create<T extends AppDoc>(doc: T): Promise<boolean>;
+    /**
+     * Creates documents of one partition together (a transactional batch): all of them, or none and
+     * `false` when one of them already exists
+     */
+    createAll(docs: AppDoc[]): Promise<boolean>;
     /** Replaces the document only when it was not changed since it was read (`etag`) */
     replace<T extends AppDoc>(doc: T, etag: string): Promise<ReplaceResult>;
     /** Returns `false` when the document does not exist */
@@ -37,10 +42,18 @@ export type AppStore = {
     query<T extends AppDoc>(query: DocQuery<T['type']>): Promise<T[]>;
 };
 
-function errorCode(error: unknown) {
+function errorCode(error: unknown): number | string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error
         ? (error as { code?: number | string }).code
         : undefined;
+}
+
+/** All documents share one partition key, which is returned */
+function singlePartition(docs: AppDoc[]) {
+    const pk = docs[0]?.pk;
+    if (!pk || docs.some(doc => doc.pk !== pk))
+        throw new Error('createAll needs documents of one partition');
+    return pk;
 }
 
 /** Removes Cosmos system properties (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) */
@@ -71,6 +84,27 @@ function createCosmosAppStore(): AppStore {
                 return true;
             } catch (error) {
                 if (errorCode(error) === 409)
+                    return false;
+                throw error;
+            }
+        },
+        async createAll(docs) {
+            const pk = singlePartition(docs);
+            const operations: OperationInput[] = docs.map(doc => ({ operationType: 'Create', resourceBody: doc }));
+            try {
+                const response = await container().items.batch(operations, pk);
+                // A failed transaction reports the failing operation's status; the others are 424
+                const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
+                    .filter((code): code is number => typeof code === 'number');
+                if (codes.includes(409))
+                    return false;
+                if (response.result?.length !== docs.length || codes.some(code => code < 200 || code >= 300))
+                    throw new Error(`Creating ${docs.length} documents failed (${codes.join(', ')})`);
+                return true;
+            } catch (error) {
+                // The SDK wraps transaction failures in Error.cause
+                const code = errorCode(error) ?? (error instanceof Error ? errorCode(error.cause) : undefined);
+                if (code === 409)
                     return false;
                 throw error;
             }
@@ -177,6 +211,13 @@ function createMemoryAppStore(): AppStore {
             if (partition(doc.pk).has(doc.id))
                 return false;
             setEntry(doc);
+            return true;
+        },
+        async createAll(docs) {
+            const entries = partition(singlePartition(docs));
+            if (docs.some(doc => entries.has(doc.id)))
+                return false;
+            docs.forEach(setEntry);
             return true;
         },
         async replace(doc, etag) {

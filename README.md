@@ -177,7 +177,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   to sign in and come back afterwards (`proxy.ts`, `?next=`).
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
-  between them.
+  between them. The workspace and its admin are created together, so a creator whom an admin removed is
+  never added back by opening the app again: with no other workspace, they get a new, empty one of their own.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
   active or done projects as cards with their open comments, who can comment and review links.
@@ -211,8 +212,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     targets.
 - **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
-  remove people (the last admin stays) and revoke invitations. A removed member's review token stops
-  working at once, because the review API checks the membership on every request.
+  remove people (the last admin stays), including the person who created the workspace, and revoke
+  invitations. A removed member's review token stops working at once, because the review API checks the
+  membership on every request.
   - Invite (a dialog from the users page, a project's header or its card menu): the email, the role and,
     for commenters, the selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
     stored only as a SHA-256 hash; 50 invitations per workspace per day). Inviting the same address again
@@ -288,7 +290,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `user` | `user:<id>` | `u_<nanoid>` |
 | `user-email` (unique email -> user) | `email:<email>` | the email |
 | `sign-in` (pending link, `ttl` 15 min) | `sign-in:<hash>` | SHA-256 of the token |
-| `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>`, `member_<userId>`, the project code |
+| `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the project code |
 | `project-ref` (code -> workspace) | `project:<code>` | the project code |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |
 
