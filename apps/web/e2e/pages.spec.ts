@@ -20,6 +20,8 @@ test('security page publishes the reporting contact and the controls', async ({ 
     await expect(page.getByRole('link', { name: 'Report a vulnerability' })).toHaveAttribute('href', `mailto:${brand.contact.security}`);
     await expect(page.getByRole('main').getByRole('link', { name: brand.contact.security })).toHaveAttribute('href', `mailto:${brand.contact.security}`);
     await expect(page.getByRole('region', { name: 'How uier is protected' }).getByRole('heading', { level: 3 })).not.toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 3, name: 'Continuous backups', exact: true })).toBeVisible();
+    await expect(page.getByText('Production data has continuous backup with a seven-day point-in-time restore window in West Europe.', { exact: true })).toBeVisible();
     await expect(page.getByRole('main').getByRole('link', { name: 'privacy policy' })).toHaveAttribute('href', '/legal/privacy-policy');
 });
 

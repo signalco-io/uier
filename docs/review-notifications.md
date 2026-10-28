@@ -194,12 +194,13 @@ observed ACS omitting these from `h=`. Our own received-message evidence remains
 | Production gate | Evidence as of 28 October 2026 |
 | --- | --- |
 | Event Grid provider registered | Verified by Azure read-only inspection |
-| Existing SPF/DMARC preflight | Authoritative Cloudflare DNS returned neither apex SPF nor `_dmarc` TXT |
-| Receiver deployed and authenticated | #163/#174 deployed; unauthenticated production POST returned 401 |
-| Subscription handshake/delivery | Pending second-stage PR/deployment |
+| Initial SPF/DMARC preflight | Authoritative Cloudflare DNS returned neither apex SPF nor `_dmarc` TXT |
+| Receiver deployed and authenticated | #186 deployed; credential-free POST returned 401, authenticated validation returned 200 |
+| Subscription provisioning/handshake | #187 applied; independent Azure readback Succeeded, real validation callback returned 200 |
+| Real report receipt/application | Pending recipient-authorized production digest; validation writes no app data |
 | Domain/SPF/DKIM/DKIM2/DMARC verified | First four Verified; DMARC NotStarted because Azure rejects its documented verification type |
 | In-place link and sender cutover | Blocked on DMARC verification; Azure-managed sender retained |
-| Report messageId / operation id correlation | Pending recipient-authorized production digest |
+| Report messageId / operation id correlation | Pending recipient-authorized production digest; operation matching remains disabled |
 | SPF/DKIM/DMARC and headers at receiver | Pending recipient-authorized production digest |
 | DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
 
@@ -251,3 +252,44 @@ invalid credential. Validation now binds identity to the per-subscription secret
 not an identity check for validation; delivery reports retain their strict ACS-topic check.
 Bounded rejection logs make any further mismatch observable without retaining header values or
 payloads. Provisioning is paused until this receiver revision deploys, then resumed through CI.
+
+
+The guarded subscription attempt in [run 40754446941](https://github.com/signalco-io/uier/actions/runs/40754446941)
+passed its authenticated validation-only readiness probe, then Azure's real callback reached the
+deployed receiver and logged only `unexpected_subscription`. This rules out the prior topic and
+WAF hypotheses for that attempt. The byte-sensitive name comparison conflicts with
+[Azure's resource identity rules](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules),
+which require case-insensitive comparison and allow returned casing to differ. The receiver accepts
+only the same name ignoring case, retains the per-subscription secret and strict report topic, and
+logs only bounded missing/other-name or case-normalization codes. Raw headers are never logged.
+Creation is paused until this receiver deploys, then resumed through a separate reviewed PR.
+Actual callback name casing is not yet proven; independent provisioning readback remains required.
+
+
+### Delivery-report provisioning receipt
+
+On 28 October 2026, [#186](https://github.com/signalco-io/uier/pull/186) deployed the Azure resource-name
+comparison repair before [#187](https://github.com/signalco-io/uier/pull/187) resumed subscription creation
+through [CI run 40759280950](https://github.com/signalco-io/uier/actions/runs/40759280950). The preview
+showed one subscription creation and 44 existing resources unchanged. Independent Azure readback
+confirmed `uier-email-delivery` is `Succeeded`, with Event Grid schema, only
+`Microsoft.Communication.EmailDeliveryReportReceived`, TLS 1.2, one event per batch, a secret static
+`x-uier-email-report-secret` header, and 30 attempts / 1440 minutes retry retention.
+
+Production request evidence at 20:01:04.863Z and 20:01:07.573Z recorded HTTP 200 for the uppercase-name
+readiness request and Azure validation callback. Both logged only `normalized_subscription_case`,
+confirming the callback name differed only in casing. No header values, validation codes, recipient
+addresses, provider status messages or event bodies were logged. Credential-free POST still returned
+401. No firewall bypass, secret rotation or local infrastructure apply was needed.
+
+This completes subscription provisioning and its real validation handshake. It does not prove a
+delivery report was processed for a real digest. No test email was sent. Production message-id
+correlation, received-message SPF/DKIM/DMARC and intact unsubscribe headers, and DKIM header coverage
+remain unverified. `UIER_EMAIL_REPORT_MATCH_OPERATIONS` stays unset.
+
+The owner confirmed the five-state sender gate must remain intact. Azure still reports Domain, SPF,
+DKIM and DKIM2 as `Verified`, with DMARC `NotStarted` despite authoritative
+`_dmarc.uier.io TXT "v=DMARC1; p=reject"`. The Azure-managed sender remains active.
+[#178](https://github.com/signalco-io/uier/pull/178) stays unmerged, without auto-merge, until Azure
+verifies all five states and a reviewed preview proves an in-place link/sender change. Issue #132
+remains open.

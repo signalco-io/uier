@@ -62,6 +62,9 @@ do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
   Copy only approved accidental deletions with their remaining TTL; never revive author deletions
   or erasure requests. Public backup claims wait for live policy confirmation; record real drill
   evidence and cleanup separately from the procedure.
+  Temporary copy-back access uses private connectivity or an exact operator-IP firewall rule,
+  applied with public access in one update and verified before reads. Never open the restored
+  account with an empty/broad allowlist. Delete its entire temporary resource group afterwards.
 
 The [infrastructure and operations guide](../docs/operations.md) has the full setup, role
 assignments and the OIDC subjects CI uses.
@@ -85,7 +88,7 @@ per batch and bounded retries (30 attempts / 24 hours). It shares the receiver's
 Deploy the receiver before adding an Event Grid subscription in a later PR; Pulumi runs before
 Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
 registered. Deliver the credential as a secret static HTTP header, never a query parameter.
-Validation requires the per-subscription secret and exact subscription name; report notifications
+Validation requires the per-subscription secret and the expected Azure subscription name (case-insensitive); report notifications
 additionally require the configured ACS topic. Do not bypass WAF or authentication.
 
 Before creating/updating the subscription, CI applies run an authenticated validation-only readiness
@@ -110,6 +113,14 @@ Live verification on 28 October 2026 passed Domain/SPF/DKIM/DKIM2. Azure rejecte
 verification type (`InitiateVerificationFailed: Invalid verification type: DMARC`), leaving its
 state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
 a valid public DMARC record does not substitute for the required Azure state.
+
+The case-insensitive Azure resource-name receiver deployed in #186 before #187 created the
+subscription. Independent Azure readback on 28 October 2026 confirmed `Succeeded`; the uppercase-name
+readiness request and real Azure callback returned 200 and logged only `normalized_subscription_case`.
+Keep the uppercase-name probe so later applies confirm that receiver compatibility. Missing/other
+names, wrong credentials and report topics still fail. The [provisioning receipt](../docs/review-notifications.md#delivery-report-provisioning-receipt)
+separates this handshake from the pending real-digest acceptance. The five-state sender gate and
+operation-id correlation gate remain; neither is satisfied by subscription provisioning.
 
 `emailVerification.ts` requires the expected `uier.io` domain and all five live states to be exactly
 `Verified` before either linkedDomains or sender changes. Run `node --test tests/*.test.mjs` after
