@@ -158,9 +158,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
   `projects/[projectId]/layout.tsx`; its pages render the tab content.
-- Comment cards pair the follow, copy issue and reproduction actions, browser context and assignee
-  with decorative Lucide icons and visible labels. Action buttons use the app's shadcn `Button`
-  with `data-icon`; pending follow/copy actions show `Spinner`.
+- Comment cards keep Copy issue as an icon-only action in the top-right header, with an accessible
+  name and title; its status and manual clipboard fallback stay in the body. Follow and reproduction
+  actions, browser context and assignee pair decorative Lucide icons with visible labels. Action
+  buttons use the app's shadcn `Button` with `data-icon`; pending follow/copy actions show `Spinner`.
 - **Onboarding.** `OnboardingSteps` shows Your site, Add the script and Invite a reviewer. Only
   `install?onboarding=1` adds `InviteReviewerStep` below the unchanged install guide. Invited-only projects
   use the shell's `InviteButton` with `projectId`, gated by `context.isAdmin`; the empty comments list does

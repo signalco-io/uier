@@ -65,7 +65,7 @@ import { initials } from '../initials';
 import { DateTime } from './DateTime';
 import { CommentReproduction } from './CommentReproduction';
 import { NotificationControls } from './NotificationControls';
-import { CopyIssue } from './CopyIssue';
+import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 import { deviceLabels, kindLabels } from './commentLabels';
 import {
     markCommentReadAction,
@@ -106,6 +106,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
     const [editText, setEditText] = useState(comment.text);
     const [editError, setEditError] = useState<string>();
     const [confirmingDelete, setConfirmingDelete] = useState(false);
+    const copyIssue = useCopyIssue(projectId, comment.id);
     const DeviceIcon = comment.device ? deviceIcons[comment.device] : undefined;
     const { permissions } = comment;
     const author = comment.author.isMe ? 'You' : comment.author.name;
@@ -170,6 +171,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                 {comment.resolved ? 'Reopen' : 'Done'}
                             </Button>
                         )}
+                        <CopyIssueButton state={copyIssue} />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}>
@@ -274,7 +276,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                     )}
 
                     <NotificationControls projectId={projectId} threadId={comment.id} following={comment.following} />
-                    <CopyIssue key={comment.id} projectId={projectId} commentId={comment.id} />
+                    <CopyIssueResult state={copyIssue} />
                     <CommentReproduction context={comment.reproduction} />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm">
                         <StateBadge resolved={comment.resolved} />
