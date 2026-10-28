@@ -12,6 +12,7 @@ import { getMember, getWorkspace } from './workspaces';
 import { getProject } from './projects';
 import { UserFacingError } from './actionResult';
 import { emailSuppression } from '../email/suppression';
+import { revokeIntegrationGrantsOf } from '../integrations/connection';
 import type { AppContext } from './context';
 import {
     memberId,
@@ -201,4 +202,5 @@ export async function removeMember(context: AppContext, userId: string) {
             throw new UserFacingError('A workspace needs at least one admin.');
     }
     await store.delete(member.pk, member.id);
+    await revokeIntegrationGrantsOf(workspaceId, userId, store);
 }

@@ -1,15 +1,15 @@
 import { matchesOrigin } from './originFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
-import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
+import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
 
 type MemoryEntry = {
     /** A comment, the domain's comment numbers or a screenshot: as in Cosmos DB, they share the partition */
-    document: DbComment | DbSequence | DbScreenshot | DbSubmission;
+    document: DbComment | DbSequence | DbScreenshot | DbSubmission | DbSyncTombstone;
     version: number;
     /** Milliseconds; emulates Cosmos `_ts` (last modification) for TTL */
     modifiedAt: number;
@@ -75,6 +75,40 @@ function pathMatches(comment: DbComment, path: string) {
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
+        async listSyncPending(options = {}) {
+            return [...state().domains.keys()].flatMap(domain => [...domainEntries(domain).values()])
+                .flatMap(entry => {
+                    const doc = entry.document;
+                    if (!(isCommentDocument(doc) || ('type' in doc && doc.type === 'tombstone'))
+                        || !('syncPending' in doc) || !doc.syncPending || !('projectId' in doc) || !doc.projectId) return [];
+                    // Existing in-process fixtures can predate syncKey; production had no outbox.
+                    const key = 'syncKey' in doc && typeof doc.syncKey === 'string' ? doc.syncKey : `${doc.domain}:${doc.id}`;
+                    return options.after && key <= options.after ? [] : [{ ...clone(doc as DbComment | DbSyncTombstone), syncKey: key }];
+                })
+                .sort((a, b) => a.syncKey < b.syncKey ? -1 : a.syncKey > b.syncKey ? 1 : 0)
+                .slice(0, syncPendingPageLimit(options));
+        },
+        async deleteWithTombstone(domain, id, etag, tombstone) {
+            if (tombstone.domain !== domain || tombstone.commentId !== id || tombstone.id !== syncTombstoneId(id))
+                throw new Error('Deletion intent does not match its comment.');
+            const entries = domainEntries(domain);
+            const entry = entries.get(id);
+            if (!commentOf(entry)) return 'not_found';
+            if (String(entry!.version) !== etag) return 'conflict';
+            // One synchronous commit, matching Cosmos Delete + Upsert in the same batch.
+            entries.delete(id);
+            entries.set(tombstone.id, { document: clone(tombstone), version: ++state().version, modifiedAt: Date.now() });
+            return 'ok';
+        },
+        async deleteTombstone(domain, commentId, expectedVersion) {
+            const entries = domainEntries(domain);
+            const id = syncTombstoneId(commentId);
+            const document = entries.get(id)?.document;
+            if (!document || !('type' in document) || document.type !== 'tombstone') return 'not_found';
+            if (expectedVersion !== undefined && document.syncVersion !== expectedVersion) return 'conflict';
+            entries.delete(id);
+            return 'ok';
+        },
         async listNotificationPending() {
             return [...state().domains.keys()].flatMap(domainComments)
                 .filter(comment => comment.notificationPending && comment.projectId).map(clone);

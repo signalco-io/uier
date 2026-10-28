@@ -10,7 +10,8 @@ import { screenshotInfo } from './service';
 export async function replaceSavedScreenshot(
     store: CommentsStore, domain: string, id: string,
     input: { screenshot: ParsedScreenshot; expectedRevision: string | null },
-    authorize: (comment: DbComment) => void
+    authorize: (comment: DbComment) => void,
+    finalize: (previous: DbComment, updated: DbComment) => DbComment = (_, updated) => updated
 ) {
     let counted = false;
     for (let attempt = 0; attempt < 8; attempt++) {
@@ -27,7 +28,7 @@ export async function replaceSavedScreenshot(
         }
         const now = new Date().toISOString();
         const info = { ...screenshotInfo(input.screenshot), revision: nanoid() };
-        const updated = { ...comment, screenshot: info, updatedAt: now };
+        const updated = finalize(comment, { ...comment, screenshot: info, updatedAt: now });
         const image: DbScreenshot = {
             ...info, id: screenshotDocumentId(id), domain, type: 'screenshot', commentId: id,
             data: input.screenshot.data.toString('base64'), createdAt: now,

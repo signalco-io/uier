@@ -1,5 +1,5 @@
 import type { OriginFilter } from './originFilter';
-import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
@@ -14,12 +14,25 @@ export type StoredComment = {
 /** Result of a write that only applies to the version that was read (`etag`) */
 export type ConditionalWriteResult = 'ok' | 'conflict' | 'not_found';
 export type AppendResult = 'ok' | 'full' | 'not_found';
+export type SyncPendingOptions = { limit?: number; after?: string };
+
+/** Callers cannot turn a worker page into an unbounded cross-partition fetch. */
+export function syncPendingPageLimit(options: SyncPendingOptions = {}) {
+    const requested = options.limit ?? 100;
+    return Number.isFinite(requested) ? Math.max(1, Math.min(1000, Math.trunc(requested))) : 100;
+}
 
 /**
  * Persistence of comments. All operations are scoped to a single domain (the Cosmos partition key),
  * so every query is a single-partition query.
  */
 export type CommentsStore = {
+    /** Indexed syncKey page, including deletion intents: default 100, maximum 1000, ascending. */
+    listSyncPending(options?: SyncPendingOptions): Promise<(DbComment | DbSyncTombstone)[]>;
+    /** Delete + deletion intent in one partition transaction under the comment etag. */
+    deleteWithTombstone(domain: string, id: string, etag: string, tombstone: DbSyncTombstone): Promise<ConditionalWriteResult>;
+    /** Shared discovery acknowledges only the deletion version it durably fanned out. */
+    deleteTombstone(domain: string, commentId: string, expectedVersion?: number): Promise<ConditionalWriteResult>;
     /** Durable notification discovery, across projects, without the inbox's display cap. */
     listNotificationPending(): Promise<DbComment[]>;
     /** Canonical view, newest first. Only legacy records use a base-path query-string fallback. */

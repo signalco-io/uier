@@ -38,6 +38,9 @@ export type FeedbackContext = {
 
 export type FeedbackExport = { context: FeedbackContext; markdown: string };
 
+/** Outbound destination links are separately projected for authorized member views. */
+export type ExternalFeedbackLink = { provider: string; url: string };
+
 function plain(value: string) {
     return value.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/([\\`*_{}\[\]<>()#!|>~])/g, '\\$1');
 }
