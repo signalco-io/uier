@@ -198,8 +198,18 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
 - Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
   `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
-- Locally (`UIER_LOCAL=1` or `next dev`) no email is sent; pages show the link instead. The e2e
-  helpers in `e2e/support/app.ts` sign in that way.
+- Sign-in emails contain a link and an eight-digit numeric code, sharing the same 15-minute request and
+  atomic delete in `signIn.ts`. The code requires the signed HttpOnly `uier_sign_in_request` cookie;
+  a newer request replaces the binding, and `startSession` clears it. Use `appCookieOptions` for the
+  binding (SameSite=Lax, Secure outside local runtime). Store only the request-specific keyed code hash
+  and compare in constant time. Never put codes in URLs, subjects or logs. Both atomic guess counters
+  start at the request's creation time; reserve before comparing, invalidate on the fifth wrong guess.
+  Keep the email budgets (5/address, 20/IP/hour). Invitations remain link-only. All invalid codes share
+  one message; a foreign binding spends none of the original request's budget.
+- Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
+  The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
+  concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and
+  `project-review.spec.ts` cover browser isolation, accessibility and the toolbar's return path.
 
 ## Testing
 

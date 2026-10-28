@@ -85,8 +85,8 @@ The comments API and the app need no database locally: without `COSMOSDB_CONNECT
 real Cosmos DB (an emulator or your own serverless account), copy [`apps/web/.env.example`](apps/web/.env.example)
 to `apps/web/.env.local` and set the variables there.
 
-No email is sent locally either: the sign-in page shows the link it would have emailed
-("Open the sign-in link"), so http://localhost:4004/app works with any address.
+No email is sent locally either: the sign-in page shows the link and code it would have emailed
+("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
 ### Commands
 
@@ -170,12 +170,21 @@ admins, to a new one), and at the bottom Clients (once a project has a client), 
 collapses to icons on desktop (`Ctrl/Cmd+B`) and opens as a sheet on small screens. A top bar holds the
 breadcrumbs. uier is free, so there is no billing page; pricing is the landing page's `brand.pricing` promise.
 
-- **Sign in** (`/app/sign-in`): no passwords. The app emails a single-use link (valid for 15 minutes, stored
-  only as a SHA-256 hash); the first sign-in creates the account. Opening the link shows a "Continue"
-  button, because email scanners open links before people do. The session is an HttpOnly `uier_session`
-  cookie with a signed token (30 days; the key is derived from the server secret, like the guest names).
-  Sign-in emails are limited to 5 per address and 20 per IP per hour. Signed-out visits to an app page go
-  to sign in and come back afterwards (`proxy.ts`, `?next=`).
+- **Sign in** (`/app/sign-in`): no passwords. The app emails a single-use link and an eight-digit numeric
+  code. Both expire after 15 minutes and share one request: using either invalidates both. The link token
+  is stored only as a SHA-256 hash; the code only as a request-specific keyed hash, compared in constant time.
+  The code works only in the browser that requested it, using the signed HttpOnly `uier_sign_in_request`
+  cookie (SameSite=Lax, Secure outside local development). It expires with the request and is removed on
+  sign-in. A new request in that browser replaces its binding. Type the code only where you asked to sign
+  in and never share it. Invitations keep their seven-day links.
+  Five wrong codes invalidate the request, including its link. Atomic counters reserve at most five guesses
+  before comparison, with no window reset during the request. Rejected browser bindings do not count against
+  another request. Sign-in emails remain limited to 5 per address and 20 per IP per hour, so new requests
+  cannot bypass the email limits. Locally and on previews, the page shows both the link and code.
+  The first sign-in creates the account. Opening the link shows a "Continue" button, because email scanners
+  open links before people do. The session is an HttpOnly `uier_session` cookie with a signed token (30 days;
+  the key is derived from the server secret, like guest names). Signed-out visits to an app page return there
+  after signing in (`proxy.ts`, `?next=`), including the toolbar's project review link.
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
   between them. The workspace and its admin are created together, so a creator whom an admin removed is
@@ -311,7 +320,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | --- | --- | --- |
 | `user` | `user:<id>` | `u_<nanoid>` |
 | `user-email` (unique email -> user) | `email:<email>` | the email |
-| `sign-in` (pending link, `ttl` 15 min) | `sign-in:<hash>` | SHA-256 of the token |
+| `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash) | `sign-in:<hash>` | SHA-256 of the link token |
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the project code |
 | `project-ref` (code -> workspace) | `project:<code>` | the project code |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |

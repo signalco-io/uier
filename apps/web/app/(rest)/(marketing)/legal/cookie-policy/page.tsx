@@ -42,6 +42,13 @@ const items = [
         duration: 'One year'
     },
     {
+        name: 'uier_sign_in_request',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You ask for a sign-in email',
+        purpose: 'Binds the emailed code to this browser. Holds a signed request id, with no email address or code. A new request replaces it; signing in removes it.',
+        duration: 'Until the sign-in request expires, at most 15 minutes'
+    },
+    {
         name: 'uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
@@ -101,7 +108,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="28 October 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
