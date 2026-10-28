@@ -128,8 +128,9 @@ confirmation, member controls, light/dark UI and accessibility.
 
 `POST /api/email/reports` requires the secret `x-uier-email-report-secret` header, the exact
 `aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id) for reports.
-Validation also accepts that resource's Azure subscription root, as documented by Event Grid; the
-secret and exact event-subscription name are still required. Other subscriptions remain rejected.
+The per-subscription secret and exact event-subscription name bind validation to the expected
+subscriber; validation topic metadata is not used as identity. Other event-subscription names and
+missing credentials remain rejected. Delivery reports additionally require the exact ACS topic.
 All three are configured for production only by Pulumi. `acsEmailReports` delivers only report
 events with that secret static header, one event per batch, retrying up to 30 times / 24 hours. Validation accepts only a single
 `Microsoft.EventGrid.SubscriptionValidationEvent` from that subscription/topic and echoes its
@@ -239,3 +240,14 @@ validation, while reports continue to require the ACS topic. The secret and expe
 name remain mandatory. Rejections expose only bounded reason codes, never headers or report data.
 Subscription provisioning is paused for this receiver deployment and must be re-enabled in a later
 infrastructure PR after the fix is live. The Azure-managed sender remains unchanged.
+
+
+A second subscription attempt in [run 40747762369](https://github.com/signalco-io/uier/actions/runs/40747762369)
+still received 403 after the subscription-root compatibility change. The first topic hypothesis
+was not sufficient. Firewall inspection found no custom configuration, bypasses or Attack Mode;
+a local request with Azure's documented headers/body reached the handler and returned 401 for an
+invalid credential. Validation now binds identity to the per-subscription secret and exact
+`aeg-subscription-name`, as the official handshake guidance prescribes. Source topic metadata is
+not an identity check for validation; delivery reports retain their strict ACS-topic check.
+Bounded rejection logs make any further mismatch observable without retaining header values or
+payloads. Provisioning is paused until this receiver revision deploys, then resumed through CI.

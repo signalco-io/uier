@@ -242,9 +242,10 @@ the existing production configuration. Dispatch rechecks access, private visibil
 mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
 `docs/review-notifications.md` for the event/delivery contract and failure evidence.
 `/api/email/reports` checks its secret header, expected Event Grid subscription and ACS topic before
-validation or writes. Validation can use the configured ACS resource topic or its Azure
-subscription root (the documented Event Grid handshake); delivery reports must use the ACS topic.
-Keep the exact event-subscription name and credential mandatory for both. Bounces suppress only by normalized address hash and bounded reason; report
+validation or writes. The per-subscription credential and exact event-subscription name bind
+the handshake to the expected subscriber; do not treat validation topic metadata as identity.
+Delivery reports must additionally use the configured ACS topic. Rejection logs contain only
+bounded reason codes, never header values, addresses, payloads or provider status messages. Bounces suppress only by normalized address hash and bounded reason; report
 receipts retain hashed event/operation ids for 30 days and survive a mailbox confirmation. No raw
 provider message, address or report payload may be logged. Skip suppressed digests; a failed read
 must retry. Show the generic notice only in the admin invite action. Requested sign-in/guest

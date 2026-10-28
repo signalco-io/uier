@@ -36,8 +36,9 @@ For recovery procedures, use [Backups and restore](backups-and-restore.md).
   The Azure-managed domain remains the production sender until the staged verification below is complete.
   The report endpoint receives production-only `UIER_EMAIL_REPORT_SECRET`, `UIER_EMAIL_REPORT_TOPIC`
   and `UIER_EMAIL_REPORT_SUBSCRIPTION`. The Event Grid subscription was staged after receiver
-  deployment and validation-topic compatibility. Delivery reports use the secret static header and
-  bounded retries (30 attempts / 24 hours).
+  deployment and authenticated validation binding. CI first checks an authenticated validation-only
+  readiness probe, then provisions the subscription with its secret static header and bounded retries
+  (30 attempts / 24 hours). The probe sends no email and writes no app data.
 
 ### Email domain verification and cutover
 

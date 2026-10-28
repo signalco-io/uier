@@ -1,4 +1,4 @@
-import { interpolate, type Input } from '@pulumi/pulumi';
+import { all, interpolate, runtime, type Input } from '@pulumi/pulumi';
 import { EventSubscription } from '@pulumi/azure-native/eventgrid/index.js';
 import type { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
 import {
@@ -13,6 +13,7 @@ import {
 import { dnsRecord } from './cloudflare.js';
 import { emailDnsRecord } from './emailDns.js';
 import { assertEmailDomainVerified } from './emailVerification.js';
+import { emailReportsReady } from './emailReportsReady.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
@@ -85,6 +86,10 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
 
 /** The receiver and credential were deployed before this subscription's validation handshake. */
 export function acsEmailReports(topic: Input<string>, credential: Input<string>) {
+    const readyCredential = all([topic, credential]).apply(async ([resolvedTopic, resolvedCredential]) => {
+        if (!runtime.isDryRun()) await emailReportsReady(resolvedTopic, resolvedCredential);
+        return resolvedCredential;
+    });
     return new EventSubscription('uier-email-delivery', {
         eventSubscriptionName: 'uier-email-delivery',
         scope: topic,
@@ -96,7 +101,7 @@ export function acsEmailReports(topic: Input<string>, credential: Input<string>)
             minimumTlsVersionAllowed: '1.2',
             maxEventsPerBatch: 1,
             preferredBatchSizeInKilobytes: 64,
-            deliveryAttributeMappings: [{ type: 'Static', name: 'x-uier-email-report-secret', value: credential, isSecret: true }],
+            deliveryAttributeMappings: [{ type: 'Static', name: 'x-uier-email-report-secret', value: readyCredential, isSecret: true }],
         },
         retryPolicy: { maxDeliveryAttempts: 30, eventTimeToLiveInMinutes: 1440 },
     });
