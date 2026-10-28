@@ -170,8 +170,8 @@ so it does not change privacy or cookie disclosures.
 
 ## Mark all as read, October 28, 2026 (#136)
 
-The bulk-read implementation rebased onto `43365d7` produces a toolbar of **694,337 raw /
-202,667 gzip / 170,519 Brotli bytes**, including injected CSS and the existing license notices.
+The bulk-read implementation rebased onto `ed48a11` produces a toolbar of **689,133 raw /
+202,157 gzip / 170,064 Brotli bytes**, including injected CSS and the existing license notices.
 The **750,000 raw / 220,000 gzip** limits are unchanged. `launch-performance.spec.ts` now also
 checks that the 100-thread inbox is acknowledged by one 100-entry request and its badge clears.
 The other activity/inbox tests exercise filtered lists, sequential 200+5 requests, a racing reply,
