@@ -43,6 +43,8 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
         expect((await inboxPages(reader.page).boundingBox())!.width).toBeGreaterThanOrEqual(144);
         for (const colorScheme of ['light', 'dark'] as const) {
             await reader.page.emulateMedia({ colorScheme });
+            await expect(reader.page.locator('html')).toHaveClass(new RegExp(colorScheme));
+            await animationsFinished(reader.page.locator('body'));
             await animationsFinished(sidebar);
             await expectNoAxeViolations(reader.page);
             await reader.page.screenshot({ path: testInfo.outputPath(`bulk-inbox-${colorScheme}.png`) });
