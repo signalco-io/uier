@@ -48,10 +48,14 @@ export async function receiveEmailReports(request: Request, store = getAppStore(
         const actual = Buffer.from(request.headers.get('x-uier-email-report-secret') ?? '');
         const expected = Buffer.from(secret);
         if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return new Response(null, { status: 401, headers });
-        if (request.headers.get('aeg-subscription-name') !== subscription) {
-            console.warn('[email-reports] unexpected_subscription');
-            return Response.json({ error: 'unexpected_subscription' }, { status: 403, headers });
+        const actualSubscription = request.headers.get('aeg-subscription-name');
+        // Azure resource names are case-insensitive and may be returned with different casing.
+        if (actualSubscription?.toLowerCase() !== subscription.toLowerCase()) {
+            const reason = actualSubscription ? 'unexpected_subscription' : 'missing_subscription';
+            console.warn(`[email-reports] ${reason}`);
+            return Response.json({ error: reason }, { status: 403, headers });
         }
+        if (actualSubscription !== subscription) console.info('[email-reports] normalized_subscription_case');
         const events = await parseJsonBody(request, z.array(envelope).min(1).max(100), 256 * 1024);
         if (request.headers.get('aeg-event-type') === 'SubscriptionValidation') {
             // The per-subscription secret and exact subscription name authenticate this
