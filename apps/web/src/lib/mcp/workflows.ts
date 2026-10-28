@@ -26,6 +26,7 @@ const toolScopes = [
     ['list_projects', 'feedback:read', 'List granted projects.'],
     ['list_feedback', 'feedback:read', 'List and search visible threads.'],
     ['get_feedback', 'feedback:read', 'Read a thread and its context.'],
+    ['get_feedback_batch', 'feedback:read', 'Read 1–10 distinct threads in order within 256 KiB.'],
     ['list_assignees', 'feedback:assign', 'List eligible participants for a thread.'],
     ['reply_to_feedback', 'feedback:reply', 'Post an approved reply.'],
     ['set_feedback_status', 'feedback:status', 'Resolve or reopen after approval.'],
@@ -50,6 +51,7 @@ ${workflow.instructions}`).join('\n\n')}
 ## Tools and scopes
 
 Use only tools allowed by the credential and the person’s current project permissions. Pass projectId to project tools and commentId to thread tools. If a scope is missing, explain the limit; do not try to bypass it.
+For get_feedback_batch, pass 1–10 distinct commentIds and retry remainingIds separately. Batch reads never acknowledge unread activity.
 
 | Tool | Required scope | Purpose |
 | --- | --- | --- |

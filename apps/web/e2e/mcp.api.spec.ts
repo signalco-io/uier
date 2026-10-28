@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { handleMcp } from '../src/lib/mcp/http';
+import { feedbackSkill } from '../src/lib/mcp/workflows';
 import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
@@ -170,7 +171,9 @@ test('batch returns ten ordered full exports, indistinguishable unavailable ids,
     const before = [...await loadReadSequences(f.comment.domain, `user:${context.user.id}`)];
     const batch = (ids: string[], projectId = f.project.id) => client.callTool({ name: 'get_feedback_batch', arguments: { projectId, commentIds: ids } });
     try {
-        const tool = (await client.listTools()).tools.find(tool => tool.name === 'get_feedback_batch')!;
+        const tools = (await client.listTools()).tools;
+        for (const tool of tools) expect(feedbackSkill()).toContain(`| ${tool.name} |`);
+        const tool = tools.find(tool => tool.name === 'get_feedback_batch')!;
         expect(tool.annotations?.readOnlyHint).toBe(true);
         for (const value of ['names', 'labels', 'paths', 'untrusted']) expect(tool.description).toContain(value);
         const response = data(await batch(commentIds));
