@@ -45,7 +45,7 @@ export type DbSignInRequest = AppDoc & {
 
 export type DbWorkspace = AppDoc & {
     type: 'workspace';
-    /** `w_<userId>` for a user's own workspace */
+    /** `w_<userId>` for a user's own workspace (`w_<userId>_2`, ... after an admin removed them, see `ensureOwnWorkspace`) */
     id: string;
     pk: `workspace:${string}`;
     name: string;

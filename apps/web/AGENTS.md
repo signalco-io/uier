@@ -172,6 +172,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
   `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
   document from the current workspace.
+- Apart from uier's own public feedback project, which every account joins (`joinPublicProject`), a
+  membership is only ever created by an invitation or together with a new workspace (`ensureOwnWorkspace`,
+  one `createAll` transaction). Never recreate a missing member document of a customer workspace: a missing
+  member is someone an admin removed, and recreating it undoes the removal (their review tokens and MCP
+  credentials work again). `e2e/workspaces.api.spec.ts` and the users e2e tests cover it.
 - Forms use `useActionState` with `actionResult()` (expected failures become `{ ok: false, error }`)
   and controlled inputs, so React's reset after an action never drops what was typed.
 - Message edits through the review API compare `expectedText` before changing a thread item; author/admin
