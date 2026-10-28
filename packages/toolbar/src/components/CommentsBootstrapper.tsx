@@ -14,6 +14,7 @@ import { useVisitor } from '../hooks/useVisitor';
 import { ProjectViewerContext } from '../project/ProjectGate';
 import { defaultPageStatePolicy } from '../pageState';
 import { ProjectGate, useProjectViewer } from '../project/ProjectGate';
+import { ProjectNotice } from './ProjectNotice';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -55,9 +56,6 @@ function PublicReviewLayer(props: CommentsGlobalProps) {
         }
         if (scope) previousScope.current = scope;
     }, [client, scope]);
-    // Old unconfigured cross-origin embeds still show their controls and comments load error.
-    // No server scope can be read there, so DraftsProvider uses memory only.
-    if (new URL(toolbarConfig.apiUrl).origin !== window.location.origin) return <ReviewLayer {...props} />;
     if (!query.data?.draftScope) return query.isError ? (
         <InkScope>
             <div role="status" className="fixed bottom-4 left-1/2 z-[51] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
@@ -72,9 +70,14 @@ function PublicReviewLayer(props: CommentsGlobalProps) {
 }
 
 export function CommentsBootstrapper(props: CommentsGlobalProps) {
+    // Configuration alone decides this, before PublicReviewLayer mounts useVisitor or comments.
+    const unconfigured = !toolbarConfig.project && new URL(toolbarConfig.apiUrl).origin !== window.location.origin;
+    const installUrl = `${toolbarConfig.apiUrl}/app/projects${props.review?.projectCode ? `/${encodeURIComponent(props.review.projectCode)}/install` : ''}`;
     return <QueryClientProvider client={queryClient}>
         <AnnouncerProvider>
-            {toolbarConfig.project ? <ProjectGate onExitReview={props.onExitReview}><ReviewLayer {...props} /></ProjectGate> : <PublicReviewLayer {...props} />}
+            {unconfigured ? <ProjectNotice text="Set up uier on this site to start a review."
+                action={{ label: 'Open install guide', href: installUrl }} onExitReview={props.onExitReview} />
+                : toolbarConfig.project ? <ProjectGate onExitReview={props.onExitReview}><ReviewLayer {...props} /></ProjectGate> : <PublicReviewLayer {...props} />}
         </AnnouncerProvider>
     </QueryClientProvider>;
 }

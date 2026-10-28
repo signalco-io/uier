@@ -1,13 +1,10 @@
 import { createContext, type PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Close } from '@signalco/ui-icons';
 import { toolbarConfig } from '../config';
 import { apiRequest, advanceReviewerRevision, clearReviewerCache, projectViewerQueryKey, required, CommentsApiError, commentsQueryKeyPrefix } from '../hooks/api';
 import { activityQueryKey } from '../hooks/useComments';
-import { InkScope } from '../components/InkScope';
+import { ProjectNotice } from '../components/ProjectNotice';
+import { useAnnounce } from '../components/Announcer';
 import { clearReviewCode, consumeReviewCode, enableBackgroundSignIn, getReviewToken, setReviewToken } from './projectSession';
 import { backgroundSignIn } from './backgroundSession';
 import { checkInstallationReady } from './installationCheck';
@@ -25,6 +22,12 @@ export type ReviewInfo = {
 export const reviewApiUrl = `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`;
 
 let reviewCodeExchanged = false;
+
+class ReviewSessionEndedError extends CommentsApiError {
+    constructor(readonly signInUrl: string) {
+        super('sign_in_required', 'This review session ended.', 401);
+    }
+}
 
 /**
  * Signs the reviewer in with the review link's single-use code (once), then asks who they are and
@@ -56,7 +59,7 @@ export async function loadReviewInfo() {
         setReviewToken(undefined);
         if (await backgroundSignIn()) info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
         if (info.viewer.kind !== 'member')
-            throw new CommentsApiError('sign_in_required', 'This review session ended. Open the review link again.', 401);
+            throw new ReviewSessionEndedError(info.signInUrl);
     }
     return info;
 }
@@ -80,50 +83,41 @@ export function useProjectViewer() {
     return useContext(ProjectViewerContext);
 }
 
-type ProjectNoticeProps = {
-    text: string;
-    action?: { label: string; onClick: () => void };
-    /** Ends the review (`review` mode), like "Exit review" in the toolbar's options */
-    onExitReview?: () => void;
-};
+function signIn(signInUrl: string) {
+    const url = new URL(signInUrl);
+    url.searchParams.set('url', window.location.href);
+    window.location.assign(url.toString());
+}
 
-/** The pill with a message instead of the toolbar's controls (the review layer is always ink) */
-function ProjectNotice({ text, action, onExitReview }: ProjectNoticeProps) {
-    const hasControls = Boolean(action || onExitReview);
-    return (
-        <InkScope>
-            <nav aria-label="uier feedback" className="fixed bottom-4 left-1/2 z-[51] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2">
-                <div
-                    role="group"
-                    aria-label="uier feedback toolbar"
-                    className={cx(
-                        'flex items-center gap-3 rounded-full border bg-background pl-4 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]',
-                        hasControls ? 'py-1 pr-1' : 'py-2.5 pr-4'
-                    )}>
-                    <p className="m-0 text-sm">{text}</p>
-                    {hasControls && (
-                        <div className="flex items-center gap-1">
-                            {action && (
-                                <Button variant="solid" size="sm" className="rounded-full" onClick={action.onClick}>
-                                    {action.label}
-                                </Button>
-                            )}
-                            {onExitReview && (
-                                <IconButton
-                                    variant="plain"
-                                    className="rounded-full"
-                                    title="Exit review"
-                                    aria-label="Exit review"
-                                    onClick={onExitReview}>
-                                    <Close />
-                                </IconButton>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </nav>
-        </InkScope>
-    );
+function UnavailableProjectNotice({ onExitReview }: { onExitReview?: () => void }) {
+    const announce = useAnnounce();
+    const [uncopiedNote, setUncopiedNote] = useState<string>();
+    const copyNote = async () => {
+        // Only public script configuration and the page's origin. Never use review info or its URL.
+        const code = toolbarConfig.project!;
+        const note = [
+            "uier can't open this project here.",
+            `Site address: ${window.location.origin}`,
+            `Project code: ${code}`,
+            `Project settings: ${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(code)}/settings`,
+            'Ask a project admin to check the installation and add this address under Site addresses if it belongs to the project.'
+        ].join('\n');
+        try {
+            await navigator.clipboard.writeText(note);
+            setUncopiedNote(undefined);
+            announce('Note copied');
+        } catch {
+            setUncopiedNote(note);
+        }
+    };
+    return <ProjectNotice text="uier can't open this project here."
+        action={{ label: 'Copy note for the owner', onClick: copyNote }} onExitReview={onExitReview}>
+        {uncopiedNote && <label className="mt-2 flex min-w-0 flex-col gap-2 rounded-xl border bg-background p-3 text-sm text-foreground">
+            <span>The note could not be copied. Copy it from here:</span>
+            <textarea readOnly value={uncopiedNote} onFocus={event => event.currentTarget.select()}
+                className="max-h-48 min-h-32 w-full rounded-md border border-input bg-background p-2 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        </label>}
+    </ProjectNotice>;
 }
 
 type ProjectGateProps = PropsWithChildren<{
@@ -139,7 +133,7 @@ type ProjectGateProps = PropsWithChildren<{
 export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     const client = useQueryClient();
     const previousScope = useRef<string | undefined>(undefined);
-    const { data: info, error, isPending } = useQuery({
+    const { data: info, error, isPending, fetchStatus } = useQuery({
         queryKey: projectViewerQueryKey,
         queryFn: loadReviewInfo,
         staleTime: Infinity,
@@ -157,16 +151,20 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
         }
     }, [client, info, error]);
 
+    if (!navigator.onLine && (error || fetchStatus === 'paused')) {
+        return <ProjectNotice text="Check your connection to open this review." onExitReview={onExitReview} />;
+    }
+
     if (isPending) {
         return null;
     }
 
-    if (error instanceof CommentsApiError && error.code === 'sign_in_required')
-        return <ProjectNotice text="This review session ended. Open the review link again." onExitReview={onExitReview} />;
+    if (error instanceof ReviewSessionEndedError)
+        return <ProjectNotice text="This review session ended." action={{ label: 'Sign in', onClick: () => signIn(error.signInUrl) }} onExitReview={onExitReview} />;
 
     if (!info) {
         console.warn('uier-toolbar: The project could not be loaded on this site', error);
-        return <ProjectNotice text="uier can't open this project here. Check the site addresses in its settings." onExitReview={onExitReview} />;
+        return <UnavailableProjectNotice onExitReview={onExitReview} />;
     }
 
     if (info.project.access === 'disabled') {
@@ -174,12 +172,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     if (!info.canComment) {
-        const signIn = () => {
-            const url = new URL(info.signInUrl);
-            url.searchParams.set('url', window.location.href);
-            window.location.assign(url.toString());
-        };
-        return <ProjectNotice text="Sign in to see and leave comments." action={{ label: 'Sign in', onClick: signIn }} onExitReview={onExitReview} />;
+        return <ProjectNotice text="Sign in to see and leave comments." action={{ label: 'Sign in', onClick: () => signIn(info.signInUrl) }} onExitReview={onExitReview} />;
     }
 
     return <ProjectEnvironmentProvider key={info.viewer.draftScope ?? info.viewer.kind} info={info}>{children}</ProjectEnvironmentProvider>;
