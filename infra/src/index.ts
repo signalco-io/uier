@@ -2,7 +2,7 @@ import { getStack, interpolate, secret } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectDomain, ProjectEnvironmentVariable } from '@pulumiverse/vercel';
 import { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
-import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlResourceSqlRoleAssignment, DatabaseAccountOfferType, listDatabaseAccountConnectionStringsOutput } from '@pulumi/azure-native/cosmosdb/index.js';
+import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlResourceSqlRoleAssignment, DatabaseAccountOfferType, getDatabaseAccountOutput, listDatabaseAccountConnectionStringsOutput } from '@pulumi/azure-native/cosmosdb/index.js';
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
@@ -78,6 +78,13 @@ const up = async () => {
         resourceGroupName: resourceGroup.name,
         accountName: cosmosDbAccount.name,
     });
+    // Read by the stable account name, as with connection strings. The resource's computed
+    // documentEndpoint becomes unknown when account settings change, otherwise making preview
+    // plan a Vercel variable update too. This lookup still detects real endpoint changes.
+    const cosmosDocumentEndpoint = getDatabaseAccountOutput({
+        resourceGroupName: resourceGroup.name,
+        accountName: cosmosDbAccount.name,
+    }).documentEndpoint;
     // Production only. Preview deployments get no account key (an account key can read and write
     // every container); they use the managed identity below.
     const cosmosPrimaryConnectionString = cosmosConnectionStrings
@@ -210,7 +217,7 @@ const up = async () => {
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-endpoint-preview', {
         projectId: app.projectId,
         key: 'COSMOSDB_ENDPOINT',
-        value: cosmosDbAccount.documentEndpoint,
+        value: cosmosDocumentEndpoint,
         targets: ['preview'],
         sensitive: false,
     }, envVarOptions);

@@ -29,6 +29,12 @@ and team issuer mode, so update it when those change.
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.
 
+The preview `COSMOSDB_ENDPOINT` is read with `getDatabaseAccountOutput` using the account's
+stable name, like the production connection-string lookup. Avoid wiring it to the resource's
+computed `documentEndpoint`: account settings updates make that output unknown during preview
+and can propose an extra Vercel variable update. The lookup still reads Azure's actual endpoint;
+do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
+
 ## Rules
 
 - **CI applies changes.** Pull requests get a `pulumi preview` posted as a comment; pushes to
