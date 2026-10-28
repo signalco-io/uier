@@ -24,6 +24,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
     const origin = isolatedOrigin(testInfo);
     const first = await newVisitor(browser, testInfo);
     const second = await newVisitor(browser, testInfo);
+    let releaseActivity: (() => void) | undefined;
     try {
         await load(first.page, origin);
         const posted = await first.context.request.post(`${origin}/api/comments`, { data: {
@@ -64,14 +65,31 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await expect(first.page.getByRole('complementary', { name: 'Comments' })).toBeHidden();
         await inbox(first.page).click();
         await expect(first.page.getByRole('button', { name: 'Unread 0', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        // The initial activity response can predate another person's change while still in flight.
+        // Hold that real server snapshot so focus must queue a subsequent refresh, not wait for polling.
+        let capturedUnread: number | undefined;
+        const activityGate = new Promise<void>(resolve => { releaseActivity = resolve; });
+        await first.page.route('**/api/comments/activity', async route => {
+            if (capturedUnread !== undefined) { await route.continue(); return; }
+            const response = await route.fetch();
+            capturedUnread = (await response.json()).unread;
+            await activityGate;
+            await route.fulfill({ response });
+        });
         await first.page.reload();
+        await expect.poll(() => capturedUnread).toBe(0);
         await expect(inbox(first.page)).toHaveAccessibleName('Inbox');
         const other = await second.context.request.post(`${origin}/api/comments`, { data: {
             path: '/security', kind: 'feedback', position: { type: 'page' }, text: 'Feedback on another page'
         } });
         const otherComment = await other.json();
+        const refreshedActivity = first.page.waitForResponse(async response => response.request().method() === 'GET'
+            && new URL(response.url()).pathname === '/api/comments/activity' && response.ok()
+            && (await response.json()).unread === 1, { timeout: 5000 });
         await foreground(first.page);
-        await expect(inbox(first.page)).toHaveAccessibleName('Inbox, 1 unread thread');
+        releaseActivity!();
+        await Promise.all([refreshedActivity, expect(inbox(first.page)).toHaveAccessibleName('Inbox, 1 unread thread')]);
+        await first.page.unroute('**/api/comments/activity');
         await inbox(first.page).click();
         await first.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
         // Unread lists every page, like the pill's count
@@ -84,6 +102,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await addToolbarScript(first.page);
         await expect(inbox(first.page)).toHaveAccessibleName('Inbox, 1 unread thread');
     } finally {
+        releaseActivity?.();
         await first.context.close();
         await second.context.close();
     }

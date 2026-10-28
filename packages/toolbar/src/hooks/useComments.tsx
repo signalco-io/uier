@@ -450,25 +450,36 @@ export function useCommentsRefresh(expanded: boolean) {
     const client = useQueryClient();
     useEffect(() => {
         let refreshing = false;
-        const refresh = async () => {
-            if (!expanded || document.visibilityState !== 'visible' || !navigator.onLine || refreshing) return;
+        let requested = false;
+        let disposed = false;
+        const active = () => !disposed && expanded && document.visibilityState === 'visible' && navigator.onLine;
+        const refresh = async (queueIfBusy = true) => {
+            if (!active()) return;
+            // A foreground signal can arrive after an in-flight response took its snapshot.
+            // Coalesce it into one fresh round rather than waiting for the next polling interval.
+            if (refreshing) { if (queueIfBusy) requested = true; return; }
             refreshing = true;
             try {
-                if (toolbarConfig.project) await client.invalidateQueries({ queryKey: projectViewerQueryKey });
-                else await client.invalidateQueries({ queryKey: visitorQueryKey }, { cancelRefetch: false });
-                await Promise.all([
-                    client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active' }, { cancelRefetch: false }),
-                    client.invalidateQueries({ queryKey: activityQueryKey }, { cancelRefetch: false })
-                ]);
+                do {
+                    requested = false;
+                    if (toolbarConfig.project) await client.invalidateQueries({ queryKey: projectViewerQueryKey }, { cancelRefetch: false });
+                    else await client.invalidateQueries({ queryKey: visitorQueryKey }, { cancelRefetch: false });
+                    if (!active()) break;
+                    await Promise.all([
+                        client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active' }, { cancelRefetch: false }),
+                        client.invalidateQueries({ queryKey: activityQueryKey }, { cancelRefetch: false })
+                    ]);
+                } while (requested && active());
             } finally { refreshing = false; }
         };
-        const interval = window.setInterval(() => { void refresh(); }, 15_000);
+        const interval = window.setInterval(() => { void refresh(false); }, 15_000);
         const foreground = () => { void refresh(); };
         window.addEventListener('focus', foreground);
         window.addEventListener('online', foreground);
         document.addEventListener('visibilitychange', foreground);
         if (expanded) void refresh();
         return () => {
+            disposed = true;
             window.clearInterval(interval);
             window.removeEventListener('focus', foreground);
             window.removeEventListener('online', foreground);
