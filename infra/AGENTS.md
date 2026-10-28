@@ -62,6 +62,9 @@ do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
   Copy only approved accidental deletions with their remaining TTL; never revive author deletions
   or erasure requests. Public backup claims wait for live policy confirmation; record real drill
   evidence and cleanup separately from the procedure.
+  Temporary copy-back access uses private connectivity or an exact operator-IP firewall rule,
+  applied with public access in one update and verified before reads. Never open the restored
+  account with an empty/broad allowlist. Delete its entire temporary resource group afterwards.
 
 The [infrastructure and operations guide](../docs/operations.md) has the full setup, role
 assignments and the OIDC subjects CI uses.

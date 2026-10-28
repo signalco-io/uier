@@ -90,6 +90,7 @@ and lockfile; install them separately only when working on infrastructure.
 | [Coding tool access (MCP)](docs/mcp.md) | Connect a coding tool to selected project feedback |
 | [Brand guide](packages/brand/BRAND.md) · [Live brand page](https://uier.io/brand) | Work with the uier identity and shared tokens |
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |
+| [Backups and restore](docs/backups-and-restore.md) | Recover accidental deletions and inspect the recorded restore drill |
 
 ## Contributing
 

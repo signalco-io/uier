@@ -131,6 +131,12 @@ licenses in each `package.json`, the root `LICENSE` and the README "License" sec
 repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
 `e2e/pages.spec.ts` checks them.
 
+The continuous-backup control and privacy retention line describe the verified live
+`Continuous7Days` policy in West Europe. Keep the seven-day wording aligned with the
+[backup evidence](../../docs/backups-and-restore.md) and `e2e/pages.spec.ts` / `e2e/legal.spec.ts`; add no recovery-time, recovery-point,
+regional disaster-recovery or uptime commitment. Restore drills and remaining-TTL copy-back are
+documented in that runbook.
+
 ## Status page
 
 `/status` (dynamic) and `/api/status` render `getServiceStatus()` from `src/lib/status`: only what
