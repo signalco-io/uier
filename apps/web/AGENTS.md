@@ -307,6 +307,52 @@ its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official
 and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
 light/dark accessibility. This connector does not prove #90 launch acceptance.
 
+`mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
+input. Keep these reference-only configurations aligned with the linked official docs and the
+[README client blocks](../../README.md#coding-tool-access-mcp):
+
+- [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml`:
+  ```toml
+  [mcp_servers.uier]
+  url = "https://uier.io/api/mcp"
+  bearer_token_env_var = "UIER_MCP_TOKEN"
+  ```
+- [Claude Code](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcpjson), `.mcp.json`:
+  ```json
+  { "mcpServers": { "uier": { "type": "http", "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${UIER_MCP_TOKEN}" } } } }
+  ```
+- [Cursor](https://cursor.com/docs/mcp#config-interpolation), `.cursor/mcp.json`:
+  ```json
+  { "mcpServers": { "uier": { "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${env:UIER_MCP_TOKEN}" } } } }
+  ```
+- [VS Code](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), `.vscode/mcp.json`:
+  ```json
+  { "inputs": [{ "type": "promptString", "id": "uier-mcp-token", "description": "uier MCP credential", "password": true }], "servers": { "uier": { "type": "http", "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${input:uier-mcp-token}" } } } }
+  ```
+
+Never substitute the newly created secret into a setup block or skill. Never offer a shell command
+that expands a bearer header into saved settings. Clients must inherit the environment variable
+(or use VS Code’s masked input). Verify each offered client against its current docs and a reachable
+deployed endpoint; record exact checks in the PR and omit clients whose connections cannot be verified.
+Do not relax the Origin check or deployment protection to make a client connect.
+[Windsurf’s docs](https://docs.devin.ai/desktop/cascade/mcp) now describe legacy Cascade in Devin
+Desktop (`serverUrl`, `${env:UIER_MCP_TOKEN}` in headers); it is not offered without a verified client.
+[Claude Desktop request headers](https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers)
+are limited beta. On an individual plan with the feature, use a custom connector URL, No sign-in
+and `Authorization: Bearer <credential>` under Request headers, then remove/add after expiry or
+revocation. Claude connects from Anthropic’s servers and cannot reach localhost. No headers means
+unsupported until OAuth; do not offer a bridge. Team/Enterprise are unsupported because an Owner
+adds connectors for the organization and a personal credential must not be shared.
+
+`mcp/prompts.ts` registers `triage-feedback` (`projectId`), `fix-feedback` and `report-back`
+(`projectId`, `commentId`). Share identifier schemas with tools in `mcp/schemas.ts`. Recheck
+`mcpProject` even when rendering instructions; never echo failed arguments or embed feedback.
+Report-back is registered only for reply/status grants and names only the permitted writes.
+`mcp/workflows.ts` is the common source for prompt instructions, the untrusted-content rule and
+the copy/download `SKILL.md` in Coding agents. Keep the tool/scope table aligned with the server.
+Triage changes nothing, fix proposes local code work only, and report-back waits for human approval
+before every write. The skill also requires approval for assignments and stable retry keys.
+
 Project comment rate limits use only server-resolved actors: members get 100 new comments and 300
 replies per project per hour and skip the 30-write shared IP budget. Guests and `PUBLIC_PROJECT_ID`
 commenters retain visitor limits (10 new comments, 30 replies and 30 writes per IP per hour).

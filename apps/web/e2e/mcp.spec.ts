@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -20,6 +21,28 @@ test('a person grants selected feedback access, connects a compatible client, an
     const code = section.locator('code').filter({ hasText: /^uier_mcp\./ });
     await expect(code).toBeVisible();
     const token = (await code.textContent())!;
+    // Check every setup while the newly created secret is still visible elsewhere.
+    await section.getByText('Client configuration', { exact: true }).click();
+    await section.getByText('Prompts and agent skill', { exact: true }).click();
+    const skill = section.locator('details').filter({ has: page.getByText('Prompts and agent skill', { exact: true }) });
+    const skillText = await skill.locator('pre code').innerText();
+    expect(skillText).toMatch(/^---\nname: uier-feedback\ndescription: /);
+    expect(skillText).not.toContain('uier_mcp.');
+    expect(skillText).not.toContain(token);
+    const downloadPromise = page.waitForEvent('download');
+    await skill.getByRole('link', { name: 'Download SKILL.md' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('SKILL.md');
+    expect(await readFile((await download.path())!, 'utf8')).toBe(skillText);
+    for (const clientName of ['Codex', 'Claude Code', 'Cursor', 'VS Code']) {
+        await section.getByRole('tab', { name: clientName, exact: true }).click();
+        const panel = section.getByRole('tabpanel');
+        await expect(panel).toContainText(new URL('/api/mcp', baseURL).toString());
+        await expect(panel).toContainText(clientName === 'VS Code' ? '${input:uier-mcp-token}' : 'UIER_MCP_TOKEN');
+        await expect(panel).not.toContainText('uier_mcp.');
+        await expect(panel).not.toContainText(token);
+        await expect(panel.getByRole('link', { name: `${clientName} documentation` })).toHaveAttribute('href', /^https:/);
+    }
     await section.getByRole('button', { name: 'Hide credential' }).click();
     await expect(code).toHaveCount(0);
     const client = new Client({ name: 'explicit-user-client', version: '1.0.0' });
@@ -31,7 +54,11 @@ test('a person grants selected feedback access, connects a compatible client, an
             await page.getByRole('radiogroup', { name: 'Theme', exact: true }).getByRole('radio', { name: theme, exact: true }).click();
             await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()));
             await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
-            await expectNoAxeViolations(page);
+            for (const clientName of ['Codex', 'Claude Code', 'Cursor', 'VS Code']) {
+                await section.getByRole('tab', { name: clientName, exact: true }).click();
+                await expectNoAxeViolations(page);
+            }
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
             await section.screenshot({ path: testInfo.outputPath(`mcp-${theme.toLowerCase()}.png`) });
             await section.getByRole('button', { name: 'Revoke My coding tool' }).scrollIntoViewIfNeeded();
             await page.screenshot({ path: testInfo.outputPath(`mcp-${theme.toLowerCase()}-credential.png`) });
