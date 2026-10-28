@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { ClipboardCopyIcon, XIcon } from 'lucide-react';
+import { Button } from '@/src/components/ui/button';
+import { Spinner } from '@/src/components/ui/spinner';
 import { copyIssueAction } from './actions';
 
 export function CopyIssue({ projectId, commentId }: { projectId: string; commentId: string }) {
@@ -28,7 +30,8 @@ export function CopyIssue({ projectId, commentId }: { projectId: string; comment
         finally { setPending(false); }
     };
     return <div className="flex min-w-0 flex-col gap-2">
-        <Button size="xs" variant="plain" className="self-start pointer-coarse:min-h-11" disabled={pending} onClick={copy}>
+        <Button size="xs" variant="ghost" className="self-start pointer-coarse:min-h-11" disabled={pending} onClick={copy}>
+            {pending ? <Spinner data-icon="inline-start" /> : <ClipboardCopyIcon aria-hidden="true" data-icon="inline-start" />}
             {pending ? 'Preparing issue…' : 'Copy issue'}
         </Button>
         {message && <p role={failed ? 'alert' : 'status'} className="m-0 text-xs text-muted-foreground">{message}</p>}
@@ -37,7 +40,10 @@ export function CopyIssue({ projectId, commentId }: { projectId: string; comment
                 <textarea readOnly value={manual} onFocus={event => event.currentTarget.select()}
                     className="max-h-64 min-h-40 w-full rounded-md border border-input bg-background p-2 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </label>
-            <Button size="xs" variant="plain" className="self-start" onClick={() => { setManual(undefined); setMessage(''); }}>Close copy text</Button>
+            <Button size="xs" variant="ghost" className="self-start pointer-coarse:min-h-11" onClick={() => { setManual(undefined); setMessage(''); }}>
+                <XIcon aria-hidden="true" data-icon="inline-start" />
+                Close copy text
+            </Button>
         </>}
     </div>;
 }
