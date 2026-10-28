@@ -39,7 +39,8 @@ async function copyWithConfirmation(page: Page, thread: Locator, testInfo: TestI
 for (const colorScheme of ['light', 'dark'] as const) {
     test(`toolbar copy succeeds, provides a manual fallback and rejects stale deleted feedback in ${colorScheme}`, async ({ browser }, testInfo) => {
         const { context, page } = await newVisitor(browser, testInfo);
-        await page.emulateMedia({ colorScheme });
+        // Keep the landing's decorative loop still while auditing the copy flow's contrast.
+        await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
         await clipboard(page);
         await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
         const saved = await page.evaluate(async () => (await fetch('/api/comments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
