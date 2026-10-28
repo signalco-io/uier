@@ -309,11 +309,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                         {comment.assignee
                             ? (
                                 <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    <UserIcon aria-hidden="true" className="size-4 shrink-0" />
                                     Assignee
                                     <span className="text-foreground">{comment.assignee.name}</span>
                                 </span>
                             )
-                            : <span className="text-muted-foreground">Unassigned</span>}
+                            : (
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                    <UserIcon aria-hidden="true" className="size-4 shrink-0" />
+                                    Unassigned
+                                </span>
+                            )}
                     </div>
                 </div>
             </div>

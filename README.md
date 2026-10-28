@@ -217,7 +217,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
     URLs). Each comment shows its page URL, the device size it came from, when it was created, its author,
     assignee, replies and state, with Done, Link to comment and Assign; the author or an admin edits and
-    deletes it, and only admins make it private. Empty lists retain Install the script; invited-only projects
+    deletes it, and only admins make it private. Follow thread, Copy issue, Reproduction details, browser
+    context and assignment labels include icons. Empty lists retain Install the script; invited-only projects
     also offer admins Invite with the email sign-in explanation. Comments-off lists say so and link admins
     to Settings. Filtered lists keep Nothing here.
   - Install `/app/projects/<code>/install`: the install guide with the project code and **Check installation**.
