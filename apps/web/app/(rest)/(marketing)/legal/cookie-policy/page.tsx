@@ -70,6 +70,13 @@ const items = [
         duration: 'Until you clear your browser data'
     },
     {
+        name: 'uier:hint:v1:<api URL>:<project code>',
+        type: 'Local storage (on the reviewed site)',
+        when: 'You close the first-run guide or start a comment or feedback',
+        purpose: 'Keeps the guide closed for this API and project. Stores only a boolean, with no names, reviewer ids or tokens.',
+        duration: 'Until you clear your browser data'
+    },
+    {
         name: 'uier:toolbar-position:v1',
         type: 'Local storage',
         when: 'You move the toolbar',
@@ -101,7 +108,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="28 October 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.

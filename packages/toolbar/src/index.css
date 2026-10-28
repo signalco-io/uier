@@ -10,6 +10,7 @@
 @config '../tailwind.config.js';
 
 /* The UI kit ships precompiled class names; node_modules is not scanned automatically */
-@source '../node_modules/@signalco/ui/dist';
+/* Timeago is the only composite UI import; do not scan unrelated app components. */
+@source '../node_modules/@signalco/ui/dist/Timeago';
 @source '../node_modules/@signalco/ui-primitives/dist';
 @source '../node_modules/@uier/brand/src';

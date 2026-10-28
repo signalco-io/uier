@@ -47,7 +47,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...) |
 | `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted", "Comment deleted", "Reply deleted") |
-| `components/ShowcaseHint.tsx` | the first-run hint (showcase mode) |
+| `components/ShowcaseHint.tsx` | shared first-run guide for review/showcase and About uier in every mode; server access/privacy wording and plain-text brief |
 | `components/CommentIcon.tsx` | the pin shape, from `PIN_PATH` in `@uier/brand` |
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`), clickable for saved comments |
 | `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text (`role="toolbar"`, "Selected text"): Add comment, Rewrite; ink and the pill's height (36 px buttons), the add-comment pin and the custom rewrite icon (text lines and a pencil) |
@@ -153,3 +153,16 @@ Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model 
 formatter for toolbar/app and future integrations. Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../docs/feedback-context.md).
+
+## Review guide and brief
+
+`ProjectGate` passes fresh access and optional brief through `useProjectViewer`; its notices render
+without the guide. Keep customer retention claims out. `useVisitor` asks the server for current-page
+app feedback privacy; never duplicate the app path rule in the toolbar. Dismissal is browser-local:
+`uier:hint:v1:<api URL>:<project code>` (boolean only), or the original public showcase key. Feedback
+mode must keep its requested form focused on mount. Briefs render only as text nodes with preserved
+line breaks, in the shared hint and the inbox header. No linkification or rich text.
+
+The composite UI CSS source scan covers only `Timeago`, the sole `@signalco/ui` import. Add another
+component's source if importing one; primitives retain their full source scan. Lightning CSS merges
+equivalent rules before CSS injection; retain the shadow-root properties fallback.

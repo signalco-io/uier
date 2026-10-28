@@ -15,7 +15,7 @@ import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
-    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
+    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; brief?: string; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
     viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
@@ -62,6 +62,8 @@ export async function loadReviewInfo() {
 }
 
 export type ProjectViewer = {
+    access?: ReviewInfo['project']['access'];
+    brief?: string;
     isMember?: boolean;
     environment?: string;
     currentEnvironment?: string;
@@ -200,6 +202,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
         try { window.localStorage.setItem(storageKey, value); } catch { /* Filter still works for this page. */ }
     };
     return <ProjectViewerContext.Provider value={{
+        access: info.project.access, brief: info.project.brief,
         isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
         needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,
         currentEnvironment, environment, environmentLabel: current?.label, environmentOptions: options, setEnvironment

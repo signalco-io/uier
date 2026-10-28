@@ -5,7 +5,7 @@ import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { memberCanAccessProject } from './workspaces';
 import type { AppContext } from './context';
-import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
+import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 
 const MAX_URL_LENGTH = 512;
@@ -19,6 +19,9 @@ export function isProjectId(value: unknown): value is string {
 }
 
 export const projectAccessModes: readonly ProjectAccess[] = ['invited', 'guests', 'disabled'];
+
+/** Blank input clears the brief; preserve internal line breaks as plain text. */
+export const projectBriefSchema = z.string().trim().max(MAX_PROJECT_BRIEF_LENGTH, `Use at most ${MAX_PROJECT_BRIEF_LENGTH} characters for the review brief.`).transform(value => value || undefined);
 
 export const projectPageStateSchema = z.object({
     queryParameters: z.array(z.string().refine(isMeaningfulQueryKey, 'Choose route fields, not tracking, identity or credential parameters.')).max(12),
@@ -191,6 +194,7 @@ export type ProjectUpdate = Partial<{
     environments: import('./environments').ProjectEnvironment[];
     name: string;
     clientName: string | undefined;
+    brief: string | undefined;
     urls: string[];
     status: ProjectStatus;
     access: ProjectAccess;

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useProjectViewer } from '../../project/ProjectGate';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -9,16 +11,24 @@ import { PanelHandle } from '../DockablePanel';
 
 /** The inbox's title row: the handle that moves it, its name and Close */
 export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
+    const { brief } = useProjectViewer();
+    const [briefOpen, setBriefOpen] = useState(false);
     return (
-        <Row justifyContent="space-between">
-            <Row spacing={0.5} className="min-w-0">
-                <PanelHandle />
-                <Typography component="h2" level="body1" semiBold className="text-foreground">Comments</Typography>
+        <div>
+            <Row justifyContent="space-between">
+                <Row spacing={0.5} className="min-w-0">
+                    <PanelHandle />
+                    <Typography component="h2" level="body1" semiBold className="text-foreground">Comments</Typography>
+                </Row>
+                <Row>
+                    {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>Review brief</Button>}
+                    <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
+                        <PanelRightClose />
+                    </IconButton>
+                </Row>
             </Row>
-            <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
-                <PanelRightClose />
-            </IconButton>
-        </Row>
+            {brief && briefOpen && <section aria-label="Review brief" className="mt-3 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</section>}
+        </div>
     );
 }
 

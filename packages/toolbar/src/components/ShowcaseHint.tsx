@@ -9,8 +9,11 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close } from '@signalco/ui-icons';
 import { floatingShadowClassName } from './@types/Comments';
+import { toolbarConfig } from '../config';
 
-const hintDismissedStorageKey = 'uier:showcase-hint-dismissed';
+const hintDismissedStorageKey = toolbarConfig.project
+    ? `uier:hint:v1:${toolbarConfig.apiUrl}:${toolbarConfig.project}`
+    : 'uier:showcase-hint-dismissed';
 
 /** Whether the first-run hint was dismissed before (storage can be unavailable) */
 export function isShowcaseHintDismissed() {
@@ -32,6 +35,9 @@ export function rememberShowcaseHintDismissed() {
 type ShowcaseHintProps = {
     /** `id` of the hint (the "About uier" button controls it) */
     id?: string;
+    access?: 'invited' | 'guests' | 'disabled';
+    privateAppFeedback?: boolean;
+    brief?: string;
     /** The button the hint's arrow points at (Add comment) */
     pointAtRef?: RefObject<HTMLElement | null>;
     /** `hadFocus` is set when the keyboard focus was inside the hint */
@@ -39,10 +45,10 @@ type ShowcaseHintProps = {
 };
 
 /**
- * First-run hint shown above the toolbar pill in showcase mode. Rendered after the pill, so
+ * First-run hint shown above the toolbar pill. Rendered after the pill, so
  * forward Tab from "About uier" reaches it.
  */
-export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
+export function ShowcaseHint({ id, pointAtRef, onDismiss, access, privateAppFeedback, brief }: ShowcaseHintProps) {
     const titleId = useId();
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const hintRef = useRef<HTMLElement>(null);
@@ -56,8 +62,15 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
             setArrowLeft(target && hint ? target.left + target.width / 2 - hint.left : undefined);
         };
         update();
+        // The pill centres itself after its first size measurement. Observe that settled layout.
+        const observer = new ResizeObserver(update);
+        const toolbar = pointAtRef?.current?.closest('nav');
+        if (toolbar) observer.observe(toolbar);
         window.addEventListener('resize', update);
-        return () => window.removeEventListener('resize', update);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', update);
+        };
     }, [pointAtRef]);
 
     const handleDismiss = () => {
@@ -84,7 +97,7 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
                 'animate-in fade-in slide-in-from-bottom-2',
                 floatingShadowClassName
             )}>
-            <Stack spacing={2}>
+            <Stack spacing={2} className="max-h-[calc(100dvh-8rem)] overflow-y-auto">
                 <Row spacing={1} justifyContent="space-between" alignItems="start">
                     <Typography id={titleId} component="h2" level="body1" semiBold className="text-foreground">
                         Try uier on this page
@@ -105,8 +118,15 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
                 </Typography>
                 <Typography level="body2" className="text-foreground">
                     {coarsePointer ? 'Tap' : 'Click'} the + button, or select text, to leave feedback.
-                    Anyone can see and reply to comments. Visitor threads are deleted after 90 days. Starter threads and their replies stay.
+                    {' '}{privateAppFeedback ? 'Feedback is private to its author and the uier team.' : access === 'invited' ? 'Only invited people can see and leave comments. Some comments may be private.' : access === 'guests' ? 'Anyone with the review link can see and leave comments. Some comments may be private.' : 'Anyone can see and reply to comments. Visitor threads are deleted after 90 days. Starter threads and their replies stay.'}
                 </Typography>
+                <Typography level="body2" className="text-foreground">
+                    Pin a comment to an element, or comment on selected text. Use Send feedback for the whole page. Find threads in the inbox.
+                </Typography>
+                {brief && <div>
+                    <Typography component="h3" level="body2" semiBold>Review brief</Typography>
+                    <p className="m-0 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</p>
+                </div>}
                 <Row justifyContent="end">
                     <Button variant="solid" size="sm" onClick={handleDismiss}>
                         Got it

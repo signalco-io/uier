@@ -1,8 +1,9 @@
 import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
-import { apiRequest, clearReviewerCache, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey } from './api';
+import { apiRequest, clearReviewerCache, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey, pageVisitorQueryKey } from './api';
 import { activityQueryKey } from './useComments';
 import { forgetProjectReviewer, getGuestName } from '../project/projectSession';
+import { usePagePath } from './usePagePath';
 
 const visitorApiUrl = `${toolbarConfig.apiUrl}/api/visitor`;
 
@@ -11,11 +12,12 @@ export type Visitor = {
     /** Account or guest name (`Guest XXXX`), `null` before a guest's first comment or reply */
     name: string | null;
     draftScope?: string;
+    privateAppFeedback?: boolean;
     /** A project's member, signed in to uier (their account name) */
     member?: boolean;
 };
 
-async function getVisitor(): Promise<Visitor> {
+async function getVisitor(path: string): Promise<Visitor> {
     // A project's reviewer: a member (review token) or a guest with the name they gave
     if (toolbarConfig.project) {
         const info = await apiRequest<{ viewer?: { kind?: string; name?: string } }>(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`);
@@ -24,8 +26,8 @@ async function getVisitor(): Promise<Visitor> {
             : { name: getGuestName() ?? null };
     }
 
-    const visitor = await apiRequest<Visitor>(visitorApiUrl);
-    return { draftScope: visitor?.draftScope, name: typeof visitor?.name === 'string' ? visitor.name : null, member: visitor?.member };
+    const visitor = await apiRequest<Visitor>(`${visitorApiUrl}?path=${encodeURIComponent(path)}`);
+    return { privateAppFeedback: visitor?.privateAppFeedback, draftScope: visitor?.draftScope, name: typeof visitor?.name === 'string' ? visitor.name : null, member: visitor?.member };
 }
 
 async function signOut() {
@@ -46,9 +48,10 @@ export function useVisitor({ onSignedOut }: { onSignedOut?: () => void } = {}): 
     signOut: UseMutationResult<void, Error, void, unknown>;
 } {
     const client = useQueryClient();
+    const path = usePagePath();
     const query = useQuery({
-        queryKey: visitorQueryKey,
-        queryFn: getVisitor
+        queryKey: pageVisitorQueryKey(path),
+        queryFn: () => getVisitor(path)
     });
 
     const signOutMutation = useMutation({

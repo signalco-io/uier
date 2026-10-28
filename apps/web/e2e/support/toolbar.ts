@@ -65,13 +65,20 @@ export async function newVisitor(browser: Browser, testInfo: TestInfo): Promise<
     return { context, page };
 }
 
+/** Close a fresh guide before exercising other review controls. */
+export async function dismissFirstRunHint(page: Page) {
+    const hint = showcaseHint(page);
+    await expect(hint).toBeVisible();
+    await hint.getByRole('button', { name: 'Got it' }).click();
+    await expect(hint).toBeHidden();
+}
+
 /** Opens the landing page and waits for the showcase toolbar */
 export async function openLanding(page: Page, origin: string, { dismissHint = false } = {}) {
     await page.goto(`${origin}/`);
     await expect(toolbar(page)).toBeVisible();
     if (dismissHint) {
-        await showcaseHint(page).getByRole('button', { name: 'Got it' }).click();
-        await expect(showcaseHint(page)).toBeHidden();
+        await dismissFirstRunHint(page);
     }
 }
 
@@ -80,7 +87,7 @@ export async function openLanding(page: Page, origin: string, { dismissHint = fa
  * `page.addScriptTag`: it fails on the CSP report for the Google Fonts stylesheet the toolbar
  * adds (blocked here, the toolbar then uses system-ui).
  */
-export async function addToolbarScript(page: Page) {
+export async function addToolbarScript(page: Page, { dismissHint = true } = {}) {
     await page.evaluate(() => new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
         script.src = '/toolbar.js';
@@ -88,6 +95,10 @@ export async function addToolbarScript(page: Page) {
         script.onerror = () => reject(new Error('The toolbar script did not load'));
         document.head.appendChild(script);
     }));
+    if (dismissHint && await page.locator('#uier-toolbar').count()) {
+        await expect.poll(async () => await showcaseHint(page).count() > 0 || await page.evaluate(() => localStorage.getItem('uier:showcase-hint-dismissed') === 'true')).toBe(true);
+        if (await showcaseHint(page).isVisible()) await dismissFirstRunHint(page);
+    }
 }
 
 /** Selects `text` in the page (inside one text node) like a reviewer would */

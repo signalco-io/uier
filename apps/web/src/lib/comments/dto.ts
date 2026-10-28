@@ -45,6 +45,7 @@ export type CommentDto = {
 
 /** `GET /api/visitor` */
 export type VisitorDto = {
+    privateAppFeedback?: boolean;
     draftScope?: string;
     member?: boolean;
     /** Current account name, or the guest name (`Guest XXXX`); `null` before a guest's first write */
