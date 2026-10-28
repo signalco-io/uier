@@ -11,6 +11,22 @@ let resizeObserver: ResizeObserver | undefined;
 let mutationObserver: MutationObserver | undefined;
 let toolbarObserver: MutationObserver | undefined;
 let toolbarRoot: ShadowRoot | null | undefined;
+const observedSurfaces = new Set<Element>();
+
+function observeToolbarSurfaces() {
+    for (const surface of observedSurfaces) {
+        if (!surface.isConnected) {
+            resizeObserver?.unobserve(surface);
+            observedSurfaces.delete(surface);
+        }
+    }
+    for (const surface of toolbarRoot?.querySelectorAll(toolbarReviewSurfaces) ?? []) {
+        if (!observedSurfaces.has(surface)) {
+            resizeObserver?.observe(surface);
+            observedSurfaces.add(surface);
+        }
+    }
+}
 
 function schedule() {
     if (frame) {
@@ -45,17 +61,21 @@ function start() {
     toolbarRoot = canReviewToolbar() ? document.getElementById('uier-toolbar')?.shadowRoot : null;
     if (toolbarRoot) {
         toolbarRoot.addEventListener('scroll', schedule, { capture: true, passive: true });
-        // Ignore annotation/outline updates: observing those would make pin measurement loop.
+        observeToolbarSurfaces();
+        // Watch the shells, not their thread content: layout-triggered renders must not keep
+        // interrupting React's deferred inbox rendering (or observe our own pin/outline updates).
         toolbarObserver = new MutationObserver(records => {
             const surfaceChanged = records.some(record => {
-                const target = record.target instanceof Element ? record.target : record.target.parentElement;
-                return target?.closest(toolbarReviewSurfaces)
+                return record.target instanceof Element && record.target.matches(toolbarReviewSurfaces)
                     || [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element
                         && (node.matches(toolbarReviewSurfaces) || node.querySelector(toolbarReviewSurfaces)));
             });
-            if (surfaceChanged) schedule();
+            if (surfaceChanged) {
+                observeToolbarSurfaces();
+                schedule();
+            }
         });
-        toolbarObserver.observe(toolbarRoot, { subtree: true, childList: true, characterData: true, attributes: true });
+        toolbarObserver.observe(toolbarRoot, { subtree: true, childList: true, attributes: true });
     }
 }
 
@@ -64,6 +84,7 @@ function stop() {
     document.removeEventListener('scroll', schedule, { capture: true });
     resizeObserver?.disconnect();
     resizeObserver = undefined;
+    observedSurfaces.clear();
     mutationObserver?.disconnect();
     mutationObserver = undefined;
     toolbarObserver?.disconnect();

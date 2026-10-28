@@ -25,7 +25,9 @@ async function postDraft(page: Page, text: string) {
     const comment = await saved.json() as { id: string; position: { selector: string }; screenshot?: { width: number; height: number } };
     expect(comment.position.selector).toMatch(/^#uier-toolbar>>>/);
     await expect(openThread(page).getByText(text, { exact: true })).toBeVisible();
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(openThread(page)).toHaveCount(0);
     return comment;
 }
 
@@ -80,8 +82,11 @@ test('uier inbox elements support pointer and keyboard anchors, panel movement a
     await inbox.getByRole('article').filter({ hasText: 'Clarify the inbox search.' })
         .getByRole('button', { name: 'Show on page' }).click();
     await expect(openThread(page).getByText('Clarify the inbox search.', { exact: true })).toBeVisible();
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toBeFocused();
     await expect(inbox).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(openThread(page)).toHaveCount(0);
+    await expect(inbox).toBeVisible();
     const pin = page.locator(`[data-uier-comment="${comment.id}"]`);
     const initialX = (await pin.boundingBox())!.x;
     const handle = inbox.getByRole('button', { name: 'Move comments panel' });
