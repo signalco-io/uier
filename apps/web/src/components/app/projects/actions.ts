@@ -124,3 +124,10 @@ export async function updateProjectPageStateAction(_: ActionState, formData: For
         await saveProject(formData.get('projectId'), { pageState });
     }, 'Saved. New reviews use these page fields on the next page load.');
 }
+
+export async function updateProjectEmailExcerptsAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        const enabled = z.enum(['true', 'false']).parse(formData.get('emailCommentExcerpts')) === 'true';
+        await saveProject(formData.get('projectId'), { emailCommentExcerpts: enabled });
+    }, 'The email setting is saved.');
+}

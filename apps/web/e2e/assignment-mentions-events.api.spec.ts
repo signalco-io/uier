@@ -58,6 +58,7 @@ test('mentions reach selected nonparticipants once; assignment and reply mention
     expect(f.comment.notificationEvents).toHaveLength(1);
     expect(f.comment.notificationEvents![0]).toMatchObject({ kind: 'comment', recipients: [`user:${f.a.id}`] });
     expect(sent[0]!.text).not.toContain('@Alex please check');
+    expect(sent[0]!.text).toContain('mentioned you on #1 (/pricing)');
     await dispatch(f.project, f.comment, sent);
     expect(sent).toHaveLength(1);
     await followThread(f.project, f.aActor, f.comment.id, true);
@@ -69,6 +70,8 @@ test('mentions reach selected nonparticipants once; assignment and reply mention
     await replyToProjectComment(request, f.project, f.actor, f.comment.id, { text: '@Alex follow-up', mentions: [f.mention] });
     await dispatch(f.project, f.comment, sent);
     expect(sent.map(message => message.to)).toEqual([f.a.email, f.a.email]);
+    expect(sent[1]!.text).toContain('assigned #1 to you (/pricing)');
+    expect(sent[1]!.text).toContain('mentioned you on #1 (/pricing)');
     // A reply targeted by a mention is one update, even when both event kinds share the same cursor.
     const events = (await current(f.comment)).notificationEvents!;
     expect(events).toHaveLength(3);
@@ -175,4 +178,55 @@ test('durable retries preserve selected identities and one cursor after losing t
         expect(replayed.notificationEvents).toHaveLength(1);
         expect(replayed.thread.items[0]!.mentions).toEqual([f.mention]);
     } finally { store.commitSubmission = original; }
+});
+
+
+test('assignment, reassignment and unassignment wording never names other recipients', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    await setProjectCommentAssignee(f.project, f.actor, f.comment.id, f.a.id);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.at(-1)!.text).toContain('assigned #1 to you (/pricing)');
+    await setProjectCommentAssignee(f.project, f.actor, f.comment.id, f.b.id);
+    sent.length = 0;
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.find(message => message.to === f.a.email)!.text).toContain('unassigned you from #1 (/pricing)');
+    expect(sent.find(message => message.to === f.b.email)!.text).toContain('assigned #1 to you (/pricing)');
+    for (const mail of sent) {
+        expect(mail.text).not.toContain(mail.to === f.a.email ? f.b.email : f.a.email);
+        expect(mail.subject).not.toContain(mail.to === f.a.email ? f.b.email : f.a.email);
+    }
+    await setProjectCommentAssignee(f.project, f.actor, f.comment.id, null);
+    sent.length = 0;
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe(f.b.email);
+    expect(sent[0]!.text).toContain('unassigned you from #1 (/pricing)');
+    expect((await current(f.comment)).notificationEvents!.at(-1)).toMatchObject({ assigneeId: null });
+});
+
+test('multi-recipient mentions describe only the recipient, including edit mention events', async () => {
+    const f = await fixture();
+    await markThreadRead(f.comment, `user:${f.a.id}`, 1);
+    await replyToProjectComment(request, f.project, f.actor, f.comment.id, { text: '@Alex @Blair please check',
+        mentions: [f.mention, { userId: f.b.id, start: 6, end: 12 }] });
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(2);
+    for (const mail of sent) {
+        expect(mail.text).toContain('mentioned you on #1 (/pricing)');
+        expect(mail.text).not.toContain('@Alex');
+        expect(mail.text).not.toContain('@Blair');
+        expect(mail.text).not.toContain(mail.to === f.a.email ? f.b.email : f.a.email);
+    }
+    const first = (await current(f.comment)).thread.items[0]!;
+    await editProjectCommentItem(f.project, f.actor, f.comment.id, first.id, { text: '@Alex please check', expectedText: first.text,
+        mentions: [{ ...f.mention, userId: f.b.id }] });
+    sent.length = 0;
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe(f.b.email);
+    expect(sent[0]!.text).toContain('mentioned you on #1 (/pricing)');
+    expect(sent[0]!.text).not.toContain(f.a.email);
 });

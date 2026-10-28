@@ -59,6 +59,14 @@ test('blocked cookies leave ordinary visitors alone and preserve explicit sign-i
     // restore it. The Lax app cookie remains; the cross-site handoff has no credential.
     await page.goto('about:blank');
     await page.context().clearCookies({ name: 'uier_review_sso' });
+    // App navigation can still seed a companion in a streamed response. Model a browser
+    // refusing that cookie on this cross-site request even if a late response restores it.
+    await page.route(`**/api/review/${project}/sso`, async route => {
+        const headers = await route.request().allHeaders();
+        headers.cookie = (headers.cookie ?? '').split(';').filter(cookie => !cookie.trim().startsWith('uier_review_sso=')).join(';');
+        const response = await route.fetch({ headers });
+        await route.fulfill({ response });
+    });
     const attempted = page.waitForResponse(response => response.url().endsWith(`/api/review/${project}/sso`));
     await page.goto(`${site.origin()}/${project}/pricing`);
     expect((await attempted).status()).toBe(204);

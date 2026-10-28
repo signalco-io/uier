@@ -19,8 +19,10 @@ identity but does not unsubscribe an already verified address; use its email uns
 
 - `DbComment.activity.sequence` is the monotonic thread cursor owned by #83. The authorized
   `getReadSequence(domain, actorAuthorId, threadId)` service is the only seen cursor used for email.
-- `notificationEvents` contains `{sequence, actorId, kind, at, recipients?}` metadata, without
-  message text or images. It is written atomically with the comment mutation and shared activity
+- `notificationEvents` contains `{sequence, actorId, kind, at, recipients?, agent?, itemId?, assigneeId?}` metadata, without
+  message text or images. `itemId` identifies the comment/reply/mention item; `assigneeId` records
+  the new assignee account id (explicit `null` for unassignment). `agent` retains connector
+  attribution. Older events can omit these fields. It is written atomically with the comment mutation and shared activity
   sequence; `notificationPending` requests durable discovery. Safe submission retries commit the
   same event and activity cursor with the idempotency receipt, so a lost response cannot duplicate
   an event. Legacy activity is not replayed.
@@ -44,8 +46,27 @@ containers and Azure Communication Services sender; it creates no new infrastruc
 Before each attempt, the worker reloads current project access, membership, private-thread
 visibility, subscription, mute and read cursor. Removed members, disabled projects, guests on
 invited-only projects, hidden/deleted threads and already-read activity are suppressed.
-Emails contain the project name, a thread reference and links; never comment text, screenshots or reproduction
-details. Opening a link still requires the recipient's normal authorized toolbar/app identity.
+Emails name the actor, action and page for each eligible event. A mention says "mentioned you";
+assignment says "assigned #N to you" or "unassigned you from #N", without naming other recipients.
+Guests are explicitly labeled as guests; removed members become "Former member" and missing
+guest names become "Guest". Connector actions include "via <connector>". A digest shows at most ten
+event lines, then "and N more". Multiple-event subjects summarize counts, rather than listing names.
+Subjects include the project, thread number (when present) and pathname, without query/hash state.
+Each name, connector label, project name and pathname used in a subject/body action line is limited
+to 60 Unicode code points (below `MAX_NAME_LENGTH`, 80), with an ellipsis included in that limit.
+Control/format/line separator characters become spaces and whitespace collapses. Untrusted names
+and paths are plain text, never generated links; `layoutEmail` HTML-escapes them.
+
+Comment text stays out of digests by default. **Include comment excerpts**, in project settings
+under **Email notifications**, is off for new and older projects. Only workspace admins can save
+it (the server action calls `adminProject`); commenters can see its state. Enabling it sends excerpts
+to every recipient, verified guests included. With it on, a comment/reply/mention event with an
+`itemId` may include up to 160 Unicode code points of that item's current plain text. Excerpts
+never appear in subjects. Deleted items, older events without an item id, status and assignment
+events have no excerpt. Quoted page text, screenshots and reproduction details never enter a digest.
+Before a new attempt's first provider request, the worker reloads the project, recipient eligibility
+and items and rebuilds the message, honoring settings changes, edits and deletions during preparation.
+An attempt retained from a previous run keeps its exact message for provider repeatability. Opening a link still requires the recipient's normal authorized toolbar/app identity.
 A guest must use the browser/site identity they commented with to see their private thread.
 
 ## Retry and failure evidence
@@ -80,8 +101,13 @@ the toolbar/app always offers current controls. Changing a subscription invalida
 
 Pending guest addresses expire after 24 hours. Verified subscriptions and preferences persist until
 revoked; unsubscribe deletes the guest address. Event metadata and delivery evidence remain with
-the project until removed, without duplicating comment content. Failed or uncertain provider attempts can retain the
-addressed pending email until reconciled; unsubscribe still prevents further sends. Preview/local deployments follow
+the project until removed; event metadata never duplicates comment content. With excerpts enabled,
+the persisted `attempt.message` contains comment text. A failed/interrupted or ambiguous attempt
+that retains a message keeps that excerpt until reconciliation, successful acceptance, suppression
+or explicit removal of the ledger/project; there is no automatic expiry. Editing/deleting an item
+or disabling excerpts does not rewrite a prior-run attempt. Confirmed provider rejection clears
+the attempt, so a later fresh attempt uses current settings/content. Failed or uncertain provider
+attempts can retain the addressed pending email until reconciled; unsubscribe still prevents further sends. Preview/local deployments follow
 the existing no-mail model and expose verification links for testing; the scheduled worker runs
 only against production.
 

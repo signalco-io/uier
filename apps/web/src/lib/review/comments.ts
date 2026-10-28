@@ -228,7 +228,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     comment.thread.items[0]!.mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
-    const recorded = withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions));
+    const recorded = withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id });
     if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
     await createWithScreenshot(store, recorded, screenshot);
     return recorded;
@@ -290,7 +290,7 @@ export async function replyToProjectComment(request: Request, project: DbProject
         mentions: input.mentions, createdAt: now
     }, comment => visibleOrThrow(comment, actor), async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
-        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined);
+        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId });
     });
     return await updateComment(store, partition, id, async comment => {
         visibleOrThrow(comment, actor);
@@ -303,7 +303,7 @@ export async function replyToProjectComment(request: Request, project: DbProject
             authorName: actor.kind === 'guest' ? input.authorName : undefined,
             mentions, createdAt: now
         }] } };
-        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions));
+        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId });
     });
 }
 
@@ -354,7 +354,7 @@ export async function setProjectCommentAssignee(project: DbProject, actor: Proje
             const updated = { ...withThreadActivity(comment, actorAuthorId(actor)!), assigneeId: assigneeId ?? undefined };
             if (!assigneeId) delete updated.assigneeId;
             const recipients = [...new Set([comment.assigneeId, assigneeId].filter((id): id is string => Boolean(id)).map(id => `user:${id}`))];
-            return withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined);
+            return withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { assigneeId });
         }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'assignment', id, assigneeId }));
 }
 
@@ -380,7 +380,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
             const updated = { ...edited, thread: { ...edited.thread, items: edited.thread.items.map(item => item.id === itemId ? { ...item, mentions } : item) } };
             const existing = new Set(previous?.mentions?.map(mention => mention.userId));
             const recipients = mentionRecipients(mentions.filter(mention => !existing.has(mention.userId)));
-            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients) : updated;
+            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
         });
 }
 

@@ -4,7 +4,7 @@ import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser, findUserByEmail } from '../src/lib/app/users';
 import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { createProjectComment, deleteProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
+import { createProjectComment, deleteProjectCommentItem, editProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { markThreadRead } from '../src/lib/comments/readState';
 import { threadActivity, withThreadActivity } from '../src/lib/comments/activity';
@@ -42,10 +42,10 @@ async function fixture() {
 
 async function current(comment: DbComment) { return (await getCommentsStore().get(comment.domain, comment.id))!.comment; }
 async function deliveries(project: DbProject) { return getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', pk: notificationPk(project.id) }); }
-async function dispatch(project: DbProject, comment: DbComment, sent: EmailMessage[], transport?: typeof deliverNotificationEmail) {
+async function dispatch(project: DbProject, comment: DbComment, sent: EmailMessage[], transport?: typeof deliverNotificationEmail, store?: ReturnType<typeof getAppStore>) {
     await discoverThreadNotifications(project, await current(comment));
     for (const delivery of await deliveries(project)) await processNotificationDelivery(delivery, baseUrl,
-        transport ?? (async message => { sent.push(message); return { status: 'sent' }; }), Date.now() + 30 * 60 * 1000);
+        transport ?? (async message => { sent.push(message); return { status: 'sent' }; }), Date.now() + 30 * 60 * 1000, store);
 }
 
 test('owners receive new feedback, participants receive batched replies/status, actors do not receive their own activity', async () => {
@@ -54,6 +54,10 @@ test('owners receive new feedback, participants receive batched replies/status, 
     await dispatch(f.project, f.comment, sent);
     expect(sent.map(message => message.to)).toEqual([f.owner.email]);
     expect(sent[0]!.text).not.toContain('Private source text');
+    expect(sent[0]!.text).toContain('Ana (guest) left feedback on #1 (/pricing)');
+    expect(sent[0]!.subject).toContain(f.project.name);
+    expect(sent[0]!.subject).toContain('#1 (/pricing)');
+    expect(sent[0]!.subject).not.toMatch(/tab=|yearly|plans/);
     expect(sent[0]!.text).toContain(encodeURIComponent('/pricing?tab=yearly#/plans'));
     expect(sent[0]!.html).toContain('Manage project emails</a>');
     await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'Member joined' });
@@ -65,7 +69,10 @@ test('owners receive new feedback, participants receive batched replies/status, 
     await dispatch(f.project, f.comment, sent);
     expect(sent).toHaveLength(2);
     expect(sent[1]!.to).toBe(f.member.email);
-    expect(sent[1]!.text).toContain('There is new activity');
+    expect(sent[1]!.subject).toContain('3 updates on #1 (/pricing)');
+    expect(sent[1]!.text).toContain('replied on #1 (/pricing)');
+    expect(sent[1]!.text).toContain('resolved #1 (/pricing)');
+    expect(sent[1]!.text).toContain('reopened #1 (/pricing)');
     expect(sent[1]!.text).not.toContain('Team replied');
     await dispatch(f.project, f.comment, sent);
     expect(sent).toHaveLength(2);
@@ -259,7 +266,7 @@ test('outbox shares the activity cursor and status no-ops do not enqueue duplica
     const replied = await replyToProjectComment(request, f.project, f.ownerActor, f.comment.id, { text: 'A reply' });
     const resolved = await setProjectCommentResolved(f.project, f.ownerActor, f.comment.id, true);
     const noop = await setProjectCommentResolved(f.project, f.ownerActor, f.comment.id, true);
-    expect(f.comment.notificationEvents).toEqual([{ sequence: 1, actorId: (f.guest as { visitorId: string }).visitorId, kind: 'comment', at: expect.any(String) }]);
+    expect(f.comment.notificationEvents).toEqual([{ sequence: 1, actorId: (f.guest as { visitorId: string }).visitorId, kind: 'comment', at: expect.any(String), itemId: f.comment.thread.items[0]!.id }]);
     expect(replied.notificationEvents?.at(-1)?.sequence).toBe(threadActivity(replied).sequence);
     expect(resolved.notificationEvents?.at(-1)?.sequence).toBe(threadActivity(resolved).sequence);
     expect(noop.notificationEvents).toEqual(resolved.notificationEvents);
@@ -301,4 +308,153 @@ test('removed source notifications keep member history and never retarget a gues
     expect(guest.text).toContain('Manage notifications');
     expect(guest.text).not.toContain('replacement.example');
     expect(guest.text).not.toContain('uier-comment=');
+});
+
+
+test('digest summarizes several actors, attributes connectors and only describes unread events', async () => {
+    const f = await fixture();
+    await followThread(f.project, f.ownerActor, f.comment.id, true);
+    await markThreadRead(f.comment, `user:${f.owner.id}`, 1);
+    const connector = { ...f.memberActor, agent: { credentialId: 'test-connector', name: 'Code\r\nassistant' } } as ProjectActor;
+    await replyToProjectComment(request, f.project, connector, f.comment.id, { text: 'Connector secret' });
+    await replyToProjectComment(request, f.project, f.guest, f.comment.id, { text: 'Guest secret', authorName: 'Ana' });
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    const mail = sent.find(message => message.to === f.owner.email)!;
+    expect(mail.subject).toBe(`${f.project.name}: 2 updates from 2 people on #1 (/pricing)`);
+    expect(mail.text).toContain('via Code assistant replied on #1 (/pricing)');
+    expect(mail.text).toContain('Ana (guest) replied on #1 (/pricing)');
+    expect(mail.text).not.toContain('left feedback');
+    expect(mail.text).not.toContain('secret');
+});
+
+test('untrusted guest labels stay bounded, escaped, labeled and outside links', async () => {
+    const f = await fixture();
+    const stored = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+    const name = 'uier\r\n<img src=x> https://evil.example/' + 'x'.repeat(80);
+    await getCommentsStore().replace({ ...stored.comment, thread: { items: [{ ...stored.comment.thread.items[0]!, authorName: name }] } }, stored.etag);
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent[0]!.subject).toContain(`uier <img src=x> https://evil.example/${'x'.repeat(21)}… (guest)`);
+    expect(sent[0]!.subject).not.toMatch(/[\r\n]/);
+    expect(sent[0]!.html).toContain('&lt;img src=x&gt;');
+    expect(sent[0]!.html).not.toContain('<img');
+    expect(sent[0]!.html).not.toMatch(/<a[^>]*>[^<]*evil/);
+});
+
+test('legacy names and missing thread numbers have safe fallbacks and long batches are bounded', async () => {
+    const f = await fixture();
+    const stored = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+    await getCommentsStore().replace({ ...stored.comment, number: undefined,
+        notificationEvents: stored.comment.notificationEvents!.map(({ itemId: _itemId, ...event }) => event) }, stored.etag);
+    let sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent[0]!.subject).toBe(`${f.project.name}: Ana (guest) left feedback on /pricing`);
+    await followThread(f.project, f.ownerActor, f.comment.id, true);
+    for (let i = 0; i < 12; i++) await setProjectCommentResolved(f.project, f.guest, f.comment.id, i % 2 === 0);
+    sent = [];
+    await dispatch(f.project, f.comment, sent);
+    expect(sent[0]!.text).toContain('and 2 more');
+    expect(sent[0]!.text.match(/Ana \(guest\)/g)).toHaveLength(10);
+
+    const other = await fixture();
+    await followThread(other.project, other.ownerActor, other.comment.id, true);
+    await replyToProjectComment(request, other.project, other.memberActor, other.comment.id, { text: 'Unavailable author' });
+    await replyToProjectComment(request, other.project, other.guest, other.comment.id, { text: 'Missing guest name' });
+    await getAppStore().delete(other.project.pk, memberId(other.member.id));
+    const currentThread = (await getCommentsStore().get(other.comment.domain, other.comment.id))!;
+    await getCommentsStore().replace({ ...currentThread.comment, thread: { items: currentThread.comment.thread.items.map(item => ({ ...item, authorName: undefined })) } }, currentThread.etag);
+    sent = [];
+    await dispatch(other.project, other.comment, sent);
+    expect(sent[0]!.text).toContain('Guest (guest) replied');
+    expect(sent[0]!.text).toContain('Former member replied');
+});
+
+test('excerpts opt in only to current item text, including verified guests, never quotes or legacy items', async () => {
+    const f = await fixture();
+    await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, emailCommentExcerpts: true }));
+    const address = `excerpt-guest-${f.project.id}@example.com`;
+    const follow = await followThread(f.project, f.guest, f.comment.id, true, address, baseUrl);
+    await actOnNotificationToken(new URL(follow.verificationUrl!).searchParams.get('token')!, 'verify');
+    const reply = await replyToProjectComment(request, f.project, f.ownerActor, f.comment.id, { text: 'Fresh <reply> ' + 'x'.repeat(200) });
+    const latest = (await getCommentsStore().get(reply.domain, reply.id))!;
+    await getCommentsStore().replace({ ...latest.comment, thread: { items: latest.comment.thread.items.map(item => ({ ...item, quotedText: 'QUOTED PAGE SECRET' })) } }, latest.etag);
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    const mail = sent.find(message => message.to === address)!;
+    expect(mail.text).toContain('“Fresh <reply> ' + 'x'.repeat(145) + '…”');
+    expect(mail.html).toContain('Fresh &lt;reply&gt;');
+    expect(mail.text).not.toContain('QUOTED PAGE SECRET');
+    expect(mail.subject).not.toContain('Fresh');
+    expect(reply.notificationEvents!.at(-1)).toMatchObject({ itemId: reply.thread.items.at(-1)!.id });
+    expect(JSON.stringify(reply.notificationEvents)).not.toContain('Fresh');
+
+    const legacy = await fixture();
+    await updateDoc<DbProject>(legacy.project.pk, legacy.project.id, project => ({ ...project, emailCommentExcerpts: true }));
+    const stored = (await getCommentsStore().get(legacy.comment.domain, legacy.comment.id))!;
+    await getCommentsStore().replace({ ...stored.comment, notificationEvents: stored.comment.notificationEvents!.map(({ itemId: _itemId, ...event }) => event) }, stored.etag);
+    const legacySent: EmailMessage[] = [];
+    await dispatch(legacy.project, legacy.comment, legacySent);
+    expect(legacySent[0]!.text).not.toContain('Private source text');
+});
+
+for (const change of ['off', 'edit', 'delete', 'read'] as const) {
+    test(`new attempts recheck ${change} after preparing excerpts and before the provider request`, async () => {
+        const f = await fixture();
+        await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, emailCommentExcerpts: true }));
+        await followThread(f.project, f.ownerActor, f.comment.id, true);
+        await markThreadRead(f.comment, `user:${f.owner.id}`, 1);
+        const reply = await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'OLD EXCERPT' });
+        const item = reply.thread.items.at(-1)!;
+        const store = getAppStore();
+        const originalReplace = store.replace;
+        let changed = false;
+        // The injected storage adapter pauses just after the first message is persisted.
+        store.replace = async (doc, etag) => {
+            const result = await originalReplace.call(store, doc, etag);
+            if (!changed && doc.type === 'notification-delivery' && 'attempt' in doc && doc.attempt) {
+                changed = true;
+                const ledger = (await deliveries(f.project)).find(delivery => delivery.actorId === `user:${f.owner.id}`)!;
+                expect(ledger.attempt!.message.text).toContain('OLD EXCERPT');
+                if (change === 'off') await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, emailCommentExcerpts: false }));
+                if (change === 'edit') await editProjectCommentItem(f.project, f.memberActor, f.comment.id, item.id, { text: 'NEW EXCERPT', expectedText: item.text });
+                if (change === 'delete') await deleteProjectCommentItem(f.project, f.memberActor, f.comment.id, item.id);
+                if (change === 'read') await markThreadRead(reply, `user:${f.owner.id}`, threadActivity(reply).sequence);
+            }
+            return result;
+        };
+        const sent: EmailMessage[] = [];
+        await dispatch(f.project, f.comment, sent, undefined, store);
+        expect(changed).toBe(true);
+        if (change === 'read') expect(sent).toHaveLength(0);
+        else {
+            expect(sent).toHaveLength(1);
+            expect(sent[0]!.text).not.toContain('OLD EXCERPT');
+            expect(sent[0]!.text.includes('NEW EXCERPT')).toBe(change === 'edit');
+        }
+    });
+}
+
+test('reply deleted before sending has no excerpt and a prior-run ambiguous attempt keeps its exact message', async () => {
+    const f = await fixture();
+    await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, emailCommentExcerpts: true }));
+    await followThread(f.project, f.ownerActor, f.comment.id, true);
+    const reply = await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'DELETED REPLY' });
+    await deleteProjectCommentItem(f.project, f.memberActor, f.comment.id, reply.thread.items.at(-1)!.id);
+    const retained = await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'RETAINED EXCERPT' });
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent, async message => { sent.push(message); return { status: 'ambiguous' }; });
+    expect(sent[0]!.text).not.toContain('DELETED REPLY');
+    expect(sent[0]!.text).toContain('RETAINED EXCERPT');
+    const ledger = (await deliveries(f.project)).find(delivery => delivery.actorId === `user:${f.owner.id}`)!;
+    const message = ledger.attempt!.message;
+    await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, emailCommentExcerpts: false }));
+    await editProjectCommentItem(f.project, f.memberActor, f.comment.id, retained.thread.items.at(-1)!.id, { text: 'CHANGED LATER', expectedText: 'RETAINED EXCERPT' });
+    await retryNotificationDelivery(ledger.id);
+    await dispatch(f.project, f.comment, [], async (retried, attempt, isRetry) => {
+        expect(isRetry).toBe(true);
+        expect(attempt.operationId).toBe(ledger.attempt!.operationId);
+        expect(retried).toEqual(message);
+        return { status: 'sent' };
+    });
 });

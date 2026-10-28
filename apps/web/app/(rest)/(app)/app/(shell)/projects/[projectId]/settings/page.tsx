@@ -11,7 +11,7 @@ import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { configuredEnvironments } from '@/src/lib/app/environments';
 import {
-    ProjectBriefForm, ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
+    ProjectBriefForm, ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEmailExcerptsForm, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
 } from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
@@ -38,7 +38,11 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
                 description={muted
                     ? 'You get no emails from this project. Threads you follow stay followed.'
                     : 'Owners and admins get new feedback. Posting in a thread follows it. Emails are batched for 5 minutes.'}
-                actions={<ProjectEmailsButton projectId={project.id} muted={muted} />} />
+                actions={<ProjectEmailsButton projectId={project.id} muted={muted} />}>
+                {context.isAdmin
+                    ? <ProjectEmailExcerptsForm projectId={project.id} enabled={project.emailCommentExcerpts === true} />
+                    : <p className="m-0 text-sm text-muted-foreground">Comment excerpts are {project.emailCommentExcerpts ? 'on' : 'off'}. When on, short comment excerpts go to every recipient, verified guests included. Only workspace admins can change this.</p>}
+            </Section>
             {context.isAdmin && <ProjectState context={context} project={project} />}
         </div>
     );

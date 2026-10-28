@@ -76,3 +76,70 @@ test('guest comments without email, then separately verifies and revokes reply n
     await page.reload();
     await expect(article.getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
 });
+
+
+test('admins control excerpts in both themes; commenters see saved state and cannot change it', async ({ page, browser }, testInfo) => {
+    await signIn(page, uniqueEmail('excerpt-admin'));
+    const projectId = await createProject(page, { urls: [site.origin()], name: 'Excerpt policy' });
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const emails = page.getByRole('region', { name: 'Email notifications' });
+    const checkbox = emails.getByRole('checkbox', { name: 'Include comment excerpts' });
+    await expect(checkbox).not.toBeChecked();
+    await expect(emails).toContainText('every recipient, verified guests included');
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await page.reload();
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+        await checkbox.focus();
+        await page.keyboard.press('Space');
+        await expect(checkbox).toBeChecked();
+        const saveRequest = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
+        await emails.getByRole('button', { name: 'Save', exact: true }).click();
+        const actionRequest = await saveRequest;
+        await expect(emails.getByRole('status')).toContainText('The email setting is saved.');
+        await page.reload();
+        await expect(checkbox).toBeChecked();
+        await page.evaluate(async () => {
+            getComputedStyle(document.body).color;
+            await Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished));
+        });
+        await expectNoAxeViolations(page);
+        await emails.screenshot({ path: testInfo.outputPath(`email-excerpts-${colorScheme}.png`) });
+        // Replay this valid admin action as a commenter below. It must fail on the server.
+        if (colorScheme === 'dark') {
+            // Settings has the project header invite, without the empty-feedback invite CTA.
+            await page.getByRole('button', { name: 'Invite', exact: true }).click();
+            const dialog = page.getByRole('dialog');
+            await dialog.getByLabel('Email').fill(uniqueEmail('excerpt-commenter'));
+            await dialog.getByRole('button', { name: 'Send invitation' }).click();
+            const invitation = await dialog.getByRole('link', { name: 'Open the invitation link' }).getAttribute('href');
+            const person = await newVisitor(browser, testInfo);
+            try {
+                await person.page.goto(invitation!);
+                await person.page.getByRole('button', { name: 'Accept invitation' }).click();
+                await expect(person.page).toHaveURL(new RegExp(`toolbar-code=${projectId}`));
+                await person.page.goto(`/app/projects/${projectId}/settings`);
+                const personEmails = person.page.getByRole('region', { name: 'Email notifications' });
+                await expect(personEmails).toContainText('Comment excerpts are on.');
+                await expect(personEmails.getByRole('checkbox')).toHaveCount(0);
+                await expect(personEmails.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+                const response = await person.page.request.post(actionRequest.url(), { headers: {
+                    'next-action': actionRequest.headers()['next-action']!,
+                    'content-type': actionRequest.headers()['content-type']!,
+                    origin: new URL(actionRequest.url()).origin
+                }, data: actionRequest.postDataBuffer()! });
+                expect(await response.text()).toContain('Only admins can do this.');
+                for (const commenterTheme of ['light', 'dark'] as const) {
+                    await person.page.emulateMedia({ colorScheme: commenterTheme });
+                    await person.page.reload();
+                    await expect(personEmails).toContainText('Comment excerpts are on.');
+                    await expectNoAxeViolations(person.page);
+                }
+            } finally { await person.context.close(); }
+        } else {
+            await checkbox.uncheck();
+            await emails.getByRole('button', { name: 'Save', exact: true }).click();
+            await expect(emails.getByRole('status')).toContainText('The email setting is saved.');
+        }
+    }
+});

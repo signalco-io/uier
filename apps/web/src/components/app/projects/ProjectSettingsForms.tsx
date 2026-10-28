@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Input } from '@/src/components/ui/input';
 import { RadioGroup } from '@/src/components/ui/radio-group';
@@ -19,7 +19,7 @@ import { ClientNameInput } from './ClientNameInput';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { updateProjectBriefAction, setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
-import { updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
+import { updateProjectEmailExcerptsAction, updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
 import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 
@@ -242,4 +242,27 @@ export function ProjectEnvironmentsForm({ projectId, environments }: { projectId
             </FieldGroup>
         </form>
     </Section>;
+}
+
+/** Project email content policy; the server action independently requires an admin. */
+export function ProjectEmailExcerptsForm({ projectId, enabled }: { projectId: string; enabled: boolean }) {
+    const formId = useId();
+    const [value, setValue] = useState(enabled);
+    const [state, action, pending] = useActionState(updateProjectEmailExcerptsAction, null);
+    return <form id={formId} action={action} className="flex flex-col gap-4"
+        onResetCapture={event => { event.preventDefault(); event.stopPropagation(); }}>
+        <input type="hidden" name="projectId" value={projectId} />
+        <input type="hidden" name="emailCommentExcerpts" value={String(value)} />
+        <FieldGroup>
+            <Field orientation="horizontal">
+                <Checkbox id={`${formId}-excerpts`} checked={value} onCheckedChange={checked => setValue(checked === true)}
+                    aria-describedby={`${formId}-description`} />
+                <FieldContent>
+                    <FieldLabel htmlFor={`${formId}-excerpts`}>Include comment excerpts</FieldLabel>
+                    <FieldDescription id={`${formId}-description`}>Short comment excerpts go to every recipient, verified guests included. Off by default. Only workspace admins can change this.</FieldDescription>
+                </FieldContent>
+            </Field>
+        </FieldGroup>
+        <div className="flex items-center justify-end gap-3"><SaveFooter formId={formId} state={state} pending={pending} /></div>
+    </form>;
 }

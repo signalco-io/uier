@@ -190,6 +190,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
 }
 
 export type ProjectUpdate = Partial<{
+    emailCommentExcerpts: boolean;
     pageState: PageStatePolicy;
     environments: import('./environments').ProjectEnvironment[];
     name: string;
