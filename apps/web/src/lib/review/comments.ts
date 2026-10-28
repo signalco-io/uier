@@ -1,3 +1,4 @@
+import { syncTombstone, withSyncMark } from '../integrations/syncSignal';
 import { reattachAnchor } from '../comments/reattachAnchor';
 import type { ReattachAnchorInput } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
@@ -11,7 +12,7 @@ import { commitChangeSubmission, commitNewSubmission, commitReplySubmission, rec
 import { withEditedThreadItem } from '../comments/editing';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/schema';
-import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
+import { getCommentsStore, type CommentsStore, type ConditionalWriteResult } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, type RateLimitSubject } from '../comments/rateLimits';
@@ -126,7 +127,8 @@ async function updateComment<T extends DbComment | null>(
     store: CommentsStore,
     partition: string,
     id: string,
-    update: (comment: DbComment) => T | Promise<T>
+    update: (comment: DbComment) => T | Promise<T>,
+    onDelete?: (comment: DbComment, etag: string) => Promise<ConditionalWriteResult>
 ): Promise<T> {
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
         const stored = await getStoredComment(store, partition, id);
@@ -136,7 +138,7 @@ async function updateComment<T extends DbComment | null>(
         const updated = await update({ ...stored.comment, activity: threadActivity(stored.comment) });
         const result = updated
             ? await store.replace(updated, stored.etag)
-            : await store.delete(partition, id, stored.etag);
+            : await (onDelete ? onDelete(stored.comment, stored.etag) : store.delete(partition, id, stored.etag));
         if (result === 'ok')
             return updated;
         if (result === 'not_found')
@@ -228,7 +230,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     comment.thread.items[0]!.mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
-    const recorded = withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id });
+    const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
     if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
     await createWithScreenshot(store, recorded, screenshot);
     return recorded;
@@ -251,7 +253,7 @@ export async function replaceProjectScreenshot(project: DbProject, actor: Projec
     return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, input, comment => {
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can replace this screenshot.');
-    });
+    }, (previous, updated) => withSyncMark(project, previous, updated));
 }
 
 /**
@@ -290,7 +292,7 @@ export async function replyToProjectComment(request: Request, project: DbProject
         mentions: input.mentions, createdAt: now
     }, comment => visibleOrThrow(comment, actor), async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
-        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId });
+        return withSyncMark(project, previous, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
     });
     return await updateComment(store, partition, id, async comment => {
         visibleOrThrow(comment, actor);
@@ -303,7 +305,7 @@ export async function replyToProjectComment(request: Request, project: DbProject
             authorName: actor.kind === 'guest' ? input.authorName : undefined,
             mentions, createdAt: now
         }] } };
-        return withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId });
+        return withSyncMark(project, comment, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
     });
 }
 
@@ -316,7 +318,8 @@ async function changeComment(project: DbProject, actor: ProjectActor, id: string
     };
     const apply = async (comment: DbComment) => {
         authorize(comment);
-        return { ...await change(comment), updatedAt: nowIso() };
+        const changed = await change(comment);
+        return changed === comment ? comment : withSyncMark(project, comment, { ...changed, updatedAt: nowIso() });
     };
     if (attempt) return commitChangeSubmission(getCommentsStore(), attempt, id, authorize, apply);
     return await updateComment(getCommentsStore(), projectPartition(project.id), id, apply);
@@ -334,6 +337,7 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
     return await changeComment(project, actor, id,
         () => canMakeCommentPrivate(actor),
         async comment => {
+            if (Boolean(comment.private) === isPrivate) return comment;
             const updated = { ...comment, private: isPrivate };
             if (updated.assigneeId) {
                 const recipient = await memberActor(project, updated.assigneeId);
@@ -366,6 +370,7 @@ export async function editProjectCommentText(project: DbProject, actor: ProjectA
             const [first, ...replies] = threadItems(comment);
             if (!first)
                 throw apiErrors.notFound();
+            if (first.text === text) return comment;
             return { ...comment, thread: { ...comment.thread, items: [{ ...first, text, mentions: moveMentions(first.text, text, first.mentions ?? []), editedAt: nowIso() }, ...replies] } };
         });
 }
@@ -384,6 +389,12 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
         });
 }
 
+function deleteProjectThread(store: CommentsStore, project: DbProject, comment: DbComment, etag: string) {
+    return project.id !== PUBLIC_PROJECT_ID
+        ? store.deleteWithTombstone(comment.domain, comment.id, etag, syncTombstone(project, comment))
+        : store.delete(comment.domain, comment.id, etag);
+}
+
 /** Deletes the whole thread (the app: the author or an admin) */
 export async function removeProjectComment(project: DbProject, actor: ProjectActor, id: string) {
     const store = getCommentsStore();
@@ -395,7 +406,7 @@ export async function removeProjectComment(project: DbProject, actor: ProjectAct
             throw apiErrors.forbidden('Only the author or an admin can delete this comment.');
         hadScreenshot = Boolean(comment.screenshot);
         return null;
-    });
+    }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
     await forgetScreenshot(store, partition, id, hadScreenshot, null);
 }
 
@@ -433,14 +444,14 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             delete kept.authorId;
             delete kept.device;
             delete kept.screenshot;
-            return kept;
+            return withSyncMark(project, comment, kept);
         }
 
         const remaining = items.filter(other => other !== item);
         if (remaining.every(other => typeof other.deletedAt === 'string'))
             return null;
-        return { ...comment, thread: { ...comment.thread, items: remaining }, updatedAt: now };
-    });
+        return withSyncMark(project, comment, { ...comment, thread: { ...comment.thread, items: remaining }, updatedAt: now });
+    }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
     await forgetScreenshot(store, partition, id, hadScreenshot, updated);
     return updated;
 }
@@ -452,5 +463,5 @@ export async function reattachProjectAnchor(project: DbProject, actor: ProjectAc
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden();
         if (comment.origin !== origin) throw apiErrors.forbidden('Choose a target on the original reviewed site.');
-    });
+    }, (previous, updated) => withSyncMark(project, previous, updated));
 }

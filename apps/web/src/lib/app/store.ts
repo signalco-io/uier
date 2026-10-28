@@ -19,6 +19,11 @@ export type DocQuery<TType extends string> = {
     pk?: string;
     /** Equality filters on top-level fields */
     where?: Record<string, FieldValue>;
+    /** Bounded worker scans; absent preserves existing callers' complete-list behavior. */
+    limit?: number;
+    orderBy?: 'id' | 'nextAttemptAt';
+    /** Only due delivery rows. Always parameterized, never raw query text. */
+    dueBefore?: string;
 };
 
 /**
@@ -62,6 +67,14 @@ function withoutSystemProperties<T>(resource: Record<string, unknown>): T {
 }
 
 const fieldPattern = /^[A-Za-z][A-Za-z0-9]*$/;
+
+function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefore?: string }) {
+    if (input.limit !== undefined && (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 1000))
+        throw new Error('Invalid document query limit');
+    if (input.orderBy !== undefined && input.orderBy !== 'id' && input.orderBy !== 'nextAttemptAt')
+        throw new Error('Invalid document query order');
+    if (input.dueBefore !== undefined && !Number.isFinite(Date.parse(input.dueBefore))) throw new Error('Invalid document query deadline');
+}
 
 function createCosmosAppStore(): AppStore {
     const container = cosmosDataContainerApp;
@@ -134,7 +147,8 @@ function createCosmosAppStore(): AppStore {
                 throw error;
             }
         },
-        async query<T extends AppDoc>({ type, pk, where = {} }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore }: DocQuery<T['type']>) {
+            validateQueryBounds({ limit, orderBy, dueBefore });
             const conditions = ['c.type = @type'];
             const parameters: SqlParameter[] = [{ name: '@type', value: type }];
             if (pk) {
@@ -147,9 +161,14 @@ function createCosmosAppStore(): AppStore {
                 conditions.push(`c.${field} = @p${index}`);
                 parameters.push({ name: `@p${index}`, value });
             });
+            if (dueBefore !== undefined) {
+                conditions.push('c.nextAttemptAt <= @dueBefore');
+                parameters.push({ name: '@dueBefore', value: dueBefore });
+            }
+            if (limit !== undefined) parameters.push({ name: '@limit', value: limit });
 
             const { resources } = await container().items.query<Record<string, unknown>>({
-                query: `SELECT * FROM c WHERE ${conditions.join(' AND ')}`,
+                query: `SELECT ${limit === undefined ? '' : 'TOP @limit '}* FROM c WHERE ${conditions.join(' AND ')}${orderBy ? ` ORDER BY c.${orderBy} ASC` : ''}`,
                 parameters
             }, pk ? { partitionKey: pk } : undefined).fetchAll();
             return resources.map(resource => withoutSystemProperties<T>(resource));
@@ -232,13 +251,17 @@ function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
-        async query<T extends AppDoc>({ type, pk, where = {} }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore }: DocQuery<T['type']>) {
+            validateQueryBounds({ limit, orderBy, dueBefore });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
-            return pks
+            let docs = pks
                 .flatMap(key => [...partition(key).values()].map(entry => entry.doc))
                 .filter(doc => doc.type === type
-                    && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value))
-                .map(doc => structuredClone(doc) as T);
+                    && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value)
+                    && (dueBefore === undefined || (typeof (doc as Record<string, unknown>).nextAttemptAt === 'string'
+                        && ((doc as Record<string, unknown>).nextAttemptAt as string) <= dueBefore)));
+            if (orderBy) docs = docs.sort((a, b) => String((a as Record<string, unknown>)[orderBy] ?? '').localeCompare(String((b as Record<string, unknown>)[orderBy] ?? '')));
+            return (limit === undefined ? docs : docs.slice(0, limit)).map(doc => structuredClone(doc) as T);
         }
     };
 }
