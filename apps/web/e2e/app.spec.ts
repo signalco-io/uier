@@ -499,7 +499,7 @@ test('only admins save and clear the plain-text review brief, with server valida
 
     const email = uniqueEmail('brief-member');
     await page.goto(`/app/projects/${project}`);
-    await page.getByRole('button', { name: 'Invite', exact: true }).click();
+    await page.getByRole('button', { name: 'Invite', exact: true }).first().click();
     const invitation = page.getByRole('dialog');
     await invitation.getByLabel('Email').fill(email);
     await invitation.getByRole('button', { name: 'Send invitation' }).click();
