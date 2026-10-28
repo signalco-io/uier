@@ -5,46 +5,76 @@ explains the project and its licenses.
 
 ## Questions, bugs and ideas
 
-Open an [issue](https://github.com/signalco-io/uier/issues). For a security problem, do not open an issue:
-follow [SECURITY.md](SECURITY.md).
+Open an [issue](https://github.com/signalco-io/uier/issues). Include what you expected, what happened,
+and steps to reproduce it. For a security problem, follow [SECURITY.md](SECURITY.md).
 
 ## Setting up
 
-You need Node.js 24 (see [`.nvmrc`](.nvmrc)) and pnpm through Corepack:
+Start with the [README quick start](README.md#run-locally). You need Node.js 24 and pnpm through
+Corepack. No database or email credentials are needed for local development.
 
-```bash
-corepack enable
-pnpm install
-pnpm dev
-```
+[Local development and testing](docs/development.md) covers environment variables, ports, browser
+installation and test coverage. [Infrastructure and operations](docs/operations.md) covers the
+separate infrastructure setup, credentials and CI/CD.
 
-The website runs on http://localhost:4004 and the toolbar build on http://localhost:4005. No database is
-needed: without `COSMOSDB_CONNECTION_STRING` the comments API keeps comments in memory. The
-[README](README.md) covers every command, the comments API, the infrastructure and CI/CD.
+## Code conventions
 
-Each package has an `AGENTS.md` with the rules that matter there; start at [AGENTS.md](AGENTS.md). They are
-written for AI coding agents and work just as well for people.
+- **Brand.** Read [`packages/brand/BRAND.md`](packages/brand/BRAND.md) before changing anything a user
+  sees. Use colours and radii from `@uier/brand/tokens.css` through semantic classes such as
+  `text-muted-foreground`, `border-border` and `rounded-xl`. Use the existing `<Logo />`, `<Mark />`
+  and `<Pin />` components. Keep copy in sentence case, use short sentences and no exclamation marks,
+  and make only claims the product can back. The name is always **uier**, lowercase.
+- **UI kit.** Public pages use `@signalco/ui` and `@signalco/ui-primitives`. The signed-in app uses
+  the shadcn/ui components in `apps/web/src/components/ui`. Do not build parallel buttons, inputs
+  or menus. See [the web guide](apps/web/AGENTS.md#styling-rules) for styling and component details.
+- **Dependencies.** Use exact versions and the pinned pnpm version. Renovate keeps dependencies
+  current; pnpm and Renovate wait a day after an npm release.
+- **Secrets.** Keep credentials out of Git. Local variables belong in `apps/web/.env.local`;
+  deployment variables are managed by Pulumi.
+- **Infrastructure.** CI applies changes. Do not run `pulumi up` locally or remove resource
+  protection. Read [the infrastructure guide](infra/AGENTS.md) before changing infrastructure.
 
-## Making a change
+When a brand value changes, update the implementation in `packages/brand` and `BRAND.md` together.
+If the mark changed, re-render the icon set with `pnpm -C packages/brand icons`. Check `/brand`
+locally; it renders from the same package as the website and toolbar.
 
-- **Brand.** Anything a user sees follows [`packages/brand/BRAND.md`](packages/brand/BRAND.md): colours and
-  radii from the brand tokens, the logo from `@uier/brand`, copy in sentence case with short sentences, no
-  exclamation marks and only claims the product can back. The name is always **uier**, lowercase.
-- **UI kit.** Components come from `@signalco/ui` and `@signalco/ui-primitives`; do not build parallel
-  buttons, inputs or menus.
-- **Dependencies.** Exact versions only. Renovate keeps them current.
-- **Docs.** Update the README and the package `AGENTS.md` when you change what they describe.
+Each package's `AGENTS.md` records its implementation rules and code map. They are also useful to
+human contributors; [the root guide](AGENTS.md) links to each one.
+
+## Documentation conventions
+
+- Keep the README focused on the product, local quick start, everyday commands and navigation.
+- Keep contributor workflow and shared conventions here. Put agent instructions in the matching
+  `AGENTS.md`, and detailed behavior, API contracts and runbooks in `docs/` or the package guide.
+- Update the guide that describes your change and keep [the documentation index](docs/README.md)
+  useful. Check relative paths and section links when moving content.
+- Keep the brand guide and [live brand page](https://uier.io/brand) aligned. Changes to privacy,
+  retention, cookies or security controls also need the matching public documents updated; see
+  [the web guide](apps/web/AGENTS.md#legal-documents).
 
 ## Pull requests
 
 1. Branch from `main` and open the pull request against `main`.
-2. Use [Conventional Commits](https://www.conventionalcommits.org/) for commits and the pull request title
-   (`feat:`, `fix:`, `docs:`, `chore(deps):` ...).
-3. Run `pnpm typecheck && pnpm build && pnpm test` before you push. The end-to-end tests need the Playwright
-   browser once: `pnpm -C apps/web exec playwright install --with-deps chromium`.
-4. CI runs the same checks plus a preview deployment; the **CI OK** check must pass before merging.
+2. Use [Conventional Commits](https://www.conventionalcommits.org/) for commits and the pull request
+   title (`feat:`, `fix:`, `docs:`, `chore(deps):` …).
+3. Run `pnpm typecheck && pnpm build && pnpm test` before you push. Install the Playwright browser
+   once with `pnpm -C apps/web exec playwright install --with-deps chromium`. Stop the dev server
+   or use `PORT=4104 pnpm test` to avoid a port conflict.
+4. Explain the problem, the resulting behavior and how you verified it. Update the relevant docs
+   and package guide.
+5. Wait for **CI OK** before merging. CI selects web checks, the Vercel preview and the infrastructure
+   preview by changed paths. Fork pull requests only run checks that need no secrets.
 
-`main` is production: every merge deploys to uier.io.
+`main` is production. Pushes trigger deployment unless all changed paths are excluded by the
+[deployment workflow](.github/workflows/deploy.yml). Infrastructure runs before the website.
+Follow any active deployment or recovery hold in the [operations guides](docs/README.md#operations).
+
+## Repository history
+
+This code was split out of the [signalco-io/signalco](https://github.com/signalco-io/signalco) monorepo
+with its git history preserved (`web/apps/uier` → `apps/web`, `web/packages/uier-toolbar` →
+`packages/toolbar`, `infra/apps/uier` → `infra`). Issue and pull request references in older commit
+messages (`signalco-io/signalco#1234`) point to the original repository.
 
 ## License
 

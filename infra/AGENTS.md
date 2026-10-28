@@ -49,7 +49,7 @@ do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
   `pnpm preview` does both.
 - Keep the Pulumi CLI version pinned in `.github/workflows/pulumi_reusable.yml` equal to
   `@pulumi/pulumi` in `package.json`.
-- Backup policy changes follow the README's [Backups and restore](../README.md#backups-and-restore)
+- Backup policy changes follow the [Backups and restore](../docs/backups-and-restore.md)
   runbook. Periodic to continuous is one-way: use a policy-only PR without auto-merge and require
   the owner's approval of the exact CI preview (one in-place account update, no other changes).
   Close it on replacement or unrelated changes. Never remove protection or change policy manually.
@@ -63,8 +63,8 @@ do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
   or erasure requests. Public backup claims wait for live policy confirmation; record real drill
   evidence and cleanup separately from the procedure.
 
-The README's "Infrastructure" section has the full setup, role assignments and the OIDC
-subjects CI uses.
+The [infrastructure and operations guide](../docs/operations.md) has the full setup, role
+assignments and the OIDC subjects CI uses.
 
 
 ## Email rollout (#132)
@@ -91,7 +91,7 @@ with Pulumi deployments. It never changes DNS, linkedDomains, senders, keys or p
 live `verificationStates` until `Verified`. Link and switch only in a separate reviewed PR, using
 a fresh `getDomainOutput` guard. Keep the Azure-managed domain linked. The preview must update
 `linkedDomains` in place and must not replace the communication service or change its key/connection
-string. Never remove protection or apply infrastructure manually. README Infrastructure documents
+string. Never remove protection or apply infrastructure manually. The [operations guide](../docs/operations.md#email-domain-verification-and-cutover) documents
 the exact sequence; `docs/review-notifications.md` tracks production evidence. Keep ledger matching
 disabled until an authorized production digest proves report `messageId` equals its send operation
 id; then enable `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` for production through Pulumi.
