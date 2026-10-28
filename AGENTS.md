@@ -16,7 +16,10 @@ comments are pinned to elements or selected text and stored per domain.
 | `packages/brand` | `@uier/brand` | **the brand: tokens, logo, constants, assets, `BRAND.md`** | [packages/brand/AGENTS.md](packages/brand/AGENTS.md) |
 | `infra` | `@uier/infra` | Pulumi (Vercel project, Cloudflare DNS, Cosmos DB); not in the pnpm workspace | [infra/AGENTS.md](infra/AGENTS.md) |
 
-The [README](README.md) covers setup, commands, infrastructure and CI/CD in full.
+The [README](README.md) is the human entry point: product overview, quick start, commands and
+links. Keep contribution rules in [CONTRIBUTING.md](CONTRIBUTING.md), package-specific agent
+instructions in the matching `AGENTS.md`, and detailed references and runbooks in [docs/](docs/README.md).
+When moving documentation, update relative links and links to section anchors across the repository.
 
 ## Ground rules
 
@@ -34,7 +37,8 @@ The [README](README.md) covers setup, commands, infrastructure and CI/CD in full
 - **Node 24, pnpm via Corepack** (`corepack enable`), exact dependency versions (Renovate keeps
   them current; it waits a day after an npm release, and so does `pnpm install`).
 - **Conventional Commits** (`feat:`, `fix:`, `chore(deps):` ...) and pull requests against
-  `main`. `main` is production: every push deploys (`pulumi up`, then Vercel).
+  `main`. `main` is production: pushes deploy (`pulumi up`, then Vercel) unless all changed
+  paths are excluded by `.github/workflows/deploy.yml`.
 - Do not run `pulumi up` locally and do not change protected infrastructure; CI applies infra.
 - Secrets never go in the repo. `COSMOSDB_CONNECTION_STRING` and `UIER_COMMENTS_SECRET` live in
   Vercel (set by Pulumi); a local connection string goes in `apps/web/.env.local`.
@@ -50,12 +54,14 @@ The [README](README.md) covers setup, commands, infrastructure and CI/CD in full
 | `pnpm test` | Playwright e2e of `apps/web` against the built app (install the browser once: `pnpm -C apps/web exec playwright install --with-deps chromium`) |
 | `pnpm -C packages/brand icons` | re-render the PNG icon set from the mark |
 
-CI runs typecheck, build and the e2e tests on every pull request, plus a Vercel preview and a
-`pulumi preview`. The single required check is **CI OK**.
+CI selects typecheck, build, e2e and a Vercel preview for app/workspace changes, and a
+`pulumi preview` for infrastructure changes. Fork PRs only run checks that need no secrets.
+The single required check is **CI OK**.
 
 ## Before you open a pull request
 
 1. `pnpm typecheck && pnpm build && pnpm test` pass locally.
 2. Anything user-facing matches `BRAND.md`; if you changed a brand value, `BRAND.md` and
    [uier.io/brand](https://uier.io/brand) (`/brand` locally) say the same thing.
-3. Docs that describe what you changed are updated (README, the package `AGENTS.md`).
+3. Docs that describe what you changed are updated (the relevant guide in `docs/`, package
+   documentation and `AGENTS.md`; README when setup, commands or navigation change).

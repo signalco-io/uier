@@ -203,6 +203,7 @@ const up = async () => {
     ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
         projectId: app.projectId, key, value, sensitive, targets: ['production'],
     }, envVarOptions);
+    // The authenticated validation receiver deployed before this guarded subscription attempt.
     acsEmailReports(email.communicationServiceId, emailReportSecret);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
         projectId: app.projectId,

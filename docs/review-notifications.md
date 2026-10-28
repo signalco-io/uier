@@ -127,7 +127,10 @@ confirmation, member controls, light/dark UI and accessibility.
 ## Email reports and address suppression (#132)
 
 `POST /api/email/reports` requires the secret `x-uier-email-report-secret` header, the exact
-`aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id).
+`aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id) for reports.
+The per-subscription secret and exact event-subscription name bind validation to the expected
+subscriber; validation topic metadata is not used as identity. Other event-subscription names and
+missing credentials remain rejected. Delivery reports additionally require the exact ACS topic.
 All three are configured for production only by Pulumi. `acsEmailReports` delivers only report
 events with that secret static header, one event per batch, retrying up to 30 times / 24 hours. Validation accepts only a single
 `Microsoft.EventGrid.SubscriptionValidationEvent` from that subscription/topic and echoes its
@@ -226,3 +229,25 @@ infrastructure. The receiver deployment completed successfully in
 [run 40741903769](https://github.com/signalco-io/uier/actions/runs/40741903769), and the public report
 endpoint rejected a credential-free POST with 401. Production message-id/authentication/header
 checks still require an authorized recipient and remain unverified.
+
+
+The first subscription creation in [run 40743676944](https://github.com/signalco-io/uier/actions/runs/40743676944)
+was rejected with 403. Vercel request evidence confirms the request reached the serverless receiver;
+the expected subscription name is configured. The likely cause is the original topic check rejecting Event Grid's
+[documented subscription-root validation topic](https://learn.microsoft.com/en-us/azure/event-grid/end-point-validation-event-grid-events-schema).
+The receiver now accepts only its configured ACS topic or that topic's Azure subscription root for
+validation, while reports continue to require the ACS topic. The secret and expected subscription
+name remain mandatory. Rejections expose only bounded reason codes, never headers or report data.
+Subscription provisioning is paused for this receiver deployment and must be re-enabled in a later
+infrastructure PR after the fix is live. The Azure-managed sender remains unchanged.
+
+
+A second subscription attempt in [run 40747762369](https://github.com/signalco-io/uier/actions/runs/40747762369)
+still received 403 after the subscription-root compatibility change. The first topic hypothesis
+was not sufficient. Firewall inspection found no custom configuration, bypasses or Attack Mode;
+a local request with Azure's documented headers/body reached the handler and returned 401 for an
+invalid credential. Validation now binds identity to the per-subscription secret and exact
+`aeg-subscription-name`, as the official handshake guidance prescribes. Source topic metadata is
+not an identity check for validation; delivery reports retain their strict ACS-topic check.
+Bounded rejection logs make any further mismatch observable without retaining header values or
+payloads. Provisioning is paused until this receiver revision deploys, then resumed through CI.

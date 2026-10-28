@@ -13,6 +13,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
@@ -22,7 +23,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
-| `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
+| `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
@@ -131,10 +132,10 @@ repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them sayi
 `e2e/pages.spec.ts` checks them.
 
 The continuous-backup control and privacy retention line describe the verified live
-`Continuous7Days` policy in West Europe. Keep the seven-day wording aligned with the README's
-backup evidence and `e2e/pages.spec.ts` / `e2e/legal.spec.ts`; add no recovery-time, recovery-point,
+`Continuous7Days` policy in West Europe. Keep the seven-day wording aligned with the
+[backup evidence](../../docs/backups-and-restore.md) and `e2e/pages.spec.ts` / `e2e/legal.spec.ts`; add no recovery-time, recovery-point,
 regional disaster-recovery or uptime commitment. Restore drills and remaining-TTL copy-back are
-documented under README Infrastructure.
+documented in that runbook.
 
 ## Status page
 
@@ -143,6 +144,11 @@ those checks measure, at request time. Do not add uptime percentages, history or
 not checked. A new service gets a real check there first. `e2e/status.spec.ts` covers both.
 
 ## The app
+
+- Toolbar point anchors can use the single `#uier-toolbar>>>` boundary on uier's own pages.
+  `comments/validation.ts` retains the restricted CSS grammar after it; the toolbar resolves
+  those anchors only when the page and configured API share an origin. `e2e/toolbar-review.spec.ts`
+  covers the review UI and `comments.api.spec.ts` rejects arbitrary shadow boundaries/selectors.
 
 - `reviewSsoCookie.ts` owns the HttpOnly/Secure/SameSite=None companion, restricted to `/api/review`.
   Sign-in and first-party app requests seed it with no longer lifetime than the SameSite=Lax app session;
@@ -242,7 +248,10 @@ the existing production configuration. Dispatch rechecks access, private visibil
 mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
 `docs/review-notifications.md` for the event/delivery contract and failure evidence.
 `/api/email/reports` checks its secret header, expected Event Grid subscription and ACS topic before
-validation or writes. Bounces suppress only by normalized address hash and bounded reason; report
+validation or writes. The per-subscription credential and exact event-subscription name bind
+the handshake to the expected subscriber; do not treat validation topic metadata as identity.
+Delivery reports must additionally use the configured ACS topic. Rejection logs contain only
+bounded reason codes, never header values, addresses, payloads or provider status messages. Bounces suppress only by normalized address hash and bounded reason; report
 receipts retain hashed event/operation ids for 30 days and survive a mailbox confirmation. No raw
 provider message, address or report payload may be logged. Skip suppressed digests; a failed read
 must retry. Show the generic notice only in the admin invite action. Requested sign-in/guest
@@ -335,6 +344,25 @@ message is replaced. Keep the privacy policy and toolbar guide aligned with this
   removed sources. App direct-comment redirects load the authorized stored thread and retain its
   permitted original source plus canonical saved page state. Environment filters never grant access.
 
+## Outbound integration foundation
+
+`src/lib/integrations/` owns the shared outbox and delivery protocol described in
+[`docs/integrations.md`](../../docs/integrations.md). Every eligible non-public project mutation
+records its source signal in the same write, including an unbound request snapshot; do not gate
+that write on cached settings. Hard deletes use the conditional delete+tombstone batch. The
+public showcase, private-only changes and no-ops remain excluded. Ordinary DTOs/reads never
+contain signals or tombstones.
+
+Discovery is bounded and cursor-paged by indexed `syncKey`. Acknowledge only after every target
+is durable and source/binding checks still pass. Each provider gets independent leases, attempts,
+budgets and progress. Preserve uncertain creates for reconciliation, and run cleanup with no
+feedback packet. Every external call checks current membership, binding, source and destination.
+Never persist feedback bodies in integration ledgers or expose credentials in views/logs.
+
+The registry is intentionally empty until complete adapters ship. The shared API suites are
+`integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
+Provider tests and live acceptance are additional gates, not substitutes for shared isolation.
+
 ## Feedback export
 
 The public and review `comments/:id/context` routes and the app `copyIssueAction` read fresh
@@ -382,7 +410,7 @@ light/dark accessibility. This connector does not prove #90 launch acceptance.
 
 `mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
 input. Keep these reference-only configurations aligned with the linked official docs and the
-[README client blocks](../../README.md#coding-tool-access-mcp):
+[MCP client blocks](../../docs/mcp.md):
 
 - [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml`:
   ```toml

@@ -48,13 +48,21 @@ export async function receiveEmailReports(request: Request, store = getAppStore(
         const actual = Buffer.from(request.headers.get('x-uier-email-report-secret') ?? '');
         const expected = Buffer.from(secret);
         if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return new Response(null, { status: 401, headers });
-        if (request.headers.get('aeg-subscription-name') !== subscription) throw apiErrors.forbidden();
+        if (request.headers.get('aeg-subscription-name') !== subscription) {
+            console.warn('[email-reports] unexpected_subscription');
+            return Response.json({ error: 'unexpected_subscription' }, { status: 403, headers });
+        }
         const events = await parseJsonBody(request, z.array(envelope).min(1).max(100), 256 * 1024);
-        if (events.some(event => event.topic.toLowerCase() !== topic.toLowerCase())) throw apiErrors.forbidden();
         if (request.headers.get('aeg-event-type') === 'SubscriptionValidation') {
+            // The per-subscription secret and exact subscription name authenticate this
+            // handshake. Azure's validation topic metadata varies by source; it is not identity.
             if (events.length !== 1 || events[0]!.eventType !== validationEvent) throw apiErrors.invalidRequest('Invalid validation event.');
             const { validationCode } = z.object({ validationCode: z.string().min(1).max(256) }).parse(events[0]!.data);
             return Response.json({ validationResponse: validationCode }, { headers });
+        }
+        if (events.some(event => event.topic.toLowerCase() !== topic.toLowerCase())) {
+            console.warn('[email-reports] unexpected_report_topic');
+            return Response.json({ error: 'unexpected_report_topic' }, { status: 403, headers });
         }
         if (request.headers.get('aeg-event-type') !== 'Notification' || events.some(event => event.eventType !== EMAIL_REPORT_EVENT))
             throw apiErrors.invalidRequest('Invalid report event.');

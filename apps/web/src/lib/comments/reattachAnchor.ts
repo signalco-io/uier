@@ -7,7 +7,8 @@ import type { ReattachAnchorInput } from './validation';
 
 /** ETag retries preserve concurrent messages/status; a changed anchor always needs fresh consent. */
 export async function reattachAnchor(store: CommentsStore, domain: string, id: string,
-    input: ReattachAnchorInput, authorize: (comment: DbComment) => void) {
+    input: ReattachAnchorInput, authorize: (comment: DbComment) => void,
+    finalize: (previous: DbComment, updated: DbComment) => DbComment = (_, updated) => updated) {
     for (let attempt = 0; attempt < 8; attempt++) {
         const stored = await store.get(domain, id);
         if (!stored) throw apiErrors.notFound();
@@ -19,9 +20,9 @@ export async function reattachAnchor(store: CommentsStore, domain: string, id: s
         if ((comment.anchorContext?.revision ?? null) !== input.expectedRevision)
             throw new ApiError(409, 'conflict', 'The anchor changed. Choose it again before saving.');
         const now = new Date().toISOString();
-        const updated: DbComment = { ...comment, position: input.position, updatedAt: now,
+        const updated = finalize(comment, { ...comment, position: input.position, updatedAt: now,
             anchorContext: { original: comment.anchorContext?.original ?? comment.position,
-                previous: comment.position, revision: nanoid(), changedAt: now, changes: (comment.anchorContext?.changes ?? 0) + 1 } };
+                previous: comment.position, revision: nanoid(), changedAt: now, changes: (comment.anchorContext?.changes ?? 0) + 1 } });
         const result = await store.replace(updated, stored.etag);
         if (result === 'ok') return updated;
         if (result === 'not_found') throw apiErrors.notFound();

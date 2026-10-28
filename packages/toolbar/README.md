@@ -7,7 +7,7 @@ feedback pinned to an element (point comments) or to selected text.
 
 The bundle (`dist/index.js`) is a classic script (an IIFE, so nothing leaks into the page's globals).
 The web app serves it at `/toolbar.js`; the production URL is `https://uier.io/toolbar.js`, served from
-Vercel's CDN (caching and updates: the root README, [`/toolbar.js`](../../README.md#toolbarjs)). A reviewed
+Vercel's CDN (caching and updates: [`/toolbar.js`](../../docs/api.md#toolbarjs)). A reviewed
 site embeds it with its project's script tag from the uier app's install guide:
 
 ```html
@@ -29,6 +29,13 @@ sending any comments or visitor request. It opens the review link's project's in
 `/app/projects` when the link has no code, on the API base URL in a new tab. Same-origin embeds
 still use `/api/comments` for the public showcase on uier.io. Local subdomains keep separate host
 partitions. Failed comment loads of configured projects show a message and a retry action.
+
+On uier's own pages (the page and configured API share an origin), Add comment can also target
+the toolbar and inbox controls. Point mode outlines the control and pins the comment without
+activating it. Use Cancel in the instruction or Escape to leave point mode. Keyboard reviewers
+can focus an inbox or toolbar control before activating Add comment. These anchors survive a
+reload, follow panel movement, and include the reviewed UI in automatic screenshots. Toolbar
+and inbox controls stay excluded on third-party sites.
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:
@@ -267,7 +274,7 @@ error boundary, so one bad comment never breaks the toolbar.
   discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.
   Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
-  [Screenshots](../../README.md#screenshots).
+  [Screenshots](../../docs/review-workflow.md#screenshots).
 - Every comment saves the device size, viewport and supported browser/OS hints when feedback starts (`getDeviceInfo`).
   A thread shows it as a desktop, tablet or phone icon next to the first message's time; its tooltip has the size
   and viewport ("Desktop · 1280×720"), and a click shows them. Authorized project members also get copyable
@@ -281,7 +288,7 @@ error boundary, so one bad comment never breaks the toolbar.
   once it is saved, and replies to it wait for its id). The text stays with the draft until the send settles, so
   leaving or reloading the page meanwhile keeps it. A failure removes the comment or reply, puts the text back in
   the draft (a new comment's draft pin returns with the reason) and says so in a toast. Edits still wait for the save.
-  Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../README.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
+  Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../docs/review-workflow.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
 - A thread starts with its status (**Open** or **Done**), public id (`#12`, numbered per site) and a blue dot

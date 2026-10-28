@@ -89,7 +89,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     expect(heading).not.toBeNull();
     const headingCenter = { x: heading!.x + heading!.width / 2, y: heading!.y + heading!.height / 2 };
 
-    // Point mode outlines the element under the pointer, but never the toolbar's own controls
+    // Point mode outlines both the page and, on uier's own origin, the toolbar.
     const outline = author.locator('[data-uier-outline]');
     await author.mouse.move(headingCenter.x, headingCenter.y);
     await expect(outline).toBeVisible();
@@ -100,7 +100,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     expect(outlined!.y + outlined!.height).toBeGreaterThanOrEqual(headingCenter.y);
     const pill = await toolbar(author).boundingBox();
     await author.mouse.move(pill!.x + pill!.width / 2, pill!.y + pill!.height / 2);
-    await expect(outline).toHaveCount(0);
+    await expect(outline).toBeVisible();
 
     await author.mouse.click(headingCenter.x, headingCenter.y);
     await expect(outline).toHaveCount(0);
@@ -428,8 +428,8 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await expect(hint).toBeHidden();
     const instruction = page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' });
     await expect(instruction).toHaveText(testInfo.project.use.hasTouch
-        ? 'Tap anywhere to pin a comment. Tap + to cancel.'
-        : 'Click anywhere to pin a comment. Esc to cancel.');
+        ? 'Tap anywhere to pin a comment.Cancel'
+        : 'Click anywhere to pin a comment. Esc to cancel.Cancel');
     await page.keyboard.press('Escape');
     await expect(add).toHaveAttribute('aria-pressed', 'false');
     await expect(instruction).toHaveCount(0);

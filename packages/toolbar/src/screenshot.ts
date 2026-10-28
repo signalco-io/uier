@@ -3,7 +3,8 @@
  * comment (automatic, issue #81).
  *
  * DOM content is drawn with the page's CSS (`modern-screenshot` renders a copy through an SVG
- * `foreignObject`), without the toolbar. Unsupported content can be omitted. Only what
+ * `foreignObject`), without the toolbar unless the comment reviews its controls on uier itself.
+ * Unsupported content can be omitted. Only what
  * is in the window is drawn: the copy is shifted by the scroll position with a negative margin (a
  * transform would move fixed and sticky elements with it), and elements scrolled inside the page
  * keep their scroll. Then the region around the comment is cut out and encoded (WebP, else JPEG)
@@ -16,6 +17,7 @@ import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
 import { GEIST_FONTS_URL } from '@uier/brand';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
 import type { CommentItemPosition } from './components/@types/Comments';
+import { toolbarReviewTarget, toolbarReviewSurfaces } from './toolbarReview';
 
 /** A screenshot sent to the API as a data URL; shown only on saved feedback. */
 export type CapturedScreenshot = {
@@ -210,9 +212,11 @@ async function fontFaceCss() {
  * Marks the elements scrolled inside the page (not the page itself, which is shifted as a whole),
  * so their copies can show the same scroll. Returns the clean-up.
  */
-function markScrolledElements() {
+function markScrolledElements(includeToolbar: boolean) {
     const marked: Element[] = [];
-    for (const element of document.body.querySelectorAll('*')) {
+    const elements = [...document.body.querySelectorAll('*')];
+    if (includeToolbar) elements.push(...document.getElementById('uier-toolbar')?.shadowRoot?.querySelectorAll('*') ?? []);
+    for (const element of elements) {
         if (element !== document.scrollingElement && (element.scrollTop || element.scrollLeft)) {
             element.setAttribute(scrollAttribute, `${element.scrollLeft},${element.scrollTop}`);
             marked.push(element);
@@ -293,16 +297,17 @@ function resized(source: HTMLCanvasElement, factor: number) {
 }
 
 /**
- * A screenshot of a region of the window (window coordinates), without the toolbar (`exclude`,
- * its host element)
+ * A screenshot of a region of the window. Page feedback excludes the toolbar host; comments
+ * reviewing uier's own controls include its review surfaces, without annotations or instructions.
  */
-export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null): Promise<CapturedScreenshot> {
+export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false): Promise<CapturedScreenshot> {
     // As the page is now, like the region (measured just before)
     const view = windowSize();
     const scroll = { x: window.scrollX, y: window.scrollY };
     const scale = Math.min(window.devicePixelRatio || 1, maxScale);
+    const reviewRoot = includeToolbar ? document.getElementById('uier-toolbar')?.shadowRoot : undefined;
     const cssText = await fontFaceCss();
-    const unmark = markScrolledElements();
+    const unmark = markScrolledElements(includeToolbar);
     let page: HTMLCanvasElement;
     try {
         const context = await createContext(document.documentElement, {
@@ -310,9 +315,15 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             height: view.height,
             scale,
             backgroundColor: pageBackground(),
-            // Not the toolbar, inline threads (the toolbar's too) or a decorative element's content: an
-            // animation or illustration the site marked `data-uier-decorative` (README) keeps its box
-            filter: node => node !== exclude && !(node instanceof Element && node.hasAttribute('data-uier-thread')) && !node.parentElement?.closest('[data-uier-decorative]'),
+            // Inline threads, annotations and placement controls stay out. A decorative element's
+            // content (`data-uier-decorative`, README) keeps its box without the animation.
+            filter: node => node !== exclude
+                && !(node instanceof Element && (node.hasAttribute('data-uier-thread')
+                    || node.matches('.review-overlay,[data-uier-outline],[data-uier-comment],[data-uier-capture-exclude]')
+                    || (reviewRoot && node.getRootNode() === reviewRoot
+                        && !node.matches('style,[data-uier-root]') && !node.closest(toolbarReviewSurfaces)
+                        && !node.querySelector(toolbarReviewSurfaces))))
+                && !node.parentElement?.closest('[data-uier-decorative]'),
             // The scroll position as a margin, not a transform: fixed and sticky elements stay put.
             // `<html>` is not the page's root in the copy: its overflow would clip it.
             style: { marginTop: `${-scroll.y}px`, marginLeft: `${-scroll.x}px`, overflow: 'visible' },
@@ -349,7 +360,8 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
 export async function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined): Promise<string | undefined> {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-        const capture = captureScreenshot(commentRegion(position), toolbarHost(rootElement));
+        const includeToolbar = Boolean(toolbarReviewTarget(resolveAnchorElement(position)));
+        const capture = captureScreenshot(commentRegion(position), includeToolbar ? null : toolbarHost(rootElement), includeToolbar);
         return await Promise.race([
             capture.then(image => image.dataUrl),
             new Promise<undefined>(resolve => { timeout = setTimeout(resolve, 15_000); })

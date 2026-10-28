@@ -81,10 +81,12 @@ test('a review link starts a review for the tab; Exit review ends it', async ({ 
 
 test('the toolbar collapses and expands', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
 
     const add = page.getByRole('button', { name: 'Add comment' });
     await add.click();
+    await page.getByRole('status').getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Collapse toolbar' }).click();
     const expand = page.getByRole('button', { name: 'Expand toolbar' });
     await expect(expand).toBeFocused();
