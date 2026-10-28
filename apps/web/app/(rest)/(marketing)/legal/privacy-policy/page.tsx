@@ -95,6 +95,12 @@ export default function PrivacyPolicyPage() {
                 automatically after reload. The server keeps submission hashes and item ids for 30 days to prevent
                 duplicate comments and replies when a response is lost. Receipts contain no message text or images.
             </p>
+            <p>
+                Project comments also keep internal change versions and pending-work markers. When a project
+                thread is deleted, a text-free record of its project id, thread id and deletion version can remain
+                for up to 30 days so queued synchronization work can recognize the deletion. This record contains
+                no comment text, image or author details.
+            </p>
 
             <h3>The visitor cookie</h3>
             <p>
@@ -319,6 +325,7 @@ export default function PrivacyPolicyPage() {
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
                 <li>Coding tool credentials: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
+                <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
                 <li>Comments in projects: until their author or a project admin deletes them.</li>

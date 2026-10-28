@@ -102,6 +102,8 @@ export type DbProject = AppDoc & {
     pageState?: PageStatePolicy;
     /** Opt-in comment text in review emails, including verified guest recipients. */
     emailCommentExcerpts?: boolean;
+    /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
+    integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */
     environments?: import('./environments').ProjectEnvironment[];
     status: ProjectStatus;

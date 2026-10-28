@@ -1,10 +1,10 @@
 import { originSql } from './originFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
-import type { OperationInput, SqlParameter } from '@azure/cosmos';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission } from '../db/schema';
+import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
-import type { AppendResult, CommentsStore, ConditionalWriteResult, StoredComment } from './commentsStore';
+import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
 
 function errorCode(error: unknown): number | string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error
@@ -13,8 +13,8 @@ function errorCode(error: unknown): number | string | undefined {
 }
 
 /** Removes Cosmos system properties (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) */
-function withoutSystemProperties(resource: Record<string, unknown>): DbComment {
-    return Object.fromEntries(Object.entries(resource).filter(([key]) => !key.startsWith('_'))) as DbComment;
+function withoutSystemProperties<T = DbComment>(resource: Record<string, unknown>): T {
+    return Object.fromEntries(Object.entries(resource).filter(([key]) => !key.startsWith('_'))) as T;
 }
 
 // Matches the normalized path and old documents whose path still contains the query string (e.g. `/x?review=true`)
@@ -28,21 +28,72 @@ function pathParameters(path: string): SqlParameter[] {
     ];
 }
 
-async function queryAll<T>(domain: string, query: string, parameters: SqlParameter[]) {
-    const { resources } = await cosmosDataContainerComments().items.query<T>({
-        query,
-        parameters: [{ name: '@domain', value: domain }, ...parameters]
-    }, { partitionKey: domain }).fetchAll();
-    return resources;
-}
-
-export function createCosmosCommentsStore(): CommentsStore {
+export function createCosmosCommentsStore(getContainer: () => Container = cosmosDataContainerComments): CommentsStore {
+    async function queryAll<T>(domain: string, query: string, parameters: SqlParameter[]) {
+        const { resources } = await getContainer().items.query<T>({
+            query,
+            parameters: [{ name: '@domain', value: domain }, ...parameters]
+        }, { partitionKey: domain }).fetchAll();
+        return resources;
+    }
     return {
+        async listSyncPending(options = {}) {
+            // No production outbox predates syncKey. Audit missing keys explicitly on adoption;
+            // don't use a non-indexed fallback expression that requires fetching the full queue.
+            const parameters: SqlParameter[] = [{ name: '@limit', value: syncPendingPageLimit(options) }];
+            if (options.after) parameters.push({ name: '@after', value: options.after });
+            const { resources } = await getContainer().items.query<Record<string, unknown>>({
+                query: "SELECT TOP @limit * FROM c WHERE c.syncPending = true AND IS_DEFINED(c.projectId) AND IS_STRING(c.syncKey) AND (IS_DEFINED(c.path) OR c.type = 'tombstone')"
+                    + (options.after ? ' AND c.syncKey > @after' : '') + ' ORDER BY c.syncKey ASC',
+                parameters
+            }).fetchAll();
+            return resources.map(resource => withoutSystemProperties<DbComment | DbSyncTombstone>(resource));
+        },
+        async deleteWithTombstone(domain, id, etag, tombstone) {
+            if (tombstone.domain !== domain || tombstone.commentId !== id || tombstone.id !== syncTombstoneId(id))
+                throw new Error('Deletion intent does not match its comment.');
+            try {
+                // The SDK's DeleteOperationInput omits this field, but its DeleteOperation type
+                // includes it and transactional batch forwards the complete operation to Cosmos.
+                const deletion: DeleteOperation = { operationType: 'Delete', id, ifMatch: etag };
+                const response = await getContainer().items.batch([
+                    deletion,
+                    { operationType: 'Upsert', resourceBody: tombstone }
+                ], domain);
+                const failed = response.result?.find(result => result.statusCode >= 400 && result.statusCode !== 424)?.statusCode;
+                const code = failed ?? response.code;
+                if (code === 412) return 'conflict';
+                if (code === 404) return 'not_found';
+                if (response.result?.length !== 2 || !code || code < 200 || code >= 300 || response.result.some(result => result.statusCode >= 400))
+                    throw new Error('Comment deletion transaction failed.');
+                return 'ok';
+            } catch (error) {
+                const code = Number(errorCode(error));
+                if (code === 412) return 'conflict';
+                if (code === 404) return 'not_found';
+                throw error;
+            }
+        },
+        async deleteTombstone(domain, commentId, expectedVersion) {
+            const target = getContainer().item(syncTombstoneId(commentId), domain);
+            try {
+                const response = await target.read<DbSyncTombstone>();
+                if (response.resource?.type !== 'tombstone' || !response.etag) return 'not_found';
+                if (expectedVersion !== undefined && response.resource.syncVersion !== expectedVersion) return 'conflict';
+                await target.delete({ accessCondition: { type: 'IfMatch', condition: response.etag } });
+                return 'ok';
+            } catch (error) {
+                const code = Number(errorCode(error));
+                if (code === 412) return 'conflict';
+                if (code === 404) return 'not_found';
+                throw error;
+            }
+        },
         async listNotificationPending() {
-            const { resources } = await cosmosDataContainerComments().items.query<Record<string, unknown>>({
+            const { resources } = await getContainer().items.query<Record<string, unknown>>({
                 query: 'SELECT * FROM c WHERE c.notificationPending = true AND IS_DEFINED(c.projectId) AND IS_DEFINED(c.path)'
             }).fetchAll();
-            return resources.map(withoutSystemProperties);
+            return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
         async list(domain, path, limit, originFilter) {
             const filter = originSql(originFilter);
@@ -50,7 +101,7 @@ export function createCosmosCommentsStore(): CommentsStore {
                 domain,
                 `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
-            return resources.map(withoutSystemProperties);
+            return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
         async listAll(domain, limit, originFilter) {
             const filter = originSql(originFilter);
@@ -59,11 +110,11 @@ export function createCosmosCommentsStore(): CommentsStore {
                 domain,
                 `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, { name: '@limit', value: limit }]);
-            return resources.map(withoutSystemProperties);
+            return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
         async get(domain, id): Promise<StoredComment | null> {
             try {
-                const response = await cosmosDataContainerComments().item(id, domain).read<Record<string, unknown>>();
+                const response = await getContainer().item(id, domain).read<Record<string, unknown>>();
                 // The partition's counters, sequence and screenshots are not comments
                 if (!response.resource || !response.etag || !isCommentDocument(response.resource))
                     return null;
@@ -76,7 +127,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async getSubmission(domain, id) {
             try {
-                const { resource } = await cosmosDataContainerComments().item(id, domain).read<DbSubmission>();
+                const { resource } = await getContainer().item(id, domain).read<DbSubmission>();
                 return resource?.type === 'submission' ? resource : null;
             } catch (error) {
                 if (errorCode(error) === 404) return null;
@@ -92,7 +143,7 @@ export function createCosmosCommentsStore(): CommentsStore {
                 ...(screenshot ? [{ operationType: 'Create' as const, resourceBody: screenshot }] : [])
             ];
             try {
-                const response = await cosmosDataContainerComments().items.batch(operations, receipt.domain);
+                const response = await getContainer().items.batch(operations, receipt.domain);
                 const failed = response.result?.find(result => result.statusCode >= 400 && result.statusCode !== 424)?.statusCode;
                 const code = failed ?? response.code;
                 if (code === 409 || code === 412 || code === 404) return 'conflict';
@@ -106,11 +157,11 @@ export function createCosmosCommentsStore(): CommentsStore {
             }
         },
         async create(comment) {
-            await cosmosDataContainerComments().items.create<DbComment>(comment);
+            await getContainer().items.create<DbComment>(comment);
         },
         async replace(comment, etag): Promise<ConditionalWriteResult> {
             try {
-                await cosmosDataContainerComments().item(comment.id, comment.domain).replace<DbComment>(comment, {
+                await getContainer().item(comment.id, comment.domain).replace<DbComment>(comment, {
                     accessCondition: { type: 'IfMatch', condition: etag }
                 });
                 return 'ok';
@@ -125,7 +176,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async delete(domain, id, etag): Promise<ConditionalWriteResult> {
             try {
-                await cosmosDataContainerComments().item(id, domain).delete({
+                await getContainer().item(id, domain).delete({
                     accessCondition: { type: 'IfMatch', condition: etag }
                 });
                 return 'ok';
@@ -149,7 +200,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
             // Item and activity cursor share one etag-protected write. A patch cannot derive
             // a cursor for legacy threads or record the actor's latest sequence atomically.
-            const target = cosmosDataContainerComments().item(id, domain);
+            const target = getContainer().item(id, domain);
             for (let attempt = 0; attempt < 16; attempt++) {
                 try {
                     const stored = await target.read<DbComment>();
@@ -172,12 +223,12 @@ export function createCosmosCommentsStore(): CommentsStore {
             throw new Error(`Comment ${id} changed too often while replying`);
         },
         async createScreenshot(screenshot) {
-            await cosmosDataContainerComments().items.create<DbScreenshot>(screenshot);
+            await getContainer().items.create<DbScreenshot>(screenshot);
         },
         async replaceScreenshot(comment, etag, screenshot) {
             // One partition transaction: a failed metadata write never destroys the old image.
             try {
-                const response = await cosmosDataContainerComments().items.batch([
+                const response = await getContainer().items.batch([
                     { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag },
                     { operationType: 'Upsert', resourceBody: screenshot }
                 ], comment.domain);
@@ -198,7 +249,7 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async getScreenshot(domain, commentId) {
             try {
-                const { resource } = await cosmosDataContainerComments().item(screenshotDocumentId(commentId), domain).read<Record<string, unknown>>();
+                const { resource } = await getContainer().item(screenshotDocumentId(commentId), domain).read<Record<string, unknown>>();
                 return resource?.type === 'screenshot'
                     ? withoutSystemProperties(resource) as unknown as DbScreenshot
                     : null;
@@ -210,14 +261,14 @@ export function createCosmosCommentsStore(): CommentsStore {
         },
         async deleteScreenshot(domain, commentId) {
             try {
-                await cosmosDataContainerComments().item(screenshotDocumentId(commentId), domain).delete();
+                await getContainer().item(screenshotDocumentId(commentId), domain).delete();
             } catch (error) {
                 if (errorCode(error) !== 404)
                     throw error;
             }
         },
         async nextCommentNumber(domain) {
-            const container = cosmosDataContainerComments();
+            const container = getContainer();
             const id = commentSequenceId;
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
@@ -251,7 +302,7 @@ export function createCosmosCommentsStore(): CommentsStore {
             throw new Error(`Sequence ${id} could not be updated`);
         },
         async incrementCounter(domain, id, limit, ttlSeconds) {
-            const container = cosmosDataContainerComments();
+            const container = getContainer();
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
                     await container.item(id, domain).patch<DbCounter>({
