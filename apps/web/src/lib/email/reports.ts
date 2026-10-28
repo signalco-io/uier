@@ -48,21 +48,22 @@ export async function receiveEmailReports(request: Request, store = getAppStore(
         const actual = Buffer.from(request.headers.get('x-uier-email-report-secret') ?? '');
         const expected = Buffer.from(secret);
         if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return new Response(null, { status: 401, headers });
-        if (request.headers.get('aeg-subscription-name') !== subscription)
+        if (request.headers.get('aeg-subscription-name') !== subscription) {
+            console.warn('[email-reports] unexpected_subscription');
             return Response.json({ error: 'unexpected_subscription' }, { status: 403, headers });
+        }
         const events = await parseJsonBody(request, z.array(envelope).min(1).max(100), 256 * 1024);
         if (request.headers.get('aeg-event-type') === 'SubscriptionValidation') {
-            // Azure's documented validation schema can name the Azure subscription, whereas
-            // delivery reports name the ACS resource. Both still require our secret and name.
-            const subscriptionTopic = /^\/subscriptions\/[^/]+/i.exec(topic)?.[0];
-            if (events.some(event => ![topic.toLowerCase(), subscriptionTopic?.toLowerCase()].includes(event.topic.toLowerCase())))
-                return Response.json({ error: 'unexpected_validation_topic' }, { status: 403, headers });
+            // The per-subscription secret and exact subscription name authenticate this
+            // handshake. Azure's validation topic metadata varies by source; it is not identity.
             if (events.length !== 1 || events[0]!.eventType !== validationEvent) throw apiErrors.invalidRequest('Invalid validation event.');
             const { validationCode } = z.object({ validationCode: z.string().min(1).max(256) }).parse(events[0]!.data);
             return Response.json({ validationResponse: validationCode }, { headers });
         }
-        if (events.some(event => event.topic.toLowerCase() !== topic.toLowerCase()))
+        if (events.some(event => event.topic.toLowerCase() !== topic.toLowerCase())) {
+            console.warn('[email-reports] unexpected_report_topic');
             return Response.json({ error: 'unexpected_report_topic' }, { status: 403, headers });
+        }
         if (request.headers.get('aeg-event-type') !== 'Notification' || events.some(event => event.eventType !== EMAIL_REPORT_EVENT))
             throw apiErrors.invalidRequest('Invalid report event.');
         // Validate the whole batch before writing. A failed write returns 503 for Event Grid retry.

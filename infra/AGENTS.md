@@ -112,3 +112,9 @@ checks, and never remove protection or bypass the staged deployment order.
 After #179 deploys the validation-topic compatibility receiver, resume `acsEmailReports` through
 CI. Validate its provisioning state independently before claiming the handshake succeeded. Sender
 cutover remains a separate five-state gate; delivery-report operation matching stays disabled.
+
+
+After the second 403, subscription provisioning is paused again for the authenticated validation
+binding receiver revision. Validation requires its per-subscription secret and exact subscription
+name; report notifications additionally require the configured ACS topic. Resume only after the
+receiver deploys. Do not bypass WAF, authentication or the five-state sender gate.
