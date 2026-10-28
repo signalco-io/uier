@@ -221,6 +221,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## Testing
 
+CSP console audits must be asserted before an axe scan. Axe fetches external stylesheets with
+`fetch`, which can produce scanner-only `connect-src` violations on a strict reviewed site.
+Start a fresh audit for subsequent product actions; retain the strict policy and assertions.
+
 Review notifications live in `src/lib/notifications/`. Event metadata is part of the same comment
 write as the shared unread activity cursor. Never send email from a toolbar client or detached
 promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-backed worker with

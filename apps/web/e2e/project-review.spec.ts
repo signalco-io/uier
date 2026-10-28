@@ -97,6 +97,9 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
     expect(strangerViolations).toEqual([]);
     await checkNotice(stranger.page);
+    // axe fetches external stylesheets via connect-src. Audit sign-in separately
+    // from the scanner's requests; the initial toolbar CSP assertion stays above.
+    const signInViolations = await watchCsp(stranger.page);
 
     // "Sign in" goes through the project's review link on uier (sign in, then back to the page)
     await stranger.page.getByRole('button', { name: 'Sign in' }).click();
@@ -107,7 +110,7 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(stranger.page).toHaveURL(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
     await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
     await expect(stranger.page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0);
-    expect(strangerViolations).toEqual([]);
+    expect(signInViolations).toEqual([]);
     await stranger.context.close();
 
     // The owner opens the review link from the app: the toolbar is signed in on the site
