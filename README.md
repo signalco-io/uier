@@ -6,6 +6,11 @@ styles), comments are pinned to page elements or selected text and stored per do
 Every public uier.io page runs the toolbar itself as a [showcase](#landing-page-showcase-and-public-feedback):
 anyone can try it and leave public feedback.
 
+**Mark all as read** in the app comments list/board or toolbar inbox acknowledges only the
+unread threads shown by the current filters. Replies arriving after that list was rendered stay
+unread. Large lists are sent in batches of up to 200; failed writes offer Retry. Read activity
+also suppresses pending email digests through the same per-reviewer cursor.
+
 This repository contains:
 
 - the **uier.io website and API** (Next.js, deployed to Vercel),

@@ -37,7 +37,7 @@ export function PagePicker({ value, pages, currentCount, otherCount, onChange }:
         <SelectItems<CommentsPageFilter>
             container={container ?? undefined}
             placeholder="Pages"
-            className="min-w-0 flex-1"
+            className="min-w-36 flex-1"
             value={value}
             onValueChange={onChange}
             items={[

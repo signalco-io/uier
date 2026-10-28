@@ -21,6 +21,8 @@ import { apiErrors } from '../../../lib/comments/http';
 import { KnownPageLinks } from '../../../knownPages';
 import { appBaseUrl } from '../../../lib/app/request';
 import { projectFeedbackExport } from '../../../lib/review/feedbackContext';
+import { markProjectThreadsRead } from '../../../lib/review/bulkRead';
+import type { ReadThreadInput } from '../../../lib/comments/bulkRead';
 
 /** The comment's project (current workspace, visible to the user) and the user as its actor */
 async function commentContext(projectId: string) {
@@ -78,6 +80,15 @@ export async function markCommentReadAction(projectId: string, commentId: string
         const comment = await getProjectComment(project, actor, commentId);
         if (!comment) throw apiErrors.notFound();
         await markThreadRead(comment, actorAuthorId(actor)!, sequence);
+    });
+}
+
+export async function markCommentsReadAction(projectId: string, threads: ReadThreadInput[]) {
+    return actionResult(async () => {
+        const { project, actor } = await commentContext(projectId);
+        const result = await markProjectThreadsRead(project, actor, { threads });
+        revalidatePath(KnownPageLinks.project(projectId));
+        return result;
     });
 }
 

@@ -6,11 +6,13 @@ import { Button } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { peopleFilterLabels, type CommentsView, type PeopleFilter } from './commentLabels';
+import type { ReactNode } from 'react';
 
 const allPages = 'all';
 
 /** View (list or board) and the people and page filters; all kept in the URL */
-export function CommentFilters({ unread, unreadCount, view, people, page, pages, environment, environments }: {
+export function CommentFilters({ unread, unreadCount, view, people, page, pages, environment, environments, readAction }: {
+    readAction?: ReactNode;
     environment?: string;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
     unread: boolean;
@@ -49,6 +51,7 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages,
             <Button size="sm" variant="outline" aria-pressed={unread} onClick={() => go('unread', unread ? undefined : 'true')}>
                 Unread {unreadCount}
             </Button>
+            {readAction}
             <ToggleGroup
                 type="single"
                 variant="outline"

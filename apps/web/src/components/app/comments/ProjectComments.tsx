@@ -10,6 +10,7 @@ import { InviteButton } from '../users/InviteDialog';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
 import type { CommentsView, PeopleFilter } from './commentLabels';
+import { MarkAllRead } from './MarkAllRead';
 
 export type CommentsQuery = {
     environment?: string;
@@ -122,7 +123,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <CommentFilters environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages} />
+                <CommentFilters environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages}
+                    readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />} />
                 <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
                     {shown.length === comments.length
                         ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`

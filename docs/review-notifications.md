@@ -46,6 +46,10 @@ containers and Azure Communication Services sender; it creates no new infrastruc
 Before each attempt, the worker reloads current project access, membership, private-thread
 visibility, subscription, mute and read cursor. Removed members, disabled projects, guests on
 invited-only projects, hidden/deleted threads and already-read activity are suppressed.
+Bulk Mark all as read uses the same per-thread read cursors, so queued deliveries suppress events
+at or below each successful cursor. Failed writes and replies newer than the rendered list retain
+their eligibility; bulk acknowledgement needs no new notification storage.
+
 Emails name the actor, action and page for each eligible event. A mention says "mentioned you";
 assignment says "assigned #N to you" or "unassigned you from #N", without naming other recipients.
 Guests are explicitly labeled as guests; removed members become "Former member" and missing
