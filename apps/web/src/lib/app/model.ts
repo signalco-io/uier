@@ -100,6 +100,8 @@ export type DbProject = AppDoc & {
     urls: string[];
     /** Opt-in meaningful URL state. Missing on older projects: pathname only. */
     pageState?: PageStatePolicy;
+    /** Opt-in comment text in review emails, including verified guest recipients. */
+    emailCommentExcerpts?: boolean;
     /** Optional labels and explicit alias groups, keyed by configured origin. */
     environments?: import('./environments').ProjectEnvironment[];
     status: ProjectStatus;

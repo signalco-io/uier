@@ -269,8 +269,7 @@ const MAX_UPDATE_ATTEMPTS = 8;
  * Read-modify-write with optimistic concurrency, retried on conflicts. `update` may throw to abort;
  * returns `null` when the document does not exist.
  */
-export async function updateDoc<T extends AppDoc>(pk: string, id: string, update: (doc: T) => T): Promise<T | null> {
-    const store = getAppStore();
+export async function updateDoc<T extends AppDoc>(pk: string, id: string, update: (doc: T) => T, store = getAppStore()): Promise<T | null> {
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
         const stored = await store.get<T>(pk, id);
         if (!stored)

@@ -351,6 +351,11 @@ optionally choose **Email me replies** after commenting and verify an address; n
 an account is required to post. Related unread activity is batched for five minutes, with current
 access, mute, unsubscribe and shared read-cursor checks before sending. A scheduled GitHub workflow
 uses the existing production Cosmos/ACS configuration; no detached serverless work is used.
+Digests say who acted, what happened and which thread/page changed, with recipient-specific mention
+and assignment wording. Comment text is excluded by default. Workspace admins can enable **Include
+comment excerpts** in project settings for every recipient, verified guests included; commenters
+can see the setting. Quoted page text, screenshots and reproduction details stay out. Retained
+failed or ambiguous attempts can keep enabled excerpts until reconciled, with no automatic expiry.
 
 See [the delivery contract and operations guide](docs/review-notifications.md) for defaults,
 verification, retention, retry evidence, scheduler delays and the #83/#91 integration contract.

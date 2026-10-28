@@ -189,10 +189,16 @@ export default function PrivacyPolicyPage() {
                 Cosmos DB. We use the same read cursor as the toolbar and app to skip activity you have
                 already read. Related activity is batched for five minutes and processed by a scheduled
                 GitHub workflow using our existing Azure Communication Services email sender. Emails
-                contain project names and authorized thread links, without comment text or images.
+                name the actor, action, project and page, with authorized thread links. Comment text is
+                excluded by default. Workspace admins can enable short comment excerpts for every
+                recipient, including verified guests; commenters can see this project setting.
+                Quoted page text, images and reproduction details stay out of these emails.
                 Every digest links to unsubscribe or manage notifications. Preferences and delivery
                 evidence remain until revoked or the associated data is removed. Delivery records can
                 include the recipient address and the exact email while a send is pending or its result is uncertain.
+                If excerpts were enabled, a retained failed or uncertain attempt can keep that comment
+                text until reconciliation, acceptance, suppression or removal of the record, with no
+                automatic expiry. Later edits, deletions or disabling excerpts do not change that retained email.
                 Unsubscribe prevents further sends. We do not
                 add notification cookies or store guest email addresses in your browser.
             </p>

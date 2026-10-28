@@ -231,6 +231,11 @@ promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-b
 the existing production configuration. Dispatch rechecks access, private visibility, subscription,
 mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
 `docs/review-notifications.md` for the event/delivery contract and failure evidence.
+Digest wording uses only the recipient's eligible batch and current authorized participant names;
+never name other mention/assignment recipients. Events store item/new-assignee ids, never text.
+`emailCommentExcerpts` defaults off and is saved through `adminProject`; commenters see its state.
+New attempts rebuild from fresh settings/items at the send boundary; retained provider operations
+keep their exact message, which can retain opt-in excerpts until reconciliation without a TTL.
 
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and

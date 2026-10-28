@@ -9,6 +9,8 @@ import { getMember, listWorkspaceMembers, memberCanAccessProject } from '../app/
 import { findProject } from '../app/projects';
 import { memberActor, type ProjectActor } from '../review/actor';
 import { canSeeComment } from '../review/comments';
+import { participantNames } from '../review/dto';
+import { digestContent } from './digest';
 import type { DbComment } from '../db/schema';
 import { getCommentsStore } from '../repo/commentsStore';
 import { getReadSequence } from '../comments/readState';
@@ -23,7 +25,7 @@ export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
-export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource };
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; itemId?: string; assigneeId?: string | null };
 
 export type NotificationDelivery = AppDoc & {
     type: 'notification-delivery'; projectId: string; threadId: string; actorId: string; userId?: string;
@@ -105,7 +107,7 @@ function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awa
                     || event.recipients?.includes(delivery.actorId)))));
 }
 
-async function digestMessage(baseUrl: string, delivery: NotificationDelivery, context: NonNullable<Awaited<ReturnType<typeof recipientContext>>>) {
+async function digestMessage(baseUrl: string, delivery: NotificationDelivery, context: NonNullable<Awaited<ReturnType<typeof recipientContext>>>, batch: NotificationEvent[]) {
     const { project, comment } = context;
     let manage: NotificationSubscription | NotificationPreference | undefined = context.subscription;
     let mode: 'subscription' | 'project' = 'subscription';
@@ -132,16 +134,16 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
             url = page.toString();
         }
     }
-    return layoutEmail({ to: context.email!, subject: `Review activity in ${project.name}`,
-        paragraphs: [`There is new activity in thread ${comment.number ? `#${comment.number}` : ''} on ${project.name}.`,
+    const content = digestContent(project, comment, delivery.actorId, batch, await participantNames(project));
+    return layoutEmail({ to: context.email!, subject: content.subject,
+        paragraphs: [...content.lines,
             source.available ? 'Open the thread to read the latest feedback, replies and status changes.' : 'The original site address is unavailable. Project members can read the feedback in the app history.'],
         action: { label: source.available ? 'Open thread' : delivery.userId ? 'Open feedback history' : 'Manage notifications', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
         footerAction: { label: mode === 'project' ? 'Manage project emails' : 'Unsubscribe from thread', url: manageUrl } });
 }
 
 /** One bounded attempt under an optimistic lease; all state survives process restarts. */
-export async function processNotificationDelivery(candidate: NotificationDelivery, baseUrl: string, transport = deliverNotificationEmail, now = Date.now()) {
-    const store = getAppStore();
+export async function processNotificationDelivery(candidate: NotificationDelivery, baseUrl: string, transport = deliverNotificationEmail, now = Date.now(), store = getAppStore()) {
     const stored = await store.get<NotificationDelivery>(candidate.pk, candidate.id);
     if (!stored || !stored.doc.active || Date.parse(stored.doc.nextAttemptAt) > now || (stored.doc.lease && Date.parse(stored.doc.lease.until) > now)) return;
     const lease = { id: randomUUID(), until: iso(now + 5 * 60 * 1000) };
@@ -154,7 +156,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         if (saved.status !== 'failed' && saved.status !== 'ambiguous')
             saved.active = Boolean(saved.attempt) || current.requestedThrough > saved.processedThrough;
         return saved;
-    });
+    }, store);
     try {
         const context = await recipientContext(delivery);
         const events = context ? eligibleEvents(delivery, context) : [];
@@ -168,18 +170,29 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         const batch = events.filter(event => event.sequence <= through);
         // A cursor may advance between retries; cancel any unsent content that's now seen.
         if (!batch.length) { await save({ processedThrough: through, attempt: undefined, active: true, nextAttemptAt: iso(), status: 'suppressed' }); return; }
-        const attempt = delivery.attempt ?? { operationId: randomUUID(), firstSentAt: iso(now), through,
-            message: await digestMessage(baseUrl, delivery, context) };
+        let attempt = delivery.attempt ?? { operationId: randomUUID(), firstSentAt: iso(now), through,
+            message: await digestMessage(baseUrl, delivery, context, batch) };
         // Persist before the external request, including its exact body and repeatability identity.
         await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
             if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
             return { ...current, attempt, lastOperationId: attempt.operationId };
-        });
+        }, store);
         // Preparing a digest does several reads/writes. Check once more at the send boundary.
         const latest = await recipientContext(delivery);
         if (!latest?.email || latest.email !== attempt.message.to || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
             await save({ processedThrough: through, attempt: undefined, active: false, status: 'suppressed' });
             return;
+        }
+        // A newly prepared operation has not reached the provider yet. Reloaded items and
+        // settings replace its content (including edits/deletions); prior-run operations must
+        // retain their exact persisted message for ACS repeatability and reconciliation.
+        if (!delivery.attempt) {
+            const latestBatch = eligibleEvents(delivery, latest).filter(event => event.sequence <= through);
+            attempt = { ...attempt, message: await digestMessage(baseUrl, delivery, latest, latestBatch) };
+            await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
+                if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
+                return { ...current, attempt };
+            }, store);
         }
         const result = await transport(attempt.message, attempt, Boolean(delivery.attempt));
         if (result.status === 'sent') {
