@@ -196,15 +196,20 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   open on the reviewer's own computer, so each reviewer needs the site running locally.
   - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install?onboarding=1`
     (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
-    the sources to add to it). Both pages show the two-step progress (Your site, Add the script); the Install
-    tab on its own is the guide without it.
+    the sources to add to it). Both pages show the three-step progress (Your site, Add the script, Invite a
+    reviewer). The install page starts at step 2 of 3 and adds the reviewer step below the guide: admins
+    invite people by email for invited-only projects; guest projects show a plain, copyable review link for
+    every address, main site first. Comments-off projects say so and link admins to Settings. The Install
+    tab on its own is the guide without the progress or reviewer step.
   - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
     Comments, Install and Settings.
-  - Comments `/app/projects/<code>`: the guest link (in guest mode) and the project's **comments**, as a
+  - Comments `/app/projects/<code>`: the guest links for every address (in guest mode, main site first) and the project's **comments**, as a
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
     URLs). Each comment shows its page URL, the device size it came from, when it was created, its author,
     assignee, replies and state, with Done, Link to comment and Assign; the author or an admin edits and
-    deletes it, and only admins make it private.
+    deletes it, and only admins make it private. Empty lists retain Install the script; invited-only projects
+    also offer admins Invite with the email sign-in explanation. Comments-off lists say so and link admins
+    to Settings. Filtered lists keep Nothing here.
   - Install `/app/projects/<code>/install`: the install guide with the project code and **Check installation**.
     The check opens the actual configured site, confirms the script's project/API, reads comments and obtains a
     browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence

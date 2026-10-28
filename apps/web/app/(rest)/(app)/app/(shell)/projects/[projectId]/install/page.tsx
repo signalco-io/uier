@@ -9,6 +9,7 @@ import { appBaseUrl } from '@/src/lib/app/request';
 import { InstallGuide } from '@/src/components/app/projects/InstallGuide';
 import { OnboardingSteps } from '@/src/components/app/projects/OnboardingSteps';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
+import { InviteReviewerStep } from '@/src/components/app/projects/InviteReviewerStep';
 
 export const metadata: Metadata = {
     title: 'Install'
@@ -25,7 +26,7 @@ export default async function InstallProjectPage({ params, searchParams }: PageP
 
     return (
         <div className="flex max-w-3xl flex-col gap-8">
-            {onboarding === '1' && <OnboardingSteps current={2} className="max-w-xl" />}
+            {onboarding === '1' && <OnboardingSteps current={2} />}
             <InstallGuide
                 baseUrl={await appBaseUrl()}
                 projectId={project.id}
@@ -38,6 +39,9 @@ export default async function InstallProjectPage({ params, searchParams }: PageP
                         </Button>
                     </div>
                 )} />
+            {onboarding === '1' && (
+                <InviteReviewerStep projectId={project.id} access={project.access} urls={project.urls} isAdmin={context.isAdmin} />
+            )}
         </div>
     );
 }

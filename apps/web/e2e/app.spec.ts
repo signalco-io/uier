@@ -53,19 +53,20 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Create a project' })).toBeVisible();
     await expect(page).toHaveTitle('Create project · uier');
-    // The onboarding progress: the site first, then the script
+    // The onboarding progress: the site, the script, then the first reviewer
     const progress = page.getByRole('list', { name: 'Onboarding progress' });
-    await expect(progress.getByRole('listitem')).toHaveCount(2);
-    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 2: Your site');
-    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 2: Add the script');
+    await expect(progress.getByRole('listitem')).toHaveCount(3);
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 3: Your site');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 3: Add the script');
+    await expect(progress.getByRole('listitem').nth(2)).toContainText('Step 3 of 3: Invite a reviewer');
     await expectNoAxeViolations(page);
 
     const projectId = await createProject(page, { urls: ['www.example.com/', 'https://staging.example.com/app/'] });
 
     // Install guide (the project's Install tab): the script with the project code, platform guidance and the CSP sources
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
-    await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 2: Your site (done)');
-    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 2: Add the script');
+    await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Add the script');
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(projectId, { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${projectId}"`).first()).toBeVisible();
@@ -81,7 +82,21 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByText('style-src \'unsafe-inline\' https://fonts.googleapis.com')).toBeVisible();
     // Metadata is streamed after the content
     await expect(page).toHaveTitle('Install · uier');
-    await expectNoAxeViolations(page);
+    const reviewerStep = page.getByRole('region', { name: 'Invite a reviewer' });
+    await expect(reviewerStep).toContainText('Only people you invite can see and leave comments. They sign in with their email.');
+    await expect(reviewerStep.locator('code')).toHaveCount(0);
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+        await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+        await expectNoAxeViolations(page);
+        await reviewerStep.getByRole('button', { name: 'Invite', exact: true }).click();
+        const dialog = page.getByRole('dialog', { name: 'Invite someone' });
+        await expect(dialog.getByRole('checkbox', { name: 'example.com', exact: true })).toBeChecked();
+        await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+        await expectNoAxeViolations(page);
+        await page.keyboard.press('Escape');
+    }
 
     // The project, with both addresses normalized
     await page.getByRole('link', { name: 'Go to the comments' }).click();
@@ -89,6 +104,9 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(page).toHaveTitle('example.com · uier');
     await expect(page.getByText('No comments yet')).toBeVisible();
+    const empty = page.locator('[data-slot="empty"]');
+    await expect(empty).toContainText('They sign in with their email.');
+    await expect(empty.getByRole('button', { name: 'Invite', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Open review' }).click();
     await expect(page.getByRole('menuitem', { name: /www\.example\.com\s*Main site/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: /staging\.example\.com\/app/ })).toBeVisible();
@@ -101,6 +119,7 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install$`));
     await expect(page.getByRole('heading', { name: 'Copy the script' })).toBeVisible();
     await expect(progress).toHaveCount(0);
+    await expect(reviewerStep).toHaveCount(0);
 });
 
 test('review links open the project\'s own sites with the toolbar turned on', async ({ page }) => {
