@@ -15,7 +15,7 @@ export async function emailReportsReady(topic: string, credential: string, fetch
     }
     const body = await response.json().catch(() => null) as { validationResponse?: unknown; error?: unknown } | null;
     if (!response.ok || body?.validationResponse !== code) {
-        const reason = typeof body?.error === 'string' && ['unexpected_subscription', 'unexpected_validation_topic', 'unexpected_report_topic'].includes(body.error)
+        const reason = typeof body?.error === 'string' && ['missing_subscription', 'unexpected_subscription', 'unexpected_validation_topic', 'unexpected_report_topic'].includes(body.error)
             ? body.error : 'invalid_validation_response';
         throw new Error(`Email report receiver readiness: HTTP ${response.status} (${reason}).`);
     }

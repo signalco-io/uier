@@ -23,12 +23,15 @@ test('receiver authenticates the expected subscription/topic and completes only 
     const headers = { ...emailReportHeaders, 'aeg-event-type': 'SubscriptionValidation' };
     expect((await POST(request([validation], { ...headers, 'x-uier-email-report-secret': '' }))).status).toBe(401);
     expect((await POST(request([validation], { ...headers, 'aeg-subscription-name': 'unexpected' }))).status).toBe(403);
+    expect((await POST(request([validation], { ...headers, 'aeg-subscription-name': '' }))).status).toBe(403);
+    expect(await (await POST(request([validation], { ...headers, 'aeg-subscription-name': emailReportTestSubscription.toUpperCase() }))).json()).toEqual({ validationResponse: 'the-code' });
     expect((await POST(request([{ ...validation, topic: 'source-specific-validation-topic' }], headers))).status).toBe(200);
     expect(await (await POST(request([validation], headers))).json()).toEqual({ validationResponse: 'the-code' });
     const subscriptionTopic = emailReportTestTopic.match(/^\/subscriptions\/[^/]+/)![0];
     expect(await (await POST(request([{ ...validation, topic: subscriptionTopic }], headers))).json()).toEqual({ validationResponse: 'the-code' });
     expect((await POST(request([{ ...validation, topic: '/subscriptions/another' }], { ...headers, 'aeg-subscription-name': 'unexpected' }))).status).toBe(403);
     expect((await POST(request([{ ...emailReport('ignored@example.com'), topic: subscriptionTopic }]))).status).toBe(403);
+    expect((await POST(request([emailReport('ignored@example.com', 'Delivered')], { ...emailReportHeaders, 'aeg-subscription-name': emailReportTestSubscription.toUpperCase() }))).status).toBe(200);
     expect((await POST(request([validation]))).status).toBe(400);
     expect((await POST(request([validation, validation], headers))).status).toBe(400);
 });

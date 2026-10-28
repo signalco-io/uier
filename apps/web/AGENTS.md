@@ -241,9 +241,10 @@ promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-b
 the existing production configuration. Dispatch rechecks access, private visibility, subscription,
 mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
 `docs/review-notifications.md` for the event/delivery contract and failure evidence.
-`/api/email/reports` checks its secret header, expected Event Grid subscription and ACS topic before
-validation or writes. The per-subscription credential and exact event-subscription name bind
-the handshake to the expected subscriber; do not treat validation topic metadata as identity.
+`/api/email/reports` checks its secret header and expected Event Grid subscription before validation
+or writes. Compare the subscription name case-insensitively, as Azure resource identity requires.
+The per-subscription credential and expected name bind the handshake to the subscriber; do not
+treat validation topic metadata as identity.
 Delivery reports must additionally use the configured ACS topic. Rejection logs contain only
 bounded reason codes, never header values, addresses, payloads or provider status messages. Bounces suppress only by normalized address hash and bounded reason; report
 receipts retain hashed event/operation ids for 30 days and survive a mailbox confirmation. No raw

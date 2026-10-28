@@ -38,7 +38,8 @@ For recovery procedures, use [Backups and restore](backups-and-restore.md).
   and `UIER_EMAIL_REPORT_SUBSCRIPTION`. The Event Grid subscription was staged after receiver
   deployment and authenticated validation binding. CI first checks an authenticated validation-only
   readiness probe, then provisions the subscription with its secret static header and bounded retries
-  (30 attempts / 24 hours). The probe sends no email and writes no app data.
+  (30 attempts / 24 hours). The probe sends no email and writes no app data. Creation is paused while
+  the receiver's Azure resource-name casing fix deploys; resume in a separate infrastructure PR.
 
 ### Email domain verification and cutover
 

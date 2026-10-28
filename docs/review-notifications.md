@@ -196,7 +196,7 @@ observed ACS omitting these from `h=`. Our own received-message evidence remains
 | Event Grid provider registered | Verified by Azure read-only inspection |
 | Existing SPF/DMARC preflight | Authoritative Cloudflare DNS returned neither apex SPF nor `_dmarc` TXT |
 | Receiver deployed and authenticated | #163/#174 deployed; unauthenticated production POST returned 401 |
-| Subscription handshake/delivery | Pending second-stage PR/deployment |
+| Subscription handshake/delivery | Authenticated readiness passed; Azure callback rejected as unexpected_subscription; paused for resource-name comparison repair |
 | Domain/SPF/DKIM/DKIM2/DMARC verified | First four Verified; DMARC NotStarted because Azure rejects its documented verification type |
 | In-place link and sender cutover | Blocked on DMARC verification; Azure-managed sender retained |
 | Report messageId / operation id correlation | Pending recipient-authorized production digest |
@@ -251,3 +251,15 @@ invalid credential. Validation now binds identity to the per-subscription secret
 not an identity check for validation; delivery reports retain their strict ACS-topic check.
 Bounded rejection logs make any further mismatch observable without retaining header values or
 payloads. Provisioning is paused until this receiver revision deploys, then resumed through CI.
+
+
+The guarded subscription attempt in [run 40754446941](https://github.com/signalco-io/uier/actions/runs/40754446941)
+passed its authenticated validation-only readiness probe, then Azure's real callback reached the
+deployed receiver and logged only `unexpected_subscription`. This rules out the prior topic and
+WAF hypotheses for that attempt. The byte-sensitive name comparison conflicts with
+[Azure's resource identity rules](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules),
+which require case-insensitive comparison and allow returned casing to differ. The receiver accepts
+only the same name ignoring case, retains the per-subscription secret and strict report topic, and
+logs only bounded missing/other-name or case-normalization codes. Raw headers are never logged.
+Creation is paused until this receiver deploys, then resumed through a separate reviewed PR.
+Actual callback name casing is not yet proven; independent provisioning readback remains required.

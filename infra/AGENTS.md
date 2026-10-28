@@ -85,7 +85,7 @@ per batch and bounded retries (30 attempts / 24 hours). It shares the receiver's
 Deploy the receiver before adding an Event Grid subscription in a later PR; Pulumi runs before
 Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
 registered. Deliver the credential as a secret static HTTP header, never a query parameter.
-Validation requires the per-subscription secret and exact subscription name; report notifications
+Validation requires the per-subscription secret and the expected Azure subscription name (case-insensitive); report notifications
 additionally require the configured ACS topic. Do not bypass WAF or authentication.
 
 Before creating/updating the subscription, CI applies run an authenticated validation-only readiness
@@ -110,3 +110,8 @@ Live verification on 28 October 2026 passed Domain/SPF/DKIM/DKIM2. Azure rejecte
 verification type (`InitiateVerificationFailed: Invalid verification type: DMARC`), leaving its
 state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
 a valid public DMARC record does not substitute for the required Azure state.
+
+Subscription creation is paused after the authenticated readiness probe succeeded but Azure's callback
+was rejected as `unexpected_subscription`. Deploy the receiver's case-insensitive Azure resource-name
+comparison before resuming creation. Missing/other names, wrong credentials and report topics still
+fail. Never substitute this report setup for the separate five-state sender gate.
