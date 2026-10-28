@@ -38,6 +38,19 @@ brand tokens.
 
 Working with AI coding agents? Start at [`AGENTS.md`](AGENTS.md); every package has its own.
 
+## Integration plans
+
+These implementation plans describe planned outbound integrations. Each records its scope,
+authorization, delivery and recovery rules, privacy limits, validation and release gates:
+
+- [Notion](docs/notion-integration-plan.md), including the shared provider architecture.
+- [GitHub](docs/github-integration-plan.md), for a one-way issue mirror.
+- [Linear](docs/linear-integration-plan.md), for a one-way issue mirror.
+- [Slack notifications](docs/slack-integration-plan.md), for project updates in a channel.
+
+Status: planned, not shipped. The shared connection, discovery, delivery and external-link
+contracts are defined in the [Notion expansion model](docs/notion-integration-plan.md#21-expansion-to-other-services).
+
 ## Brand
 
 The uier brand lives in the repository, not in a design tool:
