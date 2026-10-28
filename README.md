@@ -794,8 +794,8 @@ first four, but rejected DMARC verification with `Invalid verification type: DMA
 that value in its 2026-03-18 API. DMARC remains `NotStarted`; sender cutover remains blocked. Do not edit protected resources manually
 or run `pulumi up` locally. The verification action only checks the provisioned DNS.
 
-Prepare a separate cutover PR that reads the live domain with `getDomainOutput`, fails unless all
-five states are `Verified`, adds its id to the existing communication service's `linkedDomains`
+The separate cutover PR reads the live domain with `getDomainOutput` and fails unless all
+five states are `Verified`, then adds its id to the existing communication service's `linkedDomains`
 while retaining the Azure-managed domain, and sets `UIER_EMAIL_SENDER` to `DoNotReply@uier.io`.
 Its reviewed preview must show an in-place communication service update: reject a replace/delete,
 resource rename, key rotation or connection-string replacement. Keep engagement tracking disabled.

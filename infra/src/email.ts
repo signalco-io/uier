@@ -7,10 +7,12 @@ import {
     DomainManagement,
     EmailService,
     UserEngagementTracking,
+    getDomainOutput,
     listCommunicationServiceKeysOutput
 } from '@pulumi/azure-native/communication/index.js';
 import { dnsRecord } from './cloudflare.js';
 import { emailDnsRecord } from './emailDns.js';
+import { assertEmailDomainVerified } from './emailVerification.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
@@ -48,11 +50,20 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         dnsRecord(`${prefix}-email-${key.toLowerCase()}`, record.name, record.value, type, true);
     }
 
+    const verifiedDomain = getDomainOutput({
+        resourceGroupName: resourceGroup.name,
+        emailServiceName: emailService.name,
+        domainName: 'uier.io',
+    }, { dependsOn: [customerDomain] }).apply(value => {
+        assertEmailDomainVerified(value);
+        return value;
+    });
+
     const communicationService = new CommunicationService(`${prefix}-communication-service`, {
         resourceGroupName: resourceGroup.name,
         dataLocation: 'Europe',
         location: 'global',
-        linkedDomains: [domain.id],
+        linkedDomains: [domain.id, verifiedDomain.id],
     }, { protect: true });
 
     const connectionString = listCommunicationServiceKeysOutput({
@@ -67,8 +78,8 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     return {
         connectionString,
         communicationServiceId: communicationService.id,
-        // The Azure-managed sender stays active until all five custom verification states pass.
-        senderAddress: interpolate`DoNotReply@${domain.fromSenderDomain}`,
+        // Both this sender and linkedDomains depend on the same fresh verification guard.
+        senderAddress: interpolate`DoNotReply@${verifiedDomain.fromSenderDomain}`,
     };
 }
 

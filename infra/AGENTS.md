@@ -112,3 +112,8 @@ checks, and never remove protection or bypass the staged deployment order.
 After #179 deploys the validation-topic compatibility receiver, resume `acsEmailReports` through
 CI. Validate its provisioning state independently before claiming the handshake succeeded. Sender
 cutover remains a separate five-state gate; delivery-report operation matching stays disabled.
+
+`emailVerification.ts` requires the expected `uier.io` domain and all five live states to be exactly
+`Verified` before either linkedDomains or sender changes. Run `node --test tests/*.test.mjs` after
+building for DNS omission and strict cutover guard coverage. Do not enable auto-merge on the cutover
+PR while its required Azure state/preview gate is failing.
