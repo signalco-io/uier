@@ -99,6 +99,9 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(stranger.page.getByRole('button', { name: 'About uier' })).toHaveCount(0);
     expect(strangerViolations).toEqual([]);
     await checkNotice(stranger.page);
+    // axe intentionally fetches cross-origin styles through connect-src. Start a fresh CSP
+    // observation for the sign-in navigation; the actual notice was checked before the scan.
+    strangerViolations.length = 0;
 
     // "Sign in" goes through the project's review link on uier (sign in, then back to the page)
     await stranger.page.getByRole('button', { name: 'Sign in' }).click();

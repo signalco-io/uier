@@ -55,7 +55,9 @@ test('a signed-in member starts reviewing in the background, and sign-out and ex
 test('blocked cookies leave ordinary visitors alone and preserve explicit sign-in', async ({ page }) => {
     await signIn(page, uniqueEmail('blocked-cookies'));
     const project = await createProject(page, { urls: [site.origin()] });
-    // The app's Lax cookie remains; the cross-site handoff has no usable credential.
+    // Leave the app before clearing the handoff cookie so pending app prefetches cannot
+    // restore it. The Lax app cookie remains; the cross-site handoff has no credential.
+    await page.goto('about:blank');
     await page.context().clearCookies({ name: 'uier_review_sso' });
     const attempted = page.waitForResponse(response => response.url().endsWith(`/api/review/${project}/sso`));
     await page.goto(`${site.origin()}/${project}/pricing`);
