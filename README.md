@@ -769,7 +769,8 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
   The Azure-managed domain remains the production sender until the staged verification below is complete.
   The report endpoint receives production-only `UIER_EMAIL_REPORT_SECRET`, `UIER_EMAIL_REPORT_TOPIC`
   and `UIER_EMAIL_REPORT_SUBSCRIPTION`. The Event Grid subscription was staged after receiver
-  deployment; it delivers only delivery reports with the secret static header (30 attempts / 24 hours).
+  deployment; it is temporarily paused until validation-topic compatibility is deployed. Its configured
+  delivery reports use the secret static header and bounded retries (30 attempts / 24 hours).
 
 ### Email domain verification and cutover
 

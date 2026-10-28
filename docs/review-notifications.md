@@ -127,7 +127,9 @@ confirmation, member controls, light/dark UI and accessibility.
 ## Email reports and address suppression (#132)
 
 `POST /api/email/reports` requires the secret `x-uier-email-report-secret` header, the exact
-`aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id).
+`aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id) for reports.
+Validation also accepts that resource's Azure subscription root, as documented by Event Grid; the
+secret and exact event-subscription name are still required. Other subscriptions remain rejected.
 All three are configured for production only by Pulumi. `acsEmailReports` delivers only report
 events with that secret static header, one event per batch, retrying up to 30 times / 24 hours. Validation accepts only a single
 `Microsoft.EventGrid.SubscriptionValidationEvent` from that subscription/topic and echoes its
@@ -226,3 +228,14 @@ infrastructure. The receiver deployment completed successfully in
 [run 40741903769](https://github.com/signalco-io/uier/actions/runs/40741903769), and the public report
 endpoint rejected a credential-free POST with 401. Production message-id/authentication/header
 checks still require an authorized recipient and remain unverified.
+
+
+The first subscription creation in [run 40743676944](https://github.com/signalco-io/uier/actions/runs/40743676944)
+was rejected with 403. Vercel request evidence confirms the request reached the serverless receiver;
+the expected subscription name is configured. The likely cause is the original topic check rejecting Event Grid's
+[documented subscription-root validation topic](https://learn.microsoft.com/en-us/azure/event-grid/end-point-validation-event-grid-events-schema).
+The receiver now accepts only its configured ACS topic or that topic's Azure subscription root for
+validation, while reports continue to require the ACS topic. The secret and expected subscription
+name remain mandatory. Rejections expose only bounded reason codes, never headers or report data.
+Subscription provisioning is paused for this receiver deployment and must be re-enabled in a later
+infrastructure PR after the fix is live. The Azure-managed sender remains unchanged.
