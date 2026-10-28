@@ -43,6 +43,19 @@ The toolbar bundle needs no infrastructure of its own: the web app serves it at
   `pnpm preview` does both.
 - Keep the Pulumi CLI version pinned in `.github/workflows/pulumi_reusable.yml` equal to
   `@pulumi/pulumi` in `package.json`.
+- Backup policy changes follow the README's [Backups and restore](../README.md#backups-and-restore)
+  runbook. Periodic to continuous is one-way: use a policy-only PR without auto-merge and require
+  the owner's approval of the exact CI preview (one in-place account update, no other changes).
+  Close it on replacement or unrelated changes. Never remove protection or change policy manually.
+- If that deploy fails or times out, do not rerun it. Read `backupPolicy.migrationState`, report
+  it to the owner, and hold every push/merge to main (including Renovate) and manual deploy until
+  resolved. Only a successful deploy, live policy readback and a no-diff account preview establish
+  completion. CI keeps Contributor on the uier resource group; no restore role or restore workflow.
+- Restores belong to a named human operator with separate restore and target-write access.
+  Test only `comments-preview`, in a temporary West Europe account/group with TTL disabled there.
+  Copy only approved accidental deletions with their remaining TTL; never revive author deletions
+  or erasure requests. Public backup claims wait for live policy confirmation; record real drill
+  evidence and cleanup separately from the procedure.
 
 The README's "Infrastructure" section has the full setup, role assignments and the OIDC
 subjects CI uses.
