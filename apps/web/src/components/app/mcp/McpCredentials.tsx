@@ -33,6 +33,7 @@ export function McpCredentials({ projects, credentials, endpoint }: {
     return <Section id="mcp" title="Coding agents" description="Connect a coding tool to feedback as your account. Choose exactly what it may access.">
         <div className="flex flex-col gap-5">
             <p className="text-sm text-muted-foreground">Credentials expire after 30 days. Revoke them here at any time. Your current project permissions still apply. Feedback sent to your chosen client is handled under that client’s terms.</p>
+            <p className="text-sm text-muted-foreground">Each credential is limited to selected projects in the current workspace. For feedback about uier itself, switch to the uier workspace and select uier.io public feedback. The project page you were viewing does not own that feedback.</p>
             <form action={action} className="flex flex-col gap-4">
                 <Input name="name" label="Credential label" value={name} onChange={event => setName(event.target.value)} required maxLength={60} placeholder="My coding tool" />
                 <fieldset className="flex flex-col gap-2">

@@ -237,7 +237,17 @@ test('official HTTP client reads context and image, then records approved reply/
     const { token, credential } = await createMcpCredential(f.context, { name: 'My coding tool', projectIds: [f.project.id], scopes: mcpScopes, days: 30 });
     const client = await connect(token);
     try {
-        expect((await client.listTools()).tools.map(tool => tool.name)).toContain('get_feedback');
+        const tools = (await client.listTools()).tools;
+        expect(tools.map(tool => tool.name)).toContain('get_feedback');
+        for (const name of ['list_projects', 'list_feedback', 'list_assignees']) {
+            const tool = tools.find(tool => tool.name === name)!;
+            expect(tool.description).toContain('1–25 (default 20)');
+            expect(tool.inputSchema.properties?.limit).toMatchObject({ minimum: 1, maximum: 25, default: 20, description: expect.stringContaining('nextCursor') });
+        }
+        expect(tools.find(tool => tool.name === 'get_feedback')!.inputSchema.properties?.projectId)
+            .toMatchObject({ description: expect.stringContaining('Never infer it from the reviewed page URL') });
+        expect((await client.callTool({ name: 'list_projects', arguments: { limit: 100 } })).isError).toBe(true);
+        expect(data(await client.callTool({ name: 'list_projects', arguments: { limit: 25 } })).items).toHaveLength(1);
         const projects = data(await client.callTool({ name: 'list_projects', arguments: { limit: 1 } }));
         expect(projects.items).toEqual([{ id: f.project.id, name: f.project.name, status: 'active' }]);
         expect(projects.nextCursor).toBeNull();

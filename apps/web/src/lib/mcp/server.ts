@@ -12,13 +12,16 @@ import { sha256Hex } from '../app/tokens';
 import { eligibleParticipants } from '../review/participants';
 import { projectId, commentId, thread } from './schemas';
 import { registerFeedbackPrompts } from './prompts';
-import { untrustedFeedback as untrusted } from './workflows';
+import { feedbackAccessGuidance, untrustedFeedback as untrusted } from './workflows';
 import { participantNames } from '../review/dto';
 import { environmentFilter, environmentOptions } from '../app/environments';
 import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
 
-const page = { limit: z.number().int().min(1).max(25).default(20), cursor: z.number().int().min(0).max(1000).default(0) };
+const page = {
+    limit: z.number().int().min(1).max(25).default(20).describe('Results per page: 1–25, default 20. Use nextCursor for more results.'),
+    cursor: z.number().int().min(0).max(1000).default(0).describe('Offset returned as nextCursor by the previous page, or 0 for the first page.')
+};
 const write = { ...thread, idempotencyKey: idempotencyKeySchema.describe('A fresh random key per intended action. Reuse exactly this key and input when retrying, for up to 30 days.') };
 const MAX_RESULT_BYTES = 256 * 1024;
 const feedbackFilters = z.object({
@@ -58,12 +61,12 @@ function slice<T>(items: T[], cursor: number, limit: number) {
 function key(identity: McpIdentity, value: string) { return sha256Hex(`mcp:${identity.credential.id}:${value}`); }
 
 export function createFeedbackMcpServer(identity: McpIdentity, request: Request, baseUrl: string) {
-    const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
+    const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} ${feedbackAccessGuidance} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
     registerFeedbackPrompts(server, identity);
     const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.credential.name };
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-    server.registerTool('list_projects', { description: `List projects explicitly granted to this credential and still accessible to its human owner. ${untrusted}`, inputSchema: page, annotations: readAnnotations }, input => safely(async () => {
+    server.registerTool('list_projects', { description: `List projects explicitly granted to this credential in its workspace and still accessible to its human owner. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, reconnect with a credential from that project's workspace with the project selected. ${untrusted}`, inputSchema: page, annotations: readAnnotations }, input => safely(async () => {
         const projects = [];
         for (const id of identity.credential.projectIds) {
             try { const { project } = await mcpProject(identity, id); projects.push({ id, name: project.name, status: project.status }); }
@@ -71,7 +74,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         }
         return result({ actingAs, contentTrust: 'untrusted', ...slice(projects, input.cursor, input.limit) });
     }));
-    server.registerTool('list_feedback', { description: `Search/list visible feedback in the latest 1000 threads matching the page and environment. Other filters apply within that window. Reading never marks feedback read. Cursor is an offset within the current result; concurrent additions can shift pages. ${untrusted}`, inputSchema: feedbackFilters, annotations: readAnnotations }, input => safely(async () => {
+    server.registerTool('list_feedback', { description: `Search/list visible feedback in the latest 1000 threads matching the page and environment. Limit: 1–25 (default 20); follow nextCursor. Other filters apply within that window. Reading never marks feedback read. Cursor is an offset within the current result; concurrent additions can shift pages. ${untrusted}`, inputSchema: feedbackFilters, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId);
         const environments = environmentOptions(project);
         if (input.environment !== undefined && !['unknown', 'removed'].includes(input.environment) && !environments.some(option => option.id === input.environment))
@@ -130,7 +133,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             screenshotResource: packet.context.screenshot.state === 'protected' && identity.credential.scopes.includes('screenshots:read')
                 ? { uri: `uier://projects/${project.id}/feedback/${input.commentId}/screenshot`, access: 'Use resources/read with this credential. No public image URL is issued.' } : undefined });
     }));
-    server.registerTool('list_assignees', { description: `List existing project participants eligible to see this thread. Assignment never grants access. ${untrusted}`, inputSchema: { ...thread, ...page }, annotations: readAnnotations }, input => safely(async () => {
+    server.registerTool('list_assignees', { description: `List existing project participants eligible to see this thread. Limit: 1–25 (default 20); follow nextCursor. Assignment never grants access. ${untrusted}`, inputSchema: { ...thread, ...page }, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const comment = await getProjectComment(project, actor, input.commentId);
         if (!comment) throw apiErrors.notFound();

@@ -1295,6 +1295,15 @@ alone is not a completed client connection check.
 The credential belongs to the named human account. It grants no additional project or private
 feedback rights. Its selected projects do not expand when new projects are created.
 
+Use the owning `projectId` in the copied feedback packet, not an id found in the reviewed page URL.
+Feedback about uier itself belongs to **uier.io public feedback** (`uier00000001`) in the **uier**
+workspace, including feedback left while viewing another project's page. To connect a coding tool
+to that feedback, switch to the uier workspace and create a credential with that project selected
+and the operations you intend to use (including Change status to close feedback), then reconnect
+your client. Credentials are bound to the workspace in which they were created; existing grants
+are never expanded automatically. `list_projects` shows the current grant. An absent project or a
+`not_found` response does not prove that feedback was deleted.
+
 | Tool | Scope | Behavior |
 | --- | --- | --- |
 | `list_projects` | `feedback:read` | Selected projects still accessible to the owner |
@@ -1367,7 +1376,7 @@ untrusted and requires approval before every write, including assignments. It co
 credential. `apps/web/src/lib/mcp/workflows.ts` generates both the prompt instructions and the
 skill; update that source together with any tool contract changes.
 
-List tools accept `limit` (1–25, default 20) and numeric `cursor` (default 0), returning `nextCursor`
+List tools accept `limit` (1–25, default 20; 100 is invalid) and numeric `cursor` (default 0), returning `nextCursor`
 or `null`. Cursors are offsets in current results, so concurrent additions can shift a page. Search
 is bounded to the latest 1000 threads; use known ids to read older feedback. Requests are limited
 to 16 KiB and 120 per user per minute across credentials. Replies also have a 30-per-credential,

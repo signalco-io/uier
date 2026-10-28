@@ -32,6 +32,12 @@ and private-thread visibility before requesting it.
 | `discussion` | All saved replies in their saved order with the same message projection. |
 | `notes` | Limits: edits are current saved versions, prior versions are not retained; deleted evidence is omitted. |
 
+Project-backed packets always include the owning `identity.projectId` and a **Project** line in
+Markdown. Public uier feedback uses `uier00000001`, including feedback on `/app/projects/<id>`:
+that path identifies the page being reviewed, not the feedback's owner. Only isolated local host
+partitions without a project omit this field. MCP clients must select the owning project from
+the packet or `list_projects`; a credential must explicitly grant it in its owning workspace.
+
 Markdown uses this field order and grows literal text fences beyond embedded backticks, preserving
 the exact saved message and quotation. A rewrite labels the first message **Suggested rewrite
 (not original page copy)** and keeps **Quoted original text** separate. Text is never interpreted
