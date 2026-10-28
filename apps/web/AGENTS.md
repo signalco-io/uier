@@ -23,7 +23,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
-| `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors (README "Status") |
+| `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
@@ -403,7 +403,7 @@ light/dark accessibility. This connector does not prove #90 launch acceptance.
 
 `mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
 input. Keep these reference-only configurations aligned with the linked official docs and the
-[README client blocks](../../README.md#coding-tool-access-mcp):
+[MCP client blocks](../../docs/mcp.md):
 
 - [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml`:
   ```toml
