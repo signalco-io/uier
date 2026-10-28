@@ -6,7 +6,7 @@ import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlRe
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
-import { acsEmail } from './email.js';
+import { acsEmail, acsEmailReports } from './email.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -203,8 +203,8 @@ const up = async () => {
     ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
         projectId: app.projectId, key, value, sensitive, targets: ['production'],
     }, envVarOptions);
-    // Subscription provisioning is paused until the validation-topic compatibility fix deploys.
-    // Event Grid validates during Pulumi, before this deployment's receiver code can go live.
+    // The validation-topic compatibility fix deployed before resuming this handshake.
+    acsEmailReports(email.communicationServiceId, emailReportSecret);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
         projectId: app.projectId,
         key: 'COSMOSDB_CONNECTION_STRING',
