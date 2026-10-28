@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { appNavigation, closeAppNavigation, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
@@ -20,7 +20,7 @@ test('a sign-in link works once', async ({ page, browser }) => {
     const email = uniqueEmail();
     await page.goto('/app/sign-in');
     await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
+    await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
     const link = await page.getByRole('link', { name: 'Open the sign-in link' }).getAttribute('href');
     expect(link).toMatch(/^\/app\/sign-in\/confirm\?token=/);
 
@@ -37,12 +37,127 @@ test('a sign-in link works once', async ({ page, browser }) => {
     await other.close();
 });
 
+const codeError = 'This code did not work. Ask for a new email and try again in this browser.';
+
+async function submitCode(page: import('@playwright/test').Page, code: string) {
+    await page.getByLabel('Sign-in code', { exact: true }).fill(code);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+}
+
+test('a code signs in the requesting browser, preserves next, and consumes the link', async ({ page, browser }, testInfo) => {
+    await page.goto('/app/sign-in?next=%2Fapp%2Faccount');
+    const { code, link } = await requestSignInEmail(page, uniqueEmail());
+    await expect(page.getByText('Enter the 8-digit code. It works only in this browser.')).toBeVisible();
+    const input = page.getByLabel('Sign-in code', { exact: true });
+    await expect(input).toHaveAttribute('autocomplete', 'one-time-code');
+    await expect(input).toHaveAttribute('inputmode', 'numeric');
+    const binding = (await page.context().cookies()).find(cookie => cookie.name === 'uier_sign_in_request');
+    expect(binding).toMatchObject({ httpOnly: true, sameSite: 'Lax', secure: false, path: '/' });
+    expect(binding!.expires - Date.now() / 1000).toBeGreaterThan(850);
+    expect(binding!.value).not.toContain(code);
+    expect(page.url()).not.toContain(code);
+    expect(link).not.toContain(code);
+    expect(await page.evaluate(() => document.cookie)).not.toContain('uier_sign_in_request');
+    await expectNoAxeViolations(page);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+    await expectNoAxeViolations(page);
+    await page.emulateMedia({ colorScheme: 'light' });
+
+    // Inserting a whole code is the same input event as pasting, including leading zeroes.
+    await input.focus();
+    await page.keyboard.insertText(code);
+    await expect(input).toHaveValue(code);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/account$/);
+    expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_sign_in_request')).toBe(false);
+    expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_session')).toBe(true);
+
+    const other = await newVisitor(browser, testInfo);
+    await other.page.goto(new URL(link, page.url()).href);
+    await expect(other.page.getByRole('heading', { name: 'This link has expired' })).toBeVisible();
+    await other.context.close();
+});
+
+test('another browser with its own request for the same address cannot use the first code or its budget', async ({ page, browser }, testInfo) => {
+    const email = uniqueEmail();
+    await page.goto('/app/sign-in');
+    const first = await requestSignInEmail(page, email);
+    const other = await newVisitor(browser, testInfo);
+    await other.page.goto(new URL('/app/sign-in', page.url()).href);
+    await requestSignInEmail(other.page, email);
+    await submitCode(other.page, first.code);
+    await expect(other.page.locator('form').getByRole('alert')).toHaveText(codeError);
+    // Submit the first request id as well: the signed cookie must still match it.
+    const firstId = await page.locator('input[name="requestId"]').inputValue();
+    await other.page.locator('input[name="requestId"]').evaluate((input, value) => { (input as HTMLInputElement).value = value; }, firstId);
+    for (let attempt = 0; attempt < 6; attempt++) {
+        await submitCode(other.page, first.code);
+        await expect(other.page.locator('form').getByRole('alert')).toHaveText(codeError);
+    }
+    expect((await other.context.cookies()).some(cookie => cookie.name === 'uier_session')).toBe(false);
+    await submitCode(page, first.code);
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    await other.context.close();
+});
+
+test('using the link in another browser invalidates the requesting page code', async ({ page, browser }, testInfo) => {
+    await page.goto('/app/sign-in');
+    const { code, link } = await requestSignInEmail(page, uniqueEmail());
+    const other = await newVisitor(browser, testInfo);
+    await other.page.goto(new URL(link, page.url()).href);
+    await other.page.getByRole('button', { name: 'Continue' }).click();
+    await expect(other.page).toHaveURL(/\/app\/projects\/new$/);
+    await submitCode(page, code);
+    await expect(page.locator('form').getByRole('alert')).toHaveText(codeError);
+    await expectNoAxeViolations(page);
+    expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_session')).toBe(false);
+    await other.context.close();
+});
+
+test('five wrong codes invalidate both paths and a new email lets the browser continue', async ({ page, browser }, testInfo) => {
+    const email = uniqueEmail();
+    await page.goto('/app/sign-in?next=%2Fapp%2Faccount');
+    const { code, link } = await requestSignInEmail(page, email);
+    const wrong = code === '00000000' ? '11111111' : '00000000';
+    for (let attempt = 0; attempt < 5; attempt++) {
+        await submitCode(page, wrong);
+        await expect(page.locator('form').getByRole('alert')).toHaveText(codeError);
+        await expect(page.getByLabel('Sign-in code', { exact: true })).toHaveValue(wrong);
+    }
+    await submitCode(page, code);
+    await expect(page.locator('form').getByRole('alert')).toHaveText(codeError);
+    const other = await newVisitor(browser, testInfo);
+    await other.page.goto(new URL(link, page.url()).href);
+    await expect(other.page.getByRole('heading', { name: 'This link has expired' })).toBeVisible();
+    await other.context.close();
+    await page.getByRole('link', { name: 'Ask for a new email' }).click();
+    const fresh = await requestSignInEmail(page, email);
+    await submitCode(page, fresh.code);
+    await expect(page).toHaveURL(/\/app\/account$/);
+});
+
+test('a newer request replaces the browser binding, including in an older tab', async ({ page }) => {
+    const email = uniqueEmail();
+    await page.goto('/app/sign-in');
+    const first = await requestSignInEmail(page, email);
+    const newer = await page.context().newPage();
+    await newer.goto(new URL('/app/sign-in', page.url()).href);
+    const second = await requestSignInEmail(newer, email);
+    await submitCode(page, first.code);
+    await expect(page.locator('form').getByRole('alert')).toHaveText(codeError);
+    await submitCode(newer, second.code);
+    await expect(newer).toHaveURL(/\/app\/projects\/new$/);
+    await newer.close();
+});
+
 test('the sign-in form validates the address', async ({ page }) => {
     await page.goto('/app/sign-in');
     await page.getByLabel('Email').fill('not an email');
     // Bypass the browser's own type="email" check to reach the server validation
     await page.locator('form').evaluate(form => form.setAttribute('novalidate', ''));
-    await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
+    await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
     await expect(page.locator('form').getByRole('alert')).toHaveText('Enter a valid email address.');
     await expect(page.getByLabel('Email')).toHaveValue('not an email');
 });

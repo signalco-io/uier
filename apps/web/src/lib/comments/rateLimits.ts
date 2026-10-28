@@ -42,6 +42,8 @@ export type Limit = {
     key: string;
     limit: number;
     windowSeconds: number;
+    /** Anchor a request's lifetime budget instead of resetting at a wall-clock boundary. */
+    windowStartSeconds?: number;
     reason: 'too_fast' | 'page_full';
     message: string;
 };
@@ -50,14 +52,14 @@ export type Limit = {
  * Counts one write against the limit in the current fixed window. The counter document's id is a
  * keyed hash, so it reveals neither the visitor nor the IP address.
  */
-export async function consume(store: CommentsStore, domain: string, { key, limit, windowSeconds, reason, message }: Limit) {
+export async function consume(store: CommentsStore, domain: string, { key, limit, windowSeconds, windowStartSeconds = 0, reason, message }: Limit) {
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const window = Math.floor(nowSeconds / windowSeconds);
+    const window = Math.floor((nowSeconds - windowStartSeconds) / windowSeconds);
     const id = `counter_${keyedHash('rate-limit', `${key}:${windowSeconds}:${window}`).slice(0, 40)}`;
 
     // Kept a little longer than the window, so a slow request near its end still finds the counter
     if (!await store.incrementCounter(domain, id, limit, windowSeconds + 300))
-        throw apiErrors.rateLimited(message, (window + 1) * windowSeconds - nowSeconds, reason);
+        throw apiErrors.rateLimited(message, windowStartSeconds + (window + 1) * windowSeconds - nowSeconds, reason);
 }
 
 const tooManyComments = 'You are leaving feedback too quickly. Please try again later.';

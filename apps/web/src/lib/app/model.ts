@@ -32,11 +32,13 @@ export type DbUserEmail = AppDoc & {
     userId: string;
 };
 
-/** A sign-in link that was sent; the id is the SHA-256 of the token in the link */
+/** A sign-in email; the link and browser-bound code share this single-use request */
 export type DbSignInRequest = AppDoc & {
     type: 'sign-in';
     pk: `sign-in:${string}`;
     email: string;
+    /** Request-specific HMAC of the numeric code. Missing on older, link-only requests. */
+    codeHash?: string;
     /** App path to continue to after signing in */
     next?: string;
     createdAt: string;
