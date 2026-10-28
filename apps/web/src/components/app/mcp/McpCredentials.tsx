@@ -57,7 +57,7 @@ export function McpCredentials({ projects, credentials, endpoint }: {
                 <div className="mt-3 flex flex-col gap-2">
                 <p>In your client, use this Streamable HTTP endpoint with the credential in the Authorization bearer header. OAuth login is not supported.</p>
                 <CopyBlock value={endpoint} label="Copy MCP endpoint" />
-                <p>Set <code>UIER_MCP_TOKEN</code> in the environment that starts your client. For VS Code, enter the credential in its masked input when prompted. Merge the selected entry into your existing configuration.</p>
+                <p>Set <code>UIER_MCP_TOKEN</code> in the environment that starts your client. Merge the selected entry into your existing configuration.</p>
                 <Tabs defaultValue="codex">
                     <TabsList aria-label="Coding client" variant="line" className="flex-wrap max-w-full h-auto!">
                         {clients.map(client => <TabsTrigger key={client.id} value={client.id} className="min-h-11">{client.name}</TabsTrigger>)}
@@ -67,9 +67,15 @@ export function McpCredentials({ projects, credentials, endpoint }: {
                         <CopyBlock value={client.configuration} label={`Copy ${client.name} MCP configuration`} />
                     </TabsContent>)}
                 </Tabs>
-                <p>Claude Desktop is not supported without Request headers. Header authentication is in beta for a limited set of organizations. Team and Enterprise plans are not supported: an Owner adds custom connectors for the whole organization, which would share your personal credential. OAuth is needed for individual access.</p>
-                <p>Where available on an individual plan, the custom connector uses the endpoint URL, No sign-in, and <code>Authorization: Bearer &lt;credential&gt;</code> under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Remove and add the connector again after expiry or revocation. This setup has not been verified here, so it is not offered in the picker. <a className="underline underline-offset-4" href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">Claude connector documentation</a></p>
-                <p>Windsurf is not offered until a connection can be verified. Its <a className="underline underline-offset-4" href="https://docs.devin.ai/desktop/cascade/mcp" target="_blank" rel="noreferrer">current documentation</a> describes legacy Cascade in Devin Desktop.</p>
+                <details>
+                    <summary className="cursor-pointer font-medium">Other clients</summary>
+                    <div className="mt-3 flex flex-col gap-3">
+                        <p>Claude Desktop is not supported without Request headers. Header authentication is in beta for a limited set of organizations. Team and Enterprise plans are not supported: an Owner adds custom connectors for the whole organization, which would share your personal credential. OAuth is needed for individual access.</p>
+                        <p>Where available on an individual plan, the custom connector uses the endpoint URL, No sign-in, and <code>Authorization: Bearer &lt;credential&gt;</code> under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Remove and add the connector again after expiry or revocation. This setup has not been verified here, so it is not offered in the picker. <a className="underline underline-offset-4" href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">Claude connector documentation</a></p>
+                        <p>VS Code is not offered until a connection can be verified. Its <a className="underline underline-offset-4" href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration" target="_blank" rel="noreferrer">MCP documentation</a> describes masked secret inputs.</p>
+                        <p>Windsurf is not offered until a connection can be verified. Its <a className="underline underline-offset-4" href="https://docs.devin.ai/desktop/cascade/mcp" target="_blank" rel="noreferrer">current documentation</a> describes legacy Cascade in Devin Desktop.</p>
+                    </div>
+                </details>
                 </div>
             </details>
             <details className="text-sm">
@@ -78,7 +84,10 @@ export function McpCredentials({ projects, credentials, endpoint }: {
                     <p>Choose <code>triage-feedback</code> to group open threads, or <code>fix-feedback</code> to propose a code change in your client. Both leave uier unchanged. <code>report-back</code> drafts a reply or status change and waits for your approval before every write. It is available only with reply or status access.</p>
                     <p>Copy or download this skill and save it as <code>uier-feedback/SKILL.md</code> in your client’s skills folder. It uses the same workflow as the prompts.</p>
                     <AppButton asChild variant="outline" className="self-start"><a download="SKILL.md" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(skill)}`}>Download SKILL.md</a></AppButton>
-                    <CopyBlock value={skill} label="Copy SKILL.md" />
+                    <details>
+                        <summary className="cursor-pointer font-medium">View and copy SKILL.md</summary>
+                        <div className="mt-3"><CopyBlock value={skill} label="Copy SKILL.md" /></div>
+                    </details>
                 </div>
             </details>
             <ul className="flex flex-col gap-3" aria-label="MCP credentials">

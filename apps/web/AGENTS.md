@@ -347,16 +347,15 @@ input. Keep these reference-only configurations aligned with the linked official
   ```json
   { "mcpServers": { "uier": { "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${env:UIER_MCP_TOKEN}" } } } }
   ```
-- [VS Code](https://code.visualstudio.com/docs/agents/reference/mcp-configuration), `.vscode/mcp.json`:
-  ```json
-  { "inputs": [{ "type": "promptString", "id": "uier-mcp-token", "description": "uier MCP credential", "password": true }], "servers": { "uier": { "type": "http", "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${input:uier-mcp-token}" } } } }
-  ```
 
 Never substitute the newly created secret into a setup block or skill. Never offer a shell command
-that expands a bearer header into saved settings. Clients must inherit the environment variable
-(or use VS Code’s masked input). Verify each offered client against its current docs and a reachable
+that expands a bearer header into saved settings. Clients must inherit the environment variable. Verify each offered client against its
+current docs and a reachable
 deployed endpoint; record exact checks in the PR and omit clients whose connections cannot be verified.
 Do not relax the Origin check or deployment protection to make a client connect.
+[VS Code’s documented masked input](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
+was checked (`promptString`, `password: true`, `${input:...}`), but its deployed client connection
+could not be verified in this session, so no ready block is offered.
 [Windsurf’s docs](https://docs.devin.ai/desktop/cascade/mcp) now describe legacy Cascade in Devin
 Desktop (`serverUrl`, `${env:UIER_MCP_TOKEN}` in headers); it is not offered without a verified client.
 [Claude Desktop request headers](https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers)

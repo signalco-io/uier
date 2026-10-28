@@ -1004,8 +1004,8 @@ The endpoint is `https://uier.io/api/mcp` (use your local/preview origin while t
 stateless JSON responses, and a manually configured `Authorization: Bearer <credential>` header.
 OAuth login/discovery and clients that require OAuth are not supported. **Client configuration**
 in Account offers the following setups, built from the same endpoint. Merge entries into the
-existing client file; keep the credential out of every file and URL. For environment references,
-set `UIER_MCP_TOKEN` in the environment of the process that starts the client, then restart it.
+existing client file; keep the credential out of every file and URL. Set `UIER_MCP_TOKEN` in the
+environment of the process that starts the client, then restart it.
 
 **Codex** — `~/.codex/config.toml`. [Official bearer configuration](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers):
 
@@ -1045,29 +1045,10 @@ it saves the expanded secret in settings. Approve the project server when Claude
 }
 ```
 
-**VS Code** — `.vscode/mcp.json`. [Official HTTP headers and secret input reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration):
-
-```json
-{
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "uier-mcp-token",
-      "description": "uier MCP credential",
-      "password": true
-    }
-  ],
-  "servers": {
-    "uier": {
-      "type": "http",
-      "url": "https://uier.io/api/mcp",
-      "headers": { "Authorization": "Bearer ${input:uier-mcp-token}" }
-    }
-  }
-}
-```
-
-Enter the credential in VS Code’s masked input when the server starts, never in the config file.
+**VS Code** is not offered because an actual client connection could not be verified in this
+session. The [official configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
+documents HTTP headers and masked `promptString` inputs (`password: true`, `${input:...}`).
+A documentation check alone does not verify a connection; there is no ready block until that check passes.
 
 **Claude Desktop** is not offered in the picker without a verified connection. Its
 [custom connector request headers](https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers)

@@ -8,7 +8,6 @@ export function mcpClientConfigurations(endpoint: string) {
             configuration: JSON.stringify({ mcpServers: { uier: { type: 'http', ...remote('Bearer ${UIER_MCP_TOKEN}') } } }, null, 2) },
         { id: 'cursor', name: 'Cursor', location: '.cursor/mcp.json', docs: 'https://cursor.com/docs/mcp#config-interpolation',
             configuration: JSON.stringify({ mcpServers: { uier: remote('Bearer ${env:UIER_MCP_TOKEN}') } }, null, 2) },
-        { id: 'vscode', name: 'VS Code', location: '.vscode/mcp.json', docs: 'https://code.visualstudio.com/docs/agents/reference/mcp-configuration',
-            configuration: JSON.stringify({ inputs: [{ type: 'promptString', id: 'uier-mcp-token', description: 'uier MCP credential', password: true }], servers: { uier: { type: 'http', ...remote('Bearer ${input:uier-mcp-token}') } } }, null, 2) },
+
     ];
 }

@@ -25,6 +25,7 @@ test('a person grants selected feedback access, connects a compatible client, an
     await section.getByText('Client configuration', { exact: true }).click();
     await section.getByText('Prompts and agent skill', { exact: true }).click();
     const skill = section.locator('details').filter({ has: page.getByText('Prompts and agent skill', { exact: true }) });
+    await skill.getByText('View and copy SKILL.md', { exact: true }).click();
     const skillText = await skill.locator('pre code').innerText();
     expect(skillText).toMatch(/^---\nname: uier-feedback\ndescription: /);
     expect(skillText).not.toContain('uier_mcp.');
@@ -34,11 +35,12 @@ test('a person grants selected feedback access, connects a compatible client, an
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('SKILL.md');
     expect(await readFile((await download.path())!, 'utf8')).toBe(skillText);
-    for (const clientName of ['Codex', 'Claude Code', 'Cursor', 'VS Code']) {
+    await skill.getByText('View and copy SKILL.md', { exact: true }).click();
+    for (const clientName of ['Codex', 'Claude Code', 'Cursor']) {
         await section.getByRole('tab', { name: clientName, exact: true }).click();
         const panel = section.getByRole('tabpanel');
         await expect(panel).toContainText(new URL('/api/mcp', baseURL).toString());
-        await expect(panel).toContainText(clientName === 'VS Code' ? '${input:uier-mcp-token}' : 'UIER_MCP_TOKEN');
+        await expect(panel).toContainText('UIER_MCP_TOKEN');
         await expect(panel).not.toContainText('uier_mcp.');
         await expect(panel).not.toContainText(token);
         await expect(panel.getByRole('link', { name: `${clientName} documentation` })).toHaveAttribute('href', /^https:/);
@@ -54,7 +56,7 @@ test('a person grants selected feedback access, connects a compatible client, an
             await page.getByRole('radiogroup', { name: 'Theme', exact: true }).getByRole('radio', { name: theme, exact: true }).click();
             await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()));
             await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
-            for (const clientName of ['Codex', 'Claude Code', 'Cursor', 'VS Code']) {
+            for (const clientName of ['Codex', 'Claude Code', 'Cursor']) {
                 await section.getByRole('tab', { name: clientName, exact: true }).click();
                 await expectNoAxeViolations(page);
             }
