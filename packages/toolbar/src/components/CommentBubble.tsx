@@ -16,6 +16,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
+import { toolbarAnchorPrefix } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
 import { CommentDraft, CommentItem, commentTextMaxLength, floatingShadowClassName } from './@types/Comments';
 
@@ -216,7 +217,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                                 : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
                         onFocus={handleFocus}
                         className={cx(
-                            'fixed z-[48] hover:z-[49] cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            'fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            position.type === 'point' && position.selector.startsWith(toolbarAnchorPrefix)
+                                ? 'z-[55] hover:z-[56]' : 'z-[48] hover:z-[49]',
                             sending && 'opacity-70',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className

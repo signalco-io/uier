@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { orderBy } from '@signalco/js';
 import { CommentItemPosition, CommentPoint, CommentSelection } from '../components/@types/Comments';
 import { getLayoutVersion, useLayoutVersion } from './useLayoutVersion';
+import { queryAnchorElements } from '../toolbarReview';
 
 /** Selection text limit of the comments API; longer selections are stored cut to this length */
 export const selectionTextMaxLength = 2000;
@@ -14,21 +15,12 @@ export const selectionTextMaxLength = 2000;
  * toolbar for everyone (see components/CommentErrorBoundary.tsx).
  */
 export function safeQuerySelector(selector: string | undefined): Element | null {
-    if (!selector?.length) {
-        return null;
-    }
-
-    try {
-        return document.querySelector(selector);
-    } catch {
-        return null;
-    }
+    return queryAnchorElements(selector)[0] ?? null;
 }
 
 /** More than one selector match is never silently reduced to the first element. */
 function selectorMatches(selector: string | undefined): Element[] {
-    try { return selector ? [...document.querySelectorAll(selector)] : []; }
-    catch { return []; }
+    return queryAnchorElements(selector);
 }
 
 /** The element a comment is anchored to (the start of a text selection), if it is on the page */

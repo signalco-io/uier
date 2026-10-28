@@ -84,6 +84,14 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 - Stored comments come from anonymous visitors: resolve positions only through
   `hooks/useCommentItemRects.tsx` (`safeQuerySelector`, clamped offsets) and keep every comment
   inside a `CommentErrorBoundary`, so one bad comment can never take the toolbar down.
+- `toolbarReview.ts` permits targeting the toolbar/inbox only when the page and configured API
+  share an origin. Stored `#uier-toolbar>>>` anchors cross only that shadow boundary; the API
+  validates the inner selector with the existing restricted grammar. Keep stable surface ids,
+  ignore annotation mutations in layout tracking, and include the reviewed surfaces (without
+  pins, overlays or placement instructions) in screenshots only for these anchors. Text selection
+  inside review UI remains excluded so reading and composing feedback does not start new drafts.
+  `e2e/toolbar-review.spec.ts` covers targeting, persistence, screenshots, movement and keyboard
+  access; `e2e/embed.spec.ts` checks third-party controls stay excluded.
 - Everything rendered must work inside a shadow root on an unknown page: no global CSS, no
   assumptions about the host's fonts or variables, no `document.body` styling.
 - Cross-site embeds require `data-uier-project`. The project's addresses decide CORS; the install
