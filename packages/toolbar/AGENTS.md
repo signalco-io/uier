@@ -174,6 +174,11 @@ equivalent rules before CSS injection; retain the shadow-root properties fallbac
 
 ## Feedback export
 
+`ExternalFeedbackLink` is a browser-safe provider/url type exported alongside the feedback
+contract. Its values are projected separately on the server for current project members; never
+put another destination's links into an outbound feedback packet or infer provider access from a
+URL. Source synchronization versions, pending flags, deletion markers and credentials stay server-only.
+
 `components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
 Markdown fallback. Success appears beside the copy icon for two seconds without changing the
 thread layout; the shared announcer reports it to screen readers. Errors and manual copy text

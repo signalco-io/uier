@@ -13,6 +13,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
@@ -328,6 +329,25 @@ message is replaced. Keep the privacy policy and toolbar guide aligned with this
   Cosmos and memory stores share `repo/originFilter.ts`. Do not infer missing origins or retarget
   removed sources. App direct-comment redirects load the authorized stored thread and retain its
   permitted original source plus canonical saved page state. Environment filters never grant access.
+
+## Outbound integration foundation
+
+`src/lib/integrations/` owns the shared outbox and delivery protocol described in
+[`docs/integrations.md`](../../docs/integrations.md). Every eligible non-public project mutation
+records its source signal in the same write, including an unbound request snapshot; do not gate
+that write on cached settings. Hard deletes use the conditional delete+tombstone batch. The
+public showcase, private-only changes and no-ops remain excluded. Ordinary DTOs/reads never
+contain signals or tombstones.
+
+Discovery is bounded and cursor-paged by indexed `syncKey`. Acknowledge only after every target
+is durable and source/binding checks still pass. Each provider gets independent leases, attempts,
+budgets and progress. Preserve uncertain creates for reconciliation, and run cleanup with no
+feedback packet. Every external call checks current membership, binding, source and destination.
+Never persist feedback bodies in integration ledgers or expose credentials in views/logs.
+
+The registry is intentionally empty until complete adapters ship. The shared API suites are
+`integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
+Provider tests and live acceptance are additional gates, not substitutes for shared isolation.
 
 ## Feedback export
 

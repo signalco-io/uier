@@ -50,6 +50,9 @@ authorization, delivery and recovery rules, privacy limits, validation and relea
 
 Status: planned, not shipped. The shared connection, discovery, delivery and external-link
 contracts are defined in the [Notion expansion model](docs/notion-integration-plan.md#21-expansion-to-other-services).
+The [shared integration foundation](docs/integrations.md) now implements durable source outboxes,
+bounded discovery, independent delivery, credentials and safe link projection. Its provider
+registry stays empty until each complete adapter ships; provider connections remain planned.
 
 ## Brand
 
@@ -357,6 +360,12 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the project code |
 | `project-ref` (code -> workspace) | `project:<code>` | the project code |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |
+| `integration-discovery-cursor` (bounded source-outbox scan) | `integrations:worker` | `pending` |
+
+Project feedback carries server-only synchronization versions, pending markers and indexed source
+keys. A hard delete atomically writes a text-free `tombstone` in the same comments partition
+(`$tombstone_<commentId>`, TTL 30 days). It is removed after each destination has durable deletion
+work and never appears in comment lists or DTOs. See [the shared delivery contract](docs/integrations.md).
 
 Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews

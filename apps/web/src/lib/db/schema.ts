@@ -74,6 +74,11 @@ export type DbThreadItem = {
 };
 
 export type DbComment = {
+    /** State-sync signal, committed with the mutation; never exported in a comment DTO. */
+    syncVersion?: number;
+    syncPending?: boolean;
+    /** Indexed global outbox ordering key; omitted from every public projection. */
+    syncKey?: string;
     activity?: import('../comments/activity').ThreadActivity;
     /** Durable outbox metadata. Its cursors come from the shared unread activity sequence. */
     notificationEvents?: import('../notifications/delivery').NotificationEvent[];
@@ -187,7 +192,7 @@ export function screenshotDocumentId(commentId: string) {
  */
 export function isCommentDocument(document: object): boolean {
     const { path, type } = document as { path?: unknown; type?: unknown };
-    return typeof path === 'string' && type !== 'counter' && type !== 'sequence' && type !== 'screenshot';
+    return typeof path === 'string' && type !== 'counter' && type !== 'sequence' && type !== 'screenshot' && type !== 'tombstone';
 }
 
 /** An atomic submission receipt. No user text or image, and no public route accepts its id. */
@@ -204,3 +209,22 @@ export type DbSubmission = {
 export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'createdAt' | 'activity'> & {
     thread: { items: Pick<DbThreadItem, 'authorId' | 'deletedAt'>[] };
 };
+
+/** Durable deletion intent; copied to every target ledger before shared discovery removes it. */
+export type DbSyncTombstone = {
+    id: `$tombstone_${string}`;
+    domain: string;
+    type: 'tombstone';
+    commentId: string;
+    projectId: string;
+    syncVersion: number;
+    syncKey: string;
+    targets: { provider: import('../integrations/model').IntegrationProviderId; connectionId: string }[];
+    deletedAt: string;
+    syncPending: true;
+    ttl: number;
+};
+
+export function syncTombstoneId(commentId: string) {
+    return `$tombstone_${commentId}` as const;
+}
