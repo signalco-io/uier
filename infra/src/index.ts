@@ -6,7 +6,7 @@ import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlRe
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
-import { acsEmail } from './email.js';
+import { acsEmail, acsEmailReports } from './email.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -203,8 +203,8 @@ const up = async () => {
     ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
         projectId: app.projectId, key, value, sensitive, targets: ['production'],
     }, envVarOptions);
-    // Pause provisioning until the authenticated validation binding fix deploys.
-    // Pulumi runs before Vercel, so resume in a later infrastructure PR.
+    // The authenticated validation receiver deployed before this guarded subscription attempt.
+    acsEmailReports(email.communicationServiceId, emailReportSecret);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
         projectId: app.projectId,
         key: 'COSMOSDB_CONNECTION_STRING',

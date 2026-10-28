@@ -85,6 +85,15 @@ per batch and bounded retries (30 attempts / 24 hours). It shares the receiver's
 Deploy the receiver before adding an Event Grid subscription in a later PR; Pulumi runs before
 Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
 registered. Deliver the credential as a secret static HTTP header, never a query parameter.
+Validation requires the per-subscription secret and exact subscription name; report notifications
+additionally require the configured ACS topic. Do not bypass WAF or authentication.
+
+Before creating/updating the subscription, CI applies run an authenticated validation-only readiness
+probe; previews skip network probing. The probe uses the existing credential without logging it,
+sends no email, writes no app data and rejects redirects. It validates the echoed code and reports
+only bounded failure status/reason, never raw response bodies. Build and run
+`node --test tests/*.test.mjs` for the readiness and DNS omission checks. Independently read the
+subscription's provisioning state before claiming the handshake succeeded.
 
 The main-only **Verify email domain** workflow runs Azure DNS verification through OIDC, serialized
 with Pulumi deployments. It never changes DNS, linkedDomains, senders, keys or protection. Read all five
@@ -101,20 +110,3 @@ Live verification on 28 October 2026 passed Domain/SPF/DKIM/DKIM2. Azure rejecte
 verification type (`InitiateVerificationFailed: Invalid verification type: DMARC`), leaving its
 state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
 a valid public DMARC record does not substitute for the required Azure state.
-
-
-Subscription creation was temporarily paused after its first handshake reached the receiver and
-returned 403. Deploy the receiver's documented subscription-root topic compatibility before
-re-enabling `acsEmailReports` in a later PR. Never weaken report topic, subscription-name or secret
-checks, and never remove protection or bypass the staged deployment order.
-
-
-After #179 deploys the validation-topic compatibility receiver, resume `acsEmailReports` through
-CI. Validate its provisioning state independently before claiming the handshake succeeded. Sender
-cutover remains a separate five-state gate; delivery-report operation matching stays disabled.
-
-
-After the second 403, subscription provisioning is paused again for the authenticated validation
-binding receiver revision. Validation requires its per-subscription secret and exact subscription
-name; report notifications additionally require the configured ACS topic. Resume only after the
-receiver deploys. Do not bypass WAF, authentication or the five-state sender gate.
