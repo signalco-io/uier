@@ -7,7 +7,7 @@ test('readiness performs only an authenticated validation and validates its echo
         assert.equal(url, 'https://uier.io/api/email/reports');
         assert.equal(request.redirect, 'error');
         assert.equal(request.headers['x-uier-email-report-secret'], 'private-test-credential');
-        assert.equal(request.headers['aeg-subscription-name'], 'uier-email-delivery');
+        assert.equal(request.headers['aeg-subscription-name'], 'UIER-EMAIL-DELIVERY');
         const [event] = JSON.parse(request.body);
         assert.equal(event.eventType, 'Microsoft.EventGrid.SubscriptionValidationEvent');
         assert.equal(event.data.recipient, undefined);

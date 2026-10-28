@@ -114,7 +114,7 @@ verification type (`InitiateVerificationFailed: Invalid verification type: DMARC
 state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
 a valid public DMARC record does not substitute for the required Azure state.
 
-Subscription creation is paused after the authenticated readiness probe succeeded but Azure's callback
-was rejected as `unexpected_subscription`. Deploy the receiver's case-insensitive Azure resource-name
-comparison before resuming creation. Missing/other names, wrong credentials and report topics still
-fail. Never substitute this report setup for the separate five-state sender gate.
+Subscription creation resumes only after the case-insensitive Azure resource-name receiver deploys.
+The readiness probe supplies uppercase name metadata to prove that revision is live before Azure
+validates the subscription. Missing/other names, wrong credentials and report topics still fail.
+Independently read provisioning state; this report setup never substitutes for the five-state sender gate.
