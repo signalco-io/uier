@@ -868,15 +868,15 @@ Never run `pulumi up` locally or change the policy in the portal or CLI.
    `migrationState = null`. A subsequent full CI Pulumi preview must show no account diff.
    Do not treat a successful source merge as proof of migration.
 
-Observed evidence (replace pending entries with actual results; never infer them):
+Observed evidence (source merge, deployment, live configuration and restore are separate checks):
 
 | Gate | Recorded result |
 | --- | --- |
 | Before, 2026-10-28 17:30 UTC, `az cosmosdb show` | `uierdbaba6cd56`, West Europe; `type: Periodic`, `backupIntervalInMinutes: 240`, `backupRetentionIntervalInHours: 8`, `backupStorageRedundancy: Geo`, `migrationState: null` |
 | Isolated policy preview and owner approval, 2026-10-28 | After #160 was closed on a two-resource preview and #166 fixed endpoint output propagation, [PR #173's preview](https://github.com/signalco-io/uier/pull/173#issuecomment-6476843140) showed one in-place account update and 43 unchanged resources. The owner [approved exact head `9aa5ec4`](https://github.com/signalco-io/uier/pull/173#issuecomment-6477041408); it merged as `32bd1ce` with auto-merge disabled. |
 | Policy apply and live readback, 2026-10-28 | The [CI apply](https://github.com/signalco-io/uier/actions/runs/40743919009) completed the Cosmos update in 354 seconds at 18:25 UTC. Independent `az cosmosdb show` confirms `Continuous`, `Continuous7Days`, `migrationState: null` and provisioning `Succeeded` in West Europe. The overall job failed on a separate email Event Grid webhook validation error (403); it was not rerun. |
-| Subsequent no-diff account preview and full deployment | Pending; record independently from the successful account migration |
-| `comments-preview` restore drill, elapsed time and cleanup | Not run; waiting for policy and restore-access prerequisites |
+| Subsequent no-diff account preview and full deployment | [Verification PR #183's preview](https://github.com/signalco-io/uier/pull/183#issuecomment-6477622713) showed no account diff after migration. The separate email repair #179's [full production deployment](https://github.com/signalco-io/uier/actions/runs/40747322158) passed. |
+| `comments-preview` restore drill, 2026-10-28 | Passed: comment and screenshot deleted in the toolbar, restored from `18:33:00 UTC` in a temporary West Europe account, copied back atomically with matching hashes and remaining TTL, and verified after browser reload. Restore took 13m43s; the separate operator firewall update took 18m42s. Fixture and temporary group cleanup were independently confirmed. See the drill record below. |
 
 Only after live confirmation, publish the seven-day point-in-time restore control on `/security`
 and deleted-data backup retention on `/legal/privacy-policy`, update its effective date and extend
@@ -1047,6 +1047,37 @@ delete and restore that fixture. This exception never authorizes recovery of rea
    approved manifest, restore timestamp, submit/ready times and elapsed duration, any corrected
    steps, readback/browser results and verified cleanup in the evidence table. Leave failed or
    unexecuted steps marked as such; this written procedure is not a successful drill.
+
+#### Restore drill record, 2026-10-28
+
+The recovery owner authorized this synthetic, disposable fixture for the drill. No real author
+deletion or erasure request was recovered. Only `comments-preview` was restored and only the
+following two documents were copied back; production containers and application account settings
+were not changed by the drill.
+
+| Evidence | Observed result |
+| --- | --- |
+| Preview | [PR #175 preview](https://uier-ar4bx2cnn-signalco.vercel.app/security), deployment `dpl_62RkvuYoHGiMixpMJpNEoc5Bv4ty`, signalco/uier, target `preview`, READY |
+| Exact fixture | `comment_5lUA2NgCFIROCXTiWWL9v` and `$screenshot_comment_5lUA2NgCFIROCXTiWWL9v`, partition `project:uier00000001` in `uierdata/comments-preview` |
+| Delete | Posted through the toolbar with an automatic screenshot; then deleted through its confirmation. Independent point reads confirmed both missing at `2026-10-28T18:35:45.876Z`. |
+| Restore point | `2026-10-28T18:33:00Z`, after both original writes and before deletion; checked against the latest restorable timestamp |
+| Temporary target | `uier135drillf4147481` in `uier-135-restore-20261028-f4147481`, West Europe; restore parameters selected only `uierdata/comments-preview`, with TTL disabled |
+| Restore duration | Submitted `2026-10-28T18:36:14.539373+00:00`; CLI completed successfully `2026-10-28T18:49:57.394430+00:00`: **822.855 seconds (13m43s)** |
+| Temporary access | One exact operator-IP firewall rule, no network bypass; its separate account update took **1121.544 seconds (18m42s)**. Public access remained disabled until that update completed. |
+| Keys and roles | Restored account keys differed from the source; zero restored data-plane role assignments; the preview identity received no new access |
+| Copy-back | Two-document, single-partition **Create** batch; independent readback at `2026-10-28T19:11:41.980Z` matched both document hashes and the screenshot byte hash |
+| Retention | Source default TTL `604800`; copied per-item TTL `602261`. Original expiry **2026-11-04 18:29:53 UTC**; copied expiry **2026-11-04 18:29:22 UTC**, 31 seconds earlier. Neither item gained retention. |
+| Browser readback | Reloaded the same preview, opened comment #3 and its screenshot; original text, author controls, original age and image rendered. Evidence captured at `2026-10-28T19:13:41.027632+00:00`. |
+| Fixture cleanup | Removed again through the toolbar; both exact documents independently absent at `2026-10-28T19:15:58.303Z` |
+| Account cleanup | The temporary resource group was deleted; `az group exists` returned `false` at `2026-10-28T19:32:01.371326+00:00`. Its one-IP rule and account keys disappeared with it. |
+
+Steps clarified by the drill: Azure CLI returned the latest restore timestamp in a locale-formatted
+UTC string, so it was normalized to ISO 8601 before submission. The operator used the runbook's
+single-IP firewall route instead of a private endpoint; access setup was measured separately from
+the restore itself. Wait for account provisioning to complete even after the activity log reports
+the container restore succeeded. No credential or data from other threads was retained; only
+this disposable fixture's metadata, hashes and browser proof are kept as audit evidence. These
+timings describe one drill and are not service commitments.
 
 Azure references: [one-way migration](https://learn.microsoft.com/en-us/azure/cosmos-db/migrate-continuous-backup),
 [restore permissions](https://learn.microsoft.com/en-us/azure/cosmos-db/continuous-backup-restore-permissions),
