@@ -278,16 +278,16 @@ test('prompt project checks recheck current membership without reflecting submit
         await getAppStore().delete(f.context.member.pk, f.context.member.id);
         await expect(client.getPrompt({ name: 'fix-feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } })).rejects.toThrow('not_found: Project not found.');
         // Invalid protocol argument types must not reflect values or object keys either.
-        const response = await POST(new Request(`${base}/api/mcp`, { method: 'POST', headers: {
-            Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream',
-        }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'prompts/get', params: {
+        const call = { jsonrpc: '2.0', id: 1, method: 'prompts/get', params: {
             name: 'fix-feedback', arguments: { projectId: { 'secret-key': 'secret-value' }, commentId: '../secret-thread', 'secret-argument': {} },
-        } }) }));
-        const body = await response.text();
-        expect(body).not.toContain('secret-key');
-        expect(body).not.toContain('secret-value');
-        expect(body).not.toContain('secret-thread');
-        expect(body).not.toContain('secret-argument');
-        expect(response.status).toBe(400);
+        } };
+        for (const body of [call, [call]]) {
+            const response = await POST(new Request(`${base}/api/mcp`, { method: 'POST', headers: {
+                Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream',
+            }, body: JSON.stringify(body) }));
+            const error = await response.text();
+            for (const submitted of ['secret-key', 'secret-value', 'secret-thread', 'secret-argument']) expect(error).not.toContain(submitted);
+            expect(response.status).toBe(400);
+        }
     } finally { await client.close(); }
 });

@@ -21,8 +21,9 @@ export async function handleMcp(request: Request, allowedOrigin: string) {
         const parsedBody = await parseJsonBody(request, z.unknown(), 16_384);
         // SDK record validation reports arbitrary argument keys in its diagnostics. Reject
         // non-string prompt arguments here without reflecting any submitted content.
-        if (parsedBody && typeof parsedBody === 'object' && 'method' in parsedBody && parsedBody.method === 'prompts/get'
-            && !promptRequestSchema.safeParse(parsedBody).success)
+        const messages = Array.isArray(parsedBody) ? parsedBody : [parsedBody];
+        if (messages.some(message => message && typeof message === 'object' && 'method' in message && message.method === 'prompts/get'
+            && !promptRequestSchema.safeParse(message).success))
             throw apiErrors.invalidRequest('Invalid prompt arguments.');
         const server = createFeedbackMcpServer(identity, request, allowedOrigin);
         const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
