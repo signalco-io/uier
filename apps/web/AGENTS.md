@@ -217,6 +217,10 @@ mute and `getReadSequence`; keep the optional verified guest flow separate from 
   on `PORT + 1000`, never to the real API.
 - Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
+- `project-review.spec.ts` covers privacy-safe owner notes (including manual clipboard fallback),
+  ended-session sign-in return URLs and offline/reconnect notices, with keyboard, 375 px and axe
+  checks. `embed.spec.ts` verifies missing cross-origin configuration sends no public comments or
+  visitor requests and opens the appropriate install guide; configured load failures retain retry.
 - `e2e/launch.spec.ts` combines installation, owner/guest discussion, routes, capture, recovery and
   keyboard movement. `PLAYWRIGHT_CROSS_BROWSER=1` adds focused Firefox/WebKit launch projects;
   install those engines first. `launch-performance.spec.ts` attaches the 100-thread measurements.

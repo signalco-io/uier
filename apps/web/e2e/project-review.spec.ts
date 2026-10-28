@@ -65,6 +65,24 @@ async function anonymousVisitor(browser: Browser, testInfo: TestInfo) {
     return await newVisitor(browser, testInfo);
 }
 
+async function checkNotice(page: Page) {
+    await page.setViewportSize({ width: 375, height: 740 });
+    await expect(toolbar(page)).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+    const notice = page.getByRole('navigation', { name: 'uier feedback', exact: true });
+    const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+    for (const control of [notice, ...await notice.getByRole('button').all(), ...await notice.getByRole('link').all()]) {
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(375);
+        if (coarse) expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await expectNoAxeViolations(page);
+    }
+}
+
 test('invited people only: a review link signs members in, everyone else is asked to sign in', async ({ page, browser }, testInfo) => {
     const projectId = await ownerWithProject(page);
 
@@ -77,6 +95,7 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(stranger.page.getByRole('button', { name: 'Exit review' })).toBeVisible();
     await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
     expect(strangerViolations).toEqual([]);
+    await checkNotice(stranger.page);
 
     // "Sign in" goes through the project's review link on uier (sign in, then back to the page)
     await stranger.page.getByRole('button', { name: 'Sign in' }).click();
@@ -406,7 +425,8 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}/${projectId}/`)}`);
     await expect(toolbar(page)).toContainText('Comments are turned off for this project.');
     await expect(page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
-    await expectNoAxeViolations(page);
+    await checkNotice(page);
+    await expect(toolbar(page).getByRole('button')).toHaveCount(1);
 
     // The notice still ends the review: the toolbar leaves, also after a reload
     await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/?toolbar-code=${projectId}`);
@@ -424,13 +444,52 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
     expect((await response.json()).error).toBe('comments_disabled');
 });
 
-test('the toolbar works only on the project\'s own sites', async ({ page, request }) => {
+test('the toolbar works only on the project\'s own sites', async ({ page, request, baseURL }) => {
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');
 
-    await page.goto(`${siteOrigin('elsewhere')}/${projectId}/?toolbar-code=${projectId}`);
+    await page.addInitScript(projectId => {
+        localStorage.setItem(`uier:review-token:${projectId}`, 'private-review-token');
+        localStorage.setItem('uier:visitor', 'private-visitor-id');
+        localStorage.setItem('uier:guest-name', 'Private guest name');
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+            writeText: async (text: string) => { (window as Window & { copiedNote?: string }).copiedNote = text; }
+        } });
+    }, projectId);
+    await page.goto(`${siteOrigin('elsewhere')}/${projectId}/private-path?toolbar-code=other-project&secret=private-query#private-hash`);
     await expect(toolbar(page)).toContainText('uier can\'t open this project here.');
     await expect(page.getByRole('button', { name: 'Exit review' })).toBeVisible();
+    await checkNotice(page);
+
+    const copy = page.getByRole('button', { name: 'Copy note for the owner', exact: true });
+    await page.keyboard.press('Tab');
+    await expect(copy).toBeFocused();
+    await copy.press('Enter');
+    const expectedNote = [
+        "uier can't open this project here.",
+        `Site address: ${siteOrigin('elsewhere')}`,
+        `Project code: ${projectId}`,
+        `Project settings: ${baseURL}/app/projects/${projectId}/settings`,
+        'Ask a project admin to check the installation and add this address under Site addresses if it belongs to the project.'
+    ].join('\n');
+    expect(await page.evaluate(() => (window as Window & { copiedNote?: string }).copiedNote)).toBe(expectedNote);
+    await expect(page.getByRole('status')).toHaveText('Note copied');
+    for (const privateValue of ['Reviewed site', siteOrigin(), 'private-review-token', 'private-visitor-id', 'Private guest name', 'private-path', 'private-query', 'private-hash', 'other-project'])
+        expect(expectedNote).not.toContain(privateValue);
+
+    // Missing clipboard support retains the exact same, selectable plain text.
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: undefined }));
+    await copy.press('Enter');
+    const manual = page.getByRole('textbox', { name: 'The note could not be copied. Copy it from here:' });
+    await expect(manual).toHaveValue(expectedNote);
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Exit review' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(manual).toBeFocused();
+    expect(await manual.evaluate((element: HTMLTextAreaElement) => element.selectionEnd - element.selectionStart)).toBe(expectedNote.length);
+    await checkNotice(page);
+    await page.getByRole('button', { name: 'Exit review' }).press('Enter');
+    await expect(page.locator('#uier-toolbar')).toHaveCount(0);
 
     // CORS: preflights are answered for the project's origins only
     const allowed = await request.fetch(`/api/review/${projectId}/comments`, {
@@ -453,6 +512,69 @@ test('the toolbar works only on the project\'s own sites', async ({ page, reques
         data: { path: '/', position: { type: 'point', selector: 'body>main>h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Hi', authorName: 'Eve' }
     });
     expect(write.status()).toBe(403);
+});
+
+test('an ended review session signs in through its notice and returns to the same page', async ({ page, browser, baseURL }, testInfo) => {
+    const email = uniqueEmail('ended-review');
+    await signIn(page, email);
+    const projectId = await createProject(page, { urls: [siteOrigin()], name: 'Ended session' });
+    const info = await (await page.request.get(`/api/review/${projectId}`, { headers: { Origin: siteOrigin() } })).json();
+    const guest = await anonymousVisitor(browser, testInfo);
+    await guest.page.addInitScript(({ projectId, api }) => {
+        localStorage.setItem(`uier:review-token:${projectId}`, 'expired-token');
+        localStorage.setItem(`uier:auto-sign-in-disabled:${api}:${projectId}`, '1');
+    }, { projectId, api: baseURL! });
+    let attempts = 0;
+    const endpoint = `**/api/review/${projectId}`;
+    await guest.page.route(endpoint, async route => {
+        attempts++;
+        // Both attempts fetch an anonymous viewer with a stale token: loadReviewInfo throws
+        // sign_in_required carrying the signInUrl fetched from this response.
+        await guest.page.evaluate(projectId => localStorage.setItem(`uier:review-token:${projectId}`, 'expired-token'), projectId);
+        await route.fulfill({ json: info, headers: { 'Access-Control-Allow-Origin': siteOrigin() } });
+    });
+    const target = `${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}&plan=yearly#plans`;
+    await guest.page.goto(target);
+    await expect(toolbar(guest.page)).toContainText('This review session ended.');
+    expect(attempts).toBe(2);
+    await expect(toolbar(guest.page)).not.toContainText('Open the review link again');
+    await checkNotice(guest.page);
+    await guest.page.unroute(endpoint);
+    await guest.page.keyboard.press('Tab');
+    await expect(guest.page.getByRole('button', { name: 'Sign in', exact: true })).toBeFocused();
+    await guest.page.keyboard.press('Enter');
+    await expect(guest.page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Freview%2F/);
+    const reviewLink = new URL(new URL(guest.page.url()).searchParams.get('next')!, baseURL);
+    expect(reviewLink.pathname).toBe(`/app/review/${projectId}`);
+    expect(reviewLink.searchParams.get('url')).toBe(target);
+    await signIn(guest.page, email, { from: guest.page.url() });
+    await expect(guest.page).toHaveURL(target);
+    await expect(guest.page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
+    await guest.context.close();
+});
+
+test('an offline project load asks for a connection and recovers on reconnect', async ({ page, context, baseURL }) => {
+    const projectId = await ownerWithProject(page);
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.addInitScript(({ projectId, api }) => localStorage.setItem(`uier:auto-sign-in-disabled:${api}:${projectId}`, '1'), { projectId, api: baseURL! });
+    const endpoint = `**/api/review/${projectId}`;
+    await page.route(endpoint, async route => {
+        await context.setOffline(true);
+        await route.abort();
+    });
+    try {
+        await page.goto(`${siteOrigin()}/${projectId}/pricing?review=true`);
+        await expect(toolbar(page)).toContainText('Check your connection to open this review.');
+        await expect(page.getByRole('button', { name: 'Copy note for the owner' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Exit review' })).toBeVisible();
+        await checkNotice(page);
+        await page.unroute(endpoint);
+        await context.setOffline(false);
+        await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
+        await expect(page.getByText('Check your connection to open this review.')).toHaveCount(0);
+    } finally {
+        await context.setOffline(false);
+    }
 });
 
 test('rewrite suggestions on the project\'s site go through the review API', async ({ page, request, browser }, testInfo) => {
