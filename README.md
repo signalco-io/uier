@@ -749,9 +749,41 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
   assignments (built-in Data Contributor) on the `comments-preview` and `app-preview` containers,
 - Azure Communication Services Email for the app's sign-in links and invitations (`infra/src/email.ts`): an
   email service with an **Azure-managed sender domain** (`DoNotReply@<id>.azurecomm.net`), linked to a
-  communication service. Unlike a `uier.io` domain it needs no DNS records and no manual verification before
-  it can be linked, so one `pulumi up` gives a working sender; its sending limits are low. Moving to a
-  verified `uier.io` sender needs its DNS records and a one-time verification in the Azure portal first.
+  communication service. A protected customer-managed `uier.io` domain and its ownership TXT, SPF TXT,
+  DKIM CNAME, DKIM2 CNAME and DMARC TXT records come directly from ACS `verificationRecords`.
+  The Azure-managed domain remains the production sender until the staged verification below is complete.
+  The report endpoint receives production-only `UIER_EMAIL_REPORT_SECRET`, `UIER_EMAIL_REPORT_TOPIC`
+  and `UIER_EMAIL_REPORT_SUBSCRIPTION`; its Event Grid subscription lands after the receiver deploys.
+
+### Email domain verification and cutover
+
+Before applying DNS, query the authoritative Cloudflare nameservers for apex TXT and `_dmarc.uier.io`
+TXT. On 28 October 2026 neither had an SPF/DMARC record. Recheck before deployment: if another sender
+has added one outside Pulumi, import that record and merge the policy in a reviewed PR. Never create
+a second SPF policy or DMARC record. Preserve other senders and the existing DMARC policy.
+
+Deploy the domain and all five ACS-provided records through CI with `UIER_EMAIL_SENDER` unchanged.
+In Azure's Email Communication Service, provisioned domain `uier.io`, initiate ownership verification,
+then SPF, DKIM, DKIM2 and DMARC verification. Read `verificationStates` back from Azure until each
+reports `Verified`; a DNS response alone is insufficient. Do not edit protected resources manually
+or run `pulumi up` locally. The verification action only checks the provisioned DNS.
+
+Prepare a separate cutover PR that reads the live domain with `getDomainOutput`, fails unless all
+five states are `Verified`, adds its id to the existing communication service's `linkedDomains`
+while retaining the Azure-managed domain, and sets `UIER_EMAIL_SENDER` to `DoNotReply@uier.io`.
+Its reviewed preview must show an in-place communication service update: reject a replace/delete,
+resource rename, key rotation or connection-string replacement. Keep engagement tracking disabled.
+
+Ship `/api/email/reports` before a second PR creates its Event Grid subscription: infra runs before
+Vercel on every deployment, and Event Grid validates the receiver immediately. Check
+`Microsoft.EventGrid` registration first. The subscription uses only delivery reports and a secret
+static `x-uier-email-report-secret` header. Never put the secret in a URL or a log. See
+[the rollout and production acceptance gates](docs/review-notifications.md#staged-rollout-and-live-evidence)
+for authorized recipient testing, message-id correlation, SPF/DKIM/DMARC and header evidence.
+Keep `UIER_EMAIL_REPORT_MATCH_OPERATIONS` unset until correlation is proven, then enable it through
+a reviewed production-only Pulumi change.
+
+### Infrastructure state and credentials
 
 State lives in the self-managed backend `azblob://states` (storage account `sastate2a61d506`) and stack
 secrets are encrypted with the Azure Key Vault key `vault-pulumib5f713d9/pulumi-backend`. Nothing in the

@@ -11,6 +11,7 @@ import { findOrCreateUser, findUserByEmail } from './users';
 import { getMember, getWorkspace } from './workspaces';
 import { getProject } from './projects';
 import { UserFacingError } from './actionResult';
+import { emailSuppression } from '../email/suppression';
 import type { AppContext } from './context';
 import {
     memberId,
@@ -49,6 +50,9 @@ export async function listInvitations(workspaceId: string) {
  * person gets by email; pages show it only where no email is sent (local and previews).
  */
 export async function inviteToWorkspace(context: AppContext, input: NewInvitation) {
+    if (!context.isAdmin) throw new UserFacingError('Only workspace admins can invite people.');
+    if (await emailSuppression(input.email))
+        throw new UserFacingError('Email to this address bounced. Ask them to sign in to uier before inviting them again.');
     const store = getAppStore();
     const workspaceId = context.workspace.id;
 

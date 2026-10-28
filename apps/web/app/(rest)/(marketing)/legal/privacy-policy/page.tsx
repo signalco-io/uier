@@ -203,6 +203,15 @@ export default function PrivacyPolicyPage() {
                 add notification cookies or store guest email addresses in your browser.
             </p>
 
+            <p>
+                If an address hard-bounces or our email provider suppresses it, we retain only a hash of
+                its normalized address and a bounded reason to stop further digests and invitations.
+                Only workspace admins see an invitation notice, without any earlier workspace or date.
+                Requested sign-in and confirmation emails still work; completing either clears our suppression.
+                Delivery report receipts retain hashed event and operation identifiers for 30 days to prevent duplicate processing.
+                Our provider may temporarily suppress an address independently.
+            </p>
+
             <h3>Coding tool access</h3>
             <p>
                 You can create a named credential in Account to let a coding tool access selected projects

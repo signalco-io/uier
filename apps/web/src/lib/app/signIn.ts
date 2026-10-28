@@ -11,6 +11,7 @@ import { isRandomToken, randomToken, sha256Hex } from './tokens';
 import { findOrCreateUser } from './users';
 import type { DbSignInRequest, DbUser } from './model';
 import { boundSignInRequestId } from './signInCookie';
+import { clearEmailSuppression } from '../email/suppression';
 
 export const SIGN_IN_LINK_TTL_SECONDS = 15 * 60;
 export const SIGN_IN_CODE_LENGTH = 8;
@@ -93,6 +94,7 @@ async function consumeSignInRequest(request: DbSignInRequest | null): Promise<{ 
         return null;
 
     const user = await findOrCreateUser(request.email);
+    await clearEmailSuppression(request.email);
     return { user, next: request.next };
 }
 

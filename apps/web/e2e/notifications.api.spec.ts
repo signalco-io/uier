@@ -1,3 +1,8 @@
+import { POST as receiveReport } from '../app/api/email/reports/route';
+import { GET as oneClickGet, POST as oneClickPost } from '../app/api/notifications/unsubscribe/route';
+import { signToken } from '../src/lib/app/tokens';
+import { emailSuppression } from '../src/lib/email/suppression';
+import { emailReport, emailReportHeaders, emailReportTestSecret, emailReportTestSubscription, emailReportTestTopic } from './support/emailReports';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
@@ -16,7 +21,12 @@ import type { EmailMessage } from '../src/lib/email/send';
 import type { deliverNotificationEmail } from '../src/lib/notifications/transport';
 import type { DbComment } from '../src/lib/db/schema';
 
-test.beforeAll(() => { process.env.UIER_LOCAL = '1'; });
+test.beforeAll(() => {
+    process.env.UIER_LOCAL = '1';
+    process.env.UIER_EMAIL_REPORT_SECRET = emailReportTestSecret;
+    process.env.UIER_EMAIL_REPORT_SUBSCRIPTION = emailReportTestSubscription;
+    process.env.UIER_EMAIL_REPORT_TOPIC = emailReportTestTopic;
+});
 
 const baseUrl = 'https://uier.io';
 const request = new Request('http://127.0.0.1/api/review');
@@ -477,4 +487,76 @@ test('reply deleted before sending has no excerpt and a prior-run ambiguous atte
         expect(retried).toEqual(message);
         return { status: 'sent' };
     });
+});
+
+test('bounce suppresses later digests and a suppression read failure retries without sending', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    const event = emailReport(f.owner.email);
+    expect((await receiveReport(new Request('https://uier.io/api/email/reports', { method: 'POST', headers: emailReportHeaders, body: JSON.stringify([event]) }))).status).toBe(200);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(0);
+    expect((await deliveries(f.project))[0]).toMatchObject({ status: 'suppressed', lastCode: 'address_suppressed' });
+
+    const other = await fixture();
+    const store = getAppStore();
+    await dispatch(other.project, other.comment, sent, undefined, { ...store, get: async (pk, id) => {
+        if (pk.startsWith('email-reports:')) throw new Error('database unavailable');
+        return store.get(pk, id);
+    } });
+    expect(sent).toHaveLength(0);
+    const queued = (await deliveries(other.project))[0]!;
+    expect(queued).toMatchObject({ status: 'queued', failures: 1, active: true });
+    expect(Date.parse(queued.nextAttemptAt)).toBeGreaterThan(Date.now() + 30 * 60 * 1000);
+    await processNotificationDelivery(queued, baseUrl, async message => { sent.push(message); return { status: 'sent' }; }, Date.parse(queued.nextAttemptAt) + 1);
+    expect(sent).toHaveLength(1);
+});
+
+function oneClick(token: string, body = 'List-Unsubscribe=One-Click') {
+    return oneClickPost(new Request(`${baseUrl}/api/notifications/unsubscribe?token=${encodeURIComponent(token)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }));
+}
+
+test('one-click project mute and thread unsubscribe need no session, repeat safely, and GET stays read-only', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    const header = sent[0]!.headers!['List-Unsubscribe']!;
+    expect(sent[0]!.headers!['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+    expect(header).toMatch(/^<https:\/\/uier.io\/api\/notifications\/unsubscribe\?token=/);
+    const token = new URL(header.slice(1, -1)).searchParams.get('token')!;
+    expect((await oneClickGet()).status).toBe(200);
+    expect((await inspectNotificationToken(token))?.doc).toMatchObject({ muted: false });
+    expect((await oneClick(token, 'List-Unsubscribe=wrong')).status).toBe(400);
+    expect((await oneClick(token)).status).toBe(200);
+    expect((await oneClick(token)).status).toBe(200);
+    expect((await inspectNotificationToken(token))?.doc).toMatchObject({ muted: true });
+    await setProjectMuted(f.project, f.ownerActor, false);
+    expect((await oneClick(token)).status).toBe(404);
+
+    await followThread(f.project, f.memberActor, f.comment.id, true);
+    const sub = (await notificationSubscription(f.project.id, `user:${f.member.id}`, f.comment.id))!;
+    const manage = notificationToken(sub, 'subscription');
+    expect((await oneClick(manage)).status).toBe(200);
+    expect((await oneClick(manage)).status).toBe(200);
+    expect((await notificationSubscription(f.project.id, sub.actorId, f.comment.id))?.following).toBe(false);
+    await followThread(f.project, f.memberActor, f.comment.id, true);
+    expect((await oneClick(manage)).status).toBe(404);
+});
+
+test('one-click rejects malformed, expired and confirmation tokens; guest confirmation clears suppression', async () => {
+    const f = await fixture();
+    const address = `confirm-${f.project.id}@example.com`;
+    const bounce = emailReport(address);
+    expect((await receiveReport(new Request(`${baseUrl}/api/email/reports`, { method: 'POST', headers: emailReportHeaders, body: JSON.stringify([bounce]) }))).status).toBe(200);
+    const result = await followThread(f.project, f.guest, f.comment.id, true, address, baseUrl);
+    const token = new URL(result.verificationUrl!).searchParams.get('token')!;
+    expect((await oneClick(token)).status).toBe(404);
+    expect((await oneClick('invalid')).status).toBe(404);
+    const inspected = (await inspectNotificationToken(token))!;
+    const expired = signToken('notification', { ...inspected.payload, mode: 'subscription' }, -1);
+    expect((await oneClick(expired)).status).toBe(404);
+    expect((await notificationSubscription(f.project.id, inspected.doc.actorId, f.comment.id))?.following).toBe(false);
+    await actOnNotificationToken(token, 'verify');
+    expect(await emailSuppression(address)).toBeUndefined();
 });

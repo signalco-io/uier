@@ -47,6 +47,7 @@ export async function deliverNotificationEmail(message: EmailMessage, attempt: E
     }
     const client = dependencies.client ?? new EmailClient(connectionString);
     const poller = await client.beginSend({ senderAddress: sender, recipients: { to: [{ address: message.to }] },
+        headers: message.headers,
         content: { subject: message.subject, plainText: message.text, html: message.html }, disableUserEngagementTracking: true }, {
         operationId: attempt.operationId,
         abortSignal: AbortSignal.timeout(25000),
