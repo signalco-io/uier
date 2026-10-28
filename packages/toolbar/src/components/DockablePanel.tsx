@@ -57,7 +57,7 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
                     <p className="m-4 rounded-md bg-background p-2 text-sm text-foreground">Move to the {destination}</p>
                 </div>
             )}
-            <aside aria-label={label} data-uier-panel={id} data-side={side} onKeyDown={onKeyDown}
+            <aside id={`uier-panel-${id}`} aria-label={label} data-uier-panel={id} data-side={side} onKeyDown={onKeyDown}
                 className={cx('fixed z-50 flex flex-col rounded-2xl border bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', className)}
                 style={{ top: view.top + 16, left: view.left + (wide && side === 'right' ? view.width - width - 16 : 16), width, height: Math.max(0, view.height - (wide ? 32 : 96)) }}>
                 <PanelHandleContext value={handle}>

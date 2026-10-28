@@ -3,6 +3,7 @@
 import React, { Ref, useEffect, useRef } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { Button } from '@signalco/ui-primitives/Button';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Down, Drag, Inbox, Info } from '@signalco/ui-icons';
@@ -14,6 +15,7 @@ import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
 import { useToolbarMovement } from '../hooks/useReviewMovement';
+import { canReviewToolbar } from '../toolbarReview';
 
 type CommentToolbarProps = {
     mode: ToolbarMode;
@@ -34,6 +36,7 @@ type CommentToolbarProps = {
     hintButtonRef?: Ref<HTMLButtonElement>;
     /** `fromKeyboard` is set when the button was activated with the keyboard (Enter or Space) */
     onAddPointComment: (fromKeyboard: boolean) => void;
+    onCancelPointComment: () => void;
     /** Whether the inbox sidebar is open (the Inbox button opens and closes it) */
     sidebarOpen?: boolean;
     onToggleSidebar: () => void;
@@ -59,7 +62,7 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onToggleSidebar, onFeedbackOpen,
+    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onToggleSidebar, onFeedbackOpen,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
     const navRef = useRef<HTMLElement>(null);
@@ -105,16 +108,20 @@ export function CommentToolbar({
             <div
                 role="status"
                 style={movement.instructionStyle}
-                className="pointer-events-none fixed z-[51] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2">
+                data-uier-capture-exclude=""
+                className={cx('pointer-events-none fixed w-max max-w-[calc(100vw-2rem)] -translate-x-1/2', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
                 {creatingPointComment && (
                     <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
-                        {isCoarsePointer()
+                        {isCoarsePointer() && !canReviewToolbar()
                             ? 'Tap anywhere to pin a comment. Tap + to cancel.'
-                            : 'Click anywhere to pin a comment. Esc to cancel.'}
+                            : isCoarsePointer() ? 'Tap anywhere to pin a comment.' : 'Click anywhere to pin a comment. Esc to cancel.'}
+                        {canReviewToolbar() && <Button size="sm" variant="plain" className="pointer-events-auto ml-2 rounded-full"
+                            onClick={onCancelPointComment}>Cancel</Button>}
                     </p>
                 )}
             </div>
             <nav
+                id="uier-feedback-toolbar"
                 ref={navRef}
                 aria-label="uier feedback"
                 style={{ ...movement.style, width: 'max-content' }}

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { canReviewToolbar, toolbarReviewSurfaces } from '../toolbarReview';
 
 // One set of listeners for every pin and highlight: a number that changes (once per frame at most)
 // when anything on the page may have moved, so positions are measured again.
@@ -8,6 +9,8 @@ let frame = 0;
 const listeners = new Set<() => void>();
 let resizeObserver: ResizeObserver | undefined;
 let mutationObserver: MutationObserver | undefined;
+let toolbarObserver: MutationObserver | undefined;
+let toolbarRoot: ShadowRoot | null | undefined;
 
 function schedule() {
     if (frame) {
@@ -39,6 +42,21 @@ function start() {
         characterData: true,
         attributes: true
     });
+    toolbarRoot = canReviewToolbar() ? document.getElementById('uier-toolbar')?.shadowRoot : null;
+    if (toolbarRoot) {
+        toolbarRoot.addEventListener('scroll', schedule, { capture: true, passive: true });
+        // Ignore annotation/outline updates: observing those would make pin measurement loop.
+        toolbarObserver = new MutationObserver(records => {
+            const surfaceChanged = records.some(record => {
+                const target = record.target instanceof Element ? record.target : record.target.parentElement;
+                return target?.closest(toolbarReviewSurfaces)
+                    || [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element
+                        && (node.matches(toolbarReviewSurfaces) || node.querySelector(toolbarReviewSurfaces)));
+            });
+            if (surfaceChanged) schedule();
+        });
+        toolbarObserver.observe(toolbarRoot, { subtree: true, childList: true, characterData: true, attributes: true });
+    }
 }
 
 function stop() {
@@ -48,6 +66,10 @@ function stop() {
     resizeObserver = undefined;
     mutationObserver?.disconnect();
     mutationObserver = undefined;
+    toolbarObserver?.disconnect();
+    toolbarObserver = undefined;
+    toolbarRoot?.removeEventListener('scroll', schedule, { capture: true });
+    toolbarRoot = undefined;
     window.cancelAnimationFrame(frame);
     frame = 0;
 }

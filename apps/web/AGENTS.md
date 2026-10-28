@@ -138,6 +138,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## The app
 
+- Toolbar point anchors can use the single `#uier-toolbar>>>` boundary on uier's own pages.
+  `comments/validation.ts` retains the restricted CSS grammar after it; the toolbar resolves
+  those anchors only when the page and configured API share an origin. `e2e/toolbar-review.spec.ts`
+  covers the review UI and `comments.api.spec.ts` rejects arbitrary shadow boundaries/selectors.
+
 - `reviewSsoCookie.ts` owns the HttpOnly/Secure/SameSite=None companion, restricted to `/api/review`.
   Sign-in and first-party app requests seed it with no longer lifetime than the SameSite=Lax app session;
   sign-out expires both. It cannot authenticate app routes. Browser-blocked handoffs silently retain the

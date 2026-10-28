@@ -3,8 +3,8 @@ import { DockablePanel } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
+import { toolbarReviewTarget } from '../toolbarReview';
 import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
-import { useDocumentEvent } from '@signalco/hooks/useDocumentEvent';
 import { Button } from '@signalco/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
@@ -155,7 +155,7 @@ export function CommentsGlobal({
     const inboxButtonRef = useRef<HTMLButtonElement>(null);
     const hintButtonRef = useRef<HTMLButtonElement>(null);
     const draftKeyRef = useRef(0);
-    // The last focused element of the page (outside the toolbar), for comments created with the keyboard
+    // The last focused review target, for comments created with the keyboard.
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { path, query: commentItems, reattach } = useComments(true);
@@ -266,12 +266,23 @@ export function CommentsGlobal({
         return () => window.removeEventListener(openFeedbackEvent, listener);
     }, []);
 
-    useDocumentEvent('focusin', (event: FocusEvent) => {
-        const target = event.target;
-        if (target instanceof Element && !isToolbarNode(target, rootElement)) {
-            lastPageFocusRef.current = target;
-        }
-    });
+    useEffect(() => {
+        const trackFocus = (event: Event) => {
+            const target = event.composedPath()[0];
+            if (target instanceof Element && target !== addButtonRef.current
+                && (!isToolbarNode(target, rootElement) || toolbarReviewTarget(target))) {
+                lastPageFocusRef.current = target;
+            }
+        };
+        const root = rootElement?.getRootNode();
+        document.addEventListener('focusin', trackFocus);
+        // Focus changes within one shadow tree are not reported to the document.
+        root?.addEventListener('focusin', trackFocus);
+        return () => {
+            document.removeEventListener('focusin', trackFocus);
+            root?.removeEventListener('focusin', trackFocus);
+        };
+    }, [rootElement]);
 
     useWindowEvent('keydown', (event: KeyboardEvent) => {
         if (event.key !== 'Escape') {
@@ -303,11 +314,21 @@ export function CommentsGlobal({
         }
 
         const handleKeyDown = (event: KeyboardEvent) => {
+            // Inbox controls handle Escape themselves; placement must cancel before that.
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (reattaching) finishReattach();
+                else setCreatingCommentPoint(false);
+                addButtonRef.current?.focus();
+                return;
+            }
             if (event.key !== 'Enter' || event.isComposing) {
                 return;
             }
-            const active = document.activeElement;
-            if (isToolbarNode(active, rootElement)) {
+            const target = event.composedPath()[0];
+            const active = target instanceof Element ? target : document.activeElement;
+            if (isToolbarNode(active, rootElement) && (!toolbarReviewTarget(active) || active === addButtonRef.current)) {
                 // The toolbar's own buttons handle Enter (Add comment pins to the last page focus)
                 return;
             }
@@ -488,7 +509,11 @@ export function CommentsGlobal({
     const handleShowOnPage = (commentId: string) => {
         awaitingThreadRef.current = undefined;
         handleCollapsedChange(false);
-        setSidebarOpen(false);
+        const comment = allComments?.find(comment => comment.id === commentId);
+        // An inbox control is only on the page while its panel is open.
+        if (!toolbarReviewTarget(resolveAnchorElement(comment?.position))?.closest('#uier-panel-inbox')) {
+            setSidebarOpen(false);
+        }
         setOpenComment({ id: commentId, fromInbox: true });
     };
 
@@ -629,6 +654,7 @@ export function CommentsGlobal({
                 inboxButtonRef={inboxButtonRef}
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
+                onCancelPointComment={() => { setCreatingCommentPoint(false); addButtonRef.current?.focus(); }}
                 sidebarOpen={sidebarOpen}
                 onToggleSidebar={() => {
                     if (reattaching) return;

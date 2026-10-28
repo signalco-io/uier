@@ -127,6 +127,21 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
     const guest = await newVisitor(browser, testInfo);
     await guest.page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
     await expect(guest.page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
+    await dismissFirstRunHint(guest.page);
+    // Third-party sites keep toolbar/inbox controls interactive and outside point targeting.
+    await toolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
+    const about = (await toolbar(guest.page).getByRole('button', { name: 'About uier' }).boundingBox())!;
+    await guest.page.mouse.move(about.x + about.width / 2, about.y + about.height / 2);
+    await expect(guest.page.locator('[data-uier-outline]')).toHaveCount(0);
+    await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
+    await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Still interactive');
+    await expect(guest.page.locator('[data-uier-outline]')).toHaveCount(0);
+    await expect(guest.page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveCount(0);
+    await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('');
+    await toolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
+    await inbox.getByRole('button', { name: 'Close sidebar' }).click();
+    await expect(inbox).toHaveCount(0);
     await guest.page.getByRole('button', { name: 'Add comment' }).click();
     const heading = await guest.page.getByRole('heading', { name: 'Pricing', exact: true }).boundingBox();
     await guest.page.mouse.click(heading!.x + 20, heading!.y + heading!.height / 2);

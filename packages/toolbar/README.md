@@ -30,6 +30,13 @@ sending any comments or visitor request. It opens the review link's project's in
 still use `/api/comments` for the public showcase on uier.io. Local subdomains keep separate host
 partitions. Failed comment loads of configured projects show a message and a retry action.
 
+On uier's own pages (the page and configured API share an origin), Add comment can also target
+the toolbar and inbox controls. Point mode outlines the control and pins the comment without
+activating it. Use Cancel in the instruction or Escape to leave point mode. Keyboard reviewers
+can focus an inbox or toolbar control before activating Add comment. These anchors survive a
+reload, follow panel movement, and include the reviewed UI in automatic screenshots. Toolbar
+and inbox controls stay excluded on third-party sites.
+
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:
 

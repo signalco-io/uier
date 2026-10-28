@@ -463,6 +463,12 @@ replying from another site without cookies; [`project-review.spec.ts`](apps/web/
 checks permissions and the install guide's CSP. An embed without `data-uier-project` is for uier's own
 same-origin showcase only. Failed comment loads show a message and a retry action.
 
+On uier's own pages, Add comment also targets toolbar and inbox elements when the page and API
+share an origin. Point mode selects the control without activating it; Cancel or Escape ends
+placement. Keyboard reviewers can focus a control before using Add comment. These comments keep
+their shadow-root anchors and capture the reviewed UI in screenshots. Third-party embeds keep
+uier's own controls outside comment targeting.
+
 ### Comments API
 
 [`apps/web/app/api/comments`](apps/web/app/api/comments), implemented in

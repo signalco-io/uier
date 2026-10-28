@@ -75,7 +75,8 @@ const escapedCharacter = '\\\\[^\\u0000-\\u001f\\u007f]';
 const identifier = `-{0,2}(?:[A-Za-z_]|${escapedCharacter})(?:[A-Za-z0-9_-]|${escapedCharacter})*`;
 const compound = `(?:#${identifier}|[A-Za-z][A-Za-z0-9-]*(?:\\.${identifier})?(?::nth-of-type\\([1-9][0-9]{0,5}\\))?)`;
 const complex = `${compound}(?:>${compound})*`;
-const selectorPattern = new RegExp(`^${complex}(?:,${complex})*$`, 'u');
+// A single explicit boundary for anchors on uier's own toolbar; the inner CSS stays restricted.
+const selectorPattern = new RegExp(`^(?:#uier-toolbar>>>)?${complex}(?:,${complex})*$`, 'u');
 
 const selectorSchema = z.string()
     .min(1)
