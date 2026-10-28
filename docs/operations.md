@@ -40,6 +40,9 @@ For recovery procedures, use [Backups and restore](backups-and-restore.md).
   readiness probe, then provisions the subscription with its secret static header and bounded retries
   (30 attempts / 24 hours). The probe sends no email and writes no app data. It uses uppercase name
   metadata to confirm the deployed receiver applies Azure's case-insensitive resource identity.
+  Independent Azure readback on 28 October 2026 confirmed subscription `uier-email-delivery` is
+  `Succeeded`; both the readiness request and real validation callback returned 200. See the
+  [provisioning receipt and remaining gates](review-notifications.md#delivery-report-provisioning-receipt).
 
 ### Email domain verification and cutover
 
