@@ -10,9 +10,14 @@ export default defineConfig(({ env }) => [{
     outExtension: () => ({ js: '.js' }),
     // The bundle runs in the reviewed page, not in Node
     platform: 'browser',
+    esbuildOptions(options) {
+        // UI-kit button links need native navigation on arbitrary reviewed sites. Keep the
+        // framework router out of the embed and retain room for actionable notices in its budget.
+        options.alias = { ...options.alias, 'next/link': './src/components/ToolbarLink.tsx' };
+    },
     define: {
-        // Bundled `next/link` (via @signalco/ui-primitives) reads `process.env.__NEXT_*` at load time,
-        // which throws "process is not defined" outside of Next.js. NODE_ENV is still set by `--env`.
+        // Dependencies must not read Node's process global on an arbitrary reviewed site.
+        // NODE_ENV is still set by `--env`.
         'process.env': '{}',
         // Comments API used by src/hooks/useComments.tsx when it can not be derived from the
         // toolbar script URL (src/config.ts). The dev build (`pnpm dev`, served from localhost:4005

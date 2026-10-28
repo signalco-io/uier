@@ -24,8 +24,11 @@ showcase mode and no project:
 <script src="https://uier.io/toolbar.js" data-uier-mode="showcase" defer></script>
 ```
 
-Cross-site embeds require a project. Without one, `/api/comments` uses the static public project for the same-origin showcase on
-uier.io. Local subdomains keep separate host partitions. Failed comment loads show a message and a retry action.
+Cross-site embeds require a project. Without one, the toolbar shows **Open install guide** before
+sending any comments or visitor request. It opens the review link's project's install page, or
+`/app/projects` when the link has no code, on the API base URL in a new tab. Same-origin embeds
+still use `/api/comments` for the public showcase on uier.io. Local subdomains keep separate host
+partitions. Failed comment loads of configured projects show a message and a retry action.
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:
@@ -105,9 +108,18 @@ With a project the toolbar uses the review API, `<API base URL>/api/review/<proj
   their comments. No cookies are used: the API is on another site than the reviewed one.
 - **Comments off**: the pill says "Comments are turned off for this project".
 
-On a site that is not one of the project's addresses, the pill says "uier can't open this project here". In
-`review` mode each of these pills also has **Exit review** (an X button), so a reviewer who can't comment
-can still end the review.
+When the project cannot be loaded, the pill says "uier can't open this project here" and offers
+**Copy note for the owner**. The plain-text note contains only this page's origin, the script's public
+project code, a settings link on the API base URL and a request for an admin to check installation
+and add the address under Site addresses if it belongs to the project. It includes no project
+details, credentials, reviewer identity or page path/query/hash. Clipboard failure shows selectable
+text; uier never sends the note. A denied origin cannot be distinguished from a missing project,
+wrong API URL or outage, and no API/CORS disclosure is added.
+
+An ended session offers **Sign in**, using the review link supplied by the API and returning to the
+current page. Offline project loads ask the reviewer to check the connection and resume on reconnect.
+These notices are never selected by a timeout. In `review` mode every notice also has **Exit review**
+(an X button), so a reviewer who can't comment can still end the review. Comments off keeps only Exit review.
 
 Members mark any comment done; the author and the project's admins delete it (the API returns
 `permissions` and `canDelete`, and the thread shows only those actions). The profile shows the member's
@@ -318,6 +330,9 @@ Unassignment targets the previous assignee, subject to the same rules.
   `src/styles/toolbar-theme.css` keeps the page's inherited text styles out and honours reduced motion.
 - UI components come from the `@signalco/*` UI kit; `src/styles/tailwind-v3-compat.css` keeps the kit's
   Tailwind v3 class names rendering as they did with Tailwind v3.
+- The embedded bundle maps the kit's `next/link` to a ref-forwarding native anchor. All toolbar
+  links use browser navigation on the reviewed site, keeping the framework router out of the
+  toolbar bundle; the React script-loader entry stays unchanged.
 
 ## Scripts
 

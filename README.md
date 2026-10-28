@@ -134,7 +134,8 @@ The Playwright projects ([`apps/web/playwright.config.ts`](apps/web/playwright.c
   ([`project-review.spec.ts`](apps/web/e2e/project-review.spec.ts)) on a reviewed site on another origin that
   embeds the install guide's script and sends exactly the CSP sources it lists (any CSP violation fails):
   invited people (review link sign-in, "Sign in" for others), guests with names, comments off, other sites
-  refused (CORS), and the app's comment list, board, filters, private comments, assignees, edit, delete,
+  refused (CORS) with privacy-safe copyable owner notes, ended-session sign-in, offline recovery,
+  and the app's comment list, board, filters, private comments, assignees, edit, delete,
   usage and links to comments.
 - **Desktop Chrome** and **Mobile Chrome** run users and invitations
   ([`users.spec.ts`](apps/web/e2e/users.spec.ts)): a commenter invited to one project and an invited admin,

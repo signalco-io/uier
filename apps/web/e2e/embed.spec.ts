@@ -6,6 +6,7 @@ import { toolbar } from './support/toolbar';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
+import { expectNoAxeViolations } from './accessibility';
 
 // A reviewed site embeds the toolbar from uier.io on its own origin:
 //     <script src="https://uier.io/toolbar.js" defer></script>
@@ -26,6 +27,7 @@ test.beforeAll(async ({ baseURL }) => {
             response.end(`<!doctype html>
 <html lang="en">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
     <style>
         body { margin: 24px; font: 17px/1.6 Georgia, serif; color: #333; background: #fafaf5; }
@@ -45,6 +47,7 @@ test.beforeAll(async ({ baseURL }) => {
         response.end(`<!doctype html>
 <html lang="en">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
     <script src="${toolbarUrl}"${projectAttribute} defer></script>
 </head>
@@ -65,6 +68,11 @@ test.afterAll(async () => {
 test('the toolbar starts on a reviewed site on another origin', async ({ page, baseURL }) => {
     const toolbarUrl = new URL('/toolbar.js', baseURL).href;
     const apiOrigin = new URL(toolbarUrl).origin;
+    const publicApiRequests: string[] = [];
+    page.on('request', request => {
+        const url = new URL(request.url());
+        if (url.origin === apiOrigin && /^\/api\/(comments|visitor)(\/|$)/.test(url.pathname)) publicApiRequests.push(url.pathname);
+    });
 
     // Review mode (no data-uier-mode): nothing is mounted without ?review=true
     let toolbarLoaded = page.waitForResponse(toolbarUrl);
@@ -72,16 +80,43 @@ test('the toolbar starts on a reviewed site on another origin', async ({ page, b
     expect((await toolbarLoaded).status()).toBe(200);
     await expect(page.locator('#uier-toolbar')).toHaveCount(0);
 
-    // With ?review=true it mounts and asks the comments API on the script's origin (uier.io), not
-    // the reviewed site, for the comments of the page
-    const commentsRequest = page.waitForRequest(request => request.url().startsWith(`${apiOrigin}/api/comments?`));
-    toolbarLoaded = page.waitForResponse(toolbarUrl);
-    await page.goto(`${reviewedSiteOrigin}/pricing?review=true`);
-    expect((await toolbarLoaded).status()).toBe(200);
-    await expect(toolbar(page)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
-    expect(new URL((await commentsRequest).url()).searchParams.get('path')).toBe('/pricing');
-    await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
+    // Missing script configuration is known before mounting any data hooks, with or without a
+    // public code in the review link. The link's code selects the guide, not a comments project.
+    await page.setViewportSize({ width: 375, height: 740 });
+    for (const code of [undefined, 'abcd1234efgh']) {
+        toolbarLoaded = page.waitForResponse(toolbarUrl);
+        await page.goto(`${reviewedSiteOrigin}/pricing?${code ? `toolbar-code=${code}` : 'review=true'}`);
+        expect((await toolbarLoaded).status()).toBe(200);
+        await expect(toolbar(page)).toContainText('Set up uier on this site to start a review.');
+        await expect(toolbar(page)).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+        const guide = page.getByRole('link', { name: 'Open install guide', exact: true });
+        await expect(guide).toHaveAttribute('href', `${apiOrigin}/app/projects${code ? `/${code}/install` : ''}`);
+        await expect(guide).toHaveAttribute('target', '_blank');
+        await expect(guide).toHaveAttribute('rel', /noopener/);
+        await expect(page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
+        await expect(page.getByText('Comments could not be loaded.')).toHaveCount(0);
+        const box = (await guide.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(375);
+        if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.keyboard.press('Tab');
+        await expect(guide).toBeFocused();
+        const opened = page.waitForEvent('popup');
+        await guide.press('Enter');
+        const install = await opened;
+        await install.waitForLoadState();
+        expect(new URL(install.url()).pathname).toBe('/app/sign-in');
+        expect(new URL(install.url()).searchParams.get('next')).toBe(`/app/projects${code ? `/${code}/install` : ''}`);
+        expect(await install.evaluate(() => window.opener === null)).toBe(true);
+        await install.close();
+        await expectNoAxeViolations(page);
+        expect(publicApiRequests).toEqual([]);
+        await page.keyboard.press('Tab');
+        await expect(page.getByRole('button', { name: 'Exit review' })).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#uier-toolbar')).toHaveCount(0);
+    }
 });
 
 test('a reviewed project lists, posts and replies without third-party cookies', async ({ page, browser, request }, testInfo) => {
@@ -91,6 +126,7 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
 
     const guest = await newVisitor(browser, testInfo);
     await guest.page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
+    await expect(guest.page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
     await guest.page.getByRole('button', { name: 'Add comment' }).click();
     const heading = await guest.page.getByRole('heading', { name: 'Pricing', exact: true }).boundingBox();
     await guest.page.mouse.click(heading!.x + 20, heading!.y + heading!.height / 2);
@@ -144,6 +180,7 @@ test('a failed project comments load is visible and can be retried', async ({ pa
     await page.route(endpoint, route => route.abort());
     await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
     await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
     await page.unroute(endpoint);
     await page.getByRole('button', { name: 'Try again', exact: true }).click();
     await expect(page.getByText('Comments could not be loaded.')).toBeHidden();
@@ -162,11 +199,15 @@ async function pageStyles(page: Page) {
 }
 
 test('the toolbar mounts in its shadow root and leaves the reviewed site\'s styles alone', async ({ page, baseURL }) => {
+    await signIn(page, uniqueEmail('embed-styles'));
+    const projectId = await createProject(page, { urls: [reviewedSiteOrigin] });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
     await page.goto(`${reviewedSiteOrigin}/styled?review=true`);
     const before = await pageStyles(page);
     const sheetsBefore = await page.evaluate(() => [...document.styleSheets].map(sheet => sheet.href));
 
-    // No CSP on the reviewed site, so the script can be added directly
+    // A configured embed via window.uierConfig follows the same review path as a script attribute.
+    await page.evaluate(project => { window.uierConfig = { project }; }, projectId);
     await page.addScriptTag({ url: new URL('/toolbar.js', baseURL).href });
     await expect(toolbar(page)).toBeVisible();
     await page.getByRole('button', { name: 'Profile' }).click();
