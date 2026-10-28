@@ -12,6 +12,8 @@ import {
     RATE_LIMIT_IP_REWRITES,
     RATE_LIMIT_VISITOR_REWRITES,
     RATE_LIMIT_IP_WRITES,
+    RATE_LIMIT_MEMBER_COMMENTS,
+    RATE_LIMIT_MEMBER_REPLIES,
     RATE_LIMIT_PAGE_COMMENTS,
     RATE_LIMIT_VISITOR_COMMENTS,
     RATE_LIMIT_VISITOR_REPLIES,
@@ -27,6 +29,10 @@ export const APP_COUNTERS_PARTITION = 'app';
 export type RateLimitSubject = {
     domain: string;
     authorId: string;
+    /** Set only by project review services from a server-resolved actor, never request input. */
+    member?: boolean;
+    /** MCP replies also count per credential, before consuming the human owner's budget. */
+    credentialId?: string;
     /** IPv4 address or IPv6 /64; missing when the IP limit doesn't apply (local loopback requests) */
     ipBucket?: string;
 };
@@ -58,7 +64,7 @@ const tooManyComments = 'You are leaving feedback too quickly. Please try again 
 const tooManyReplies = 'You are replying too quickly. Please try again later.';
 
 function ipLimit(subject: RateLimitSubject, message: string): Limit[] {
-    return subject.ipBucket
+    return subject.ipBucket && !subject.member
         ? [{ key: `ip-writes:${subject.ipBucket}`, limit: RATE_LIMIT_IP_WRITES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message }]
         : [];
 }
@@ -74,7 +80,7 @@ async function consumeAll(store: CommentsStore, domain: string, limits: Limit[])
 
 export async function enforceNewCommentLimits(store: CommentsStore, subject: RateLimitSubject, path: string) {
     await consumeAll(store, subject.domain, [
-        { key: `visitor-comments:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_COMMENTS, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyComments },
+        { key: `${subject.member ? 'member' : 'visitor'}-comments:${subject.authorId}`, limit: subject.member ? RATE_LIMIT_MEMBER_COMMENTS : RATE_LIMIT_VISITOR_COMMENTS, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyComments },
         ...ipLimit(subject, tooManyComments),
         { key: `page-comments:${path}`, limit: RATE_LIMIT_PAGE_COMMENTS, windowSeconds: PAGE_COMMENTS_WINDOW_SECONDS, reason: 'page_full', message: 'This page has reached its comment limit for today. Please try again tomorrow.' }
     ]);
@@ -82,7 +88,8 @@ export async function enforceNewCommentLimits(store: CommentsStore, subject: Rat
 
 export async function enforceReplyLimits(store: CommentsStore, subject: RateLimitSubject) {
     await consumeAll(store, subject.domain, [
-        { key: `visitor-replies:${subject.authorId}`, limit: RATE_LIMIT_VISITOR_REPLIES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyReplies },
+        ...(subject.credentialId ? [{ key: `credential-replies:${subject.credentialId}`, limit: RATE_LIMIT_VISITOR_REPLIES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast' as const, message: tooManyReplies }] : []),
+        { key: `${subject.member ? 'member' : 'visitor'}-replies:${subject.authorId}`, limit: subject.member ? RATE_LIMIT_MEMBER_REPLIES : RATE_LIMIT_VISITOR_REPLIES, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyReplies },
         ...ipLimit(subject, tooManyReplies)
     ]);
 }

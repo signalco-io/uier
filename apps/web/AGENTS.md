@@ -306,3 +306,12 @@ produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource r
 its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
 and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
 light/dark accessibility. This connector does not prove #90 launch acceptance.
+
+Project comment rate limits use only server-resolved actors: members get 100 new comments and 300
+replies per project per hour and skip the 30-write shared IP budget. Guests and `PUBLIC_PROJECT_ID`
+commenters retain visitor limits (10 new comments, 30 replies and 30 writes per IP per hour).
+The anonymous comments service always uses visitor limits. MCP replies first consume a 30-reply
+per-credential/project budget, then the owner's budget; rejected credentials must not exhaust the
+owner. Page, screenshot, paid rewrite and MCP transport limits stay independent. Coverage is in
+`review-rate-limits.api.spec.ts`, `public-project.api.spec.ts`, `mcp.api.spec.ts` and the unchanged
+`comments.api.spec.ts` rate cases.

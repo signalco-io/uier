@@ -296,7 +296,10 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 - **Permissions**: members mark any comment done, the author and the workspace admins delete it, private
   comments are listed only to admins and their author. Comments carry `permissions` and `canDelete`.
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
-  the author (`user:<id>` for members) and no TTL. The same rate limits as the comments API apply.
+  the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.
+  Current project members get 100 new comments and 300 replies per project per hour, without the
+  shared IP write limit. Public feedback project commenters keep the visitor and IP limits even
+  after signing up. Page, screenshot and rewrite limits apply to every reviewer.
 - **Bot protection**: writes on uier's origin use BotID directly. On reviewed sites, the toolbar opens an
   empty frame on uier's origin so BotID can verify there, without third-party cookies. The frame checks
   its parent's browser-supplied origin against the project's addresses and returns a signed five-minute
@@ -526,7 +529,7 @@ its next write. The server key is
 `UIER_COMMENTS_SECRET`, a random value Pulumi sets separately for production and previews (locally a fixed
 development key); changing it changes every guest name and nothing else.
 
-**Limits** (all in [`limits.ts`](apps/web/src/lib/comments/limits.ts)). Rate limits are fixed windows per domain,
+**Limits** (all in [`limits.ts`](apps/web/src/lib/comments/limits.ts)). Rate limits are fixed windows per domain or project,
 counted atomically in small counter documents (`type: 'counter'`, id = HMAC of the subject and window, expiring
 shortly after the window) in the comments container, so concurrent requests can't exceed them and comments
 carry no IP-derived data:
@@ -540,7 +543,10 @@ carry no IP-derived data:
 | Thread | 50 messages (replies are appended atomically) |
 | New comments per visitor | 10 per hour |
 | Replies per visitor | 30 per hour |
-| Writes per IP (an IPv4 address or an IPv6 /64) | 30 per hour |
+| New comments per project member | 100 per project per hour; public feedback commenters keep 10 |
+| Replies per project member | 300 per project per hour; public feedback commenters keep 30 |
+| Replies per MCP credential | 30 per project per hour, also counted against the owner's member budget |
+| Writes per IP (an IPv4 address or an IPv6 /64) | 30 per domain or project per hour for guests and public feedback commenters; project members do not consume it. The anonymous `/api/comments` API keeps this limit for every writer |
 | New comments per page | 100 per day (`reason: page_full`) |
 | Rewrite suggestions | 20 per visitor (with the cookie) or project reviewer per hour, 300 per domain or project per day; app-wide, whatever the site: 40 per IP per hour and 1000 per day; selected text and each suggestion up to 1000 characters (what a rewrite comment holds), instruction up to 300 |
 
@@ -1026,7 +1032,10 @@ are hints, not an approval system. Reading does not acknowledge inbox unread act
 List tools accept `limit` (1–25, default 20) and numeric `cursor` (default 0), returning `nextCursor`
 or `null`. Cursors are offsets in current results, so concurrent additions can shift a page. Search
 is bounded to the latest 1000 threads; use known ids to read older feedback. Requests are limited
-to 16 KiB and 120 per user per minute. Thread/image sizes retain existing review validation limits.
+to 16 KiB and 120 per user per minute across credentials. Replies also have a 30-per-credential,
+per-project hourly limit and consume the owner's 300-per-project hourly member budget. Public feedback
+commenters retain their 30-reply visitor budget and shared IP limit. Exhausted credentials do not consume
+more of the owner's reply budget. Thread/image sizes retain existing review validation limits.
 No server sessions or long-running streams are retained; GET/DELETE return 405 after authentication.
 
 Every mutation requires an `idempotencyKey` (16–128 letters, numbers, `_` or `-`). Generate one per
