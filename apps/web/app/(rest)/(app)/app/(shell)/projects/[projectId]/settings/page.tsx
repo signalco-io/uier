@@ -10,16 +10,26 @@ import { notificationPreference } from '@/src/lib/notifications/preferences';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { configuredEnvironments } from '@/src/lib/app/environments';
+import { PUBLIC_PROJECT_ID } from '@/src/lib/comments/publicProject';
+import { getGitHubSettings } from '@/src/lib/integrations/github';
+import { getLinearSettings } from '@/src/lib/integrations/linear';
+import { getNotionSettings } from '@/src/lib/integrations/notion';
+import { GitHubSection } from '@/src/components/app/github/GitHubSection';
+import { LinearSection } from '@/src/components/app/linear/LinearSection';
+import { NotionSection } from '@/src/components/app/notion/NotionSection';
+import { SlackSection } from '@/src/components/app/slack/SlackSection';
+import { getSlackSettings } from '@/src/lib/integrations/slack/settings';
 import {
     ProjectBriefForm, ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEmailExcerptsForm, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
 } from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
-    title: 'Project settings'
+    title: 'Project settings',
+    referrer: 'same-origin'
 };
 
 /** Everyone sets their own project emails; admins also set up the project */
-export default async function ProjectSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings'>) {
+export default async function ProjectSettingsPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings'>) {
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
@@ -43,9 +53,25 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
                     ? <ProjectEmailExcerptsForm projectId={project.id} enabled={project.emailCommentExcerpts === true} />
                     : <p className="m-0 text-sm text-muted-foreground">Comment excerpts are {project.emailCommentExcerpts ? 'on' : 'off'}. When on, short comment excerpts go to every recipient, verified guests included. Only workspace admins can change this.</p>}
             </Section>
+            {context.isAdmin && project.id !== PUBLIC_PROJECT_ID
+                && <ProjectIntegrations project={project} context={context} query={await searchParams} />}
             {context.isAdmin && <ProjectState context={context} project={project} />}
         </div>
     );
+}
+
+async function ProjectIntegrations({ project, context, query }: { project: DbProject; context: AppContext;
+    query: Record<string, string | string[] | undefined> }) {
+    const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
+    const [notion, github, linear, slack] = await Promise.all([getNotionSettings(project, context.user.id),
+        getGitHubSettings(project, context.user.id, value('githubSetup')), getLinearSettings(project, context.user.id),
+        getSlackSettings(project, context.user.id)]);
+    return <>
+        <NotionSection projectId={project.id} settings={notion} outcome={value('notion')} />
+        <GitHubSection projectId={project.id} settings={github} outcome={value('github')} />
+        <LinearSection projectId={project.id} settings={linear} outcome={value('linear')} />
+        <SlackSection projectId={project.id} settings={slack} outcome={value('slack')} />
+    </>;
 }
 
 function ProjectSetup({ project, clients }: { project: DbProject; clients: string[] }) {

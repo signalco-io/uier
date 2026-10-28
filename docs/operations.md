@@ -140,6 +140,7 @@ Repository secrets:
 | `VERCEL_TOKEN` | Vercel CLI deployments and the Pulumi Vercel provider (`VERCEL_API_TOKEN`); scoped to the signalco team |
 | `CLOUDFLARE_API_TOKEN` | Pulumi Cloudflare provider; DNS edit permission on the `uier.io` zone |
 | `ANTHROPIC_API_KEY` | Optional: production's `ANTHROPIC_API_KEY` on Vercel (rewrite suggestions), set by Pulumi; until it is set suggestions are not available |
+| `UIER_INTEGRATION_ENV` | Optional JSON string map of server-only provider credentials and explicit rotation overrides; Pulumi validates the allowlist and sets production-only retrievable encrypted Vercel variables for the app and scheduled worker. Four stable encryption keys are generated automatically. See [connected service setup](integration-setup.md). |
 
 The Entra ID app **uier GitHub Deployment** needs federated credentials (issuer
 `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`) for the subjects below.

@@ -16,18 +16,20 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
 - [Coding tool access (MCP)](mcp.md): credentials, client setup, tools, prompts and retry contracts.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.
-- [Shared integration foundation](integrations.md): durable source outboxes, bounded discovery, independent delivery, credentials and safe links.
+- [Connected services](integrations.md): Notion pages, GitHub and Linear issues, Slack notifications and the shared delivery protocol.
 
 ## Operations
 
 - [Infrastructure and operations](operations.md): infrastructure setup, CI/CD, credentials, status checks and moderation.
 - [Backups and restore](backups-and-restore.md): policy rollout gates, access, recovery procedure and drill evidence.
 - [Review notifications](review-notifications.md): email delivery, retention, scheduler and production acceptance gates.
+- [Integration setup](integration-setup.md): provider registration, production credentials, activation and manual acceptance tasks.
+- [Integration operations](integration-operations.md): inspect stopped delivery and explicitly reconcile uncertain writes.
 - [MVP launch verification](mvp-launch-verification.md): coverage, measurements and outstanding hosted/device checks.
 
 ## Integration plans
 
-These are implementation plans for outbound integrations, not shipped features. Each records scope,
+These plans record the design for outbound integrations. Each records scope,
 authorization, delivery and recovery rules, privacy limits, validation and release gates.
 
 - [Notion](notion-integration-plan.md), including the shared provider architecture.
@@ -38,5 +40,6 @@ authorization, delivery and recovery rules, privacy limits, validation and relea
 The shared connection, discovery, delivery and external-link contracts are defined in the
 [Notion expansion model](notion-integration-plan.md#21-expansion-to-other-services).
 
-The shared foundation is implemented. Its provider registry stays empty until each complete adapter
-ships; provider connections remain planned.
+The adapters and project settings are implemented. Availability still requires provider registration,
+production credentials and provider-specific approval. The [implemented contract](integrations.md)
+records behavior and limits; the plans retain their original phases and proposed acceptance gates.

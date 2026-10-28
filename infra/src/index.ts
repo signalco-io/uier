@@ -7,6 +7,7 @@ import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
 import { acsEmail, acsEmailReports } from './email.js';
+import { integrationEnvironment } from './integrations.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -25,6 +26,7 @@ const up = async () => {
     const vercelTeamSlug = 'signalco';
     const vercelProjectName = 'uier';
     const app = nextJsApp('uier', vercelProjectName, 'apps/web', protect);
+    integrationEnvironment(app.projectId);
 
     // Configure domain name
     const domain = new ProjectDomain('vercel-uier-domain', {

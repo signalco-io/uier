@@ -2,18 +2,60 @@
 
 ## Implementation status
 
-The shared synchronization foundation is implemented. Provider-specific delivery, connection
-flows and settings are being implemented against these plans:
+The shared synchronization foundation, four adapters, OAuth routes and admin-only project settings
+are implemented. Each provider stays unavailable until its deployment configuration is valid:
 
 | Provider | Contract | Status |
 | --- | --- | --- |
-| [Notion](notion-integration-plan.md) | One page per thread, kept current | Provider implementation pending |
-| [GitHub](github-integration-plan.md) | One-way issue mirror | Provider implementation pending |
-| [Linear](linear-integration-plan.md) | One-way issue mirror | Provider implementation pending |
-| [Slack](slack-integration-plan.md) | Bounded channel notifications | Provider implementation pending |
+| [Notion](notion-integration-plan.md) | One page per thread, kept current | Implemented; registration and hosted acceptance required |
+| [GitHub](github-integration-plan.md) | One-way issue mirror | Implemented; GitHub App registration and hosted acceptance required |
+| [Linear](linear-integration-plan.md) | One-way issue mirror | Implemented; app registration and hosted acceptance required |
+| [Slack](slack-integration-plan.md) | Bounded channel notifications | Implemented; rotating bot credentials, distribution approval and hosted acceptance required |
 
-The production registry remains empty until a complete adapter is ready. This foundation alone
-does not authorize provider access or send feedback to an external service.
+An admin must connect a provider and explicitly save its destination before delivery starts.
+Connections are independent: a project can use all four services. The provider's own permissions
+control access to its copies. See [setup and manual tasks](integration-setup.md) and
+[delivery operations](integration-operations.md). No live provider acceptance is implied by a local test.
+
+## Provider behavior
+
+- **Notion:** a selected data source receives one page per shared thread, mapped by stable property
+  ids. Title and uier id are required. Optional status, environment, kind, links, date and assignee
+  mappings are validated against the live schema. The page includes feedback, discussion,
+  reproduction context and the saved screenshot when upload succeeds. Privacy cleanup empties
+  known pages before trashing them; status metadata, Notion history and retained files can remain accessible.
+- **GitHub:** a GitHub App installation and separate PKCE user authorization verify installation
+  access and repository administration before the repository is saved. Public repositories require
+  explicit confirmation. Issues mirror current feedback and status; bot-owned discussion comments
+  mirror replies. Protected screenshot links lead back to uier. Human GitHub comments are kept.
+  Signed lifecycle webhooks update installation authority without importing GitHub issue changes.
+  A repository becoming public requires renewed public-destination confirmation before more
+  content is sent. That consent pause still allows enabled, authorized privacy cleanup of known copies.
+- **Linear:** app-actor OAuth uses an organization grant shared by this uier workspace's projects.
+  Admins choose a team, optional project, open/done states and existing labels. Persisted UUIDs
+  reconcile uncertain issue/comment creates. Optional screenshot uploads create Linear-owned
+  copies. Human labels and discussion remain separate from uier's managed content.
+- **Slack:** a rotating bot grant posts one root message for new shared feedback in the chosen
+  channel and updates its current summary. Optional reply-count and status summaries are off by
+  default. No history, direct-message or file scope is requested. The app must already be a channel
+  member. Channel changes start a new activation cutoff; edits to older threads stay silent unless
+  an admin explicitly selects backfill or resumes a cleaned thread. Missing bot messages are held
+  for review. An uncertain post cannot be found automatically without history access, so an admin
+  must adopt its known timestamp or explicitly attest absence before another post is allowed.
+  Fresh channel metadata is checked before content writes; a channel becoming shared or otherwise
+  ineligible stops those writes while known-copy cleanup remains possible.
+
+Each adapter retains ids and original destination authority for old copies. Changing a destination
+does not promise their removal. Unavailable old authority produces a visible cleanup failure rather
+than an erasure claim. Disconnect stops future work and retains reconciliation metadata. Removing
+the app or external copies in the provider is a separate action.
+
+Settings rendering only reads uier's database. Provider pickers and schema reads run on an explicit
+admin action. Off and disconnect remain available when deployment credentials are unavailable.
+Backfill selects at most the latest 1,000 threads (Slack: 100), excludes private feedback and persists
+a durable selection. Queueing progress counts local delivery requests, not completed external sends.
+The worker queues bounded batches; a changed destination cancels an old selection. Forced backfill
+is separate from ordinary source intent and never replays an old selection into a new destination.
 
 ## Source outbox
 
@@ -90,6 +132,11 @@ store bounds and transactional tombstones. `integrationCredentials.api.spec.ts` 
 key/context isolation, OAuth replay/expiry and refresh lease races. `integrations.api.spec.ts`
 exercises fan-out failures, source/binding races, leases, privacy cleanup, uncertainty, backfill,
 provider fairness and link safety with instrumented adapters and the real authorized export.
+
+`notion.api.spec.ts`, `github.api.spec.ts`, `linear.api.spec.ts` and `slack.api.spec.ts` use actual
+HTTP requests to local provider simulators. The matching browser specs cover OAuth returns,
+explicit destination controls, permission checks, persistent settings and disconnect. Playwright
+uses generated fixture credentials and loopback simulators; it never needs real provider tokens.
 
 Local and CI checks prove the code paths exercised. Provider-specific hosted acceptance,
 registration, credentials, distribution approval and deployment readback remain separate evidence.

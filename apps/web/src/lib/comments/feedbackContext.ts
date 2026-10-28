@@ -9,6 +9,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
     pageUrl?: string;
     commentUrl?: string;
     screenshotUrl?: string;
+    assigneeName?: string;
 }): FeedbackExport {
     const items: FeedbackMessage[] = dto.thread.items.map(item => 'deleted' in item
         ? { id: item.id, deleted: true, createdAt: item.createdAt }
@@ -23,6 +24,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${summary || 'Website feedback'}`,
         kind: dto.kind, status: dto.resolved ? 'done' : 'open', feedback: first,
+        ...(options.assigneeName ? { assignee: { name: options.assigneeName } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }
             : position.type === 'point' ? { type: 'point', selector: position.selector }
             : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector },

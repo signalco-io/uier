@@ -8,14 +8,16 @@ import { toReproductionContext } from '../comments/reproduction';
 import { getCommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from './actor';
 import { getProjectComment } from './comments';
-import { authorNames, toReviewCommentDto } from './dto';
+import { authorNames, participantNames, toReviewCommentDto } from './dto';
 
 /** One authorized read model for toolbar, app and later integrations. Reloads at export time. */
 export async function projectFeedbackExport(project: DbProject, actor: ProjectActor, id: string, siteOrigin: string | undefined, baseUrl: string) {
     const comment = await getProjectComment(project, actor, id);
     if (!comment) throw apiErrors.notFound();
     const origins = projectOrigins(project);
-    const dto = toReviewCommentDto(comment, actor, await authorNames([comment]), origins);
+    const names = await authorNames([comment]);
+    const participants = actor.kind === 'member' && comment.assigneeId ? await participantNames(project) : names;
+    const dto = toReviewCommentDto(comment, actor, names, origins, 0, participants);
     if (!dto) throw apiErrors.notFound();
     // Guests see only the source they are currently reviewing, never other configured addresses
     // or the member-only browser context. Removed sources do not fall back to another environment.
@@ -34,6 +36,7 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
     }
     return feedbackExport(dto, {
         projectId: project.id, pageUrl,
+        assigneeName: actor.kind === 'member' ? dto.assignee?.name : undefined,
         environment: actor.kind === 'member' || pageUrl ? feedbackSource(project, comment.origin).label : undefined,
         commentUrl,
         screenshotUrl: screenshot ? new URL(actor.kind === 'member'
