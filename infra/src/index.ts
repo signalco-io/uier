@@ -59,6 +59,12 @@ const up = async () => {
     const cosmosDbAccount = new DatabaseAccount(cosmosAccountName, {
         resourceGroupName: resourceGroup.name,
         databaseAccountOfferType: DatabaseAccountOfferType.Standard,
+        // Periodic -> continuous is one-way. Merge only after the owner approves an isolated,
+        // in-place account update in the PR's Pulumi preview (see #135).
+        backupPolicy: {
+            type: 'Continuous',
+            continuousModeProperties: { tier: 'Continuous7Days' },
+        },
         capabilities: [
             {
                 name: 'EnableServerless', // Use specific capabilities if needed
