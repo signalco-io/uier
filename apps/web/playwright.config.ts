@@ -62,6 +62,8 @@ export default defineConfig({
                 UIER_EMAIL_REPORT_SECRET: 'e2e-email-report-secret',
                 UIER_EMAIL_REPORT_SUBSCRIPTION: 'uier-email-delivery',
                 UIER_EMAIL_REPORT_TOPIC: '/subscriptions/test/resourceGroups/test/providers/Microsoft.Communication/communicationServices/test',
+                // Fictional local-only staff identities; never inherit a real staff allowlist.
+                UIER_STAFF_EMAILS: 'e2e-public-staff-desktop@example.test,e2e-public-staff-mobile@example.test,e2e-users-staff-desktop@example.test,e2e-users-staff-mobile@example.test',
                 // The comments API uses its in-memory store, never a database configured in .env.local
                 COSMOSDB_CONNECTION_STRING: '',
                 COSMOSDB_ENDPOINT: '',

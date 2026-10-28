@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     CheckIcon,
     ChevronDownIcon,
@@ -70,6 +70,8 @@ import { deviceLabels, kindLabels } from './commentLabels';
 import {
     markCommentReadAction,
     deleteCommentAction,
+    deleteCommentReplyAction,
+    filterCommentAuthorAction,
     editCommentAction,
     setCommentAssigneeAction,
     setCommentPrivateAction,
@@ -101,12 +103,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
     assignees: AssigneeOption[];
 }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
     const [editText, setEditText] = useState(comment.text);
     const [editError, setEditError] = useState<string>();
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const copyIssue = useCopyIssue(projectId, comment.id);
+    const [confirmingReply, setConfirmingReply] = useState<string>();
     const DeviceIcon = comment.device ? deviceIcons[comment.device] : undefined;
     const { permissions } = comment;
     const author = comment.author.isMe ? 'You' : comment.author.name;
@@ -121,6 +125,18 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
         if (success)
             toast.success(success);
         router.refresh();
+    });
+
+    const filterAuthor = (itemId?: string) => startTransition(async () => {
+        const result = await filterCommentAuthorAction(projectId, comment.id, itemId);
+        if (!result?.ok) {
+            toast.error(result?.error ?? 'Could not filter by this author.');
+            return;
+        }
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('author', result.data);
+        params.delete('people');
+        router.push(`/app/projects/${projectId}?${params}#comments`);
     });
 
     const copyLink = async () => {
@@ -189,6 +205,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                             <ExternalLinkIcon />Open in {({ notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack' } as Record<string, string>)[link.provider] ?? link.provider}
                                         </a>
                                     </DropdownMenuItem>)}
+                                    {comment.canFilterAuthor && (
+                                        <DropdownMenuItem onSelect={() => filterAuthor()}>
+                                            <UserIcon />
+                                            More from this author
+                                        </DropdownMenuItem>
+                                    )}
                                     {permissions.assign && (
                                         <DropdownMenuSub>
                                             <DropdownMenuSubTrigger>
@@ -347,13 +369,38 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                     <Avatar size="sm" aria-hidden="true">
                                         <AvatarFallback>{initials(reply.author.isMe ? 'You' : reply.author.name)}</AvatarFallback>
                                     </Avatar>
-                                    <div className="flex min-w-0 flex-col gap-0.5">
+                                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                                         <span className="flex flex-wrap items-baseline gap-x-2">
                                             <span className="font-medium">{reply.author.isMe ? 'You' : reply.author.name}</span>
                                             <span className="text-xs text-muted-foreground"><DateTime value={reply.createdAt} /></span>
                                         </span>
                                         <span className="break-words whitespace-pre-wrap">{reply.text}{reply.edited && <span className="text-muted-foreground"> (edited)</span>}</span>
                                     </div>
+                                    {(reply.canDelete || reply.canFilterAuthor) && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for reply by ${reply.author.isMe ? 'you' : reply.author.name}`}>
+                                                    <MoreHorizontalIcon />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuGroup>
+                                                    {reply.canFilterAuthor && (
+                                                        <DropdownMenuItem onSelect={() => filterAuthor(reply.id)}>
+                                                            <UserIcon />
+                                                            More from this author
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {reply.canDelete && (
+                                                        <DropdownMenuItem variant="destructive" onSelect={() => setConfirmingReply(reply.id)}>
+                                                            <Trash2Icon />
+                                                            Delete reply
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                </DropdownMenuGroup>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
                                 </li>
                             ))}
                         </ol>
@@ -398,19 +445,24 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+            <AlertDialog open={confirmingDelete || Boolean(confirmingReply)} onOpenChange={open => {
+                if (!open) { setConfirmingDelete(false); setConfirmingReply(undefined); }
+            }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this comment?</AlertDialogTitle>
+                        <AlertDialogTitle>{confirmingReply ? 'Delete this reply?' : 'Delete this comment?'}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {comment.replies.length
+                            {confirmingReply ? 'The reply is deleted for everyone. An empty thread is removed too.' : comment.replies.length
                                 ? `The comment and its ${comment.replies.length} ${comment.replies.length === 1 ? 'reply are' : 'replies are'} deleted for everyone.`
                                 : 'The comment is deleted for everyone.'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={() => run(() => deleteCommentAction(projectId, comment.id), 'Comment deleted.')}>
+                        <AlertDialogAction onClick={() => {
+                            const itemId = confirmingReply;
+                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? 'Reply deleted.' : 'Comment deleted.');
+                        }}>
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

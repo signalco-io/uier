@@ -5,15 +5,16 @@ import { sendEmail } from '../email/send';
 import { invitationEmail } from '../email/templates';
 import { KnownPages } from '../../knownPages';
 import { getAppStore, updateDoc } from './store';
-import { appBaseUrl } from './request';
 import { isRandomToken, randomToken, sha256Hex } from './tokens';
 import { findOrCreateUser, findUserByEmail } from './users';
 import { getMember, getWorkspace } from './workspaces';
 import { getProject } from './projects';
-import { UserFacingError } from './actionResult';
+import { UserFacingError } from './actionErrors';
 import { emailSuppression } from '../email/suppression';
 import { revokeIntegrationGrantsOf } from '../integrations/connection';
 import type { AppContext } from './context';
+import { PUBLIC_WORKSPACE_ID, joinPublicProject } from '../comments/publicProject';
+import { assertMutableWorkspace } from '../comments/publicProjectPolicy';
 import {
     memberId,
     workspacePk,
@@ -51,6 +52,7 @@ export async function listInvitations(workspaceId: string) {
  * person gets by email; pages show it only where no email is sent (local and previews).
  */
 export async function inviteToWorkspace(context: AppContext, input: NewInvitation) {
+    assertMutableWorkspace(context.workspace.id);
     if (!context.isAdmin) throw new UserFacingError('Only workspace admins can invite people.');
     if (await emailSuppression(input.email))
         throw new UserFacingError('Email to this address bounced. Ask them to sign in to uier before inviting them again.');
@@ -101,6 +103,7 @@ export async function inviteToWorkspace(context: AppContext, input: NewInvitatio
         ttl: INVITATION_TTL_SECONDS
     });
 
+    const { appBaseUrl } = await import('./request');
     const url = `${await appBaseUrl()}${KnownPages.AppInvitation}?token=${encodeURIComponent(token)}`;
     const project = input.projectId ? await getProject(workspaceId, input.projectId) : null;
     await sendEmail(invitationEmail({
@@ -164,6 +167,11 @@ export async function acceptInvitation(token: unknown) {
     await store.delete(invitation.pk, invitation.id);
 
     const user = await findOrCreateUser(invitation.email);
+    if (invitation.workspaceId === PUBLIC_WORKSPACE_ID) {
+        // Earlier invitations can still sign their recipient in, but never assign a role.
+        await joinPublicProject(user);
+        return { user, invitation };
+    }
     const now = new Date().toISOString();
     const member: DbMember = {
         type: 'member',
@@ -189,6 +197,7 @@ export async function acceptInvitation(token: unknown) {
 
 /** Removes someone from the workspace; the last admin stays */
 export async function removeMember(context: AppContext, userId: string) {
+    assertMutableWorkspace(context.workspace.id);
     const store = getAppStore();
     const workspaceId = context.workspace.id;
     const member = await getMember(workspaceId, userId);

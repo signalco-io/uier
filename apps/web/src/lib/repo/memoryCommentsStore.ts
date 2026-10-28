@@ -1,4 +1,5 @@
 import { matchesOrigin } from './originFilter';
+import { matchesAuthor } from './authorFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
@@ -113,17 +114,17 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...state().domains.keys()].flatMap(domainComments)
                 .filter(comment => comment.notificationPending && comment.projectId).map(clone);
         },
-        async list(domain, path, limit, originFilter) {
+        async list(domain, path, limit, originFilter, authorId) {
             return domainComments(domain)
-                .filter(comment => matchesOrigin(comment.origin, originFilter))
+                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId))
                 .filter(comment => pathMatches(comment, path))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);
         },
-        async listAll(domain, limit, originFilter) {
+        async listAll(domain, limit, originFilter, authorId) {
             return domainComments(domain)
-                .filter(comment => matchesOrigin(comment.origin, originFilter))
+                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);

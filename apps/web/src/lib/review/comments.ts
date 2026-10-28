@@ -157,12 +157,14 @@ function visibleOrThrow(comment: DbComment, actor: ProjectActor) {
 }
 
 /** Comments of one page, or of every page (`path` undefined), that the actor can see */
-export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter) {
+export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter, authorId?: string) {
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    if (authorId !== undefined && !isAdmin(actor))
+        throw apiErrors.forbidden('Only admins can filter by author.');
     const comments = path === undefined
-        ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter)
-        : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter);
+        ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter, authorId)
+        : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter, authorId);
     return comments.filter(comment => canSeeComment(comment, actor));
 }
 

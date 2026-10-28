@@ -2,6 +2,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { pngImage } from './support/images';
 import { newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
@@ -448,6 +449,19 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     expect(texts(await (await second.context.request.get(pageComments)).json())).not.toContain(text);
     await second.context.close();
 
+    const staff = await newVisitor(browser, testInfo);
+    const staffDevice = testInfo.project.name.startsWith('Mobile') ? 'mobile' : 'desktop';
+    await signIn(staff.page, `e2e-public-staff-${staffDevice}@example.test`, { from: new URL('/app/sign-in', page.url()).href });
+    // The same-origin toolbar stays author-only, including for staff.
+    expect(texts(await (await staff.context.request.get(pageComments)).json())).not.toContain(text);
+    await appNavigation(staff.page);
+    await staff.page.getByRole('button', { name: /^Workspace:/ }).click();
+    await staff.page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
+    await expect(staff.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
+    await staff.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
+    await expect(staff.page.getByRole('article').filter({ hasText: text })).toBeVisible();
+    await staff.context.close();
+
     // The same account in a fresh browser can still read and manage its earlier feedback.
     const returning = await newVisitor(browser, testInfo);
     await signIn(returning.page, email, { from: new URL('/app/sign-in', page.url()).href });
@@ -545,4 +559,84 @@ test('a suppressed address can sign in and then receive invitations again', asyn
     await dialog.getByRole('button', { name: 'Send invitation' }).click();
     await expect(dialog).toHaveAccessibleName('Invitation sent');
     await admin.close();
+});
+
+test('staff moderate public feedback with opaque author filters, single-reply deletion and screenshot cleanup', async ({ page, browser }, testInfo) => {
+    const key = `${Date.now()}-${testInfo.project.name}`;
+    const guest = await newVisitor(browser, testInfo);
+    const other = await newVisitor(browser, testInfo);
+    const create = async (context: typeof guest.context, text: string, screenshot = false) => {
+        const response = await context.request.post(new URL('/api/comments', page.url()).href, { data: {
+            path: `/moderation-${key}`, kind: 'feedback', position: { type: 'page' }, text, ...(screenshot ? { screenshot: pngImage } : {})
+        } });
+        expect(response.status()).toBe(201); return response.json();
+    };
+    await page.goto('/');
+    const opened = await create(guest.context, `Opened by target ${key}`, true);
+    const replied = await create(other.context, `Replied by target ${key}`);
+    const unrelated = await create(other.context, `Unrelated author ${key}`);
+    const replyResponse = await guest.context.request.post(new URL(`/api/comments/${replied.id}/replies`, page.url()).href, { data: { text: `Target reply ${key}` } });
+    expect(replyResponse.ok()).toBe(true);
+    expect((await replyResponse.json()).thread.items).toHaveLength(2);
+    const device = testInfo.project.name.startsWith('Mobile') ? 'mobile' : 'desktop';
+    await signIn(page, `e2e-public-staff-${device}@example.test`);
+    // Becoming staff must not select the shared workspace or bypass personal onboarding.
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
+    await page.goto('/app/projects/uier00000001?environment=all');
+    const card = (text: string) => page.getByRole('article').filter({ hasText: `${text} ${key}` });
+    await expect(card('Opened by target')).toBeVisible();
+    await expect(card('Unrelated author')).toBeVisible();
+    await card('Opened by target').getByRole('button', { name: /^More actions/ }).click();
+    await page.getByRole('menuitem', { name: 'More from this author', exact: true }).click();
+    await expect(page).toHaveURL(/author=[A-Za-z0-9_-]{43}/);
+    expect(page.url()).not.toContain('user:');
+    await expect(card('Opened by target')).toBeVisible();
+    await expect(card('Replied by target')).toBeVisible();
+    await expect(card('Unrelated author')).toHaveCount(0);
+    const authorQuery = new URL(page.url()).searchParams.get('author');
+    await page.reload();
+    await expect(card('Replied by target')).toBeVisible();
+    await card('Replied by target').getByRole('button', { name: '1 reply', exact: true }).click();
+    const replyActions = card('Replied by target').getByRole('button', { name: /^More actions for reply by/ });
+    await replyActions.click();
+    await page.getByRole('menuitem', { name: 'Delete reply', exact: true }).click();
+    const confirm = page.getByRole('alertdialog', { name: 'Delete this reply?' });
+    await expect(confirm).toContainText('The reply is deleted for everyone.');
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+        await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+        await expectNoAxeViolations(page);
+    }
+    await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(card('Replied by target')).toHaveCount(0); // No remaining participation by that author.
+    await page.getByRole('button', { name: /^Clear author filter:/ }).click();
+    await expect(card('Replied by target')).toBeVisible();
+    await expect(card('Replied by target').getByText(`Target reply ${key}`)).toHaveCount(0);
+    expect((await page.request.get(`/app/projects/uier00000001/comments/${opened.id}/screenshot`)).status()).toBe(200);
+    await card('Opened by target').getByRole('button', { name: /^More actions/ }).click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(card('Opened by target')).toHaveCount(0);
+    expect((await page.request.get(`/app/projects/uier00000001/comments/${opened.id}/screenshot`)).status()).toBe(404);
+    expect((await guest.context.request.get(new URL(`/api/comments?path=/moderation-${key}`, page.url()).href)).ok()).toBe(true);
+    const commenter = await newVisitor(browser, testInfo);
+    try {
+        await signIn(commenter.page, uniqueEmail('no-author-filter'), { from: new URL('/app/sign-in', page.url()).href });
+        await appNavigation(commenter.page);
+        await commenter.page.getByRole('button', { name: /^Workspace:/ }).click();
+        await commenter.page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+        await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
+        await commenter.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
+        const otherCard = commenter.page.getByRole('article').filter({ hasText: `Unrelated author ${key}` });
+        await otherCard.getByRole('button', { name: /^More actions/ }).click();
+        await expect(commenter.page.getByRole('menuitem', { name: 'More from this author', exact: true })).toHaveCount(0);
+        await commenter.page.keyboard.press('Escape');
+        await expect(commenter.page.getByRole('button', { name: /^Clear author filter:/ })).toHaveCount(0);
+        expect((await commenter.context.request.get(new URL(`/app/projects/uier00000001?author=${authorQuery}`, page.url()).href)).status()).toBe(404);
+    } finally { await commenter.context.close(); await guest.context.close(); await other.context.close(); }
 });

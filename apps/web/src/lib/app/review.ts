@@ -6,7 +6,8 @@ import type { AppContext } from './context';
 import type { DbMember } from './model';
 import { findProject, projectOrigins, reviewUrl } from './projects';
 import { getMember, memberCanAccessProject } from './workspaces';
-import { issueReviewCode } from '../review/actor';
+import { issueReviewCode, memberActor } from '../review/actor';
+import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
 
 /** Query parameters the toolbar reads on a project's site (packages/toolbar/src/review) */
 export const REVIEW_TOKEN_PARAM = 'uier-token';
@@ -39,7 +40,11 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
     let url = project.urls[0];
     if (commentId) {
         if (!commentIdPattern.test(commentId)) return null;
-        const comment = await getProjectComment(project, { kind: 'member', userId, name: '', isAdmin: member.role === 'admin' }, commentId).catch(error => { if (error instanceof ApiError && error.status === 404) return null; throw error; });
+        const actor = project.workspaceId === PUBLIC_WORKSPACE_ID
+            ? await memberActor(project, userId)
+            : { kind: 'member' as const, userId, name: '', isAdmin: member.role === 'admin' };
+        if (!actor) return null;
+        const comment = await getProjectComment(project, actor, commentId).catch(error => { if (error instanceof ApiError && error.status === 404) return null; throw error; });
         if (!comment || !feedbackSource(project, comment.origin).available) return null;
         url = `${comment.origin}${commentPath(comment)}`;
     }

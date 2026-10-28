@@ -93,6 +93,22 @@ and lockfile; install them separately only when working on infrastructure.
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |
 | [Backups and restore](docs/backups-and-restore.md) | Recover accidental deletions and inspect the recorded restore drill |
 
+## Removing abusive comments
+
+Every account joins the shared uier project as a commenter. The encrypted staff allowlist grants
+admin access automatically on sign-in and app requests; no invitation or manual project membership
+is needed. Staff can see private app feedback as well as public comments.
+
+1. Switch to **uier → uier.io public feedback** in the app.
+2. Use **More from this author** to filter threads they opened or replied to.
+3. Choose **Delete** for a thread and screenshot, or expand replies and choose **Delete reply**.
+4. To add or remove staff, update the complete `uier:staffEmails` list with Pulumi's secret prompt,
+   commit only encrypted configuration through a reviewed PR, and let CI deploy it.
+
+The [moderation procedure](docs/operations.md#removing-abusive-comments) has the exact secret-config
+command, deployment checks and the Cosmos DB fallback. Never delete comment-number sequences or
+rate-limit counters. Personal workspaces and onboarding stay unchanged.
+
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the

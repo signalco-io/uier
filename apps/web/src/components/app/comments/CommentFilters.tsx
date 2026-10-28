@@ -1,17 +1,18 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { FileIcon, KanbanIcon, ListIcon, UserIcon } from 'lucide-react';
+import { FileIcon, KanbanIcon, ListIcon, UserIcon, XIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
-import { peopleFilterLabels, type CommentsView, type PeopleFilter } from './commentLabels';
+import { peopleFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter } from './commentLabels';
 import type { ReactNode } from 'react';
 
 const allPages = 'all';
 
 /** View (list or board) and the people and page filters; all kept in the URL */
-export function CommentFilters({ unread, unreadCount, view, people, page, pages, environment, environments, readAction }: {
+export function CommentFilters({ unread, unreadCount, view, people, page, pages, environment, environments, readAction, author }: {
+    author?: AuthorFilter;
     readAction?: ReactNode;
     environment?: string;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
@@ -81,6 +82,13 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages,
                     </SelectGroup>
                 </SelectContent>
             </Select>
+            {author && (
+                <Button size="sm" variant="outline" className="max-w-full" onClick={() => go('author', undefined)} aria-label={`Clear author filter: ${author.name}`}>
+                    <UserIcon data-icon="inline-start" />
+                    <span className="truncate">Author: {author.name}</span>
+                    <XIcon data-icon="inline-end" />
+                </Button>
+            )}
             <Select value={page ?? allPages} onValueChange={(value) => go('page', value === allPages ? undefined : value)}>
                 <SelectTrigger size="sm" aria-label="Page" className="max-w-64 min-w-36">
                     <FileIcon className="text-muted-foreground" />

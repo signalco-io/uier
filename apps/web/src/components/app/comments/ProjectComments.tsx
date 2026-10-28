@@ -9,11 +9,12 @@ import { projectAccessLabels } from '../projects/projectLabels';
 import { InviteButton } from '../users/InviteDialog';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
-import type { CommentsView, PeopleFilter } from './commentLabels';
+import type { AuthorFilter, CommentsView, PeopleFilter } from './commentLabels';
 import { MarkAllRead } from './MarkAllRead';
 
 export type CommentsQuery = {
     environment?: string;
+    author?: string;
     unread?: boolean;
     view: CommentsView;
     people: PeopleFilter;
@@ -31,6 +32,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
     const page = value('page');
     return {
         environment: value('environment'),
+        author: value('author'),
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
         people: people === 'assigned' || people === 'mine' ? people : 'all',
@@ -73,7 +75,8 @@ function CommentList({ projectId, comments, assignees, label }: {
 }
 
 /** The project's comments in a list or on a board (Open / Done), filtered by people and page */
-export function ProjectComments({ projectId, access, isAdmin, comments, query, userId, assignees, installHref, environments }: {
+export function ProjectComments({ projectId, access, isAdmin, comments, query, userId, assignees, installHref, environments, authorFilter }: {
+    authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
     projectId: string;
     access: ProjectAccess;
@@ -123,7 +126,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <CommentFilters environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages}
+                <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages}
                     readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />} />
                 <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
                     {shown.length === comments.length

@@ -9,6 +9,7 @@ import { appActor } from '../../../lib/app/projectComments';
 import { ApiError } from '../../../lib/comments/http';
 import {
     getProjectComment,
+    deleteProjectCommentItem,
     editProjectCommentText,
     removeProjectComment,
     setProjectCommentAssignee,
@@ -23,6 +24,7 @@ import { appBaseUrl } from '../../../lib/app/request';
 import { projectFeedbackExport } from '../../../lib/review/feedbackContext';
 import { markProjectThreadsRead } from '../../../lib/review/bulkRead';
 import type { ReadThreadInput } from '../../../lib/comments/bulkRead';
+import { createCommentAuthorFilter } from '../../../lib/app/commentAuthors';
 
 /** The comment's project (current workspace, visible to the user) and the user as its actor */
 async function commentContext(projectId: string) {
@@ -73,6 +75,20 @@ export async function editCommentAction(projectId: string, commentId: string, te
 
 export async function deleteCommentAction(projectId: string, commentId: string) {
     return await commentAction(projectId, ({ project, actor }) => removeProjectComment(project, actor, commentId));
+}
+
+export async function deleteCommentReplyAction(projectId: string, commentId: string, itemId: string) {
+    return commentAction(projectId, ({ context, project, actor }) => {
+        if (!context.isAdmin) throw new UserFacingError('Only admins can delete replies in the app.');
+        return deleteProjectCommentItem(project, actor, commentId, itemId);
+    });
+}
+
+export async function filterCommentAuthorAction(projectId: string, commentId: string, itemId?: string) {
+    return actionResult(async () => {
+        const { context, project } = await commentContext(projectId);
+        return createCommentAuthorFilter(context, project, commentId, itemId);
+    });
 }
 
 export async function markCommentReadAction(projectId: string, commentId: string, sequence: number) {
