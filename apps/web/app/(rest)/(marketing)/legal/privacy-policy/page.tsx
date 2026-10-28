@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="25 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="28 October 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -222,10 +222,17 @@ export default function PrivacyPolicyPage() {
 
             <h3>Rate limits and bot protection</h3>
             <p>
-                To stop spam we count new comments, replies and rewrite requests per visitor and per IP address (an IPv4 address,
-                or the /64 network of an IPv6 address), and new comments per page. A counter is stored under a keyed hash, not under
-                the address itself, and is deleted shortly after its time window ends: after about an hour, or
-                about a day for the count per page. Comments never contain your IP address.
+                To stop spam we count new comments and replies per visitor or project member, and new comments per page.
+                Project members have higher hourly limits and do not share the IP write limit. Guests, commenters on our
+                public feedback project and every writer using the anonymous comments API keep the visitor and IP limits.
+                An IP limit counts an IPv4 address or the /64 network of an IPv6 address. MCP replies also count per
+                credential and against its owner&rsquo;s reply limit; MCP requests count per account per minute.
+            </p>
+            <p>
+                Rewrite suggestions still count per visitor or reviewer, per IP address, per site or project and across
+                the app. Screenshots count per site or project per day. Counters use keyed hashes, without plain-text
+                IP addresses, account ids or credential ids. They are deleted shortly after their minute, hour or day
+                window ends. Comments never contain your IP address.
             </p>
             <p>
                 Browser requests that post, change or delete comments are checked by Vercel BotID, which runs a challenge

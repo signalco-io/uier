@@ -14,7 +14,7 @@ import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits } from '../comments/rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, type RateLimitSubject } from '../comments/rateLimits';
 import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
@@ -94,6 +94,16 @@ function rateLimitIpBucket(request: Request) {
     if (isLocalRuntime() && isLoopbackIp(ip))
         return undefined;
     return ipRateLimitBucket(ip);
+}
+
+/** Actors come from resolveActor/memberActor or mcpProject, which recheck current access. */
+function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
+    return {
+        domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request),
+        // Anyone can join the public feedback project; enrollment must not raise its limits.
+        member: actor.kind === 'member' && (project.id !== PUBLIC_PROJECT_ID || actor.isAdmin),
+        credentialId: actor.kind === 'member' ? actor.agent?.credentialId : undefined
+    };
 }
 
 function compactDevice(device: CreateCommentInput['device']): DbCommentDevice | undefined {
@@ -181,7 +191,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return visibleOrThrow(recovered, actor);
-    await enforceNewCommentLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) }, input.path);
+    await enforceNewCommentLimits(store, commentRateLimitSubject(request, project, actor, authorId), input.path);
     const screenshot = await availableScreenshot(store, partition, input.screenshot);
 
     const now = nowIso();
@@ -269,7 +279,7 @@ export async function replyToProjectComment(request: Request, project: DbProject
         throw apiErrors.notFound();
     visibleOrThrow(stored.comment, actor);
 
-    await enforceReplyLimits(store, { domain: partition, authorId, ipBucket: rateLimitIpBucket(request) });
+    await enforceReplyLimits(store, commentRateLimitSubject(request, project, actor, authorId));
 
     const now = nowIso();
     const itemId = `item_${nanoid()}`;

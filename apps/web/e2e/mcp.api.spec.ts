@@ -3,14 +3,15 @@ import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { handleMcp } from '../src/lib/mcp/http';
-import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
+import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
 import { createProject, updateProject } from '../src/lib/app/projects';
 import { memberId, type DbMember } from '../src/lib/app/model';
 import type { AppContext } from '../src/lib/app/context';
-import { createProjectComment, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
+import { createProjectComment, replyToProjectComment, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
+import { RATE_LIMIT_MEMBER_REPLIES } from '../src/lib/comments/limits';
 import { memberActor } from '../src/lib/review/actor';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
@@ -159,4 +160,54 @@ test('private image reads recheck visibility; invalid origins and oversized bodi
         expect((await POST(new Request(`${base}/api/mcp`, { method: 'POST', headers: { ...headers, Origin: 'https://attacker.example' }, body: '{}' }))).status).toBe(403);
         expect((await POST(new Request(`${base}/api/mcp`, { method: 'POST', headers, body: JSON.stringify('x'.repeat(17000)) }))).status).toBe(413);
     } finally { await client.close(); }
+});
+
+test('each credential gets 30 replies per project and shares its owners finite member budget', async () => {
+    const f = await fixture();
+    const a = await createMcpCredential(f.context, { name: 'Agent A', projectIds: [f.project.id, f.other.id], scopes: ['feedback:read', 'feedback:reply'], days: 7 });
+    const b = await createMcpCredential(f.context, { name: 'Agent B', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:reply'], days: 7 });
+    const client = await connect(a.token);
+    const second = await connect(b.token);
+    try {
+        const args = { projectId: f.project.id, commentId: f.comment.id, text: 'Approved reply' };
+        for (let i = 0; i < 30; i++)
+            expect((await client.callTool({ name: 'reply_to_feedback', arguments: { ...args, idempotencyKey: idempotencyKey() } })).isError).not.toBe(true);
+        const blocked = await client.callTool({ name: 'reply_to_feedback', arguments: { ...args, idempotencyKey: idempotencyKey() } });
+        expect(blocked.isError).toBe(true);
+        expect(data(blocked)).toMatchObject({ error: 'rate_limited', retryAfterSeconds: expect.any(Number) });
+        expect(data(blocked).retryAfterSeconds).toBeGreaterThan(0);
+        await replyToProjectComment(new Request(base), f.project, f.actor, f.comment.id, { text: 'The human can still reply' });
+        expect((await second.callTool({ name: 'reply_to_feedback', arguments: { ...args, idempotencyKey: idempotencyKey() } })).isError).not.toBe(true);
+        const otherActor = (await memberActor(f.other, f.user.id))!;
+        const otherComment = await createProjectComment(new Request(base), f.other, otherActor, { origin: 'https://other.example', path: '/', kind: 'feedback', position: { type: 'page' }, text: 'Another project' });
+        expect((await client.callTool({ name: 'reply_to_feedback', arguments: { ...args, projectId: f.other.id, commentId: otherComment.id, idempotencyKey: idempotencyKey() } })).isError).not.toBe(true);
+
+        // Real review writes fill the owner's remaining budget across threads, staying below 50 messages each.
+        for (let i = 32; i < RATE_LIMIT_MEMBER_REPLIES; i++) {
+            if (i % 40 === 32) {
+                const thread = await createProjectComment(new Request(base), f.project, f.actor, { origin: 'https://reviewed.example', path: '/other', kind: 'feedback', position: { type: 'page' }, text: `Thread ${i}` });
+                args.commentId = thread.id;
+            }
+            await replyToProjectComment(new Request(base), f.project, f.actor, args.commentId, { text: `Human reply ${i}` });
+        }
+        // B still has credential capacity, but it cannot evade the owner's exhausted budget.
+        const ownerBlocked = await second.callTool({ name: 'reply_to_feedback', arguments: { ...args, idempotencyKey: idempotencyKey() } });
+        expect(ownerBlocked.isError).toBe(true);
+        expect(data(ownerBlocked)).toMatchObject({ error: 'rate_limited', retryAfterSeconds: expect.any(Number) });
+        const identity = await authenticateMcp(new Request(base, { headers: { Authorization: `Bearer ${b.token}` } }));
+        const { actor } = await mcpProject(identity, f.project.id, 'feedback:reply');
+        expect(actor.agent.credentialId).toBe(b.credential.id);
+    } finally { await client.close(); await second.close(); }
+});
+
+test('the MCP transport retains its 120 requests per user per minute cap across credentials', async () => {
+    const f = await fixture();
+    const credentials = await Promise.all(['A', 'B'].map(name => createMcpCredential(f.context, { name, projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 })));
+    // GET authenticates and consumes the same transport budget without invoking any tools.
+    for (let i = 0; i < 120; i++)
+        expect((await GET(new Request(`${base}/api/mcp`, { headers: { Authorization: `Bearer ${credentials[i % 2]!.token}` } }))).status).toBe(405);
+    const blocked = await GET(new Request(`${base}/api/mcp`, { headers: { Authorization: `Bearer ${credentials[0]!.token}` } }));
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toMatchObject({ error: 'rate_limited', reason: 'too_fast' });
+    expect(Number(blocked.headers.get('Retry-After'))).toBeGreaterThan(0);
 });
