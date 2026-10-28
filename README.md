@@ -763,7 +763,9 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
 - Azure Communication Services Email for the app's sign-in links and invitations (`infra/src/email.ts`): an
   email service with an **Azure-managed sender domain** (`DoNotReply@<id>.azurecomm.net`), linked to a
   communication service. A protected customer-managed `uier.io` domain and its ownership TXT, SPF TXT,
-  DKIM CNAME, DKIM2 CNAME and DMARC TXT records come directly from ACS `verificationRecords`.
+  DKIM CNAME and DKIM2 CNAME records come directly from ACS `verificationRecords`. DMARC uses its
+  supplied record when present; the live API currently omits it, so `emailDns.ts` supplies the explicit
+  owner policy `_dmarc.uier.io TXT "v=DMARC1; p=reject"`. No report mailbox is invented.
   The Azure-managed domain remains the production sender until the staged verification below is complete.
   The report endpoint receives production-only `UIER_EMAIL_REPORT_SECRET`, `UIER_EMAIL_REPORT_TOPIC`
   and `UIER_EMAIL_REPORT_SUBSCRIPTION`; its Event Grid subscription lands after the receiver deploys.
@@ -775,9 +777,10 @@ TXT. On 28 October 2026 neither had an SPF/DMARC record. Recheck before deployme
 has added one outside Pulumi, import that record and merge the policy in a reviewed PR. Never create
 a second SPF policy or DMARC record. Preserve other senders and the existing DMARC policy.
 
-Deploy the domain and all five ACS-provided records through CI with `UIER_EMAIL_SENDER` unchanged.
-In Azure's Email Communication Service, provisioned domain `uier.io`, initiate ownership verification,
-then SPF, DKIM, DKIM2 and DMARC verification. Read `verificationStates` back from Azure until each
+Deploy the domain and all five DNS records described above through CI with `UIER_EMAIL_SENDER` unchanged.
+Run the main-only **Verify email domain** workflow after the DNS deployment. It uses Azure OIDC
+to check the provisioned records: ownership first, then SPF, DKIM, DKIM2 and DMARC. Read
+`verificationStates` back from Azure until each
 reports `Verified`; a DNS response alone is insufficient. Do not edit protected resources manually
 or run `pulumi up` locally. The verification action only checks the provisioned DNS.
 

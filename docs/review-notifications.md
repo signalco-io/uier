@@ -175,7 +175,7 @@ observed ACS omitting these from `h=`. Our own received-message evidence remains
    subscription in a separate PR. Filter to `Microsoft.Communication.EmailDeliveryReportReceived`,
    Event Grid schema; deliver the secret as a secret static header. Check subscription provisioning
    succeeded. `Microsoft.EventGrid` was read back as `Registered` on 28 October 2026.
-3. Follow the README infrastructure steps for one-time Azure DNS verification. Only after all five
+3. Run the main-only **Verify email domain** workflow for one-time Azure DNS verification. Only after all five
    verification states are `Verified`, review an in-place linkedDomains update retaining the Azure
    domain, then switch `UIER_EMAIL_SENDER` to `DoNotReply@uier.io`. Never replace the communication
    service or its connection string.
@@ -204,3 +204,12 @@ failure and unknown/matching operations), `notificationTransport.api.spec.ts` (A
 retry preservation), `notifications.api.spec.ts` (bounce, failed reads, one-click and invalid
 capabilities), `users.spec.ts` (admin notice) and `app.spec.ts` (requested sign-in clears suppression).
 Issue #132 remains open until the production gates are resolved.
+
+
+The first #163 deployment stopped before Vercel deployment because Azure's live 2026-03-18 custom
+Domain response supplied Domain/SPF/DKIM/DKIM2 records but omitted DMARC (its state was `NotStarted`).
+The repair keeps supplied records authoritative and uses the explicit owner policy
+`_dmarc.uier.io TXT "v=DMARC1; p=reject"` when DMARC is absent. Authoritative DNS still had no DMARC
+record before that repair. This follows [ACS sender authentication guidance](https://learn.microsoft.com/en-us/azure/communication-services/concepts/email/email-authentication-best-practice)
+for rejection of unauthenticated mail; it does not invent an aggregate-report mailbox. All five
+Azure verification states are still required before any sender cutover.

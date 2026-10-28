@@ -70,7 +70,11 @@ subjects CI uses.
 ## Email rollout (#132)
 
 `src/email.ts` first provisions a protected customer-managed `uier.io` domain and Domain/SPF/DKIM/
-DKIM2/DMARC DNS records from `verificationRecords`. The existing Azure-managed domain, communication
+DKIM2/DMARC DNS records from `verificationRecords` when present. The live 2026-03-18 API omits
+DMARC even though it reports a verification state; `emailDns.ts` supplies the explicit owner policy
+`_dmarc.uier.io TXT "v=DMARC1; p=reject"` only in that case. No reporting mailbox is assumed.
+Keep the missing/malformed checks for the other records. Targeted regression check after build:
+`node --test tests/emailDns.test.mjs`. The existing Azure-managed domain, communication
 service name, connection string and sender remain. DNS preflight found no apex SPF or `_dmarc` TXT
 on 28 October 2026; recheck authoritative DNS and import/merge any externally created policy before
 applying. Never add a duplicate SPF or DMARC record.
@@ -80,7 +84,8 @@ Deploy the receiver before adding an Event Grid subscription in a later PR; Pulu
 Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
 registered. Deliver the credential as a secret static HTTP header, never a query parameter.
 
-One-time Azure verification checks the provisioned DNS; it is not a sender cutover. Read all five
+The main-only **Verify email domain** workflow runs Azure DNS verification through OIDC, serialized
+with Pulumi deployments. It never changes DNS, linkedDomains, senders, keys or protection. Read all five
 live `verificationStates` until `Verified`. Link and switch only in a separate reviewed PR, using
 a fresh `getDomainOutput` guard. Keep the Azure-managed domain linked. The preview must update
 `linkedDomains` in place and must not replace the communication service or change its key/connection
