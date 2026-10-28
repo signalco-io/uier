@@ -65,7 +65,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 )}
                 actions={(
                     <>
-                        {context.isAdmin && <InviteButton projectId={project.id} variant="outline" />}
+                        {context.isAdmin && project.access !== 'disabled' && <InviteButton projectId={project.id} variant="outline" />}
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" />
                     </>
                 )}>

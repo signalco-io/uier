@@ -5,6 +5,10 @@ import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { HEADLINE_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
 import { memberId, userPk, workspacePk, type DbMember, type DbUser } from '../src/lib/app/model';
 import type { DbComment } from '../src/lib/db/schema';
+import { findOrCreateUser } from '../src/lib/app/users';
+import { randomToken, signToken } from '../src/lib/app/tokens';
+import { resolveActor } from '../src/lib/review/actor';
+import { createProjectComment, replyToProjectComment } from '../src/lib/review/comments';
 
 test('public project provisioning is concurrent, permanent and preserves existing feedback and replies', async () => {
     const previous = process.env.UIER_LOCAL;
@@ -91,4 +95,37 @@ test('anonymous reads get real starter threads; visitors cannot remove or resolv
     expect(headline.thread.items[1]?.author).toEqual({ name: 'uier', isMe: false });
     expect((await request.delete(`/api/comments/${HEADLINE_COMMENT_ID}`)).status()).toBe(403);
     expect((await request.patch(`/api/comments/${HEADLINE_COMMENT_ID}`, { data: { resolved: true } })).status()).toBe(403);
+});
+
+test('enrolled public commenters retain visitor comment, reply and shared IP limits', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const project = await provisionPublicProject(getAppStore(), getMemoryCommentsStore());
+        const users = await Promise.all(Array.from({ length: 4 }, () => findOrCreateUser(`public-limits-${randomUUID()}@example.com`)));
+        const ip = '198.51.100.131';
+        let comment;
+        for (const [index, user] of users.entries()) {
+            expect((await joinPublicProject(user)).role).toBe('commenter');
+            const req = new Request('http://127.0.0.1/api/review', { headers: { 'x-forwarded-for': ip,
+                Authorization: `Bearer ${signToken('review', { uid: user.id, pid: project.id }, 3600)}` } });
+            const actor = await resolveActor(req, project);
+            expect(actor).toMatchObject({ kind: 'member', isAdmin: false });
+            const input = { origin: 'https://uier.io', path: `/public-rate-${user.id}`, kind: 'feedback' as const, position: { type: 'page' as const }, text: 'Public feedback' };
+            if (index < 3) for (let i = 0; i < 10; i++) comment = await createProjectComment(req, project, actor, input);
+            await expect(createProjectComment(req, project, actor, input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
+            if (index === 3) await expect(replyToProjectComment(req, project, actor, comment!.id, { text: 'IP full' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
+        }
+        const user = await findOrCreateUser(`public-replies-${randomUUID()}@example.com`);
+        const req = new Request('http://127.0.0.1/api/review', { headers: { Authorization: `Bearer ${signToken('review', { uid: user.id, pid: project.id }, 3600)}` } });
+        const actor = await resolveActor(req, project);
+        for (let i = 0; i < 30; i++) await replyToProjectComment(req, project, actor, comment!.id, { text: `Reply ${i}` });
+        await expect(replyToProjectComment(req, project, actor, comment!.id, { text: 'One more' })).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
+        // Guests on that address are still blocked after account writes consumed the shared budget.
+        const guest = new Request('http://127.0.0.1/api/review', { headers: { 'x-forwarded-for': ip, 'X-Uier-Visitor': randomToken() } });
+        await expect(replyToProjectComment(guest, project, await resolveActor(guest, project), comment!.id, { text: 'Guest' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL;
+        else process.env.UIER_LOCAL = previous;
+    }
 });

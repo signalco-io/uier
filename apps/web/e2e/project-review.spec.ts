@@ -149,10 +149,47 @@ test('a schemeless localhost address opens an HTTP review and accepts feedback o
 });
 
 test('guest mode: anyone with the link comments under their name', async ({ page, browser }, testInfo) => {
-    const projectId = await ownerWithProject(page);
+    await signIn(page, uniqueEmail('owner'));
+    const urls = [siteOrigin(), `${siteOrigin('staging')}/preview`];
+    const projectId = await createProject(page, { urls, name: 'Reviewed site' });
     await setProjectAccess(page, projectId, 'Anyone with the link');
-    await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('region', { name: 'Guest link' })).toContainText(`${siteOrigin()}/?toolbar-code=${projectId}`);
+
+    // Both onboarding and the comments region share plain links for every address, main site first.
+    // Keep copy assertions local to this page while other browser suites run concurrently.
+    await page.addInitScript(() => {
+        let copied = '';
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+            writeText: async (text: string) => { copied = text; },
+            readText: async () => copied,
+        } });
+    });
+    for (const path of [`/app/projects/${projectId}/install?onboarding=1`, `/app/projects/${projectId}`]) {
+        await page.goto(path);
+        const links = page.getByRole('list', { name: 'Guest links' });
+        await expect(links.getByRole('listitem')).toHaveCount(2);
+        for (const [index, url] of urls.entries()) {
+            const item = links.getByRole('listitem').nth(index);
+            const expected = new URL(url);
+            expected.searchParams.set('toolbar-code', projectId);
+            await expect(item.locator('p')).toHaveText(url.replace(/^https?:\/\//, ''));
+            await expect(item.locator('code')).toHaveText(expected.toString());
+            await item.getByRole('button', { name: /^Copy the guest link for / }).click();
+            await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(expected.toString());
+        }
+        await expect(links).not.toContainText('uier-token');
+        await expect(links).not.toContainText('uier-check');
+        await expect(links).not.toContainText('/app/review/');
+        if (path.endsWith(projectId)) {
+            // The empty list keeps the install action without duplicating the guest links.
+            await expect(page.locator('[data-slot="empty"]').getByRole('list', { name: 'Guest links' })).toHaveCount(0);
+        }
+        for (const colorScheme of ['light', 'dark'] as const) {
+            await page.emulateMedia({ colorScheme });
+            await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+            await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+            await expectNoAxeViolations(page);
+        }
+    }
 
     const guest = await anonymousVisitor(browser, testInfo);
     const violations = await watchCsp(guest.page);
@@ -404,6 +441,25 @@ for (const layout of ['html-scroll', 'body-hidden']) {
 test('comments off: the toolbar says so and the API refuses', async ({ page, request }) => {
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Comments off');
+
+    for (const path of [`/app/projects/${projectId}/install?onboarding=1`, `/app/projects/${projectId}`]) {
+        await page.goto(path);
+        const content = path.endsWith(projectId)
+            ? page.locator('[data-slot="empty"]')
+            : page.getByRole('region', { name: 'Invite a reviewer' });
+        await expect(content).toContainText('Comments are off.');
+        await expect(content.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings`);
+        await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
+        await expect(page.getByRole('list', { name: 'Guest links' })).toHaveCount(0);
+        if (path.endsWith(projectId))
+            await expect(content.getByRole('link', { name: 'Install the script' })).toBeVisible();
+        for (const colorScheme of ['light', 'dark'] as const) {
+            await page.emulateMedia({ colorScheme });
+            await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+            await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+            await expectNoAxeViolations(page);
+        }
+    }
 
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}/${projectId}/`)}`);
     await expect(toolbar(page)).toContainText('Comments are turned off for this project.');

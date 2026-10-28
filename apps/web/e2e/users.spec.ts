@@ -28,10 +28,11 @@ async function adminWithProjects(page: Page) {
     return { adminEmail, alpha, beta };
 }
 
-/** Opens the invite dialog from the users page, or from a project's header */
+/** Opens the invite dialog from the users page, or from a project's empty comments list */
 async function openInvite(page: Page, from?: string) {
     await page.goto(from ? `/app/projects/${from}` : '/app/users');
-    await page.getByRole('button', { name: 'Invite', exact: true }).click();
+    const source = from ? page.locator('[data-slot="empty"]') : page;
+    await source.getByRole('button', { name: 'Invite', exact: true }).click();
     // Not by name: once sent, its title is "Invitation sent"
     const dialog = page.getByRole('dialog');
     await expect(dialog).toHaveAccessibleName('Invite someone');
@@ -44,10 +45,14 @@ async function invite(page: Page, { email, role = 'Commenter', projects, from }:
     role?: 'Commenter' | 'Admin';
     /** Commenters: project names to tick, or every project */
     projects?: string[] | 'all';
-    /** The project the invitation starts from (its header's Invite button) */
+    /** The project the invitation starts from (its empty list's Invite button) */
     from?: string;
 }) {
     const dialog = await openInvite(page, from);
+    if (from) {
+        await expect(dialog.getByRole('checkbox', { name: 'Alpha', exact: true })).toBeChecked();
+        await expect(dialog.getByRole('checkbox', { name: 'Beta', exact: true })).not.toBeChecked();
+    }
     await dialog.getByLabel('Email').fill(email);
     if (role === 'Admin')
         await dialog.getByRole('radio', { name: /^Admin/ }).click();
@@ -94,6 +99,17 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.getByRole('button', { name: 'Accept invitation' }).click();
     await expect(commenter.page).toHaveURL(`${site.origin('alpha')}/?toolbar-code=${alpha}`);
     await expect(commenter.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+
+    // An empty invited-only project offers the existing install action to commenters, never Invite.
+    await commenter.page.goto(`/app/projects/${alpha}`);
+    const empty = commenter.page.locator('[data-slot="empty"]');
+    await expect(empty).toContainText('No comments yet');
+    await expect(empty.getByRole('link', { name: 'Install the script' })).toBeVisible();
+    await expect(commenter.page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
+    await expect(commenter.page.getByRole('list', { name: 'Guest links' })).toHaveCount(0);
+    await expect(empty).not.toContainText('Only people you invite');
+    await commenter.page.goto(`/app/projects/${alpha}/install?onboarding=1`);
+    await expect(commenter.page.getByRole('region', { name: 'Invite a reviewer' }).getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
 
     // The link works once
     const again = await browser.newPage();

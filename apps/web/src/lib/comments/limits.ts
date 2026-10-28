@@ -1,4 +1,4 @@
-// All limits of the public (anonymous) comments API in one place.
+// Shared validation and rate limits for the comments and project review APIs.
 
 const SECOND = 1;
 const MINUTE = 60 * SECOND;
@@ -41,6 +41,9 @@ export const MAX_LIST_RESPONSE_BYTES = 1_000_000;
 export const RATE_LIMIT_WINDOW_SECONDS = HOUR;
 export const RATE_LIMIT_VISITOR_COMMENTS = 10;
 export const RATE_LIMIT_VISITOR_REPLIES = 30;
+/** Current project members; public feedback commenters retain the visitor limits. */
+export const RATE_LIMIT_MEMBER_COMMENTS = 100;
+export const RATE_LIMIT_MEMBER_REPLIES = 300;
 export const RATE_LIMIT_IP_WRITES = 30;
 /** New comments on a single page (domain + path) per day, so a burst can't fill the page */
 export const PAGE_COMMENTS_WINDOW_SECONDS = DAY;
