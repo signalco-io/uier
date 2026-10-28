@@ -919,9 +919,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await animationsFinished(hint);
             await expect.poll(async () => {
                 const arrow = await hint.locator(':scope > span[aria-hidden="true"]').boundingBox();
-                const add = await guest.page.getByRole('button', { name: 'Add comment' }).boundingBox();
-                return arrow && add ? Math.abs(arrow.x + arrow.width / 2 - add.x - add.width / 2) : Infinity;
+                const about = await guest.page.getByRole('button', { name: 'About uier' }).boundingBox();
+                return arrow && about ? Math.abs(arrow.x + arrow.width / 2 - about.x - about.width / 2) : Infinity;
             }).toBeLessThan(2);
+            // No horizontal scrollbar in the guide
+            expect(await hint.locator(':scope > div').first().evaluate(element => element.scrollWidth - element.clientWidth)).toBe(0);
             await expectNoAxeViolations(guest.page);
             await guest.page.screenshot({ path: testInfo.outputPath(`review-guide-${colorScheme}.png`) });
             await dismissFirstRunHint(guest.page);
