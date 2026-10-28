@@ -128,14 +128,17 @@ test('digest waits five minutes and uses #83 shared read cursor to suppress seen
 test('bulk acknowledgement suppresses a queued digest but preserves activity after its rendered cursor', async () => {
     const f = await fixture();
     const sent: EmailMessage[] = [];
-    await followThread(f.project, f.ownerActor, f.comment.id, true);
     await discoverThreadNotifications(f.project, f.comment);
     const delivery = (await deliveries(f.project))[0]!;
+    const transport: typeof deliverNotificationEmail = async message => { sent.push(message); return { status: 'sent' }; };
+    await processNotificationDelivery(delivery, baseUrl, transport);
+    expect((await deliveries(f.project))[0]!.status).toBe('waiting');
     const result = await markProjectThreadsRead(f.project, f.ownerActor, { threads: [{ id: f.comment.id, sequence: 1 }] });
     expect(result.reads).toHaveLength(1);
-    await processNotificationDelivery(delivery, baseUrl, async message => { sent.push(message); return { status: 'sent' }; }, Date.now() + 10 * 60 * 1000);
+    await processNotificationDelivery(delivery, baseUrl, transport, Date.now() + 10 * 60 * 1000);
     expect(sent).toHaveLength(0);
     expect((await deliveries(f.project))[0]!.status).toBe('suppressed');
+    await followThread(f.project, f.ownerActor, f.comment.id, true);
     await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'New activity after bulk read' });
     await dispatch(f.project, f.comment, sent);
     expect(sent.map(message => message.to)).toContain(f.owner.email);
