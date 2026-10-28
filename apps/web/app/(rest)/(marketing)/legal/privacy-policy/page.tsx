@@ -322,6 +322,7 @@ export default function PrivacyPolicyPage() {
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account, workspace and projects: until you ask us to delete them.</li>
                 <li>Comments in projects: until their author or a project admin deletes them.</li>
+                <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>uier_visitor</code> cookie: one year after it is set. The <code>uier_session</code> cookie: 30 days after you sign in.</li>

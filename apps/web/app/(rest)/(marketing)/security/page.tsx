@@ -55,6 +55,10 @@ const controls = [
         text: 'Comments are stored in Azure Cosmos DB in the West Europe region, which encrypts all data at rest. Preview deployments use a separate container and cannot reach production comments.'
     },
     {
+        title: 'Continuous backups',
+        text: 'Production data has continuous backup with a seven-day point-in-time restore window in West Europe.'
+    },
+    {
         title: 'No secrets in code',
         text: 'Keys live in the hosting environment, set by the infrastructure code. CI signs in to Azure with short-lived OIDC tokens instead of stored credentials, and the resources that hold data are protected from deletion.'
     },

@@ -873,8 +873,9 @@ Observed evidence (replace pending entries with actual results; never infer them
 | Gate | Recorded result |
 | --- | --- |
 | Before, 2026-10-28 17:30 UTC, `az cosmosdb show` | `uierdbaba6cd56`, West Europe; `type: Periodic`, `backupIntervalInMinutes: 240`, `backupRetentionIntervalInHours: 8`, `backupStorageRedundancy: Geo`, `migrationState: null` |
-| Isolated policy preview, 2026-10-28 | [PR #160](https://github.com/signalco-io/uier/pull/160) closed without merging: [CI preview](https://github.com/signalco-io/uier/pull/160#issuecomment-6476154512) showed the account plus `vercel-uier-env-cosmos-endpoint-preview` updating (two resources). Auto-merge was never enabled. A new isolated proposal and owner approval are required. |
-| Successful deployment, live continuous policy and no-diff account preview | Pending; continuous backup is not yet verified live |
+| Isolated policy preview and owner approval, 2026-10-28 | After #160 was closed on a two-resource preview and #166 fixed endpoint output propagation, [PR #173's preview](https://github.com/signalco-io/uier/pull/173#issuecomment-6476843140) showed one in-place account update and 43 unchanged resources. The owner [approved exact head `9aa5ec4`](https://github.com/signalco-io/uier/pull/173#issuecomment-6477041408); it merged as `32bd1ce` with auto-merge disabled. |
+| Policy apply and live readback, 2026-10-28 | The [CI apply](https://github.com/signalco-io/uier/actions/runs/40743919009) completed the Cosmos update in 354 seconds at 18:25 UTC. Independent `az cosmosdb show` confirms `Continuous`, `Continuous7Days`, `migrationState: null` and provisioning `Succeeded` in West Europe. The overall job failed on a separate email Event Grid webhook validation error (403); it was not rerun. |
+| Subsequent no-diff account preview and full deployment | Pending; record independently from the successful account migration |
 | `comments-preview` restore drill, elapsed time and cleanup | Not run; waiting for policy and restore-access prerequisites |
 
 Only after live confirmation, publish the seven-day point-in-time restore control on `/security`
@@ -889,8 +890,10 @@ The named human operator needs **CosmosRestoreOperator** at the subscription or 
 the destination resource group, for example Cosmos DB Operator there. A subscription owner grants
 and records the operator, scope and expiry in the incident record. On 2026-10-28 the read-only
 subscription-wide role-assignment listing found **no explicit CosmosRestoreOperator assignment**;
-broader inherited permissions must be checked separately before any restore. Do not assume the
-preview identity can restore or that a named operator already has access.
+broader inherited permissions must be checked separately before any restore. For this authorized
+drill, recovery owner **AleksandarDev**'s Azure session was checked in the uier tenant and has
+existing **Owner** access at the subscription. That includes the required restore and target-write
+actions; no new grant was made. Do not assume the preview identity can restore.
 
 Keep **uier GitHub Deployment** at Contributor on `uier-production8b2f56d6`, with its existing
 state/key permissions. Add no restore role to CI and no restore workflow. The preview identity
@@ -972,9 +975,20 @@ az cosmosdb restore --subscription "$recovery_subscription" --resource-group "$r
 ```
 
 Wait for completion and record `provisioningState` and `restoreParameters` from `az cosmosdb show`
-on the temporary account; inspect each restored container to confirm TTL is disabled. Provision
-owner-approved private connectivity for the human copy operator; do not open the account to the
-public network to get around a failed read. Keep all recovered content in restricted storage.
+on the temporary account; inspect each restored container to confirm TTL is disabled. Use approved
+private connectivity, or restrict the temporary account to the operator's verified public IPv4.
+For the latter, keep public access disabled until one account update sets **both** that exact
+single-IP firewall allowlist and `publicNetworkAccess: Enabled`, with `networkAclBypass: None`.
+Read those settings back before the first data read. Never use an empty allowlist, `0.0.0.0` or a
+broad range. This temporary operator access is removed with the resource group. Keep recovered
+content in restricted storage.
+
+```bash
+recovery_operator_ip='<verified-operator-public-IPv4>'
+az cosmosdb update --subscription "$recovery_subscription" --resource-group "$recovery_group" \
+  --name "$recovery_account" --ip-range-filter "$recovery_operator_ip" \
+  --network-acl-bypass None --public-network-access Enabled
+```
 
 Copy only the approved exact ids using a Cosmos SDK, never a whole-container import. For a thread,
 point-read `(comment id, domain)` and `($screenshot_<comment id>, domain)` from the temporary

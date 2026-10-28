@@ -15,6 +15,8 @@ for (const document of documents) {
         expect(response?.status()).toBe(200);
         await expect(page.getByRole('heading', { level: 1, name: document.title })).toBeVisible();
         await expect(page.getByText(/^Effective \d{1,2} \w+ \d{4}$/)).toBeVisible();
+        if (document.path === '/legal/privacy-policy')
+            await expect(page.getByRole('listitem').filter({ hasText: /^Deleted data can stay in backups for up to seven days\.$/ })).toBeVisible();
 
         // The legal navigation lists every document and marks this one
         const nav = page.getByRole('navigation', { name: 'Legal documents' });
