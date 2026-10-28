@@ -54,7 +54,7 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
 export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
-        project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) },
+        project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) },
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)

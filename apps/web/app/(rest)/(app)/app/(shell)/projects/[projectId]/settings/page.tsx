@@ -11,7 +11,7 @@ import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { configuredEnvironments } from '@/src/lib/app/environments';
 import {
-    ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
+    ProjectBriefForm, ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
 } from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
@@ -50,6 +50,7 @@ function ProjectSetup({ project, clients }: { project: DbProject; clients: strin
             <ProjectNameForm projectId={project.id} name={project.name} />
             <ProjectClientNameForm projectId={project.id} clientName={project.clientName} clients={clients} />
             <ProjectAccessForm projectId={project.id} access={project.access} />
+            <ProjectBriefForm projectId={project.id} brief={project.brief} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />
             <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
             <ProjectPageStateForm projectId={project.id} policy={project.pageState} />

@@ -184,11 +184,11 @@ test('a failed reviewer lookup offers retry before restoring the authorized draf
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     await (await startPoint(page)).getByRole('textbox', { name: 'Comment', exact: true }).fill('Recover when the service returns');
-    await page.route('**/api/visitor', route => route.abort('failed'));
+    await page.route('**/api/visitor?*', route => route.abort('failed'));
     await page.reload();
     await expect(page.getByText('Your reviewer details could not be loaded.')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(0);
-    await page.unroute('**/api/visitor');
+    await page.unroute('**/api/visitor?*');
     await page.getByRole('button', { name: 'Try again', exact: true }).click();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
     await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recover when the service returns');

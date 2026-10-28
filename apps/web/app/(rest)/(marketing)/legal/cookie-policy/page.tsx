@@ -77,6 +77,13 @@ const items = [
         duration: 'Until you clear your browser data'
     },
     {
+        name: 'uier:hint:v1:<api URL>:<project code>',
+        type: 'Local storage (on the reviewed site)',
+        when: 'You close the first-run guide or start a comment or feedback',
+        purpose: 'Keeps the guide closed for this API and project. Stores only a boolean, with no names, reviewer ids or tokens.',
+        duration: 'Until you clear your browser data'
+    },
+    {
         name: 'uier:toolbar-position:v1',
         type: 'Local storage',
         when: 'You move the toolbar',

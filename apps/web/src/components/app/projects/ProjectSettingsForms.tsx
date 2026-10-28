@@ -6,18 +6,19 @@ import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Textarea } from '@/src/components/ui/textarea';
 import { Input } from '@/src/components/ui/input';
 import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Spinner } from '@/src/components/ui/spinner';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { Section } from '../PageHeader';
-import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { ClientNameInput } from './ClientNameInput';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
-import { setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
+import { updateProjectBriefAction, setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
 import { updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
 import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
@@ -80,6 +81,25 @@ export function ProjectClientNameForm({ projectId, clientName, clients }: { proj
             </form>
         </Section>
     );
+}
+
+export function ProjectBriefForm({ projectId, brief, access }: { projectId: string; brief?: string; access: ProjectAccess }) {
+    const formId = useId();
+    const [state, action, pending] = useActionState(updateProjectBriefAction, null);
+    const [value, setValue] = useState(brief ?? '');
+    return <Section id="brief" title="Review brief" description="Tell reviewers what to review. Plain text only. Leave it blank to remove it."
+        footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
+        <form id={formId} action={action}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <Field>
+                <FieldLabel htmlFor={`${formId}-brief`}>Review instructions</FieldLabel>
+                <Textarea id={`${formId}-brief`} name="brief" value={value} onChange={event => setValue(event.target.value)} maxLength={MAX_PROJECT_BRIEF_LENGTH} rows={5} aria-describedby={`${formId}-readers`} />
+                <FieldDescription id={`${formId}-readers`}>
+                    {access === 'disabled' ? 'The brief is hidden from reviewers while comments are off.' : access === 'invited' ? 'Only invited people who can comment can read this brief.' : 'Anyone with the review link who can comment can read this brief.'} Up to {MAX_PROJECT_BRIEF_LENGTH} characters.
+                </FieldDescription>
+            </Field>
+        </form>
+    </Section>;
 }
 
 export function ProjectAccessForm({ projectId, access }: { projectId: string; access: ProjectAccess }) {

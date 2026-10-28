@@ -12,6 +12,7 @@ import {
     getProject,
     projectAccessModes,
     projectClientNameSchema,
+    projectBriefSchema,
     projectNameSchema,
     projectPageStateSchema,
     projectUrlsSchema,
@@ -86,6 +87,12 @@ export async function updateProjectClientNameAction(_: ActionState, formData: Fo
     return await actionResult(async () => {
         await saveProject(formData.get('projectId'), { clientName: projectClientNameSchema.parse(formData.get('clientName') ?? '') });
     }, 'The client name is saved.');
+}
+
+export async function updateProjectBriefAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        await saveProject(formData.get('projectId'), { brief: projectBriefSchema.parse(formData.get('brief') ?? '') });
+    }, 'The review brief is saved.');
 }
 
 export async function updateProjectUrlsAction(_: ActionState, formData: FormData): Promise<ActionState> {

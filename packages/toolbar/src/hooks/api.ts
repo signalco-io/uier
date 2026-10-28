@@ -148,6 +148,7 @@ export const commentsQueryKeyPrefix = ['comments'] as const;
 export const activityQueryKey = ['review-activity'] as const;
 
 export const visitorQueryKey = ['visitor'] as const;
+export const pageVisitorQueryKey = (path: string) => toolbarConfig.project ? visitorQueryKey : [...visitorQueryKey, path];
 
 /** Screenshots of comments (`GET .../comments/<id>/screenshot`), per comment */
 export const screenshotQueryKey = (commentId: string) => ['screenshot', commentId] as const;

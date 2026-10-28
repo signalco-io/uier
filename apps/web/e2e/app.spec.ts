@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
-import { newVisitor, toolbar } from './support/toolbar';
+import { newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
 
@@ -386,10 +386,18 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     const dialog = page.getByRole('dialog', { name: 'Send feedback' });
     const text = `Projects could use search ${Date.now().toString(36)}`;
     await expect(dialog.getByRole('textbox', { name: 'Feedback' })).toBeFocused();
+    await expect(showcaseHint(page)).toHaveCount(0);
     await dialog.getByRole('textbox', { name: 'Feedback' }).fill(text);
     await dialog.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    await page.getByRole('button', { name: 'About uier' }).click();
+    await expect(showcaseHint(page)).toContainText('Feedback is private to its author and the uier team.');
+    expect(await (await page.request.get('/api/visitor?path=%2Fapp%2Fprojects')).json()).toMatchObject({ privateAppFeedback: true });
+    expect(await (await page.request.get('/api/visitor?path=%2Fapplication')).json()).toMatchObject({ privateAppFeedback: false });
+    await expect(showcaseHint(page)).not.toContainText('90 days');
+    await expect(showcaseHint(page)).not.toContainText('Anyone can see');
+    await showcaseHint(page).getByRole('button', { name: 'Got it' }).click();
     await toolbar(page).getByRole('button', { name: 'Profile', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText(name);
     await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText('You are signed in to uier.');
@@ -465,4 +473,57 @@ test('the account page saves the name and signs out', async ({ page }) => {
     expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_review_sso')).toBe(false);
     await page.goto('/app/projects');
     await expect(page).toHaveURL(/\/app\/sign-in\?next=/);
+});
+
+test('only admins save and clear the plain-text review brief, with server validation', async ({ page, browser }, testInfo) => {
+    await signIn(page, uniqueEmail('brief-admin'));
+    const project = await createProject(page, { urls: [new URL(page.url()).origin], name: 'Brief review' });
+    await page.goto(`/app/projects/${project}/settings`);
+    const section = page.getByRole('region', { name: 'Review brief', exact: true });
+    const input = section.getByLabel('Review instructions');
+    await expect(section).toContainText('Only invited people who can comment can read this brief.');
+    await input.fill('  Review pricing.\nThen checkout.  ');
+    const savedRequest = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
+    await section.getByRole('button', { name: 'Save' }).click();
+    const actionRequest = await savedRequest;
+    await expect(section.getByRole('status')).toHaveText('The review brief is saved.');
+    await page.reload();
+    await expect(input).toHaveValue('Review pricing.\nThen checkout.');
+    // Bypass the browser maxLength: the action must enforce the shared server limit too.
+    await input.evaluate((element: HTMLTextAreaElement) => element.removeAttribute('maxlength'));
+    await input.fill('x'.repeat(2001));
+    await section.getByRole('button', { name: 'Save' }).click();
+    await expect(section.getByRole('alert')).toBeVisible();
+    await page.reload();
+    await expect(input).toHaveValue('Review pricing.\nThen checkout.');
+
+    const email = uniqueEmail('brief-member');
+    await page.goto(`/app/projects/${project}`);
+    await page.getByRole('button', { name: 'Invite', exact: true }).first().click();
+    const invitation = page.getByRole('dialog');
+    await invitation.getByLabel('Email').fill(email);
+    await invitation.getByRole('button', { name: 'Send invitation' }).click();
+    const link = await invitation.getByRole('link', { name: 'Open the invitation link' }).getAttribute('href');
+    const member = await newVisitor(browser, testInfo);
+    try {
+        await member.page.goto(link!);
+        await member.page.getByRole('button', { name: 'Accept invitation' }).click();
+        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === project);
+        // Wait for invitation acceptance and its cookies before inspecting settings.
+        await member.page.goto(`/app/projects/${project}/settings`);
+        await expect(member.page.getByRole('heading', { name: 'Settings', exact: true })).toBeAttached();
+        await expect(member.page.getByRole('region', { name: 'Review brief' })).toHaveCount(0);
+        const response = await member.page.request.post(actionRequest.url(), {
+            headers: { 'Next-Action': actionRequest.headers()['next-action']!, 'Content-Type': actionRequest.headers()['content-type']!, Origin: new URL(actionRequest.url()).origin },
+            data: Buffer.from(actionRequest.postDataBuffer()!.toString().replace('Review pricing.', 'Changed by member.'))
+        });
+        expect(await response.text()).toContain('Only admins can do this.');
+    } finally { await member.context.close(); }
+    await page.goto(`/app/projects/${project}/settings`);
+    await expect(input).toHaveValue('Review pricing.\nThen checkout.');
+    await input.fill(' \n ');
+    await section.getByRole('button', { name: 'Save' }).click();
+    await expect(section.getByRole('status')).toHaveText('The review brief is saved.');
+    await page.reload();
+    await expect(input).toHaveValue('');
 });

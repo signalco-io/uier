@@ -5,7 +5,7 @@ import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
-import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, showcaseHint, animationsFinished, dismissFirstRunHint, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { pngImage } from './support/images';
 
 // The review flow of a project (issue #34): a reviewed site on another origin embeds the toolbar
@@ -95,6 +95,8 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(stranger.page.getByRole('button', { name: 'Sign in' })).toBeVisible();
     await expect(stranger.page.getByRole('button', { name: 'Exit review' })).toBeVisible();
     await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toHaveCount(0);
+    await expect(showcaseHint(stranger.page)).toHaveCount(0);
+    await expect(stranger.page.getByRole('button', { name: 'About uier' })).toHaveCount(0);
     expect(strangerViolations).toEqual([]);
     await checkNotice(stranger.page);
     // axe fetches external stylesheets via connect-src. Audit sign-in separately
@@ -877,3 +879,84 @@ test('feedback and bug reports from the toolbar reach the project', async ({ pag
     await expect(card).toContainText('Bug report');
     await expect(card).toContainText('Pay button does nothing.');
 });
+
+for (const colorScheme of ['light', 'dark'] as const) {
+    test(`first-run guide and plain-text review brief follow project access (${colorScheme})`, async ({ page, browser, request, baseURL }, testInfo) => {
+        const first = await ownerWithProject(page);
+        const brief = '<b>Review pricing</b>\n[Checkout](https://example.com)\nhttps://example.com';
+        await page.goto(`/app/projects/${first}/settings`);
+        const settings = page.getByRole('region', { name: 'Review brief', exact: true });
+        await settings.getByLabel('Review instructions').fill(brief);
+        await settings.getByRole('button', { name: 'Save' }).click();
+        await expect(settings.getByRole('status')).toContainText('The review brief is saved.');
+        const signedOutInfo = await request.get(`/api/review/${first}`, { headers: { Origin: siteOrigin() } });
+        expect((await signedOutInfo.json()).project).not.toHaveProperty('brief');
+
+        await page.emulateMedia({ colorScheme });
+        await page.goto(`/app/review/${first}?url=${encodeURIComponent(`${siteOrigin()}/${first}/pricing`)}`);
+        const invitedHint = showcaseHint(page);
+        await expect(invitedHint).toContainText('Only invited people can see and leave comments. Some comments may be private.');
+        await expect(invitedHint).toContainText(brief);
+        await expect(invitedHint).not.toContainText('90 days');
+        await expect(invitedHint.locator('b, a')).toHaveCount(0);
+        await animationsFinished(invitedHint);
+        await expectNoAxeViolations(page);
+        await dismissFirstRunHint(page);
+
+        await setProjectAccess(page, first, 'Anyone with the link');
+        const second = await createProject(page, { urls: [siteOrigin()], name: 'Another review' });
+        await setProjectAccess(page, second, 'Anyone with the link');
+        const guest = await anonymousVisitor(browser, testInfo);
+        try {
+            await guest.page.emulateMedia({ colorScheme });
+            await guest.page.goto(`${siteOrigin()}/${first}/pricing?toolbar-code=${first}`);
+            const hint = showcaseHint(guest.page);
+            await expect(hint).toContainText('Anyone with the review link can see and leave comments. Some comments may be private.');
+            await expect(hint).toContainText(brief);
+            await expect(hint.locator('b, a')).toHaveCount(0);
+            await expect(hint).not.toContainText('90 days');
+            expect(await hint.locator('p').last().evaluate(element => getComputedStyle(element).whiteSpace)).toBe('pre-wrap');
+            await animationsFinished(hint);
+            await expect.poll(async () => {
+                const arrow = await hint.locator(':scope > span[aria-hidden="true"]').boundingBox();
+                const add = await guest.page.getByRole('button', { name: 'Add comment' }).boundingBox();
+                return arrow && add ? Math.abs(arrow.x + arrow.width / 2 - add.x - add.width / 2) : Infinity;
+            }).toBeLessThan(2);
+            await expectNoAxeViolations(guest.page);
+            await guest.page.screenshot({ path: testInfo.outputPath(`review-guide-${colorScheme}.png`) });
+            await dismissFirstRunHint(guest.page);
+            const key = `uier:hint:v1:${new URL(baseURL!).origin}:${first}`;
+            expect(await guest.page.evaluate(key => localStorage.getItem(key), key)).toBe('true');
+            await guest.page.reload();
+            await expect(toolbar(guest.page)).toBeVisible();
+            await expect(hint).toHaveCount(0);
+            await guest.page.getByRole('button', { name: /^Inbox/ }).click();
+            const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
+            await inbox.getByRole('button', { name: 'Review brief' }).click();
+            const shown = inbox.getByRole('region', { name: 'Review brief' });
+            await expect(shown).toHaveText(brief);
+            await expect(shown.locator('b, a')).toHaveCount(0);
+            await inbox.getByRole('button', { name: 'Review brief' }).click();
+            await expect(shown).toHaveCount(0);
+
+            // Dismissal is scoped to a project even on the same site, and starting a comment persists it.
+            await guest.page.goto(`${siteOrigin()}/${second}/pricing?toolbar-code=${second}`);
+            await expect(hint).toBeVisible();
+            await guest.page.getByRole('button', { name: 'Add comment' }).click();
+            await expect(hint).toHaveCount(0);
+            await guest.page.reload();
+            await expect(toolbar(guest.page)).toBeVisible();
+            await expect(hint).toHaveCount(0);
+            await guest.page.getByRole('button', { name: /^Inbox/ }).click();
+            await expect(inbox.getByRole('button', { name: 'Review brief' })).toHaveCount(0);
+
+            await setProjectAccess(page, first, 'Comments off');
+            const offInfo = await request.get(`/api/review/${first}`, { headers: { Origin: siteOrigin() } });
+            expect((await offInfo.json()).project).not.toHaveProperty('brief');
+            await guest.page.goto(`${siteOrigin()}/${first}/pricing?toolbar-code=${first}`);
+            await expect(toolbar(guest.page)).toContainText('Comments are turned off');
+            await expect(hint).toHaveCount(0);
+            await expect(guest.page.getByRole('button', { name: 'About uier' })).toHaveCount(0);
+        } finally { await guest.context.close(); }
+    });
+}

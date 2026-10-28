@@ -314,6 +314,14 @@ redaction, canonical page state and protected screenshot references intact. The 
 contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
 work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
 
+## Project review briefs
+`DbProject.brief` is optional plain text, trimmed/cleared by `projectBriefSchema` with the shared
+`MAX_PROJECT_BRIEF_LENGTH` (2000). Only admins edit it through `saveProject`; non-admin settings hide
+the form. `getReviewInfo` allowlists it only when `canComment`, with environments. Never expose it in
+invited signed-out or comments-off responses. The toolbar renders literal text and line breaks.
+`GET /api/visitor?path=...` returns the current page's app-feedback privacy using
+`isPrivateAppFeedback`; it contains no copied client path heuristic.
+
 ## Authenticated MCP connector
 
 `/api/mcp` is stateless Streamable HTTP using the official MCP SDK. `src/lib/mcp/` owns scoped

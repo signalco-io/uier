@@ -218,6 +218,8 @@ test('collapse preserves a new comment draft without posting it', async ({ brows
 
 test('the profile shows the guest name; signing out forgets it', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
+    // Keep the host's decorative caption still while scanning the profile popover.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
 
     const profileButton = page.getByRole('button', { name: 'Profile' });
@@ -303,4 +305,39 @@ test('a comment link in a review carries the review link', async ({ browser }, t
     expect(new URL(other.url()).search).toBe('?toolbar-code=demo-project_1');
 
     await context.close();
+});
+
+test('About uier reopens a dismissed review guide and restores keyboard focus', async ({ page }) => {
+    await page.goto('/e2e-review-guide?review=true');
+    await addToolbarScript(page);
+    const about = page.getByRole('button', { name: 'About uier' });
+    const hint = page.getByRole('region', { name: 'Try uier on this page' });
+    await expect(hint).toHaveCount(0);
+    await about.click();
+    await expect(hint).toBeVisible();
+    await hint.getByRole('button', { name: 'Dismiss' }).focus();
+    await page.keyboard.press('Escape');
+    await expect(hint).toHaveCount(0);
+    await expect(about).toBeFocused();
+    await page.reload();
+    await addToolbarScript(page);
+    await expect(hint).toHaveCount(0);
+});
+
+test('blocked guide storage keeps dismissal usable and shows the guide on the next visit', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    try {
+        await page.addInitScript(() => {
+            const original = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (key === 'uier:showcase-hint-dismissed') throw new DOMException('Storage blocked', 'SecurityError');
+                return original.call(this, key, value);
+            };
+        });
+        await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+        await page.reload();
+        await expect(page.getByRole('region', { name: 'Try uier on this page' })).toBeVisible();
+        await page.getByRole('button', { name: 'Add comment' }).click();
+        await expect(page.getByRole('region', { name: 'Try uier on this page' })).toHaveCount(0);
+    } finally { await context.close(); }
 });

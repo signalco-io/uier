@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { toolbar } from './support/toolbar';
+import { toolbar, dismissFirstRunHint } from './support/toolbar';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -180,6 +180,7 @@ test('a failed project comments load is visible and can be retried', async ({ pa
     await page.route(endpoint, route => route.abort());
     await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
     await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
+    await dismissFirstRunHint(page);
     await expect(page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
     await page.unroute(endpoint);
     await page.getByRole('button', { name: 'Try again', exact: true }).click();

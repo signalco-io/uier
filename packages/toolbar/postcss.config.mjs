@@ -24,8 +24,8 @@ shadowDomPropertiesFallback.postcss = true;
 
 export default {
     plugins: [
-        // `optimize` flattens nesting and adds vendor prefixes (Lightning CSS); tsup minifies after
-        tailwindcss({ optimize: { minify: false } }),
+        // Lightning CSS also merges equivalent rules before tsup inlines the stylesheet.
+        tailwindcss({ optimize: { minify: true } }),
         shadowDomPropertiesFallback(),
     ],
 };

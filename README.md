@@ -75,6 +75,11 @@ pnpm dev
 | http://localhost:4005/index.js | `packages/toolbar` (tsup watch build served from `dist/`); the web app loads this script instead of `/toolbar.js` |
 
 - Every public page runs in **showcase** mode: always mounted, with the first-run hint.
+- Review links also show the first-run guide. About uier reopens it; dismissal is remembered per API
+  and project on the reviewed site. Feedback mode keeps its form focused without opening the guide.
+- Project settings lets admins save a plain-text review brief (up to 2000 characters). Everyone who can
+  comment under the current access setting can read it in the guide and inbox; other visitors never
+  receive it. Blank input clears it. HTML, Markdown and URLs remain literal text.
 - Review links (`?toolbar-code=<project code>` or `?review=true`) start **review** mode instead; the
   review continues in that tab until "Exit review". In development the signed-in app loads review mode only.
 - Open the app on `localhost` (not `127.0.0.1`): the development toolbar build always talks to the local

@@ -94,6 +94,8 @@ export type DbProject = AppDoc & {
     name: string;
     /** Optional client label, normalized whitespace; older projects have no client. */
     clientName?: string;
+    /** Plain-text instructions shared only with people who can comment. */
+    brief?: string;
     /** Site URLs (origin and optional path); the first one is the main site */
     urls: string[];
     /** Opt-in meaningful URL state. Missing on older projects: pathname only. */

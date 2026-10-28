@@ -169,19 +169,17 @@ export function CommentToolbar({
                                 <Inbox />
                                 {badge}
                             </IconButton>
-                            {mode === 'showcase' && (
-                                <IconButton
-                                    ref={hintButtonRef}
-                                    variant={hintOpen ? 'soft' : 'plain'}
-                                    className="rounded-full"
-                                    onClick={onToggleHint}
-                                    title="About uier"
-                                    aria-label="About uier"
-                                    aria-expanded={hintOpen}
-                                    aria-controls={hintOpen ? hintId : undefined}>
-                                    <Info />
-                                </IconButton>
-                            )}
+                            <IconButton
+                                ref={hintButtonRef}
+                                variant={hintOpen ? 'soft' : 'plain'}
+                                className="rounded-full"
+                                onClick={onToggleHint}
+                                title="About uier"
+                                aria-label="About uier"
+                                aria-expanded={hintOpen}
+                                aria-controls={hintOpen ? hintId : undefined}>
+                                <Info />
+                            </IconButton>
                             <Divider orientation="vertical" className="mx-1 h-6" />
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined} />

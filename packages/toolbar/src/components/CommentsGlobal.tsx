@@ -22,6 +22,8 @@ import { InkScope } from './InkScope';
 import { Toaster } from './Toaster';
 import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
+import { useProjectViewer } from '../project/ProjectGate';
+import { useVisitor } from '../hooks/useVisitor';
 import { toolbarConfig } from '../config';
 import { takeLinkedCommentId } from '../review';
 import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
@@ -136,7 +138,9 @@ export function CommentsGlobal({
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
     const [feedbackRequested, setFeedbackRequested] = useState(takeFeedbackRequest);
     const [collapsed, setCollapsed] = useState(() => !feedbackRequested && readCollapsed());
-    const [hintOpen, setHintOpen] = useState(() => mode === 'showcase' && !isShowcaseHintDismissed());
+    const project = useProjectViewer();
+    const { query: visitor } = useVisitor();
+    const [hintOpen, setHintOpen] = useState(() => !feedbackRequested && mode !== 'feedback' && !isShowcaseHintDismissed());
     // The thread to open once its pin is on the page: a comment that was just posted, the one a
     // comment link (`?uier-comment=`) points at, or "Show on page" in the inbox (`fromInbox`)
     const [openComment, setOpenComment] = useState<{ id: string; fromInbox?: boolean }>();
@@ -203,10 +207,8 @@ export function CommentsGlobal({
 
     /** The visitor found the feature: the first-run hint is not needed anymore */
     const closeHintForUse = () => {
-        if (hintOpen) {
-            rememberShowcaseHintDismissed();
-            setHintOpen(false);
-        }
+        rememberShowcaseHintDismissed();
+        setHintOpen(false);
     };
 
     const startDraft = (position: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
@@ -252,6 +254,7 @@ export function CommentsGlobal({
     };
 
     const handleFeedbackRequest = useEffectEvent(() => {
+        closeHintForUse();
         if (collapsed) {
             handleCollapsedChange(false);
         }
@@ -630,7 +633,7 @@ export function CommentsGlobal({
                 onToggleSidebar={() => {
                     if (reattaching) return;
                     if (sidebarOpen) handleCloseSidebar();
-                    else setSidebarOpen(true);
+                    else { setHintOpen(false); setSidebarOpen(true); }
                 }}
                 onMoveStart={() => {
                     setCreatingCommentPoint(false);
@@ -647,8 +650,8 @@ export function CommentsGlobal({
                 onCollapsedChange={handleCollapsedChange}
                 onExitReview={onExitReview} />
             {/* After the pill, so forward Tab from "About uier" reaches it */}
-            {mode === 'showcase' && hintOpen && !collapsed && (
-                <ShowcaseHint id={hintId} pointAtRef={addButtonRef} onDismiss={handleDismissHint} />
+            {hintOpen && !collapsed && (toolbarConfig.project || visitor.data) && (
+                <ShowcaseHint id={hintId} pointAtRef={addButtonRef} onDismiss={handleDismissHint} access={project.access} brief={project.brief} privateAppFeedback={visitor.data?.privateAppFeedback} />
             )}
             <Toaster />
         </ReattachContext.Provider>

@@ -4,7 +4,7 @@ import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, 
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentItemThreadItem, CommentKind, Mention } from '../components/@types/Comments';
-import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
+import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, pageVisitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
@@ -259,7 +259,7 @@ export function useComments(refreshOnMount = false): {
     };
 
     // The visitor's name on what they just wrote, until the API returns it
-    const authorName = () => client.getQueryData<Visitor>(visitorQueryKey)?.name ?? guestAuthorName() ?? 'You';
+    const authorName = () => client.getQueryData<Visitor>(pageVisitorQueryKey(path))?.name ?? guestAuthorName() ?? 'You';
 
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => {

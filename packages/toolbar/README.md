@@ -142,9 +142,19 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
   `uier:open-feedback` event on `window` after **Close toolbar** (in its options) removed it. It mounts
   with the feedback form open; a toolbar already on the page opens its form on the same event
   (`src/openFeedback.ts`).
-- `showcase` mode (uier.io public pages) always mounts it and shows a dismissible first-run hint above the
-  toolbar (dismissal is remembered in `localStorage`, key `uier:showcase-hint-dismissed`; the "About uier"
-  button shows it again). The hint also closes, and stays closed, once the visitor starts a comment.
+- `showcase` mode (uier.io public pages) always mounts it. Review and showcase modes show the same
+  first-run guide above the toolbar; About uier reopens it in every mode. Feedback mode opens and focuses
+  its form without the guide covering it. Starting a comment or feedback remembers dismissal.
+  Project dismissal uses `uier:hint:v1:<api URL>:<project code>` in the reviewed site's `localStorage`;
+  without a project it keeps `uier:showcase-hint-dismissed`. Only `true` is stored, with no identity or
+  credentials. Blocked storage leaves the guide usable and it may appear again next visit.
+- The guide uses the current server review info for project access and the optional review brief.
+  Only people who can comment receive the brief, like environments; sign-in and comments-off notices
+  never show a guide or About uier. Public visibility/retention copy stays on public pages; app feedback
+  privacy comes from `/api/visitor?path=...`, using the server's `isPrivateAppFeedback` rule.
+- Admins write a plain-text review brief (up to 2000 characters) in project settings. It appears in the
+  guide and behind Review brief in the inbox header, preserving line breaks. It never renders HTML,
+  Markdown or links. Empty input clears it; changing a brief does not reset guide dismissal.
 - The API base URL defaults to the origin of the toolbar script (`document.currentScript.src`), so a
   preview deployment's toolbar talks to that preview's API. When there is no script URL (e.g. loaded as a
   module script), the build-time `__UIER_API_URL__` is used (`https://uier.io`). The development build
