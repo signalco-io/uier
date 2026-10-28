@@ -28,7 +28,7 @@ env:
   VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc # project "uier" (managed by Pulumi, infra/)
   VERCEL_TELEMETRY_DISABLED: "1"
   # renovate: datasource=npm depName=vercel
-  VERCEL_CLI_VERSION: "65.3.1"
+  VERCEL_CLI_VERSION: "65.4.0"
 
 jobs:
   deploy:
