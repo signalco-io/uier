@@ -38,7 +38,7 @@ type ShowcaseHintProps = {
     access?: 'invited' | 'guests' | 'disabled';
     privateAppFeedback?: boolean;
     brief?: string;
-    /** The button the hint's arrow points at (Add comment) */
+    /** The button the hint's arrow points at (About uier, which opens and highlights it) */
     pointAtRef?: RefObject<HTMLElement | null>;
     /** `hadFocus` is set when the keyboard focus was inside the hint */
     onDismiss: (hadFocus: boolean) => void;
@@ -107,7 +107,7 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss, access, privateAppFeed
                         variant="plain"
                         title="Dismiss"
                         aria-label="Dismiss"
-                        className="-mr-1 -mt-0.5 shrink-0"
+                        className="shrink-0"
                         onClick={handleDismiss}>
                         <Close />
                     </IconButton>
@@ -133,7 +133,7 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss, access, privateAppFeed
                     </Button>
                 </Row>
             </Stack>
-            {/* Points at the + (Add comment) button */}
+            {/* Points at the About uier button */}
             {arrowLeft !== undefined && (
                 <span
                     aria-hidden="true"

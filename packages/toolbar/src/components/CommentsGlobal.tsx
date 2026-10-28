@@ -651,7 +651,7 @@ export function CommentsGlobal({
                 onExitReview={onExitReview} />
             {/* After the pill, so forward Tab from "About uier" reaches it */}
             {hintOpen && !collapsed && (toolbarConfig.project || visitor.data) && (
-                <ShowcaseHint id={hintId} pointAtRef={addButtonRef} onDismiss={handleDismissHint} access={project.access} brief={project.brief} privateAppFeedback={visitor.data?.privateAppFeedback} />
+                <ShowcaseHint id={hintId} pointAtRef={hintButtonRef} onDismiss={handleDismissHint} access={project.access} brief={project.brief} privateAppFeedback={visitor.data?.privateAppFeedback} />
             )}
             <Toaster />
         </ReattachContext.Provider>
