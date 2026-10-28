@@ -1,9 +1,9 @@
-import { feedbackSource, environmentFilter, type FeedbackSource } from './environments';
-import { readActivity, type ReadActivity } from '../comments/activity';
+import { environmentFilter, type FeedbackSource } from './environments';
+import type { ReadActivity } from '../comments/activity';
+import { projectCommentRouting } from './projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
-import { commentPath } from '../comments/dto';
 import type { ProjectActor } from '../review/actor';
 import {
     canDeleteComment,
@@ -86,13 +86,12 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         return null;
 
     const myId = actor.kind === 'member' ? `user:${actor.userId}` : undefined;
-    const path = commentPath(comment);
-    const source = feedbackSource(project, comment.origin);
+    const { path, source, assignee, activity } = projectCommentRouting(comment, project, participants, myId, readSequence);
     const origin = source.origin ?? '';
     const size = comment.device?.size;
     return {
         source,
-        activity: readActivity(comment, myId, readSequence),
+        activity,
         id: comment.id,
         url: `${origin}${path === '/' ? '/' : path}`,
         path,
@@ -107,7 +106,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         resolved: comment.resolved === true,
         private: comment.private === true,
         eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
-        assignee: comment.assigneeId ? { id: comment.assigneeId, name: participants.get(comment.assigneeId) ?? 'Former member' } : undefined,
+        assignee,
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false }
             : { name: itemAuthorName(first, names), isMe: Boolean(myId) && first.authorId === myId },

@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { handleMcp } from '../src/lib/mcp/http';
+import { feedbackSkill } from '../src/lib/mcp/workflows';
 import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
@@ -15,7 +16,9 @@ import { RATE_LIMIT_MEMBER_REPLIES } from '../src/lib/comments/limits';
 import { memberActor } from '../src/lib/review/actor';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
-import { getReadSequence } from '../src/lib/comments/readState';
+import { getReadSequence, loadReadSequences, markThreadRead } from '../src/lib/comments/readState';
+import type { DbComment } from '../src/lib/db/schema';
+import { environmentOptions } from '../src/lib/app/environments';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { withNotificationEvent } from '../src/lib/notifications/events';
 import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
@@ -49,6 +52,185 @@ async function connect(token: string) {
 }
 function data(result: Awaited<ReturnType<Client['callTool']>>) { return result.structuredContent as Record<string, any>; }
 const idempotencyKey = () => randomUUID();
+
+async function reader(f: Awaited<ReturnType<typeof fixture>>) {
+    const user = await findOrCreateUser(`reader-${randomUUID()}@example.com`);
+    const member: DbMember = { ...f.context.member, id: memberId(user.id), userId: user.id, email: user.email, role: 'commenter', projects: [f.project.id] };
+    await getAppStore().create(member);
+    return { ...f.context, user, member, isAdmin: false };
+}
+
+/** Seed stored legacy shapes and large threads without consuming unrelated write budgets. */
+async function seed(f: Awaited<ReturnType<typeof fixture>>, changes: Partial<DbComment> = {}) {
+    const comment: DbComment = { ...f.comment, id: `comment_${randomUUID()}`, number: undefined, screenshot: undefined, activity: undefined, notificationEvents: undefined, notificationPending: false, ...changes };
+    await getCommentsStore().create(comment);
+    return comment;
+}
+
+test('listing returns shared routing and combines every filter without exposing private or deleted evidence or acknowledging reads', async () => {
+    const f = await fixture();
+    const context = await reader(f);
+    const project = await updateProject(f.project.workspaceId, f.project.id, {
+        urls: ['https://reviewed.example', 'https://staging.example'],
+        environments: [{ origin: 'https://reviewed.example', label: 'Production' }, { origin: 'https://staging.example', label: 'Staging' }]
+    });
+    if (!project) throw new Error('Fixture project not found.');
+    const ownerId = `user:${context.user.id}`;
+    const point = await seed(f, { path: '/pricing?old=1', position: { type: 'point', selector: '#save', xNormal: 0.5, yNormal: 0.5 }, authorId: ownerId,
+        thread: { items: [{ id: 'point', authorId: ownerId, text: 'Point feedback' }] } });
+    const text = await seed(f, { origin: 'https://staging.example', path: '/about', position: { type: 'text', text: 'About', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 5, endType: 'text' }, resolved: true,
+        authorId: 'guest-one', thread: { items: [{ id: 'text', authorId: 'guest-one', text: 'Guest selection feedback' }] } });
+    await markThreadRead(text, ownerId, 1);
+    const assigned = await seed(f, { origin: 'https://staging.example', path: '/about', assigneeId: context.user.id,
+        authorId: 'guest-two', thread: { items: [{ id: 'assigned', authorId: 'guest-two', text: 'Assigned guest feedback' }] } });
+    const ownPrivate = await seed(f, { path: '/about', private: true, authorId: ownerId, thread: { items: [{ id: 'own', authorId: ownerId, text: 'My private feedback' }] } });
+    const hidden = await seed(f, { private: true, assigneeId: context.user.id });
+    const redacted = await seed(f, { screenshot: f.comment.screenshot, thread: { items: [{ ...f.comment.thread.items[0]!, deletedAt: new Date().toISOString() }, { id: 'reply', text: 'Retained reply', authorId: ownerId }] } });
+    const unknown = await seed(f, { origin: undefined });
+    const removed = await seed(f, { origin: 'https://removed.example' });
+    const { token } = await createMcpCredential(context, { name: 'Triage', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    const before = [...await loadReadSequences(f.comment.domain, ownerId)];
+    const list = async (filters: Record<string, unknown> = {}) => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, limit: 25, ...filters } }));
+    const ids = async (filters: Record<string, unknown>) => (await list(filters)).items.map((item: { id: string }) => item.id).sort();
+    try {
+        const all = await list();
+        expect(all).toMatchObject({ contentTrust: 'untrusted', searchWindow: 1000, environments: environmentOptions(project), nextCursor: null });
+        expect(all.items.find((item: { id: string }) => item.id === assigned.id)).toMatchObject({ path: '/about', environment: { id: 'origin:https://staging.example', label: 'Staging' }, anchorType: 'page', assignee: { id: context.user.id, name: context.user.name }, authorKind: 'guest', unread: true, hasScreenshot: false });
+        expect(all.items.find((item: { id: string }) => item.id === point.id)).toMatchObject({ path: '/pricing', anchorType: 'point', authorKind: 'member', unread: false, assignee: null });
+        expect(all.items.find((item: { id: string }) => item.id === f.comment.id)).toMatchObject({ environment: { id: 'origin:https://reviewed.example', label: 'Production' }, hasScreenshot: true });
+        expect(all.items.find((item: { id: string }) => item.id === ownPrivate.id)).toMatchObject({ private: true });
+        expect(all.items.some((item: { id: string }) => item.id === hidden.id)).toBe(false);
+        expect(JSON.stringify(all.items)).not.toContain('authorId');
+        expect(JSON.stringify(all.items)).not.toContain('user:');
+        expect(await ids({ path: '/about/?discard=1#ignored' })).toEqual([text.id, assigned.id, ownPrivate.id].sort());
+        expect(await ids({ environment: 'origin:https://staging.example' })).toEqual([text.id, assigned.id].sort());
+        expect(await ids({ environment: 'unknown' })).toEqual([unknown.id]);
+        expect(await ids({ environment: 'removed' })).toEqual([removed.id]);
+        expect(await ids({ anchorType: 'point' })).toEqual([point.id]);
+        expect(await ids({ anchorType: 'text' })).toEqual([text.id]);
+        expect((await ids({ anchorType: 'page' }))).not.toContain(point.id);
+        expect(await ids({ assignee: 'me' })).toEqual([assigned.id]);
+        expect(await ids({ assignee: context.user.id })).toEqual([assigned.id]);
+        expect(await ids({ assignee: 'unassigned' })).toEqual(all.items.filter((item: { assignee: unknown }) => !item.assignee).map((item: { id: string }) => item.id).sort());
+        expect(await ids({ authorKind: 'guest' })).toEqual([text.id, assigned.id].sort());
+        expect((await ids({ authorKind: 'member' }))).toContain(point.id);
+        expect((await ids({ authorKind: 'member' }))).not.toContain(redacted.id);
+        expect(await ids({ unread: false })).toEqual([point.id, text.id, ownPrivate.id, redacted.id].sort());
+        expect((await ids({ unread: true }))).toContain(assigned.id);
+        expect(await ids({ hasScreenshot: true })).toEqual([f.comment.id]);
+        expect((await ids({ hasScreenshot: false }))).toContain(redacted.id);
+        expect(await ids({ status: 'resolved' })).toEqual([text.id]);
+        expect(await ids({ search: 'GUEST', status: 'open', path: '/about', environment: 'origin:https://staging.example', anchorType: 'page', assignee: 'me', authorKind: 'guest', unread: true, hasScreenshot: false })).toEqual([assigned.id]);
+        expect(await ids({ search: 'save button', assignee: 'me', unread: true })).toEqual([]);
+        expect(all.items.find((item: { id: string }) => item.id === redacted.id)).toMatchObject({ summary: 'Comment deleted', hasScreenshot: false });
+        expect(all.items.find((item: { id: string }) => item.id === redacted.id)).not.toHaveProperty('authorKind');
+        const exported = data(await client.callTool({ name: 'get_feedback_batch', arguments: { projectId: f.project.id, commentIds: [redacted.id, assigned.id] } }));
+        expect(exported.items[0].context.screenshot).toEqual({ state: 'unavailable' });
+        expect(exported.items.every((item: Record<string, unknown>) => !item.screenshotResource)).toBe(true);
+        for (const environment of ['all', 'origin:https://unknown.example', 'group:missing']) {
+            const invalid = await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, environment } });
+            expect(invalid.isError).toBe(true);
+            expect(data(invalid).error).toBe('invalid_request');
+        }
+        for (const filters of [{ path: 'https://example.com' }, { path: '//example.com' }, { path: '/bad\\path' }, { path: '/bad\npath' }, { anchorType: 'element' }, { unread: 'true' }, { hasScreenshot: 1 }, { authorKind: 'admin' }, { assignee: 'invalid' }, { status: 'done' }, { limit: 26 }, { extra: true }])
+            expect((await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, ...filters } })).isError).toBe(true);
+        expect([...await loadReadSequences(f.comment.domain, ownerId)]).toEqual(before);
+    } finally { await client.close(); }
+});
+
+test('page and environment select storage before the 1000-thread window while unread remains bounded', async () => {
+    const f = await fixture();
+    await updateProject(f.project.workspaceId, f.project.id, { urls: ['https://reviewed.example', 'https://staging.example'] });
+    const old = await seed(f, { path: '/old', origin: 'https://staging.example', createdAt: '2000-01-01T00:00:00.000Z', authorId: 'guest', thread: { items: [{ id: 'old', text: 'Old unread feedback', authorId: 'guest' }] } });
+    for (let i = 0; i < 1001; i++) await seed(f, { createdAt: '2020-01-01T00:00:00.000Z', path: '/new' });
+    const { token } = await createMcpCredential(f.context, { name: 'Window', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        for (const filters of [{}, { path: '/old' }, { environment: 'origin:https://staging.example' }, { path: '/old', environment: 'origin:https://staging.example' }]) {
+            const response = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, unread: true, ...filters } }));
+            expect(response.searchWindow).toBe(1000);
+            expect(response.items.map((item: { id: string }) => item.id)).toEqual(Object.keys(filters).length ? [old.id] : []);
+        }
+    } finally { await client.close(); }
+});
+
+test('batch returns ten ordered full exports, indistinguishable unavailable ids, scoped images and fresh authorization', async () => {
+    const f = await fixture();
+    const context = await reader(f);
+    const visible = await Promise.all(Array.from({ length: 6 }, () => seed(f)));
+    const hidden = await seed(f, { private: true });
+    const deleted = await seed(f);
+    const stored = (await getCommentsStore().get(deleted.domain, deleted.id))!;
+    await getCommentsStore().delete(deleted.domain, deleted.id, stored.etag);
+    const commentIds = [visible[2]!.id, hidden.id, f.comment.id, 'comment_missing', visible[0]!.id, deleted.id, ...visible.slice(3).map(comment => comment.id), visible[1]!.id];
+    const { token, credential } = await createMcpCredential(context, { name: 'Batch', projectIds: [f.project.id], scopes: ['feedback:read', 'screenshots:read'], days: 7 });
+    const noImages = await createMcpCredential(context, { name: 'No images', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    const limited = await connect(noImages.token);
+    const before = [...await loadReadSequences(f.comment.domain, `user:${context.user.id}`)];
+    const batch = (ids: string[], projectId = f.project.id) => client.callTool({ name: 'get_feedback_batch', arguments: { projectId, commentIds: ids } });
+    try {
+        const tools = (await client.listTools()).tools;
+        for (const tool of tools) expect(feedbackSkill()).toContain(`| ${tool.name} |`);
+        const tool = tools.find(tool => tool.name === 'get_feedback_batch')!;
+        expect(tool.annotations?.readOnlyHint).toBe(true);
+        for (const value of ['names', 'labels', 'paths', 'untrusted']) expect(tool.description).toContain(value);
+        const response = data(await batch(commentIds));
+        expect(response).toMatchObject({ contentTrust: 'untrusted', remainingIds: [] });
+        expect(response.items.map((item: { commentId: string }) => item.commentId)).toEqual(commentIds);
+        const failures = response.items.filter((item: { error?: string }) => item.error);
+        expect(failures).toEqual([hidden.id, 'comment_missing', deleted.id].map(commentId => ({ commentId, error: 'not_found', message: 'Comment not found.' })));
+        const single = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } }));
+        const { actingAs, contentTrust, ...packet } = single;
+        expect(response.items[2]).toEqual({ commentId: f.comment.id, ...packet });
+        expect((await client.readResource({ uri: response.items[2].screenshotResource.uri })).contents).toHaveLength(1);
+        expect(data(await limited.callTool({ name: 'get_feedback_batch', arguments: { projectId: f.project.id, commentIds: [f.comment.id] } })).items[0].screenshotResource).toBeUndefined();
+        for (const ids of [[], [f.comment.id, f.comment.id], [...commentIds, 'comment_eleventh']]) expect((await batch(ids)).isError).toBe(true);
+        expect(data(await batch([f.comment.id], f.other.id)).error).toBe('not_found');
+        expect([...await loadReadSequences(f.comment.domain, `user:${context.user.id}`)]).toEqual(before);
+        const saved = (await getAppStore().get<McpCredential>(credential.pk, credential.id))!;
+        await getAppStore().replace({ ...saved.doc, scopes: ['screenshots:read'] }, saved.etag);
+        expect(data(await batch([f.comment.id])).error).toBe('forbidden');
+        expect(data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).error).toBe('forbidden');
+        const current = (await getAppStore().get<McpCredential>(credential.pk, credential.id))!;
+        await getAppStore().replace({ ...saved.doc, projectIds: [] }, current.etag);
+        expect(data(await batch([f.comment.id])).error).toBe('not_found');
+        const restored = (await getAppStore().get<McpCredential>(credential.pk, credential.id))!;
+        await getAppStore().replace(saved.doc, restored.etag);
+        const membership = (await getAppStore().get<DbMember>(context.member.pk, context.member.id))!;
+        await getAppStore().replace({ ...membership.doc, projects: [] }, membership.etag);
+        expect(data(await batch([f.comment.id])).error).toBe('not_found');
+    } finally { await client.close(); await limited.close(); }
+});
+
+test('batch caps UTF-8 results at 256 KiB with whole packets, retry ids and per-thread too_large', async () => {
+    const f = await fixture();
+    const large = await Promise.all(Array.from({ length: 3 }, () => seed(f, { thread: { items: [{ id: 'large', authorId: 'guest', text: 'é'.repeat(28000) }] } })));
+    const huge = await seed(f, { thread: { items: [{ id: 'huge', authorId: 'guest', text: 'é'.repeat(70000) }] } });
+    const { token } = await createMcpCredential(f.context, { name: 'Size', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        const batch = (commentIds: string[]) => client.callTool({ name: 'get_feedback_batch', arguments: { projectId: f.project.id, commentIds } });
+        const result = await batch(large.map(comment => comment.id));
+        expect(result.isError).not.toBe(true);
+        const response = data(result);
+        expect(Buffer.byteLength(JSON.stringify(response))).toBeLessThanOrEqual(256 * 1024);
+        expect(response.items).toHaveLength(2);
+        expect(response.remainingIds).toEqual([large[2]!.id]);
+        for (const [index, item] of response.items.entries()) {
+            const single = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: large[index]!.id } }));
+            expect(item.context).toEqual(single.context);
+            expect(item.markdown).toBe(single.markdown);
+        }
+        expect(data(await batch(response.remainingIds)).items[0].context.feedback.text).toBe(large[2]!.thread.items[0]!.text);
+        const oversized = data(await batch([huge.id, f.comment.id]));
+        expect(oversized.items[0]).toMatchObject({ commentId: huge.id, error: 'too_large' });
+        expect(oversized.items[1].context.identity.commentId).toBe(f.comment.id);
+        expect(oversized.remainingIds).toEqual([]);
+        expect(data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: huge.id } })).error).toBe('too_large');
+    } finally { await client.close(); }
+});
 
 test('official HTTP client reads context and image, then records approved reply/status/assignment with safe retries and shared activity', async () => {
     const f = await fixture();
