@@ -114,7 +114,10 @@ verification type (`InitiateVerificationFailed: Invalid verification type: DMARC
 state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
 a valid public DMARC record does not substitute for the required Azure state.
 
-Subscription creation resumes only after the case-insensitive Azure resource-name receiver deploys.
-The readiness probe supplies uppercase name metadata to prove that revision is live before Azure
-validates the subscription. Missing/other names, wrong credentials and report topics still fail.
-Independently read provisioning state; this report setup never substitutes for the five-state sender gate.
+The case-insensitive Azure resource-name receiver deployed in #186 before #187 created the
+subscription. Independent Azure readback on 28 October 2026 confirmed `Succeeded`; the uppercase-name
+readiness request and real Azure callback returned 200 and logged only `normalized_subscription_case`.
+Keep the uppercase-name probe so later applies confirm that receiver compatibility. Missing/other
+names, wrong credentials and report topics still fail. The [provisioning receipt](../docs/review-notifications.md#delivery-report-provisioning-receipt)
+separates this handshake from the pending real-digest acceptance. The five-state sender gate and
+operation-id correlation gate remain; neither is satisfied by subscription provisioning.
