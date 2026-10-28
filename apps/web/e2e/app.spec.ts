@@ -1,3 +1,4 @@
+import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -526,4 +527,22 @@ test('only admins save and clear the plain-text review brief, with server valida
     await expect(section.getByRole('status')).toHaveText('The review brief is saved.');
     await page.reload();
     await expect(input).toHaveValue('');
+});
+
+
+test('a suppressed address can sign in and then receive invitations again', async ({ page, browser }) => {
+    const email = uniqueEmail('bounced-sign-in');
+    await seedEmailBounce(page.request, email);
+    await signIn(page, email);
+    await expect(page.getByText('Email to this address bounced.', { exact: false })).toHaveCount(0);
+    const admin = await browser.newPage();
+    await signIn(admin, uniqueEmail('invite-admin'));
+    await admin.goto('/app/users');
+    await admin.getByRole('button', { name: 'Invite', exact: true }).click();
+    const dialog = admin.getByRole('dialog');
+    await dialog.getByLabel('Email', { exact: true }).fill(email);
+    await dialog.getByRole('radio', { name: 'All projects, now and later' }).click();
+    await dialog.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(dialog).toHaveAccessibleName('Invitation sent');
+    await admin.close();
 });

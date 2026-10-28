@@ -8,6 +8,7 @@ export type EmailMessage = {
     /** Plain text version; every email has one */
     text: string;
     html: string;
+    headers?: Record<string, string>;
 };
 
 export class EmailNotConfiguredError extends Error {
@@ -44,13 +45,15 @@ export async function sendEmail(message: EmailMessage) {
         if (!showsEmailLinksOnPage())
             throw new EmailNotConfiguredError();
 
-        console.info(`[email] Not sent (no email on this deployment): "${message.subject}"`);
+        console.info('[email] Not sent (no email on this deployment).');
         return;
     }
 
     const poller = await emailClient(connectionString).beginSend({
         senderAddress: sender,
         recipients: { to: [{ address: message.to }] },
+        headers: message.headers,
+        disableUserEngagementTracking: true,
         content: {
             subject: message.subject,
             plainText: message.text,
@@ -59,5 +62,5 @@ export async function sendEmail(message: EmailMessage) {
     });
     const result = await poller.pollUntilDone();
     if (result.status !== KnownEmailSendStatus.Succeeded)
-        throw new Error(`Email was not sent (${result.status}): ${result.error?.message ?? 'unknown error'}`);
+        throw new Error('Email was not accepted by the provider.');
 }

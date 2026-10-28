@@ -12,6 +12,7 @@ import { sendEmail, showsEmailLinksOnPage } from '../email/send';
 import { notificationVerificationEmail } from '../email/templates';
 import { KnownPages } from '../../knownPages';
 import type { DbComment } from '../db/schema';
+import { clearEmailSuppression } from '../email/suppression';
 
 export const notificationPk = (projectId: string) => `notifications:${projectId}`;
 export const subscriptionId = (actorId: string, threadId: string) => `subscription_${sha256Hex(`${actorId}:${threadId}`)}`;
@@ -62,7 +63,7 @@ export async function setProjectMuted(project: DbProject, actor: ProjectActor, m
         projectId: project.id, actorId, muted, version: randomToken()
     };
     if (!await getAppStore().create(doc))
-        await updateDoc<NotificationPreference>(doc.pk, doc.id, old => ({ ...doc, version: old.version }));
+        await updateDoc<NotificationPreference>(doc.pk, doc.id, () => doc);
 }
 
 export type ThreadNotificationState = { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
@@ -141,9 +142,11 @@ export async function followThread(project: DbProject, actor: ProjectActor, thre
 export async function inspectNotificationToken(token: unknown) {
     if (typeof token !== 'string') return null;
     const payload = verifyToken<NotificationToken>('notification', token);
-    if (!payload || !['verify', 'subscription', 'project'].includes(payload.mode)) return null;
+    if (!payload || !['verify', 'subscription', 'project'].includes(payload.mode)
+        || typeof payload.projectId !== 'string' || typeof payload.id !== 'string' || typeof payload.version !== 'string') return null;
     const doc = (await getAppStore().get<NotificationSubscription | NotificationPreference>(notificationPk(payload.projectId), payload.id))?.doc;
     if (!doc || doc.version !== payload.version) return null;
+    if (payload.mode === 'project' ? doc.type !== 'notification-preference' : doc.type !== 'notification-subscription') return null;
     if (payload.mode === 'verify' && (doc.type !== 'notification-subscription' || !doc.pendingUntil || Date.parse(doc.pendingUntil) <= Date.now())) return null;
     return { payload, doc };
 }
@@ -156,18 +159,22 @@ export async function actOnNotificationToken(token: unknown, action: 'verify' | 
         if (payload.mode !== 'verify' || doc.type !== 'notification-subscription') throw apiErrors.forbidden();
         const project = await findProject(doc.projectId);
         if (!project || project.access !== 'guests' || !await getProjectComment(project, { kind: 'guest', visitorId: doc.actorId }, doc.threadId)) throw apiErrors.notFound();
+        if (doc.email) await clearEmailSuppression(doc.email);
         await updateDoc<NotificationSubscription>(doc.pk, doc.id, current => {
             if (current.version !== doc.version || !current.pendingUntil) throw apiErrors.conflict();
             const { pendingUntil: _pending, ttl: _ttl, ...rest } = current;
             return { ...rest, following: true, verifiedAt: new Date().toISOString(), since: new Date().toISOString() };
         });
-    } else if (action === 'unsubscribe' && doc.type === 'notification-subscription') {
+    } else if (action === 'unsubscribe' && payload.mode === 'subscription' && doc.type === 'notification-subscription') {
         await updateDoc<NotificationSubscription>(doc.pk, doc.id, current => {
             if (current.version !== doc.version) throw apiErrors.conflict();
             const { email: _email, verifiedAt: _verified, pendingUntil: _pending, ttl: _ttl, ...rest } = current;
             return { ...rest, following: false };
         });
-    } else if (action === 'mute' && doc.type === 'notification-preference') {
-        await updateDoc<NotificationPreference>(doc.pk, doc.id, current => ({ ...current, muted: true }));
+    } else if (action === 'mute' && payload.mode === 'project' && doc.type === 'notification-preference') {
+        await updateDoc<NotificationPreference>(doc.pk, doc.id, current => {
+            if (current.version !== doc.version) throw apiErrors.conflict();
+            return { ...current, muted: true };
+        });
     } else throw apiErrors.forbidden();
 }

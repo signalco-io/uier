@@ -1,3 +1,4 @@
+import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
@@ -283,4 +284,18 @@ test('invitations validate, replace earlier ones and can be revoked', async ({ p
     await again.getByRole('radio', { name: /^Admin/ }).click();
     await again.getByRole('button', { name: 'Send invitation' }).click();
     await expect(again.getByRole('alert')).toHaveText(`${adminEmail} is already in this workspace.`);
+});
+
+
+test('only admins see the bounced-address notice in the invite dialog', async ({ page }) => {
+    await adminWithProjects(page);
+    const email = uniqueEmail('bounced-invite');
+    await seedEmailBounce(page.request, email);
+    const dialog = await openInvite(page);
+    await dialog.getByLabel('Email', { exact: true }).fill(email);
+    await dialog.getByRole('radio', { name: 'All projects, now and later' }).click();
+    await dialog.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('Email to this address bounced. Ask them to sign in to uier before inviting them again.');
+    await expect(dialog.getByRole('link', { name: 'Open the invitation link' })).toHaveCount(0);
+    await expectNoAxeViolations(page);
 });

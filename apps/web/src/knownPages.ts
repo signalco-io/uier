@@ -10,6 +10,7 @@ export const KnownPages = {
     Security: '/security',
     Status: '/status',
     Notifications: '/notifications',
+    NotificationUnsubscribe: '/api/notifications/unsubscribe',
 
     App: '/app',
     AppSignIn: '/app/sign-in',

@@ -8,7 +8,7 @@ test('ACS retries reconcile the persisted operation, preserve repeatability and 
     process.env.ACS_CONNECTION_STRING = `endpoint=https://email.example;accesskey=${Buffer.alloc(32).toString('base64')}`;
     process.env.UIER_EMAIL_SENDER = 'test@example.com';
     try {
-        const message = { to: 'reviewer@example.com', subject: 'Review activity', text: 'Open thread', html: '<p>Open thread</p>' };
+        const message = { to: 'reviewer@example.com', subject: 'Review activity', text: 'Open thread', html: '<p>Open thread</p>', headers: { 'List-Unsubscribe': '<https://uier.io/api/notifications/unsubscribe?token=opaque>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } };
         const attempt = { operationId: randomUUID(), firstSentAt: new Date().toISOString() };
         let beginCalls = 0;
         const client: Pick<EmailClient, 'beginSend'> = { beginSend: async (body, options) => {
@@ -16,6 +16,7 @@ test('ACS retries reconcile the persisted operation, preserve repeatability and 
             expect(options?.operationId).toBe(attempt.operationId);
             expect(options?.requestOptions?.customHeaders).toMatchObject({ 'Repeatability-Request-Id': attempt.operationId,
                 'Repeatability-First-Sent': new Date(attempt.firstSentAt).toUTCString() });
+            expect(body.headers).toEqual(message.headers);
             expect(body.disableUserEngagementTracking).toBe(true);
             return { getResult: () => undefined, toString: () => 'persisted-poller' } as unknown as Awaited<ReturnType<EmailClient['beginSend']>>;
         } };
@@ -26,13 +27,15 @@ test('ACS retries reconcile the persisted operation, preserve repeatability and 
         };
         expect(await deliverNotificationEmail(message, attempt, true, { client, fetcher })).toMatchObject({ status: 'pending', resumeFrom: 'persisted-poller' });
         expect(beginCalls).toBe(1);
+        await deliverNotificationEmail(structuredClone(message), attempt, true, { client, fetcher });
+        expect(beginCalls).toBe(2);
         const expired = { ...attempt, firstSentAt: new Date(Date.now() - 10 * 60 * 1000).toISOString() };
         expect(await deliverNotificationEmail(message, expired, true, { client, fetcher })).toMatchObject({ status: 'ambiguous' });
-        expect(beginCalls).toBe(1);
+        expect(beginCalls).toBe(2);
         for (const [provider, expected] of [['Succeeded', 'sent'], ['Running', 'pending'], ['Failed', 'failed']] as const) {
             expect(await deliverNotificationEmail(message, attempt, true, { client, fetcher: async () => Response.json({ status: provider }) })).toMatchObject({ status: expected });
         }
-        expect(beginCalls).toBe(1);
+        expect(beginCalls).toBe(2);
     } finally {
         if (previous.connection === undefined) delete process.env.ACS_CONNECTION_STRING; else process.env.ACS_CONNECTION_STRING = previous.connection;
         if (previous.sender === undefined) delete process.env.UIER_EMAIL_SENDER; else process.env.UIER_EMAIL_SENDER = previous.sender;

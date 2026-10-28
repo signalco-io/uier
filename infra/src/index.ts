@@ -180,6 +180,16 @@ const up = async () => {
     // Vercel allows one variable per key and target, so a replace of the new variables (a changed
     // `key` or `sensitive`) has to delete the old one first; variables apply to new deployments only.
     const envVarOptions = { deleteBeforeReplace: true };
+    // Deploy the receiver and its production-only credential BEFORE creating its subscription.
+    // Event Grid validates synchronously during pulumi up, which runs before Vercel deployment.
+    const emailReportSecret = new RandomBytes('uier-email-report-secret', { length: 32 }).hex;
+    for (const [name, key, value, sensitive] of [
+        ['secret', 'UIER_EMAIL_REPORT_SECRET', emailReportSecret, true],
+        ['subscription', 'UIER_EMAIL_REPORT_SUBSCRIPTION', 'uier-email-delivery', false],
+        ['topic', 'UIER_EMAIL_REPORT_TOPIC', email.communicationServiceId, false],
+    ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
+        projectId: app.projectId, key, value, sensitive, targets: ['production'],
+    }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
         projectId: app.projectId,
         key: 'COSMOSDB_CONNECTION_STRING',

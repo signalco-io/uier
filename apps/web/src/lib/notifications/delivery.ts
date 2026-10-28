@@ -15,11 +15,12 @@ import type { DbComment } from '../db/schema';
 import { getCommentsStore } from '../repo/commentsStore';
 import { getReadSequence } from '../comments/readState';
 import { layoutEmail } from '../email/templates';
-import { KnownPageLinks } from '../../knownPages';
+import { KnownPages, KnownPageLinks } from '../../knownPages';
 import { isNotificationParticipant, notificationManageUrl, notificationPk, notificationPreference, notificationSubscription, notificationToken,
     preferenceId, type NotificationPreference, type NotificationSubscription } from './preferences';
 import { deliverNotificationEmail, type EmailAttempt } from './transport';
 import { EmailNotConfiguredError, type EmailMessage } from '../email/send';
+import { emailSuppression } from '../email/suppression';
 
 export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
@@ -122,7 +123,9 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
         }
     }
     const source = feedbackSource(project, comment.origin);
-    const manageUrl = notificationManageUrl(baseUrl, notificationToken(manage, mode));
+    const token = notificationToken(manage, mode);
+    const manageUrl = notificationManageUrl(baseUrl, token);
+    const unsubscribeUrl = `${baseUrl}${KnownPages.NotificationUnsubscribe}?token=${encodeURIComponent(token)}`;
     let url = delivery.userId ? `${baseUrl}${KnownPageLinks.project(project.id)}?environment=${source.environment}` : manageUrl;
     if (source.available && source.origin) {
         const page = new URL(commentPath(comment), source.origin);
@@ -135,11 +138,14 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
         }
     }
     const content = digestContent(project, comment, delivery.actorId, batch, await participantNames(project));
-    return layoutEmail({ to: context.email!, subject: content.subject,
+    return { ...layoutEmail({ to: context.email!, subject: content.subject,
         paragraphs: [...content.lines,
             source.available ? 'Open the thread to read the latest feedback, replies and status changes.' : 'The original site address is unavailable. Project members can read the feedback in the app history.'],
         action: { label: source.available ? 'Open thread' : delivery.userId ? 'Open feedback history' : 'Manage notifications', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
-        footerAction: { label: mode === 'project' ? 'Manage project emails' : 'Unsubscribe from thread', url: manageUrl } });
+        footerAction: { label: mode === 'project' ? 'Manage project emails' : 'Unsubscribe from thread', url: manageUrl } }), headers: {
+            'List-Unsubscribe': `<${unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+        } };
 }
 
 /** One bounded attempt under an optimistic lease; all state survives process restarts. */
@@ -153,6 +159,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
         const { lease: _lease, ...rest } = current;
         const saved = { ...rest, ...patch };
+        if (patch.status === 'accepted' && current.lastCode?.startsWith('ACSReport_')) saved.lastCode = current.lastCode;
         if (saved.status !== 'failed' && saved.status !== 'ambiguous')
             saved.active = Boolean(saved.attempt) || current.requestedThrough > saved.processedThrough;
         return saved;
@@ -162,6 +169,10 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         const events = context ? eligibleEvents(delivery, context) : [];
         if (!context?.email || !events.length) {
             await save({ processedThrough: delivery.requestedThrough, attempt: undefined, active: false, status: 'suppressed' });
+            return;
+        }
+        if (await emailSuppression(context.email, store)) {
+            await save({ processedThrough: delivery.requestedThrough, attempt: undefined, active: false, status: 'suppressed', lastCode: 'address_suppressed' });
             return;
         }
         const due = Date.parse(events[0]!.at) + DIGEST_WINDOW_MS;
@@ -175,7 +186,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         // Persist before the external request, including its exact body and repeatability identity.
         await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
             if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
-            return { ...current, attempt, lastOperationId: attempt.operationId };
+            return { ...current, attempt, lastOperationId: attempt.operationId, ...(!delivery.attempt ? { lastCode: undefined } : {}) };
         }, store);
         // Preparing a digest does several reads/writes. Check once more at the send boundary.
         const latest = await recipientContext(delivery);
@@ -194,6 +205,10 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
                 return { ...current, attempt };
             }, store);
         }
+        if (await emailSuppression(attempt.message.to, store)) {
+            await save({ processedThrough: delivery.requestedThrough, attempt: undefined, active: false, status: 'suppressed', lastCode: 'address_suppressed' });
+            return;
+        }
         const result = await transport(attempt.message, attempt, Boolean(delivery.attempt));
         if (result.status === 'sent') {
             await save({ processedThrough: through, attempt: undefined, active: true, failures: 0, nextAttemptAt: iso(), status: 'accepted', lastCode: result.code });
@@ -209,7 +224,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
     } catch (error) {
         const failures = delivery.failures + 1;
         // Error messages from providers may contain personal data. Store only a bounded class name.
-        const code = error instanceof Error ? error.name.slice(0, 80) : 'UnknownError';
+        const code = error instanceof Error ? failureCode(error.name) : 'UnknownError';
         await save({ failures, active: failures < MAX_FAILURES, status: failures < MAX_FAILURES ? 'queued' : 'failed', lastCode: code,
             ...(error instanceof EmailNotConfiguredError ? { attempt: undefined } : {}),
             nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)) });

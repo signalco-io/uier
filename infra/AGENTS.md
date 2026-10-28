@@ -46,3 +46,26 @@ The toolbar bundle needs no infrastructure of its own: the web app serves it at
 
 The README's "Infrastructure" section has the full setup, role assignments and the OIDC
 subjects CI uses.
+
+
+## Email rollout (#132)
+
+`src/email.ts` first provisions a protected customer-managed `uier.io` domain and Domain/SPF/DKIM/
+DKIM2/DMARC DNS records from `verificationRecords`. The existing Azure-managed domain, communication
+service name, connection string and sender remain. DNS preflight found no apex SPF or `_dmarc` TXT
+on 28 October 2026; recheck authoritative DNS and import/merge any externally created policy before
+applying. Never add a duplicate SPF or DMARC record.
+
+The report receiver's credential, expected subscription name and ACS topic are production-only.
+Deploy the receiver before adding an Event Grid subscription in a later PR; Pulumi runs before
+Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
+registered. Deliver the credential as a secret static HTTP header, never a query parameter.
+
+One-time Azure verification checks the provisioned DNS; it is not a sender cutover. Read all five
+live `verificationStates` until `Verified`. Link and switch only in a separate reviewed PR, using
+a fresh `getDomainOutput` guard. Keep the Azure-managed domain linked. The preview must update
+`linkedDomains` in place and must not replace the communication service or change its key/connection
+string. Never remove protection or apply infrastructure manually. README Infrastructure documents
+the exact sequence; `docs/review-notifications.md` tracks production evidence. Keep ledger matching
+disabled until an authorized production digest proves report `messageId` equals its send operation
+id; then enable `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` for production through Pulumi.

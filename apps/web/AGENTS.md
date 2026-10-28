@@ -234,6 +234,16 @@ promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-b
 the existing production configuration. Dispatch rechecks access, private visibility, subscription,
 mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
 `docs/review-notifications.md` for the event/delivery contract and failure evidence.
+`/api/email/reports` checks its secret header, expected Event Grid subscription and ACS topic before
+validation or writes. Bounces suppress only by normalized address hash and bounded reason; report
+receipts retain hashed event/operation ids for 30 days and survive a mailbox confirmation. No raw
+provider message, address or report payload may be logged. Skip suppressed digests; a failed read
+must retry. Show the generic notice only in the admin invite action. Requested sign-in/guest
+confirmation remain available and clear suppression only on completed mailbox proof. Ledger
+matching is production-gated until live message-id correlation is proven.
+Digest unsubscribe headers are persisted in `attempt.message.headers`; retries preserve them.
+`/api/notifications/unsubscribe` changes state only on a cookie-free RFC 8058 POST; GET and
+`/notifications` remain read-only. Never accept verify tokens for unsubscribe/mute.
 Digest wording uses only the recipient's eligible batch and current authorized participant names;
 never name other mention/assignment recipients. Events store item/new-assignee ids, never text.
 `emailCommentExcerpts` defaults off and is saved through `adminProject`; commenters see its state.

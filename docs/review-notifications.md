@@ -88,7 +88,7 @@ after that window, its outcome is ambiguous. The ledger stops for review instead
 unrelated operation that could duplicate mail. Failed or ambiguous ledgers retain their operation
 and failure class; the workflow reports their count and fails. Logs identify only the delivery id
 and bounded failure code, without recipients or message content. ACS acceptance is not proof of
-inbox delivery; this implementation does not process bounce/delivery-report events.
+inbox delivery. The authenticated delivery-report receiver below processes provider reports once its subscription is deployed.
 
 Provider references: [ACS repeatable requests](https://learn.microsoft.com/en-us/rest/api/communication/repeatable-requests)
 and [email operation status](https://learn.microsoft.com/en-us/rest/api/communication/email/email/get-send-result?view=rest-communication-email-2025-09-01).
@@ -99,7 +99,7 @@ An ambiguous operation retains its original id and only reconciles with ACS; it 
 unrelated send. Check the provider's operation evidence before considering any manual data repair.
 
 Unsubscribe/manage links are purpose-signed capabilities that cannot sign in or read comments.
-GET is read-only; changes require a POST action. Member digests link to thread unsubscribe when
+GET is read-only; changes require a POST action. Digest headers additionally point to the cookie-free `/api/notifications/unsubscribe?token=...` endpoint. A form POST containing only `List-Unsubscribe=One-Click` applies thread unsubscribe or project mute with no redirect. Repeated POSTs succeed; expired, superseded and confirmation tokens cannot unsubscribe. Member digests link to thread unsubscribe when
 there is an explicit subscription, otherwise to project mute. Manage links expire after a year;
 the toolbar/app always offers current controls. Changing a subscription invalidates older links.
 
@@ -122,3 +122,85 @@ controlled transport: owner and participant delivery, verification, batching, sh
 suppression, unsubscribe/mute, private/revoked access, provider failure, interrupted-send recovery
 and duplicate/concurrent discovery. Browser coverage checks the optional guest flow, explicit
 confirmation, member controls, light/dark UI and accessibility.
+
+
+## Email reports and address suppression (#132)
+
+`POST /api/email/reports` requires the secret `x-uier-email-report-secret` header, the exact
+`aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id).
+All three are configured for production only by Pulumi. Validation accepts only a single
+`Microsoft.EventGrid.SubscriptionValidationEvent` from that subscription/topic and echoes its
+code; it never follows the supplied validation URL. Notifications accept only the ACS delivery
+report event type, at most 100 reports / 256 KiB. Failed storage writes return 503 so Event Grid
+retries; success returns 200 without a body. No raw report, recipient, status message or content
+is logged or retained.
+
+`Bounced` and `Suppressed` create an `email-suppression` document in
+`email-reports:<sha256(trim(lowercase(address)))>`, with only the hash and one of those two reasons
+besides its document keys/type. Digests check this store again at the send boundary and mark their
+ledger `suppressed` / `address_suppressed`. Failed reads use the existing bounded exponential
+backoff instead of sending. Only the admin invitation action reveals the generic bounced-address
+notice; no date or workspace is disclosed. It refuses the invitation before creating its token.
+Sign-in and optional guest confirmation requests keep their existing rate limits and responses;
+completed mailbox proof clears uier's suppression. ACS's temporary suppression is independent.
+
+Hashed event-id receipts (30-day TTL, longer than Event Grid's delivery retry window) survive
+clearing a suppression, so duplicate old reports do not suppress it again. Receipts also retain
+a SHA-256 operation-id hash for production correlation without retaining the report payload.
+The first suppression and receipt commit in one Cosmos transaction. Existing suppressions need
+no update; a later distinct report may suppress the address again.
+
+`Failed`, `Quarantined` and `FilteredSpam` never suppress an address. Operation matching is guarded
+by `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1`, which is deliberately absent from production until the
+live correlation gate below is evidenced. When enabled, a report updates only `lastCode` to
+`ACSReport_<status>` on a ledger whose current `lastOperationId` equals `messageId`. Unknown ids
+are acknowledged without creating a ledger. A report does not trigger a fresh send. Enabling the
+gate requires a separate reviewed Pulumi environment-variable change; local tests explicitly
+exercise the enabled behavior. Earlier acknowledged reports are not replayed automatically.
+
+Every digest persists `List-Unsubscribe: <https://uier.io/api/notifications/unsubscribe?token=...>`
+and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` in `attempt.message.headers` before ACS.
+Retries retain that exact message. Sign-in, invitations and guest confirmation omit both headers.
+Engagement tracking stays disabled. Sending the headers does not prove that a mailbox offers
+one-click: [RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.html) requires both to be covered by a
+valid DKIM signature. [The September 2026 ACS report](https://learn.microsoft.com/en-us/answers/questions/5996924/acs-email-dkim-signature-does-not-cover-list-unsub)
+observed ACS omitting these from `h=`. Our own received-message evidence remains pending.
+
+### Staged rollout and live evidence
+
+1. Deploy the receiver, production-only credential/topic/subscription variables, customer domain
+   and DNS with the Azure-managed sender unchanged. The first PR creates no Event Grid subscription.
+   This ordering matters: deploy.yml applies Pulumi before deploying the new website.
+2. Confirm the production endpoint rejects unauthenticated calls (401), then create the Event Grid
+   subscription in a separate PR. Filter to `Microsoft.Communication.EmailDeliveryReportReceived`,
+   Event Grid schema; deliver the secret as a secret static header. Check subscription provisioning
+   succeeded. `Microsoft.EventGrid` was read back as `Registered` on 28 October 2026.
+3. Follow the README infrastructure steps for one-time Azure DNS verification. Only after all five
+   verification states are `Verified`, review an in-place linkedDomains update retaining the Azure
+   domain, then switch `UIER_EMAIL_SENDER` to `DoNotReply@uier.io`. Never replace the communication
+   service or its connection string.
+4. Obtain explicit permission for a recipient and send a real digest through the production worker.
+   Record the operation UUID privately and independently read the matching report receipt's
+   operation hash. Prove the report `messageId` equals the actual send operation id before enabling
+   production ledger matching. Never infer this from API examples or local tests.
+5. Inspect the received original message, recording only redacted authentication/header evidence:
+   SPF, DKIM and DMARC pass, both unsubscribe headers intact, and whether DKIM `h=` covers both.
+   Do not commit recipient addresses, body, tokens, or raw headers containing them.
+
+| Production gate | Evidence as of 28 October 2026 |
+| --- | --- |
+| Event Grid provider registered | Verified by Azure read-only inspection |
+| Existing SPF/DMARC preflight | Authoritative Cloudflare DNS returned neither apex SPF nor `_dmarc` TXT |
+| Receiver deployed and authenticated | Pending first-stage deployment |
+| Subscription handshake/delivery | Pending second-stage PR/deployment |
+| Domain/SPF/DKIM/DKIM2/DMARC verified | Pending domain/DNS deployment and Azure verification |
+| In-place link and sender cutover | Pending verified states and reviewed preview |
+| Report messageId / operation id correlation | Pending recipient-authorized production digest |
+| SPF/DKIM/DMARC and headers at receiver | Pending recipient-authorized production digest |
+| DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
+
+Local coverage includes `emailReports.api.spec.ts` (auth, expected handshake, duplicates, write
+failure and unknown/matching operations), `notificationTransport.api.spec.ts` (ACS headers and
+retry preservation), `notifications.api.spec.ts` (bounce, failed reads, one-click and invalid
+capabilities), `users.spec.ts` (admin notice) and `app.spec.ts` (requested sign-in clears suppression).
+Issue #132 remains open until the production gates are resolved.
