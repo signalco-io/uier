@@ -39,7 +39,8 @@
     /* The kit's compact controls are 28–36 px. Keep their touch hit areas at the
        brand's 44 px minimum, including movement handles and thread actions. */
     @media (pointer: coarse) {
-        [data-uier-root] button {
+        [data-uier-root] button,
+        [data-uier-root] nav[aria-label="uier feedback"] a {
             min-width: 44px;
             min-height: 44px;
         }

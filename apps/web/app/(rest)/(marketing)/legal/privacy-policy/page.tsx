@@ -114,8 +114,11 @@ export default function PrivacyPolicyPage() {
                 <li>your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.</li>
             </ul>
             <p>
-                To sign you in, we email you a link. We store only a hash of the token in the link, and delete it when
-                you use it or after 15 minutes. Signing in sets the <code>uier_session</code> cookie, which keeps
+                To sign you in, we email you a link and an eight-digit code. We store only a hash of the link token
+                and a keyed hash of the code. Both are deleted when either is used, after five wrong codes, or
+                after 15 minutes. A short-lived HttpOnly cookie binds the code to the browser that asked for it.
+                A new request replaces this binding; signing in removes it. We count code attempts with hashed
+                request counters to limit guessing. Signing in sets the <code>uier_session</code> cookie, which keeps
                 you signed in; the <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has the details. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>

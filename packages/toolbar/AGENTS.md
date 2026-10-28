@@ -27,7 +27,9 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 - The comments API base URL comes from `src/config.ts`: the script tag or `window.uierConfig`,
   else the toolbar script's origin, else the build-time `__UIER_API_URL__` (`tsup.config.ts`; the
   dev build always uses http://localhost:4004).
-- `process.env` is stubbed to `{}` because `next/link` (pulled in by the UI kit) reads it.
+- UI-kit `next/link` imports in the embedded IIFE resolve to `components/ToolbarLink.tsx`, a
+  ref-forwarding native anchor: reviewed sites need browser navigation, not Next.js routing.
+  `process.env` remains stubbed to `{}` for browser compatibility of dependencies.
 - "Exit review" unmounts the React root and removes `#uier-toolbar` (`index.tsx`). It is in the
   options and, when a project's reviewer can't comment, on the notice pill (`project/ProjectGate.tsx`).
 
@@ -47,6 +49,7 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...) |
 | `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted", "Comment deleted", "Reply deleted") |
+| `components/ProjectNotice.tsx` | shared ink notice pill: one next step and Exit review, wrapping at narrow widths; button links retain coarse-pointer hit areas |
 | `components/ShowcaseHint.tsx` | the first-run hint (showcase mode) |
 | `components/CommentIcon.tsx` | the pin shape, from `PIN_PATH` in `@uier/brand` |
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`), clickable for saved comments |
@@ -84,7 +87,14 @@ starts the review: the project whose comments apply is the script's `data-uier-p
 - Everything rendered must work inside a shadow root on an unknown page: no global CSS, no
   assumptions about the host's fonts or variables, no `document.body` styling.
 - Cross-site embeds require `data-uier-project`. The project's addresses decide CORS; the install
-  guide includes the API origin in `frame-src`. Failed comment loads show a message and retry action.
+  guide includes the API origin in `frame-src`. Missing cross-origin configuration shows an install
+  guide link before `useVisitor` or comments hooks mount; same-origin showcase/feedback is unchanged.
+  Failed comment loads of configured projects show a message and retry action. Offline gate loads
+  show connection guidance and recover through `refetchOnReconnect`, never a timeout-based notice.
+- Gate failures offer a copyable owner note made only from `location.origin`, the script's public
+  project code and the API base URL's settings link. Never use fetched project details, reviewer
+  identity, tokens or page path/query/hash in it; keep the manual clipboard fallback and announcement.
+  Ended sessions carry the fetched `signInUrl` on their error and reuse the invited sign-in flow.
 - UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
 - Keep the bundle small: no new large dependencies without a reason (`modern-screenshot`, about

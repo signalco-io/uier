@@ -5,11 +5,63 @@ import Link from 'next/link';
 import { MailCheckIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { Button } from '@/src/components/ui/button';
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
-import { requestSignInAction } from './actions';
+import { confirmSignInCodeAction, requestSignInAction, type SignInLinkSent } from './actions';
+
+function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: string }) {
+    const id = useId();
+    const [state, formAction, pending] = useActionState(confirmSignInCodeAction, null);
+    const [code, setCode] = useState('');
+    const invalid = state?.ok === false;
+    const signInPath = `/app/sign-in${next ? `?next=${encodeURIComponent(next)}` : ''}`;
+
+    return (
+        <div className="flex flex-col gap-6">
+            <Alert role="status">
+                <MailCheckIcon />
+                <AlertTitle><h2 className="m-0 text-sm font-medium">Check your email</h2></AlertTitle>
+                <AlertDescription>
+                    <p className="m-0">
+                        We sent a code and a sign-in link to <span className="font-medium text-foreground">{sent.email}</span>.
+                        They work once and expire in 15 minutes.
+                    </p>
+                    {sent.devLink && (
+                        <p className="m-0">
+                            <Link href={sent.devLink} className="font-medium text-foreground underline underline-offset-4">Open the sign-in link</Link>
+                            {' '}or type this code: <code data-sign-in-code>{sent.devCode}</code>
+                            {' '}(no email is sent on this deployment)
+                        </p>
+                    )}
+                </AlertDescription>
+            </Alert>
+            <form action={formAction}>
+                <input type="hidden" name="requestId" value={sent.requestId} />
+                <FieldGroup>
+                    <Field data-invalid={invalid || undefined}>
+                        <FieldLabel htmlFor={`${id}-code`}>Sign-in code</FieldLabel>
+                        <Input id={`${id}-code`} name="code" type="text" inputMode="numeric"
+                            autoComplete="one-time-code" pattern="[0-9]{8}" maxLength={8} required
+                            value={code} onChange={event => setCode(event.target.value.replace(/\s/g, ''))}
+                            aria-invalid={invalid || undefined} aria-describedby={`${id}-hint`} />
+                        <FieldDescription id={`${id}-hint`}>Enter the 8-digit code. It works only in this browser.</FieldDescription>
+                    </Field>
+                    <FormMessage state={state} />
+                    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+                        {pending && <Spinner data-icon="inline-start" />}
+                        Sign in
+                    </Button>
+                    <Button variant="outline" size="lg" className="w-full" asChild>
+                        {/* A fresh navigation resets the email form, even on the same route. */}
+                        <a href={signInPath}>Ask for a new email</a>
+                    </Button>
+                </FieldGroup>
+            </form>
+        </div>
+    );
+}
 
 export function SignInForm({ next }: { next?: string }) {
     const id = useId();
@@ -18,27 +70,7 @@ export function SignInForm({ next }: { next?: string }) {
     const [email, setEmail] = useState('');
 
     if (state?.ok) {
-        return (
-            <Alert role="status">
-                <MailCheckIcon />
-                <AlertTitle>
-                    <h2 className="m-0 text-sm font-medium">Check your email</h2>
-                </AlertTitle>
-                <AlertDescription>
-                    <p className="m-0">
-                        We sent a sign-in link to <span className="font-medium text-foreground">{state.data.email}</span>.
-                        It works once and expires in 15 minutes.
-                    </p>
-                    {state.data.devLink && (
-                        // Local development, tests and previews only: no email is sent there
-                        <p className="m-0">
-                            <Link href={state.data.devLink} className="font-medium text-foreground underline underline-offset-4">Open the sign-in link</Link>
-                            {' '}(no email is sent on this deployment)
-                        </p>
-                    )}
-                </AlertDescription>
-            </Alert>
-        );
+        return <SignInCodeForm key={state.data.requestId} sent={state.data} next={next} />;
     }
 
     return (
@@ -60,7 +92,7 @@ export function SignInForm({ next }: { next?: string }) {
                 <FormMessage state={state} />
                 <Button type="submit" size="lg" className="w-full" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
-                    Email me a sign-in link
+                    Email me a sign-in code
                 </Button>
             </FieldGroup>
         </form>

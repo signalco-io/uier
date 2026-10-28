@@ -19,7 +19,7 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/sign-
     return (
         <AuthCard
             title="Sign in"
-            description="Enter your email and we will send you a link. New here? The same link creates your account.">
+            description="Enter your email and we will send you a code and a link. New here? Signing in creates your account.">
             <SignInForm next={nextPath} />
         </AuthCard>
     );

@@ -74,11 +74,15 @@ export function invitationEmail({ to, url, inviterName, inviterEmail, projectNam
     });
 }
 
-export function signInEmail({ to, url }: { to: string; url: string }) {
+export function signInEmail({ to, url, code }: { to: string; url: string; code: string }) {
     return layoutEmail({
         to,
         subject: `Sign in to ${brand.name}`,
-        paragraphs: [`Use this link to sign in to ${brand.name} as ${to}. It works once and expires in 15 minutes.`],
+        paragraphs: [
+            `Your sign-in code: ${code}`,
+            `Type it only in the browser where you asked to sign in to ${brand.name} as ${to}. Never share this code.`,
+            'The code and link work once and expire together in 15 minutes. You can also use the link below.'
+        ],
         action: { label: 'Sign in', url },
         footnote: 'If you did not ask to sign in, ignore this email.'
     });
