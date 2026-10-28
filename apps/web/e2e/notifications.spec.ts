@@ -104,10 +104,10 @@ test('admins control excerpts in both themes; commenters see saved state and can
             await Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished));
         });
         await expectNoAxeViolations(page);
-        await page.screenshot({ path: testInfo.outputPath(`email-excerpts-${colorScheme}.png`) });
+        await emails.screenshot({ path: testInfo.outputPath(`email-excerpts-${colorScheme}.png`) });
         // Replay this valid admin action as a commenter below. It must fail on the server.
         if (colorScheme === 'dark') {
-            await page.goto(`/app/projects/${projectId}`);
+            // Settings has the project header invite, without the empty-feedback invite CTA.
             await page.getByRole('button', { name: 'Invite', exact: true }).click();
             const dialog = page.getByRole('dialog');
             await dialog.getByLabel('Email').fill(uniqueEmail('excerpt-commenter'));
