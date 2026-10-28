@@ -6,7 +6,7 @@ import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlRe
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
-import { acsEmail } from './email.js';
+import { acsEmail, acsEmailReports } from './email.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -187,8 +187,8 @@ const up = async () => {
     // Vercel allows one variable per key and target, so a replace of the new variables (a changed
     // `key` or `sensitive`) has to delete the old one first; variables apply to new deployments only.
     const envVarOptions = { deleteBeforeReplace: true };
-    // Deploy the receiver and its production-only credential BEFORE creating its subscription.
-    // Event Grid validates synchronously during pulumi up, which runs before Vercel deployment.
+    // #163/#174 deployed the receiver and credential before this subscription's handshake.
+    // Event Grid validates synchronously during pulumi up, before the next Vercel deployment.
     const emailReportSecret = new RandomBytes('uier-email-report-secret', { length: 32 }).hex;
     for (const [name, key, value, sensitive] of [
         ['secret', 'UIER_EMAIL_REPORT_SECRET', emailReportSecret, true],
@@ -197,6 +197,7 @@ const up = async () => {
     ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
         projectId: app.projectId, key, value, sensitive, targets: ['production'],
     }, envVarOptions);
+    acsEmailReports(email.communicationServiceId, emailReportSecret);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
         projectId: app.projectId,
         key: 'COSMOSDB_CONNECTION_STRING',

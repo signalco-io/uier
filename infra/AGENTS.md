@@ -80,6 +80,8 @@ on 28 October 2026; recheck authoritative DNS and import/merge any externally cr
 applying. Never add a duplicate SPF or DMARC record.
 
 The report receiver's credential, expected subscription name and ACS topic are production-only.
+`acsEmailReports` subscribes only to delivery reports, using Event Grid schema, TLS 1.2, one event
+per batch and bounded retries (30 attempts / 24 hours). It shares the receiver's secret header.
 Deploy the receiver before adding an Event Grid subscription in a later PR; Pulumi runs before
 Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
 registered. Deliver the credential as a secret static HTTP header, never a query parameter.
@@ -93,3 +95,9 @@ string. Never remove protection or apply infrastructure manually. README Infrast
 the exact sequence; `docs/review-notifications.md` tracks production evidence. Keep ledger matching
 disabled until an authorized production digest proves report `messageId` equals its send operation
 id; then enable `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` for production through Pulumi.
+
+
+Live verification on 28 October 2026 passed Domain/SPF/DKIM/DKIM2. Azure rejected DMARC's documented
+verification type (`InitiateVerificationFailed: Invalid verification type: DMARC`), leaving its
+state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
+a valid public DMARC record does not substitute for the required Azure state.
