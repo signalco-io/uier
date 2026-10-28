@@ -1,4 +1,5 @@
-import { interpolate } from '@pulumi/pulumi';
+import { interpolate, type Input } from '@pulumi/pulumi';
+import { EventSubscription } from '@pulumi/azure-native/eventgrid/index.js';
 import type { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
 import {
     CommunicationService,
@@ -13,8 +14,8 @@ import { emailDnsRecord } from './emailDns.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
-// Stage one provisions uier.io and its DNS while the Azure-managed sender remains linked.
-// Linking/cutover is a separate reviewed change after live verification and an in-place preview.
+// #163/#174 provisioned uier.io and DNS with the Azure-managed sender unchanged.
+// Cutover stays blocked until Azure verifies all five records, including DMARC.
 export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     const emailService = new EmailService(`${prefix}-email-service`, {
         resourceGroupName: resourceGroup.name,
@@ -66,7 +67,26 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     return {
         connectionString,
         communicationServiceId: communicationService.id,
-        // Every Azure-managed domain has the `DoNotReply` sender
+        // The Azure-managed sender stays active until all five custom verification states pass.
         senderAddress: interpolate`DoNotReply@${domain.fromSenderDomain}`,
     };
+}
+
+/** The receiver and credential were deployed before this subscription's validation handshake. */
+export function acsEmailReports(topic: Input<string>, credential: Input<string>) {
+    return new EventSubscription('uier-email-delivery', {
+        eventSubscriptionName: 'uier-email-delivery',
+        scope: topic,
+        eventDeliverySchema: 'EventGridSchema',
+        filter: { includedEventTypes: ['Microsoft.Communication.EmailDeliveryReportReceived'] },
+        destination: {
+            endpointType: 'WebHook',
+            endpointUrl: 'https://uier.io/api/email/reports',
+            minimumTlsVersionAllowed: '1.2',
+            maxEventsPerBatch: 1,
+            preferredBatchSizeInKilobytes: 64,
+            deliveryAttributeMappings: [{ type: 'Static', name: 'x-uier-email-report-secret', value: credential, isSecret: true }],
+        },
+        retryPolicy: { maxDeliveryAttempts: 30, eventTimeToLiveInMinutes: 1440 },
+    });
 }

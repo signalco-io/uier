@@ -128,7 +128,8 @@ confirmation, member controls, light/dark UI and accessibility.
 
 `POST /api/email/reports` requires the secret `x-uier-email-report-secret` header, the exact
 `aeg-subscription-name`, and the configured ACS resource `topic` (case-insensitive Azure resource id).
-All three are configured for production only by Pulumi. Validation accepts only a single
+All three are configured for production only by Pulumi. `acsEmailReports` delivers only report
+events with that secret static header, one event per batch, retrying up to 30 times / 24 hours. Validation accepts only a single
 `Microsoft.EventGrid.SubscriptionValidationEvent` from that subscription/topic and echoes its
 code; it never follows the supplied validation URL. Notifications accept only the ACS delivery
 report event type, at most 100 reports / 256 KiB. Failed storage writes return 503 so Event Grid
@@ -191,10 +192,10 @@ observed ACS omitting these from `h=`. Our own received-message evidence remains
 | --- | --- |
 | Event Grid provider registered | Verified by Azure read-only inspection |
 | Existing SPF/DMARC preflight | Authoritative Cloudflare DNS returned neither apex SPF nor `_dmarc` TXT |
-| Receiver deployed and authenticated | Pending first-stage deployment |
+| Receiver deployed and authenticated | #163/#174 deployed; unauthenticated production POST returned 401 |
 | Subscription handshake/delivery | Pending second-stage PR/deployment |
-| Domain/SPF/DKIM/DKIM2/DMARC verified | Pending domain/DNS deployment and Azure verification |
-| In-place link and sender cutover | Pending verified states and reviewed preview |
+| Domain/SPF/DKIM/DKIM2/DMARC verified | First four Verified; DMARC NotStarted because Azure rejects its documented verification type |
+| In-place link and sender cutover | Blocked on DMARC verification; Azure-managed sender retained |
 | Report messageId / operation id correlation | Pending recipient-authorized production digest |
 | SPF/DKIM/DMARC and headers at receiver | Pending recipient-authorized production digest |
 | DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
@@ -213,3 +214,15 @@ The repair keeps supplied records authoritative and uses the explicit owner poli
 record before that repair. This follows [ACS sender authentication guidance](https://learn.microsoft.com/en-us/azure/communication-services/concepts/email/email-authentication-best-practice)
 for rejection of unauthenticated mail; it does not invent an aggregate-report mailbox. All five
 Azure verification states are still required before any sender cutover.
+
+
+The main-only [verification run](https://github.com/signalco-io/uier/actions/runs/40742143767)
+verified Domain, SPF, DKIM and DKIM2, then the documented 2026-03-18 `initiateVerification` request
+for `DMARC` returned `InitiateVerificationFailed: Invalid verification type: DMARC`. Independent
+Azure readback confirmed DMARC is still `NotStarted`. The public DMARC record exists, but it does
+not satisfy the issue's Azure verification gate. Keep the guarded cutover PR unmerged until this
+provider-side inconsistency is resolved; do not weaken the guard or manually change protected
+infrastructure. The receiver deployment completed successfully in
+[run 40741903769](https://github.com/signalco-io/uier/actions/runs/40741903769), and the public report
+endpoint rejected a credential-free POST with 401. Production message-id/authentication/header
+checks still require an authorized recipient and remain unverified.

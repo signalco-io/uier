@@ -768,7 +768,8 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
   owner policy `_dmarc.uier.io TXT "v=DMARC1; p=reject"`. No report mailbox is invented.
   The Azure-managed domain remains the production sender until the staged verification below is complete.
   The report endpoint receives production-only `UIER_EMAIL_REPORT_SECRET`, `UIER_EMAIL_REPORT_TOPIC`
-  and `UIER_EMAIL_REPORT_SUBSCRIPTION`; its Event Grid subscription lands after the receiver deploys.
+  and `UIER_EMAIL_REPORT_SUBSCRIPTION`. The Event Grid subscription was staged after receiver
+  deployment; it delivers only delivery reports with the secret static header (30 attempts / 24 hours).
 
 ### Email domain verification and cutover
 
@@ -781,7 +782,9 @@ Deploy the domain and all five DNS records described above through CI with `UIER
 Run the main-only **Verify email domain** workflow after the DNS deployment. It uses Azure OIDC
 to check the provisioned records: ownership first, then SPF, DKIM, DKIM2 and DMARC. Read
 `verificationStates` back from Azure until each
-reports `Verified`; a DNS response alone is insufficient. Do not edit protected resources manually
+reports `Verified`; a DNS response alone is insufficient. On 28 October 2026 Azure verified the
+first four, but rejected DMARC verification with `Invalid verification type: DMARC` despite listing
+that value in its 2026-03-18 API. DMARC remains `NotStarted`; sender cutover remains blocked. Do not edit protected resources manually
 or run `pulumi up` locally. The verification action only checks the provisioned DNS.
 
 Prepare a separate cutover PR that reads the live domain with `getDomainOutput`, fails unless all
