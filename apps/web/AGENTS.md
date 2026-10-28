@@ -386,6 +386,21 @@ the copy/download `SKILL.md` in Coding agents. Keep the tool/scope table aligned
 Triage changes nothing, fix proposes local code work only, and report-back waits for human approval
 before every write. The skill also requires approval for assignments and stable retry keys.
 
+`list_feedback` shares path, source, assignment and activity projection with the app through
+`app/projectCommentRouting.ts`. Canonicalize its optional path with `pagePath`; pass path and
+`environmentFilter` into `listProjectComments` before the 1000-thread storage limit. Validate
+environment ids against `environmentOptions` plus `unknown`/`removed`; never use the toolbar's
+fallback selection for MCP input. Other filters apply only within that window. Read the credential
+owner's cursor after filtering visibility; never acknowledge it. Deleted first messages omit
+author kind and screenshot presence, and author ids never enter summaries.
+
+`get_feedback_batch` accepts 1–10 distinct ids and reuses `projectFeedbackExport` in request order.
+Missing, deleted and private ids share `not_found`; individually oversized packets return
+`too_large`. Its 256 KiB cap preserves whole packets and returns `remainingIds` for retry.
+Screenshot resources require both a protected exported image and `screenshots:read`. Every call
+rechecks scope, selected projects and current membership through `mcpProject`. Batching reduces
+transport requests, not per-thread export storage reads. Keep `get_feedback`'s contract stable.
+
 Project comment rate limits use only server-resolved actors: members get 100 new comments and 300
 replies per project per hour and skip the 30-write shared IP budget. Guests and `PUBLIC_PROJECT_ID`
 commenters retain visitor limits (10 new comments, 30 replies and 30 writes per IP per hour).

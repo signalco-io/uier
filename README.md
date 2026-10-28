@@ -1077,8 +1077,9 @@ feedback rights. Its selected projects do not expand when new projects are creat
 | Tool | Scope | Behavior |
 | --- | --- | --- |
 | `list_projects` | `feedback:read` | Selected projects still accessible to the owner |
-| `list_feedback` | `feedback:read` | Visible feedback search and status filter within the latest 1000 threads |
+| `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
+| `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the credential name |
 | `set_feedback_status` | `feedback:status` | Resolve/reopen using the app's permission checks |
@@ -1089,6 +1090,25 @@ feedback rights. Its selected projects do not expand when new projects are creat
 issue, using the shared [version 1 feedback context contract](docs/feedback-context.md). The MCP
 resource reference supplements its protected web image link when image access was granted.
 Deleted first-message evidence is unavailable through both the packet and screenshot resource.
+
+`list_feedback` items include canonical `path`, `environment: { id, label }`, `anchorType`,
+`assignee: { id, name }` or `null`, `authorKind`, `unread` and `hasScreenshot`. Deleted first
+messages omit `authorKind` and report no screenshot. The response includes project `environments`
+options and `searchWindow: 1000`. Optional filters are `path`, `environment`, `anchorType`
+(`point`, `text`, `page`), `assignee` (`me`, `unassigned`, or a member id), `authorKind`
+(`member`, `guest`), `unread` and `hasScreenshot`, combined with `search` and `status`.
+Paths use the project's page-state policy. Page and environment filtering happens in storage
+before the window; other filters, including unread, only search that window. Environment accepts
+only a returned option id, `unknown` or `removed`; omit it to search all environments.
+
+`get_feedback_batch` takes `{ projectId, commentIds }` and returns
+`{ actingAs, contentTrust, items, remainingIds }`. Each item contains `commentId` and either the
+same `context`, `markdown` and optional `screenshotResource` as `get_feedback`, or an `error` and
+`message`. Missing, deleted and inaccessible ids all return `not_found`. A packet too large for
+one response returns `too_large` for that id. The batch returns only whole packets that fit within
+256 KiB; retry `remainingIds` separately. Duplicate ids, empty batches and more than ten ids are
+tool errors. Each packet loads its authorized thread, member names and saved screenshot document;
+batching reduces transport calls, not these storage reads. Both tools leave read cursors unchanged.
 
 Screenshot references are `uier://projects/{projectId}/feedback/{commentId}/screenshot` resources.
 Use MCP `resources/read` with `screenshots:read` to retrieve the saved image; current feedback
