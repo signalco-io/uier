@@ -822,7 +822,7 @@ Observed evidence (replace pending entries with actual results; never infer them
 | Gate | Recorded result |
 | --- | --- |
 | Before, 2026-10-28 17:30 UTC, `az cosmosdb show` | `uierdbaba6cd56`, West Europe; `type: Periodic`, `backupIntervalInMinutes: 240`, `backupRetentionIntervalInHours: 8`, `backupStorageRedundancy: Geo`, `migrationState: null` |
-| Owner approval and isolated policy preview | Pending on the policy-only [PR #160](https://github.com/signalco-io/uier/pull/160); auto-merge disabled |
+| Isolated policy preview, 2026-10-28 | [PR #160](https://github.com/signalco-io/uier/pull/160) closed without merging: [CI preview](https://github.com/signalco-io/uier/pull/160#issuecomment-6476154512) showed the account plus `vercel-uier-env-cosmos-endpoint-preview` updating (two resources). Auto-merge was never enabled. A new isolated proposal and owner approval are required. |
 | Successful deployment, live continuous policy and no-diff account preview | Pending; continuous backup is not yet verified live |
 | `comments-preview` restore drill, elapsed time and cleanup | Not run; waiting for policy and restore-access prerequisites |
 
