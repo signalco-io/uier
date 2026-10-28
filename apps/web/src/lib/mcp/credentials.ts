@@ -68,6 +68,7 @@ export async function mcpProject(identity: McpIdentity, projectId: string, scope
     const project = identity.credential.projectIds.includes(projectId)
         ? await getProject(identity.credential.workspaceId, projectId) : null;
     const actor = project ? await memberActor(project, identity.user.id) : null;
-    if (!project || !actor || actor.kind !== 'member') throw apiErrors.notFound('Project not found.');
+    if (!project || !actor || actor.kind !== 'member')
+        throw apiErrors.notFound('Project not found. Check list_projects for projects granted in this credential’s workspace.');
     return { project, actor: { ...actor, agent: { credentialId: identity.credential.id, name: identity.credential.name } } };
 }

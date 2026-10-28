@@ -3,6 +3,7 @@ import { feedbackExport } from '@/src/lib/comments/feedbackContext';
 import { apiErrors, commentsApiHandler } from '@/src/lib/comments/http';
 import { toPublicCommentDto } from '@/src/lib/comments/service';
 import { isValidId } from '@/src/lib/comments/validation';
+import { PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from '@/src/lib/comments/publicProject';
 import { getCommentsStore } from '@/src/lib/repo/commentsStore';
 
 export const GET = commentsApiHandler<{ id: string }>(async (context, { id }) => {
@@ -17,6 +18,8 @@ export const GET = commentsApiHandler<{ id: string }>(async (context, { id }) =>
     link.searchParams.set('review', 'true');
     link.searchParams.set('uier-comment', dto.id);
     const screenshot = dto.screenshot ? await store.getScreenshot(context.domain, id) : null;
-    return Response.json(feedbackExport(dto, { pageUrl: page.href, commentUrl: link.href,
+    return Response.json(feedbackExport(dto, {
+        projectId: context.domain === PUBLIC_PROJECT_PARTITION ? PUBLIC_PROJECT_ID : undefined,
+        pageUrl: page.href, commentUrl: link.href,
         screenshotUrl: screenshot ? new URL(`/api/comments/${encodeURIComponent(id)}/screenshot`, base).href : undefined }));
 });

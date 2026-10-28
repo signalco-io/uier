@@ -5,6 +5,7 @@ import type { DbComment } from '../src/lib/db/schema';
 import type { DbProject } from '../src/lib/app/model';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
+import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { pngImage } from './support/images';
 
 test('public exports preserve exact saved element/text/page/rewrite feedback and discussion without private metadata', async ({ request }) => {
@@ -29,7 +30,8 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
         expect(exported.headers()['cache-control']).toContain('no-store');
         const packet = await exported.json();
         expect(packet).toEqual(await (await request.get(`/api/comments/${saved.id}/context`)).json());
-        expect(packet.context.identity).toMatchObject({ commentId: saved.id, itemId: saved.thread.items[0].id });
+        expect(packet.context.identity).toMatchObject({ projectId: PUBLIC_PROJECT_ID, commentId: saved.id, itemId: saved.thread.items[0].id });
+        expect(packet.markdown).toContain(`Project: ${PUBLIC_PROJECT_ID}`);
         expect(packet.context.feedback.text).toBe(saved.thread.items[0].text);
         expect(packet.context.discussion[0].text).toBe('Discussion\n*kept*');
         expect(packet.markdown).toContain(`\n${text}\n`);
@@ -49,6 +51,18 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
             expect(packet.markdown).not.toContain('data:image');
         } else expect(packet.context.screenshot.state).toBe('unavailable');
     }
+});
+
+test('isolated local feedback does not claim to belong to the uier project', async ({ playwright, baseURL }) => {
+    const visitor = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Host: `packet-${randomUUID()}.localhost` } });
+    try {
+        const response = await visitor.post('/api/comments', { data: { path: '/', kind: 'feedback', position: { type: 'page' }, text: 'Local feedback' } });
+        expect(response.status(), await response.text()).toBe(201);
+        const saved = await response.json();
+        const packet = await (await visitor.get(`/api/comments/${saved.id}/context`)).json();
+        expect(packet.context.identity).not.toHaveProperty('projectId');
+        expect(packet.markdown).not.toContain('Project:');
+    } finally { await visitor.dispose(); }
 });
 
 test('deleted first messages omit old quote/anchor/device/image and missing threads fail freshly', async ({ request, playwright, baseURL }) => {

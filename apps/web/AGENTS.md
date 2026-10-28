@@ -338,6 +338,9 @@ authorized feedback. `src/lib/review/feedbackContext.ts` is the common project s
 redaction, canonical page state and protected screenshot references intact. The complete packet
 contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
 work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
+Public-project exports include `identity.projectId: uier00000001`, derived from the resolved
+partition even for legacy records. Isolated local host partitions have no project id. Never infer
+the owning project from the reviewed page path: `/app/projects/<id>` feedback belongs to uier.
 
 ## Project review briefs
 `DbProject.brief` is optional plain text, trimmed/cleared by `projectBriefSchema` with the shared
@@ -354,6 +357,11 @@ credentials and tools. Account settings creates 30-day named credentials, read-o
 with explicit project selection; raw secrets are shown once and only hashes are stored. Never
 accept cookies, review tokens, project codes or guest ids as MCP authentication. Recheck current
 membership, scopes and private visibility for each request and screenshot resource read.
+Credentials remain bound to one workspace. Account guidance and `mcp/workflows.ts` explain choosing
+the uier workspace/public-feedback project for feedback about uier itself. Missing project grants
+stay `not_found` without exposing project existence; direct users to `list_projects` and explicit
+credential setup rather than expanding access. List-tool descriptions and field schemas must both
+state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
 
 Tools reuse review services. Replies and status/assignment events retain the human author plus
 credential attribution. All mutations require a stable idempotency key and share atomic submission

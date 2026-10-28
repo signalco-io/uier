@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { signIn, uniqueEmail, createProject } from './support/app';
+import { signIn, uniqueEmail, createProject, appNavigation, closeAppNavigation } from './support/app';
+import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';
 
 test('a person grants selected feedback access, connects a compatible client, and revokes it', async ({ page, baseURL }, testInfo) => {
@@ -10,6 +11,7 @@ test('a person grants selected feedback access, connects a compatible client, an
     const projectId = await createProject(page, { name: 'Client review', urls: ['https://reviewed.example'] });
     await page.goto('/app/account');
     const section = page.getByRole('region', { name: 'Coding agents' });
+    await expect(section).toContainText('For feedback about uier itself, switch to the uier workspace');
     await section.getByLabel('Credential label').fill('My coding tool');
     await section.getByRole('button', { name: 'Create credential', exact: true }).click();
     await expect(section.getByRole('alert')).toContainText('Choose at least one project.');
@@ -71,4 +73,62 @@ test('a person grants selected feedback access, connects a compatible client, an
         await page.reload();
         await expect(code).toHaveCount(0);
     } finally { await client.close(); }
+});
+
+test('feedback on a customer project page exports its uier owner and needs a grant from the uier workspace', async ({ page, baseURL, playwright }) => {
+    await signIn(page, uniqueEmail('mcp-uier'));
+    const projectId = await createProject(page, { name: 'Customer project', urls: ['https://customer.example'] });
+    const response = await page.request.post('/api/comments', { data: {
+        path: `/app/projects/${projectId}`, kind: 'feedback', position: { type: 'page' }, text: 'Move this action into the header'
+    } });
+    expect(response.status(), await response.text()).toBe(201);
+    const saved = await response.json();
+    const packet = await (await page.request.get(`/api/comments/${saved.id}/context`)).json();
+    expect(packet.context.identity.projectId).toBe(PUBLIC_PROJECT_ID);
+    expect(packet.markdown).toContain(`Project: ${PUBLIC_PROJECT_ID}`);
+    expect(packet.context.source.path).toBe(`/app/projects/${projectId}`);
+    const stranger = await playwright.request.newContext({ baseURL });
+    try { expect((await stranger.get(`/api/comments/${saved.id}/context`)).status()).toBe(404); }
+    finally { await stranger.dispose(); }
+
+    const connect = async (name: string, project: string, status = false) => {
+        await page.goto('/app/account');
+        const section = page.getByRole('region', { name: 'Coding agents' });
+        await section.getByLabel('Credential label').fill(name);
+        await section.getByRole('checkbox', { name: project, exact: true }).check();
+        if (status) await section.getByRole('checkbox', { name: 'Change status', exact: true }).check();
+        await section.getByRole('button', { name: 'Create credential', exact: true }).click();
+        const code = section.locator('code').filter({ hasText: /^uier_mcp\./ });
+        await expect(code).toBeVisible();
+        const token = (await code.textContent())!;
+        const client = new Client({ name: 'feedback-owner-test', version: '1.0.0' });
+        await client.connect(new StreamableHTTPClientTransport(new URL('/api/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${token}` } } }));
+        return client;
+    };
+    const customer = await connect('Customer access', 'Customer project');
+    try {
+        const missing = await customer.callTool({ name: 'get_feedback', arguments: { projectId: packet.context.identity.projectId, commentId: saved.id } });
+        expect(missing.isError).toBe(true);
+        expect(missing.structuredContent).toMatchObject({ error: 'not_found' });
+        expect(JSON.stringify(missing)).not.toContain('Move this action into the header');
+        const wrong = await customer.callTool({ name: 'get_feedback', arguments: { projectId, commentId: saved.id } });
+        expect(wrong.isError).toBe(true);
+    } finally { await customer.close(); }
+
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true }))
+        .toHaveAttribute('href', `/app/projects/${PUBLIC_PROJECT_ID}`);
+    await closeAppNavigation(page);
+    const uier = await connect('uier access', 'uier.io public feedback', true);
+    try {
+        const args = { projectId: packet.context.identity.projectId, commentId: saved.id };
+        const read = await uier.callTool({ name: 'get_feedback', arguments: args });
+        expect(read.isError).not.toBe(true);
+        expect(read.structuredContent).toMatchObject({ context: { identity: { projectId: PUBLIC_PROJECT_ID, commentId: saved.id }, feedback: { text: 'Move this action into the header' } } });
+        const resolved = await uier.callTool({ name: 'set_feedback_status', arguments: { ...args, resolved: true, idempotencyKey: crypto.randomUUID() } });
+        expect(resolved.isError).not.toBe(true);
+        expect((await (await page.request.get(`/api/comments/${saved.id}/context`)).json()).context.status).toBe('done');
+    } finally { await uier.close(); }
 });
