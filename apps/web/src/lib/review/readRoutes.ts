@@ -13,6 +13,8 @@ import { canSeeComment, getProjectComment, listProjectComments } from './comment
 import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import type { ReviewApiContext } from './http';
 import { threadNotificationStates } from '../notifications/preferences';
+import { bulkReadSchema, MAX_BULK_READ_BYTES } from '../comments/bulkRead';
+import { markProjectThreadsRead } from './bulkRead';
 
 const listQuerySchema = z.object({ path: reviewPathSchema });
 
@@ -45,6 +47,12 @@ export async function listReviewComments({ request, project, actor, siteOrigin }
 }
 
 const readSchema = z.object({ sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) });
+
+export async function readReviewComments({ request, project, actor }: ReviewApiContext) {
+    assertWriter(actor);
+    const input = await parseJsonBody(request, bulkReadSchema, MAX_BULK_READ_BYTES);
+    return Response.json(await markProjectThreadsRead(project, actor, input));
+}
 
 /** Acknowledge only the activity actually rendered, after the same project/private checks as reads. */
 export async function readReviewComment({ request, project, actor }: ReviewApiContext, { id }: { id: string }) {

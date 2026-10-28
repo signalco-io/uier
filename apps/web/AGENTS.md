@@ -292,6 +292,12 @@ expose identity metadata only to members. App and toolbar must share these check
   Read acknowledgements require current project/thread access and acknowledge only a rendered
   sequence. Toolbar and app use the same member cursor; notifications must reauthorize before
   reading it for suppression. Do not equate resolution with read state or expose actor ids in DTOs.
+  Bulk acknowledgement uses `comments/bulkRead.ts` and `review/bulkRead.ts`: validate every id/cursor
+  before writes, at most 200 threads/48 KiB per request and four concurrent cursor writes. Review
+  routes retain verified-write protection; public routes retain BotID. Return only successful activity
+  receipts, skip missing/hidden/failed threads without reasons, and reauthorize each project thread.
+  App list/board actions snapshot the shown unread threads and send sequential batches, retaining
+  failed cursors for toast retry. Neither bulk nor single reads acknowledge newer activity.
 
 - Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
   threads, so badge counts do not inherit text-list limits. Unread content is selected before

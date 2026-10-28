@@ -101,6 +101,14 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         await expect.poll(() => requests.filter(request => request.path.endsWith('/screenshot')).length).toBeGreaterThan(0);
         const loadedRequests = [...requests];
         const busyClicks = await hostClicks(guest.page);
+        const bulkRequests: number[] = [];
+        guest.page.on('request', request => {
+            if (request.method() === 'POST' && new URL(request.url()).pathname === `/api/review/${projectId}/comments/read`)
+                bulkRequests.push(request.postDataJSON().threads.length);
+        });
+        await inbox.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(guest.page.getByRole('button', { name: /^Inbox/ })).toHaveAccessibleName('Inbox');
+        expect(bulkRequests).toEqual([100]);
         // Keep a host click stream active while capture draws a 100-thread page without its review layer.
         await inbox.getByRole('button', { name: 'Close sidebar' }).click();
         await expect(inbox).toBeHidden();
@@ -126,7 +134,7 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         const screenshotRequests = loadedRequests.filter(request => request.path.endsWith('/screenshot')).length;
         const commentReads = loadedRequests.filter(request => request.method === 'GET' && request.path.includes('/comments?')).length;
         const longTasksMs = await guest.page.evaluate(() => performance.getEntriesByName('observed-long-task').map(entry => entry.duration));
-        const metrics = { profile: testInfo.project.name, browser: browser.version(), interaction: 'host button keyboard activation', bundle, threads: 100, longTasksMs, capture,
+        const metrics = { profile: testInfo.project.name, browser: browser.version(), interaction: 'host button keyboard activation', bundle, threads: 100, bulkRequests, longTasksMs, capture,
             observationMs: 1200, inactiveRequests, loadedRequests, screenshotRequests, commentReads, additionalIdleRequests,
             completedRequests: await Promise.all(completedRequests),
             clickToFrameMs: { inactive: inactiveClicks, busy: busyClicks, capture: captureClicks, movement: movementClicks } };

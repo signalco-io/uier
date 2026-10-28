@@ -19,6 +19,112 @@ import { expectNoAxeViolations } from './accessibility';
 
 type SavedComment = { id: string; number: number };
 
+test('bulk inbox read follows listed pages/search/status and retries the rendered cursor after a racing reply', async ({ browser }, testInfo) => {
+    test.setTimeout(90_000);
+    const origin = isolatedOrigin(testInfo);
+    const author = await newVisitor(browser, testInfo);
+    const reader = await newVisitor(browser, testInfo);
+    try {
+        const saved: { id: string; sequence: number }[] = [];
+        for (const [path, text] of [['/brand', 'Selected feedback'], ['/brand', 'Keep unread'], ['/security', 'Selected other page']]) {
+            const response = await author.context.request.post(`${origin}/api/comments`, { data: { path, kind: 'feedback', position: { type: 'page' }, text } });
+            expect(response.status()).toBe(201);
+            saved.push({ id: (await response.json()).id, sequence: 1 });
+        }
+        await author.context.request.patch(`${origin}/api/comments/${saved[2]!.id}`, { data: { resolved: true } });
+        await reader.page.goto(`${origin}/brand?review=true`);
+        await addToolbarScript(reader.page);
+        const inbox = reader.page.getByRole('button', { name: /^Inbox(?:,|$)/ });
+        await expect(inbox).toHaveAccessibleName('Inbox, 3 unread threads');
+        await inbox.click();
+        const sidebar = reader.page.getByRole('complementary', { name: 'Comments' });
+        await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
+        await expect(sidebar.getByRole('article')).toHaveCount(1);
+        expect((await inboxPages(reader.page).boundingBox())!.width).toBeGreaterThanOrEqual(144);
+        for (const colorScheme of ['light', 'dark'] as const) {
+            await reader.page.emulateMedia({ colorScheme });
+            await expect(reader.page.locator('html')).toHaveClass(new RegExp(colorScheme));
+            await animationsFinished(reader.page.locator('body'));
+            await animationsFinished(sidebar);
+            await expectNoAxeViolations(reader.page);
+            await reader.page.screenshot({ path: testInfo.outputPath(`bulk-inbox-${colorScheme}.png`) });
+        }
+        const batches: { id: string; sequence: number }[][] = [];
+        let fail = true;
+        await reader.page.route('**/api/comments/read', async route => {
+            batches.push(route.request().postDataJSON().threads);
+            if (fail) { fail = false; await route.abort(); }
+            else await route.continue();
+        });
+        await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(sidebar.getByRole('alert')).toContainText('Some threads could not be marked as read.');
+        await expect(inbox).toHaveAccessibleName('Inbox, 3 unread threads');
+        await author.context.request.post(`${origin}/api/comments/${saved[0]!.id}/replies`, { data: { text: 'Racing reply stays unread' } });
+        await sidebar.getByRole('button', { name: 'Retry', exact: true }).click();
+        await expect(sidebar.getByText('Racing reply stays unread')).toBeVisible();
+        expect(batches).toEqual([[saved[0]], [saved[0]]]);
+        await expect(inbox).toHaveAccessibleName('Inbox, 3 unread threads');
+        await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(inbox).toHaveAccessibleName('Inbox, 2 unread threads');
+        await chooseInboxPages(reader.page, /^All pages/);
+        await expect(sidebar.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0); // Done is still excluded.
+        await sidebar.getByRole('group', { name: 'Show comments' }).getByRole('button', { name: /^All/ }).click();
+        await expect(sidebar.getByRole('article')).toHaveCount(2);
+        await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(inbox).toHaveAccessibleName('Inbox, 1 unread thread');
+        await sidebar.getByRole('button', { name: 'Unread 1', exact: true }).click();
+        await expect(sidebar.getByRole('article')).toHaveCount(0); // Search still applies.
+        await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('');
+        await expect(sidebar.getByRole('article')).toHaveCount(1);
+        await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(inbox).toHaveAccessibleName('Inbox');
+        await expect(sidebar.getByRole('button', { name: 'Unread 0', exact: true })).toBeVisible();
+        await expectNoAxeViolations(reader.page);
+        await reader.page.reload();
+        await expect(inbox).toHaveAccessibleName('Inbox');
+    } finally { await author.context.close(); await reader.context.close(); }
+});
+
+test('bulk inbox read sends more than 200 listed threads in sequential bounded requests', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const reader = await newVisitor(browser, testInfo);
+    const items = Array.from({ length: 205 }, (_, index) => ({ id: `comment_bulk_${index}`, number: index + 1,
+        path: index < 200 ? '/brand' : '/security', kind: 'feedback', position: { type: 'page' }, resolved: false,
+        activity: { sequence: 1, readSequence: 0, lastOtherSequence: 1, unread: true },
+        thread: { items: [{ id: 'first', text: `Batch thread ${index}`, author: { name: 'Reviewer', isMe: false } }] } }));
+    let active = 0, maximum = 0;
+    const batches: number[] = [];
+    const read = new Set<string>();
+    try {
+        await reader.page.route('**/api/comments?*', async route => {
+            const params = new URL(route.request().url()).searchParams;
+            const list = params.get('scope') === 'site' ? items.slice(200) : items.slice(0, 200);
+            await route.fulfill({ json: list.map(item => ({ ...item, activity: { ...item.activity, readSequence: read.has(item.id) ? 1 : 0, unread: !read.has(item.id) } })) });
+        });
+        await reader.page.route('**/api/comments/activity', route => route.fulfill({ json: { unread: 205 - read.size, open: 205, done: 0, total: 205 } }));
+        await reader.page.route('**/api/comments/read', async route => {
+            maximum = Math.max(maximum, ++active);
+            const threads = route.request().postDataJSON().threads as { id: string; sequence: number }[];
+            batches.push(threads.length);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            threads.forEach(thread => read.add(thread.id));
+            active--;
+            await route.fulfill({ json: { reads: threads.map(thread => ({ id: thread.id, activity: { sequence: 1, readSequence: 1, lastOtherSequence: 1, unread: false } })) } });
+        });
+        await reader.page.goto(`${origin}/brand?review=true`);
+        await addToolbarScript(reader.page);
+        await reader.page.getByRole('button', { name: /^Inbox/ }).click();
+        await chooseInboxPages(reader.page, /^All pages/);
+        const sidebar = reader.page.getByRole('complementary', { name: 'Comments' });
+        await expect(sidebar.getByRole('article')).toHaveCount(205);
+        await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect.poll(() => read.size).toBe(205);
+        expect(batches).toEqual([200, 5]);
+        expect(maximum).toBe(1);
+        await expect(reader.page.getByRole('button', { name: /^Inbox/ })).toHaveAccessibleName('Inbox');
+    } finally { await reader.context.close(); }
+});
+
 /** A request to the comments API from the page (same origin, as the reviewer) */
 async function api(page: Page, method: 'POST' | 'PATCH', url: string, body: unknown) {
     return await page.evaluate(async ({ method, url, body }) => {

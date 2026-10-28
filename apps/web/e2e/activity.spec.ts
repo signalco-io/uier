@@ -251,3 +251,72 @@ test('a member shares read state between the app and reviews on different config
         await expect(inbox(page)).toHaveAccessibleName('Inbox');
     } finally { await site.close(); }
 });
+
+test('app bulk read follows environment, page and people filters in list and board and offers retry', async ({ page, request, baseURL }, testInfo) => {
+    test.setTimeout(90_000);
+    const site = await startReviewedSite(new URL(baseURL!).origin);
+    try {
+        await signIn(page, uniqueEmail('bulk-owner'));
+        const production = site.origin(), staging = site.origin('staging');
+        const projectId = await createProject(page, { urls: [production, staging] });
+        await setProjectAccess(page, projectId, 'Anyone with the link');
+        const headers = await verifiedReviewHeaders(request, projectId, production);
+        const stagingHeaders = await verifiedReviewHeaders(request, projectId, staging);
+        const path = `/${projectId}/pricing`;
+        let selectedId = '';
+        for (const [originHeaders, pagePath, name] of [[headers, path, 'Selected'], [headers, path, 'Unassigned'],
+            [headers, `/${projectId}/about`, 'Other page'], [stagingHeaders, path, 'Other environment']] as const) {
+            const saved = await request.post(`/api/review/${projectId}/comments`, { headers: originHeaders, data: {
+                path: pagePath, position: { type: 'page' }, kind: 'feedback', text: `${name} feedback`, authorName: name
+            } });
+            expect(saved.status()).toBe(201);
+            if (name === 'Selected') selectedId = (await saved.json()).id;
+        }
+        await page.goto(`/app/projects/${projectId}`);
+        const selected = page.getByRole('article', { name: 'Comment by Selected', exact: true });
+        await selected.getByRole('button', { name: /More actions/ }).click();
+        await page.getByRole('menuitem', { name: 'Assign', exact: true }).click();
+        await page.getByRole('menuitem', { name: /^bulk-owner-/ }).click();
+        const url = `/app/projects/${projectId}?unread=true&people=assigned&page=${encodeURIComponent(path)}`;
+        await page.goto(url);
+        await expect(page.getByRole('article')).toHaveCount(1);
+        for (const colorScheme of ['light', 'dark'] as const) {
+            await page.emulateMedia({ colorScheme });
+            await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
+            await animationsFinished(page.locator('body'));
+            await expectNoAxeViolations(page);
+            await page.screenshot({ path: testInfo.outputPath(`bulk-app-${colorScheme}.png`) });
+        }
+        // A network failure leaves the thread unread and exposes an explicit toast retry.
+        let fail = true;
+        await page.route(`**/app/projects/${projectId}?*`, async route => {
+            if (route.request().method() === 'POST' && fail) { fail = false; await route.abort(); }
+            else await route.continue();
+        });
+        await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(page.getByText('Some threads could not be marked as read.', { exact: true })).toBeVisible();
+        await expect(selected).toBeVisible();
+        await page.getByRole('button', { name: 'Retry', exact: true }).click();
+        await expect(selected).toHaveCount(0);
+        await request.post(`/api/review/${projectId}/comments/${selectedId}/replies`, { headers, data: { text: 'New selected reply', authorName: 'Selected' } });
+        await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
+        await inbox(page).click();
+        const reviewInbox = page.getByRole('complementary', { name: 'Comments' });
+        await reviewInbox.getByRole('button', { name: 'Assigned to me', exact: true }).click();
+        await reviewInbox.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
+        await expect(reviewInbox.getByRole('article')).toHaveCount(1);
+        await reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(inbox(page)).toHaveAccessibleName('Inbox, 2 unread threads');
+        await expect(reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
+        await page.goto(`/app/projects/${projectId}?unread=true`);
+        await expect(page.getByRole('article')).toHaveCount(2);
+        await expect(page.getByRole('article', { name: 'Comment by Unassigned', exact: true })).toBeVisible();
+        await expect(page.getByRole('article', { name: 'Comment by Other page', exact: true })).toBeVisible();
+        await page.goto(`/app/projects/${projectId}?unread=true&view=board&page=${encodeURIComponent(path)}`);
+        await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(page.getByRole('article')).toHaveCount(0);
+        await page.goto(`/app/projects/${projectId}?unread=true&environment=all`);
+        await expect(page.getByRole('article')).toHaveCount(2);
+        await expect(page.getByRole('article', { name: 'Comment by Other environment', exact: true })).toBeVisible();
+    } finally { await site.close(); }
+});

@@ -13,6 +13,7 @@ import { useInboxComments } from './useInboxComments';
 import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
 import { DockablePanel } from '../DockablePanel';
+import { MarkAllRead } from './MarkAllRead';
 
 // One element for every render: the kit's input wraps itself anew (and loses the focus) when its
 // decorator changes
@@ -104,6 +105,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                                 {unread > 0 && <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />}
                                 Unread <span className={cx('tabular-nums', unread > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unread}</span>
                             </FilterChip>
+                            <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []} />
                             {isMember && (
                                 <FilterChip pressed={Boolean(filter.assignedToMe)} onClick={() => setFilter({ ...filter, assignedToMe: !filter.assignedToMe })}>
                                     Assigned to me

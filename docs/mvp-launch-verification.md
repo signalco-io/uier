@@ -167,3 +167,14 @@ the toolbar shadow root. The original 32 px pin is centered within its larger ta
 headers wrap actions so the public number remains readable on narrow screens. This adds no data
 collection, storage keys, recipients or third parties,
 so it does not change privacy or cookie disclosures.
+
+## Mark all as read, October 28, 2026 (#136)
+
+The bulk-read implementation rebased onto `562927c` produces a toolbar of **689,133 raw /
+202,157 gzip / 170,064 Brotli bytes**, including injected CSS and the existing license notices.
+The **750,000 raw / 220,000 gzip** limits are unchanged. `launch-performance.spec.ts` now also
+checks that the 100-thread inbox is acknowledged by one 100-entry request and its badge clears.
+The other activity/inbox tests exercise filtered lists, sequential 200+5 requests, a racing reply,
+partial etag failures, retained retry cursors, guest/member access, private visibility, queued-digest
+suppression and light/dark accessibility. The page picker keeps a 144 px minimum beside the new
+action on narrow screens.

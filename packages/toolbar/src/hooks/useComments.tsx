@@ -381,10 +381,7 @@ function reconcileReads(client: QueryClient, comments: CommentItem[]) {
     const cached = client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix }).flatMap(([, data]) => data ?? []);
     const reads = new Map<string, number>();
     for (const item of cached) reads.set(item.id, Math.max(reads.get(item.id) ?? 0, item.activity?.readSequence ?? 0));
-    return comments.map(comment => {
-        if (!comment.activity) return comment;
-        return mergeReadCursor(comment, reads.get(comment.id));
-    });
+    return comments.map(comment => mergeReadCursor(comment, reads.get(comment.id)));
 }
 
 async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
@@ -401,29 +398,49 @@ async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
     }
 }
 
+/** Single-thread and bulk reads share receipt merging and reviewer/cache guards. */
 export function useReadComment() {
     const client = useQueryClient();
     return useMutation({
-        mutationFn: async (comment: CommentItem) => {
+        mutationFn: async (input: CommentItem | CommentItem[]) => {
             const revision = currentReviewerRevision();
-            const activity = required(await apiRequest<CommentActivity>(`${commentUrl(comment.id)}/read`, {
-                method: 'POST', body: { sequence: comment.activity?.sequence ?? 0 }
-            }));
-            return { activity, revision };
+            const snapshot = Array.isArray(input) ? input : [input];
+            const reads: { id: string; activity: CommentActivity }[] = [];
+            try {
+                for (let offset = 0; offset < snapshot.length; offset += 200) {
+                    const batch = snapshot.slice(offset, offset + 200);
+                    const result = required(await apiRequest<CommentActivity | { reads: typeof reads }>(
+                        Array.isArray(input) ? `${commentsApiUrl}/read` : `${commentUrl(input.id)}/read`, {
+                            method: 'POST', body: Array.isArray(input)
+                                ? { threads: batch.map(comment => ({ id: comment.id, sequence: comment.activity?.sequence ?? 0 })) }
+                                : { sequence: input.activity?.sequence ?? 0 }
+                        }));
+                    if (revision !== currentReviewerRevision()) return { reads: [], failed: [], revision };
+                    reads.push(...('reads' in result ? result.reads : [{ id: batch[0]!.id, activity: result }]));
+                }
+            } catch (error) {
+                if (!Array.isArray(input)) throw error;
+                // Earlier batches succeeded; leave every unacknowledged cursor available for retry.
+            }
+            const saved = new Set(reads.map(read => read.id));
+            return { reads, failed: snapshot.filter(comment => !saved.has(comment.id)), revision };
         },
-        onSuccess: async ({ activity, revision }, comment) => {
+        onSuccess: async ({ reads, revision }, input) => {
             await client.cancelQueries({ queryKey: activityQueryKey });
             if (revision !== currentReviewerRevision()) return;
-            // A reply that raced the read request was never acknowledged. Fetch its content now.
-            if (activity.sequence > (comment.activity?.sequence ?? 0))
-                void client.invalidateQueries({ queryKey: commentsQueryKeyPrefix });
-            void client.invalidateQueries({ queryKey: activityQueryKey });
-            void client.invalidateQueries({ queryKey: [...commentsQueryKeyPrefix, 'site-unread'] });
-            updateAllCachedComments(client, comments => comments.map(current => {
-                if (current.id !== comment.id || !current.activity) return current;
-                const readSequence = Math.max(current.activity.readSequence, activity.readSequence);
-                return { ...current, activity: { ...current.activity, readSequence, unread: current.activity.lastOtherSequence > readSequence } };
+            const receipts = new Map(reads.map(read => [read.id, read.activity]));
+            updateAllCachedComments(client, comments => comments.map(comment => {
+                const activity = receipts.get(comment.id);
+                if (!activity || !comment.activity) return comment;
+                return mergeReadCursor({ ...comment, activity: activity.sequence >= comment.activity.sequence ? activity : comment.activity },
+                    Math.max(activity.readSequence, comment.activity.readSequence));
             }));
+            // Fetch replies newer than the rendered snapshot, and refill a bounded unread list.
+            await Promise.all([
+                client.invalidateQueries({ queryKey: activityQueryKey }),
+                client.invalidateQueries({ queryKey: Array.isArray(input) || reads.some(read => read.activity.sequence > (input.activity?.sequence ?? 0))
+                    ? commentsQueryKeyPrefix : [...commentsQueryKeyPrefix, 'site-unread'] })
+            ]);
         }
     });
 }

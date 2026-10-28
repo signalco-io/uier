@@ -217,6 +217,12 @@ error boundary, so one bad comment never breaks the toolbar.
   dropping; canceled drags keep the old side. The panel slides in from its side (it only fades with reduced
   motion). Each panel saves its own side (`uier:panel-side:v1:<id>`). Moving keeps content, filters and scroll
   state; narrow screens use a full-width inset panel and retain the preferred side for wider screens.
+- **Mark all as read** appears beside Unread when listed threads include unread activity. It covers
+  only the selected environment, pages, status, search, Unread and Assigned to me filters, including
+  only listed threads when the site list is capped. Successful receipts refresh the badge and counts;
+  failed writes retain their rendered cursors for Retry. A newer reply stays unread. The public and
+  project APIs accept `POST comments/read` with `{ threads: [{ id, sequence }] }`, at most 200 entries
+  and 48 KiB, returning `{ reads: [{ id, activity }] }` for successful acknowledgements only.
 - **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them). It always ends with

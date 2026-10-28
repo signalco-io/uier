@@ -10,7 +10,9 @@ import { readActivity, threadActivity } from '../src/lib/comments/activity';
 import { getReadSequence, markThreadRead, projectActivity, unreadComments } from '../src/lib/comments/readState';
 import { deleteProjectCommentItem, setProjectCommentResolved } from '../src/lib/review/comments';
 import { reviewApiHandler } from '../src/lib/review/http';
-import { listReviewComments, readReviewComment } from '../src/lib/review/readRoutes';
+import { listReviewComments, readReviewComment, readReviewComments } from '../src/lib/review/readRoutes';
+import { markThreadsRead } from '../src/lib/comments/bulkRead';
+import { POST as publicBulkRead } from '../app/api/comments/read/route';
 
 const alice = { kind: 'member', userId: 'alice', name: 'Alice', isAdmin: false } as const;
 const bob = { ...alice, userId: 'bob', name: 'Bob' };
@@ -110,6 +112,110 @@ test('read endpoints reauthorize identity, project, private visibility, origin a
     expect((await call({ Authorization: '' })).status).toBe(401);
 });
 
+test('bulk read validates before writes, bounds concurrency and preserves failed/conflicting cursors', async () => {
+    process.env.UIER_LOCAL = '1';
+    const domain = `bulk-${randomUUID()}`;
+    const store = getMemoryCommentsStore();
+    const threads = Array.from({ length: 205 }, (_, index) => ({ id: `comment_${index}`, sequence: 1 }));
+    for (const { id } of threads) await store.create({ id, domain, path: '/', authorId: 'other', position: { type: 'page' },
+        thread: { items: [{ id: 'first', text: 'No content in receipts', authorId: 'other' }] } });
+    let loading = 0, maximum = 0;
+    const load = async (id: string) => {
+        maximum = Math.max(maximum, ++loading);
+        await new Promise(resolve => setTimeout(resolve, 1));
+        loading--;
+        return (await store.get(domain, id))?.comment ?? null;
+    };
+    for (const invalid of [threads, [threads[0], threads[0]], [{ id: '../bad', sequence: 1 }],
+        [threads[0], { id: 'comment_1', sequence: -1 }], [{ id: 'comment_0', sequence: 1.1 }],
+        [{ id: 'comment_0', sequence: Number.MAX_SAFE_INTEGER + 1 }]]) {
+        await expect(markThreadsRead({ threads: invalid }, 'reader', load)).rejects.toMatchObject({ code: 'invalid_request' });
+        expect(await getReadSequence(domain, 'reader', 'comment_0')).toBe(0);
+    }
+    await expect(markThreadsRead({ threads: threads.slice(0, 1) }, undefined, load)).rejects.toMatchObject({ code: 'forbidden' });
+    const app = getAppStore();
+    await markThreadRead((await store.get(domain, 'comment_2'))!.comment, 'reader', 0);
+    const receipt = (await app.query({ type: 'review-read' })).find(doc => doc.id === 'comment_2' && 'domain' in doc && doc.domain === domain)!;
+    // Advance the memory etag between every get/replace to exercise all eight real cursor retries.
+    const memory = (globalThis as typeof globalThis & { __uierAppMemoryStore: { partitions: Map<string, Map<string, { version: number }>> } }).__uierAppMemoryStore;
+    const entry = memory.partitions.get(receipt.pk)!.get(receipt.id)!;
+    let version = entry.version;
+    Object.defineProperty(entry, 'version', { configurable: true, get: () => ++version });
+    try {
+        const result = await markThreadsRead({ threads: threads.slice(0, 200) }, 'reader', load);
+        expect(result.reads).toHaveLength(199);
+        expect(result.reads.some(read => read.id === 'comment_2')).toBe(false);
+        expect(await getReadSequence(domain, 'reader', 'comment_2')).toBe(0);
+        expect(maximum).toBeLessThanOrEqual(4);
+        expect(JSON.stringify(result)).not.toMatch(/authorId|No content/);
+    } finally { Object.defineProperty(entry, 'version', { configurable: true, writable: true, value: version }); }
+    expect((await markThreadsRead({ threads: [threads[2]!, ...threads.slice(200)] }, 'reader', load)).reads).toHaveLength(6);
+    expect((await projectActivity(domain, 'reader')).summary.unread).toBe(0);
+});
+
+test('bulk review API rechecks members, guests, private threads and long bodies without exposing skipped ids', async () => {
+    process.env.UIER_LOCAL = '1';
+    const app = getAppStore();
+    const id = randomUUID().replaceAll('-', '').slice(0, 12);
+    const workspaceId = randomUUID();
+    const pk = `workspace:${workspaceId}` as const;
+    const project: DbProject = { type: 'project', id, pk, workspaceId, name: 'Bulk', urls: ['https://reviewed.example'],
+        access: 'guests', status: 'active', createdBy: 'alice', createdAt: now, updatedAt: now };
+    await app.create(project);
+    await app.create<DbProjectRef>({ type: 'project-ref', id, pk: `project:${id}`, workspaceId });
+    await app.create<DbUser>({ type: 'user', id: 'bulk-reader', pk: 'user:bulk-reader', name: 'Reader', email: 'bulk-reader@example.com', createdAt: now, updatedAt: now });
+    await app.create<DbMember>({ type: 'member', id: 'member_bulk-reader', pk, workspaceId, userId: 'bulk-reader', email: 'bulk-reader@example.com', role: 'commenter', projects: 'all', createdAt: now });
+    const domain = `project:${id}`;
+    const threads = Array.from({ length: 200 }, (_, index) => ({ id: `comment_${index}`.padEnd(128, 'a'), sequence: 1 }));
+    const store = getMemoryCommentsStore();
+    for (const thread of threads) await store.create({ id: thread.id, domain, path: '/', authorId: 'user:other',
+        private: thread === threads[1], position: { type: 'page' }, thread: { items: [{ id: 'first', text: 'Hidden text', authorId: 'user:other' }] } });
+    await store.appendThreadItem(domain, threads[0]!.id, { id: 'racing_reply', text: 'Racing reply', authorId: 'user:other' }, 50, now);
+    const handler = reviewApiHandler(readReviewComments, { verifyWrites: false });
+    const token = signToken('review', { uid: 'bulk-reader', pid: id }, 3600);
+    const headers = { Authorization: `Bearer ${token}`, Origin: 'https://reviewed.example', 'Content-Type': 'application/json' };
+    const call = (body: unknown, extra = {}) => handler(new Request(`https://uier.io/api/review/${id}/comments/read`, {
+        method: 'POST', headers: { ...headers, ...extra }, body: JSON.stringify(body)
+    }), { params: Promise.resolve({ projectId: id }) });
+    expect((await call({ threads: [...threads, threads[0]] })).status).toBe(400);
+    expect(await getReadSequence(domain, 'user:bulk-reader', threads[0]!.id)).toBe(0);
+    expect((await call({ threads }, { Authorization: '' })).status).toBe(400);
+    const response = await call({ threads });
+    expect(response.status).toBe(200);
+    const result = await response.json() as Awaited<ReturnType<typeof markThreadsRead>>;
+    expect(result.reads).toHaveLength(199);
+    expect(result.reads.find(read => read.id === threads[0]!.id)!.activity).toMatchObject({ sequence: 2, readSequence: 1, unread: true });
+    expect(JSON.stringify(result)).not.toContain(threads[1]!.id);
+    expect(await getReadSequence(domain, 'user:bulk-reader', threads[1]!.id)).toBe(0);
+    const guest = await call({ threads: threads.slice(0, 2) }, { Authorization: '', 'X-Uier-Visitor': 'a'.repeat(43) });
+    expect(guest.status).toBe(200);
+    expect((await guest.json() as Awaited<ReturnType<typeof markThreadsRead>>).reads).toHaveLength(1);
+    await app.delete(pk, 'member_bulk-reader');
+    expect((await call({ threads })).status).toBe(400); // guest-readable project, but no reviewer identity
+    await app.replace({ ...project, access: 'invited' }, (await app.get<DbProject>(pk, id))!.etag);
+    expect((await call({ threads })).status).toBe(401);
+    expect((await call({ threads }, { Origin: 'https://foreign.example' })).status).toBe(403);
+});
+
+test('public bulk route shares visitor cursors, skips missing threads and leaves a raced reply unread', async ({ request, playwright, baseURL }) => {
+    const path = `/bulk-public-${randomUUID()}`;
+    const comment = await (await request.post('/api/comments', { data: { path, kind: 'feedback', position: { type: 'page' }, text: 'Bulk public' } })).json();
+    const reader = await playwright.request.newContext({ baseURL });
+    try {
+        const threads = [{ id: comment.id, sequence: 1 }, { id: 'comment_missing', sequence: 0 }];
+        for (const invalid of [[...threads, threads[0]], [{ id: comment.id, sequence: -1 }], [{ id: '/bad', sequence: 1 }]])
+            expect((await reader.post('/api/comments/read', { data: { threads: invalid } })).status()).toBe(400);
+        await request.post(`/api/comments/${comment.id}/replies`, { data: { text: 'After rendered snapshot' } });
+        const response = await reader.post('/api/comments/read', { data: { threads } });
+        expect(response.status()).toBe(200);
+        expect(response.headers()['set-cookie']).toContain('uier_visitor=');
+        expect(await response.json()).toEqual({ reads: [{ id: comment.id, activity: expect.objectContaining({ readSequence: 1, sequence: 2, unread: true }) }] });
+        const listed = await (await reader.get(`/api/comments?path=${path}`)).json();
+        expect(listed[0].activity).toMatchObject({ readSequence: 1, unread: true });
+        expect((await reader.post('/api/comments/read', { headers: { Origin: 'https://foreign.example' }, data: { threads } })).status()).toBe(403);
+    } finally { await reader.dispose(); }
+});
+
 test('public read receipts isolate guests, persist across page/site requests, and stay separate from done', async ({ request, playwright, baseURL }) => {
     const path = `/activity-${randomUUID()}`;
     const response = await request.post('/api/comments', { data: { path, kind: 'feedback', position: { type: 'page' }, text: 'Guest feedback' } });
@@ -157,6 +263,18 @@ test('public showcase refresh never returns a private thread or permits a hidden
     await expect(replyToComment(context, comment.id, { text: 'No access' })).rejects.toMatchObject({ code: 'not_found' });
     await expect(getCommentScreenshot(context, comment.id)).rejects.toMatchObject({ code: 'not_found' });
     expect(await listComments({ ...context, visitor: { authorId: 'owner' } }, null)).toHaveLength(1);
+    const request = () => new Request(`http://${domain}/api/comments/read`, { method: 'POST',
+        headers: { host: domain, 'Content-Type': 'application/json' }, body: JSON.stringify({ threads: [{ id: comment.id, sequence: 1 }] }) });
+    const hidden = await publicBulkRead(request(), { params: Promise.resolve({}) });
+    expect(hidden.status).toBe(200);
+    expect(await hidden.json()).toEqual({ reads: [] });
+    const previousBypass = process.env.UIER_BOTID_DEV_BYPASS;
+    process.env.UIER_BOTID_DEV_BYPASS = 'BAD-BOT';
+    try { expect((await publicBulkRead(request(), { params: Promise.resolve({}) })).status).toBe(403); }
+    finally {
+        if (previousBypass === undefined) delete process.env.UIER_BOTID_DEV_BYPASS;
+        else process.env.UIER_BOTID_DEV_BYPASS = previousBypass;
+    }
 });
 
 

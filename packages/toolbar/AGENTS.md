@@ -133,6 +133,10 @@ Never infer recipients from display names or reveal account ids in guest DTOs.
   foreground scheduler (focus/online/visibility/expansion refresh immediately). Read receipts merge
   monotonically across page/site caches. Inbox previews do not mark every listed thread read;
   short opened threads acknowledge after 800 ms, otherwise use Mark as read. Keep resolve separate.
+  Inbox Mark all as read snapshots only listed unread threads after every filter, including environment.
+  `useReadComment` accepts a snapshot array and sends sequential batches of at most 200 to `comments/read`, merges successful
+  receipts and refreshes lists/activity. Failed writes keep their original cursors for Retry; announce
+  the actual written count with `useAnnounce`. A capped site list never acknowledges unlisted threads.
 
 - `useActivitySummary` provides full unread/Open/Done counts separately from bounded text lists.
   The unread inbox requests `scope=site&unread=true`, including old threads outside the newest list.

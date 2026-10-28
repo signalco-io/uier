@@ -7,6 +7,7 @@ import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { createProjectComment, deleteProjectCommentItem, editProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { markThreadRead } from '../src/lib/comments/readState';
+import { markProjectThreadsRead } from '../src/lib/review/bulkRead';
 import { threadActivity, withThreadActivity } from '../src/lib/comments/activity';
 import { withNotificationEvent } from '../src/lib/notifications/events';
 import { discoverThreadNotifications, processNotificationDelivery, retryNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
@@ -122,6 +123,25 @@ test('digest waits five minutes and uses #83 shared read cursor to suppress seen
     expect(sent).toHaveLength(0);
     expect((await deliveries(f.project))[0]!.status).toBe('suppressed');
     expect((await current(f.comment)).resolved).toBe(false);
+});
+
+test('bulk acknowledgement suppresses a queued digest but preserves activity after its rendered cursor', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    await discoverThreadNotifications(f.project, f.comment);
+    const delivery = (await deliveries(f.project))[0]!;
+    const transport: typeof deliverNotificationEmail = async message => { sent.push(message); return { status: 'sent' }; };
+    await processNotificationDelivery(delivery, baseUrl, transport);
+    expect((await deliveries(f.project))[0]!.status).toBe('waiting');
+    const result = await markProjectThreadsRead(f.project, f.ownerActor, { threads: [{ id: f.comment.id, sequence: 1 }] });
+    expect(result.reads).toHaveLength(1);
+    await processNotificationDelivery(delivery, baseUrl, transport, Date.now() + 10 * 60 * 1000);
+    expect(sent).toHaveLength(0);
+    expect((await deliveries(f.project))[0]!.status).toBe('suppressed');
+    await followThread(f.project, f.ownerActor, f.comment.id, true);
+    await replyToProjectComment(request, f.project, f.memberActor, f.comment.id, { text: 'New activity after bulk read' });
+    await dispatch(f.project, f.comment, sent);
+    expect(sent.map(message => message.to)).toContain(f.owner.email);
 });
 
 test('an authorized project creator receives new feedback after an admin role change', async () => {
