@@ -25,6 +25,10 @@ test('receiver authenticates the expected subscription/topic and completes only 
     expect((await POST(request([validation], { ...headers, 'aeg-subscription-name': 'unexpected' }))).status).toBe(403);
     expect((await POST(request([{ ...validation, topic: 'unexpected' }], headers))).status).toBe(403);
     expect(await (await POST(request([validation], headers))).json()).toEqual({ validationResponse: 'the-code' });
+    const subscriptionTopic = emailReportTestTopic.match(/^\/subscriptions\/[^/]+/)![0];
+    expect(await (await POST(request([{ ...validation, topic: subscriptionTopic }], headers))).json()).toEqual({ validationResponse: 'the-code' });
+    expect((await POST(request([{ ...validation, topic: '/subscriptions/another' }], headers))).status).toBe(403);
+    expect((await POST(request([{ ...emailReport('ignored@example.com'), topic: subscriptionTopic }]))).status).toBe(403);
     expect((await POST(request([validation]))).status).toBe(400);
     expect((await POST(request([validation, validation], headers))).status).toBe(400);
 });

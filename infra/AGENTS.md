@@ -101,3 +101,9 @@ Live verification on 28 October 2026 passed Domain/SPF/DKIM/DKIM2. Azure rejecte
 verification type (`InitiateVerificationFailed: Invalid verification type: DMARC`), leaving its
 state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
 a valid public DMARC record does not substitute for the required Azure state.
+
+
+Subscription creation was temporarily paused after its first handshake reached the receiver and
+returned 403. Deploy the receiver's documented subscription-root topic compatibility before
+re-enabling `acsEmailReports` in a later PR. Never weaken report topic, subscription-name or secret
+checks, and never remove protection or bypass the staged deployment order.
