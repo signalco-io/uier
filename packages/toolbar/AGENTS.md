@@ -159,7 +159,10 @@ Keep original and previous context, and never invent fallback pins for missing o
 ## Feedback export
 
 `components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
-Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model and deterministic
-formatter for toolbar/app and future integrations. Authorization and private-field projection
+Markdown fallback. Success appears beside the copy icon for two seconds without changing the
+thread layout; the shared announcer reports it to screen readers. Errors and manual copy text
+stay available until the reviewer retries or closes the text. `@uier/toolbar/feedback-context` is
+the pure versioned model and deterministic formatter for toolbar/app and future integrations.
+Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../docs/feedback-context.md).

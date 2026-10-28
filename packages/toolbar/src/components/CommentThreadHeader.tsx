@@ -5,14 +5,14 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Copy, Link, MailCheck, Undo } from '@signalco/ui-icons';
+import { Check, Link, MailCheck, Undo } from '@signalco/ui-icons';
 import { useComments, useReadComment } from '../hooks/useComments';
 import { commentLink } from '../review';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
-import { CopyIssueResult, useCopyIssue } from './CopyIssue';
+import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
 export function CommentStatusBadge({ done }: { done: boolean }) {
@@ -119,17 +119,7 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                     )}
                     {/* A comment on its way has no link or issue yet */}
                     {!comment.pending && <>
-                        <IconButton
-                            size="xs"
-                            variant="plain"
-                            className={threadActionClassName}
-                            title="Copy issue"
-                            aria-label="Copy issue"
-                            aria-busy={issue.pending}
-                            disabled={issue.pending}
-                            onClick={issue.copy}>
-                            <Copy size={16} />
-                        </IconButton>
+                        <CopyIssueButton state={issue} className={threadActionClassName} />
                         <IconButton
                             size="xs"
                             variant="plain"
