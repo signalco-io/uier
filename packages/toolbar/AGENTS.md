@@ -156,16 +156,7 @@ Keep original and previous context, and never invent fallback pins for missing o
   out of This page/Show on page even when paths match (the page picker keys pages by environment and path). Direct links override saved filters for the
   visit. Filter preferences use the versioned `uier:environment:v1:` key and contain no credentials.
 
-## Feedback export
-
-`components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
-Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model and deterministic
-formatter for toolbar/app and future integrations. Authorization and private-field projection
-belong on the server; never format a raw document or browser location for export. See
-[the shared contract](../../docs/feedback-context.md).
-
 ## Review guide and brief
-
 `ProjectGate` passes fresh access and optional brief through `useProjectViewer`; its notices render
 without the guide. Keep customer retention claims out. `useVisitor` asks the server for current-page
 app feedback privacy; never duplicate the app path rule in the toolbar. Dismissal is browser-local:
@@ -176,3 +167,11 @@ line breaks, in the shared hint and the inbox header. No linkification or rich t
 The composite UI CSS source scan covers only `Timeago`, the sole `@signalco/ui` import. Add another
 component's source if importing one; primitives retain their full source scan. Lightning CSS merges
 equivalent rules before CSS injection; retain the shadow-root properties fallback.
+
+## Feedback export
+
+`components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
+Markdown fallback. `@uier/toolbar/feedback-context` is the pure versioned model and deterministic
+formatter for toolbar/app and future integrations. Authorization and private-field projection
+belong on the server; never format a raw document or browser location for export. See
+[the shared contract](../../docs/feedback-context.md).

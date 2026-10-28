@@ -1007,8 +1007,12 @@ request. Public project codes, guest ids, review links and app cookies cannot au
 The endpoint is `https://uier.io/api/mcp` (use your local/preview origin while testing). It uses the
 [official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server),
 stateless JSON responses, and a manually configured `Authorization: Bearer <credential>` header.
-OAuth login/discovery and clients that require OAuth are not supported. For a compatible Codex
-client, set `UIER_MCP_TOKEN` in its environment and add this to the client's configuration:
+OAuth login/discovery and clients that require OAuth are not supported. **Client configuration**
+in Account offers the following setups, built from the same endpoint. Merge entries into the
+existing client file; keep the credential out of every file and URL. Set `UIER_MCP_TOKEN` in the
+environment of the process that starts the client, then restart it.
+
+**Codex** — `~/.codex/config.toml`. [Official bearer configuration](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers):
 
 ```toml
 [mcp_servers.uier]
@@ -1016,7 +1020,57 @@ url = "https://uier.io/api/mcp"
 bearer_token_env_var = "UIER_MCP_TOKEN"
 ```
 
-[Codex documents this environment-based bearer configuration](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers).
+**Claude Code** — `.mcp.json`. [Official HTTP setup and variable expansion](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcpjson):
+
+```json
+{
+  "mcpServers": {
+    "uier": {
+      "type": "http",
+      "url": "https://uier.io/api/mcp",
+      "headers": { "Authorization": "Bearer ${UIER_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+Keep the reference literal. Do not use a shell-expanded bearer header with `claude mcp add`:
+it saves the expanded secret in settings. Approve the project server when Claude Code asks.
+
+**Cursor** — `.cursor/mcp.json`. [Official config interpolation](https://cursor.com/docs/mcp#config-interpolation):
+
+```json
+{
+  "mcpServers": {
+    "uier": {
+      "url": "https://uier.io/api/mcp",
+      "headers": { "Authorization": "Bearer ${env:UIER_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+**VS Code** is not offered because an actual client connection could not be verified in this
+session. The [official configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
+documents HTTP headers and masked `promptString` inputs (`password: true`, `${input:...}`).
+A documentation check alone does not verify a connection; there is no ready block until that check passes.
+
+**Claude Desktop** is not offered in the picker without a verified connection. Its
+[custom connector request headers](https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers)
+are in beta for a limited set of organizations. Where available on an individual plan, add a
+custom connector by the endpoint URL, choose **No sign-in**, and enter
+`Authorization: Bearer <credential>` under **Request headers**. Claude connects from Anthropic’s
+servers, so this cannot reach a local endpoint. Remove and add the connector again after expiry
+or revocation; saved authentication cannot be edited. Team and Enterprise are not supported:
+an Owner adds custom connectors for the whole organization, so a personal uier credential would
+be shared. Without Request headers, Claude Desktop is unsupported until OAuth exists. Do not
+use a third-party bridge.
+
+**Windsurf** is not offered because a deployed client connection could not be verified here.
+Its [current documentation](https://docs.devin.ai/desktop/cascade/mcp) describes legacy Cascade
+in Devin Desktop, with `serverUrl` and `${env:UIER_MCP_TOKEN}` header interpolation. Documentation
+alone is not a completed client connection check.
+
 The credential belongs to the named human account. It grants no additional project or private
 feedback rights. Its selected projects do not expand when new projects are created.
 
@@ -1048,6 +1102,29 @@ user-initiated. The connector cannot edit code, run commands or deploy. A suppor
 ask the client to read selected feedback, approve a code fix in the coding tool, then explicitly
 approve its reply and status update. Tool annotations identify reads and mutations, but annotations
 are hints, not an approval system. Reading does not acknowledge inbox unread activity.
+
+The connector exposes these user-selected MCP prompts:
+
+| Prompt | Arguments | Behavior |
+| --- | --- | --- |
+| `triage-feedback` | `projectId` | Lists and groups open threads; changes nothing |
+| `fix-feedback` | `projectId`, `commentId` | Reads a thread and proposes a code change in the client; leaves uier unchanged |
+| `report-back` | `projectId`, `commentId` | Drafts a reply and/or status change; waits for approval before every write |
+
+`report-back` is listed only with `feedback:reply` or `feedback:status` and names only the write
+tools granted to that credential. Calling it without either scope is rejected. Prompt arguments
+use the tools’ identifier schemas; project grants and current membership are checked on every
+retrieval. Prompts contain instructions and validated identifiers, never feedback text: every
+feedback read still goes through an authorized tool.
+
+In **Prompts and agent skill**, copy or download `SKILL.md` and save it as
+`uier-feedback/SKILL.md` in your client’s skills directory (see
+[Codex skills](https://learn.chatgpt.com/docs/extend/skills) or
+[Claude Code skills](https://code.claude.com/docs/en/skills)). Its `name` and `description` front
+matter identify the workflow. It lists every tool with its required scope, treats feedback as
+untrusted and requires approval before every write, including assignments. It contains no
+credential. `apps/web/src/lib/mcp/workflows.ts` generates both the prompt instructions and the
+skill; update that source together with any tool contract changes.
 
 List tools accept `limit` (1–25, default 20) and numeric `cursor` (default 0), returning `nextCursor`
 or `null`. Cursors are offsets in current results, so concurrent additions can shift a page. Search
