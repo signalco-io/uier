@@ -9,6 +9,7 @@ import {
     listCommunicationServiceKeysOutput
 } from '@pulumi/azure-native/communication/index.js';
 import { dnsRecord } from './cloudflare.js';
+import { emailDnsRecord } from './emailDns.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
@@ -42,11 +43,7 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     // Public DNS preflight on 2026-10-28 found no existing apex SPF or _dmarc TXT.
     // Recheck before deployment; import/merge externally managed records rather than duplicating.
     for (const [key, type] of [['domain', 'TXT'], ['sPF', 'TXT'], ['dKIM', 'CNAME'], ['dKIM2', 'CNAME'], ['dMARC', 'TXT']] as const) {
-        const record = customerDomain.verificationRecords.apply(records => {
-            const value = records[key];
-            if (!value || value.type.toUpperCase() !== type) throw new Error(`Missing/invalid ACS ${key} verification record.`);
-            return value;
-        });
+        const record = customerDomain.verificationRecords.apply(records => emailDnsRecord(records, key, type));
         dnsRecord(`${prefix}-email-${key.toLowerCase()}`, record.name, record.value, type, true);
     }
 

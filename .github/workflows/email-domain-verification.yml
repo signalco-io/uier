@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "Verify email domain"
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+# Serialize verification with infrastructure deployments. This checks DNS only; it never changes
+# DNS, linkedDomains, senders, keys or resource protection. Run after the domain/DNS deployment.
+concurrency:
+  group: pulumi-uier-production-up
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: "Verify uier.io email DNS"
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify the provisioned domain and authentication records
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import time
+
+          domain = (
+              f"/subscriptions/{os.environ['AZURE_SUBSCRIPTION_ID']}"
+              "/resourceGroups/uier-production8b2f56d6/providers/Microsoft.Communication"
+              "/emailServices/uier-email-service0e296b6b/domains/uier.io"
+          )
+          url = f"https://management.azure.com{domain}"
+          api = "api-version=2026-03-18"
+          required = ["Domain", "SPF", "DKIM", "DKIM2", "DMARC"]
+
+          def states():
+              result = subprocess.run(
+                  ["az", "rest", "--method", "get", "--url", f"{url}?{api}",
+                   "--query", "properties.verificationStates", "-o", "json"],
+                  check=True, capture_output=True, text=True,
+              )
+              return {key: value.get("status") for key, value in json.loads(result.stdout).items()}
+
+          for record in required:
+              if states().get(record) == "Verified":
+                  continue
+              subprocess.run(
+                  ["az", "rest", "--method", "post", "--url", f"{url}/initiateVerification?{api}",
+                   "--body", json.dumps({"verificationType": record}), "--output", "none"],
+                  check=True,
+              )
+              for _ in range(30):
+                  if states().get(record) == "Verified":
+                      break
+                  time.sleep(10)
+              else:
+                  raise SystemExit(f"{record} is not Verified; keep the existing sender and check DNS.")
+
+          result = states()
+          if any(result.get(record) != "Verified" for record in required):
+              raise SystemExit("Email verification is incomplete; sender cutover remains blocked.")
+          summary = "## uier.io email verification\n\n" + "\n".join(f"- {key}: {result[key]}" for key in required) + "\n"
+          print(summary)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
+              output.write(summary)
+          PY
