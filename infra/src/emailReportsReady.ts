@@ -6,7 +6,7 @@ export async function emailReportsReady(topic: string, credential: string, fetch
         response = await fetcher('https://uier.io/api/email/reports', {
             method: 'POST', redirect: 'error',
             headers: { 'Content-Type': 'application/json', 'x-uier-email-report-secret': credential,
-                'aeg-subscription-name': 'uier-email-delivery', 'aeg-event-type': 'SubscriptionValidation' },
+                'aeg-subscription-name': 'UIER-EMAIL-DELIVERY', 'aeg-event-type': 'SubscriptionValidation' },
             body: JSON.stringify([{ id: code, topic, eventType: 'Microsoft.EventGrid.SubscriptionValidationEvent', data: { validationCode: code } }]),
             signal: AbortSignal.timeout(15000),
         });
