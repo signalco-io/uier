@@ -107,3 +107,8 @@ Subscription creation was temporarily paused after its first handshake reached t
 returned 403. Deploy the receiver's documented subscription-root topic compatibility before
 re-enabling `acsEmailReports` in a later PR. Never weaken report topic, subscription-name or secret
 checks, and never remove protection or bypass the staged deployment order.
+
+
+After #179 deploys the validation-topic compatibility receiver, resume `acsEmailReports` through
+CI. Validate its provisioning state independently before claiming the handshake succeeded. Sender
+cutover remains a separate five-state gate; delivery-report operation matching stays disabled.
