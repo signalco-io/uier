@@ -4,6 +4,9 @@ import { Button } from '@/src/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
+import type { ProjectAccess } from '../../../lib/app/model';
+import { projectAccessLabels } from '../projects/projectLabels';
+import { InviteButton } from '../users/InviteDialog';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
 import type { CommentsView, PeopleFilter } from './commentLabels';
@@ -69,9 +72,11 @@ function CommentList({ projectId, comments, assignees, label }: {
 }
 
 /** The project's comments in a list or on a board (Open / Done), filtered by people and page */
-export function ProjectComments({ projectId, comments, query, userId, assignees, installHref, environments }: {
+export function ProjectComments({ projectId, access, isAdmin, comments, query, userId, assignees, installHref, environments }: {
     environments: import('../../../lib/app/environments').EnvironmentOption[];
     projectId: string;
+    access: ProjectAccess;
+    isAdmin: boolean;
     comments: ProjectCommentView[];
     query: CommentsQuery;
     userId: string;
@@ -87,10 +92,21 @@ export function ProjectComments({ projectId, comments, query, userId, assignees,
                 </EmptyMedia>
                 <EmptyTitle>No comments yet</EmptyTitle>
                 <EmptyDescription>
-                    This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.
+                    {access === 'disabled'
+                        ? `Comments are off. ${projectAccessLabels.disabled.description}`
+                        : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.'}
                 </EmptyDescription>
+                {access === 'invited' && isAdmin && (
+                    <EmptyDescription>{projectAccessLabels.invited.description}</EmptyDescription>
+                )}
             </EmptyHeader>
             <EmptyContent>
+                {access === 'invited' && isAdmin && <InviteButton projectId={projectId} />}
+                {access === 'disabled' && isAdmin && (
+                    <Button variant="outline" asChild>
+                        <Link href={KnownPageLinks.projectSettings(projectId)}>Settings</Link>
+                    </Button>
+                )}
                 <Button variant="outline" asChild>
                     <Link href={installHref}>Install the script</Link>
                 </Button>

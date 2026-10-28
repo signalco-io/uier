@@ -158,6 +158,14 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
   `projects/[projectId]/layout.tsx`; its pages render the tab content.
+- **Onboarding.** `OnboardingSteps` shows Your site, Add the script and Invite a reviewer. Only
+  `install?onboarding=1` adds `InviteReviewerStep` below the unchanged install guide. Invited-only projects
+  use the shell's `InviteButton` with `projectId`, gated by `context.isAdmin`; the empty comments list does
+  the same. Guest projects reuse `GuestReviewLinks` for every configured address in order (main site first),
+  in onboarding or the comments page's Guest link region, never again in its empty state. Copy fields use
+  plain `reviewUrl` links, never `/app/review`, `uier-token` or `uier-check`. Comments-off states explain that
+  comments are off and link admins to Settings; their header has no Invite. `inviteAction` still checks the
+  admin role on the server. `e2e/app.spec.ts`, `project-review.spec.ts` and `users.spec.ts` cover these paths.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.
