@@ -6,7 +6,7 @@ import type { DbComment } from '../db/schema';
 import { getCommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
 import { getIntegrationConnection } from './connection';
-import { integrationPk, type DiscoveryOptions } from './discovery';
+import { integrationPk, integrationSyncId, type DiscoveryOptions } from './discovery';
 import { integrationRegistry } from './registry';
 import type { IntegrationSync } from './model';
 
@@ -23,23 +23,30 @@ export async function loadIntegrationLinks(project: DbProject, actor: ProjectAct
     const visibleIds = new Set(sources.filter(source => source.projectId === project.id && source.domain === `project:${project.id}`
         && !source.private && !isPrivateAppFeedback(source)).map(source => source.id));
     for (const adapter of integrationRegistry(options.adapters).values()) {
-        if (!adapter.externalLink || !adapter.validateExternalLink) continue;
+        const { externalLink, validateExternalLink } = adapter;
+        if (!externalLink || !validateExternalLink) continue;
         const connection = await getIntegrationConnection(current, adapter.provider, store);
         if (!connection || connection.status !== 'connected') continue;
-        const ledgers = await store.query<IntegrationSync>({ type: `${adapter.provider}-sync`, pk: integrationPk(adapter.provider, project.id),
-            where: { connectionId: connection.id } });
-        for (const ledger of ledgers) {
-            if (!visibleIds.has(ledger.threadId) || ledger.workspaceId !== project.workspaceId || ledger.provider !== adapter.provider
-                || ledger.status === 'suppressed' || ledger.tombstoned || ledger.deletion) continue;
-            const source = (await comments.get(`project:${project.id}`, ledger.threadId))?.comment;
-            if (!source || source.private || isPrivateAppFeedback(source)) continue;
-            try {
-                const value = adapter.externalLink(connection, ledger);
-                if (!value) continue;
-                const url = new URL(value);
-                if (url.protocol !== 'https:' || url.username || url.password || !adapter.validateExternalLink(url, connection, ledger)) continue;
-                links.set(ledger.threadId, [...(links.get(ledger.threadId) ?? []), { provider: adapter.provider, url: url.href }]);
-            } catch { /* An invalid provider URL is omitted, never reflected into a client payload. */ }
+        // Read only the visible source set, never an unbounded history of deleted/retired ledgers.
+        const ids = [...visibleIds];
+        for (let offset = 0; offset < ids.length; offset += 25) {
+            const ledgers = await Promise.all(ids.slice(offset, offset + 25).map(id => store.get<IntegrationSync>(
+                integrationPk(adapter.provider, project.id), integrationSyncId(adapter.provider, connection.id, project.id, id))));
+            await Promise.all(ledgers.map(async record => {
+                const ledger = record?.doc;
+                if (!ledger || ledger.type !== `${adapter.provider}-sync` || ledger.connectionId !== connection.id || ledger.projectId !== project.id) return;
+                if (!visibleIds.has(ledger.threadId) || ledger.workspaceId !== project.workspaceId || ledger.provider !== adapter.provider
+                    || ledger.status === 'suppressed' || ledger.tombstoned || ledger.deletion) return;
+                const source = (await comments.get(`project:${project.id}`, ledger.threadId))?.comment;
+                if (!source || source.private || isPrivateAppFeedback(source)) return;
+                try {
+                    const value = externalLink(connection, ledger);
+                    if (!value) return;
+                    const url = new URL(value);
+                    if (url.protocol !== 'https:' || url.username || url.password || !validateExternalLink(url, connection, ledger)) return;
+                    links.set(ledger.threadId, [...(links.get(ledger.threadId) ?? []), { provider: adapter.provider, url: url.href }]);
+                } catch { /* An invalid provider URL is omitted, never reflected into a client payload. */ }
+            }));
         }
     }
     return links;

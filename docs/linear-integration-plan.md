@@ -1,8 +1,8 @@
 # Linear integration: implementation plan
 
-Status: plan, not shipped. Provider facts checked against the linked official Linear documentation and SDK schema on 2026-10-28. Repository paths below are existing reuse points or proposed additions, not claims that an integration exists.
+Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 
-Depends on the shared integration foundation in [the Notion plan, section 2.1](notion-integration-plan.md#21-expansion-to-other-services). That foundation is also planned. The [GitHub](github-integration-plan.md) and [Slack notifications](slack-integration-plan.md) plans are separate adapters.
+Depends on the shared integration foundation in [the Notion plan, section 2.1](notion-integration-plan.md#21-expansion-to-other-services). The shared foundation is implemented. The [GitHub](github-integration-plan.md) and [Slack notifications](slack-integration-plan.md) plans are separate adapters.
 
 ## 1. Goal and scope
 
@@ -110,7 +110,7 @@ Do not match assignees by email/name automatically, infer priorities from the wo
 
 The pure formatter reuses the shared feedback Markdown rules: dynamically sized literal fences preserve feedback and quoted text, while trusted section labels remain separate. Escape untrusted display labels and never generate mentions or interpret reviewer text as commands. Verify the actual Linear editor/API rendering with hostile Markdown and mention-like text before launch; a formatter must not turn saved content into an unintended notification.
 
-Save rechecks the schema/mappings and current admin, then enables only this binding. Team/project changes after sending require a new connection identity and an explicit warning that old issues stay in the former destination; destination migration is a separate design. A silent target switch must not patch a former team's issues.
+Save rechecks the schema/mappings and current admin, then enables only this binding. Team/project changes keep the connection identity and start a new external issue generation. Retain prior issue/comment ids, uncertain attempts and their original grant, organization and app-user authority under that continuing binding, so later privacy/deletion can clean reachable old and current copies. Warn explicitly that old issues remain in their former destination until cleanup; this does not migrate those issues. Blocked old copies stay recorded for review while other reachable copies are cleaned. An ordinary sync never retargets a former team's issue into the new destination.
 
 ## 7. Sync semantics
 

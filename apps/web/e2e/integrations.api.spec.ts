@@ -6,6 +6,7 @@ import { sha256Hex } from '../src/lib/app/tokens';
 import { findOrCreateUser } from '../src/lib/app/users';
 import type { DbComment, DbSyncTombstone } from '../src/lib/db/schema';
 import { disconnectIntegration } from '../src/lib/integrations/connection';
+import { queueIntegrationBackfills, startIntegrationBackfill } from '../src/lib/integrations/backfill';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverIntegrationSync, discoverThreadIntegrationSync, enqueueIntegrationBackfill, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
 import type { IntegrationAdapter, IntegrationConnection, IntegrationProviderId, IntegrationSync } from '../src/lib/integrations/model';
@@ -83,6 +84,31 @@ async function replaceSource(f: Fixture, patch: Partial<DbComment>) {
     expect(await f.comments.replace({ ...stored.comment, ...patch }, stored.etag)).toBe('ok');
     return (await f.comments.get(f.source.domain, f.source.id))!.comment;
 }
+
+test('GitHub public-visibility consent pause blocks content but still permits authorized privacy cleanup', async () => {
+    const f = await fixture(); const calls: string[] = [];
+    const connection = f.connections.github;
+    await updateDoc<IntegrationConnection>(connection.pk, connection.id, row => ({ ...row, status: 'paused', statusCode: 'public_confirmation_required' }));
+    const target = adapter('github', async context => {
+        expect(context.mode).toBe('cleanup'); expect(context.feedback).toBeNull();
+        await context.read(async () => { calls.push('read'); });
+        await context.operation({ step: 'delete_known_copy', planHash: hash, repeatable: true }, async () => { calls.push('delete'); });
+        await context.checkpoint({}, { clearAttempt: true });
+        return { status: 'suppressed' };
+    });
+    await processIntegrationDelivery(await queue(f, 'github'), baseUrl, target);
+    expect(calls).toEqual([]);
+    const source = await replaceSource(f, { private: true, syncVersion: 2 });
+    await enqueueIntegrationSync(f.project, 'github', connection.id, source.id, 2, { cleanup: true });
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target);
+    expect(calls).toEqual(['read', 'delete']);
+    expect((await f.store.get<IntegrationConnection>(connection.pk, connection.id))!.doc.status).toBe('paused');
+    await updateDoc<IntegrationConnection>(connection.pk, connection.id, row => ({ ...row, enabled: false }));
+    await replaceSource(f, { private: true, syncVersion: 3 });
+    await enqueueIntegrationSync(f.project, 'github', connection.id, source.id, 3, { cleanup: true });
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target);
+    expect(calls).toEqual(['read', 'delete']);
+});
 
 function deferred() {
     let resolve!: () => void;
@@ -408,6 +434,126 @@ test('provider-specific backfill forces a processed version once and preserves n
     expect((await f.comments.get(f.source.domain, f.source.id))!.comment.syncPending).toBe(false);
 });
 
+test('forced backfill intent remains pinned to its destination while a normal source intent independently survives a switch', async () => {
+    for (const normalSourceIntent of [false, true]) {
+        const f = await fixture();
+        await processIntegrationDelivery(await queue(f), baseUrl, accepting('notion'));
+        const source = await replaceSource(f, { syncVersion: 2, syncPending: false });
+        await enqueueIntegrationBackfill(f.project, 'notion', f.connections.notion.id, [source], `backfill_${randomUUID()}`);
+        expect((await currentLedger(f)).reconcileDestinationRevision).toBe(1);
+        await updateDoc<IntegrationConnection>(f.connections.notion.pk, f.connections.notion.id, row => ({ ...row, destinationRevision: 2 }));
+        if (normalSourceIntent) await enqueueIntegrationSync(f.project, 'notion', f.connections.notion.id, source.id, 2);
+        const sends: string[] = [];
+        await processIntegrationDelivery(await currentLedger(f), baseUrl, accepting('notion', sends));
+        const ledger = await currentLedger(f);
+        if (normalSourceIntent) {
+            expect(sends).toEqual(['notion']);
+            expect(ledger).toMatchObject({ status: 'accepted', processedVersion: 2, sourceRequestedVersion: 2 });
+        } else {
+            expect(sends).toEqual([]);
+            expect(ledger).toMatchObject({ status: 'suppressed', lastCode: 'backfill_destination_changed', processedVersion: 1 });
+        }
+    }
+});
+
+test('reconciling an old forced create cannot authorize a new-destination create after its backfill was canceled', async () => {
+    const f = await fixture();
+    await processIntegrationDelivery(await queue(f), baseUrl, accepting('notion'));
+    await enqueueIntegrationBackfill(f.project, 'notion', f.connections.notion.id, [f.source], `backfill_${randomUUID()}`);
+    await processIntegrationDelivery(await currentLedger(f), baseUrl, adapter('notion', async context => {
+        await context.operation({ step: 'create', planHash: hash, metadata: { revision: 1 } }, async () => { throw new Error('Lost create response'); });
+        return { status: 'accepted' };
+    }));
+    expect((await currentLedger(f)).attempt).toBeDefined();
+    await updateDoc<IntegrationConnection>(f.connections.notion.pk, f.connections.notion.id, row => ({ ...row, destinationRevision: 2 }));
+    await updateDoc<IntegrationSync>(integrationPk('notion', f.project.id), (await currentLedger(f)).id, row => ({ ...row, active: true, status: 'queued', nextAttemptAt: old }));
+    let reconciles = 0, sends = 0;
+    await processIntegrationDelivery(await currentLedger(f), baseUrl, adapter('notion', async context => {
+        await context.read(async () => { reconciles++; });
+        await context.checkpoint({ oldDestinationId: 'retained-old-issue' }, { clearAttempt: true });
+        await context.operation({ step: 'create_new_destination', planHash: hash }, async () => { sends++; });
+        return { status: 'accepted' };
+    }));
+    expect(reconciles).toBe(1);
+    expect(sends).toBe(0);
+    expect((await currentLedger(f)).state).toMatchObject({ oldDestinationId: 'retained-old-issue' });
+    expect((await currentLedger(f)).attempt).toBeUndefined();
+    await processIntegrationDelivery(await currentLedger(f), baseUrl, accepting('notion'), { now: () => Date.now() + 120_000 });
+    expect(await currentLedger(f)).toMatchObject({ status: 'suppressed', active: false, lastCode: 'backfill_destination_changed', processedVersion: 1 });
+});
+
+test('a canceled old backfill cannot suppress fresh private cleanup or export its packet', async () => {
+    const f = await fixture();
+    await processIntegrationDelivery(await queue(f), baseUrl, accepting('notion'));
+    await enqueueIntegrationBackfill(f.project, 'notion', f.connections.notion.id, [f.source], `backfill_${randomUUID()}`);
+    await updateDoc<IntegrationConnection>(f.connections.notion.pk, f.connections.notion.id, row => ({ ...row, destinationRevision: 2 }));
+    await replaceSource(f, { private: true, syncVersion: 2 });
+    let cleanups = 0, exports = 0;
+    await processIntegrationDelivery(await currentLedger(f), baseUrl, adapter('notion', async context => {
+        expect(context.mode).toBe('cleanup');
+        expect(context.feedback).toBeNull();
+        await context.operation({ step: 'redact_old_copy', planHash: hash, repeatable: true }, async () => { cleanups++; });
+        await context.checkpoint({ oldCopyRemoved: true }, { clearAttempt: true });
+        return { status: 'suppressed', code: 'redacted' };
+    }), { exportFeedback: async (...args) => { exports++; return projectFeedbackExport(...args); } });
+    expect(cleanups).toBe(1);
+    expect(exports).toBe(0);
+    expect(await currentLedger(f)).toMatchObject({ status: 'suppressed', lastCode: 'redacted', processedVersion: 2 });
+});
+
+test('background backfill queues a bounded provider-only batch and cancels the remaining selection on a destination change', async () => {
+    const f = await fixture();
+    await replaceSource(f, { syncPending: false });
+    for (let index = 0; index < 5; index++) await f.comments.create({ ...f.source, id: `comment_backfill_${index}_${f.project.id}`,
+        syncKey: syncPendingKey(f.source.domain, `comment_backfill_${index}_${f.project.id}`), syncPending: false });
+    await f.comments.create({ ...f.source, id: `comment_private_${f.project.id}`, private: true, syncPending: false });
+    const request = await startIntegrationBackfill(f.project, 'notion', f.owner.id);
+    expect(request).toEqual({ queued: 0, total: 6, done: false });
+    expect(await f.store.query({ type: 'notion-sync', pk: integrationPk('notion', f.project.id) })).toEqual([]);
+    const store: AppStore = { ...f.store, async query<T extends AppDoc>(query: DocQuery<T['type']>) {
+        const rows = await f.store.query<T>(query);
+        return rows.filter(row => !('projectId' in row) || row.projectId === f.project.id);
+    } };
+    expect(await queueIntegrationBackfills('notion', { store, comments: f.comments, deadline: Date.now() + 10_000, maxQueued: 2 })).toMatchObject({ queued: 2 });
+    const queued = await f.store.query<IntegrationSync>({ type: 'notion-sync', pk: integrationPk('notion', f.project.id) });
+    expect(queued).toHaveLength(2);
+    expect(queued.every(row => row.reconcileDestinationRevision === 1 && row.sourceRequestedVersion === -1)).toBe(true);
+    expect(await f.store.query({ type: 'github-sync', pk: integrationPk('github', f.project.id) })).toEqual([]);
+    const first = (await f.store.get<IntegrationConnection>(f.project.pk, f.connections.notion.id))!.doc;
+    expect(first.backfill).toMatchObject({ queued: 2, done: false });
+    await updateDoc<IntegrationConnection>(first.pk, first.id, row => ({ ...row, destinationRevision: 2 }));
+    expect(await queueIntegrationBackfills('notion', { store, comments: f.comments, deadline: Date.now() + 10_000, maxQueued: 2 })).toMatchObject({ queued: 0 });
+    expect((await f.store.get<IntegrationConnection>(first.pk, first.id))!.doc).toMatchObject({ backfillPending: false, backfill: { queued: 2, done: true, canceled: true } });
+    const sends: string[] = [];
+    for (const ledger of queued) await processIntegrationDelivery(ledger, baseUrl, accepting('notion', sends));
+    expect(sends).toEqual([]);
+});
+
+test('provider maintenance has its own bounded allowance and a failure cannot skip independent delivery', async () => {
+    const f = await fixture();
+    await queue(f, 'notion'); await queue(f, 'github');
+    const store: AppStore = { ...f.store, async query<T extends AppDoc>(query: DocQuery<T['type']>) {
+        const rows = await f.store.query<T>(query);
+        return rows.filter(row => !('projectId' in row) || row.projectId === f.project.id);
+    } };
+    const sends: string[] = [];
+    let maintenanceCalls = 0;
+    const notion: IntegrationAdapter = { ...accepting('notion', sends), maxCalls: 2, async maintenance(input) {
+        maintenanceCalls++;
+        expect(input.maxCalls).toBe(2);
+        expect(input.deadline).toBeLessThanOrEqual(Date.now() + 30_000);
+        return { calls: 2, deferred: 1 };
+    } };
+    const github: IntegrationAdapter = { ...accepting('github', sends), maxCalls: 3, async maintenance() { throw new Error('Maintenance storage failure'); } };
+    const result = await runIntegrationWorker(baseUrl, { adapters: [notion, github], store,
+        comments: { ...f.comments, listSyncPending: async () => [] }, budgetMs: 60_000 });
+    expect(maintenanceCalls).toBe(1);
+    expect(sends).toEqual(['github']);
+    expect(result.providers.find(row => row.provider === 'notion')).toMatchObject({ calls: 2, checked: 0 });
+    expect(result.providers.find(row => row.provider === 'github')).toMatchObject({ calls: 1, checked: 1, deferred: 1 });
+    expect((await currentLedger(f, 'github')).status).toBe('accepted');
+});
+
 test('worker turns and call budgets stay independent when a provider is limited or stops for review', async () => {
     for (const outcome of ['rate_limit', 'ambiguous', 'budget'] as const) {
         const f = await fixture();
@@ -485,6 +631,41 @@ test('external links require current membership, current non-private source and 
     expect((await loadIntegrationLinks(f.project, actor, [f.source], options)).size).toBe(0);
     await f.store.delete(f.project.pk, memberId(f.owner.id));
     expect((await loadIntegrationLinks(f.project, actor, [f.source], options)).size).toBe(0);
+});
+
+test('external links read only selected deterministic ledgers in bounded batches and recheck source privacy', async () => {
+    const f = await fixture();
+    const selected: DbComment[] = [f.source];
+    for (let index = 0; index < 27; index++) {
+        const source = { ...f.source, id: `comment_links_${index}_${f.project.id}`, syncPending: false };
+        await f.comments.create(source); selected.push(source);
+    }
+    for (const source of selected) for (const provider of providers)
+        await enqueueIntegrationSync(f.project, provider, f.connections[provider].id, source.id, 1);
+    const nowPrivate = (await f.comments.get(f.source.domain, selected[1]!.id))!;
+    expect(await f.comments.replace({ ...nowPrivate.comment, private: true }, nowPrivate.etag)).toBe('ok');
+    const reads: string[] = [];
+    let concurrent = 0, maximum = 0;
+    const store: AppStore = { ...f.store,
+        async query<T extends AppDoc>(_query: DocQuery<T['type']>): Promise<T[]> { throw new Error('Link projection must not scan integration history'); },
+        async get<T extends AppDoc>(pk: string, id: string) {
+            if (!providers.some(provider => pk === integrationPk(provider, f.project.id))) return f.store.get<T>(pk, id);
+            reads.push(`${pk}:${id}`); concurrent++; maximum = Math.max(maximum, concurrent);
+            try { await new Promise(resolve => setTimeout(resolve, 1)); return await f.store.get<T>(pk, id); }
+            finally { concurrent--; }
+        }
+    };
+    const adapters = providers.map(provider => ({ ...accepting(provider),
+        externalLink: (_connection: IntegrationConnection, row: IntegrationSync) => `https://${provider}.example/${row.threadId}`,
+        validateExternalLink: (url: URL) => url.hostname === `${provider}.example` }));
+    const links = await loadIntegrationLinks(f.project, { kind: 'member', isAdmin: true, userId: f.owner.id, name: f.owner.name },
+        [...selected, selected[0]!, { ...f.source, id: 'foreign', domain: 'project:foreign', projectId: 'foreign' }], { store, comments: f.comments, adapters });
+    const expected = providers.flatMap(provider => selected.map(source => `${integrationPk(provider, f.project.id)}:${integrationSyncId(provider, f.connections[provider].id, f.project.id, source.id)}`));
+    expect(reads.sort()).toEqual(expected.sort());
+    expect(maximum).toBe(25);
+    expect(links.size).toBe(selected.length - 1);
+    expect(links.has(selected[1]!.id)).toBe(false);
+    expect(links.get(selected[0]!.id)?.map(link => link.provider)).toEqual([...providers]);
 });
 
 test('unbound project outbox work is acknowledged without provider calls or changing saved feedback', async () => {

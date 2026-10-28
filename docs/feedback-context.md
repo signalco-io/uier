@@ -23,6 +23,7 @@ and private-thread visibility before requesting it.
 | `identity` | Stable `commentId`, optional public `number`, `projectId` and first `itemId`. Repeated exports can be recognized without timestamps. |
 | `title` | Concise derived summary, at most 100 saved-text characters plus a rewrite label. It does not replace the exact message. |
 | `kind`, `status` | Saved feedback type and current open/done status. |
+| `assignee` | Optional display name from the current project-member list, only for member exports. Unavailable assignees use "Former member"; no account id or email is added. |
 | `feedback` | First message or `null`: id, deletion state, exact current saved text, quoted text, display author and saved creation/edit times. Deleted placeholders omit text, quote and author. |
 | `anchor` | Whole page, saved element selector or selected text, selectors and offsets. This describes saved evidence, not a claim that the element still exists. Deleted/missing first items retain only anchor type. |
 | `source` | Canonical stored `path`, permitted original `origin` when available. Optional `environment` is the current configured label or historical-source fallback. It follows the same member/current-origin permission rules as the source context; labels do not retarget links. |

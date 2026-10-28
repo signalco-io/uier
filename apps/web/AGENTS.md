@@ -360,7 +360,13 @@ budgets and progress. Preserve uncertain creates for reconciliation, and run cle
 feedback packet. Every external call checks current membership, binding, source and destination.
 Never persist feedback bodies in integration ledgers or expose credentials in views/logs.
 
-The registry is intentionally empty until complete adapters ship. The shared API suites are
+The registry resolves all four adapters lazily to avoid initialization cycles with shared authority
+helpers. Settings rendering is database-only; provider option/schema requests require an explicit
+admin action. OAuth return routes bypass the signed-out proxy so transient codes and states are
+never echoed into a sign-in return URL. Provider credentials are production-only, configured
+through the setup runbook. Off/disconnect must work even when credentials are unavailable.
+
+The shared API suites are
 `integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
 Provider tests and live acceptance are additional gates, not substitutes for shared isolation.
 

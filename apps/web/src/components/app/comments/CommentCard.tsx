@@ -184,6 +184,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees }: {
                                         <LinkIcon />
                                         Link to comment
                                     </DropdownMenuItem>
+                                    {comment.integrationLinks?.map(link => <DropdownMenuItem key={link.provider} asChild>
+                                        <a href={link.url} target="_blank" rel="noopener noreferrer">
+                                            <ExternalLinkIcon />Open in {({ notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack' } as Record<string, string>)[link.provider] ?? link.provider}
+                                        </a>
+                                    </DropdownMenuItem>)}
                                     {permissions.assign && (
                                         <DropdownMenuSub>
                                             <DropdownMenuSubTrigger>

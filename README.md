@@ -62,7 +62,7 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 ```
 
 Stop the dev server before testing, or choose another port with `PORT=4104 pnpm test`.
-Tests start their own app server and an Anthropic API stand-in on `PORT + 1000`.
+Tests start their own app server and local API stand-ins on `PORT + 1000` through `PORT + 5000`.
 See the [testing guide](docs/development.md#commands) for coverage and browser options.
 
 ## Find your way around
@@ -88,6 +88,7 @@ and lockfile; install them separately only when working on infrastructure.
 | [Review workflow](docs/review-workflow.md) | Understand projects, permissions, screenshots and feedback recovery |
 | [API reference](docs/api.md) | Work with review and comments APIs or toolbar delivery |
 | [Coding tool access (MCP)](docs/mcp.md) | Connect a coding tool to selected project feedback |
+| [Connected services](docs/integrations.md) | Mirror feedback to Notion, GitHub or Linear, or send Slack notifications |
 | [Brand guide](packages/brand/BRAND.md) · [Live brand page](https://uier.io/brand) | Work with the uier identity and shared tokens |
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |
 | [Backups and restore](docs/backups-and-restore.md) | Recover accidental deletions and inspect the recorded restore drill |

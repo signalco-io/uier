@@ -7,6 +7,9 @@ const SESSION_COOKIE_NAME = 'uier_session';
 
 /** App pages that work signed out */
 const publicAppPaths = ['/app/sign-in', '/app/invitation'];
+// OAuth routes strip transient codes and states themselves, including when the session expired.
+const integrationReturns = new Set(['/app/notion/callback', '/app/github/setup', '/app/github/callback',
+    '/app/linear/callback', '/app/slack/callback']);
 
 /**
  * Signed-out visitors of an app page go to sign in, and come back to the same page afterwards
@@ -14,7 +17,7 @@ const publicAppPaths = ['/app/sign-in', '/app/invitation'];
  */
 export function proxy(request: NextRequest) {
     const { pathname, search } = request.nextUrl;
-    if (publicAppPaths.some(path => pathname === path || pathname.startsWith(`${path}/`)))
+    if (integrationReturns.has(pathname) || publicAppPaths.some(path => pathname === path || pathname.startsWith(`${path}/`)))
         return NextResponse.next();
     if (request.cookies.has(SESSION_COOKIE_NAME)) {
         const response = NextResponse.next();

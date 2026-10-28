@@ -1,6 +1,6 @@
 # GitHub integration: implementation plan
 
-Status: plan, not shipped. Provider facts checked against official GitHub documentation on 2026-10-28; repository entry points checked on the same date. Product defaults below are design decisions, not existing behavior. All implementation paths are proposed unless described as existing.
+Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 
 Build on the [shared integration architecture](notion-integration-plan.md#21-expansion-to-other-services). The [Linear plan](linear-integration-plan.md) and [Slack notifications plan](slack-integration-plan.md) are independent adapters on that foundation.
 

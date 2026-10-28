@@ -5,6 +5,7 @@ import { actorAuthorId } from './actor';
 import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import type { ReviewApiContext } from './http';
 import type { DbComment } from '../db/schema';
+import { loadIntegrationLinks } from '../integrations/links';
 
 export async function commentResponse(context: ReviewApiContext, comment: DbComment | null, status = 200) {
     if (!comment)
@@ -14,6 +15,8 @@ export async function commentResponse(context: ReviewApiContext, comment: DbComm
     const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants, context.project);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
-    const notifications = (await threadNotificationStates(context.project, context.actor, [comment])).get(comment.id);
-    return Response.json({ ...dto, notifications }, { status });
+    const [notifications, links] = await Promise.all([threadNotificationStates(context.project, context.actor, [comment]),
+        loadIntegrationLinks(context.project, context.actor, [comment])]);
+    return Response.json({ ...dto, notifications: notifications.get(comment.id),
+        ...(links.has(comment.id) ? { integrationLinks: links.get(comment.id) } : {}) }, { status });
 }

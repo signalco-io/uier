@@ -45,6 +45,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      UIER_INTEGRATION_ENV: ${{ secrets.UIER_INTEGRATION_ENV }}
 
   web:
     name: "Web (Vercel deploy)"

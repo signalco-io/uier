@@ -12,7 +12,8 @@
     "scripts": {
         "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
         "typecheck": "tsc -p tsconfig.json --noEmit",
-        "preview": "pnpm build && pulumi preview --stack organization/uier/uier-production"
+        "preview": "pnpm build && pulumi preview --stack organization/uier/uier-production",
+        "test": "node --test tests/*.test.mjs"
     },
     "dependencies": {
         "@pulumi/azure-native": "3.29.0",

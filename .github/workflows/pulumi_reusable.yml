@@ -32,6 +32,9 @@ on:
       # Optional: production's ANTHROPIC_API_KEY (rewrite suggestions), see infra/src/index.ts
       ANTHROPIC_API_KEY:
         required: false
+      # Optional server-only provider credential map; validated by infra/src/integrations.ts
+      UIER_INTEGRATION_ENV:
+        required: false
 
 jobs:
   pulumi:
@@ -92,6 +95,10 @@ jobs:
         working-directory: infra
         run: pnpm build
 
+      - name: Test infrastructure helpers
+        working-directory: infra
+        run: pnpm test
+
       # pulumi/actions skips its download (~12s) when the `pulumi` on PATH already satisfies
       # pulumi-version, and installs into ~/.pulumi/bin otherwise, which is what gets cached here.
       # Plugins are not cached: they download in about a second, faster than restoring them.
@@ -139,3 +146,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           # Becomes production's ANTHROPIC_API_KEY on Vercel when the repository secret is set
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          UIER_INTEGRATION_ENV: ${{ secrets.UIER_INTEGRATION_ENV }}

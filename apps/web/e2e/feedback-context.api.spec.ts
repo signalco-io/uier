@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
 import type { DbComment } from '../src/lib/db/schema';
-import type { DbProject } from '../src/lib/app/model';
+import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../src/lib/app/model';
+import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
@@ -133,5 +134,35 @@ test('project export enforces private visibility, original allowed source and me
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL;
         else process.env.UIER_LOCAL = previous;
+    }
+});
+
+test('assignment export resolves a current project member name without exposing its account identity', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const id = randomUUID(); const workspaceId = `workspace-${id}`; const assigneeId = `u_${id}`;
+        const app = getAppStore(); const comments = getMemoryCommentsStore();
+        const project = { id, workspaceId, pk: workspacePk(workspaceId), urls: ['https://review.example'] } as DbProject;
+        await app.create<DbUser>({ type: 'user', pk: userPk(assigneeId), id: assigneeId, email: `${id}@example.com`,
+            name: 'Reviewer *name*', createdAt: '2026-10-28', updatedAt: '2026-10-28' });
+        await app.create<DbMember>({ type: 'member', pk: project.pk, id: memberId(assigneeId), workspaceId,
+            userId: assigneeId, email: `${id}@example.com`, role: 'commenter', projects: [id], createdAt: '2026-10-28' });
+        const source: DbComment = { id: `comment_${id}`, domain: `project:${id}`, projectId: id, origin: project.urls[0], path: '/',
+            assigneeId, authorId: 'guest', kind: 'feedback', position: { type: 'page' },
+            thread: { items: [{ id: 'item_first', text: 'Feedback', authorId: 'guest', authorName: 'Guest' }] } };
+        await comments.create(source);
+        const actor = { kind: 'member', userId: 'admin', name: 'Admin', isAdmin: true } as const;
+        const exported = await projectFeedbackExport(project, actor, source.id, undefined, 'https://uier.io');
+        expect(exported.context.assignee).toEqual({ name: 'Reviewer *name*' });
+        expect(exported.markdown).toContain('Assignee: Reviewer \\*name\\*');
+        expect(JSON.stringify(exported)).not.toContain(assigneeId);
+        const guest = await projectFeedbackExport(project, { kind: 'guest', visitorId: 'guest' }, source.id, project.urls[0], 'https://uier.io');
+        expect(guest.context).not.toHaveProperty('assignee');
+        await updateDoc<DbMember>(project.pk, memberId(assigneeId), current => ({ ...current, projects: [] }));
+        expect((await projectFeedbackExport(project, actor, source.id, undefined, 'https://uier.io')).context.assignee)
+            .toEqual({ name: 'Former member' });
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
     }
 });
