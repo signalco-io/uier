@@ -42,6 +42,13 @@ const items = [
         duration: 'One year'
     },
     {
+        name: 'uier_sign_in_request',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You ask for a sign-in email',
+        purpose: 'Binds the emailed code to this browser. Holds a signed request id, with no email address or code. A new request replaces it; signing in removes it.',
+        duration: 'Until the sign-in request expires, at most 15 minutes'
+    },
+    {
         name: 'uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',

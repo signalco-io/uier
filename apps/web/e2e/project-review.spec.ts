@@ -4,7 +4,7 @@ import type { Browser, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, showcaseHint, animationsFinished, dismissFirstRunHint, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { pngImage } from './support/images';
 
@@ -55,8 +55,8 @@ async function addPointComment(page: Page, text: string, { name }: { name?: stri
 }
 
 /** An owner with a project for the reviewed site, signed in on `page` */
-async function ownerWithProject(page: Page) {
-    await signIn(page, uniqueEmail('owner'));
+async function ownerWithProject(page: Page, email = uniqueEmail('owner')) {
+    await signIn(page, email);
     const projectId = await createProject(page, { urls: [siteOrigin()], name: 'Reviewed site' });
     return projectId;
 }
@@ -66,7 +66,8 @@ async function anonymousVisitor(browser: Browser, testInfo: TestInfo) {
 }
 
 test('invited people only: a review link signs members in, everyone else is asked to sign in', async ({ page, browser }, testInfo) => {
-    const projectId = await ownerWithProject(page);
+    const ownerEmail = uniqueEmail('owner');
+    const projectId = await ownerWithProject(page, ownerEmail);
 
     // Someone without access sees the toolbar ask them to sign in, and no comments
     const stranger = await anonymousVisitor(browser, testInfo);
@@ -83,6 +84,13 @@ test('invited people only: a review link signs members in, everyone else is aske
     // "Sign in" goes through the project's review link on uier (sign in, then back to the page)
     await stranger.page.getByRole('button', { name: 'Sign in' }).click();
     await expect(stranger.page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Freview%2F/);
+    const { code } = await requestSignInEmail(stranger.page, ownerEmail);
+    await stranger.page.getByLabel('Sign-in code', { exact: true }).fill(code);
+    await stranger.page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(stranger.page).toHaveURL(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+    await expect(stranger.page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0);
+    expect(strangerViolations).toEqual([]);
     await stranger.context.close();
 
     // The owner opens the review link from the app: the toolbar is signed in on the site

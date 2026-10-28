@@ -3,24 +3,32 @@ import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
 // The signed-in app against `next start` with UIER_LOCAL=1: no email is sent, so the sign-in page
-// shows the link it would have emailed ("Open the sign-in link"), and the stores are in memory.
+// shows the link and code it would have emailed, and the stores are in memory.
 
 /** A new address for every call, so tests never share a user */
 export function uniqueEmail(label = 'e2e') {
     return `${label}-${randomUUID().slice(0, 8)}@example.com`;
 }
 
-/** Signs in (creating the user on first use) and waits for the page after sign-in */
+/** Requests an email from the current sign-in page; local deployments show both credentials. */
+export async function requestSignInEmail(page: Page, email: string) {
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
+    await expect(page.getByRole('status')).toContainText(`We sent a code and a sign-in link to ${email}`);
+    const code = await page.locator('[data-sign-in-code]').textContent();
+    const link = await page.getByRole('link', { name: 'Open the sign-in link' }).getAttribute('href');
+    expect(code).toMatch(/^\d{8}$/);
+    expect(link).toMatch(/^\/app\/sign-in\/confirm\?token=/);
+    return { code: code!, link: link! };
+}
+
+/** Signs in with the browser-bound code and waits for the page after sign-in. */
 export async function signIn(page: Page, email: string, { from = '/app/sign-in' } = {}) {
     await page.goto(from);
-    await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
-    await expect(page.getByRole('status')).toContainText(`We sent a sign-in link to ${email}`);
-    await page.getByRole('link', { name: 'Open the sign-in link' }).click();
-    await expect(page.getByText(`Continue as ${email}.`)).toBeVisible();
-    await page.getByRole('button', { name: 'Continue' }).click();
-    // /app redirects again to onboarding or projects. WebKit can observe that intermediate
-    // URL before its navigation completes; starting the next goto then interrupts both.
+    const { code } = await requestSignInEmail(page, email);
+    await page.getByLabel('Sign-in code', { exact: true }).fill(code);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    // /app redirects again to onboarding or projects. Wait for the final page before a goto.
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
 }
 
