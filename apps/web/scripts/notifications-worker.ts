@@ -10,30 +10,35 @@ import { runIntegrationWorker } from '../src/lib/integrations/worker';
 if (process.env.UIER_DEPLOYMENT_ENV !== 'production' || !process.env.COSMOSDB_CONNECTION_STRING || !process.env.UIER_COMMENTS_SECRET)
     throw new Error('The notification worker requires the production deployment configuration.');
 
-if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
+const integrationsOnly = process.env.UIER_INTEGRATIONS_ONLY === '1';
+if (integrationsOnly && process.env.UIER_NOTIFICATION_RETRY_DELIVERY)
+    throw new Error('An integration-only run cannot retry an email delivery.');
 const baseUrl = configuredAppBaseUrl();
 if (!baseUrl) throw new Error('The notification worker requires a trusted application URL.');
-const comments = getCommentsStore();
-try {
-    const migration = await comments.migrateScreenshots?.();
-    console.info(`[screenshots] Migrated ${migration?.migrated ?? 0} legacy production images; ${migration?.failed ?? 0} need retry.`);
-    if (migration?.failed) process.exitCode = 1;
-} catch { console.error('[screenshots] Production migration needs retry'); process.exitCode = 1; }
-// The production worker owns both environments; preview deployments cannot access production.
-const preview = createCosmosCommentsStore(() => cosmosDataContainerComments().database.container('comments-preview'),
-    () => getScreenshotBlobStore('screenshots-preview'));
-try {
-    const previewMigration = await preview.migrateScreenshots!();
-    const previewCleanup = await preview.sweepScreenshotBlobs!(Date.now());
-    console.info(`[screenshots] Migrated ${previewMigration.migrated} legacy preview images; swept ${previewCleanup.removed} preview blobs.`);
-    if (previewMigration.failed || previewCleanup.failed) process.exitCode = 1;
-} catch { console.error('[screenshots] Preview migration/cleanup needs retry'); process.exitCode = 1; }
-const cleanup = await sweepCommentCleanup(comments);
-console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
-if (cleanup.failed) process.exitCode = 1;
-const result = await runNotificationWorker(baseUrl);
-console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
-if (result.blocked) process.exitCode = 1;
+if (!integrationsOnly) {
+    const comments = getCommentsStore();
+    try {
+        const migration = await comments.migrateScreenshots?.();
+        console.info(`[screenshots] Migrated ${migration?.migrated ?? 0} legacy production images; ${migration?.failed ?? 0} need retry.`);
+        if (migration?.failed) process.exitCode = 1;
+    } catch { console.error('[screenshots] Production migration needs retry'); process.exitCode = 1; }
+    // The production worker owns both environments; preview deployments cannot access production.
+    const preview = createCosmosCommentsStore(() => cosmosDataContainerComments().database.container('comments-preview'),
+        () => getScreenshotBlobStore('screenshots-preview'));
+    try {
+        const previewMigration = await preview.migrateScreenshots!();
+        const previewCleanup = await preview.sweepScreenshotBlobs!(Date.now());
+        console.info(`[screenshots] Migrated ${previewMigration.migrated} legacy preview images; swept ${previewCleanup.removed} preview blobs.`);
+        if (previewMigration.failed || previewCleanup.failed) process.exitCode = 1;
+    } catch { console.error('[screenshots] Preview migration/cleanup needs retry'); process.exitCode = 1; }
+    const cleanup = await sweepCommentCleanup(comments);
+    console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
+    if (cleanup.failed) process.exitCode = 1;
+    if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
+    const result = await runNotificationWorker(baseUrl);
+    console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
+    if (result.blocked) process.exitCode = 1;
+} else console.info('[notifications] Email delivery skipped for this integration-only run.');
 const integrations = await runIntegrationWorker(baseUrl);
 console.info(`[integrations] Discovered ${integrations.discovered.checked} source changes; ${integrations.discovered.deferred} deferred.`);
 for (const provider of integrations.providers)

@@ -68,6 +68,26 @@ test('GitHub installation, repository confirmation and project controls work thr
     await expect(section.getByRole('link', { name: 'Connect GitHub', exact: true })).toBeVisible();
 });
 
+test('a second project can authorize an existing installation without reopening installation setup', async ({ page, baseURL }) => {
+    await projectSettings(page, baseURL!);
+    const first = await authorize(page);
+    await first.getByRole('button', { name: 'Load repositories' }).click();
+    await first.getByRole('combobox', { name: 'Repository', exact: true }).click();
+    await page.getByRole('option', { name: 'acme/repo-1 (private)' }).click();
+    await first.getByRole('button', { name: 'Save GitHub repository' }).click();
+    await expect(first).toContainText('Sync on');
+    const secondId = await createProject(page, { urls: [`${baseURL}/brand`], name: 'Second GitHub project' });
+    await page.goto(`/app/projects/${secondId}/settings`);
+    const second = page.getByRole('region', { name: 'GitHub', exact: true });
+    await second.getByRole('link', { name: 'Use acme installation' }).click();
+    await expect(page.getByRole('heading', { name: 'Authorize the uier test app' })).toBeVisible();
+    await page.getByRole('button', { name: 'Authorize uier test app' }).click();
+    await expect(second.getByRole('button', { name: 'Load repositories' })).toBeVisible();
+    await expect(second).toContainText('Choose a repository');
+    await expect(second.getByRole('button', { name: 'Turn GitHub sync off' })).toHaveCount(0);
+    await expectNoAxeViolations(page);
+});
+
 test('GitHub callback failures do not echo authorization credentials and signed-out links have a fixed sign-in return', async ({ page, context, baseURL }) => {
     await projectSettings(page, baseURL!);
     const invalid = await page.request.get('/app/github/setup?installation_id=101&state=private-state&setup_action=install');

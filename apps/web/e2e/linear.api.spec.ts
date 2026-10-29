@@ -13,7 +13,7 @@ import type { IntegrationSync } from '../src/lib/integrations/model';
 import { linearAdapter, beginLinearConnect, finishLinearConnect, getLinearSettings, loadLinearTeams, loadLinearStates,
     saveLinearDestination, disconnectLinear, setLinearEnabled } from '../src/lib/integrations/linear';
 import { claimPk, grantId, currentLinearGrant, invalidateLinearGrant, linearAccessToken, linearConnection } from '../src/lib/integrations/linear/connection';
-import { linearGraphql, LinearApiError, withLinearRequest } from '../src/lib/integrations/linear/client';
+import { linearGraphql, LinearApiError, validLinearAsset, withLinearRequest } from '../src/lib/integrations/linear/client';
 import type { LinearConnection, LinearGrant, LinearState } from '../src/lib/integrations/linear/model';
 import { startLinearStub, type LinearStub } from './support/linearStub';
 
@@ -28,6 +28,16 @@ const test = base.extend<{ linear: LinearStub }>({ linear: async ({}, use) => {
 } });
 const old = '2026-01-01T00:00:00.000Z';
 const baseUrl = 'https://uier.io';
+
+test('Google signed upload URLs do not expand the hosts receiving Linear bearer tokens', () => {
+    const upload = 'https://storage.googleapis.com/linear-uploads/image.webp?X-Goog-Signature=test';
+    expect(validLinearAsset(upload, true)).toBe(true);
+    expect(validLinearAsset(upload)).toBe(false);
+    expect(validLinearAsset('https://storage.googleapis.com/linear-uploads/image.webp')).toBe(false);
+    expect(validLinearAsset('https://storage.googleapis.com.evil.example/image.webp', true)).toBe(false);
+    expect(validLinearAsset('http://storage.googleapis.com/image.webp', true)).toBe(false);
+    expect(validLinearAsset('https://user@storage.googleapis.com/image.webp', true)).toBe(false);
+});
 
 async function fixture(workspace?: { id: string; owner: Awaited<ReturnType<typeof findOrCreateUser>> }) {
     const id = randomUUID().replaceAll('-', '').slice(0, 12);
@@ -257,6 +267,16 @@ test('GraphQL partial success and false mutation success are not accepted, and r
     const grant = await currentLinearGrant(connection); expect(Date.parse(grant.pausedUntil!)).toBeGreaterThanOrEqual(Date.now() + 6000);
     const calls = linear.calls.length;
     await retry(f); expect(linear.calls.length).toBe(calls);
+});
+
+test('unrelated Linear input errors never authorize creating a supposedly missing issue', async ({ linear }) => {
+    const f = await fixture(); await connect(f, linear);
+    linear.fault('UierLinearIssue', 'invalid_input');
+    const result = await dispatch(f);
+    expect(result.status).not.toBe('accepted');
+    expect(result.lastCode).toBe('INPUT_ERROR');
+    expect(linear.issues.size).toBe(0);
+    expect(linear.calls.some(call => call.operation === 'UierLinearIssueCreate')).toBe(false);
 });
 
 test('a lost refresh response replays within the provider grace and stores one new encrypted generation', async ({ linear }) => {
