@@ -895,6 +895,28 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(page).toHaveTitle('Reviewed site · uier');
     await expectNoAxeViolations(page);
 
+    // The list shows open comments; Done and All show closed ones. Done and Reopen take a comment out
+    await page.goto(`/app/projects/${projectId}`);
+    const status = page.getByRole('radiogroup', { name: 'Status' });
+    await expect(status.getByRole('radio', { name: 'Open 1' })).toBeChecked();
+    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(page.getByRole('article', { name: 'Comment by Ana' })).toHaveCount(0);
+    await status.getByRole('radio', { name: 'Done 1' }).click();
+    await expect(page).toHaveURL(/status=done/);
+    const doneAna = page.getByRole('article', { name: 'Comment by Ana' });
+    await doneAna.getByRole('button', { name: 'Reopen' }).click();
+    await expect(doneAna).toHaveCount(0);
+    await expect(page.getByText('Nothing done yet')).toBeVisible();
+    await status.getByRole('radio', { name: 'Open 2' }).click();
+    const openAna = page.getByRole('article', { name: 'Comment by Ana' });
+    await openAna.getByRole('button', { name: 'Done' }).click();
+    await expect(openAna).toHaveCount(0);
+    await expect(status.getByRole('radio', { name: 'Done 1' })).toBeVisible();
+    await status.getByRole('radio', { name: 'All 2' }).click();
+    await expect(page.getByRole('article')).toHaveCount(2);
+    await expectNoAxeViolations(page);
+    await page.goto(`/app/projects/${projectId}?view=board`);
+
     // Edit (admin) and link to comment
     const anaCard = done.getByRole('article', { name: 'Comment by Ana' });
     await anaCard.getByRole('button', { name: /More actions/ }).click();

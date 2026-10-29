@@ -7,13 +7,13 @@ import { Button } from '@/src/components/ui/button';
 import { Toggle } from '@/src/components/ui/toggle';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
-import { peopleFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter } from './commentLabels';
+import { peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import type { ReactNode } from 'react';
 
 const allPages = 'all';
 
-/** View (list or board) and the people and page filters; all kept in the URL */
-export function CommentFilters({ unread, unreadCount, view, people, page, pages, environment, environments, readAction, author }: {
+/** View (list or board), the list's status and the people and page filters; all kept in the URL */
+export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, readAction, author }: {
     author?: AuthorFilter;
     readAction?: ReactNode;
     environment?: string;
@@ -21,6 +21,9 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages,
     unread: boolean;
     unreadCount: number;
     view: CommentsView;
+    status: StatusFilter;
+    /** Comments in each status with the other filters applied */
+    statusCounts: Record<StatusFilter, number>;
     people: PeopleFilter;
     page: string | undefined;
     /** Relative URLs (paths) that have comments */
@@ -51,6 +54,22 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages,
                     <SelectItem value="unknown">Source not recorded</SelectItem>
                 </SelectGroup></SelectContent>
             </Select>
+            {/* The toolbar inbox's status tabs; the board already shows Open and Done side by side */}
+            {view === 'list' && (
+                <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Status"
+                    value={status}
+                    onValueChange={(value) => value && go('status', value === 'open' ? undefined : value)}>
+                    {(Object.keys(statusFilterLabels) as StatusFilter[]).map(value => (
+                        <ToggleGroupItem key={value} value={value}>
+                            {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{statusCounts[value]}</span>
+                        </ToggleGroupItem>
+                    ))}
+                </ToggleGroup>
+            )}
             {/* The toolbar inbox's Unread chip: a blue dot and count while there is unread activity */}
             <Toggle size="sm" variant="outline" pressed={unread} onPressedChange={pressed => go('unread', pressed ? 'true' : undefined)}
                 className={cn('rounded-full px-3', !unread && 'text-muted-foreground')}>

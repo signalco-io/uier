@@ -62,7 +62,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Comments, Install and Settings.
   - Comments `/app/projects/<code>`: the guest links for every address (in guest mode, main site first) and the project's **comments**, as a
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
-    URLs). Each comment is laid out like the toolbar's thread: its state, `#number` and unread dot with the
+    URLs). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
+    counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number` and unread dot with the
     actions (Mark as read, Done or Reopen, Copy issue, Copy link and More) on top, then the assignee
     ("Unassigned", or a menu of people for those who can assign) and its source, the first and last message
     with Show all for the rest, the quiet Follow thread, Open in a connected service and Reproduction details,

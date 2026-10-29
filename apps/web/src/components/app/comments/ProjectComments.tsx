@@ -1,15 +1,16 @@
 import Link from 'next/link';
-import { MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
+import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
-import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ProjectAccess } from '../../../lib/app/model';
 import { projectAccessLabels } from '../projects/projectLabels';
+import { KnownPageLinks } from '../../../knownPages';
 import { InviteButton } from '../users/InviteDialog';
-import { CommentCard, type AssigneeOption } from './CommentCard';
+import type { AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
-import type { AuthorFilter, CommentsView, PeopleFilter } from './commentLabels';
+import { CommentList } from './CommentList';
+import type { AuthorFilter, CommentsView, PeopleFilter, StatusFilter } from './commentLabels';
 import { MarkAllRead } from './MarkAllRead';
 
 export type CommentsQuery = {
@@ -17,6 +18,8 @@ export type CommentsQuery = {
     author?: string;
     unread?: boolean;
     view: CommentsView;
+    /** Open, Done or All in the list (the board shows Open and Done side by side) */
+    status: StatusFilter;
     people: PeopleFilter;
     /** A page (relative URL) or every page */
     page?: string;
@@ -29,12 +32,14 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
         return typeof raw === 'string' ? raw : undefined;
     };
     const people = value('people');
+    const status = value('status');
     const page = value('page');
     return {
         environment: value('environment'),
         author: value('author'),
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
+        status: status === 'done' || status === 'all' ? status : 'open',
         people: people === 'assigned' || people === 'mine' ? people : 'all',
         page: page?.startsWith('/') ? page : undefined
     };
@@ -53,30 +58,7 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
     });
 }
 
-function CommentList({ projectId, comments, assignees, label, userId }: {
-    projectId: string;
-    comments: ProjectCommentView[];
-    assignees: AssigneeOption[];
-    label: string;
-    userId: string;
-}) {
-    return (
-        <ul aria-label={label} className="m-0 flex list-none flex-col gap-3 p-0">
-            {comments.map(comment => (
-                <li key={comment.id}>
-                    <CommentCard
-                        projectId={projectId}
-                        comment={comment}
-                        reviewLink={KnownPageLinks.projectReview(projectId, comment.url, comment.id)}
-                        assignees={assignees}
-                        userId={userId} />
-                </li>
-            ))}
-        </ul>
-    );
-}
-
-/** The project's comments in a list or on a board (Open / Done), filtered by people and page */
+/** The project's comments in a list (Open, Done or All) or on a board (Open / Done), filtered by people and page */
 export function ProjectComments({ projectId, access, isAdmin, comments, query, userId, assignees, installHref, environments, authorFilter }: {
     authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
@@ -123,14 +105,25 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
     );
 
     const pages = [...new Set(comments.map(comment => comment.path))].sort();
-    const shown = applyFilters(comments, query, userId);
+    const filtered = applyFilters(comments, query, userId);
+    const statusCounts: Record<StatusFilter, number> = {
+        open: filtered.filter(comment => !comment.resolved).length,
+        done: filtered.filter(comment => comment.resolved).length,
+        all: filtered.length
+    };
+    const board = query.view === 'board';
+    const shown = board || query.status === 'all'
+        ? filtered
+        : filtered.filter(comment => comment.resolved === (query.status === 'done'));
     const open = shown.filter(comment => !comment.resolved);
     const done = shown.filter(comment => comment.resolved);
+    // A new filter renders a new list, so only cards moved in later animate
+    const listKey = [query.environment, query.author, query.unread, query.people, query.page, query.status].join('|');
 
     return (
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} people={query.people} page={query.page} pages={pages}
+                <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
                     readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />} />
                 <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
                     {shown.length === comments.length
@@ -138,7 +131,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                         : `${shown.length} of ${comments.length} comments`}
                 </p>
             </div>
-            {!comments.length ? emptyState : !shown.length ? (
+            {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
@@ -148,7 +141,21 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                         <EmptyDescription>No comments match these filters.</EmptyDescription>
                     </EmptyHeader>
                 </Empty>
-            ) : query.view === 'board' ? (
+            ) : !shown.length ? (
+                <Empty className="border">
+                    <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                            {query.status === 'open' ? <CircleCheckIcon /> : <CircleDashedIcon />}
+                        </EmptyMedia>
+                        <EmptyTitle>{query.status === 'open' ? 'Nothing open' : 'Nothing done yet'}</EmptyTitle>
+                        <EmptyDescription>
+                            {query.status === 'open'
+                                ? 'Every comment here is done. Choose Done or All to see them.'
+                                : 'Comments marked as done show here.'}
+                        </EmptyDescription>
+                    </EmptyHeader>
+                </Empty>
+            ) : board ? (
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                     {[{ title: 'Open', items: open }, { title: 'Done', items: done }].map(column => (
                         <section key={column.title} aria-label={`${column.title} comments`} className="flex flex-col gap-3 rounded-2xl border bg-muted/50 p-3">
@@ -158,13 +165,14 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                                 <span className="font-normal tabular-nums text-muted-foreground">{column.items.length}</span>
                             </h3>
                             {column.items.length
-                                ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
+                                ? <CommentList key={listKey} projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
                                 : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
                         </section>
                     ))}
                 </div>
             ) : (
-                <CommentList projectId={projectId} comments={shown} assignees={assignees} userId={userId} label="Comments" />
+                <CommentList key={listKey} projectId={projectId} comments={shown} assignees={assignees} userId={userId} label="Comments"
+                    keepsResolved={query.status === 'all'} />
             )}
         </div>
     );
