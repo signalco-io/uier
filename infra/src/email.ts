@@ -15,8 +15,8 @@ import { emailReportsReady } from './emailReportsReady.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
-// #163/#174 provisioned uier.io and DNS with the Azure-managed sender unchanged.
-// Cutover stays blocked until Azure verifies all five records, including DMARC.
+// Keep the existing root domain and managed sender while preparing the transactional subdomain.
+// A separate cutover requires four supported ACS verifications plus authoritative DMARC DNS.
 export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     const emailService = new EmailService(`${prefix}-email-service`, {
         resourceGroupName: resourceGroup.name,
@@ -49,6 +49,21 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         dnsRecord(`${prefix}-email-${key.toLowerCase()}`, record.name, record.value, type, true);
     }
 
+    const transactionalDomain = new Domain(`${prefix}-email-domain-transactional`, {
+        resourceGroupName: resourceGroup.name,
+        emailServiceName: emailService.name,
+        domainName: 'notify.uier.io',
+        domainManagement: DomainManagement.CustomerManaged,
+        location: 'global',
+        userEngagementTracking: UserEngagementTracking.Disabled,
+    }, { protect: true });
+    // Authoritative preflight on 2026-10-29 found no existing SPF, DKIM or DMARC here.
+    // Qualify Azure's relative DKIM owners for the parent uier.io Cloudflare zone.
+    for (const [key, type] of [['domain', 'TXT'], ['sPF', 'TXT'], ['dKIM', 'CNAME'], ['dKIM2', 'CNAME'], ['dMARC', 'TXT']] as const) {
+        const record = transactionalDomain.verificationRecords.apply(records => emailDnsRecord(records, key, type, 'notify.uier.io'));
+        dnsRecord(`${prefix}-email-transactional-${key.toLowerCase()}`, record.name, record.value, type, true);
+    }
+
     const communicationService = new CommunicationService(`${prefix}-communication-service`, {
         resourceGroupName: resourceGroup.name,
         dataLocation: 'Europe',
@@ -68,7 +83,7 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     return {
         connectionString,
         communicationServiceId: communicationService.id,
-        // The Azure-managed sender stays active until all five custom verification states pass.
+        // Verify notify.uier.io and configure its uier display name before a separate cutover.
         senderAddress: interpolate`DoNotReply@${domain.fromSenderDomain}`,
     };
 }

@@ -172,36 +172,36 @@ observed ACS omitting these from `h=`. Our own received-message evidence remains
 
 ### Staged rollout and live evidence
 
-1. Deploy the receiver, production-only credential/topic/subscription variables, customer domain
-   and DNS with the Azure-managed sender unchanged. The first PR creates no Event Grid subscription.
-   This ordering matters: deploy.yml applies Pulumi before deploying the new website.
-2. Confirm the production endpoint rejects unauthenticated calls (401), then create the Event Grid
-   subscription in a separate PR. Filter to `Microsoft.Communication.EmailDeliveryReportReceived`,
-   Event Grid schema; deliver the secret as a secret static header. Check subscription provisioning
-   succeeded. `Microsoft.EventGrid` was read back as `Registered` on 28 October 2026.
-3. Run the main-only **Verify email domain** workflow for one-time Azure DNS verification. Only after all five
-   verification states are `Verified`, review an in-place linkedDomains update retaining the Azure
-   domain, then switch `UIER_EMAIL_SENDER` to `DoNotReply@uier.io`. Never replace the communication
-   service or its connection string.
-4. Obtain explicit permission for a recipient and send a real digest through the production worker.
-   Record the operation UUID privately and independently read the matching report receipt's
-   operation hash. Prove the report `messageId` equals the actual send operation id before enabling
-   production ledger matching. Never infer this from API examples or local tests.
-5. Inspect the received original message, recording only redacted authentication/header evidence:
-   SPF, DKIM and DMARC pass, both unsubscribe headers intact, and whether DKIM `h=` covers both.
-   Do not commit recipient addresses, body, tokens, or raw headers containing them.
+The owner selected `notify.uier.io` and display name `uier` for transactional mail on 29 October 2026.
+The earlier requirement for all five Azure verification states is superseded: Azure rejects its
+DMARC verification type, so the cutover requires four Azure verifications plus authoritative DMARC
+DNS validation. The published rejection policy remains mandatory.
 
-| Production gate | Evidence as of 28 October 2026 |
+1. Prepare a protected `notify.uier.io` domain and five DNS records through CI, retaining the root
+   domain, managed sender and existing communication-service/key configuration. No sender cutover
+   is part of preparation. Authoritative preflight on 29 October found no existing subdomain policies.
+2. Run **Verify email domain** on main after DNS deployment. Independently read Domain, SPF, DKIM
+   and DKIM2 as Verified, and require a single full DMARC rejection policy at both Cloudflare
+   authoritative servers. Do not request or wait for ACS's unsupported DMARC verification.
+3. In the separately reviewed cutover, recheck the four states and authoritative DNS, configure ACS's
+   default sender display name as `uier`, link the subdomain in place while retaining AzureManagedDomain,
+   then set `UIER_EMAIL_SENDER` to `DoNotReply@notify.uier.io`. Reject replacement or key rotation.
+4. Obtain explicit permission for a recipient and send a real digest through the production worker.
+   Independently match the report receipt's operation hash to the actual send operation before
+   enabling `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1`. Never infer correlation from local examples.
+5. Inspect the received original message for display name `uier`, SPF/DKIM/DMARC pass, intact
+   unsubscribe headers and whether DKIM h= covers them. Keep recipient/body/token/raw-header data
+   out of committed evidence.
+
+| Production gate | Evidence as of 29 October 2026 |
 | --- | --- |
-| Event Grid provider registered | Verified by Azure read-only inspection |
-| Initial SPF/DMARC preflight | Authoritative Cloudflare DNS returned neither apex SPF nor `_dmarc` TXT |
-| Receiver deployed and authenticated | #186 deployed; credential-free POST returned 401, authenticated validation returned 200 |
-| Subscription provisioning/handshake | #187 applied; independent Azure readback Succeeded, real validation callback returned 200 |
-| Real report receipt/application | Pending recipient-authorized production digest; validation writes no app data |
-| Domain/SPF/DKIM/DKIM2/DMARC verified | First four Verified; DMARC NotStarted because Azure rejects its documented verification type |
-| In-place link and sender cutover | Blocked on DMARC verification; Azure-managed sender retained |
-| Report messageId / operation id correlation | Pending recipient-authorized production digest; operation matching remains disabled |
-| SPF/DKIM/DMARC and headers at receiver | Pending recipient-authorized production digest |
+| Existing report subscription/handshake | Confirmed Succeeded and HTTP 200 on 28 October; see receipt below |
+| New subdomain DNS preflight | Both Cloudflare authorities returned no TXT/SPF, DKIM or DMARC at the new owners |
+| notify.uier.io prepared and verified | Pending staged domain/DNS deployment and four Azure checks |
+| Authoritative transactional DMARC policy | Pending deployment; required independently of ACS's DMARC state |
+| Sender identity and in-place link | Pending; Azure-managed sender remains active during preparation |
+| Real report receipt/message-id correlation | Pending recipient-authorized production digest; matching remains disabled |
+| Received-message authentication, display name and headers | Pending recipient-authorized production digest |
 | DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
 
 Local coverage includes `emailReports.api.spec.ts` (auth, expected handshake, duplicates, write
@@ -210,6 +210,11 @@ retry preservation), `notifications.api.spec.ts` (bounce, failed reads, one-clic
 capabilities), `users.spec.ts` (admin notice) and `app.spec.ts` (requested sign-in clears suppression).
 Issue #132 remains open until the production gates are resolved.
 
+
+### Historical rollout evidence
+
+The following records describe the earlier root-domain and five-state plan, before the owner
+selected the transactional subdomain and revised verification gate on 29 October.
 
 The first #163 deployment stopped before Vercel deployment because Azure's live 2026-03-18 custom
 Domain response supplied Domain/SPF/DKIM/DKIM2 records but omitted DMARC (its state was `NotStarted`).
