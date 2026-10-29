@@ -259,6 +259,12 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
   light tabs and white in dark through a `prefers-color-scheme` rule in `assets/favicon.svg`.
   PNG fallbacks come from `pnpm -C packages/brand icons`.
 - Manifest and browser UI colour: `#FFFFFF` light, `#000000` dark.
+- Email (`apps/web/src/lib/email/templates.ts`): a paper card (radius 16, 1 px Ink 200 border) on
+  an Ink 100 page, the app icon at 32 px, an h3 heading, body text in Ink 700, one solid ink
+  button and the small print under a hairline. A sign-in code is Geist Mono in a muted box.
+  Dark mode follows the app: black page, Surface card, `#262626` borders, a white button, blue
+  links in `#7A9BFF`. Clients that recolour emails themselves get ink on paper, which inverts
+  cleanly. No web fonts and no tracking: the icon is the only image.
 
 ## Changing the brand
 

@@ -144,7 +144,7 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
         }
     }
     const content = digestContent(project, comment, delivery.actorId, batch, await participantNames(project));
-    return { ...layoutEmail({ to: context.email!, subject: content.subject,
+    return { ...layoutEmail({ to: context.email!, subject: content.subject, heading: content.title,
         paragraphs: [...content.lines,
             source.available ? 'Open the thread to read the latest feedback, replies and status changes.' : 'The original site address is unavailable. Project members can read the feedback in the app history.'],
         action: { label: source.available ? 'Open thread' : delivery.userId ? 'Open feedback history' : 'Manage notifications', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
