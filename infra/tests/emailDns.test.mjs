@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { emailDnsRecord } from '../dist/emailDns.js';
+import { emailDnsRecord, emailRoutingSpf } from '../dist/emailDns.js';
+
+test('root forwarding SPF retains the sender authorization and failure policy in one record', () => {
+    const existing = 'v=spf1 include:spf.protection.outlook.com -all';
+    const merged = 'v=spf1 include:spf.protection.outlook.com include:_spf.mx.cloudflare.net -all';
+    assert.equal(emailRoutingSpf(existing), merged);
+    assert.equal(emailRoutingSpf(merged), merged);
+    assert.equal(emailRoutingSpf(existing.replace('-all', '~all')), merged.replace('-all', '~all'));
+    for (const invalid of ['', 'v=spf1 include:spf.protection.outlook.com', 'v=spf1 +all'])
+        assert.throws(() => emailRoutingSpf(invalid), /Expected an ACS SPF policy/);
+});
 
 test('live ACS omission of DMARC uses the explicit domain policy; supplied records remain authoritative', () => {
     assert.deepEqual(emailDnsRecord({}, 'dMARC', 'TXT'), { name: '_dmarc.uier.io', type: 'TXT', value: 'v=DMARC1; p=reject' });
