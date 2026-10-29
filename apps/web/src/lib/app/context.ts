@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { cookieName, cookieNames, readMigratingCookie } from '../cookieNames';
 import { KnownPages } from '../../knownPages';
 import { getSessionUser } from './session';
 import { ensureOwnWorkspace, getWorkspace, listUserMemberships, ownWorkspaceId } from './workspaces';
@@ -8,7 +9,7 @@ import { ensurePublicProject, joinPublicProject, PUBLIC_WORKSPACE_ID } from '../
 import type { DbMember, DbUser, DbWorkspace } from './model';
 import { publicProjectMember } from '../comments/publicProjectPolicy';
 
-export const WORKSPACE_COOKIE_NAME = 'uier_workspace';
+export const WORKSPACE_COOKIE_NAME = cookieName(cookieNames.workspace);
 
 export type Membership = {
     member: DbMember;
@@ -59,7 +60,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     if (!memberships.length)
         return null;
 
-    const selectedId = (await cookies()).get(WORKSPACE_COOKIE_NAME)?.value;
+    const selectedId = readMigratingCookie(await cookies(), cookieNames.workspace);
     const current = memberships.find(m => m.workspace.id === selectedId)
         ?? memberships.find(m => m.workspace.id === ownWorkspaceId(user.id))
         ?? memberships.find(m => m.workspace.id !== PUBLIC_WORKSPACE_ID)

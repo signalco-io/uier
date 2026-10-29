@@ -69,6 +69,8 @@ export default defineConfig({
                 COSMOSDB_ENDPOINT: '',
                 // Locally BotID treats every request as human unless this simulates another verdict
                 UIER_BOTID_DEV_BYPASS: '',
+                // Exercise rewrite headers without calling the real BotID service. The stub serves fixed challenge/proxy fixtures.
+                OVERRIDE_BOTID_SERVER_URL: anthropicStubUrl,
                 // Rewrite suggestions go to the stub above, never to the real API
                 ANTHROPIC_API_KEY: anthropicStubApiKey,
                 ANTHROPIC_BASE_URL: anthropicStubUrl,

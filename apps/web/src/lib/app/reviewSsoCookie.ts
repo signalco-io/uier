@@ -1,8 +1,9 @@
+import { cookieNames } from '../cookieNames';
 import { signToken, verifyToken } from './tokens';
 
 // A separate purpose and cookie keep the app's SameSite=Lax session out of cross-site frames.
 // This credential can only obtain project review access; app routes never accept it.
-export const REVIEW_SSO_COOKIE_NAME = 'uier_review_sso';
+export const REVIEW_SSO_COOKIE_NAME = cookieNames.reviewSso.name;
 export const reviewSsoCookieOptions = {
     httpOnly: true, secure: true, sameSite: 'none' as const, path: '/api/review'
 };

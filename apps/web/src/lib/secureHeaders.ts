@@ -16,7 +16,7 @@ export type SecureHeadersExternalUrls = {
 };
 
 export const knownSecureHeadersExternalUrls = {
-    vercel: {
+    vercelToolbar: {
         imgSrc: ['https://vercel.com', 'https://vercel.live', 'https://sockjs-mt1.pusher.com', 'data: blob:'],
         scriptSrc: ['https://vercel.live', 'https://vitals.vercel-insights.com', 'https://*.vercel-scripts.com'],
         connectSrc: ['https://vercel.live', 'https://vercel.com', 'https://vitals.vercel-insights.com', 'https://*.vercel-scripts.com', 'https://sockjs-mt1.pusher.com', 'wss://ws-mt1.pusher.com'],
@@ -24,11 +24,25 @@ export const knownSecureHeadersExternalUrls = {
     }
 } satisfies Record<string, SecureHeadersExternalUrls>;
 
+export const permissionsPolicy = 'camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()';
+
+/** Production analytics 2.0.1 loads /_vercel/insights/script.js and posts to this origin. */
+export function siteExternalUrls(isDevelopment: boolean, isPreview: boolean): SecureHeadersExternalUrls[] {
+    return [
+        ...(isPreview ? [knownSecureHeadersExternalUrls.vercelToolbar] : []),
+        ...(isDevelopment ? [{
+            scriptSrc: ['http://localhost:4005', 'https://va.vercel-scripts.com'],
+            styleSrc: ['http://localhost:4005'], connectSrc: ['http://localhost:4005']
+        }] : [])
+    ];
+}
+
 export function combineSecureHeaders(
     baseDomains: string[],
     allowSubdomains: boolean,
     isDevelopment: boolean,
     externalUrls: SecureHeadersExternalUrls[],
+    nonce?: string,
 ): SecureHeadersOptions {
     const baseSubdomains = allowSubdomains
         ? baseDomains.map(bd => `*.${bd.split('.').slice(-2).join('.')}`)
@@ -40,7 +54,7 @@ export function combineSecureHeaders(
         contentSecurityPolicy: {
             directives: {
                 defaultSrc: '\'self\'',
-                scriptSrc: ['\'self\'', ...external('scriptSrc'), '\'unsafe-inline\'', ...(isDevelopment ? ['\'unsafe-eval\''] : [])],
+                scriptSrc: ['\'self\'', ...external('scriptSrc'), ...(nonce ? [`'nonce-${nonce}'`, "'strict-dynamic'"] : ["'unsafe-inline'"]), ...(isDevelopment ? ['\'unsafe-eval\''] : [])],
                 objectSrc: '\'none\'',
                 styleSrc: ['\'self\'', ...external('styleSrc'), '\'unsafe-inline\''],
                 fontSrc: ['\'self\'', ...external('fontSrc'), '\'self\' data:'],
@@ -52,12 +66,12 @@ export function combineSecureHeaders(
                 imgSrc: ['\'self\'', 'data:', 'blob:', ...baseSubdomains, ...external('imgSrc')],
                 formAction: '\'self\'',
                 connectSrc: ['\'self\'', ...baseSubdomains, ...external('connectSrc')],
-                baseURI: baseDomains,
+                baseURI: "'self'",
                 'frame-ancestors': frameAncestors.length ? frameAncestors : '\'none\''
             }
         },
-        xssProtection: 'block-rendering',
-        forceHTTPSRedirect: [true, { maxAge: 60 * 60 * 24 * 4, includeSubDomains: allowSubdomains }],
+        xssProtection: false,
+        forceHTTPSRedirect: [true, { maxAge: 31536000, includeSubDomains: true }],
         referrerPolicy: 'same-origin'
     };
 }

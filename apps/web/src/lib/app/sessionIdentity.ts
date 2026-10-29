@@ -1,7 +1,8 @@
+import { cookieName, cookieNames, readMigratingCookie } from '../cookieNames';
 import { verifyToken } from './tokens';
 import { getUser } from './users';
 
-export const SESSION_COOKIE_NAME = 'uier_session';
+export const SESSION_COOKIE_NAME = cookieName(cookieNames.session);
 
 /** Shared verification for Next.js cookie state and same-origin Request handlers. */
 export async function sessionUser(token: string | undefined) {
@@ -11,8 +12,10 @@ export async function sessionUser(token: string | undefined) {
 }
 
 export function requestSessionUser(request: Request) {
-    const value = request.headers.get('cookie')?.split(';')
-        .map(cookie => cookie.trim()).find(cookie => cookie.startsWith(`${SESSION_COOKIE_NAME}=`))
-        ?.slice(SESSION_COOKIE_NAME.length + 1);
+    const parts = request.headers.get('cookie')?.split(';').map(cookie => cookie.trim()) ?? [];
+    const value = readMigratingCookie({ get: name => {
+        const cookie = parts.find(part => part.startsWith(`${name}=`));
+        return cookie === undefined ? undefined : { value: cookie.slice(name.length + 1) };
+    } }, cookieNames.session);
     return sessionUser(value);
 }

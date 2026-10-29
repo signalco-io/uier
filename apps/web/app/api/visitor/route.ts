@@ -1,7 +1,7 @@
 import { keyedHash } from '../../../src/lib/comments/environment';
 import type { VisitorDto } from '../../../src/lib/comments/dto';
 import { commentsApiHandler } from '../../../src/lib/comments/http';
-import { displayName, expiredVisitorCookie } from '../../../src/lib/comments/visitor';
+import { displayName, expiredVisitorCookies } from '../../../src/lib/comments/visitor';
 
 import { isPrivateAppFeedback } from '../../../src/lib/comments/publicProject';
 
@@ -15,7 +15,8 @@ export const GET = commentsApiHandler(async ({ visitor, request, domain }) => Re
 
 // DELETE /api/visitor - signs out: removes the visitor cookie from this browser. The comments
 // stay; this browser can no longer resolve or delete them. Never creates an identity.
-export const DELETE = commentsApiHandler(async ({ request }) => new Response(null, {
-    status: 204,
-    headers: { 'Set-Cookie': expiredVisitorCookie(request) }
-}), { createVisitor: false });
+export const DELETE = commentsApiHandler(async ({ request }) => {
+    const headers = new Headers();
+    for (const value of expiredVisitorCookies(request)) headers.append('Set-Cookie', value);
+    return new Response(null, { status: 204, headers });
+}, { createVisitor: false });

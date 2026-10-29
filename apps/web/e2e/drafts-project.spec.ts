@@ -46,7 +46,7 @@ test('authorized reviewer, project and canonical query/hash scopes survive SPA n
     await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Member view A');
     // Remove the authorized member token without signing out, to prove a guest cannot read member drafts.
     await page.evaluate(project => localStorage.removeItem(`uier:review-token:${project}`), project);
-    await page.context().clearCookies({ name: 'uier_review_sso' });
+    await page.context().clearCookies({ name: '__Secure-uier_review_sso' });
     await page.reload();
     await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(0);

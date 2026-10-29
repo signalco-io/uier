@@ -16,11 +16,11 @@ export const metadata: Metadata = {
 const controls = [
     {
         title: 'Encrypted in transit',
-        text: `${brand.domain} is served over HTTPS only, with HTTP Strict Transport Security, so browsers never fall back to plain HTTP.`
+        text: `${brand.domain} is served over HTTPS. After an HTTPS visit, HTTP Strict Transport Security tells browsers to use HTTPS for this domain and its subdomains for one year. The first visit still relies on reaching HTTPS.`
     },
     {
         title: 'Locked-down pages',
-        text: 'A Content Security Policy limits where scripts and connections can go. Only the empty browser verification and background sign-in pages can be framed. Browsers do not guess content types.'
+        text: 'App pages allow scripts through a fresh request nonce. Public pages keep an origin-based Content Security Policy that allows inline scripts. Only the exact browser verification and background sign-in paths allow framing by other sites; BotID resources allow same-origin framing. Unused browser capabilities are disabled, and browsers do not guess content types.'
     },
     {
         title: 'Anonymous identity',

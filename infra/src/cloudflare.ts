@@ -20,3 +20,14 @@ export function dnsRecord(name: string, dnsName: Input<string>, value: Input<str
         aliases: [{ type: 'cloudflare:index/record:Record' }],
     });
 }
+
+/** Cloudflare 6.x CAA records use structured data, never the content field. */
+export function caaRecord(name: string, dnsName: Input<string>, issuer: string) {
+    return new DnsRecord(name, {
+        name: dnsName,
+        zoneId: new Config().requireSecret('zoneid'),
+        type: 'CAA',
+        data: { flags: 0, tag: 'issue', value: issuer },
+        ttl: 1,
+    }, { protect: true });
+}

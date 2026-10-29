@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
+import { cookieNames, readMigratingCookie } from '../cookieNames';
 import { isLocalRuntime } from '../comments/environment';
 import { signToken } from './tokens';
 import { SESSION_COOKIE_NAME, sessionUser } from './sessionIdentity';
@@ -28,16 +29,21 @@ export async function startSession(userId: string) {
     const token = signToken<SessionPayload>('session', { uid: userId }, SESSION_TTL_SECONDS);
     jar.set(SESSION_COOKIE_NAME, token, appCookieOptions(SESSION_TTL_SECONDS));
     jar.set(SIGN_IN_REQUEST_COOKIE_NAME, '', appCookieOptions(0));
+    if (SIGN_IN_REQUEST_COOKIE_NAME !== cookieNames.signInRequest.legacy)
+        jar.set(cookieNames.signInRequest.legacy, '', appCookieOptions(0));
     const companion = reviewSsoCookie(token);
     if (companion) jar.set(companion);
 }
 
 export async function endSession() {
-    (await cookies()).delete(SESSION_COOKIE_NAME);
-    (await cookies()).set(REVIEW_SSO_COOKIE_NAME, '', { ...reviewSsoCookieOptions, maxAge: 0 });
+    const jar = await cookies();
+    for (const name of new Set([SESSION_COOKIE_NAME, cookieNames.session.legacy]))
+        jar.set(name, '', appCookieOptions(0));
+    for (const name of [REVIEW_SSO_COOKIE_NAME, cookieNames.reviewSso.legacy])
+        jar.set(name, '', { ...reviewSsoCookieOptions, maxAge: 0 });
 }
 
 /** The signed-in user, or `null` (an invalid, expired or orphaned session counts as signed out) */
 export const getSessionUser = cache(async () => {
-    return sessionUser((await cookies()).get(SESSION_COOKIE_NAME)?.value);
+    return sessionUser(readMigratingCookie(await cookies(), cookieNames.session));
 });

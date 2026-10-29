@@ -363,14 +363,14 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     await expect(thumbnail).toBeFocused();
 });
 
-test('strict style CSP supports point mode, text highlights, inline threads, inbox and capture', async ({ page, browser, request }, testInfo) => {
+test('strict style CSP supports point mode, text highlights, inline threads, inbox and capture', async ({ page, browser, request, baseURL }, testInfo) => {
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');
     const guest = await anonymousVisitor(browser, testInfo);
     const violations = await watchCsp(guest.page);
     const response = await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?review=true`);
     const policy = response!.headers()['content-security-policy'];
-    expect(policy).toContain("style-src 'self' https://fonts.googleapis.com");
+    expect(policy).toContain(`style-src 'self' ${new URL(baseURL!).origin}`);
     expect(policy).not.toContain('unsafe-inline');
     await dismissFirstRunHint(guest.page);
     await addPointComment(guest.page, 'Point under a strict style policy.', { name: 'Strict reviewer' });

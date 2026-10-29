@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { cookieName, cookieNames, readMigratingCookie } from '../cookieNames';
 import { isLocalRuntime, keyedHash } from './environment';
-import { VISITOR_COOKIE_MAX_AGE_SECONDS, VISITOR_COOKIE_NAME, VISITOR_TOKEN_BYTES } from './limits';
+import { VISITOR_COOKIE_MAX_AGE_SECONDS, VISITOR_TOKEN_BYTES } from './limits';
 
 export type Visitor = {
     /** Account name for a signed-in reviewer on uier's own public project. */
@@ -57,9 +58,9 @@ function shouldUseSecureCookie(request: Request) {
     return !(protocol === 'http' && isLoopbackHostname(hostname));
 }
 
-function serializeVisitorCookie(token: string, secure: boolean, maxAgeSeconds = VISITOR_COOKIE_MAX_AGE_SECONDS) {
+function serializeVisitorCookie(token: string, secure: boolean, maxAgeSeconds = VISITOR_COOKIE_MAX_AGE_SECONDS, name = cookieName(cookieNames.visitor, secure)) {
     return [
-        `${VISITOR_COOKIE_NAME}=${token}`,
+        `${name}=${token}`,
         'Path=/',
         `Max-Age=${maxAgeSeconds}`,
         'HttpOnly',
@@ -69,19 +70,28 @@ function serializeVisitorCookie(token: string, secure: boolean, maxAgeSeconds = 
 }
 
 /** `Set-Cookie` value that removes the visitor cookie from the browser (signing out) */
-export function expiredVisitorCookie(request: Request) {
-    return serializeVisitorCookie('', shouldUseSecureCookie(request), 0);
+export function expiredVisitorCookies(request: Request) {
+    const secure = shouldUseSecureCookie(request);
+    return [...new Set([cookieName(cookieNames.visitor, secure), cookieNames.visitor.legacy])]
+        .map(name => serializeVisitorCookie('', secure, 0, name));
 }
 
 /**
- * Resolves the anonymous visitor from the `uier_visitor` cookie. A new identity is created only
+ * Resolves the anonymous visitor from the `__Host-uier_visitor` cookie. A new identity is created only
  * for writes (`createIfMissing`), including explicit Mark as read actions. GETs and anonymous
  * thread opening do not create one; the toolbar skips automatic reads without an identity.
  */
 export function resolveVisitor(request: Request, createIfMissing: boolean): Visitor {
-    const token = readCookie(request, VISITOR_COOKIE_NAME);
+    const secure = shouldUseSecureCookie(request);
+    const token = readMigratingCookie({ get: name => {
+        const value = readCookie(request, name);
+        return value === undefined ? undefined : { value };
+    } }, cookieNames.visitor, secure);
     if (token && tokenPattern.test(token))
-        return { authorId: sha256Hex(token), hasCookie: true };
+        return { authorId: sha256Hex(token), hasCookie: true,
+            ...(createIfMissing && !readCookie(request, cookieName(cookieNames.visitor, secure))
+                ? { setCookie: serializeVisitorCookie(token, secure) } : {})
+        };
 
     const supplied = request.headers.get('x-uier-visitor');
     if (supplied && tokenPattern.test(supplied)) return {
