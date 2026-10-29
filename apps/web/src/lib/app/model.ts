@@ -53,9 +53,32 @@ export type DbWorkspace = AppDoc & {
     name: string;
     createdBy: string;
     createdAt: string;
+    /** Serializes member removals through a conditional workspace/member transaction. */
+    memberRemovalVersion?: number;
+    /** Serializes workspace access mutations in conditional transactions. */
+    accessRevision?: number;
 };
 
 export type MemberRole = 'admin' | 'commenter';
+export type MemberRelationship = 'internal' | 'external';
+
+export type DbTeam = AppDoc & {
+    type: 'team'; workspaceId: string; name: string; nameKey: string;
+    description?: string;
+    state: 'active' | 'archived' | 'deleted';
+    invitationGeneration?: number;
+    projectIds: string[];
+    createdBy: string; createdAt: string; updatedBy: string; updatedAt: string;
+    archivedAt?: string;
+};
+export type DbTeamName = AppDoc & { type: 'team-name'; workspaceId: string; teamId: string };
+/** Revocation generations for invitation recipients and issuing admins. */
+export type DbAccessGeneration = AppDoc & { type: 'access-generation'; generation: number };
+export type DbAccessEvent = AppDoc & {
+    type: 'access-event'; workspaceId: string; actorId: string; at: string;
+    action: string; targetIds: string[];
+    before: Record<string, unknown>; after: Record<string, unknown>; ttl: number;
+};
 
 /** Projects a member can review: every project of the workspace, or the listed ones */
 export type ProjectsAccess = 'all' | string[];
@@ -72,6 +95,8 @@ export type DbMember = AppDoc & {
     role: MemberRole;
     /** Admins always have every project */
     projects: ProjectsAccess;
+    teamIds?: string[];
+    relationship?: MemberRelationship;
     createdAt: string;
 };
 
@@ -133,6 +158,11 @@ export type DbInvitation = AppDoc & {
     email: string;
     role: MemberRole;
     projects: ProjectsAccess;
+    teamIds?: string[];
+    relationship?: MemberRelationship;
+    recipientGeneration?: number;
+    issuerGeneration?: number;
+    teamGenerations?: Record<string, number>;
     /** The project to open after accepting (the invitation was made from a project) */
     projectId?: string;
     invitedBy: string;

@@ -21,6 +21,8 @@ import {
 } from '../../../lib/app/projects';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { configuredEnvironments } from '../../../lib/app/environments';
+import { parseActionInput } from '../../../lib/app/validation';
+import { projectStatusActionSchema } from './actionSchemas';
 
 const environmentSchema = z.array(z.object({
     origin: z.string().max(512),
@@ -111,7 +113,8 @@ export async function updateProjectAccessAction(_: ActionState, formData: FormDa
 
 export async function setProjectStatusAction(projectId: string, status: ProjectStatus): Promise<ActionState> {
     return await actionResult(async () => {
-        await saveProject(projectId, { status: status === 'done' ? 'done' : 'active' });
+        const input = parseActionInput(projectStatusActionSchema, { projectId, status });
+        await saveProject(input.projectId, { status: input.status });
     });
 }
 

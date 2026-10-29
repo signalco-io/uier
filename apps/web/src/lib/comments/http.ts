@@ -3,6 +3,9 @@ import { MAX_BODY_BYTES } from './limits';
 import { describeValidationError } from './validation';
 import { resolveVisitor, type Visitor } from './visitor';
 import { ensurePublicProject, PUBLIC_PROJECT_PARTITION, usesPublicProject } from './publicProject';
+import { getProject } from '../app/projects';
+import { assertCanUseComments, memberActor, type ProjectActor } from '../review/actor';
+import { requestSessionUser } from '../app/sessionIdentity';
 
 export type ApiErrorCode =
     | 'invalid_request'
@@ -201,13 +204,17 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
             if (write)
                 assertSameOrigin(request, domain);
             const publicProject = usesPublicProject(domain);
-            if (publicProject)
-                await ensurePublicProject();
-            // Request-scoped Next.js APIs are loaded only when handling an actual public request.
-            const user = publicProject ? await (await import('../app/session')).getSessionUser() : null;
-            visitor = user
+            const provisioned = publicProject ? await ensurePublicProject() : null;
+            // Provisioning is cached; access settings must always come from the current document.
+            const project = provisioned ? await getProject(provisioned.workspaceId, provisioned.id) : null;
+            if (publicProject && !project) throw apiErrors.notFound('Project not found.');
+            const user = publicProject ? await requestSessionUser(request) : null;
+            const member = user && project ? await memberActor(project, user.id) : null;
+            visitor = user && member
                 ? { authorId: `user:${user.id}`, name: user.name, member: true }
                 : resolveVisitor(request, write && createVisitor);
+            const actor: ProjectActor = member ?? (visitor.authorId ? { kind: 'guest', visitorId: visitor.authorId } : { kind: 'anonymous' });
+            if (project) assertCanUseComments(project, actor);
             response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor }, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);

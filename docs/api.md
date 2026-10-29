@@ -27,10 +27,16 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
   only the same-origin background handoff uses its separate cookie inside the uier frame.
 - **Who can comment** is enforced here: `403 comments_disabled` when comments are off, `401
   sign_in_required` for anyone but members when the project is for invited people.
+  The same-origin showcase `/api/comments` reads the public project's current access setting
+  and enforces the same rule, using its signed-in account or guest identity. Its private feedback
+  remains author-only, including `/app` threads without a stored private flag; activity counts and
+  single/bulk read receipts use the same visibility as listing.
 - **CORS**: only the project's own site addresses get `Access-Control-Allow-Origin` (no credentials);
   requests from any other origin get `403`.
 - **Permissions**: members mark any comment done, the author and the workspace admins delete it, private
   comments are listed only to admins and their author. Comments carry `permissions` and `canDelete`.
+  Assignee ids and mention ids use `^u_[A-Za-z0-9_-]{1,64}$`; malformed assignment ids return
+  `400 invalid_request` before any participant lookup.
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
   the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.
   Current project members get 100 new comments and 300 replies per project per hour, without the
@@ -65,6 +71,13 @@ work and never appears in comment lists or DTOs. See [the shared delivery contra
 Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
 (`UIER_BASE_URL` overrides both); never the request's Host header.
+
+App server actions validate positional arguments before use as well as checking the session and role.
+Boolean settings are also validated by the services that persist them. Member removal compares the
+loaded user id, then atomically updates the workspace removal version and deletes the versioned
+member; concurrent removals recheck the admin count. A removed membership is never restored.
+Sign-in return paths are rebuilt with `new URL()` against a fixed origin, restricted to `/app`
+and its descendants, and reject dot segments (including encoded forms), backslashes and controls.
 
 ### Public project identifiers
 
@@ -124,7 +137,28 @@ an `ETag`). The URL is not versioned, so it is cached briefly and never `immutab
   `304` while the bundle is unchanged. A release reaches every visitor within 5 minutes of the deploy
   (other shared caches on the way may keep it for up to an hour).
 
-Every reviewed site always runs the latest toolbar; there are no pinned versions yet.
+The default embed follows new releases. **Pin this version** in the install guide instead provides
+HTML and Next.js snippets with `/toolbar/<sha256>.js`, `integrity="sha384-..."` and
+`crossorigin="anonymous"` (`crossOrigin` in JSX). These content-addressed files use
+`Cache-Control: public, max-age=31536000, immutable` and `Access-Control-Allow-Origin: *`.
+The SHA-256 path and SHA-384 integrity value are generated from the final CSS-inlined bytes by
+the toolbar build (`@uier/toolbar/bundle`). `copy-toolbar.mjs` publishes identical bytes at the
+default and pinned paths, plus a no-store `/toolbar/manifest.json` archive index.
+
+Pinned production bundles remain available and compatible with the review API for one year after
+their last release as the current version. They get fixes only when the site updates its snippet.
+This support window is independent of a browser's cache lifetime. Production builds fetch the
+previous manifest and supported bundles from uier.io, verify every SHA-256, and carry them forward
+before deployment, forcing build tasks so cached outputs cannot restore an older archive; expired
+files are pruned. Missing bundles, invalid manifests, size limits and
+fetch/hash failures fail the build. A manifest 404 bootstraps the first release. Previews also carry
+the production archive, but preview/local pins belong to their own deployment. For a rollback,
+rebuild the chosen revision with the current archive; promoting an old deployment can lose pins
+published after it. See [operations](operations.md#pinned-toolbar-bundles).
+
+The toolbar and its inline threads use a shared constructed stylesheet inside their shadow roots.
+The reviewed site's `style-src` needs no inline-style exception or nonce. The install guide lists
+the script/API/frame origin, data images and optional Google Fonts sources separately.
 
 **On other sites** the toolbar needs a project: with the project's script tag (`data-uier-project`, from the
 app's install guide) it uses the [review API](#review-api-a-projects-toolbar), which answers CORS for the

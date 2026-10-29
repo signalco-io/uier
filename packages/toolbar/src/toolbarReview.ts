@@ -1,4 +1,5 @@
 import { toolbarConfig } from './config';
+import { getToolbarHost } from './mount';
 
 export const toolbarAnchorPrefix = '#uier-toolbar>>>';
 export const toolbarReviewSurfaces = '#uier-feedback-toolbar,#uier-panel-inbox';
@@ -12,7 +13,7 @@ export function canReviewToolbar() {
 export function toolbarReviewTarget(node: Node | null | undefined): Element | null {
     const element = node instanceof Element ? node : node?.parentElement;
     const root = element?.getRootNode();
-    if (!canReviewToolbar() || !(root instanceof ShadowRoot) || root.host.id !== 'uier-toolbar'
+    if (!canReviewToolbar() || !(root instanceof ShadowRoot) || root.host !== getToolbarHost()
         || !element?.closest(toolbarReviewSurfaces)) return null;
     // An icon is part of its control, rather than a useful separate anchor.
     return element.closest('button,a,input,textarea,select') ?? element;
@@ -24,7 +25,7 @@ export function queryAnchorElements(selector: string | undefined): Element[] {
     try {
         if (selector.startsWith(toolbarAnchorPrefix)) {
             if (!canReviewToolbar()) return [];
-            const root = document.getElementById('uier-toolbar')?.shadowRoot;
+            const root = getToolbarHost()?.shadowRoot;
             return [...root?.querySelectorAll(selector.slice(toolbarAnchorPrefix.length)) ?? []]
                 .filter(element => toolbarReviewTarget(element));
         }

@@ -1,5 +1,7 @@
 import { queueThreadCleanup } from '../comments/cleanup';
 import { syncTombstone, withSyncMark } from '../integrations/syncSignal';
+import { z } from 'zod';
+import { userIdSchema } from '../app/validation';
 import { reattachAnchor } from '../comments/reattachAnchor';
 import type { ReattachAnchorInput } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
@@ -23,7 +25,7 @@ import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/vi
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
-import { actorAuthorId, memberActor, assertWriter, type ProjectActor } from './actor';
+import { actorAuthorId, memberActor, refreshMutationActor, assertWriter, type ProjectActor } from './actor';
 import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
@@ -126,16 +128,19 @@ async function getStoredComment(store: CommentsStore, partition: string, id: str
 /** Read-modify-write with optimistic concurrency; `update` returns `null` to delete the comment */
 async function updateComment<T extends DbComment | null>(
     store: CommentsStore,
-    partition: string,
+    project: DbProject,
+    actor: ProjectActor,
     id: string,
     update: (comment: DbComment) => T | Promise<T>,
     onDelete?: (comment: DbComment, etag: string) => Promise<ConditionalWriteResult>
 ): Promise<T> {
+    const partition = projectPartition(project.id);
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
         const stored = await getStoredComment(store, partition, id);
         if (!stored)
             throw apiErrors.notFound();
 
+        await refreshMutationActor(project, actor);
         const updated = await update({ ...stored.comment, activity: threadActivity(stored.comment) });
         const result = updated
             ? await store.replace(updated, stored.etag)
@@ -234,6 +239,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
+    await refreshMutationActor(project, actor);
     if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
     await createWithScreenshot(store, recorded, screenshot);
     return recorded;
@@ -253,7 +259,8 @@ export async function getProjectScreenshot(project: DbProject, actor: ProjectAct
 export async function replaceProjectScreenshot(project: DbProject, actor: ProjectActor, id: string,
     input: { screenshot: ParsedScreenshot; expectedRevision: string | null }) {
     assertWriter(actor);
-    return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, input, comment => {
+    return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, input, async comment => {
+        await refreshMutationActor(project, actor);
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can replace this screenshot.');
     }, (previous, updated) => withSyncMark(project, previous, updated));
@@ -293,11 +300,11 @@ export async function replyToProjectComment(request: Request, project: DbProject
         ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
         mentions: input.mentions, createdAt: now
-    }, comment => visibleOrThrow(comment, actor), async (previous, updated) => {
+    }, async comment => { await refreshMutationActor(project, actor); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
         return withSyncMark(project, previous, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
     });
-    return await updateComment(store, partition, id, async comment => {
+    return await updateComment(store, project, actor, id, async comment => {
         visibleOrThrow(comment, actor);
         const items = threadItems(comment);
         if (items.length >= MAX_THREAD_ITEMS)
@@ -314,21 +321,23 @@ export async function replyToProjectComment(request: Request, project: DbProject
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
 async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission) {
-    const authorize = (comment: DbComment) => {
+    const authorize = async (comment: DbComment) => {
+        await refreshMutationActor(project, actor);
         visibleOrThrow(comment, actor);
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
     };
     const apply = async (comment: DbComment) => {
-        authorize(comment);
+        await authorize(comment);
         const changed = await change(comment);
         return changed === comment ? comment : withSyncMark(project, comment, { ...changed, updatedAt: nowIso() });
     };
     if (attempt) return commitChangeSubmission(getCommentsStore(), attempt, id, authorize, apply);
-    return await updateComment(getCommentsStore(), projectPartition(project.id), id, apply);
+    return await updateComment(getCommentsStore(), project, actor, id, apply);
 }
 
 export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean, idempotencyKey?: string) {
+    resolved = z.boolean().parse(resolved);
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
         comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
@@ -337,6 +346,7 @@ export async function setProjectCommentResolved(project: DbProject, actor: Proje
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
+    isPrivate = z.boolean().parse(isPrivate);
     return await changeComment(project, actor, id,
         () => canMakeCommentPrivate(actor),
         async comment => {
@@ -352,6 +362,9 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
 
 /** One assignment service for the app and toolbar; access is always checked here. */
 export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null, idempotencyKey?: string) {
+    const parsed = userIdSchema.nullable().safeParse(assigneeId);
+    if (!parsed.success) throw apiErrors.invalidRequest('Choose a valid user id.');
+    assigneeId = parsed.data;
     return await changeComment(project, actor, id,
         () => actor.kind === 'member',
         async (comment) => {
@@ -404,7 +417,7 @@ export async function removeProjectComment(project: DbProject, actor: ProjectAct
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     let hadScreenshot = false;
-    await updateComment(store, partition, id, (comment) => {
+    await updateComment(store, project, actor, id, (comment) => {
         visibleOrThrow(comment, actor);
         if (!canDeleteComment(comment, actor))
             throw apiErrors.forbidden('Only the author or an admin can delete this comment.');
@@ -424,7 +437,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     let hadScreenshot = false;
-    const updated = await updateComment(store, partition, id, (comment): DbComment | null => {
+    const updated = await updateComment(store, project, actor, id, (comment): DbComment | null => {
         visibleOrThrow(comment, actor);
         hadScreenshot = Boolean(comment.screenshot);
         const items = threadItems(comment);
@@ -463,7 +476,8 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
 export async function reattachProjectAnchor(project: DbProject, actor: ProjectActor, id: string, origin: string, input: ReattachAnchorInput) {
     assertWriter(actor);
     if (!projectOrigins(project).includes(origin)) throw apiErrors.forbidden('Open the reviewed page to change its anchor.');
-    return reattachAnchor(getCommentsStore(), projectPartition(project.id), id, input, comment => {
+    return reattachAnchor(getCommentsStore(), projectPartition(project.id), id, input, async comment => {
+        await refreshMutationActor(project, actor);
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden();
         if (comment.origin !== origin) throw apiErrors.forbidden('Choose a target on the original reviewed site.');

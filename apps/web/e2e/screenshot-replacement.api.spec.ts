@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test, type APIResponse } from '@playwright/test';
 import { pngImage, jpegImage } from './support/images';
@@ -112,11 +113,12 @@ test('failed replacement keeps original bytes and metadata; concurrent image edi
 test('project evidence checks guest/member/admin permissions and private visibility on every retry', async () => {
     const projectId = `evidence-${randomUUID()}`;
     const { store, comment } = await saved(`project:${projectId}`);
+    const project = await persistProjectAccess({ id: projectId, urls: ['https://reviewed.example'] } as ReviewApiContext['project']);
     const context = (actor: ReviewApiContext['actor'], expectedRevision: string | null = null): ReviewApiContext => ({
         request: new Request('https://uier.io/api/review/test/comments/test/screenshot', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ screenshot: jpegImage, expectedRevision })
-        }), project: { id: projectId, urls: ['https://reviewed.example'] } as ReviewApiContext['project'], actor
+        }), project, actor
     });
     const owner = { kind: 'guest', visitorId: 'owner' } as const;
     const stranger = { kind: 'guest', visitorId: 'other' } as const;
@@ -170,7 +172,8 @@ test('image budget failures preserve original evidence and a member can replace 
     const current = (await store.get(owned.comment.domain, owned.comment.id))!;
     await store.replace({ ...current.comment, authorId: 'user:member' }, current.etag);
     const member = { kind: 'member', userId: 'member', name: 'Member', isAdmin: false } as const;
-    const updated = await replaceProjectScreenshot({ id: projectId } as ReviewApiContext['project'], member, owned.comment.id,
+    const project = await persistProjectAccess({ id: projectId } as ReviewApiContext['project']);
+    const updated = await replaceProjectScreenshot(project, member, owned.comment.id,
         { screenshot: replacement, expectedRevision: null });
     expect(updated.screenshot?.revision).toEqual(expect.any(String));
 });

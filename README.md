@@ -20,6 +20,9 @@ failed image deletes once unreferenced images are older than an hour.
 2. Share a review link. Reviewers leave comments on the page, with invited access or guest access.
 3. Manage feedback in the toolbar inbox or the app's list and board. Assign threads, reply, and resolve them.
 
+Workspace admins can share selected projects with [teams](docs/teams-and-access.md). Team grants
+add to individual access; external reviewers sign in, while public guest links stay separate.
+
 You can try the toolbar on [uier.io](https://uier.io) itself. Feedback on its public pages is public.
 To add it to your own site, follow the [embedding guide](packages/toolbar/README.md#embedding).
 
@@ -67,6 +70,19 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 Stop the dev server before testing, or choose another port with `PORT=4104 pnpm test`.
 Tests start their own app server and local API stand-ins on `PORT + 1000` through `PORT + 5000`.
 See the [testing guide](docs/development.md#commands) for coverage and browser options.
+
+## `/toolbar.js`
+
+The install guide offers the default `/toolbar.js` embed and **Pin this version** for HTML and
+Next.js. The default follows new releases, with a five-minute browser cache and a one-hour CDN
+cache. A pinned snippet uses `/toolbar/<sha256>.js`, a SHA-384 integrity check and anonymous CORS.
+Its bytes stay unchanged and can be cached for one year.
+
+**Caching and updates.** Pinned production bundles remain available and compatible with the review
+API for one year after their last release as the current version. They get fixes only when you
+update the snippet from the install guide. Production builds carry supported bundles forward;
+preview and local pins belong to their own deployment. See [toolbar delivery](docs/api.md#toolbarjs)
+for cache headers, retention and rollback details.
 
 ## Find your way around
 

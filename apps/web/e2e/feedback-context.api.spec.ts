@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
@@ -32,7 +33,7 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
         const packet = await exported.json();
         expect(packet).toEqual(await (await request.get(`/api/comments/${saved.id}/context`)).json());
         expect(packet.context.identity).toMatchObject({ projectId: PUBLIC_PROJECT_ID, commentId: saved.id, itemId: saved.thread.items[0].id });
-        expect(packet.markdown).toContain(`Project: ${PUBLIC_PROJECT_ID}`);
+        expect(packet.markdown).toContain(`Project: \` ${PUBLIC_PROJECT_ID} \``);
         expect(packet.context.feedback.text).toBe(saved.thread.items[0].text);
         expect(packet.context.discussion[0].text).toBe('Discussion\n*kept*');
         expect(packet.markdown).toContain(`\n${text}\n`);
@@ -150,6 +151,7 @@ test('assignment export resolves a current project member name without exposing 
         const id = randomUUID(); const workspaceId = `workspace-${id}`; const assigneeId = `u_${id}`;
         const app = getAppStore(); const comments = getMemoryCommentsStore();
         const project = { id, workspaceId, pk: workspacePk(workspaceId), urls: ['https://review.example'] } as DbProject;
+        await persistProjectAccess(project, []);
         await app.create<DbUser>({ type: 'user', pk: userPk(assigneeId), id: assigneeId, email: `${id}@example.com`,
             name: 'Reviewer *name*', createdAt: '2026-10-28', updatedAt: '2026-10-28' });
         await app.create<DbMember>({ type: 'member', pk: project.pk, id: memberId(assigneeId), workspaceId,
@@ -161,13 +163,43 @@ test('assignment export resolves a current project member name without exposing 
         const actor = { kind: 'member', userId: 'admin', name: 'Admin', isAdmin: true } as const;
         const exported = await projectFeedbackExport(project, actor, source.id, undefined, 'https://uier.io');
         expect(exported.context.assignee).toEqual({ name: 'Reviewer *name*' });
-        expect(exported.markdown).toContain('Assignee: Reviewer \\*name\\*');
+        expect(exported.markdown).toContain('Assignee: ` Reviewer *name* `');
         expect(JSON.stringify(exported)).not.toContain(assigneeId);
         const guest = await projectFeedbackExport(project, { kind: 'guest', visitorId: 'guest' }, source.id, project.urls[0], 'https://uier.io');
         expect(guest.context).not.toHaveProperty('assignee');
         await updateDoc<DbMember>(project.pk, memberId(assigneeId), current => ({ ...current, projects: [] }));
         expect((await projectFeedbackExport(project, actor, source.id, undefined, 'https://uier.io')).context.assignee)
             .toEqual({ name: 'Former member' });
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
+    }
+});
+
+test('titles, author names and all inline metadata remain literal for GitHub and GitLab', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const unsafe = 'https://x.test www.x.test @user @org/team';
+        const authorName = `\`${unsafe}\``;
+        const project = { id: `literal-${randomUUID()}`, urls: ['https://review.example'] } as DbProject;
+        const comment: DbComment = { id: `comment_${randomUUID()}`, domain: `project:${project.id}`, origin: project.urls[0], path: '/',
+            authorId: 'guest', kind: 'feedback', position: { type: 'page' },
+            thread: { items: [{ id: 'item_literal', text: unsafe, authorId: 'guest', authorName }] } };
+        await getMemoryCommentsStore().create(comment);
+        const packet = await projectFeedbackExport(project, { kind: 'member', userId: 'admin', name: 'Admin', isAdmin: true }, comment.id, undefined, 'https://uier.io');
+        expect(packet.context.title).toBe(unsafe);
+        expect(packet.context.feedback).toMatchObject({ text: unsafe, authorName });
+        expect(packet.markdown).toContain(`# \` ${unsafe} \`\n`);
+        expect(packet.markdown).toContain(`\n\n\`\` ${authorName} \`\`\n\n`);
+        expect(packet.markdown).toContain(`\n\n\`\`\`text\n${unsafe}\n\`\`\``);
+        const context = { ...packet.context, assignee: { name: unsafe }, source: { path: '/', origin: unsafe, environment: unsafe },
+            reproduction: { browser: unsafe, os: unsafe, capturedAt: unsafe }, notes: [unsafe] };
+        const original = structuredClone(context);
+        const markdown = feedbackMarkdown(context);
+        for (const label of ['Assignee', 'Source', 'Environment', 'Browser', 'Operating system', 'Captured'])
+            expect(markdown).toContain(`${label}: \` ${unsafe} \``);
+        expect(context).toEqual(original);
+        expect(markdown).toContain(`\n\n\` ${unsafe} \`\n`);
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
     }

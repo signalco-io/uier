@@ -17,6 +17,15 @@ site embeds it with its project's script tag from the uier app's install guide:
 Copy the public project code from the install guide: a random 21-character Nano ID, separate from
 the internal database id. Existing random 12-character codes remain supported.
 
+**Pin this version** in the install guide provides HTML and Next.js snippets using
+`/toolbar/<sha256>.js`, `integrity="sha384-..."` and `crossorigin="anonymous"` (`crossOrigin` in JSX).
+Copy the complete snippet; the hash and integrity value describe that exact build. The default
+`/toolbar.js` follows releases with a five-minute browser cache and one-hour CDN cache. Pins use
+`Cache-Control: public, max-age=31536000, immutable` and the same API origin as the default embed.
+Pinned production bundles remain available and compatible with the review API for one year after
+their last release as the current version. A pinned site gets fixes only when it updates its snippet.
+Preview/local pins belong to that deployment; they carry no production retention promise.
+
 The toolbar opens automatically for signed-in project members when background authentication is available.
 Otherwise it starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
 app gives out, or `?review=true` ([Review links](#review-links)). The comments and settings that apply are
@@ -49,9 +58,19 @@ attributes or from `window.uierConfig`, set before the script:
 
 | Option | Script attribute | `window.uierConfig` | Default |
 | --- | --- | --- | --- |
-| Mode | `data-uier-mode` | `mode` | `review` |
-| API base URL | `data-uier-api-url` | `apiUrl` | origin of the script URL |
-| Project | `data-uier-project` | `project` | none (comments per domain) |
+| Mode | `data-uier-mode` | `mode` (string) | `review` |
+| API base URL | `data-uier-api-url` | `apiUrl` (string) | origin of the script URL |
+| Project | `data-uier-project` | `project` (string) | none (comments per domain) |
+
+`window.uierConfig` must be a plain object (including a null-prototype object) with own string
+fields. Named elements, arrays, inherited fields, accessors and non-string values are ignored;
+unreadable configuration falls back to the defaults. Script attributes take precedence. Repeated
+scripts reuse the actual toolbar host under a window symbol; a page's own `id="uier-toolbar"`
+does not prevent mounting.
+
+The toolbar and inline thread shadow roots adopt one shared constructed stylesheet. They need no
+`style-src 'unsafe-inline'` or style nonce. Keep the install guide's other CSP sources: uier's
+origin for scripts/API/frames, `data:` images, and optional Google Fonts stylesheet/font origins.
 
 ### React
 
@@ -340,7 +359,9 @@ Unassignment targets the previous assignee, subject to the same rules.
   and styles can't change it by accident either way). Everything, popovers included, renders inside it and
   the toolbar adds no styles to the page (`apps/web/e2e/embed.spec.ts` checks a reviewed site's computed styles).
 - Styles are compiled with Tailwind CSS v4 (`src/index.css`, `postcss.config.mjs`) and inlined into
-  `dist/index.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`).
+  `dist/index.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`). The complete
+  JavaScript literal is JSON-encoded and parsed before publication. Every review shadow root adopts
+  the same constructed sheet; unused `@property` registrations are omitted and fallback values retained.
 - Colors come from `@uier/brand/tokens.css`. The pill, the pins and the inbox sidebar are always ink
   (`src/components/InkScope.tsx`); thread popovers and the hint follow the system light/dark theme.
   `src/styles/toolbar-theme.css` keeps the page's inherited text styles out and honours reduced motion.
@@ -352,6 +373,6 @@ Unassignment targets the previous assignee, subject to the same rules.
 
 ## Scripts
 
-- `pnpm build` - production bundle in `dist/index.js` (CSS included) and the React component in `dist/react.js`
+- `pnpm build` - production bundle in `dist/index.js` (CSS included), its path/SRI in `dist/bundle.json`, and the React component in `dist/react.js`
 - `pnpm dev` - rebuild on change and serve `dist` on http://localhost:4005 (loaded by `apps/web` in development)
 - `pnpm typecheck` - type check with `tsc`

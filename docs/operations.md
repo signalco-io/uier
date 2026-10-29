@@ -223,6 +223,26 @@ every service is operational and `503` otherwise (`Cache-Control: no-store`), so
 Nothing is recorded: there is no history or uptime figure, and none is claimed. A failed check is logged as
 `[status] Comments API check failed` with the error. If uier.io itself is down, the status page is down too.
 
+## Pinned toolbar bundles
+
+The Vercel reusable build sets `UIER_TOOLBAR_RETAIN_FROM=https://uier.io` and `TURBO_FORCE=true`
+so cached task outputs cannot restore an older archive. Before publishing, the
+web build reads the previous no-store `/toolbar/manifest.json`, downloads supported bundles with
+bounded concurrency/size/time, and verifies their content-addressed SHA-256 paths. A missing
+manifest (404) bootstraps the first release. Other failures stop deployment; do not bypass them
+by clearing the archive source. The manifest records when each hash was last the current version.
+Keep each production bundle and its review API contract working for one year after that date;
+breaking API changes must retain the old contract through the supported window. Sites update
+their pinned snippet to receive fixes. Previews/local pins carry no production retention promise.
+
+For a rollback, rebuild the chosen revision with the current production archive and force the
+build tasks (`UIER_TOOLBAR_RETAIN_FROM=https://uier.io pnpm exec turbo run build --force`). Promoting an old
+deployment without rebuilding can remove pins released since that deployment. Before promotion,
+check that its `/toolbar/manifest.json` contains every still-supported production hash. If the live
+archive is unavailable, recover its manifest and verified files from the last deployment before
+rebuilding; do not publish a fresh empty archive. The build artifacts are gitignored and included
+in Turborepo outputs; no credentials or customer content are stored with bundles.
+
 ## Removing abusive comments
 
 1. Sign in with an allowlisted staff account. Switch to the **uier** workspace and open

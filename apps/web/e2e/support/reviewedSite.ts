@@ -58,6 +58,15 @@ export async function startReviewedSite(apiBaseUrl: string) {
 
     const server = createServer((request, response) => {
         const url = new URL(request.url ?? '/', 'http://reviewed.localhost');
+        if (url.pathname === '/host.css') {
+            response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+            response.end(`${layouts[url.searchParams.get('layout') ?? ''] ?? ''}
+                ${url.searchParams.has('host-probe') ? `
+                    body { color: rgb(30, 40, 50); font-family: monospace; text-transform: uppercase; letter-spacing: 3px; }
+                    button { background: rgb(220, 230, 240) !important; color: rgb(30, 40, 50) !important; border-radius: 0 !important; }
+                ` : ''}`);
+            return;
+        }
         if (url.pathname === '/host-probe.js') {
             response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
             response.end(`const probe = document.querySelector('#host-probe');
@@ -105,11 +114,7 @@ export async function startReviewedSite(apiBaseUrl: string) {
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
-    ${layout ? `<style>${layout}</style>` : ''}
-    ${url.searchParams.has('host-probe') ? `<style>
-        body { color: rgb(30, 40, 50); font-family: monospace; text-transform: uppercase; letter-spacing: 3px; }
-        button { background: rgb(220, 230, 240) !important; color: rgb(30, 40, 50) !important; border-radius: 0 !important; }
-    </style>` : ''}
+    <link rel="stylesheet" href="/host.css?${url.searchParams.toString()}">
 </head>
 <body>
     <main>

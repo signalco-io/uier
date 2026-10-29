@@ -83,6 +83,23 @@ export default function PrivacyPolicyPage() {
                 site are public, so do not put personal information in them.
             </p>
 
+            <h3>Teams and workspace access</h3>
+            <p>
+                We store workspace team names, descriptions, selected project ids, membership ids and an optional
+                Internal or External relationship label set by a workspace admin. The label belongs to that workspace.
+                Teams manage signed-in project access. Guest-link visitors are separate identities; an invitation
+                does not transfer visitor comments, screenshots or read history to an account.
+            </p>
+            <p>
+                Workspace admins can see team rosters and access history. Access history records the acting account,
+                time, action, target ids and before/after access changes for 180 days. It contains no invitation tokens,
+                credentials, comment text or screenshots. Removing a member removes their active team relationships;
+                authored feedback stays under its existing retention rules. Deleted team ids and invitation revocation
+                markers remain to prevent old links or references from restoring access. Erasure requests cover this
+                metadata and history, subject to applicable retention requirements. Removing member access cannot retract
+                information already delivered to a browser or email, or disable a project that still permits guest links.
+            </p>
+
             <h3>Unsent drafts and retries</h3>
             <p>
                 The toolbar stores draft text and anchors in the current site&rsquo;s local storage for seven days

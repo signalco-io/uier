@@ -93,6 +93,12 @@ jobs:
         env:
           PRODUCTION: ${{ inputs.production }}
           UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
+          # Preserve pins from the current production deployment. Fetch/hash errors fail the
+          # build before deployment; 404 bootstraps the first release with a manifest.
+          UIER_TOOLBAR_RETAIN_FROM: https://uier.io
+          # The archive changes independently of Git/task hashes (especially on a rollback).
+          # Always copy it instead of restoring an older cached public/ directory.
+          TURBO_FORCE: "true"
         run: |
           if [ "$PRODUCTION" = "true" ]; then
             vercel build --prod

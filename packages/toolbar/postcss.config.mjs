@@ -11,6 +11,9 @@ function shadowDomPropertiesFallback() {
     return {
         postcssPlugin: 'uier-shadow-dom-properties-fallback',
         OnceExit(root) {
+            // Shadow roots ignore @property registrations. The unconditional fallback below
+            // supplies their initial values; omit the unused registrations from every embed.
+            root.walkAtRules('property', rule => rule.remove());
             root.walkAtRules('layer', (layer) => {
                 if (layer.params !== 'properties') return;
                 layer.walkAtRules('supports', (supports) => {

@@ -5,10 +5,11 @@ import { createFeedbackMcpServer } from '@/src/lib/mcp/server';
 import { ApiError, apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 import { keyedHash } from '@/src/lib/comments/environment';
 import { getCommentsStore } from '@/src/lib/repo/commentsStore';
+import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 const promptRequestSchema = z.object({ params: z.object({ arguments: z.record(z.string(), z.string()).optional() }) });
 
-export async function handleMcp(request: Request, allowedOrigin: string) {
+export async function handleMcp(request: Request, allowedOrigin: string, deadlineMs = 25_000) {
     let response: Response;
     try {
         const origin = request.headers.get('origin');
@@ -27,10 +28,29 @@ export async function handleMcp(request: Request, allowedOrigin: string) {
             throw apiErrors.invalidRequest('Invalid prompt arguments.');
         const server = createFeedbackMcpServer(identity, request, allowedOrigin);
         const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let onAbort = () => {};
         try {
-            await server.connect(transport);
-            response = await transport.handleRequest(request, { parsedBody });
-        } finally { await server.close(); }
+            const interrupted = new Promise<Response>(resolve => {
+                const id = parsedBody && typeof parsedBody === 'object' && 'id' in parsedBody
+                    && (typeof parsedBody.id === 'string' || typeof parsedBody.id === 'number') ? parsedBody.id : null;
+                const error = (status: number, message: string) => resolve(Response.json({ jsonrpc: '2.0', id,
+                    error: { code: ErrorCode.InternalError, message } }, { status }));
+                timer = setTimeout(() => error(504, 'The request timed out.'), deadlineMs);
+                onAbort = () => error(408, 'The request was cancelled.');
+                request.signal.addEventListener('abort', onAbort, { once: true });
+                if (request.signal.aborted) onAbort();
+            });
+            response = await Promise.race([interrupted, (async () => {
+                if (request.signal.aborted) return interrupted;
+                await server.connect(transport);
+                return transport.handleRequest(request, { parsedBody });
+            })()]);
+        } finally {
+            clearTimeout(timer);
+            request.signal.removeEventListener('abort', onAbort);
+            await server.close();
+        }
     } catch (error) {
         response = errorResponse(error);
         if (error instanceof ApiError && error.status === 401)

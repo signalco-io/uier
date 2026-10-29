@@ -73,6 +73,16 @@ const nextConfig: NextConfig = {
                 { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600' },
                 { key: 'Access-Control-Allow-Origin', value: '*' },
             ]
+        }, {
+            source: '/toolbar/:hash([a-f0-9]{64}).js',
+            headers: [
+                { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+                { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+                { key: 'Access-Control-Allow-Origin', value: '*' },
+            ]
+        }, {
+            source: '/toolbar/manifest.json',
+            headers: [{ key: 'Cache-Control', value: 'no-store' }]
         }];
     },
 };

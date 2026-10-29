@@ -208,14 +208,22 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   built on `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn
   has no autocomplete, and Combobox only takes one of its items).
   Client names belong to the signed-in app, not the public review project DTO.
-- Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
-  `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
-  document from the current workspace.
+- Every server action parses its arguments with zod and checks the session and role itself
+  (`appContextOrThrow({ admin })`); pages use `requireAppContext()` / `requireAdminContext()`.
+  Positional argument schemas live next to the actions, outside `'use server'` modules; use
+  `parseActionInput` for short `UserFacingError` messages before any argument is used. Share
+  `app/validation.ts`'s user id schema across mentions and assignment boundaries. Services that
+  persist boolean settings validate them again. Never trust ids without loading the document
+  from the current workspace.
 - Apart from uier's own public feedback project, which every account joins (`joinPublicProject`), a
   membership is only ever created by an invitation or together with a new workspace (`ensureOwnWorkspace`,
   one `createAll` transaction). Never recreate a missing member document of a customer workspace: a missing
   member is someone an admin removed, and recreating it undoes the removal (their review tokens and MCP
   credentials work again). `e2e/workspaces.api.spec.ts` and the users e2e tests cover it.
+  Member removal uses `mutateAccess` / `AppStore.transact` to conditionally update the workspace
+  access revision, delete the versioned member, invalidate old invitations and append its event.
+  Read the workspace before counting admins and repeat both on a conflict; never undo a removal
+  by recreating its member document. `replaceAndDelete` remains available for older callers.
 - Forms use `useActionState` with `actionResult()` (expected failures become `{ ok: false, error }`)
   and controlled inputs, so React's reset after an action never drops what was typed.
 - Message edits through the review API compare `expectedText` before changing a thread item; author/admin
@@ -235,6 +243,12 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
+- `integration.ts` owns default and pinned HTML/Next.js snippets from `@uier/toolbar/bundle`.
+  `InstallGuide` offers both with the update/support policy. Constructed review sheets remove
+  `unsafe-inline` from its style CSP sources. `scripts/toolbar-assets.mjs` publishes identical
+  default/content-addressed bytes, checks and retains production pins for one year after last
+  release as current; deployment builds carry forward the verified uier.io archive. Keep the
+  manifest no-store and content-addressed JavaScript immutable with anonymous CORS.
 - Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
   `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
 - Sign-in emails contain a link and an eight-digit numeric code, sharing the same 15-minute request and
@@ -251,6 +265,18 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `project-review.spec.ts` cover browser isolation, accessibility and the toolbar's return path.
 
 ## Testing
+
+Teams use `src/lib/app/access.ts` / `accessRules.ts` for additive, current workspace/project
+authorization. Load one workspace team snapshot for list operations; never revive the old
+direct-only predicate or copy inherited grants into a member's direct list. All access writes
+go through `mutateAccess` and `AppStore.transact` (workspace revision guard + mutation + 180-day
+event). Recheck admin/target/team ownership on retries. Member removal and invitation acceptance
+use the same guard; acceptance consumes the workspace invitation atomically, not just its lookup
+token. Team archive clears projects and invalidates earlier team invitations; restore starts
+empty. Keep public-workspace safeguards and guest/private-thread distinctions. New app routes
+are `/app/teams`, `/app/teams/[teamId]`, `/app/users/[userId]`. Admin previews must reject stale
+revisions. See [teams and access](../../docs/teams-and-access.md) for limits, history, erasure,
+Session-consistency limits, real preview Cosmos checks and rollback.
 
 CSP console audits must be asserted before an axe scan. Axe fetches external stylesheets with
 `fetch`, which can produce scanner-only `connect-src` violations on a strict reviewed site.
@@ -335,7 +361,11 @@ App reply deletion reuses `deleteProjectCommentItem`; thread deletion must keep 
 and never delete sequence or rate-limit documents. On the public project's
 same-origin comments API, `uier_session` takes precedence over guest identity. Store `user:<id>` just
 as the review API does, resolve current account names for DTOs, and keep private app feedback
-author-only in the public API. Guest comments are not automatically reassigned on sign-in.
+author-only in the public API. Read the current public project and apply `assertCanUseComments`
+on every showcase request; the cached provisioning result is not current access policy. Listing,
+activity and both read routes share `comments/visibility.ts`, including legacy `/app` threads
+without a private flag. Migration marks copied `/app` threads private. Guest comments are not
+automatically reassigned on sign-in.
 
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
@@ -405,6 +435,9 @@ authorized feedback. `src/lib/review/feedbackContext.ts` is the common project s
 redaction, canonical page state and protected screenshot references intact. The complete packet
 contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
 work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
+The formatter renders inline values (including titles and names) as literal code spans, suppressing
+tracker autolinks/mentions without changing the structured context. Only approved explicit links
+remain clickable.
 Public-project exports include `identity.projectId: uier00000001`, derived from the resolved
 partition even for legacy records. Isolated local host partitions have no project id. Never infer
 the owning project from the reviewed page path: `/app/projects/<id>` feedback belongs to uier.
@@ -424,6 +457,11 @@ credentials and tools. Account settings creates 30-day named credentials, read-o
 with explicit project selection; raw secrets are shown once and only hashes are stored. Never
 accept cookies, review tokens, project codes or guest ids as MCP authentication. Recheck current
 membership, scopes and private visibility for each request and screenshot resource read.
+The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
+(overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption
+and always closes the server. Screenshot resources map `ApiError` to `InvalidParams` with its
+code/message, zod errors to fixed `InvalidParams` text and unexpected errors to `InternalError`
+with `The operation failed.` and a generic log line. Never return raw storage diagnostics.
 Credentials remain bound to one workspace. Account guidance and `mcp/workflows.ts` explain choosing
 the uier workspace/public-feedback project for feedback about uier itself. Missing project grants
 stay `not_found` without exposing project existence; direct users to `list_projects` and explicit

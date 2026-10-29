@@ -57,6 +57,7 @@ export async function notificationSubscription(projectId: string, actorId: strin
 }
 
 export async function setProjectMuted(project: DbProject, actor: ProjectActor, muted: boolean) {
+    muted = z.boolean().parse(muted);
     if (actor.kind !== 'member' || !await memberActor(project, actor.userId)) throw apiErrors.forbidden();
     const actorId = actorAuthorId(actor)!;
     const doc: NotificationPreference = {
@@ -106,6 +107,7 @@ export function notificationManageUrl(baseUrl: string, token: string) {
 
 /** Separate from submitting a comment. No email/account is needed to post. */
 export async function followThread(project: DbProject, actor: ProjectActor, threadId: string, following: boolean, email?: string, baseUrl?: string, ipBucket?: string) {
+    following = z.boolean().parse(following);
     assertCanUseComments(project, actor);
     const state = await threadNotificationState(project, actor, threadId);
     const comment = await getProjectComment(project, actor, threadId);

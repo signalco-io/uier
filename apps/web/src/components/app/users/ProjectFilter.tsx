@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { FolderIcon } from 'lucide-react';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 
@@ -10,10 +10,11 @@ const allProjects = 'all';
 export function ProjectFilter({ projects, value }: { projects: { id: string; name: string }[]; value?: string }) {
     const router = useRouter();
     const pathname = usePathname();
+    const params = useSearchParams();
     return (
         <Select
             value={value ?? allProjects}
-            onValueChange={(next) => router.push(next === allProjects ? pathname : `${pathname}?project=${encodeURIComponent(next)}`)}>
+            onValueChange={next => { const query = new URLSearchParams(params); if (next === allProjects) query.delete('project'); else query.set('project', next); router.push(`${pathname}?${query}`); }}>
             <SelectTrigger size="sm" aria-label="Project" className="w-56">
                 <FolderIcon className="text-muted-foreground" />
                 <SelectValue />

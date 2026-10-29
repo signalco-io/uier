@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { updateUserName } from '../src/lib/app/users';
@@ -9,6 +10,8 @@ import { getProjectComment, setProjectCommentAssignee, setProjectCommentPrivate,
 import { participantNames, toReviewCommentDto } from '../src/lib/review/dto';
 import { moveMentions } from '@uier/toolbar/mentions';
 import type { DbComment } from '../src/lib/db/schema';
+import { assignReviewComment } from '../src/lib/review/routes';
+import { errorResponse } from '../src/lib/comments/http';
 
 test('assignment and stable mention identities enforce project membership and private visibility at the service boundary', async () => {
     const previous = process.env.UIER_LOCAL;
@@ -22,6 +25,7 @@ test('assignment and stable mention identities enforce project membership and pr
             await app.create<DbUser>({ type: 'user', id, pk: `user:${id}`, email: `${index}@example.com`, name: index === 0 ? 'Owner' : 'Alex', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
             await app.create<DbMember>({ type: 'member', id: memberId(id), pk: workspacePk(project.workspaceId), userId: id, workspaceId: project.workspaceId, email: `${index}@example.com`, role: index === 0 ? 'admin' : 'commenter', projects: index === 3 ? ['another-project'] : 'all', createdAt: new Date().toISOString() });
         }
+        await persistProjectAccess(project, []);
         const owner = { kind: 'member', userId: ids[0]!, name: 'Owner', isAdmin: true } as const;
         const member = { kind: 'member', userId: ids[1]!, name: 'Alex', isAdmin: false } as const;
         const guest = { kind: 'guest', visitorId: 'guest-author' } as const;
@@ -71,7 +75,7 @@ test('assignment and stable mention identities enforce project membership and pr
         expect((await app.get<DbMember>(workspacePk(project.workspaceId), memberId(ids[3]!)))?.doc.projects).toEqual(['another-project']);
         expect(await app.get(workspacePk(project.workspaceId), memberId(ids[2]!))).toBeNull();
         await app.delete(workspacePk(project.workspaceId), memberId(ids[0]!));
-        await expect(setProjectCommentAssignee(project, owner, comment.id, null)).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(setProjectCommentAssignee(project, owner, comment.id, null)).rejects.toMatchObject({ code: 'sign_in_required' });
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
     }
@@ -83,4 +87,29 @@ test('mention ranges survive edits around a selection and lose identity when the
     expect(moveMentions('Hi @Alex', 'Hi @Ale', [mention])).toEqual([]);
     expect(moveMentions('Hi @Alex', 'Hi @Alex please', [mention])).toEqual([mention]);
     expect(mentionsSchema.safeParse(Array.from({ length: 21 }, () => mention)).success).toBe(false);
+});
+
+test('review assignment rejects invalid user ids before member reads and stores nothing', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const project = { id: `assignment-${randomUUID()}` } as DbProject;
+        const actor = { kind: 'member', userId: 'u_owner', name: 'Owner', isAdmin: true } as const;
+        const store = getMemoryCommentsStore();
+        const comment: DbComment = { id: 'comment_assignment', domain: `project:${project.id}`, path: '/', position: { type: 'page' },
+            thread: { items: [{ id: 'first', text: 'Feedback' }] } };
+        await store.create(comment);
+        const before = await store.get(comment.domain, comment.id);
+        for (const assigneeId of ['', 'u_', 'u_bad/id', 'u_bad#id', 'u_bad?id', 'u_' + 'a'.repeat(65), 123, {}]) {
+            // Exercise the route's JSON parser without unrelated project/auth fixtures.
+            const request = new Request('http://localhost/assignee', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assigneeId }) });
+            const response = await assignReviewComment({ request, project, actor }, { id: comment.id }).catch(errorResponse);
+            expect(response.status).toBe(400);
+            expect(await response.json()).toMatchObject({ error: 'invalid_request' });
+            await expect(setProjectCommentAssignee(project, actor, comment.id, assigneeId as string)).rejects.toMatchObject({ code: 'invalid_request' });
+        }
+        expect(await store.get(comment.domain, comment.id)).toEqual(before);
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
+    }
 });

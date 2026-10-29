@@ -647,7 +647,10 @@ test('external links read only selected deterministic ledgers in bounded batches
     const reads: string[] = [];
     let concurrent = 0, maximum = 0;
     const store: AppStore = { ...f.store,
-        async query<T extends AppDoc>(_query: DocQuery<T['type']>): Promise<T[]> { throw new Error('Link projection must not scan integration history'); },
+        async query<T extends AppDoc>(query: DocQuery<T['type']>): Promise<T[]> {
+            if (query.type === 'team' && query.pk === f.project.pk && query.limit === 101) return f.store.query<T>(query);
+            throw new Error('Link projection must not scan integration history');
+        },
         async get<T extends AppDoc>(pk: string, id: string) {
             if (!providers.some(provider => pk === integrationPk(provider, f.project.id))) return f.store.get<T>(pk, id);
             reads.push(`${pk}:${id}`); concurrent++; maximum = Math.max(maximum, concurrent);

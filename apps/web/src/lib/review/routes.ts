@@ -2,6 +2,7 @@ import { ensureProjectPublicId } from '../app/projectPublicIds';
 import { commentResponse } from './response';
 import { configuredEnvironments, environmentOptions } from '../app/environments';
 import { z } from 'zod';
+import { userIdSchema } from '../app/validation';
 import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
@@ -10,7 +11,6 @@ import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
 import { projectOrigins, projectReviewOrigin } from '../app/projects';
-import { appBaseUrl } from '../app/request';
 import { KnownPageLinks } from '../../knownPages';
 import { actorAuthorId, assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } from './actor';
 import {
@@ -60,7 +60,7 @@ export async function getReviewInfo({ project, actor }: ReviewApiContext) {
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)
-        signInUrl: `${await appBaseUrl()}${KnownPageLinks.projectReview(publicId)}`
+        signInUrl: `${await (await import('../app/request')).appBaseUrl()}${KnownPageLinks.projectReview(publicId)}`
     });
 }
 
@@ -155,7 +155,7 @@ export async function listReviewParticipants(context: ReviewApiContext) {
 }
 
 export async function assignReviewComment(context: ReviewApiContext, { id }: { id: string }) {
-    const { assigneeId } = await parseJsonBody(context.request, z.object({ assigneeId: z.string().max(128).nullable() }));
+    const { assigneeId } = await parseJsonBody(context.request, z.object({ assigneeId: userIdSchema.nullable() }));
     return await commentResponse(context, await setProjectCommentAssignee(context.project, context.actor, commentId(id), assigneeId));
 }
 

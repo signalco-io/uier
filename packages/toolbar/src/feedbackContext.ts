@@ -44,7 +44,11 @@ export type FeedbackExport = { context: FeedbackContext; markdown: string };
 export type ExternalFeedbackLink = { provider: string; url: string };
 
 function plain(value: string) {
-    return value.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/([\\`*_{}\[\]<>()#!|>~])/g, '\\$1');
+    const text = value.replace(/[\p{Cc}\p{Cf}]/gu, ' ');
+    const fence = '`'.repeat(Math.max(1, ...[...text.matchAll(/`+/g)].map(match => match[0].length + 1)));
+    // Code spans suppress GitHub/GitLab autolinks and mentions as well as Markdown punctuation.
+    // Padding keeps leading/trailing backticks from joining the delimiter (CommonMark trims it).
+    return `${fence} ${text} ${fence}`;
 }
 
 /** Fences grow past any embedded backticks, preserving the exact saved text without executing Markdown. */

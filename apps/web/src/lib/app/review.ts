@@ -5,7 +5,6 @@ import { feedbackSource } from './environments';
 import type { AppContext } from './context';
 import type { DbMember } from './model';
 import { findProject, findReviewProject, projectOrigins, reviewUrl } from './projects';
-import { getMember, memberCanAccessProject } from './workspaces';
 import { issueReviewCode, memberActor } from '../review/actor';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
 
@@ -32,18 +31,13 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
     if (!project)
         return null;
 
-    const member = knownMemberships.find(m => m.workspaceId === project.workspaceId)
-        ?? await getMember(project.workspaceId, userId);
-    if (!member || !memberCanAccessProject(member, project.id))
+    const actor = await memberActor(project, userId);
+    if (!actor)
         return null;
 
     let url = project.urls[0];
     if (commentId) {
         if (!commentIdPattern.test(commentId)) return null;
-        const actor = project.workspaceId === PUBLIC_WORKSPACE_ID
-            ? await memberActor(project, userId)
-            : { kind: 'member' as const, userId, name: '', isAdmin: member.role === 'admin' };
-        if (!actor) return null;
         const comment = await getProjectComment(project, actor, commentId).catch(error => { if (error instanceof ApiError && error.status === 404) return null; throw error; });
         if (!comment || !feedbackSource(project, comment.origin).available) return null;
         url = `${comment.origin}${commentPath(comment)}`;

@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { getAppStore } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
-import { HEADLINE_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
-import { memberId, userPk, workspacePk, type DbMember, type DbUser } from '../src/lib/app/model';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
+import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../src/lib/app/model';
 import type { DbComment } from '../src/lib/db/schema';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { randomToken, signToken, sha256Hex } from '../src/lib/app/tokens';
@@ -21,6 +21,9 @@ import { brand } from '@uier/brand';
 import { createWithScreenshot } from '../src/lib/comments/service';
 import { replaceSavedScreenshot } from '../src/lib/comments/replaceScreenshot';
 import { createProjectComment, replyToProjectComment, listProjectComments, getProjectComment, removeProjectComment, deleteProjectCommentItem } from '../src/lib/review/comments';
+import { GET as showcaseGet, POST as showcasePost } from '../app/api/comments/route';
+import { reviewApiHandler } from '../src/lib/review/http';
+import { listReviewComments } from '../src/lib/review/readRoutes';
 
 
 
@@ -41,7 +44,7 @@ test('public project provisioning is concurrent, permanent and preserves existin
         await app.create(existingUser);
         const legacyDomain = `legacy-${randomUUID()}.localhost`;
         const legacy: DbComment = {
-            id: `comment_${randomUUID()}`, domain: legacyDomain, path: '/brand',
+            id: `comment_${randomUUID()}`, domain: legacyDomain, path: '/app/projects',
             number: 15, position: { type: 'page' }, resolved: true, ttl: 777,
             thread: { items: [{ id: 'item_legacy', text: 'Existing public feedback' }] }
         };
@@ -51,8 +54,10 @@ test('public project provisioning is concurrent, permanent and preserves existin
         expect((await app.get(projects[0]!.pk, PUBLIC_PROJECT_ID))?.doc).toMatchObject({ type: 'project', ttl: -1 });
         expect((await app.get(workspacePk(PUBLIC_WORKSPACE_ID), memberId(existingUser.id)))?.doc)
             .toMatchObject({ role: 'commenter', projects: [PUBLIC_PROJECT_ID], userId: existingUser.id, ttl: -1 });
-        expect(await store.listAll(PUBLIC_PROJECT_PARTITION, 100)).toHaveLength(3);
-        expect((await store.get(PUBLIC_PROJECT_PARTITION, legacy.id))?.comment).toMatchObject({ ttl: 777, resolved: true });
+        // Other service specs can share this worker's public-project store. Check this fixture's threads.
+        const fixtureIds = new Set([HEADLINE_COMMENT_ID, STEP_COMMENT_ID, legacy.id]);
+        expect((await store.listAll(PUBLIC_PROJECT_PARTITION, 100)).filter(comment => fixtureIds.has(comment.id))).toHaveLength(3);
+        expect((await store.get(PUBLIC_PROJECT_PARTITION, legacy.id))?.comment).toMatchObject({ ttl: 777, resolved: true, private: true });
         expect((await store.get(legacyDomain, legacy.id))?.comment).toEqual(legacy);
 
         const headline = (await store.get(PUBLIC_PROJECT_PARTITION, HEADLINE_COMMENT_ID))!.comment;
@@ -66,7 +71,7 @@ test('public project provisioning is concurrent, permanent and preserves existin
         expect(after.ttl).toBe(-1);
         expect(after.number).toBe(headline.number);
         expect(after.thread.items.at(-1)).toEqual(reply);
-        const numbers = (await store.listAll(PUBLIC_PROJECT_PARTITION, 100)).map(comment => comment.number);
+        const numbers = (await store.listAll(PUBLIC_PROJECT_PARTITION, 100)).flatMap(comment => comment.number === undefined ? [] : [comment.number]);
         expect(new Set(numbers).size).toBe(numbers.length);
         // A deleted migrated thread must not reappear on another cold start.
         const migrated = (await store.get(PUBLIC_PROJECT_PARTITION, legacy.id))!;
@@ -86,6 +91,56 @@ async function staffRuntime(run: () => Promise<void>) {
     try { await run(); }
     finally { for (const [key, value] of Object.entries(old)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 }
+
+test('showcase reads and writes enforce current project access for anonymous, guest and member callers just like review', async () => staffRuntime(async () => {
+    const app = getAppStore();
+    const project = await provisionPublicProject(app, getMemoryCommentsStore());
+    const user = await findOrCreateUser(`showcase-access-${randomUUID()}@example.com`);
+    const call = (method: 'GET' | 'POST', cookie?: string) => (method === 'GET' ? showcaseGet : showcasePost)(
+        new Request(`http://localhost/api/comments?path=/`, { method,
+            headers: { host: 'localhost', ...(cookie ? { cookie } : {}), 'Content-Type': 'application/json' },
+            ...(method === 'POST' ? { body: JSON.stringify({ path: '/', position: { type: 'page' }, kind: 'feedback', text: 'Authorized feedback' }) } : {})
+        }), { params: Promise.resolve({}) });
+    const review = reviewApiHandler(listReviewComments, { verifyWrites: false });
+    const callers: { cookie?: string; headers: Record<string, string> }[] = [
+        { cookie: undefined, headers: {} },
+        { cookie: `uier_visitor=${randomToken()}`, headers: { 'X-Uier-Visitor': randomToken() } },
+        { cookie: `uier_session=${signToken('session', { uid: user.id }, 3600)}`,
+            headers: { Authorization: `Bearer ${signToken('review', { uid: user.id, pid: project.id }, 3600)}` } }
+    ];
+    const original = (await app.get<DbProject>(project.pk, project.id))!.doc;
+    try {
+        // ensurePublicProject has already resolved before these stored settings change.
+        for (const access of ['guests', 'invited', 'disabled'] as const) {
+            const current = (await app.get<DbProject>(project.pk, project.id))!;
+            await app.replace({ ...current.doc, access }, current.etag);
+            for (const [index, caller] of callers.entries()) {
+                const status = access === 'disabled' ? 403 : access === 'invited' && index < 2 ? 401 : 200;
+                const listed = await call('GET', caller.cookie);
+                const compared = await review(new Request(`http://localhost/api/review/${project.publicId}/comments?path=/`, { headers: caller.headers }),
+                    { params: Promise.resolve({ projectId: project.publicId }) });
+                expect(listed.status).toBe(status);
+                expect(compared.status).toBe(status);
+                const before = await getMemoryCommentsStore().listAll(PUBLIC_PROJECT_PARTITION, 1000);
+                const written = await call('POST', caller.cookie);
+                expect(written.status).toBe(status === 200 ? 201 : status);
+                if (status !== 200) {
+                    expect(await listed.json()).toMatchObject({ error: access === 'disabled' ? 'comments_disabled' : 'sign_in_required' });
+                    expect(await written.json()).toMatchObject({ error: access === 'disabled' ? 'comments_disabled' : 'sign_in_required' });
+                    expect(written.headers.has('set-cookie')).toBe(false);
+                    expect(await getMemoryCommentsStore().listAll(PUBLIC_PROJECT_PARTITION, 1000)).toEqual(before);
+                }
+            }
+        }
+        const current = (await app.get<DbProject>(project.pk, project.id))!;
+        await app.replace({ ...current.doc, access: 'invited' }, current.etag);
+        await app.delete(project.pk, memberId(user.id));
+        expect((await call('GET', callers[2]!.cookie)).status).toBe(401);
+    } finally {
+        const current = (await app.get<DbProject>(project.pk, project.id))!;
+        await app.replace(original, current.etag);
+    }
+}));
 
 test('staff normalization, concurrent joins and allowlist removal replace hand-set roles without changing ordinary workspaces', async () => staffRuntime(async () => {
     const app = getAppStore();
@@ -300,12 +355,12 @@ test('deleting migrated feedback or replacing its image removes the legacy comme
         await app.create({ id: 'public-feedback-migration-v1', pk: project.pk, type: 'migration', ttl: -1 });
         const image = parseScreenshot(pngImage) as ParsedScreenshot;
         for (const operation of ['delete', 'replace']) {
-            const legacy: DbComment = { id: `comment_${randomUUID()}`, domain: brand.domain, path: '/', position: { type: 'page' },
+            const legacy: DbComment = { id: `comment_${randomUUID()}`, domain: brand.domain, path: '/', position: { type: 'page' }, authorId: 'legacy-owner',
                 screenshot: { contentType: image.contentType, bytes: image.data.length, width: image.width, height: image.height },
-                thread: { items: [{ id: 'first', text: 'Migrated image' }] } };
+                thread: { items: [{ id: 'first', text: 'Migrated image', authorId: 'legacy-owner' }] } };
             await createWithScreenshot(store, legacy, image);
             await createWithScreenshot(store, { ...legacy, domain: PUBLIC_PROJECT_PARTITION }, image);
-            if (operation === 'delete') await removeProjectComment(project, { kind: 'member', userId: 'staff', isAdmin: true, name: 'Staff' }, legacy.id);
+            if (operation === 'delete') await removeProjectComment(project, { kind: 'guest', visitorId: 'legacy-owner' }, legacy.id);
             else await replaceSavedScreenshot(store, PUBLIC_PROJECT_PARTITION, legacy.id, { screenshot: image, expectedRevision: null }, () => {});
             expect(await store.get(brand.domain, legacy.id)).toBeNull();
             expect(await store.getScreenshot(brand.domain, legacy.id)).toBeNull();

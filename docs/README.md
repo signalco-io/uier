@@ -13,6 +13,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.
 - [Review workflow](review-workflow.md): the app, access, assignment, screenshots, drafts, unread activity and environments.
+- [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
 - [Coding tool access (MCP)](mcp.md): credentials, client setup, tools, prompts and retry contracts.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.
@@ -27,6 +28,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Integration setup](integration-setup.md): provider registration, production credentials, activation and manual acceptance tasks.
 - [Integration operations](integration-operations.md): inspect stopped delivery and explicitly reconcile uncertain writes.
 - [MVP launch verification](mvp-launch-verification.md): coverage, measurements and outstanding hosted/device checks.
+- [Pinned toolbar bundles](operations.md#pinned-toolbar-bundles): retention, API compatibility and rollback builds.
 
 ## Integration plans
 

@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import type { ReattachAnchorInput } from '../src/lib/comments/validation';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
@@ -17,6 +18,7 @@ test.afterAll(() => { if (previousLocal === undefined) delete process.env.UIER_L
 
 async function saved() {
     const project = { id: randomUUID().replaceAll('-', '').slice(0, 12), urls: ['https://reviewed.example', 'https://preview.example'] } as DbProject;
+    await persistProjectAccess(project);
     const comment: DbComment = { id: `comment_${randomUUID()}`, domain: `project:${project.id}`, projectId: project.id,
         origin: project.urls[0], path: '/page?tab=one', pageStateVersion: 1, position: point, kind: 'rewrite',
         authorId: 'owner', resolved: true, createdAt: '2026-10-25T10:00:00Z',

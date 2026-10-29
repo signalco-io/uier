@@ -11,9 +11,10 @@
                 "public/sitemap*.xml",
                 "public/robots.txt",
                 "public/toolbar.js",
-                "public/toolbar-fonts/**"
+                "public/toolbar-fonts/**",
+                "public/toolbar/**"
             ],
-            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV"]
+            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "UIER_TOOLBAR_RETAIN_FROM"]
         },
         "typecheck": {
             "dependsOn": ["^build"],

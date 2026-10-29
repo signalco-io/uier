@@ -26,13 +26,19 @@ const signInPk = (tokenHash: string) => `sign-in:${tokenHash}` as const;
 
 /** Only app paths: never another origin (`//evil.example`) or a non-app page */
 export function safeNextPath(next: unknown) {
-    if (typeof next !== 'string' || next.length > 2048)
-        return undefined;
-    if (!(next === KnownPages.App || next.startsWith(`${KnownPages.App}/`) || next.startsWith(`${KnownPages.App}?`)))
-        return undefined;
-    if (next.includes('\\') || next.startsWith('//'))
-        return undefined;
-    return next;
+    if (typeof next !== 'string' || next.length > 2048 || next !== next.trim() || !next.startsWith('/') || next.startsWith('//')) return undefined;
+    try {
+        const decoded = decodeURIComponent(next);
+        if (/[\p{Cc}\\]/u.test(decoded)) return undefined;
+        // URL normalizes both literal and encoded dot segments. Reject them before normalization,
+        // including encoded separators, so a return path cannot silently change its destination.
+        const pathname = decodeURIComponent(next.split(/[?#]/, 1)[0]!);
+        if (pathname.split('/').some(segment => segment === '.' || segment === '..')) return undefined;
+        const base = new URL('https://uier.invalid');
+        const url = new URL(next, base);
+        if (url.origin !== base.origin || !(url.pathname === KnownPages.App || url.pathname.startsWith(`${KnownPages.App}/`))) return undefined;
+        return `${url.pathname}${url.search}`;
+    } catch { return undefined; }
 }
 
 /**
@@ -95,7 +101,7 @@ async function consumeSignInRequest(request: DbSignInRequest | null): Promise<{ 
 
     const user = await findOrCreateUser(request.email);
     await clearEmailSuppression(request.email);
-    return { user, next: request.next };
+    return { user, next: safeNextPath(request.next) };
 }
 
 /** A different/missing binding is rejected before reading the request or spending its guess budget. */

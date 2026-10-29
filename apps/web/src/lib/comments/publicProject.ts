@@ -130,6 +130,7 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
     if (legacyDomain && !await app.get(project.pk, migrationId)) {
         for (const comment of await comments.listAll(legacyDomain, 1000)) {
             const migrated = { ...comment, domain: PUBLIC_PROJECT_PARTITION, projectId: PUBLIC_PROJECT_ID, origin: brand.url };
+            if (isPrivateAppFeedback(migrated)) migrated.private = true;
             if (await comments.get(migrated.domain, migrated.id))
                 continue;
             if (comment.screenshot) {

@@ -8,6 +8,7 @@ import type { DbProject } from '@/src/lib/app/model';
 import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
 import { notificationPreference } from '@/src/lib/notifications/preferences';
+import { ProjectPeopleAndTeams } from '@/src/components/app/teams/ProjectAccess';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { configuredEnvironments } from '@/src/lib/app/environments';
@@ -57,6 +58,7 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
             </Section>
             {canConfigure && project.id !== PUBLIC_PROJECT_ID
                 && <ProjectIntegrations project={project} context={context} query={await searchParams} />}
+            {canConfigure && <ProjectPeopleAndTeams context={context} project={project} />}
             {canConfigure && <ProjectState context={context} project={project} />}
         </div>
     );
