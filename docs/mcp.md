@@ -14,7 +14,8 @@ request. Public project codes, guest ids, review links and app cookies cannot au
 The endpoint is `https://uier.io/api/mcp` (use your local/preview origin while testing). It uses the
 [official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server),
 stateless JSON responses, and a manually configured `Authorization: Bearer <credential>` header.
-OAuth login/discovery and clients that require OAuth are not supported. **Client configuration**
+OAuth login/discovery and clients that require OAuth are not supported; the [MCP OAuth plan](mcp-oauth-plan.md)
+proposes them. **Client configuration**
 in Account offers the following setups, built from the same endpoint. Merge entries into the
 existing client file; keep the credential out of every file and URL. Set `UIER_MCP_TOKEN` in the
 environment of the process that starts the client, then restart it.

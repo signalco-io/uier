@@ -16,6 +16,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
 - [Coding tool access (MCP)](mcp.md): credentials, client setup, tools, prompts and retry contracts.
+- [MCP OAuth plan](mcp-oauth-plan.md): proposed browser sign-in for coding tools, grant model options and decisions still open.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.
 - [Connected services](integrations.md): Notion pages, GitHub and Linear issues, Slack notifications and the shared delivery protocol.
 
