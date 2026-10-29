@@ -53,6 +53,8 @@ export type DbWorkspace = AppDoc & {
     name: string;
     createdBy: string;
     createdAt: string;
+    /** Serializes member removals through a conditional workspace/member transaction. */
+    memberRemovalVersion?: number;
 };
 
 export type MemberRole = 'admin' | 'commenter';

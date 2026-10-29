@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import type { DbComment } from '../src/lib/db/schema';
 import type { DbProject, DbProjectRef, DbMember, DbUser } from '../src/lib/app/model';
 import { getAppStore } from '../src/lib/app/store';
-import { signToken } from '../src/lib/app/tokens';
+import { randomToken, sha256Hex, signToken } from '../src/lib/app/tokens';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { listComments, replyToComment, getCommentScreenshot } from '../src/lib/comments/service';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
@@ -13,6 +13,9 @@ import { reviewApiHandler } from '../src/lib/review/http';
 import { listReviewComments, readReviewComment, readReviewComments } from '../src/lib/review/readRoutes';
 import { markThreadsRead } from '../src/lib/comments/bulkRead';
 import { POST as publicBulkRead } from '../app/api/comments/read/route';
+import { POST as publicRead } from '../app/api/comments/[id]/read/route';
+import { GET as publicActivity } from '../app/api/comments/activity/route';
+import { ensurePublicProject, PUBLIC_PROJECT_PARTITION } from '../src/lib/comments/publicProject';
 
 const alice = { kind: 'member', userId: 'alice', name: 'Alice', isAdmin: false } as const;
 const bob = { ...alice, userId: 'bob', name: 'Bob' };
@@ -21,6 +24,38 @@ const previousLocal = process.env.UIER_LOCAL;
 test.afterEach(() => {
     if (previousLocal === undefined) delete process.env.UIER_LOCAL;
     else process.env.UIER_LOCAL = previousLocal;
+});
+
+test('legacy app feedback without a private flag stays out of showcase activity and both read routes', async () => {
+    process.env.UIER_LOCAL = '1';
+    await ensurePublicProject();
+    const store = getMemoryCommentsStore();
+    const owner = randomToken();
+    const stranger = randomToken();
+    const authorId = sha256Hex(owner);
+    const strangerId = sha256Hex(stranger);
+    const before = (await projectActivity(PUBLIC_PROJECT_PARTITION, strangerId)).summary;
+    const comment: DbComment = { id: `comment_${randomUUID()}`, domain: PUBLIC_PROJECT_PARTITION, path: '/app/projects?view=board',
+        authorId, position: { type: 'page' }, thread: { items: [{ id: 'first', text: 'Private project details', authorId }] } };
+    await store.create(comment);
+    const context = { domain: comment.domain, request: new Request('http://localhost/api/comments'), visitor: { authorId: strangerId } };
+    expect((await listComments(context, null)).some(item => item.id === comment.id)).toBe(false);
+    expect((await projectActivity(comment.domain, strangerId)).summary).toEqual(before);
+    expect((await unreadComments(comment.domain, strangerId)).some(item => item.id === comment.id)).toBe(false);
+    const req = (path: string, token: string, data?: unknown) => new Request(`http://localhost/api/comments${path}`, {
+        method: data ? 'POST' : 'GET', headers: { host: 'localhost', cookie: `uier_visitor=${token}`, 'Content-Type': 'application/json' },
+        ...(data ? { body: JSON.stringify(data) } : {}) });
+    const summary = await publicActivity(req('/activity', stranger), { params: Promise.resolve({}) });
+    expect(await summary.json()).toEqual(before);
+    const single = await publicRead(req(`/${comment.id}/read`, stranger, { sequence: 1 }), { params: Promise.resolve({ id: comment.id }) });
+    expect(single.status).toBe(404);
+    const bulk = await publicBulkRead(req('/read', stranger, { threads: [{ id: comment.id, sequence: 1 }] }), { params: Promise.resolve({}) });
+    expect(await bulk.json()).toEqual({ reads: [] });
+    expect(await getReadSequence(comment.domain, strangerId, comment.id)).toBe(0);
+    expect((await publicRead(req(`/${comment.id}/read`, owner, { sequence: 1 }), { params: Promise.resolve({ id: comment.id }) })).status).toBe(200);
+    const owned = await publicBulkRead(req('/read', owner, { threads: [{ id: comment.id, sequence: 1 }] }), { params: Promise.resolve({}) });
+    expect((await owned.json() as { reads: unknown[] }).reads).toHaveLength(1);
+    expect(await getReadSequence(comment.domain, authorId, comment.id)).toBe(1);
 });
 
 test('per-reviewer cursors survive own posts, resolution, concurrent/stale reads and deleted replies', async () => {

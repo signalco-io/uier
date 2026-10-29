@@ -21,6 +21,7 @@ import {
     type DbInvitation,
     type DbInvitationToken,
     type DbMember,
+    type DbWorkspace,
     type MemberRole,
     type ProjectsAccess
 } from './model';
@@ -198,18 +199,30 @@ export async function acceptInvitation(token: unknown) {
 /** Removes someone from the workspace; the last admin stays */
 export async function removeMember(context: AppContext, userId: string) {
     assertMutableWorkspace(context.workspace.id);
+    if (!context.isAdmin) throw new UserFacingError('Only workspace admins can remove people.');
     const store = getAppStore();
     const workspaceId = context.workspace.id;
-    const member = await getMember(workspaceId, userId);
-    if (!member)
-        throw new UserFacingError('This person is no longer in the workspace.');
-    if (userId === context.user.id)
-        throw new UserFacingError('You can\'t remove yourself.');
-    if (member.role === 'admin') {
-        const admins = (await store.query<DbMember>({ type: 'member', pk: workspacePk(workspaceId), where: { role: 'admin' } }));
-        if (admins.length <= 1)
-            throw new UserFacingError('A workspace needs at least one admin.');
+    const pk = workspacePk(workspaceId);
+    for (let attempt = 0; attempt < 8; attempt++) {
+        // Read the guard before counting admins. Every successful removal changes its etag.
+        const workspace = await store.get<DbWorkspace>(pk, workspaceId);
+        const stored = await store.get<DbMember>(pk, memberId(userId));
+        if (!workspace || !stored)
+            throw new UserFacingError('This person is no longer in the workspace.');
+        const member = stored.doc;
+        if (member.userId === context.user.id)
+            throw new UserFacingError('You can\'t remove yourself.');
+        if (member.role === 'admin') {
+            const admins = await store.query<DbMember>({ type: 'member', pk, where: { role: 'admin' } });
+            if (admins.length <= 1)
+                throw new UserFacingError('A workspace needs at least one admin.');
+        }
+        const result = await store.replaceAndDelete({ ...workspace.doc,
+            memberRemovalVersion: (workspace.doc.memberRemovalVersion ?? 0) + 1 }, workspace.etag, stored);
+        if (result === 'ok') {
+            await revokeIntegrationGrantsOf(workspaceId, member.userId, store);
+            return;
+        }
     }
-    await store.delete(member.pk, member.id);
-    await revokeIntegrationGrantsOf(workspaceId, userId, store);
+    throw new UserFacingError('The workspace changed. Try again.');
 }

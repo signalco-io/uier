@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace, getMember, listUserMemberships, ownWorkspaceId } from '../src/lib/app/workspaces';
-import { memberId, workspacePk, type DbWorkspace } from '../src/lib/app/model';
+import { memberId, workspacePk, type DbMember, type DbWorkspace } from '../src/lib/app/model';
+import { removeMember } from '../src/lib/app/invitations';
+import type { AppContext } from '../src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProject';
 
 // A user's own workspace (`ensureOwnWorkspace`, run when the user is in no workspace at all): created
@@ -19,6 +21,55 @@ test.afterAll(() => {
 });
 
 const newUser = () => findOrCreateUser(`workspace-${randomUUID()}@example.com`);
+
+test('self-removal compares the stored user id even when an argument coerces to that id', async () => {
+    const user = await newUser();
+    const member = await ensureOwnWorkspace(user);
+    const workspace = (await getAppStore().get<DbWorkspace>(member.pk, member.workspaceId))!.doc;
+    const context = { user, member, workspace, isAdmin: true } as AppContext;
+    const before = await getAppStore().get(member.pk, member.id);
+    for (const id of [user.id, new String(user.id), { toString: () => user.id }])
+        await expect(removeMember(context, id as string)).rejects.toThrow('You can\'t remove yourself.');
+    expect(await getAppStore().get(member.pk, member.id)).toEqual(before);
+});
+
+test('two concurrent admin removals leave exactly one admin and never restore a removed member', async () => {
+    const [alice, bob] = await Promise.all([newUser(), newUser()]);
+    const a = await ensureOwnWorkspace(alice);
+    const b: DbMember = { ...a, id: memberId(bob.id), userId: bob.id, email: bob.email };
+    const store = getAppStore();
+    await store.create(b);
+    const workspace = (await store.get<DbWorkspace>(a.pk, a.workspaceId))!.doc;
+    const results = await Promise.allSettled([
+        removeMember({ user: alice, member: a, workspace, isAdmin: true } as AppContext, bob.id),
+        removeMember({ user: bob, member: b, workspace, isAdmin: true } as AppContext, alice.id)
+    ]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+    expect(String((results.find(result => result.status === 'rejected') as PromiseRejectedResult).reason)).toContain('at least one admin');
+    const members = await store.query<DbMember>({ type: 'member', pk: a.pk, where: { role: 'admin' } });
+    expect(members).toHaveLength(1);
+    const removed = members[0]!.userId === alice.id ? bob : alice;
+    expect(await getMember(workspace.id, removed.id)).toBeNull();
+    expect((await store.get<DbWorkspace>(workspace.pk, workspace.id))!.doc.memberRemovalVersion).toBe(1);
+    await ensureOwnWorkspace(removed);
+    expect(await getMember(workspace.id, removed.id)).toBeNull();
+});
+
+test('conditional member deletion leaves both documents untouched on a stale guard, changed target or missing target', async () => {
+    const user = await newUser();
+    const member = await ensureOwnWorkspace(user);
+    const store = getAppStore();
+    const guard = (await store.get<DbWorkspace>(member.pk, member.workspaceId))!;
+    const target = (await store.get<DbMember>(member.pk, member.id))!;
+    expect(await store.replaceAndDelete(guard.doc, 'stale', target)).toBe('conflict');
+    expect(await store.replaceAndDelete(guard.doc, guard.etag, { ...target, etag: 'stale' })).toBe('conflict');
+    expect(await store.get(guard.doc.pk, guard.doc.id)).toEqual(guard);
+    expect(await store.get(target.doc.pk, target.doc.id)).toEqual(target);
+    await store.delete(member.pk, member.id);
+    expect(await store.replaceAndDelete(guard.doc, guard.etag, target)).toBe('not_found');
+    expect(await store.get(guard.doc.pk, guard.doc.id)).toEqual(guard);
+});
 
 /** Workspaces the user is a member of, without uier's public feedback project every user joins */
 async function memberOf(userId: string) {

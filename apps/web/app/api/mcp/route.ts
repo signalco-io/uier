@@ -3,6 +3,7 @@ import { handleMcp } from '@/src/lib/mcp/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 async function handle(request: Request) {
     return handleMcp(request, new URL(await appBaseUrl()).origin);

@@ -6,6 +6,7 @@ import { getCommentsStore } from '../repo/commentsStore';
 import { MAX_LIST_COMMENTS } from './limits';
 import { apiErrors } from './http';
 import { readActivity, threadActivity } from './activity';
+import { isVisible } from './visibility';
 
 export type DbReviewRead = AppDoc & {
     type: 'review-read'; domain: string; reviewerId: string; readSequence: number; readAt: string;
@@ -54,7 +55,7 @@ export type ActivitySummary = { unread: number; open: number; done: number; tota
 
 /** No text or actor ids are returned to the browser. Authorization/visibility stays server-side. */
 export async function projectActivity(domain: string, reviewerId: string | undefined,
-    visible: (comment: DbCommentActivity) => boolean = comment => !comment.private || Boolean(reviewerId && comment.authorId === reviewerId)) {
+    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } })) {
     const [records, reads] = await Promise.all([getCommentsStore().listActivity(domain), loadReadSequences(domain, reviewerId)]);
     const comments = records.filter(visible).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
     const unreadIds = comments.filter(comment => readActivity(comment, reviewerId, reads.get(comment.id)).unread).map(comment => comment.id);
@@ -67,7 +68,7 @@ export async function projectActivity(domain: string, reviewerId: string | undef
 
 /** Fetch only a bounded batch of unread content, including old threads outside the newest list. */
 export async function unreadComments(domain: string, reviewerId: string | undefined,
-    visible: (comment: DbCommentActivity) => boolean = comment => !comment.private || Boolean(reviewerId && comment.authorId === reviewerId)) {
+    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } })) {
     const { unreadIds } = await projectActivity(domain, reviewerId, visible);
     const stored = await Promise.all(unreadIds.slice(0, MAX_LIST_COMMENTS).map(id => getCommentsStore().get(domain, id)));
     // Visibility may have changed between the projection and the point read.

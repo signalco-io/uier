@@ -1,7 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { textSchema } from '../../../lib/comments/validation';
+import type { z } from 'zod';
+import { parseActionInput } from '../../../lib/app/validation';
 import { actionResult, UserFacingError, type ActionState } from '../../../lib/app/actionResult';
 import { appContextOrThrow } from '../../../lib/app/context';
 import { getVisibleProject } from '../../../lib/app/projects';
@@ -25,6 +26,9 @@ import { projectFeedbackExport } from '../../../lib/review/feedbackContext';
 import { markProjectThreadsRead } from '../../../lib/review/bulkRead';
 import type { ReadThreadInput } from '../../../lib/comments/bulkRead';
 import { createCommentAuthorFilter } from '../../../lib/app/commentAuthors';
+import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
+    filterAuthorActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
+    resolveCommentActionSchema } from './actionSchemas';
 
 /** The comment's project (current workspace, visible to the user) and the user as its actor */
 async function commentContext(projectId: string) {
@@ -36,74 +40,76 @@ async function commentContext(projectId: string) {
 }
 
 /** Runs a comment change; the service's API errors (not found, forbidden) become messages */
-async function commentAction(projectId: string, change: (scope: Awaited<ReturnType<typeof commentContext>>) => Promise<unknown>): Promise<ActionState> {
+async function commentAction<T extends { projectId: string }>(schema: z.ZodType<T>, input: unknown,
+    change: (scope: Awaited<ReturnType<typeof commentContext>>, input: T) => Promise<unknown>): Promise<ActionState> {
     return await actionResult(async () => {
-        const scope = await commentContext(projectId);
+        const parsed = parseActionInput(schema, input);
+        const scope = await commentContext(parsed.projectId);
         try {
-            await change(scope);
+            await change(scope, parsed);
         } catch (error) {
             if (error instanceof ApiError && error.code !== 'server_error')
                 throw new UserFacingError(error.code === 'not_found' ? 'This comment no longer exists.' : error.message);
             throw error;
         }
-        revalidatePath(KnownPageLinks.project(projectId));
+        revalidatePath(KnownPageLinks.project(parsed.projectId));
     });
 }
 
 export async function setCommentResolvedAction(projectId: string, commentId: string, resolved: boolean) {
-    return await commentAction(projectId, ({ project, actor }) => setProjectCommentResolved(project, actor, commentId, resolved));
+    return await commentAction(resolveCommentActionSchema, { projectId, commentId, resolved },
+        ({ project, actor }, input) => setProjectCommentResolved(project, actor, input.commentId, input.resolved));
 }
 
 export async function setCommentPrivateAction(projectId: string, commentId: string, isPrivate: boolean) {
-    return await commentAction(projectId, ({ project, actor }) => setProjectCommentPrivate(project, actor, commentId, isPrivate));
+    return await commentAction(privateCommentActionSchema, { projectId, commentId, isPrivate },
+        ({ project, actor }, input) => setProjectCommentPrivate(project, actor, input.commentId, input.isPrivate));
 }
 
 export async function setCommentAssigneeAction(projectId: string, commentId: string, assigneeId: string | null) {
-    return await commentAction(projectId, async ({ project, actor }) => {
-        await setProjectCommentAssignee(project, actor, commentId, assigneeId);
-    });
+    return await commentAction(assignCommentActionSchema, { projectId, commentId, assigneeId },
+        ({ project, actor }, input) => setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId));
 }
 
 export async function editCommentAction(projectId: string, commentId: string, text: string) {
-    return await commentAction(projectId, async ({ project, actor }) => {
-        const parsed = textSchema.safeParse(text);
-        if (!parsed.success)
-            throw new UserFacingError('A comment needs text, up to 1000 characters.');
-        await editProjectCommentText(project, actor, commentId, parsed.data);
-    });
+    return await commentAction(editCommentActionSchema, { projectId, commentId, text },
+        ({ project, actor }, input) => editProjectCommentText(project, actor, input.commentId, input.text));
 }
 
 export async function deleteCommentAction(projectId: string, commentId: string) {
-    return await commentAction(projectId, ({ project, actor }) => removeProjectComment(project, actor, commentId));
+    return await commentAction(commentActionSchema, { projectId, commentId },
+        ({ project, actor }, input) => removeProjectComment(project, actor, input.commentId));
 }
 
 export async function deleteCommentReplyAction(projectId: string, commentId: string, itemId: string) {
-    return commentAction(projectId, ({ context, project, actor }) => {
+    return commentAction(deleteReplyActionSchema, { projectId, commentId, itemId }, ({ context, project, actor }, input) => {
         if (!context.isAdmin) throw new UserFacingError('Only admins can delete replies in the app.');
-        return deleteProjectCommentItem(project, actor, commentId, itemId);
+        return deleteProjectCommentItem(project, actor, input.commentId, input.itemId);
     });
 }
 
 export async function filterCommentAuthorAction(projectId: string, commentId: string, itemId?: string) {
     return actionResult(async () => {
-        const { context, project } = await commentContext(projectId);
-        return createCommentAuthorFilter(context, project, commentId, itemId);
+        const input = parseActionInput(filterAuthorActionSchema, { projectId, commentId, itemId });
+        const { context, project } = await commentContext(input.projectId);
+        return createCommentAuthorFilter(context, project, input.commentId, input.itemId);
     });
 }
 
 export async function markCommentReadAction(projectId: string, commentId: string, sequence: number) {
-    return await commentAction(projectId, async ({ project, actor }) => {
-        const comment = await getProjectComment(project, actor, commentId);
+    return await commentAction(readCommentActionSchema, { projectId, commentId, sequence }, async ({ project, actor }, input) => {
+        const comment = await getProjectComment(project, actor, input.commentId);
         if (!comment) throw apiErrors.notFound();
-        await markThreadRead(comment, actorAuthorId(actor)!, sequence);
+        await markThreadRead(comment, actorAuthorId(actor)!, input.sequence);
     });
 }
 
 export async function markCommentsReadAction(projectId: string, threads: ReadThreadInput[]) {
     return actionResult(async () => {
-        const { project, actor } = await commentContext(projectId);
-        const result = await markProjectThreadsRead(project, actor, { threads });
-        revalidatePath(KnownPageLinks.project(projectId));
+        const input = parseActionInput(readCommentsActionSchema, { projectId, threads });
+        const { project, actor } = await commentContext(input.projectId);
+        const result = await markProjectThreadsRead(project, actor, { threads: input.threads });
+        revalidatePath(KnownPageLinks.project(input.projectId));
         return result;
     });
 }
@@ -111,8 +117,9 @@ export async function markCommentsReadAction(projectId: string, threads: ReadThr
 /** An explicit export, using current workspace/member and private-thread authorization. */
 export async function copyIssueAction(projectId: string, commentId: string) {
     return actionResult(async () => {
-        const { project, actor } = await commentContext(projectId);
-        try { return await projectFeedbackExport(project, actor, commentId, undefined, await appBaseUrl()); }
+        const input = parseActionInput(commentActionSchema, { projectId, commentId });
+        const { project, actor } = await commentContext(input.projectId);
+        try { return await projectFeedbackExport(project, actor, input.commentId, undefined, await appBaseUrl()); }
         catch (error) {
             if (error instanceof ApiError)
                 throw new UserFacingError(error.code === 'not_found' ? 'This comment is no longer available.' : error.message);

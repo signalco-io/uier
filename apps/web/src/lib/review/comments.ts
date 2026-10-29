@@ -1,4 +1,6 @@
 import { syncTombstone, withSyncMark } from '../integrations/syncSignal';
+import { z } from 'zod';
+import { userIdSchema } from '../app/validation';
 import { reattachAnchor } from '../comments/reattachAnchor';
 import type { ReattachAnchorInput } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
@@ -328,6 +330,7 @@ async function changeComment(project: DbProject, actor: ProjectActor, id: string
 }
 
 export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean, idempotencyKey?: string) {
+    resolved = z.boolean().parse(resolved);
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
         comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
@@ -336,6 +339,7 @@ export async function setProjectCommentResolved(project: DbProject, actor: Proje
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
+    isPrivate = z.boolean().parse(isPrivate);
     return await changeComment(project, actor, id,
         () => canMakeCommentPrivate(actor),
         async comment => {
@@ -351,6 +355,9 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
 
 /** One assignment service for the app and toolbar; access is always checked here. */
 export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null, idempotencyKey?: string) {
+    const parsed = userIdSchema.nullable().safeParse(assigneeId);
+    if (!parsed.success) throw apiErrors.invalidRequest('Choose a valid user id.');
+    assigneeId = parsed.data;
     return await changeComment(project, actor, id,
         () => actor.kind === 'member',
         async (comment) => {

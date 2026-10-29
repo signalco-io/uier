@@ -27,10 +27,16 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
   only the same-origin background handoff uses its separate cookie inside the uier frame.
 - **Who can comment** is enforced here: `403 comments_disabled` when comments are off, `401
   sign_in_required` for anyone but members when the project is for invited people.
+  The same-origin showcase `/api/comments` reads the public project's current access setting
+  and enforces the same rule, using its signed-in account or guest identity. Its private feedback
+  remains author-only, including `/app` threads without a stored private flag; activity counts and
+  single/bulk read receipts use the same visibility as listing.
 - **CORS**: only the project's own site addresses get `Access-Control-Allow-Origin` (no credentials);
   requests from any other origin get `403`.
 - **Permissions**: members mark any comment done, the author and the workspace admins delete it, private
   comments are listed only to admins and their author. Comments carry `permissions` and `canDelete`.
+  Assignee ids and mention ids use `^u_[A-Za-z0-9_-]{1,64}$`; malformed assignment ids return
+  `400 invalid_request` before any participant lookup.
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
   the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.
   Current project members get 100 new comments and 300 replies per project per hour, without the
@@ -65,6 +71,13 @@ work and never appears in comment lists or DTOs. See [the shared delivery contra
 Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
 (`UIER_BASE_URL` overrides both); never the request's Host header.
+
+App server actions validate positional arguments before use as well as checking the session and role.
+Boolean settings are also validated by the services that persist them. Member removal compares the
+loaded user id, then atomically updates the workspace removal version and deletes the versioned
+member; concurrent removals recheck the admin count. A removed membership is never restored.
+Sign-in return paths are rebuilt with `new URL()` against a fixed origin, restricted to `/app`
+and its descendants, and reject dot segments (including encoded forms), backslashes and controls.
 
 ### Public project identifiers
 
