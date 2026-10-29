@@ -88,6 +88,5 @@ export const COMMENT_TTL_SECONDS = 90 * DAY;
 export const PREVIEW_COMMENT_TTL_SECONDS = 7 * DAY;
 
 /** Visitor identity cookie */
-export const VISITOR_COOKIE_NAME = 'uier_visitor';
 export const VISITOR_COOKIE_MAX_AGE_SECONDS = 365 * DAY;
 export const VISITOR_TOKEN_BYTES = 32;

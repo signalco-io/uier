@@ -1,7 +1,8 @@
+import { cookieNames, readMigratingCookie } from '@/src/lib/cookieNames';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { appBaseUrl } from '@/src/lib/app/request';
-import { REVIEW_SSO_COOKIE_NAME, readReviewSsoSession } from '@/src/lib/app/reviewSsoCookie';
+import { readReviewSsoSession } from '@/src/lib/app/reviewSsoCookie';
 import { findReviewProject, projectOrigins } from '@/src/lib/app/projects';
 import { apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 import { memberActor, REVIEW_TOKEN_TTL_SECONDS } from '@/src/lib/review/actor';
@@ -21,7 +22,7 @@ export async function POST(request: Request, { params }: RouteContext<'/api/revi
         const project = await findReviewProject(projectId);
         if (!project || project.access === 'disabled' || !projectOrigins(project).includes(input.origin))
             throw apiErrors.forbidden();
-        const session = readReviewSsoSession((await cookies()).get(REVIEW_SSO_COOKIE_NAME)?.value);
+        const session = readReviewSsoSession(readMigratingCookie(await cookies(), cookieNames.reviewSso, true));
         const actor = session ? await memberActor(project, session.uid) : null;
         if (!session || !actor) {
             response = new Response(null, { status: 204 });

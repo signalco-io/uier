@@ -16,7 +16,8 @@ It manages:
 - the production-only sensitive `UIER_STAFF_EMAILS` variable from required secret Pulumi config
   `uier:staffEmails`. Never store staff addresses in plaintext. See README "Removing abusive
   comments" for encrypted config updates, rollout and verification;
-- the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
+- the Cloudflare A/CNAME records for `uier.io` and `www.uier.io` (DNS only, not proxied), and
+  an apex CAA `0 issue letsencrypt.org` allowing Vercel's documented certificate issuer;
 - the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
   containers `comments` and `comments-preview` partitioned by `/domain`, `app` and
   `app-preview` partitioned by `/pk`) and Azure Communication Services Email with an
@@ -158,3 +159,12 @@ and protection must have no unrelated changes. Do not apply infrastructure local
 failed protection check.
 
 
+
+## Certificate issuance
+
+`caaRecord` in `src/cloudflare.ts` uses Cloudflare 6.x `data: { flags: 0, tag: 'issue', value }`,
+without `content`. The apex CAA authorizes only `letsencrypt.org`, Vercel's issuer verified against
+[its SSL documentation](https://vercel.com/docs/domains/working-with-ssl) on 29 October 2026.
+Both authoritative Cloudflare servers had no CAA policy at the apex before this change. CI should
+show one CAA creation, with no replacement/deletion of existing protected resources. Recheck the
+issuer documentation before changing CAs; excluding Vercel's issuer prevents certificate renewal.

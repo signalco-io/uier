@@ -485,7 +485,7 @@ test('the account page saves the name and signs out', async ({ page }) => {
 
     await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/app\/sign-in$/);
-    expect((await page.context().cookies()).some(cookie => cookie.name === 'uier_review_sso')).toBe(false);
+    expect((await page.context().cookies()).some(cookie => cookie.name === '__Secure-uier_review_sso')).toBe(false);
     await page.goto('/app/projects');
     await expect(page).toHaveURL(/\/app\/sign-in\?next=/);
 });

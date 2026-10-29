@@ -161,7 +161,7 @@ trailing slash).
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
-| `DELETE /api/visitor` | | `204`; signs out: removes the `uier_visitor` cookie (never creates one) |
+| `DELETE /api/visitor` | | `204`; signs out: removes the `__Host-uier_visitor` cookie (never creates one) |
 | `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
 
 **Public ids.** Every new comment gets a `number`, counted per domain (per project for a project's comments)
@@ -226,7 +226,7 @@ There is no bulk migration. Changing settings does not rewrite stored feedback: 
 website URL and show saved details in the inbox if the current routing policy no longer identifies that view.
 Drafts recover across reload and navigation; see [Draft recovery and submission retries](review-workflow.md#draft-recovery-and-submission-retries).
 
-**Anonymous identity.** The first comment or reply sets the `uier_visitor` cookie (reading comments and asking
+**Anonymous identity.** The first comment or reply sets the `__Host-uier_visitor` cookie (reading comments and asking
 for rewrite suggestions never do): 32 random bytes (base64url), `HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`, `Secure` everywhere
 except plain http on a loopback host (local development and tests). Comments store only
 `authorId = sha256(token)`, never the token. Visitors are shown as `Guest XXXX` (4 hex characters of an HMAC of

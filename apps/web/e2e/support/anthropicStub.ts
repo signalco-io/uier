@@ -139,6 +139,19 @@ const server = createServer((request, response) => {
         response.end('Anthropic API stub');
         return;
     }
+    // BotID's response/header tests share this local server; no real challenge is requested.
+    if (url.pathname === '/v1/challenge') {
+        response.writeHead(200, { 'Content-Type': 'application/javascript' });
+        response.end('window.__botIdFixture = true;');
+        return;
+    }
+    if (url.pathname.startsWith('/v1/proxy/')) {
+        const chunks: Buffer[] = [];
+        request.on('data', chunk => chunks.push(chunk));
+        request.on('end', () => send(200, { method: request.method, path: url.pathname,
+            query: url.search, forwardedHost: request.headers['x-forwarded-host'], body: Buffer.concat(chunks).toString('utf8') }));
+        return;
+    }
     if (request.method !== 'POST' || url.pathname !== '/v1/messages') {
         send(404, { type: 'error', error: { type: 'not_found_error', message: `Stub: no ${request.method} ${url.pathname}` } });
         return;

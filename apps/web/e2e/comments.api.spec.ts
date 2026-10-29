@@ -110,7 +110,7 @@ function visitorCookie(response: APIResponse) {
     return response.headersArray()
         .filter(header => header.name.toLowerCase() === 'set-cookie')
         .map(header => header.value)
-        .find(value => value.startsWith('uier_visitor='));
+        .find(value => /^(?:__Host-)?uier_visitor=/.test(value));
 }
 
 test('create, list, reply, resolve and delete a comment', async ({ newVisitor }) => {
@@ -459,6 +459,7 @@ test('anonymous visitor cookie', async ({ newVisitor }) => {
     // Secure behind an HTTPS proxy
     const httpsVisitor = await newVisitor({ headers: { 'X-Forwarded-Proto': 'https' } });
     const httpsCookie = visitorCookie(await createComment(httpsVisitor, path));
+    expect(httpsCookie).toMatch(/^__Host-uier_visitor=[A-Za-z0-9_-]{43}; /);
     expect(httpsCookie?.split('; ')).toContain('Secure');
 });
 

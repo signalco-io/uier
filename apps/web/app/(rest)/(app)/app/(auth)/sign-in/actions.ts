@@ -1,5 +1,7 @@
 'use server';
 
+import { cookieNames, readMigratingCookie } from '@/src/lib/cookieNames';
+
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { KnownPages } from '@/src/knownPages';
@@ -37,7 +39,7 @@ export async function requestSignInAction(_: ActionState<SignInLinkSent>, formDa
 export async function confirmSignInCodeAction(_: ActionState, formData: FormData): Promise<ActionState> {
     const result = await actionResult(async () => await confirmSignInCode(
         formData.get('requestId'), formData.get('code'),
-        (await cookies()).get(SIGN_IN_REQUEST_COOKIE_NAME)?.value
+        readMigratingCookie(await cookies(), cookieNames.signInRequest)
     ));
     if (!result?.ok)
         return result;

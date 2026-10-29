@@ -79,6 +79,12 @@ This is a TypeScript monorepo using pnpm and Turborepo.
 The pnpm workspace includes `apps/*` and `packages/*`. Infrastructure has its own dependencies
 and lockfile; install them separately only when working on infrastructure.
 
+Production uses HTTPS cookies named `__Host-uier_visitor`, `__Host-uier_session`,
+`__Host-uier_sign_in_request`, `__Host-uier_workspace` and `__Secure-uier_review_sso`.
+Plain HTTP local runs keep the unprefixed names. See the [web guide](apps/web/AGENTS.md#page-security-and-cookie-migration)
+for the bounded transition from old names. Cloudflare serves the apex A record, the `www` CNAME,
+and a CAA record authorizing Vercel's certificate issuer, Let's Encrypt; see [operations](docs/operations.md).
+
 ## Go deeper
 
 | Guide | Start here when you want to… |

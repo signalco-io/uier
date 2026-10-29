@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="28 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="29 October 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
                     details about the device it came from: its size (desktop, tablet or mobile), the window
                     size, the pixel ratio, the browser name and version, and the operating system;
                 </li>
-                <li>an author id: your account id when signed in on {brand.domain}, otherwise a hash of the random token in your <code>uier_visitor</code> cookie;</li>
+                <li>an author id: your account id when signed in on {brand.domain}, otherwise a hash of the random token in your <code>__Host-uier_visitor</code> cookie;</li>
                 <li>
                     a screenshot of the part of the page the comment is about, when capture succeeds. Capture starts
                     automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
@@ -105,7 +105,7 @@ export default function PrivacyPolicyPage() {
             <h3>The visitor cookie</h3>
             <p>
                 Starting a draft keeps a random visitor token in local storage to recover a lost response.
-                Your first comment, reply or read acknowledgement sets the <code>uier_visitor</code> cookie. It holds a random token that
+                Your first comment, reply or read acknowledgement sets the <code>__Host-uier_visitor</code> cookie. It holds a random token that
                 lets the server recognise your comments and read state, so only you can resolve or delete your comments. We store a hash of
                 the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
@@ -122,10 +122,11 @@ export default function PrivacyPolicyPage() {
             <p>
                 To sign you in, we email you a link and an eight-digit code. We store only a hash of the link token
                 and a keyed hash of the code. Both are deleted when either is used, after five wrong codes, or
-                after 15 minutes. A short-lived HttpOnly cookie binds the code to the browser that asked for it.
+                after 15 minutes. The HttpOnly <code>__Host-uier_sign_in_request</code> cookie binds the code to the browser that asked for it.
                 A new request replaces this binding; signing in removes it. We count code attempts with hashed
-                request counters to limit guessing. Signing in sets the <code>uier_session</code> cookie, which keeps
-                you signed in; the <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has the details. We count
+                request counters to limit guessing. Signing in sets the <code>__Host-uier_session</code> cookie, which keeps
+                you signed in. The <code>__Host-uier_workspace</code> cookie remembers your selected workspace.
+                The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> lists lifetimes and the temporary reads of old cookie names. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>
             <p>
@@ -163,7 +164,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
                 If you are already signed in to {brand.domain}, an empty frame can authenticate you in the
-                background on a configured project site. A separate HttpOnly, Secure cookie authorizes only
+                background on a configured project site. A separate HttpOnly, Secure <code>__Secure-uier_review_sso</code> cookie authorizes only
                 this review handoff; we check the requesting site and your current project membership.
                 Browsers that block cross-site cookies or frames keep the explicit sign-in link. We do not
                 open a popup or request storage access. Toolbar sign-out disables automatic sign-in on that
@@ -377,7 +378,7 @@ export default function PrivacyPolicyPage() {
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
-                <li>The <code>uier_visitor</code> cookie: one year after it is set. The <code>uier_session</code> cookie: 30 days after you sign in.</li>
+                <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>
                 <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>
             </ul>
 

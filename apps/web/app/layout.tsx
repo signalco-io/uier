@@ -3,27 +3,13 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { brand } from '@uier/brand';
 import './global.css';
-import { Analytics } from '@vercel/analytics/react';
-import { ClientProvider } from '../src/components/providers/ClientProvider';
-import { AuthProvider } from '../src/components/providers/AuthProvider';
-import { DevReviewToolbarScript } from '../src/components/toolbar/DevReviewToolbarScript';
-
-const isDevelopment = process.env.NODE_ENV === 'development';
-
 export default function RootLayout({ children }: {
     children: React.ReactNode;
 }) {
     return (
         <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
             <body className={'font-sans antialiased'}>
-                <AuthProvider>
-                    <ClientProvider>
-                        {children}
-                        <Analytics />
-                        {/* Review toolbar from the local packages/toolbar dev server (`pnpm dev`); the public layout embeds it in showcase mode */}
-                        {isDevelopment && <DevReviewToolbarScript />}
-                    </ClientProvider>
-                </AuthProvider>
+                {children}
             </body>
         </html>
     );

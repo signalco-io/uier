@@ -19,7 +19,8 @@ For recovery procedures, use [Backups and restore](backups-and-restore.md).
   email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
   suggestions) once the repository secret `ANTHROPIC_API_KEY` is set,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
-  both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself,
+  both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself;
+  the apex CAA `0 issue letsencrypt.org` restricts issuance to that documented CA (Cloudflare `data`, not `content`),
 - the Azure resource group `uier-production8b2f56d6` (Pulumi logical name `uier-production`) with a
   serverless Cosmos DB account (database `uierdata`, containers `comments` with per-item TTL enabled
   (`defaultTtl: -1`) and `comments-preview` (`defaultTtl` 7 days), both partitioned by `/domain`; the app's
