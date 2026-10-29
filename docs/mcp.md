@@ -253,7 +253,7 @@ All clients are public: no client secret, `token_endpoint_auth_method` `none`, g
   The client name has control and formatting characters removed and is cut to 60 characters. The
   response is 201 with a `uier_client_…` id and no secret. A registration expires 30 days after the
   last sign-in that used it; existing connections keep working, and the client registers again for a
-  new sign-in.
+  new sign-in. A requested client authentication method is replaced with `none`.
 - **Redirect URIs.** HTTPS URIs, or HTTP on `localhost`, `127.0.0.1` or `[::1]`, up to 512 characters.
   HTTPS URIs match exactly. Loopback URIs match with the port ignored and the scheme, host, path and
   query compared exactly, so clients can listen on any port. No custom schemes, fragments, user
@@ -292,7 +292,9 @@ authentication, cookies or CORS. Responses send `Cache-Control: no-store`.
 - `grant_type=refresh_token` needs `refresh_token` and `client_id`, plus optional `resource` and `scope`.
   Every refresh returns a new pair and retires the old refresh token. Presenting a retired refresh token
   within 60 seconds (a lost response or a concurrent refresh) returns another new pair. Presenting it
-  later revokes the connection. `scope` may repeat or narrow the granted operations for the new tokens.
+  later revokes the connection. `scope` may repeat or narrow the granted operations, always including
+  `feedback:read`. Narrowing applies to the new access token only; a later refresh without `scope` returns
+  every granted operation.
 
 ```json
 { "access_token": "uier_at.…", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "uier_rt.…", "scope": "feedback:read feedback:reply" }
@@ -326,8 +328,7 @@ stored. Tokens, codes, verifiers, `state` and request bodies are never logged.
 
 `UIER_MCP_OAUTH=off` in the server environment turns OAuth off. The discovery documents and every
 `/api/oauth/*` route answer 404, and the 401 challenge returns to `Bearer realm="uier MCP"`. Access
-tokens already issued keep working until they expire, at most an hour; their refresh then fails.
-Access tokens from Account are not affected. OAuth is on in every other case.
+tokens already issued stop working on their next request. Access tokens from Account are not affected. OAuth is on in every other case.
 
 ## Tools
 
@@ -440,14 +441,20 @@ budget. Public feedback commenters retain their 30-reply visitor budget and shar
 connections do not consume more of the owner's reply budget. Thread/image sizes retain existing review
 validation limits. No server sessions or long-running streams are retained.
 
-The OAuth routes count requests per IP address (an IPv4 address or an IPv6 /64) and hour:
+The OAuth routes count requests per hour:
 
-| Route | Limit |
+| What | Limit |
 | --- | --- |
-| `/api/oauth/authorize` | 60 |
-| `/api/oauth/token` | 600, and 30 failed requests (`invalid_grant`) |
-| `/api/oauth/register` | 20 |
-| `/api/oauth/revoke` | 120 |
+| `/api/oauth/authorize` | 60 per IP address |
+| Fetching one client metadata document host | 60 per host |
+| Approving on the consent page | 30 per account |
+| `/api/oauth/token` | 3000 per IP address (hosted clients share addresses) |
+| Refreshing one connection | 120 per connection |
+| `/api/oauth/register` | 20 per IP address, 2000 in total |
+| `/api/oauth/revoke` | 120 per IP address |
+
+An IP limit counts an IPv4 address or the /64 network of an IPv6 address. Local loopback requests are not
+limited by IP.
 
 A limit answers 429 with `temporarily_unavailable` and `Retry-After`. Counters are keyed hashes in the
 comments container, deleted shortly after their window. Each account can have 20 active connected apps

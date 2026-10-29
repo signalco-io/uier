@@ -10,6 +10,7 @@ import { isLocalRuntime } from '../../comments/environment';
 import { normalizeClientName, OAUTH_LIFETIMES } from './config';
 import { isAllowedRedirectUri, redirectHost } from './redirects';
 import { OAuthError } from './errors';
+import { limitByKey } from './http';
 import type { ClientPresentation } from './grants';
 
 export type McpClient = AppDoc & {
@@ -152,8 +153,11 @@ function fetchPublicHttps(url: URL) {
                 cacheControl: String(response.headers['cache-control'] ?? ''), body: Buffer.concat(chunks).toString('utf8') }));
             response.on('error', reject);
         });
+        // `timeout` is an idle timeout; the deadline bounds a slowly dripping response too.
+        const deadline = setTimeout(() => request.destroy(new Error('The client metadata request timed out.')), 5000);
         request.on('timeout', () => request.destroy(new Error('The client metadata request timed out.')));
         request.on('error', reject);
+        request.on('close', () => clearTimeout(deadline));
         request.end();
     });
 }
@@ -198,6 +202,9 @@ export async function resolveClient(clientId: string): Promise<McpClient | null>
     const cached = await store.get<McpClient>(clientPk(clientId), sha256Hex(clientId));
     if (cached && cached.doc.clientId === clientId) return cached.doc.failed ? null : cached.doc;
     if (!clientId.startsWith('uier_client_') && isMetadataClientId(clientId)) {
+        const url = new URL(clientId);
+        // Local test metadata servers are exempt; on a deployment every host is limited.
+        if (!testMetadataUrl(url)) await limitByKey('metadata-host', url.host.toLowerCase(), 60);
         const client = await loadMetadataClient(clientId);
         await store.create(client);
         return client.failed ? null : client;

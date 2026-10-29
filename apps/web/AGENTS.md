@@ -536,8 +536,8 @@ workspaces and 1000 projects).
 OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
 
 - `mcpOauthEnabled()` is true unless `UIER_MCP_OAUTH=off`. Off makes the metadata routes and every
-  `/api/oauth/*` route answer 404 and drops the discovery challenge; `/api/mcp` still accepts access
-  tokens until they expire.
+  `/api/oauth/*` route answer 404, drops the discovery challenge, and makes `/api/mcp` reject OAuth
+  access tokens already issued.
 - Discovery: `next.config.ts` rewrites `/.well-known/oauth-protected-resource/api/mcp` and
   `/.well-known/oauth-authorization-server` to `app/api/oauth/metadata/{protected-resource,authorization-server}`.
   Public JSON, `Access-Control-Allow-Origin: *`, five-minute cache. No root protected-resource document,
@@ -547,8 +547,9 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
 - The issuer is the `appBaseUrl()` origin. The resource is exactly `<origin>/api/mcp`, compared with
   `isMcpResource`, never by prefix; tokens are accepted only for it and never forwarded.
 - `app/api/oauth/{authorize,token,register,revoke}` run through `oauthEndpoint` (RFC 6749 JSON errors,
-  `no-store`) and `limitByIp` (per IP and hour: authorize 60, token 600, failed token 30, register 20,
-  revoke 120). Token, registration and revocation take no cookies, send no CORS headers and are not
+  `no-store`) and the limits in `http.ts`: per IP and hour authorize 60, token 3000 (hosted clients share
+  egress addresses), register 20 (2000 globally), revoke 120; per subject and hour 30 approvals per
+  account, 120 refreshes per grant and 60 metadata fetches per host. Token, registration and revocation take no cookies, send no CORS headers and are not
   behind BotID. Authorization requests stay out of `/app`: only the stored random request id passes
   through sign-in, and `/app/connect/error` is a signed-out app path in `proxy.ts`. Errors go back to
   a redirect URI only after the client and that URI are validated.

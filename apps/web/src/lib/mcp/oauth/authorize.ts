@@ -8,6 +8,7 @@ import { clientPresentation, resolveClient, touchClient } from './clients';
 import { OAuthError, type OAuthErrorCode } from './errors';
 import { agentAccessSchema, connectionNameSchema, grantScopesSchema, getGrant, listConnectedApps, userPk, validateAccessChoice, type AgentAccess, type ClientPresentation } from './grants';
 import { redirectUriMatches } from './redirects';
+import { limitByKey } from './http';
 
 export type McpAuthorizationRequest = AppDoc & {
     type: 'mcp-authorization-request';
@@ -130,6 +131,7 @@ export type Approval = z.input<typeof approvalSchema>;
  */
 export async function approveAuthorization(user: Pick<DbUser, 'id' | 'email'>, requestId: string, value: unknown, issuer: string) {
     const input = approvalSchema.parse(value);
+    await limitByKey('approve', user.id, 30);
     const stored = await loadRequest(requestId);
     if (!stored) throw new OAuthError('invalid_request', 'This sign-in request expired. Start again from your coding tool.');
     if (!await validateAccessChoice(user.id, user.email, input.access as AgentAccess))

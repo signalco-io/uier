@@ -47,6 +47,11 @@ export async function limitGlobally(request: Request, name: string, limit: numbe
     if (ipBucket(request)) await consumeLimit(`oauth-${name}`, limit, windowSeconds);
 }
 
+/** Counts one request per subject (a user, a grant, a metadata host) in a fixed window. */
+export async function limitByKey(name: string, subject: string, limit: number, windowSeconds = 3600) {
+    await consumeLimit(`oauth-${name}:${subject}`, limit, windowSeconds);
+}
+
 /** Form bodies of the token and revocation endpoints: `application/x-www-form-urlencoded`, at most 16 KiB */
 export async function readForm(request: Request) {
     if (!/^application\/x-www-form-urlencoded\b/i.test(request.headers.get('content-type') ?? ''))

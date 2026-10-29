@@ -5,6 +5,7 @@ import { randomToken, sha256Hex } from '../../app/tokens';
 import type { McpScope } from '../scopes';
 import { isMcpResource, OAUTH_LIFETIMES, parseScopes } from './config';
 import { OAuthError } from './errors';
+import { limitByKey } from './http';
 import { getGrant, isGrantActive, userPk, type McpGrant } from './grants';
 import type { McpAuthorizationCode } from './authorize';
 import { redirectUriMatches } from './redirects';
@@ -82,7 +83,7 @@ function optional(form: URLSearchParams, name: string) {
 }
 
 /** `authorization_code`: PKCE, client, redirect URI and resource must match the approved request. */
-export async function exchangeCode(form: URLSearchParams, issuer: string) {
+export async function exchangeCode(form: URLSearchParams, issuer: string, attempt = 0): Promise<ReturnType<typeof newPair>['response']> {
     const code = required(form, 'code');
     const clientId = required(form, 'client_id');
     const verifier = required(form, 'code_verifier');
@@ -122,8 +123,10 @@ export async function exchangeCode(form: URLSearchParams, issuer: string) {
         const replaced = await getGrant(userId, record.replaceGrantId);
         if (replaced) operations.push({ kind: 'delete', pk: replaced.doc.pk, id: replaced.doc.id, etag: replaced.etag });
     }
-    if (!await store.transact(operations)) throw new OAuthError('invalid_grant', 'The code was already used.');
-    return response;
+    if (await store.transact(operations)) return response;
+    // The replaced connection changed (for example its last use was recorded): read everything again once.
+    if (attempt === 0) return await exchangeCode(form, issuer, 1);
+    throw new OAuthError('invalid_grant', 'The code was already used.');
 }
 
 /** `refresh_token`: every use rotates. A reuse within the grace period gets a new pair; later it revokes the grant. */
@@ -148,12 +151,14 @@ export async function refreshTokens(form: URLSearchParams, issuer: string, attem
     if (!grant || !isGrantActive(grant.doc, now) || Date.parse(record.expiresAt) <= now || !isMcpResource(record.resource, issuer))
         throw new OAuthError('invalid_grant', 'The connection ended. Sign in again.');
 
+    if (attempt === 0) await limitByKey('refresh', grant.doc.id, 120);
     // Narrowing applies to the new access token only: an omitted scope means the scopes the person
     // granted (RFC 6749 §6), so a later refresh can return to them.
     let scopes: McpScope[] | undefined;
     if (requestedScope !== undefined) {
         const requested = parseScopes(requestedScope);
-        if (!requested || requested.some(scope => !grant.doc.scopes.includes(scope))) throw new OAuthError('invalid_scope', 'Request the granted scopes or fewer.');
+        if (!requested || !requested.includes('feedback:read') || requested.some(scope => !grant.doc.scopes.includes(scope)))
+            throw new OAuthError('invalid_scope', 'Request the granted scopes or fewer, including feedback:read.');
         scopes = requested.length === grant.doc.scopes.length ? undefined : requested;
     }
     const updatedGrant: McpGrant = { ...grant.doc, idleExpiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now), lastUsedAt: new Date(now).toISOString(), ttl: OAUTH_LIFETIMES.idleSeconds + 86400 };

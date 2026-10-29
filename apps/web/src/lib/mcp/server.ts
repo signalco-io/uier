@@ -2,7 +2,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { pagePath } from '@uier/toolbar/page-state';
-import { mcpProject, type McpIdentity } from './credentials';
+import { mcpProject, requireMcpScope, type McpIdentity } from './credentials';
 import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
@@ -71,7 +71,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
     const { access } = identity;
-    server.registerTool('list_projects', { description: `List projects this connection can reach that its human owner can still access, with their workspace. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to add it to this connection in Account, or to reconnect and choose it. ${untrusted}`, inputSchema: { ...page, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
+    server.registerTool('list_projects', { description: `List projects this connection can reach that its human owner can still access, with their workspace. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to reconnect and choose it. ${untrusted}`, inputSchema: { ...page, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
+        requireMcpScope(identity, 'feedback:read');
         const { workspaces, truncated } = await listAccessibleWorkspaces(identity.user.id, identity.user.email, workspaceId =>
             (input.workspaceId === undefined || workspaceId === input.workspaceId)
             && (access.kind === 'all' || access.workspaces.some(entry => entry.workspaceId === workspaceId)));

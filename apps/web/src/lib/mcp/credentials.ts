@@ -10,6 +10,7 @@ import { ApiError, apiErrors } from '../comments/http';
 import { mcpScopes, type McpScope } from './scopes';
 import { accessCovers, grantedWorkspaceOf, type AgentAccess } from './oauth/grants';
 import { authenticateAccessToken, isAccessTokenFormat } from './oauth/tokens';
+import { mcpOauthEnabled } from './oauth/config';
 
 export { mcpScopes, type McpScope } from './scopes';
 export const credentialSchema = z.object({
@@ -77,7 +78,8 @@ export async function authenticateMcp(request: Request, issuer = new URL(request
     const token = bearerToken(request);
     if (token === null) throw new McpAuthenticationError(false);
     if (isAccessTokenFormat(token)) {
-        const result = await authenticateAccessToken(token, issuer);
+        // Off also stops access tokens that were already issued.
+        const result = mcpOauthEnabled() ? await authenticateAccessToken(token, issuer) : null;
         const user = result ? await getUser(result.grant.userId) : null;
         if (!result || !user) throw new McpAuthenticationError(true);
         return { user, connection: { id: result.grant.id, kind: 'oauth', name: result.grant.name, clientId: result.grant.clientId }, scopes: result.scopes, access: result.grant.access };

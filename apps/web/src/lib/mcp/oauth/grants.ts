@@ -101,7 +101,9 @@ export async function listAccessibleWorkspaces(userId: string, email: string, in
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const workspaces: AccessibleWorkspace[] = [];
     let projectCount = 0;
+    let scanned = 0;
     for (const member of members.slice(0, MAX_SCANNED_WORKSPACES)) {
+        scanned++;
         const [workspace, projects, access] = await Promise.all([getWorkspace(member.workspaceId), listProjects(member.workspaceId), loadWorkspaceAccess(member.workspaceId)]);
         if (!workspace) continue;
         const visible = projects.filter(project => hasProjectAccess(access, member, project))
@@ -110,7 +112,7 @@ export async function listAccessibleWorkspaces(userId: string, email: string, in
         workspaces.push({ workspace: { id: workspace.id, name: workspace.name }, member, projects: visible });
         if (projectCount >= MAX_SCANNED_PROJECTS) break;
     }
-    return { workspaces, truncated: members.length > workspaces.length || projectCount >= MAX_SCANNED_PROJECTS };
+    return { workspaces, truncated: members.length > scanned || projectCount >= MAX_SCANNED_PROJECTS };
 }
 
 /** Whether the grant covers this project. Current membership and project access are checked separately. */

@@ -340,7 +340,8 @@ export default function PrivacyPolicyPage() {
                 public feedback project and every writer using the anonymous comments API keep the visitor and IP limits.
                 An IP limit counts an IPv4 address or the /64 network of an IPv6 address. MCP replies also count per
                 connection and against its owner&rsquo;s reply limit; MCP requests count per account per minute.
-                Coding tool sign-in, token, registration and revocation requests count per IP address.
+                Coding tool sign-in, token, registration and revocation requests count per IP address, and approvals,
+                refreshes and client description fetches also count per account, connection and publishing host.
             </p>
             <p>
                 Rewrite suggestions still count per visitor or reviewer, per IP address, per site or project and across
