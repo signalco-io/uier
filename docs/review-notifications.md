@@ -199,7 +199,7 @@ DNS validation. The published rejection policy remains mandatory.
 | New subdomain DNS preflight | Both Cloudflare authorities returned no TXT/SPF, DKIM or DMARC at the new owners |
 | notify.uier.io prepared and verified | #193 deployed; all four supported Azure states Verified in run 40864313704 |
 | Authoritative transactional DMARC policy | Both authoritative servers serve the full rejection policy; verification workflow passed |
-| Sender identity and in-place link | Pending; Azure-managed sender remains active during preparation |
+| Sender identity and in-place link | #196 deployed; ACS display name `uier`, notify domain linked, Vercel production sender `donotreply@notify.uier.io` |
 | Real report receipt/message-id correlation | Pending recipient-authorized production digest; matching remains disabled |
 | Received-message authentication, display name and headers | Pending recipient-authorized production digest |
 | DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
@@ -292,12 +292,12 @@ delivery report was processed for a real digest. No test email was sent. Product
 correlation, received-message SPF/DKIM/DMARC and intact unsubscribe headers, and DKIM header coverage
 remain unverified. `UIER_EMAIL_REPORT_MATCH_OPERATIONS` stays unset.
 
-The owner confirmed the five-state sender gate must remain intact. Azure still reports Domain, SPF,
-DKIM and DKIM2 as `Verified`, with DMARC `NotStarted` despite authoritative
-`_dmarc.uier.io TXT "v=DMARC1; p=reject"`. The Azure-managed sender remains active.
-[#178](https://github.com/signalco-io/uier/pull/178) stays unmerged, without auto-merge, until Azure
-verifies all five states and a reviewed preview proves an in-place link/sender change. Issue #132
-remains open.
+At this earlier stage, the owner confirmed the five-state sender gate must remain intact. Azure
+reported Domain, SPF, DKIM and DKIM2 as `Verified`, with DMARC `NotStarted` despite authoritative
+`_dmarc.uier.io TXT "v=DMARC1; p=reject"`. The Azure-managed sender remained active and
+[#178](https://github.com/signalco-io/uier/pull/178) was held unmerged. This hold was superseded by
+the owner's 29 October subdomain and authoritative-DMARC decision above. Issue #132 remains open
+for the received-message acceptance gates.
 
 
 ### Transactional subdomain preparation
@@ -318,3 +318,29 @@ The unsupported Azure DMARC state remains NotStarted and is intentionally not a 
 so scheduled workers cannot observe the new sender address before Azure accepts the domain.
 The default username stays DoNotReply; this adds no reply mailbox or new sender alias.
 The application and digest transport share the same production sender configuration.
+
+### Transactional sender activation
+
+The first #178 apply stopped before changing the domain link or sender variable: Azure had already
+created `/domains/notify.uier.io/senderUsernames/donotreply`, which Pulumi refused to create again.
+[#196](https://github.com/signalco-io/uier/pull/196) imported that exact default sender, then updated
+its display name in place. [Deployment 40866577521](https://github.com/signalco-io/uier/actions/runs/40866577521)
+succeeded with one import, three updates and 63 resources unchanged, followed by a successful web
+deployment. The updates were the default sender metadata, the existing communication service's
+domain links and the production sender variable. The temporary import option is now removed;
+the adopted sender remains protected and managed by Pulumi.
+
+Independent readback on 29 October confirmed:
+
+- ACS default sender username `DoNotReply` and display name `uier`.
+- `notify.uier.io` Succeeded, Domain/SPF/DKIM/DKIM2 Verified, and both From and MailFrom domains
+  `notify.uier.io`. Azure's unsupported DMARC state remains NotStarted.
+- Both configured Cloudflare authorities pass the full DMARC rejection-policy check.
+- The existing communication service links both AzureManagedDomain and `notify.uier.io`.
+- Vercel production `UIER_EMAIL_SENDER=donotreply@notify.uier.io`, with operation matching disabled.
+- The canonical production deployment is Ready; credential-free report POST returns 401 with
+  `Cache-Control: no-store`.
+
+No test message was sent. A recipient-authorized production digest is still required to prove the
+inbox display name, received-message authentication, report correlation and unsubscribe-header
+integrity/coverage. These remain separate from successful configuration and deployment.

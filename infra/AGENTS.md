@@ -75,10 +75,11 @@ assignments and the OIDC subjects CI uses.
 
 ## Email rollout (#132)
 
-`src/email.ts` retains the protected root `uier.io` domain and its DNS records, and prepares a
+`src/email.ts` retains the protected root `uier.io` domain and its DNS records, and manages a
 separate protected `notify.uier.io` domain for all transactional mail: sign-in links, invitations,
-guest confirmations and review digests. The current Azure-managed sender and communication-service
-name/key remain until a separate cutover. Never rename/remove the existing root or managed resources.
+guest confirmations and review digests. The subdomain is active with display name `uier`; the
+Azure-managed domain remains linked and the communication-service name/key are unchanged.
+Never rename/remove the existing root or managed resources.
 
 The subdomain's ownership TXT, SPF TXT and both DKIM CNAME values come from ACS `verificationRecords`.
 Azure's relative DKIM owners must be qualified as `<selector>._domainkey.notify.uier.io` in the
@@ -97,14 +98,15 @@ its `NotStarted` state to become Verified. Preserve the published policy; this d
 unsupported verification, not DMARC protection. `pnpm build && pnpm test` covers these DNS boundaries.
 
 Preparation #193 deployed on 29 October with six creations and 59 resources unchanged. Verification
-run 40864313704 passed all four Azure states and authoritative DMARC. After all four
-Azure checks and authoritative DMARC pass, the separate cutover PR must read the domain fresh,
-import its Azure-created default `donotreply` sender resource before updating username `DoNotReply`
-and display name `uier`,
-retain the Azure-managed domain in `linkedDomains`, and switch production to
-`DoNotReply@notify.uier.io`. The sender variable must depend on successful domain linking so
-scheduled workers cannot use the new address prematurely. Configure display names in ACS's SenderUsername resource, never by
-putting a formatted name into the SDK's `senderAddress`. Review an in-place service update; reject
+run 40864313704 passed all four Azure states and authoritative DMARC. Cutover #178 and the default
+sender import repair #196 deployed successfully in run 40866577521. The protected default
+`donotreply` SenderUsername is now tracked by Pulumi with username `DoNotReply` and display name
+`uier`; its one-time import option has been removed. Every run still reads the domain fresh,
+requires the four Azure checks and authoritative DMARC, and retains the Azure-managed domain in
+`linkedDomains`. Production uses `donotreply@notify.uier.io`. The sender variable depends on
+successful domain linking so scheduled workers cannot use the new address prematurely. Configure
+display names in ACS's SenderUsername resource, never by putting a formatted name into the SDK's
+`senderAddress`. Review an in-place service update; reject
 replacement, deletion, key rotation, connection-string replacement or unrelated changes. No local
 `pulumi up`, protection bypass, new reply mailbox or engagement tracking.
 
@@ -119,10 +121,9 @@ Readback on 28 October confirmed Succeeded and a real HTTP 200 handshake after #
 
 Subscription provisioning does not prove real delivery. Keep `UIER_EMAIL_REPORT_MATCH_OPERATIONS`
 unset until an authorized production digest proves report `messageId` equals the send operation id.
-Azure creates the default sender automatically; code-based import must target exactly the selected
-domain's `/senderUsernames/donotreply` ID. Review import plus an in-place display-name update; never
-recreate/delete the default sender or bypass protection. Remove the import option only after a
-successful CI apply, then require a no-diff preview.
+Azure creates the default sender automatically; adoption must import exactly the selected
+domain's `/senderUsernames/donotreply` ID. Never recreate/delete the default sender or bypass
+protection. Require a no-diff preview when removing a completed one-time import.
 
 Received-message SPF/DKIM/DMARC, unsubscribe header integrity and DKIM header coverage remain separate
 acceptance gates. The [operations guide](../docs/operations.md#email-domain-verification-and-cutover)
