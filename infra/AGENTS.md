@@ -30,6 +30,19 @@ email key). Never give previews a
 connection string again; the federated credential hardcodes the Vercel team slug, project name
 and team issuer mode, so update it when those change.
 
+`src/productionCosmosIdentity.ts` prepares a separate protected identity trusted only for
+`owner:signalco:project:uier:environment:production`, with built-in Data Contributor on `comments`
+and `app` only. Production still uses its connection string until the staged cutover in
+[`docs/ci-credential-rollout.md`](../docs/ci-credential-rollout.md). Preparation must create exactly
+the identity, federation and two data-plane assignments; no authentication flag or Vercel value
+changes. The existing connection-string variable now has `deleteBeforeReplace` in preparation
+for a later change; keep its sensitivity/value unchanged in this deploy. Verify the CI preview.
+
+Never disable local authentication or key-based metadata writes until production, the scheduled
+worker, moderation operators and the restore procedure all work with Entra ID. Deploy each
+stage through CI and record readback before removing a credential, subject or key. Pulumi
+protection is not an Azure management lock; the rollout records the separate owner prerequisite.
+
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.
 

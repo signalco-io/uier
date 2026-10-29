@@ -6,6 +6,8 @@ import { actionResult, type ActionState } from '../app/actionResult';
 import { ApiError } from '../comments/http';
 import { UserFacingError } from '../app/actionResult';
 import { createMcpCredential, revokeMcpCredential } from './credentials';
+import { parseActionInput } from '../app/validation';
+import { revokeCredentialActionSchema } from './actionSchemas';
 
 export async function createMcpCredentialAction(_previous: ActionState<{ token: string }>, form: FormData) {
     return actionResult(async () => {
@@ -22,7 +24,8 @@ export async function createMcpCredentialAction(_previous: ActionState<{ token: 
 }
 
 export async function revokeMcpCredentialAction(id: string) {
+    const input = parseActionInput(revokeCredentialActionSchema, { id });
     const context = await appContextOrThrow();
-    await revokeMcpCredential(context.user.id, id);
+    await revokeMcpCredential(context.user.id, input.id);
     revalidatePath('/app/account');
 }

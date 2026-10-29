@@ -6,6 +6,9 @@ For recovery procedures, use [Backups and restore](backups-and-restore.md).
 
 ## Infrastructure
 
+The [least-privilege rollout](ci-credential-rollout.md) records the preparation and the remaining
+credential and Cosmos DB cutover gates for #167. Production still uses its account key in this stage.
+
 [`infra/`](../infra) is the Pulumi project **`uier`** (Node.js runtime) with a single stack,
 **`organization/uier/uier-production`**. It manages:
 
@@ -109,6 +112,13 @@ Pulumi runs the compiled `dist/index.js` (`typescript: false` in `Pulumi.yaml`),
 preview; `pnpm preview` does that. The data-holding and domain-serving resources (resource group, Cosmos DB
 account, database and containers, Vercel project, `uier.io` DNS record) are `protect`ed: a change that would
 delete or replace one of them fails instead of being applied.
+This protects against Pulumi changes only. Azure `CanNotDelete` locks on the resource group and
+`uierdb` have not been established by this change; do not describe them as active without readback.
+
+The next CI deployment also provisions a separate protected `uier-production-cosmos...` managed identity,
+its Vercel production federation and built-in Data Contributor assignments on `comments` and `app` only.
+It receives no control-plane role or preview-container access. Its existence does not switch production
+authentication: the Vercel variables and scheduled worker still use the existing connection string.
 
 CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 
@@ -135,6 +145,10 @@ Concurrency: deploys run one at a time and are never cancelled; `pulumi up` runs
 to a pull request cancels its previous CI run.
 
 ### Required GitHub configuration
+
+These are the current credentials. The [credential rollout](ci-credential-rollout.md) describes the
+target environments, subjects, role scopes and secret migration. Prepare and verify them before
+changing workflow authentication; repository secrets cannot be read back through GitHub's API.
 
 Repository secrets:
 
@@ -187,6 +201,11 @@ gh api -X PUT repos/signalco-io/uier/actions/permissions/workflow \
 Dependencies are kept current by [Renovate](https://github.com/apps/renovate) (installed for the
 `signalco-io` organization; see [`renovate.json`](../renovate.json)). It waits until an npm release is one day
 old - the same `minimumReleaseAge` pnpm enforces on install - and automerges selected minor/patch updates.
+Only development dependencies matching `@types/*`, `@playwright/test` and `@axe-core/playwright` can
+automerge, after at least **three days**, for minor, patch, pin or digest updates. Runtime packages,
+build/deployment tools, Pulumi providers and all GitHub Actions updates wait for a maintainer to merge.
+Every external workflow action is pinned to a full commit SHA with a version comment; Renovate's
+`helpers:pinGitHubActionDigests` keeps those references updated through pull requests.
 
 A ruleset on `main` requires a pull request with a passing **`CI OK`** check and blocks force pushes and deletions; "Allow auto-merge" is enabled on the repository.
 

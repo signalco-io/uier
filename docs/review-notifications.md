@@ -43,6 +43,14 @@ GitHub can delay scheduled jobs, so five minutes is a batching window, not a del
 It can also be run manually. It uses the existing Vercel production configuration, Cosmos DB
 containers and Azure Communication Services sender; it creates no new infrastructure.
 
+During [credential-rollout preparation](ci-credential-rollout.md), the worker still pulls the
+production environment with the repository's `VERCEL_TOKEN`. The CLI is installed with
+`--ignore-scripts`. The next step masks every non-empty dotenv value with escaped `::add-mask::`
+commands before running other steps; `run-notifications.mjs` repeats masking before loading a
+supplied file in GitHub Actions. Dotenv is parsed as data, never sourced as shell code. The file
+is removed in an `always()` step and must never be logged or uploaded. This is interim protection:
+removing the full-environment pull requires the separate worker credential/scheduler stage.
+
 Before each attempt, the worker reloads current project access, membership, private-thread
 visibility, subscription, mute and read cursor. Removed members, disabled projects, guests on
 invited-only projects, hidden/deleted threads and already-read activity are suppressed.

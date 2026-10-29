@@ -9,6 +9,8 @@ import { inviteToWorkspace, removeMember, revokeInvitation } from '../../../lib/
 import { listProjects } from '../../../lib/app/projects';
 import { emailSchema } from '../../../lib/app/users';
 import { showsEmailLinksOnPage } from '../../../lib/email/send';
+import { parseActionInput } from '../../../lib/app/validation';
+import { removeMemberActionSchema, revokeInvitationActionSchema } from './actionSchemas';
 
 export type InvitationSent = {
     email: string;
@@ -49,16 +51,18 @@ export async function inviteAction(_: ActionState<InvitationSent>, formData: For
 
 export async function revokeInvitationAction(invitationId: string): Promise<ActionState> {
     return await actionResult(async () => {
+        const input = parseActionInput(revokeInvitationActionSchema, { invitationId });
         const context = await appContextOrThrow({ admin: true });
-        await revokeInvitation(context.workspace.id, invitationId);
+        await revokeInvitation(context.workspace.id, input.invitationId);
         revalidatePath(KnownPages.AppUsers);
     });
 }
 
 export async function removeMemberAction(userId: string): Promise<ActionState> {
     return await actionResult(async () => {
+        const input = parseActionInput(removeMemberActionSchema, { userId });
         const context = await appContextOrThrow({ admin: true });
-        await removeMember(context, userId);
+        await removeMember(context, input.userId);
         revalidatePath(KnownPages.AppUsers);
     });
 }

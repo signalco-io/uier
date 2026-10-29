@@ -164,6 +164,11 @@ licenses in each `package.json`, the root `LICENSE` and the README "License" sec
 repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
 `e2e/pages.spec.ts` checks them.
 
+The security controls distinguish Pulumi deletion protection from Azure management locks and
+state that approving reviews are not required. Renovate can automerge only selected development
+type/browser-test dependencies after three days. Keep those controls aligned with `renovate.json`,
+workflow SHA pins and the current main ruleset; do not claim the pending credential rollout is active.
+
 The continuous-backup control and privacy retention line describe the verified live
 `Continuous7Days` policy in West Europe. Keep the seven-day wording aligned with the
 [backup evidence](../../docs/backups-and-restore.md) and `e2e/pages.spec.ts` / `e2e/legal.spec.ts`; add no recovery-time, recovery-point,
@@ -236,14 +241,21 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   built on `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn
   has no autocomplete, and Combobox only takes one of its items).
   Client names belong to the signed-in app, not the public review project DTO.
-- Every server action checks the session and the role itself (`appContextOrThrow({ admin })`); pages use
-  `requireAppContext()` / `requireAdminContext()`. Never trust ids from the form without loading the
-  document from the current workspace.
+- Every server action parses its arguments with zod and checks the session and role itself
+  (`appContextOrThrow({ admin })`); pages use `requireAppContext()` / `requireAdminContext()`.
+  Positional argument schemas live next to the actions, outside `'use server'` modules; use
+  `parseActionInput` for short `UserFacingError` messages before any argument is used. Share
+  `app/validation.ts`'s user id schema across mentions and assignment boundaries. Services that
+  persist boolean settings validate them again. Never trust ids without loading the document
+  from the current workspace.
 - Apart from uier's own public feedback project, which every account joins (`joinPublicProject`), a
   membership is only ever created by an invitation or together with a new workspace (`ensureOwnWorkspace`,
   one `createAll` transaction). Never recreate a missing member document of a customer workspace: a missing
   member is someone an admin removed, and recreating it undoes the removal (their review tokens and MCP
   credentials work again). `e2e/workspaces.api.spec.ts` and the users e2e tests cover it.
+  Member removal conditionally replaces the workspace's `memberRemovalVersion` and deletes the
+  versioned member together with `AppStore.replaceAndDelete`. Read the workspace before counting
+  admins and repeat both on a conflict; never undo a removal by recreating its member document.
 - Forms use `useActionState` with `actionResult()` (expected failures become `{ ok: false, error }`)
   and controlled inputs, so React's reset after an action never drops what was typed.
 - Message edits through the review API compare `expectedText` before changing a thread item; author/admin
@@ -363,7 +375,11 @@ App reply deletion reuses `deleteProjectCommentItem`; thread deletion must keep 
 and never delete sequence or rate-limit documents. On the public project's
 same-origin comments API, `__Host-uier_session` takes precedence over guest identity. Store `user:<id>` just
 as the review API does, resolve current account names for DTOs, and keep private app feedback
-author-only in the public API. Guest comments are not automatically reassigned on sign-in.
+author-only in the public API. Read the current public project and apply `assertCanUseComments`
+on every showcase request; the cached provisioning result is not current access policy. Listing,
+activity and both read routes share `comments/visibility.ts`, including legacy `/app` threads
+without a private flag. Migration marks copied `/app` threads private. Guest comments are not
+automatically reassigned on sign-in.
 
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
@@ -452,6 +468,11 @@ credentials and tools. Account settings creates 30-day named credentials, read-o
 with explicit project selection; raw secrets are shown once and only hashes are stored. Never
 accept cookies, review tokens, project codes or guest ids as MCP authentication. Recheck current
 membership, scopes and private visibility for each request and screenshot resource read.
+The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
+(overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption
+and always closes the server. Screenshot resources map `ApiError` to `InvalidParams` with its
+code/message, zod errors to fixed `InvalidParams` text and unexpected errors to `InternalError`
+with `The operation failed.` and a generic log line. Never return raw storage diagnostics.
 Credentials remain bound to one workspace. Account guidance and `mcp/workflows.ts` explain choosing
 the uier workspace/public-feedback project for feedback about uier itself. Missing project grants
 stay `not_found` without exposing project existence; direct users to `list_projects` and explicit

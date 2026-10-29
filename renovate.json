@@ -1,7 +1,8 @@
 {
     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
     "extends": [
-        "config:recommended"
+        "config:recommended",
+        "helpers:pinGitHubActionDigests"
     ],
     "minimumReleaseAge": "1 day",
     "internalChecksFilter": "strict",
@@ -35,7 +36,7 @@
             ]
         },
         {
-            "description": "Automerge minor/patch updates of tooling and low-risk dependencies",
+            "description": "Only type declarations and browser-test tools may automerge; wait at least three days",
             "automerge": true,
             "matchUpdateTypes": [
                 "minor",
@@ -44,36 +45,21 @@
                 "digest"
             ],
             "matchManagers": [
-                "npm",
-                "custom.regex"
+                "npm"
             ],
             "matchPackageNames": [
-                "@axe-core/playwright",
-                "@enterwell/react-hooks",
+                "@types/*",
                 "@playwright/test",
-                "@pulumi/azure-native",
-                "@pulumi/cloudflare",
-                "@pulumi/pulumi",
-                "@types/color",
-                "@types/node",
-                "@types/react",
-                "@types/react-dom",
-                "@vercel/analytics",
-                "autoprefixer",
-                "pnpm",
-                "postcss",
-                "postcss-preset-env",
-                "sass",
-                "sharp",
-                "tsup",
-                "turbo",
-                "typescript",
-                "vercel"
-            ]
+                "@axe-core/playwright"
+            ],
+            "matchDepTypes": [
+                "devDependencies"
+            ],
+            "minimumReleaseAge": "3 days"
         },
         {
-            "description": "Automerge minor/patch updates of GitHub Actions",
-            "automerge": true,
+            "description": "Maintainers merge every GitHub Actions update, including digest updates",
+            "automerge": false,
             "matchManagers": [
                 "github-actions"
             ],
@@ -160,5 +146,6 @@
     "dependencyDashboard": true,
     "prHourlyLimit": 6,
     "platformAutomerge": true,
-    "platformCommit": "enabled"
+    "platformCommit": "enabled",
+    "automerge": false
 }
