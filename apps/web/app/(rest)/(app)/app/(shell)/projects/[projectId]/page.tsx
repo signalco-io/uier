@@ -1,4 +1,4 @@
-import { environmentOptions, environmentSelection } from '@/src/lib/app/environments';
+import { environmentOptions, isEnvironmentSelection } from '@/src/lib/app/environments';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { GlobeIcon } from 'lucide-react';
@@ -30,7 +30,8 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
     const query = parseCommentsQuery(await searchParams);
     const author = query.author ? await resolveCommentAuthorFilter(context, project, query.author) : undefined;
     if (query.author && !author) notFound();
-    query.environment = environmentSelection(project, query.environment);
+    // All environments unless a valid one is chosen
+    query.environment = isEnvironmentSelection(project, query.environment) ? query.environment : 'all';
     const [comments, members] = await Promise.all([
         loadProjectComments(context, project, query.environment, author?.authorId),
         listProjectMembers(context.workspace.id, project.id)

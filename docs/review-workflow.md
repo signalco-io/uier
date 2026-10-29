@@ -351,13 +351,13 @@ page views. A label alone never groups addresses. Grouping changes the view; it 
 migrate comments, change permission checks, or rewrite their source origins.
 
 The toolbar's pins follow the current environment or explicit alias group. Its inbox has a visible
-Environment filter and a deliberate All environments view. Counts/unread and bounded lists use the
+Environment filter (All environments by default). Counts/unread and bounded lists use the
 same server-side scope. Selecting another environment changes the inbox, while new feedback is
 still recorded on the site being reviewed. The filter is saved on that site for the API, project
 and reviewer in `uier:environment:v1:<api>:<project>:<reviewer>` until browser data is cleared.
-App filters are retained in the URL and survive reload. The app initially shows the main origin's
-environment; the toolbar initially shows its current origin. Invalid/stale selections fall back to
-that default. Direct comment links open the original configured origin and stored safe query/hash
+App filters are retained in the URL and survive reload. The app and the toolbar inbox initially
+show All environments (toolbar pins still show only the current origin). Invalid/stale selections
+fall back to that default. Direct comment links open the original configured origin and stored safe query/hash
 state, even when aliases share feedback. Reattachment still requires the original reviewed origin. Opening a direct link overrides an old toolbar filter for
 that visit. Notifications also retain the original source: unavailable sources link members to feedback history and give guests notification controls instead of a replacement site.
 An allowed site that no longer responds can still fail at the browser; uier does not

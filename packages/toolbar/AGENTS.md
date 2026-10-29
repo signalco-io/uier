@@ -172,7 +172,8 @@ Keep original and previous context, and never invent fallback pins for missing o
 `e2e/reattach*.spec.ts` covers recovery, access, races, layout changes and light/dark accessibility.
 
 - Project review info supplies environment labels and explicit alias groups. Pins always use the
-  current environment; inbox lists and activity use the visible saved Environment selection.
+  current environment; inbox lists and activity use the visible saved Environment selection
+  (All environments until one is chosen).
   Scope query keys by that selection and reviewer. A thread's server-provided `source` owns its
   original link; missing/removed sources have no executable link. Keep foreign-environment items
   out of This page/Show on page even when paths match (the page picker keys pages by environment and path). Direct links override saved filters for the

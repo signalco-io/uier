@@ -191,7 +191,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
         if (new URL(window.location.href).searchParams.has('uier-comment')) return null;
         try { return window.localStorage.getItem(storageKey); } catch { return null; }
     });
-    const environment = saved && (['all', 'unknown', 'removed'].includes(saved) || options.some(option => option.id === saved)) ? saved : currentEnvironment;
+    const environment = saved && (['all', 'unknown', 'removed'].includes(saved) || options.some(option => option.id === saved)) ? saved : 'all';
     const setEnvironment = (value: string) => {
         setSaved(value);
         try { window.localStorage.setItem(storageKey, value); } catch { /* Filter still works for this page. */ }
