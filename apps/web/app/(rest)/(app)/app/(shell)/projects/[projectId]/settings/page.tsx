@@ -48,9 +48,6 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
             <Section
                 id="emails"
                 title="Email notifications"
-                description={muted
-                    ? 'You get no emails from this project. Threads you follow stay followed.'
-                    : 'Owners and admins get new feedback. Posting in a thread follows it. Emails are batched for 5 minutes.'}
                 actions={<ProjectEmailsButton projectId={project.id} muted={muted} />}>
                 {canConfigure
                     ? <ProjectEmailExcerptsForm projectId={project.id} enabled={project.emailCommentExcerpts === true} />
