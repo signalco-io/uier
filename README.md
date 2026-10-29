@@ -59,7 +59,8 @@ Run these from the repository root:
 | `pnpm dev` | Start the website and toolbar watch build |
 | `pnpm typecheck` | Check TypeScript across the workspace |
 | `pnpm build` | Build the toolbar and website for production |
-| `pnpm test` | Run Playwright end-to-end tests against the production build |
+| `pnpm test` | Run all API tests and essential browser journeys against the production build |
+| `pnpm test:full` | Run the full desktop/mobile browser regression suite and API tests |
 
 Before the first test run, install Chromium:
 

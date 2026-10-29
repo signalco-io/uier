@@ -343,11 +343,22 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
 
 - `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
-  Mobile Chrome). A server that already answers on that port is never reused (the run fails), so
+  Mobile Chrome). The default runs every `.api.spec.ts`, desktop `@smoke` tests and mobile
+  `@mobile-smoke` tests: landing, sign-in, security policy, installation, owner/guest discussion,
+  capture, routes and recovery. It has no retries and a three-minute total budget; CI has two
+  workers and local runs have four. Browser essentials can run in parallel within a file;
+  API tests and the full suite retain their file ordering. Failures retain traces, and
+  `playwright-report/results.json` records timings. `pnpm test:full` restores every browser spec
+  and two retries. For a specific regression use
+  `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file>`.
+  Keep new feature permutations in the full suite; do not add smoke tags by default.
+  A server that already answers on that port is never reused (the run fails), so
   stop `pnpm dev` or pick another `PORT`. Rewrite suggestions go to `e2e/support/anthropicStub.ts`
   on `PORT + 1000`, never to the real API.
-- Accessibility is part of the suite: new pages should be added to an `assertAccessibility`
+- Accessibility is part of both suites: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
+- The detailed feature coverage below and elsewhere in this guide describes the full suite;
+  only tagged browser essentials run in the required check. API coverage always runs.
 - `project-review.spec.ts` covers privacy-safe owner notes (including manual clipboard fallback),
   ended-session sign-in return URLs and offline/reconnect notices, with keyboard, 375 px and axe
   checks. `embed.spec.ts` verifies missing cross-origin configuration sends no public comments or

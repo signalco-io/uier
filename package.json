@@ -18,7 +18,8 @@
     "build": "turbo run build",
     "dev": "turbo run dev --ui tui",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "test:full": "PLAYWRIGHT_FULL=1 turbo run test"
   },
   "devDependencies": {
     "turbo": "2.11.10"

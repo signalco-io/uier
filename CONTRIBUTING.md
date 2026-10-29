@@ -60,6 +60,9 @@ human contributors; [the root guide](AGENTS.md) links to each one.
 3. Run `pnpm typecheck && pnpm build && pnpm test` before you push. Install the Playwright browser
    once with `pnpm -C apps/web exec playwright install --with-deps chromium`. Stop the dev server
    or use `PORT=4104 pnpm test` to avoid a port conflict.
+   The required run includes all API tests and essential browser journeys. Use `pnpm test:full`
+   for broad browser regressions, or `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file>`
+   for a specific feature. Reserve `@smoke` / `@mobile-smoke` tags for critical user journeys.
 4. Explain the problem, the resulting behavior and how you verified it. Update the relevant docs
    and package guide.
 5. Wait for **CI OK** before merging. CI selects web checks, the Vercel preview and the infrastructure

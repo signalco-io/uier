@@ -58,7 +58,8 @@ Run from the repository root (each one runs the matching script in every package
 | `pnpm dev` | Run the website (port 4004) and the toolbar watch build + server (port 4005) |
 | `pnpm build` | Production build of the toolbar, then the website (default `public/toolbar.js`, content-addressed `public/toolbar/<sha256>.js` and archive manifest) |
 | `pnpm typecheck` | TypeScript checks |
-| `pnpm test` | Playwright end-to-end tests of `apps/web` against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
+| `pnpm test` | All API tests and essential browser journeys against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
+| `pnpm test:full` | All API and desktop/mobile browser regression tests |
 | `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
 
 Before the first `pnpm test`, install the Playwright browser:
@@ -78,6 +79,35 @@ PORT=4104 pnpm test
 ```
 
 An existing server on that port is never reused, inside or outside CI.
+
+### Required suite
+
+`pnpm test` and pull-request CI run every `.api.spec.ts` once, plus **12 browser tests**:
+nine desktop checks tagged `@smoke` and three mobile checks tagged `@mobile-smoke`.
+The desktop checks cover the landing page and axe, sign-in redirect/code and single-use links,
+CSP nonces and navigation policies, installation and the owner/guest comment lifecycle,
+screenshots, text/rewrite/page feedback, routes, recovery and keyboard movement. Mobile repeats
+the landing page, the owner/guest lifecycle and recovery/viewport controls.
+
+The default previously ran 402 desktop/mobile cases. The essential set removes **97% of those
+browser executions** while retaining all 382 API tests, including access, validation and persistence
+contracts. Detailed feature permutations, repeated page/theme scans and load measurements remain
+available in the full suite. Keep new browser regressions there unless they protect a critical journey.
+
+The required run has no retries and a three-minute total timeout, with two workers in CI and four
+locally. Tagged browser tests can run in parallel within a file; API tests keep their file ordering.
+Traces are retained on failure; `playwright-report/results.json` records per-test and total timings
+and is uploaded with the CI artifacts. `pnpm test:full` keeps the existing two retries and file ordering
+without the three-minute budget. Turbo caches the two modes separately.
+
+To run a specific browser regression that is outside the required set:
+
+```bash
+pnpm build
+PLAYWRIGHT_FULL=1 PORT=4104 pnpm -C apps/web exec playwright test drafts.spec.ts
+```
+
+### Full regression coverage
 
 The [MVP launch evidence matrix](mvp-launch-verification.md) maps the combined review flow to
 coverage and records pending hosted/physical-device checks. `launch.spec.ts` adds owner/guest review,
@@ -122,5 +152,5 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   hash/fetch failures and expiry. `feedback-context.api.spec.ts` covers literal Markdown titles,
   names and metadata, including URLs/hosts and user/team mentions, with unchanged structured context.
 
-Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
-(`api.vercel.com`), so they need network access.
+Browser verification and rewrite requests use the local Anthropic stand-in configured by Playwright;
+the suite uses fake credentials and does not require live provider calls.

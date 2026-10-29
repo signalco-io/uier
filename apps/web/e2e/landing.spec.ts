@@ -3,7 +3,7 @@ import { brand } from '@uier/brand';
 import { expectNoAxeViolations } from './accessibility';
 import { showcaseHint, toolbar } from './support/toolbar';
 
-test('landing page renders', async ({ page }) => {
+test('landing page renders', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page }) => {
     const response = await page.goto('/');
     expect(response?.status()).toBe(200);
     await expect(page).toHaveTitle(`${brand.name} · ${brand.tagline}`);
@@ -31,7 +31,7 @@ test('landing page sends security headers', async ({ request }) => {
     expect(csp).not.toMatch(/vercel\.live|vercel\.com|pusher|vitals\.vercel-insights|vercel-scripts/);
 });
 
-test('app scripts use a fresh nonce, including the theme script, and reject injected inline scripts', async ({ page, request }) => {
+test('app scripts use a fresh nonce, including the theme script, and reject injected inline scripts', { tag: '@smoke' }, async ({ page, request }) => {
     const violations: string[] = [];
     page.on('console', message => { if (/Content Security Policy|violates.*directive/i.test(message.text())) violations.push(message.text()); });
     const response = await page.goto('/app/sign-in');
@@ -61,7 +61,7 @@ test('app scripts use a fresh nonce, including the theme script, and reject inje
     expect(await page.evaluate(() => '__uierInjected' in window)).toBe(false);
 });
 
-test('public and app links load a new document with the destination security policy', async ({ page }) => {
+test('public and app links load a new document with the destination security policy', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/');
     const appDocument = page.waitForResponse(response => response.request().isNavigationRequest()
         && new URL(response.url()).pathname === '/app/sign-in');
@@ -77,7 +77,7 @@ test('public and app links load a new document with the destination security pol
     expect(publicPage.headers()['content-security-policy']).not.toContain("'strict-dynamic'");
 });
 
-test('landing page is accessible (with the showcase toolbar)', async ({ page }) => {
+test('landing page is accessible (with the showcase toolbar)', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/');
     await expect(toolbar(page)).toBeVisible();
     await expect(showcaseHint(page)).toBeVisible();
