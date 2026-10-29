@@ -251,9 +251,9 @@ All clients are public: no client secret, `token_endpoint_auth_method` `none`, g
   without an initial access token. Unacceptable redirect URIs are dropped and the stored list is
   returned; registration fails with `invalid_redirect_uri` only when none remains. At most 10 are kept.
   The client name has control and formatting characters removed and is cut to 60 characters. The
-  response is 201 with a `uier_client_…` id and no secret. A registration expires 30 days after the
-  last sign-in that used it; existing connections keep working, and the client registers again for a
-  new sign-in. A requested client authentication method is replaced with `none`.
+  response is 201 with a `uier_client_…` id and no secret. A registration that no sign-in has used
+  expires after a day; after that it expires 30 days after the last sign-in that used it. Existing
+  connections keep working, and the client registers again for a new sign-in. A requested client authentication method is replaced with `none`.
 - **Redirect URIs.** HTTPS URIs, or HTTP on `localhost`, `127.0.0.1` or `[::1]`, up to 512 characters.
   HTTPS URIs match exactly. Loopback URIs match with the port ignored and the scheme, host, path and
   query compared exactly, so clients can listen on any port. No custom schemes, fragments, user
@@ -263,8 +263,12 @@ All clients are public: no client secret, `token_endpoint_auth_method` `none`, g
 
 `GET /api/oauth/authorize` resolves the client and its redirect URI first. An unknown client, a
 redirect URI the client did not register, or a repeated `client_id` or `redirect_uri` shows a uier error
-page (`/app/connect/error`) and never redirects. With a trusted redirect, errors go back to the client
-with `state` and `iss`:
+page (`/app/connect/error`) and never redirects. The other errors below go back to the client with
+`state` and `iss` only when its redirect URI is a loopback address. For an HTTPS redirect URI they show
+the same error page: anyone can register an HTTPS redirect URI, and sending an error there before you
+see consent would make uier an open redirect.
+
+
 
 - `response_type` other than `code`: `unsupported_response_type`.
 - PKCE: a `code_challenge` of 43 base64url characters with `code_challenge_method=S256` is required
@@ -291,8 +295,8 @@ authentication, cookies or CORS. Responses send `Cache-Control: no-store`.
   returns `invalid_grant` and revokes the connection that code created.
 - `grant_type=refresh_token` needs `refresh_token` and `client_id`, plus optional `resource` and `scope`.
   Every refresh returns a new pair and retires the old refresh token. Presenting a retired refresh token
-  within 60 seconds (a lost response or a concurrent refresh) returns another new pair. Presenting it
-  later revokes the connection. `scope` may repeat or narrow the granted operations, always including
+  once more within 60 seconds (a lost response or a concurrent refresh) returns another new pair.
+  Presenting it again, or later, revokes the connection. `scope` may repeat or narrow the granted operations, always including
   `feedback:read`. Narrowing applies to the new access token only; a later refresh without `scope` returns
   every granted operation.
 
@@ -320,7 +324,7 @@ stored. Tokens, codes, verifiers, `state` and request bodies are never logged.
 | Access token | 1 hour |
 | Refresh token | Until its next use (then 60 seconds of grace), at most 30 days |
 | Connection | Ends 30 days after the tool last refreshed, 1 year after it was created, or when revoked |
-| Registered client | 30 days after the last sign-in that used it |
+| Registered client | A day if no sign-in uses it, then 30 days after the last sign-in that used it |
 | Cached client metadata document | Its HTTP cache lifetime, between 5 minutes and 24 hours |
 | Access token from Account | 30 days, or until revoked |
 
@@ -446,14 +450,16 @@ The OAuth routes count requests per hour:
 | What | Limit |
 | --- | --- |
 | `/api/oauth/authorize` | 60 per IP address |
-| Fetching one client metadata document host | 60 per host |
+| Fetching client metadata documents | 30 per IP address, 600 per publishing host |
 | Approving on the consent page | 30 per account |
 | `/api/oauth/token` | 3000 per IP address (hosted clients share addresses) |
 | Refreshing one connection | 120 per connection |
-| `/api/oauth/register` | 20 per IP address, 2000 in total |
+| `/api/oauth/register` | 20 per IP address (IPv6 per /48), 2000 in total |
 | `/api/oauth/revoke` | 120 per IP address |
 
-An IP limit counts an IPv4 address or the /64 network of an IPv6 address. Local loopback requests are not
+An IP limit counts an IPv4 address or the /64 network of an IPv6 address. When a metadata fetch limit is reached, the
+last valid document of that client (kept up to 30 days) is used, so nobody can block a client's
+sign-in by spending the budget. Local loopback requests are not
 limited by IP.
 
 A limit answers 429 with `temporarily_unavailable` and `Retry-After`. Counters are keyed hashes in the

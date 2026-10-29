@@ -28,6 +28,8 @@ export type McpRefreshToken = AppDoc & {
     clientId: string;
     resource: string;
     rotatedAt?: string;
+    /** The one reuse allowed within the grace period; a second one revokes the grant */
+    graceUsedAt?: string;
     expiresAt: string;
 };
 
@@ -143,7 +145,7 @@ export async function refreshTokens(form: URLSearchParams, issuer: string, attem
     if (record.clientId !== clientId) throw new OAuthError('invalid_grant', 'The refresh token was issued to another client.');
     if (resource !== undefined && !isMcpResource(resource, issuer)) throw new OAuthError('invalid_target', 'The resource must be the uier MCP endpoint.');
     const now = Date.now();
-    if (record.rotatedAt && now - Date.parse(record.rotatedAt) > OAUTH_LIFETIMES.refreshGraceSeconds * 1000) {
+    if (record.rotatedAt && (record.graceUsedAt || now - Date.parse(record.rotatedAt) > OAUTH_LIFETIMES.refreshGraceSeconds * 1000)) {
         await revokeGrant(userId, record.grantId);
         throw new OAuthError('invalid_grant', 'The refresh token was already used. Sign in again.');
     }
@@ -167,9 +169,11 @@ export async function refreshTokens(form: URLSearchParams, issuer: string, attem
         { kind: 'replace', doc: updatedGrant, etag: grant.etag },
         { kind: 'create', doc: access }, { kind: 'create', doc: refresh }
     ];
-    // Within the grace period (a lost response or a concurrent refresh) the rotated token stays as it is.
-    if (!record.rotatedAt)
-        operations.push({ kind: 'replace', doc: { ...record, rotatedAt: new Date(now).toISOString(), ttl: OAUTH_LIFETIMES.rotatedRefreshSeconds }, etag: stored.etag });
+    // Within the grace period (a lost response or a concurrent refresh) a rotated token works once more,
+    // so a stolen token cannot start a second chain unnoticed. Both writes are conditional on the etag.
+    operations.push({ kind: 'replace', etag: stored.etag, doc: record.rotatedAt
+        ? { ...record, graceUsedAt: new Date(now).toISOString() }
+        : { ...record, rotatedAt: new Date(now).toISOString(), ttl: OAUTH_LIFETIMES.rotatedRefreshSeconds } });
     if (await store.transact(operations)) return response;
     // A concurrent refresh or grant update: read again once, which turns into the grace path.
     if (attempt === 0) return await refreshTokens(form, issuer, 1);

@@ -7,7 +7,7 @@ import { isMcpResource, MAX_CONNECTED_APPS, mcpResource, OAUTH_LIFETIMES, parseS
 import { clientPresentation, resolveClient, touchClient } from './clients';
 import { OAuthError, type OAuthErrorCode } from './errors';
 import { agentAccessSchema, connectionNameSchema, grantScopesSchema, getGrant, listConnectedApps, userPk, validateAccessChoice, type AgentAccess, type ClientPresentation } from './grants';
-import { redirectUriMatches } from './redirects';
+import { isLoopbackRedirect, redirectUriMatches } from './redirects';
 import { limitByKey } from './http';
 
 export type McpAuthorizationRequest = AppDoc & {
@@ -45,7 +45,7 @@ const requestPk = (hash: string) => `mcp-authz:${hash}`;
 /** Where to send the browser: the consent page, a uier error page, or an error back to a validated redirect URI */
 export type AuthorizeOutcome =
     | { kind: 'consent'; requestId: string }
-    | { kind: 'error-page'; error: 'invalid_client' | 'invalid_redirect_uri' | 'invalid_request' }
+    | { kind: 'error-page'; error: OAuthErrorCode }
     | { kind: 'redirect'; url: string };
 
 export function callbackUrl(redirectUri: string, issuer: string, params: Record<string, string | undefined>) {
@@ -58,21 +58,26 @@ export function callbackUrl(redirectUri: string, issuer: string, params: Record<
 
 /**
  * Validates an authorization request (RFC 6749 §4.1.1 with PKCE and RFC 8707) and stores it for
- * the consent page. Errors go back to the client only after its redirect URI is validated.
+ * the consent page. Errors go back to the client only after its redirect URI is validated, and only to
+ * a loopback address: anyone can register an HTTPS redirect URI, so an error sent there before the
+ * person sees consent would make uier an open redirect (RFC 9700 §4.11.1). Those end on uier's error page.
+ * `requester` (an IP bucket) limits client metadata fetches per requester.
  */
-export async function startAuthorization(params: URLSearchParams, issuer: string): Promise<AuthorizeOutcome> {
+export async function startAuthorization(params: URLSearchParams, issuer: string, requester?: string): Promise<AuthorizeOutcome> {
     const single = (name: string) => params.getAll(name).length > 1 ? null : params.get(name);
     const clientId = single('client_id');
     const redirectUri = single('redirect_uri');
     if (!clientId || params.getAll('client_id').length !== 1) return { kind: 'error-page', error: 'invalid_request' };
-    const client = await resolveClient(clientId);
+    const client = await resolveClient(clientId, requester);
     if (!client) return { kind: 'error-page', error: 'invalid_client' };
     if (!redirectUri || !client.redirectUris.some(registered => redirectUriMatches(registered, redirectUri)))
         return { kind: 'error-page', error: 'invalid_redirect_uri' };
 
     const state = single('state') ?? undefined;
-    const fail = (error: OAuthErrorCode, description: string): AuthorizeOutcome =>
-        ({ kind: 'redirect', url: callbackUrl(redirectUri, issuer, { error, error_description: description, state }) });
+    const loopback = isLoopbackRedirect(new URL(redirectUri));
+    const fail = (error: OAuthErrorCode, description: string): AuthorizeOutcome => loopback
+        ? { kind: 'redirect', url: callbackUrl(redirectUri, issuer, { error, error_description: description, state }) }
+        : { kind: 'error-page', error };
     if (state !== undefined && state.length > 1024) return fail('invalid_request', 'The state is too long.');
     for (const name of ['state', 'response_type', 'code_challenge', 'code_challenge_method', 'scope', 'resource', 'prompt'])
         if (params.getAll(name).length > 1) return fail('invalid_request', `Send ${name} once.`);

@@ -548,11 +548,13 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
   `isMcpResource`, never by prefix; tokens are accepted only for it and never forwarded.
 - `app/api/oauth/{authorize,token,register,revoke}` run through `oauthEndpoint` (RFC 6749 JSON errors,
   `no-store`) and the limits in `http.ts`: per IP and hour authorize 60, token 3000 (hosted clients share
-  egress addresses), register 20 (2000 globally), revoke 120; per subject and hour 30 approvals per
-  account, 120 refreshes per grant and 60 metadata fetches per host. Token, registration and revocation take no cookies, send no CORS headers and are not
+  egress addresses), register 20 (IPv6 per /48; 2000 globally), revoke 120; per subject and hour 30
+  approvals per account, 120 refreshes per grant, and metadata fetches 30 per requester and 600 per
+  host, falling back to the client's last valid document (`known-<hash>`, 30 days) when spent. Token, registration and revocation take no cookies, send no CORS headers and are not
   behind BotID. Authorization requests stay out of `/app`: only the stored random request id passes
   through sign-in, and `/app/connect/error` is a signed-out app path in `proxy.ts`. Errors go back to
-  a redirect URI only after the client and that URI are validated.
+  a redirect URI only after the client and that URI are validated, and before consent only to a
+  loopback URI; HTTPS redirect URIs get `/app/connect/error` instead (no open redirect).
 - Clients (`clients.ts`): Client ID Metadata Documents are fetched only from hosts that resolve to
   public addresses, checked on the connection's own lookup, with no redirects, 5 seconds and 16 KiB.
   `UIER_OAUTH_TEST_HTTP_CLIENT_METADATA=1` admits `http://localhost` metadata URLs in local runtime only,

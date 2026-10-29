@@ -25,9 +25,15 @@ export type McpClient = AppDoc & {
     lastUsedAt: string;
     /** CIMD only: a cached failure, so a broken document is not fetched on every attempt */
     failed?: true;
+    /** DCR only: set by the first sign-in; unused registrations expire after a day */
+    used?: true;
 };
 
 const MAX_METADATA_BYTES = 16 * 1024;
+const UNUSED_REGISTRATION_SECONDS = 24 * 60 * 60;
+/** A valid metadata document is also kept this long, for when the fetch budget is spent */
+const KNOWN_GOOD_SECONDS = 30 * 24 * 60 * 60;
+const knownGoodId = (clientId: string) => `known-${sha256Hex(clientId)}`;
 const MAX_REDIRECT_URIS = 10;
 const clientPk = (clientId: string) => `mcp-client:${sha256Hex(clientId)}`;
 const newClientId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 24);
@@ -73,7 +79,7 @@ export async function registerClient(body: unknown) {
     const client: McpClient = {
         type: 'mcp-client', id: sha256Hex(clientId), pk: clientPk(clientId), kind: 'dcr', clientId,
         name: normalizeClientName(parsed.data.client_name), redirectUris, createdAt: now, lastUsedAt: now,
-        ttl: OAUTH_LIFETIMES.dcrIdleSeconds
+        ttl: UNUSED_REGISTRATION_SECONDS
     };
     if (!await getAppStore().create(client)) throw new OAuthError('server_error', 'Try registering again.', 500);
     return {
@@ -195,8 +201,20 @@ async function loadMetadataClient(clientId: string): Promise<McpClient> {
     }
 }
 
-/** A registered client, or a metadata document client fetched (and cached) on demand; `null` when unknown or invalid */
-export async function resolveClient(clientId: string): Promise<McpClient | null> {
+async function saveKnownGood(client: McpClient) {
+    const store = getAppStore();
+    const doc: McpClient = { ...client, id: knownGoodId(client.clientId), ttl: KNOWN_GOOD_SECONDS };
+    const existing = await store.get<McpClient>(doc.pk, doc.id);
+    if (existing) await store.replace(doc, existing.etag);
+    else await store.create(doc);
+}
+
+/**
+ * A registered client, or a metadata document client fetched (and cached) on demand; `null` when
+ * unknown or invalid. Fetches are limited per requester and per host. When a limit is reached the
+ * last valid document of that client is used, so one requester cannot block a client's sign-in.
+ */
+export async function resolveClient(clientId: string, requester?: string): Promise<McpClient | null> {
     if (typeof clientId !== 'string' || !clientId || clientId.length > 512) return null;
     const store = getAppStore();
     const cached = await store.get<McpClient>(clientPk(clientId), sha256Hex(clientId));
@@ -204,17 +222,28 @@ export async function resolveClient(clientId: string): Promise<McpClient | null>
     if (!clientId.startsWith('uier_client_') && isMetadataClientId(clientId)) {
         const url = new URL(clientId);
         // Local test metadata servers are exempt; on a deployment every host is limited.
-        if (!testMetadataUrl(url)) await limitByKey('metadata-host', url.host.toLowerCase(), 60);
+        if (!testMetadataUrl(url)) {
+            try {
+                if (requester) await limitByKey('metadata-requester', requester, 30);
+                await limitByKey('metadata-host', url.host.toLowerCase(), 600);
+            } catch (error) {
+                const known = await store.get<McpClient>(clientPk(clientId), knownGoodId(clientId));
+                if (known && known.doc.clientId === clientId && !known.doc.failed) return known.doc;
+                throw error;
+            }
+        }
         const client = await loadMetadataClient(clientId);
         await store.create(client);
-        return client.failed ? null : client;
+        if (client.failed) return null;
+        await saveKnownGood(client);
+        return client;
     }
     return null;
 }
 
-/** Keeps a registration alive while it is used: at most one write a day. */
+/** Keeps a registration alive while it is used: on the first sign-in, then at most one write a day. */
 export async function touchClient(client: McpClient) {
-    if (client.kind !== 'dcr' || Date.now() - Date.parse(client.lastUsedAt) < 24 * 60 * 60 * 1000) return;
+    if (client.kind !== 'dcr' || (client.used && Date.now() - Date.parse(client.lastUsedAt) < 24 * 60 * 60 * 1000)) return;
     const stored = await getAppStore().get<McpClient>(client.pk, client.id);
-    if (stored) await getAppStore().replace({ ...stored.doc, lastUsedAt: new Date().toISOString(), ttl: OAUTH_LIFETIMES.dcrIdleSeconds }, stored.etag);
+    if (stored) await getAppStore().replace({ ...stored.doc, used: true, lastUsedAt: new Date().toISOString(), ttl: OAUTH_LIFETIMES.dcrIdleSeconds }, stored.etag);
 }

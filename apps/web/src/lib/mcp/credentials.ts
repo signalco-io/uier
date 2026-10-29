@@ -49,8 +49,11 @@ export async function createMcpCredential(context: AppContext, value: unknown) {
     return { token, credential: doc };
 }
 
+/** Only manual credentials: OAuth records share the partition, and codes and rotated tokens detect replays. */
 export async function revokeMcpCredential(userId: string, id: string) {
-    await getAppStore().delete(credentialPk(userId), id);
+    const stored = await getAppStore().get<McpCredential>(credentialPk(userId), id);
+    if (stored?.doc.type === 'mcp-credential' && stored.doc.userId === userId)
+        await getAppStore().delete(credentialPk(userId), id);
 }
 
 /** A manual credential or an OAuth connection, resolved to one grant shape that every tool call checks */

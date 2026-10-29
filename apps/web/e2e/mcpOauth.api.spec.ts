@@ -525,8 +525,9 @@ test('unknown clients and unregistered redirect URIs get the uier error page, ne
     errorPage(await authorize(twoRedirects), 'invalid_redirect_uri');
 });
 
-test('invalid authorization requests return to the validated redirect URI with state and iss', async () => {
+test('invalid authorization requests return to a validated loopback redirect with state and iss, never to HTTPS', async () => {
     const redirectUri = 'https://app.example/oauth/callback';
+    const loopback = 'http://127.0.0.1:53123/callback';
     const clientId = await registeredClient([redirectUri, 'http://127.0.0.1/callback']);
     const cases: Array<[Record<string, string | undefined>, string]> = [
         [{ response_type: 'token' }, 'unsupported_response_type'],
@@ -545,18 +546,21 @@ test('invalid authorization requests return to the validated redirect URI with s
         [{ scope: 'openid' }, 'invalid_scope'],
         [{ prompt: 'none' }, 'interaction_required']
     ];
-    for (const [overrides, error] of cases)
-        errorRedirect(await authorize(authorizeParams(clientId, redirectUri, overrides)), redirectUri, error);
-    errorRedirect(await authorize(authorizeParams(clientId, redirectUri, { state: undefined, code_challenge_method: 'plain' })), redirectUri, 'invalid_request', null);
+    for (const [overrides, error] of cases) {
+        errorRedirect(await authorize(authorizeParams(clientId, loopback, overrides)), loopback, error);
+        // Anyone can register an HTTPS redirect URI: before consent, its errors stay on uier (no open redirect).
+        errorPage(await authorize(authorizeParams(clientId, redirectUri, overrides)), error);
+    }
+    errorRedirect(await authorize(authorizeParams(clientId, loopback, { state: undefined, code_challenge_method: 'plain' })), loopback, 'invalid_request', null);
     for (const name of ['response_type', 'code_challenge', 'scope', 'resource', 'prompt', 'state']) {
-        const params = new URLSearchParams(authorizeParams(clientId, redirectUri, { prompt: 'consent' }));
+        const params = new URLSearchParams(authorizeParams(clientId, loopback, { prompt: 'consent' }));
         params.append(name, params.get(name)!);
         const location = await authorize(params);
         expect(location.searchParams.get('error'), name).toBe('invalid_request');
-        expect(`${location.origin}${location.pathname}`).toBe(redirectUri);
+        expect(`${location.origin}${location.pathname}`).toBe(loopback);
     }
     // A long state is refused rather than stored.
-    expect((await authorize(authorizeParams(clientId, redirectUri, { state: 'x'.repeat(1025) }))).searchParams.get('error')).toBe('invalid_request');
+    expect((await authorize(authorizeParams(clientId, loopback, { state: 'x'.repeat(1025) }))).searchParams.get('error')).toBe('invalid_request');
 
     // Accepted: a canonical resource in another spelling, a missing resource (decision 10), offline_access and prompt=consent.
     for (const overrides of [{ resource: `${base.toUpperCase()}/api/mcp/` }, { resource: undefined },
@@ -720,6 +724,20 @@ test('expired codes and malformed token requests fail with RFC 6749 errors', asy
     expect((await token(`grant_type=authorization_code&code=${approved.code}&code=${approved.code}`)).body).toMatchObject({ error: 'invalid_request' });
     const large = await token({ grant_type: 'refresh_token', refresh_token: 'x'.repeat(17_000) });
     expect(large).toMatchObject({ status: 400, body: { error: 'invalid_request' } });
+});
+
+test('a rotated refresh token works once more within the grace period; a second reuse revokes the grant', async () => {
+    const { user } = await person('oauth-refresh-grace');
+    const app = await connectApp(user);
+    const rotated = await refresh(app.clientId, app.tokens.refresh_token);
+    expect(rotated.status).toBe(200);
+    const lost = await refresh(app.clientId, app.tokens.refresh_token);
+    expect(lost.status).toBe(200);
+    // A third use of the same token is a second chain: the grant ends for every token.
+    expect((await refresh(app.clientId, app.tokens.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
+    expect(await getGrant(user.id, app.grantId)).toBeNull();
+    await expect(authenticateMcp(bearer(rotated.body.access_token), base)).rejects.toMatchObject({ status: 401 });
+    expect((await refresh(app.clientId, lost.body.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
 });
 
 test('refresh tokens rotate, tolerate a lost response for 60 seconds and revoke the grant on later reuse', async () => {

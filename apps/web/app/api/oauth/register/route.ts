@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 /** RFC 7591 dynamic client registration without an initial access token; public clients only. */
 export async function POST(request: Request) {
     return oauthEndpoint(async () => {
-        await limitByIp(request, 'register', 20);
+        // IPv6 counts per /48, so one allocation cannot spend the global budget.
+        await limitByIp(request, 'register', 20, 3600, { ipv6Prefix48: true });
         await limitGlobally(request, 'register', 2000);
         if (!/^application\/json\b/i.test(request.headers.get('content-type') ?? ''))
             throw new OAuthError('invalid_client_metadata', 'Send application/json.');

@@ -19,7 +19,8 @@ export async function oauthIssuer() {
     return new URL(await appBaseUrl()).origin;
 }
 
-function ipBucket(request: Request) {
+/** The request's IP rate-limit bucket (IPv4 address or IPv6 /64); none for local loopback requests */
+export function ipBucket(request: Request) {
     const ip = resolveClientIp(request);
     if (!ip) return isLocalRuntime() ? undefined : 'unknown';
     if (isLocalRuntime() && isLoopbackIp(ip)) return undefined;
@@ -36,10 +37,15 @@ async function consumeLimit(key: string, limit: number, windowSeconds: number) {
     }
 }
 
+/** An IPv6 /64 widened to its /48, for limits where one allocation should not count as many requesters */
+function wideBucket(bucket: string) {
+    return bucket.endsWith('::/64') ? `${bucket.split(':').slice(0, 3).join(':')}::/48` : bucket;
+}
+
 /** Counts one request per IP in a fixed window; local loopback requests are not limited. */
-export async function limitByIp(request: Request, name: string, limit: number, windowSeconds = 3600) {
+export async function limitByIp(request: Request, name: string, limit: number, windowSeconds = 3600, { ipv6Prefix48 = false } = {}) {
     const bucket = ipBucket(request);
-    if (bucket) await consumeLimit(`oauth-${name}:${bucket}`, limit, windowSeconds);
+    if (bucket) await consumeLimit(`oauth-${name}:${ipv6Prefix48 ? wideBucket(bucket) : bucket}`, limit, windowSeconds);
 }
 
 /** Counts one request across all IPs in a fixed window; local loopback requests are not limited. */
