@@ -11,20 +11,23 @@ test('a person grants selected feedback access, connects a compatible client, an
     const projectId = await createProject(page, { name: 'Client review', urls: ['https://reviewed.example'] });
     await page.goto('/app/account');
     const section = page.getByRole('region', { name: 'Coding agents' });
+    await expect(section.getByRole('region', { name: 'Connected apps' })).toContainText('No connected apps yet.');
+    // Access tokens (for environments without a browser) are collapsed by default.
+    await expect(section.getByLabel('Token label')).toHaveCount(0);
+    await section.getByRole('button', { name: 'Show access tokens' }).click();
     await expect(section).toContainText('For feedback about uier itself, switch to the uier workspace');
-    await section.getByLabel('Credential label').fill('My coding tool');
-    await section.getByRole('button', { name: 'Create credential', exact: true }).click();
+    await section.getByLabel('Token label').fill('My coding tool');
+    await section.getByRole('button', { name: 'Create token', exact: true }).click();
     await expect(section.getByRole('alert')).toContainText('Choose at least one project.');
-    await expect(section.getByLabel('Credential label')).toHaveValue('My coding tool');
+    await expect(section.getByLabel('Token label')).toHaveValue('My coding tool');
     await section.getByRole('checkbox', { name: 'Client review', exact: true }).check();
     await expect(section.getByRole('checkbox', { name: 'Read feedback', exact: true })).toBeChecked();
     await expect(section.getByRole('checkbox', { name: 'Reply to feedback', exact: true })).not.toBeChecked();
-    await section.getByRole('button', { name: 'Create credential', exact: true }).click();
+    await section.getByRole('button', { name: 'Create token', exact: true }).click();
     const code = section.locator('code').filter({ hasText: /^uier_mcp\./ });
     await expect(code).toBeVisible();
     const token = (await code.textContent())!;
     // Check every setup while the newly created secret is still visible elsewhere.
-    await section.getByText('Client configuration', { exact: true }).click();
     await section.getByText('Prompts and agent skill', { exact: true }).click();
     const skill = section.locator('details').filter({ has: page.getByText('Prompts and agent skill', { exact: true }) });
     await skill.getByText('View and copy SKILL.md', { exact: true }).click();
@@ -38,16 +41,23 @@ test('a person grants selected feedback access, connects a compatible client, an
     expect(download.suggestedFilename()).toBe('SKILL.md');
     expect(await readFile((await download.path())!, 'utf8')).toBe(skillText);
     await skill.getByText('View and copy SKILL.md', { exact: true }).click();
-    for (const clientName of ['Codex', 'Claude Code', 'Cursor']) {
+    const endpoint = new URL('/api/mcp', baseURL).toString();
+    for (const clientName of ['Claude Code', 'Codex', 'Cursor']) {
         await section.getByRole('tab', { name: clientName, exact: true }).click();
         const panel = section.getByRole('tabpanel');
-        await expect(panel).toContainText(new URL('/api/mcp', baseURL).toString());
-        await expect(panel).toContainText('UIER_MCP_TOKEN');
+        await expect(panel).toContainText(endpoint);
+        // Claude Code signs in with OAuth: no token, no header, and a note to remove an old header.
+        if (clientName === 'Claude Code') {
+            await expect(panel).toContainText(`claude mcp add --transport http uier ${endpoint}`);
+            await expect(panel).toContainText('Remove that header first.');
+            await expect(panel).not.toContainText('UIER_MCP_TOKEN');
+        } else await expect(panel).toContainText('UIER_MCP_TOKEN');
         await expect(panel).not.toContainText('uier_mcp.');
         await expect(panel).not.toContainText(token);
         await expect(panel.getByRole('link', { name: `${clientName} documentation` })).toHaveAttribute('href', /^https:/);
     }
-    await section.getByRole('button', { name: 'Hide credential' }).click();
+    await expect(section).not.toContainText('OAuth login is not supported');
+    await section.getByRole('button', { name: 'Hide token' }).click();
     await expect(code).toHaveCount(0);
     const client = new Client({ name: 'explicit-user-client', version: '1.0.0' });
     await client.connect(new StreamableHTTPClientTransport(new URL('/api/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${token}` } } }));
@@ -94,10 +104,11 @@ test('feedback on a customer project page exports its uier owner and needs a gra
     const connect = async (name: string, project: string, status = false) => {
         await page.goto('/app/account');
         const section = page.getByRole('region', { name: 'Coding agents' });
-        await section.getByLabel('Credential label').fill(name);
+        await section.getByRole('button', { name: 'Show access tokens' }).click();
+        await section.getByLabel('Token label').fill(name);
         await section.getByRole('checkbox', { name: project, exact: true }).check();
         if (status) await section.getByRole('checkbox', { name: 'Change status', exact: true }).check();
-        await section.getByRole('button', { name: 'Create credential', exact: true }).click();
+        await section.getByRole('button', { name: 'Create token', exact: true }).click();
         const code = section.locator('code').filter({ hasText: /^uier_mcp\./ });
         await expect(code).toBeVisible();
         const token = (await code.textContent())!;

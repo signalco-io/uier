@@ -75,8 +75,13 @@ out. Only that random request id passes through sign-in. The page shows:
 - **Replace.** When you already have a connection from the same tool or with the same name, you can
   replace it instead of adding another.
 
-**Allow access** returns the browser to the tool with a single-use code. **Cancel** returns
-`access_denied`. Consent is shown every time, also when the same tool reconnects.
+**Use another account** signs you out and returns to the same request after sign-in. Write operations
+combined with several workspaces, all of them, or projects where guests can comment add a warning.
+
+**Allow access** returns the browser to the tool with a single-use code: the page shows "Returning to
+<tool>. You can close this tab." with a link, and navigates there itself. **Cancel** returns
+`access_denied`. An unknown, expired or used request asks you to start again from the tool. Consent is
+shown every time, also when the same tool reconnects.
 
 "All my workspaces and projects" also reaches workspaces you join later, for example as an external
 reviewer of a client, and the shared uier workspace that every account joins, where anyone can leave
@@ -472,5 +477,10 @@ client to a token created in the real Account UI, verifies light/dark accessibil
 access on the existing connection. `e2e/mcpOauth.api.spec.ts` covers OAuth: discovery and the off
 switch, registration and metadata documents, authorization errors, consent, code exchange, refresh
 rotation, expiry, revocation, access across workspaces, coexistence with access tokens, and the
-official SDK client signing in, refreshing and losing access after revocation. This feature does not
-close the separate MVP launch audit #90.
+official SDK client signing in, refreshing and losing access after revocation.
+`e2e/mcpOauth.spec.ts` (main journey tagged `@smoke`) starts the SDK client's OAuth flow with dynamic registration and a loopback listener, signs in through the
+authorization URL, chooses two workspaces and a write operation on the consent page, approves,
+exchanges the code, lists projects (including one created after approval) and replies, then
+revokes the app in Account and expects 401. The full suite adds cancel (`access_denied`), reuse of
+a consumed request, Use another account, the error page, a 375 px layout and light/dark axe checks.
+This feature does not close the separate MVP launch audit #90.

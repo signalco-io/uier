@@ -11,7 +11,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
@@ -574,6 +574,15 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
   tool sign-in" control describe these records, lifetimes and limits. Change them, and `docs/mcp.md`,
   with any change to what `src/lib/mcp/oauth/` stores or how long.
 
+Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`) has the client setup, **Connected
+apps** (one row per OAuth grant, an allowlisted `connectedAppView`, Revoke through an `AlertDialog`)
+and collapsed **Access tokens**. The consent page is `app/connect/[requestId]` (its own centred layout,
+no sidebar) and `app/connect/error` is public. `src/lib/mcp/oauth/actions.ts` approves or cancels by
+returning the client's callback URL, and the page navigates there itself (`form-action 'self'` blocks
+redirects after a form post). Every `/app` server action refreshes the page (the proxy sets the review
+SSO cookie), so the page always renders `ConnectConsent`, which keeps the outcome after the request is
+consumed. Both share `ClientDetails` (Unverified, Published at, Sends you back to) and `scopes.ts` labels.
+
 The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
 (overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption
 and always closes the server. Screenshot resources map `ApiError` to `InvalidParams` with its
@@ -595,7 +604,10 @@ contract shared with developer issue export: `projectFeedbackExport` in `review/
 produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
 its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
 and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
-light/dark accessibility. This connector does not prove #90 launch acceptance.
+light/dark accessibility; `e2e/mcpOauth.spec.ts` runs the SDK client's OAuth flow (dynamic
+registration, loopback listener) through sign-in, consent, approval, `list_projects`, a reply and
+revocation in Account (`@smoke`), plus cancel, request reuse, another account and the error page.
+This connector does not prove #90 launch acceptance.
 
 `mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
 input. Keep these reference-only configurations aligned with the linked official docs and
@@ -609,15 +621,17 @@ OAuth, the setup Account offers first. Claude Code is the only client offered wi
 
 Access tokens, for environments without a browser and for clients not offered with OAuth:
 
-- [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml`:
+- [Claude Code](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers), OAuth (`auth: 'oauth'`),
+  then `/mcp` → uier → Authenticate. A configured `Authorization` header disables its OAuth path, so
+  the tab tells people to remove one from an existing entry:
+  ```sh
+  claude mcp add --transport http uier https://uier.io/api/mcp
+  ```
+- [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml` (access token until its OAuth login is verified):
   ```toml
   [mcp_servers.uier]
   url = "https://uier.io/api/mcp"
   bearer_token_env_var = "UIER_MCP_TOKEN"
-  ```
-- [Claude Code](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcpjson), `.mcp.json`:
-  ```json
-  { "mcpServers": { "uier": { "type": "http", "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${UIER_MCP_TOKEN}" } } } }
   ```
 - [Cursor](https://cursor.com/docs/mcp#config-interpolation), `.cursor/mcp.json`:
   ```json
