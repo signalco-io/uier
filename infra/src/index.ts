@@ -8,6 +8,7 @@ import { nextJsApp } from './vercel.js';
 import { dnsRecord } from './cloudflare.js';
 import { acsEmail, acsEmailReports } from './email.js';
 import { integrationEnvironment } from './integrations.js';
+import { productionCosmosIdentity } from './productionCosmosIdentity.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -146,6 +147,13 @@ const up = async () => {
     // App data written by PR preview deployments: 7 days after the last write.
     const appPreviewContainer = sqlContainer('app-preview', 7 * 24 * 60 * 60, '/pk');
 
+    // Stage #167: create and verify the production identity before changing Vercel variables,
+    // worker credentials or account authentication. This deploy keeps the existing key working.
+    productionCosmosIdentity(resourceGroup, cosmosDbAccount, sqlDatabase.name, {
+        comments: commentsContainer.name,
+        app: appContainer.name,
+    });
+
     // Preview deployments reach Cosmos DB as this managed identity, without a key: it trusts the
     // Vercel OIDC token of the project's preview deployments (workload identity federation) and its
     // only Cosmos DB role is on the `comments-preview` container.
@@ -229,7 +237,7 @@ const up = async () => {
         // unless a team policy forces sensitive). It must equal the value in state, or Pulumi plans a
         // replace (which fails safely with ENV_CONFLICT, as create runs before delete).
         sensitive: false,
-    });
+    }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container', {
         projectId: app.projectId,
         key: 'COSMOSDB_COMMENTS_CONTAINER',
