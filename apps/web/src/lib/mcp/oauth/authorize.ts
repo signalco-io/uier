@@ -73,7 +73,7 @@ export async function startAuthorization(params: URLSearchParams, issuer: string
     const fail = (error: OAuthErrorCode, description: string): AuthorizeOutcome =>
         ({ kind: 'redirect', url: callbackUrl(redirectUri, issuer, { error, error_description: description, state }) });
     if (state !== undefined && state.length > 1024) return fail('invalid_request', 'The state is too long.');
-    for (const name of ['response_type', 'code_challenge', 'code_challenge_method', 'scope', 'resource', 'prompt'])
+    for (const name of ['state', 'response_type', 'code_challenge', 'code_challenge_method', 'scope', 'resource', 'prompt'])
         if (params.getAll(name).length > 1) return fail('invalid_request', `Send ${name} once.`);
     if (single('response_type') !== 'code') return fail('unsupported_response_type', 'Only the code response type is supported.');
     const challenge = single('code_challenge');

@@ -1,4 +1,4 @@
-import { appBaseUrl } from '../../app/request';
+import { configuredAppBaseUrl } from '../../app/deployment';
 import { ApiError } from '../../comments/http';
 import { consume } from '../../comments/rateLimits';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../../comments/visitor';
@@ -7,8 +7,15 @@ import { getCommentsStore } from '../../repo/commentsStore';
 import { mcpOauthEnabled } from './config';
 import { OAuthError, oauthErrorResponse } from './errors';
 
-/** The issuer: the app origin (https://uier.io in production, the preview or local origin elsewhere) */
+/**
+ * The issuer: the app origin (https://uier.io in production, the preview or local origin elsewhere).
+ * Same result as `appBaseUrl()`, which is loaded only when no base URL is configured: it reads the
+ * request's Host through `next/headers`, which the API specs cannot load in process.
+ */
 export async function oauthIssuer() {
+    const configured = configuredAppBaseUrl();
+    if (configured) return new URL(configured).origin;
+    const { appBaseUrl } = await import('../../app/request');
     return new URL(await appBaseUrl()).origin;
 }
 
@@ -19,17 +26,25 @@ function ipBucket(request: Request) {
     return ipRateLimitBucket(ip);
 }
 
-/** Counts one request per IP in a fixed window; local loopback requests are not limited. */
-export async function limitByIp(request: Request, name: string, limit: number, windowSeconds = 3600) {
-    const bucket = ipBucket(request);
-    if (!bucket) return;
+async function consumeLimit(key: string, limit: number, windowSeconds: number) {
     try {
-        await consume(getCommentsStore(), '$mcp', { key: `oauth-${name}:${bucket}`, limit, windowSeconds, reason: 'too_fast', message: 'Too many requests. Try again later.' });
+        await consume(getCommentsStore(), '$mcp', { key, limit, windowSeconds, reason: 'too_fast', message: 'Too many requests. Try again later.' });
     } catch (error) {
         if (error instanceof ApiError && error.status === 429)
             throw new OAuthError('temporarily_unavailable', error.message, 429, error.retryAfterSeconds);
         throw error;
     }
+}
+
+/** Counts one request per IP in a fixed window; local loopback requests are not limited. */
+export async function limitByIp(request: Request, name: string, limit: number, windowSeconds = 3600) {
+    const bucket = ipBucket(request);
+    if (bucket) await consumeLimit(`oauth-${name}:${bucket}`, limit, windowSeconds);
+}
+
+/** Counts one request across all IPs in a fixed window; local loopback requests are not limited. */
+export async function limitGlobally(request: Request, name: string, limit: number, windowSeconds = 3600) {
+    if (ipBucket(request)) await consumeLimit(`oauth-${name}`, limit, windowSeconds);
 }
 
 /** Form bodies of the token and revocation endpoints: `application/x-www-form-urlencoded`, at most 16 KiB */

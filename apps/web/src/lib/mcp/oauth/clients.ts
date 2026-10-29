@@ -40,8 +40,12 @@ const metadataSchema = z.object({
     response_types: z.array(z.string()).optional()
 });
 
-function checkGrantTypes(metadata: z.infer<typeof metadataSchema>) {
-    if (metadata.token_endpoint_auth_method !== undefined && metadata.token_endpoint_auth_method !== 'none')
+/**
+ * Metadata documents must declare a public client. A registration's requested method is replaced
+ * with `none` instead (RFC 7591 §2 lets the server substitute values): no secret is ever issued.
+ */
+function checkGrantTypes(metadata: z.infer<typeof metadataSchema>, { substituteAuthMethod = false } = {}) {
+    if (!substituteAuthMethod && metadata.token_endpoint_auth_method !== undefined && metadata.token_endpoint_auth_method !== 'none')
         throw new OAuthError('invalid_client_metadata', 'Only public clients (token_endpoint_auth_method "none") are supported.');
     if (metadata.grant_types?.some(type => type !== 'authorization_code' && type !== 'refresh_token'))
         throw new OAuthError('invalid_client_metadata', 'Only the authorization_code and refresh_token grants are supported.');
@@ -59,7 +63,7 @@ export function clientPresentation(client: Pick<McpClient, 'kind' | 'name' | 'me
 export async function registerClient(body: unknown) {
     const parsed = metadataSchema.safeParse(body);
     if (!parsed.success) throw new OAuthError('invalid_client_metadata', 'The client metadata is invalid.');
-    checkGrantTypes(parsed.data);
+    checkGrantTypes(parsed.data, { substituteAuthMethod: true });
     const redirectUris = [...new Set(parsed.data.redirect_uris.filter(isAllowedRedirectUri))].slice(0, MAX_REDIRECT_URIS);
     if (!redirectUris.length)
         throw new OAuthError('invalid_redirect_uri', 'Use an HTTPS redirect URI or an HTTP loopback redirect URI.');
@@ -89,7 +93,9 @@ for (const [network, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0',
     ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
     ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4]] as const)
     blocked.addSubnet(network, prefix, 'ipv4');
-for (const [network, prefix] of [['::', 128], ['::1', 128], ['::ffff:0:0', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64],
+// No `::ffff:0:0/96` rule: BlockList checks IPv4-mapped addresses against the IPv4 rules above, and
+// such a rule would also match every IPv4 address.
+for (const [network, prefix] of [['::', 128], ['::1', 128], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64],
     ['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['ff00::', 8]] as const)
     blocked.addSubnet(network, prefix, 'ipv6');
 

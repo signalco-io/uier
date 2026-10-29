@@ -26,7 +26,6 @@ export type McpRefreshToken = AppDoc & {
     grantId: string;
     clientId: string;
     resource: string;
-    scopes?: McpScope[];
     rotatedAt?: string;
     expiresAt: string;
 };
@@ -51,7 +50,7 @@ function newPair(grant: McpGrant, scopes: McpScope[] | undefined, now: number) {
     };
     const refresh: McpRefreshToken = {
         type: 'mcp-refresh-token', id: sha256Hex(refreshToken), pk: userPk(grant.userId), userId: grant.userId, grantId: grant.id,
-        clientId: grant.clientId, resource: grant.resource, scopes, expiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now),
+        clientId: grant.clientId, resource: grant.resource, expiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now),
         ttl: OAUTH_LIFETIMES.idleSeconds + 86400
     };
     const response = {
@@ -149,11 +148,12 @@ export async function refreshTokens(form: URLSearchParams, issuer: string, attem
     if (!grant || !isGrantActive(grant.doc, now) || Date.parse(record.expiresAt) <= now || !isMcpResource(record.resource, issuer))
         throw new OAuthError('invalid_grant', 'The connection ended. Sign in again.');
 
-    let scopes = record.scopes;
+    // Narrowing applies to the new access token only: an omitted scope means the scopes the person
+    // granted (RFC 6749 §6), so a later refresh can return to them.
+    let scopes: McpScope[] | undefined;
     if (requestedScope !== undefined) {
         const requested = parseScopes(requestedScope);
-        const allowed = record.scopes ?? grant.doc.scopes;
-        if (!requested || requested.some(scope => !allowed.includes(scope))) throw new OAuthError('invalid_scope', 'Request the granted scopes or fewer.');
+        if (!requested || requested.some(scope => !grant.doc.scopes.includes(scope))) throw new OAuthError('invalid_scope', 'Request the granted scopes or fewer.');
         scopes = requested.length === grant.doc.scopes.length ? undefined : requested;
     }
     const updatedGrant: McpGrant = { ...grant.doc, idleExpiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now), lastUsedAt: new Date(now).toISOString(), ttl: OAUTH_LIFETIMES.idleSeconds + 86400 };
