@@ -119,7 +119,7 @@ are documented in [Infrastructure and operations](docs/operations.md#required-gi
 | [Toolbar guide](packages/toolbar/README.md) | Embed the toolbar and configure review modes |
 | [Review workflow](docs/review-workflow.md) | Understand projects, permissions, screenshots and feedback recovery |
 | [API reference](docs/api.md) | Work with review and comments APIs or toolbar delivery |
-| [Coding tool access (MCP)](docs/mcp.md) | Connect a coding tool to selected project feedback |
+| [Coding tool access (MCP)](docs/mcp.md) | Connect a coding tool to feedback: sign in from Claude Code, or use an access token |
 | [Connected services](docs/integrations.md) | Mirror feedback to Notion, GitHub or Linear, or send Slack notifications |
 | [Brand guide](packages/brand/BRAND.md) · [Live brand page](https://uier.io/brand) | Work with the uier identity and shared tokens |
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |

@@ -329,7 +329,8 @@ test('official HTTP client reads context and image, then records approved reply/
         expect((await client.callTool({ name: 'list_projects', arguments: { limit: 100 } })).isError).toBe(true);
         expect(data(await client.callTool({ name: 'list_projects', arguments: { limit: 25 } })).items).toHaveLength(1);
         const projects = data(await client.callTool({ name: 'list_projects', arguments: { limit: 1 } }));
-        expect(projects.items).toEqual([{ id: f.project.id, name: f.project.name, status: 'active' }]);
+        expect(projects.items).toEqual([{ id: f.project.id, name: f.project.name, status: 'active', workspace: { id: f.project.workspaceId, name: f.user.email } }]);
+        expect(projects.access).toEqual({ workspaces: 1 });
         expect(projects.nextCursor).toBeNull();
         expect(projects.actingAs).toMatchObject({ userId: f.user.id, credential: 'My coding tool' });
         const search = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, search: 'save button', limit: 1 } }));

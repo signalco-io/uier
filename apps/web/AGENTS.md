@@ -11,7 +11,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
@@ -23,6 +23,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | exact-path page security headers, request nonces and signed-out `/app/*` redirects (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
+| `app/api/mcp/`, `src/lib/mcp/` | the MCP connector: authentication (`credentials.ts`), tools (`server.ts`), prompts, client setup blocks ([MCP connector](#authenticated-mcp-connector)) |
+| `app/api/oauth/`, `src/lib/mcp/oauth/` | uier's OAuth authorization server for `/api/mcp` only: authorize, token, register, revoke and the metadata routes that `next.config.ts` rewrites from `/.well-known/`; consent is `/app/connect/<requestId>` |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
@@ -251,8 +253,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - Apart from uier's own public feedback project, which every account joins (`joinPublicProject`), a
   membership is only ever created by an invitation or together with a new workspace (`ensureOwnWorkspace`,
   one `createAll` transaction). Never recreate a missing member document of a customer workspace: a missing
-  member is someone an admin removed, and recreating it undoes the removal (their review tokens and MCP
-  credentials work again). `e2e/workspaces.api.spec.ts` and the users e2e tests cover it.
+  member is someone an admin removed, and recreating it undoes the removal (their review tokens, MCP access
+  tokens and connected apps work again). `e2e/workspaces.api.spec.ts` and the users e2e tests cover it.
   Member removal uses `mutateAccess` / `AppStore.transact` to conditionally update the workspace
   access revision, delete the versioned member, invalidate old invitations and append its event.
   Read the workspace before counting admins and repeat both on a conflict; never undo a removal
@@ -402,7 +404,7 @@ Every account joins `w_uier_public`. Only normalized, valid addresses from the s
 to `uier00000001`, including hand-set admins. Provisioning backfills accounts with a durable receipt,
 but resets stored admins on every instance's first `ensurePublicProject` call. Sign-in and app
 requests reconcile memberships without invitations. `getAppContext` and `memberActor` enforce the
-current allowlist at read time too, including old review tokens and MCP credentials. Missing/empty
+current allowlist at read time too, including old review tokens and MCP connections. Missing/empty
 configuration means no staff; malformed entries are skipped using `emailSchema`. Preserve the
 selected workspace and personal onboarding. The public workspace has no Users page, invitations,
 member removal or project creation; public project settings are fixed, with personal email preferences
@@ -505,24 +507,99 @@ invited signed-out or comments-off responses. The toolbar renders literal text a
 
 ## Authenticated MCP connector
 
-`/api/mcp` is stateless Streamable HTTP using the official MCP SDK. `src/lib/mcp/` owns scoped
-credentials and tools. Account settings creates 30-day named credentials, read-only by default,
-with explicit project selection; raw secrets are shown once and only hashes are stored. Never
-accept cookies, review tokens, project codes or guest ids as MCP authentication. Recheck current
-membership, scopes and private visibility for each request and screenshot resource read.
+`/api/mcp` is stateless Streamable HTTP using the official MCP SDK. `src/lib/mcp/` owns
+authentication, scopes and tools; `src/lib/mcp/oauth/` is uier's own OAuth 2.1 authorization server
+for this endpoint only. The contract is [docs/mcp.md](../../docs/mcp.md); the design record and its
+decisions are [docs/mcp-oauth-plan.md](../../docs/mcp-oauth-plan.md). Two kinds of connection resolve
+to one `McpIdentity` in `credentials.ts` (user, `connection: { id, kind, name, clientId? }`, scopes,
+`AgentAccess`):
+
+- **Connected apps (OAuth).** `uier_at.` access tokens backed by an `mcp-grant`, created through
+  consent at `/app/connect/<requestId>` and listed under Account → Coding agents → Connected apps.
+- **Access tokens.** `uier_mcp.` manual credentials for environments without a browser: 30-day,
+  named, read-only by default, with explicit project selection in the current workspace; raw secrets
+  are shown once and only hashes are stored. They become
+  `{ kind: 'selected', workspaces: [{ workspaceId, projects }] }` internally.
+
+Never accept cookies, review tokens, project codes or guest ids as MCP authentication.
+
+**Grants are evaluated live.** A grant stores a selection (`AgentAccess`: `all`, or chosen workspaces
+each with `'all'` or project ids) and scopes, never a permission snapshot. `mcpProject` resolves the
+project's workspace (`grantedWorkspaceOf`, else `findProject`), checks `accessCovers`, then
+`memberActor` for current membership, team grants and the staff allowlist, on every tool call and
+screenshot resource read; the review services recheck private visibility. "Including new ones" is the
+stored `all`, resolved at request time. Never cache a positive decision, copy access into a grant or
+widen a stored selection on the person's behalf. `list_projects` uses `listAccessibleWorkspaces`
+(memberships through `publicProjectMember`, `hasProjectAccess` per workspace, bounded at 50
+workspaces and 1000 projects).
+
+OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
+
+- `mcpOauthEnabled()` is true unless `UIER_MCP_OAUTH=off`. Off makes the metadata routes and every
+  `/api/oauth/*` route answer 404, drops the discovery challenge, and makes `/api/mcp` reject OAuth
+  access tokens already issued.
+- Discovery: `next.config.ts` rewrites `/.well-known/oauth-protected-resource/api/mcp` and
+  `/.well-known/oauth-authorization-server` to `app/api/oauth/metadata/{protected-resource,authorization-server}`.
+  Public JSON, `Access-Control-Allow-Origin: *`, five-minute cache. No root protected-resource document,
+  no OpenID configuration. Every 401 from `handleMcp` carries the RFC 9728 challenge
+  (`bearerChallenge`): `resource_metadata`, `scope="feedback:read"`, and `error="invalid_token"` when a
+  token was presented.
+- The issuer is the `appBaseUrl()` origin. The resource is exactly `<origin>/api/mcp`, compared with
+  `isMcpResource`, never by prefix; tokens are accepted only for it and never forwarded.
+- `app/api/oauth/{authorize,token,register,revoke}` run through `oauthEndpoint` (RFC 6749 JSON errors,
+  `no-store`) and the limits in `http.ts`: per IP and hour authorize 60, token 3000 (hosted clients share
+  egress addresses), register 20 (IPv6 per /48; 2000 globally), revoke 120; per subject and hour 30
+  approvals per account, 120 refreshes per grant, and metadata fetches 30 per requester and 600 per
+  host, falling back to the client's last valid document (`known-<hash>`, 30 days) when spent. Token, registration and revocation take no cookies, send no CORS headers and are not
+  behind BotID. Authorization requests stay out of `/app`: only the stored random request id passes
+  through sign-in, and `/app/connect/error` is a signed-out app path in `proxy.ts`. Errors go back to
+  a redirect URI only after the client and that URI are validated, and before consent only to a
+  loopback URI; HTTPS redirect URIs get `/app/connect/error` instead (no open redirect).
+- Clients (`clients.ts`): Client ID Metadata Documents are fetched only from hosts that resolve to
+  public addresses, checked on the connection's own lookup, with no redirects, 5 seconds and 16 KiB.
+  `UIER_OAUTH_TEST_HTTP_CLIENT_METADATA=1` admits `http://localhost` metadata URLs in local runtime only,
+  for tests; never set it on a deployment. Dynamic registration drops unacceptable redirect URIs and
+  never issues a secret. Redirects (`redirects.ts`): HTTPS exact, loopback with the port ignored, no
+  custom schemes. Client names are untrusted and never presented as verified.
+- Tokens (`tokens.ts`): opaque, SHA-256 hashed, in the `mcp-user:<userId>` partition. S256 PKCE only;
+  codes last 60 seconds and a replay revokes the grant; access tokens last 1 hour; refresh tokens
+  rotate with a 60-second grace, and later reuse revokes the grant; grants end 30 days after the last
+  refresh or 1 year after creation. Each access token is checked against its grant (present, active,
+  same client) on every request, so deleting the grant revokes everything at once. Never log tokens,
+  codes, verifiers, `state` or request bodies.
+- Consent (`authorize.ts`): approval rechecks the session user, validates every chosen workspace and
+  project with `validateAccessChoice`, enforces 20 active connected apps per user unless replacing one,
+  and consumes the stored request with a conditional delete before creating a code. Consent is always
+  shown; `prompt=none` fails with `interaction_required`.
+- Attribution and idempotency keys use `connection.id` (grant id or credential id), never the access
+  token, so retries survive a refresh. `AgentSource.kind` marks OAuth.
+- The privacy policy ("Coding tool access" and the retention list) and the security page's "Coding
+  tool sign-in" control describe these records, lifetimes and limits. Change them, and `docs/mcp.md`,
+  with any change to what `src/lib/mcp/oauth/` stores or how long.
+
+Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`) has the client setup, **Connected
+apps** (one row per OAuth grant, an allowlisted `connectedAppView`, Revoke through an `AlertDialog`)
+and collapsed **Access tokens**. The consent page is `app/connect/[requestId]` (its own centred layout,
+no sidebar) and `app/connect/error` is public. `src/lib/mcp/oauth/actions.ts` approves or cancels by
+returning the client's callback URL, and the page navigates there itself (`form-action 'self'` blocks
+redirects after a form post). Every `/app` server action refreshes the page (the proxy sets the review
+SSO cookie), so the page always renders `ConnectConsent`, which keeps the outcome after the request is
+consumed. Both share `ClientDetails` (Unverified, Published at, Sends you back to) and `scopes.ts` labels.
+
 The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
 (overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption
 and always closes the server. Screenshot resources map `ApiError` to `InvalidParams` with its
 code/message, zod errors to fixed `InvalidParams` text and unexpected errors to `InternalError`
 with `The operation failed.` and a generic log line. Never return raw storage diagnostics.
-Credentials remain bound to one workspace. Account guidance and `mcp/workflows.ts` explain choosing
-the uier workspace/public-feedback project for feedback about uier itself. Missing project grants
-stay `not_found` without exposing project existence; direct users to `list_projects` and explicit
-credential setup rather than expanding access. List-tool descriptions and field schemas must both
+Access tokens remain bound to one workspace; connected apps reach the workspaces chosen at consent.
+Account guidance and `mcp/workflows.ts` explain where feedback about uier itself lives (the uier
+workspace's public-feedback project). Missing project grants stay `not_found` without exposing
+project existence; direct users to `list_projects` and to reconnecting or explicit token setup
+rather than expanding access. List-tool descriptions and field schemas must both
 state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
 
 Tools reuse review services. Replies and status/assignment events retain the human author plus
-credential attribution. All mutations require a stable idempotency key and share atomic submission
+connection attribution. All mutations require a stable idempotency key and share atomic submission
 receipts; do not implement retry deduplication in process memory. Reads never acknowledge unread
 activity. Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
 to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
@@ -530,21 +607,34 @@ contract shared with developer issue export: `projectFeedbackExport` in `review/
 produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
 its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
 and service isolation; `e2e/mcp.spec.ts` covers user credential setup, client access, revocation and
-light/dark accessibility. This connector does not prove #90 launch acceptance.
+light/dark accessibility; `e2e/mcpOauth.spec.ts` runs the SDK client's OAuth flow (dynamic
+registration, loopback listener) through sign-in, consent, approval, `list_projects`, a reply and
+revocation in Account (`@smoke`), plus cancel, request reuse, another account and the error page.
+This connector does not prove #90 launch acceptance.
 
 `mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
-input. Keep these reference-only configurations aligned with the linked official docs and the
-[MCP client blocks](../../docs/mcp.md):
+input. Keep these reference-only configurations aligned with the linked official docs and
+[docs/mcp.md](../../docs/mcp.md#connect-claude-code).
 
-- [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml`:
+OAuth, the setup Account offers first. Claude Code is the only client offered with OAuth:
+
+- [Claude Code](https://code.claude.com/docs/en/mcp): `claude mcp add --transport http uier https://uier.io/api/mcp`,
+  then `/mcp` → Authenticate. An `Authorization` header in the entry turns Claude Code's OAuth off, so
+  the setup tells people to remove one from an existing entry.
+
+Access tokens, for environments without a browser and for clients not offered with OAuth:
+
+- [Claude Code](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers), OAuth (`auth: 'oauth'`),
+  then `/mcp` → uier → Authenticate. A configured `Authorization` header disables its OAuth path, so
+  the tab tells people to remove one from an existing entry:
+  ```sh
+  claude mcp add --transport http uier https://uier.io/api/mcp
+  ```
+- [Codex](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers), `~/.codex/config.toml` (access token until its OAuth login is verified):
   ```toml
   [mcp_servers.uier]
   url = "https://uier.io/api/mcp"
   bearer_token_env_var = "UIER_MCP_TOKEN"
-  ```
-- [Claude Code](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcpjson), `.mcp.json`:
-  ```json
-  { "mcpServers": { "uier": { "type": "http", "url": "https://uier.io/api/mcp", "headers": { "Authorization": "Bearer ${UIER_MCP_TOKEN}" } } } }
   ```
 - [Cursor](https://cursor.com/docs/mcp#config-interpolation), `.cursor/mcp.json`:
   ```json
@@ -556,17 +646,18 @@ that expands a bearer header into saved settings. Clients must inherit the envir
 current docs and a reachable
 deployed endpoint; record exact checks in the PR and omit clients whose connections cannot be verified.
 Do not relax the Origin check or deployment protection to make a client connect.
+Offer OAuth for a client only after live acceptance against a deployed endpoint (discovery, consent,
+the return to the client, a refresh after an hour, revoke and reconnect), recorded in the PR with the
+deployment, client version and date. Claude (web, desktop and mobile), Codex, Cursor and VS Code are
+not offered with OAuth yet and keep access tokens. Claude custom connectors connect from Anthropic’s
+servers (no localhost) and return through `https://claude.ai/api/mcp/auth_callback`. Do not offer
+Claude's request-header setup: in Team and Enterprise an Owner adds connectors for the whole
+organization, which would share a personal token. Do not offer a bridge.
 [VS Code’s documented masked input](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
 was checked (`promptString`, `password: true`, `${input:...}`), but its deployed client connection
 could not be verified in this session, so no ready block is offered.
 [Windsurf’s docs](https://docs.devin.ai/desktop/cascade/mcp) now describe legacy Cascade in Devin
 Desktop (`serverUrl`, `${env:UIER_MCP_TOKEN}` in headers); it is not offered without a verified client.
-[Claude Desktop request headers](https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers)
-are limited beta. On an individual plan with the feature, use a custom connector URL, No sign-in
-and `Authorization: Bearer <credential>` under Request headers, then remove/add after expiry or
-revocation. Claude connects from Anthropic’s servers and cannot reach localhost. No headers means
-unsupported until OAuth; do not offer a bridge. Team/Enterprise are unsupported because an Owner
-adds connectors for the organization and a personal credential must not be shared.
 
 `mcp/prompts.ts` registers `triage-feedback` (`projectId`), `fix-feedback` and `report-back`
 (`projectId`, `commentId`). Share identifier schemas with tools in `mcp/schemas.ts`. Recheck
@@ -581,7 +672,7 @@ before every write. The skill also requires approval for assignments and stable 
 `app/projectCommentRouting.ts`. Canonicalize its optional path with `pagePath`; pass path and
 `environmentFilter` into `listProjectComments` before the 1000-thread storage limit. Validate
 environment ids against `environmentOptions` plus `unknown`/`removed`; never use the toolbar's
-fallback selection for MCP input. Other filters apply only within that window. Read the credential
+fallback selection for MCP input. Other filters apply only within that window. Read the connection
 owner's cursor after filtering visibility; never acknowledge it. Deleted first messages omit
 author kind and screenshot presence, and author ids never enter summaries.
 
@@ -596,8 +687,8 @@ Project comment rate limits use only server-resolved actors: members get 100 new
 replies per project per hour and skip the 30-write shared IP budget. Guests and `PUBLIC_PROJECT_ID`
 commenters retain visitor limits (10 new comments, 30 replies and 30 writes per IP per hour).
 The anonymous comments service always uses visitor limits. MCP replies first consume a 30-reply
-per-credential/project budget, then the owner's budget; rejected credentials must not exhaust the
-owner. Page, screenshot, paid rewrite and MCP transport limits stay independent. Coverage is in
+per-connection/project budget (access token or connected app), then the owner's budget; rejected
+connections must not exhaust the owner. Page, screenshot, paid rewrite and MCP transport limits stay independent. Coverage is in
 `review-rate-limits.api.spec.ts`, `public-project.api.spec.ts`, `mcp.api.spec.ts` and the unchanged
 `comments.api.spec.ts` rate cases.
 

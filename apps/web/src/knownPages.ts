@@ -52,6 +52,10 @@ export const KnownPageLinks = {
     /** The screenshot of a project comment (an image, for the signed-in app) */
     projectCommentScreenshot: (projectId: string, commentId: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,
+    /** Consent for a coding tool's OAuth sign-in to the MCP endpoint (a stored authorization request) */
+    mcpConnect: (requestId: string) => `/app/connect/${encodeURIComponent(requestId)}`,
+    /** An authorization request that cannot go back to its client (unknown client or redirect URI) */
+    mcpConnectError: (error: string) => `/app/connect/error?error=${encodeURIComponent(error)}`,
     /** Opens a project URL in review mode, signed in, optionally at a comment (see app/review) */
     projectReview: (projectId: string, url?: string, commentId?: string) => {
         const query = new URLSearchParams();

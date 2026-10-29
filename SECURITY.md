@@ -13,7 +13,7 @@ overload the service and do not post personal data.
 
 ## Scope
 
-- [uier.io](https://uier.io), its comments API (`/api/comments`), authenticated MCP connector (`/api/mcp`) and the toolbar bundle (`/toolbar.js`)
+- [uier.io](https://uier.io), its comments API (`/api/comments`), authenticated MCP connector (`/api/mcp`) with its OAuth sign-in (`/api/oauth/*`, the `/.well-known/oauth-*` documents and the consent page under `/app/connect/`) and the toolbar bundle (`/toolbar.js`)
 - the code in this repository
 
 The controls that are in place are described on [uier.io/security](https://uier.io/security).

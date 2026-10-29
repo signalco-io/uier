@@ -8,7 +8,7 @@ import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
 import { reviewSsoCookie } from './src/lib/app/reviewSsoCookie';
 
 /** App pages that work signed out */
-const publicAppPaths = ['/app/sign-in', '/app/invitation'];
+const publicAppPaths = ['/app/sign-in', '/app/invitation', '/app/connect/error'];
 // OAuth routes strip transient codes and states themselves, including when the session expired.
 const integrationReturns = new Set(['/app/notion/callback', '/app/github/setup', '/app/github/callback',
     '/app/linear/callback', '/app/slack/callback']);
