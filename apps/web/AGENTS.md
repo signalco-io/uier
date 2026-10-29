@@ -131,6 +131,11 @@ licenses in each `package.json`, the root `LICENSE` and the README "License" sec
 repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
 `e2e/pages.spec.ts` checks them.
 
+The security controls distinguish Pulumi deletion protection from Azure management locks and
+state that approving reviews are not required. Renovate can automerge only selected development
+type/browser-test dependencies after three days. Keep those controls aligned with `renovate.json`,
+workflow SHA pins and the current main ruleset; do not claim the pending credential rollout is active.
+
 The continuous-backup control and privacy retention line describe the verified live
 `Continuous7Days` policy in West Europe. Keep the seven-day wording aligned with the
 [backup evidence](../../docs/backups-and-restore.md) and `e2e/pages.spec.ts` / `e2e/legal.spec.ts`; add no recovery-time, recovery-point,

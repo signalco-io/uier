@@ -81,6 +81,10 @@ and lockfile; install them separately only when working on infrastructure.
 
 ## Go deeper
 
+The [CI credential rollout](docs/ci-credential-rollout.md) tracks the staged move to protected
+GitHub environments and production Cosmos DB identity access. Infrastructure and GitHub setup
+are documented in [Infrastructure and operations](docs/operations.md#required-github-configuration).
+
 | Guide | Start here when you want to… |
 | --- | --- |
 | [Documentation index](docs/README.md) | Find a reference or implementation plan |

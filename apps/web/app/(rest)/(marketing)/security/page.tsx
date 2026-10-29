@@ -60,11 +60,11 @@ const controls = [
     },
     {
         title: 'No secrets in code',
-        text: 'Keys live in the hosting environment, set by the infrastructure code. CI signs in to Azure with short-lived OIDC tokens instead of stored credentials, and the resources that hold data are protected from deletion.'
+        text: 'Keys live in the hosting environment, set by the infrastructure code. CI signs in to Azure with short-lived OIDC tokens instead of stored credentials. Deletion protection for data resources applies to Pulumi changes.'
     },
     {
-        title: 'Reviewed changes',
-        text: 'Every change to production goes through a pull request with passing checks. Infrastructure is applied only by CI, and dependencies are pinned and updated by Renovate one day after release at the earliest.'
+        title: 'Checked changes',
+        text: 'Production changes go through pull requests with passing checks. An approving review is not required. Selected type declarations and browser-test tools may merge automatically after three days. Other dependency and action updates wait for a maintainer to merge them. Infrastructure is applied only by CI.'
     }
 ];
 

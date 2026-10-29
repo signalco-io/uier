@@ -21,6 +21,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 ## Operations
 
 - [Infrastructure and operations](operations.md): infrastructure setup, CI/CD, credentials, status checks and moderation.
+- [CI credential rollout](ci-credential-rollout.md): staged least-privilege environments, build/deploy separation and production Cosmos DB identity access.
 - [Backups and restore](backups-and-restore.md): policy rollout gates, access, recovery procedure and drill evidence.
 - [Review notifications](review-notifications.md): email delivery, retention, scheduler and production acceptance gates.
 - [Integration setup](integration-setup.md): provider registration, production credentials, activation and manual acceptance tasks.

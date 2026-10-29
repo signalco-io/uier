@@ -39,16 +39,16 @@ jobs:
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       # Pinned to the exact release: the floating v6 tag (v6.0.10) predates pnpm v12 support.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6.1.0
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -57,14 +57,14 @@ jobs:
       # Deploys on main save it, so PR previews restore it from there.
       - name: Cache Vercel CLI
         id: vercel-cli-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.vercel-cli
           key: ${{ runner.os }}-vercel-cli-${{ env.VERCEL_CLI_VERSION }}-node${{ hashFiles('.nvmrc') }}
 
       - name: Install Vercel CLI
         if: steps.vercel-cli-cache.outputs.cache-hit != 'true'
-        run: npm install --global --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+        run: npm install --global --ignore-scripts --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
 
       - name: Add Vercel CLI to PATH
         run: echo "$HOME/.vercel-cli/bin" >> "$GITHUB_PATH"
