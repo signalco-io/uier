@@ -84,7 +84,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
     // Clients first: Users keeps its place above feedback whether or not Clients shows
     const sections = [
         ...hasClients ? [{ href: KnownPages.AppClients, label: 'Clients', icon: BriefcaseIcon }] : [],
-        ...isAdmin ? [{ href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon }] : []
+        ...isAdmin ? [{ href: KnownPages.AppTeams, label: 'Teams', icon: UsersIcon }, { href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon }] : []
     ].map(section => ({ ...section, current: isCurrent(pathname, section.href) }));
 
     return (

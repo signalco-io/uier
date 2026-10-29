@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from '../src/lib/comments/submissions';
@@ -79,6 +80,7 @@ test('project receipts isolate actor/project and still enforce private visibilit
     process.env.UIER_LOCAL = '1';
     try {
         const project = { id: `retry-${key()}`, urls: ['https://example.test'] } as DbProject;
+        await persistProjectAccess(project, []);
         const owner = { kind: 'guest', visitorId: 'owner' } as const;
         const stranger = { kind: 'guest', visitorId: 'other' } as const;
         const request = new Request('http://localhost/api/review');
@@ -86,7 +88,8 @@ test('project receipts isolate actor/project and still enforce private visibilit
         const first = await createProjectComment(request, project, owner, input);
         expect((await createProjectComment(request, project, owner, input)).id).toBe(first.id);
         expect((await createProjectComment(request, project, stranger, input)).id).not.toBe(first.id);
-        expect((await createProjectComment(request, { ...project, id: `${project.id}-other` }, owner, input)).id).not.toBe(first.id);
+        const other = await persistProjectAccess({ ...project, id: `${project.id}-other` }, []);
+        expect((await createProjectComment(request, other, owner, input)).id).not.toBe(first.id);
         await expect(createProjectComment(request, project, owner, { ...input, path: '/view?tab=b' })).rejects.toMatchObject({ status: 409 });
         const reply = { text: 'Reply once', authorName: 'Reviewer', idempotencyKey: key() };
         await replyToProjectComment(request, project, owner, first.id, reply);

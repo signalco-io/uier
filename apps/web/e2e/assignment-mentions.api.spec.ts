@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { updateUserName } from '../src/lib/app/users';
@@ -24,6 +25,7 @@ test('assignment and stable mention identities enforce project membership and pr
             await app.create<DbUser>({ type: 'user', id, pk: `user:${id}`, email: `${index}@example.com`, name: index === 0 ? 'Owner' : 'Alex', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
             await app.create<DbMember>({ type: 'member', id: memberId(id), pk: workspacePk(project.workspaceId), userId: id, workspaceId: project.workspaceId, email: `${index}@example.com`, role: index === 0 ? 'admin' : 'commenter', projects: index === 3 ? ['another-project'] : 'all', createdAt: new Date().toISOString() });
         }
+        await persistProjectAccess(project, []);
         const owner = { kind: 'member', userId: ids[0]!, name: 'Owner', isAdmin: true } as const;
         const member = { kind: 'member', userId: ids[1]!, name: 'Alex', isAdmin: false } as const;
         const guest = { kind: 'guest', visitorId: 'guest-author' } as const;
@@ -73,7 +75,7 @@ test('assignment and stable mention identities enforce project membership and pr
         expect((await app.get<DbMember>(workspacePk(project.workspaceId), memberId(ids[3]!)))?.doc.projects).toEqual(['another-project']);
         expect(await app.get(workspacePk(project.workspaceId), memberId(ids[2]!))).toBeNull();
         await app.delete(workspacePk(project.workspaceId), memberId(ids[0]!));
-        await expect(setProjectCommentAssignee(project, owner, comment.id, null)).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(setProjectCommentAssignee(project, owner, comment.id, null)).rejects.toMatchObject({ code: 'sign_in_required' });
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
     }

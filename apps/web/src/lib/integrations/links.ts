@@ -1,5 +1,6 @@
 import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../app/model';
+import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
 import { getAppStore } from '../app/store';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import type { DbComment } from '../db/schema';
@@ -19,7 +20,7 @@ export async function loadIntegrationLinks(project: DbProject, actor: ProjectAct
     const current = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     const member = (await store.get<DbMember>(workspacePk(project.workspaceId), memberId(actor.userId)))?.doc;
     if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || member?.type !== 'member'
-        || member.workspaceId !== project.workspaceId || !(member.role === 'admin' || member.projects === 'all' || member.projects.includes(project.id))) return links;
+        || member.workspaceId !== project.workspaceId || !hasProjectAccess(await loadWorkspaceAccess(project.workspaceId, store), member, current)) return links;
     const visibleIds = new Set(sources.filter(source => source.projectId === project.id && source.domain === `project:${project.id}`
         && !source.private && !isPrivateAppFeedback(source)).map(source => source.id));
     for (const adapter of integrationRegistry(options.adapters).values()) {

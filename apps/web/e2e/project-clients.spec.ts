@@ -18,7 +18,8 @@ test('clients show in the sidebar and on their page, and new projects pick an ex
     await createProject(page, { urls: ['acme.example.com'], name: 'Acme site', clientName: 'Acme Studio' });
     navigation = await appNavigation(page);
     const links = navigation.getByRole('link');
-    await expect(links.nth(-2)).toHaveAccessibleName('Clients');
+    await expect(links.nth(-3)).toHaveAccessibleName('Clients');
+    await expect(links.nth(-2)).toHaveAccessibleName('Teams');
     await expect(links.last()).toHaveAccessibleName('Users');
     await closeAppNavigation(page);
 

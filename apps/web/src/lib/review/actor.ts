@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { apiErrors } from '../comments/http';
 import { getAppStore } from '../app/store';
-import { getMember, memberCanAccessProject } from '../app/workspaces';
+import { getMember } from '../app/workspaces';
+import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
+import { workspacePk } from '../app/model';
 import { getUser } from '../app/users';
 import { isRandomToken, randomToken, sha256Hex, signToken, verifyToken } from '../app/tokens';
 import { MAX_NAME_LENGTH } from '../app/limits';
@@ -54,7 +56,7 @@ export async function memberActor(project: DbProject, userId: string): Promise<P
     if (!user)
         return null;
     const effective = publicProjectMember(member, user.email);
-    if (!memberCanAccessProject(effective, project.id))
+    if (!hasProjectAccess(await loadWorkspaceAccess(project.workspaceId), effective, project))
         return null;
     return { kind: 'member', userId, name: user.name, isAdmin: effective.role === 'admin' };
 }
@@ -134,4 +136,18 @@ export const guestNameSchema = z.string().trim()
 export function assertWriter(actor: ProjectActor) {
     if (actor.kind === 'anonymous')
         throw apiErrors.invalidRequest('Comments need a visitor id.');
+}
+
+/** Recheck the current project and member on each optimistic write attempt. */
+export async function refreshMutationActor(project: DbProject, actor: ProjectActor) {
+    const current = (await getAppStore().get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
+    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId) throw apiErrors.notFound();
+    if (actor.kind === 'member') {
+        const fresh = await memberActor(current, actor.userId);
+        if (!fresh || fresh.kind !== 'member') throw apiErrors.signInRequired();
+        actor.isAdmin = fresh.isAdmin;
+        actor.name = fresh.name;
+    } else {
+        assertCanUseComments(current, actor);
+    }
 }

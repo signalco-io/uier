@@ -9,6 +9,7 @@ import { DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/src/components/ui/radio-group';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
@@ -23,8 +24,10 @@ const roles: { value: Role; label: string; description: string }[] = [
 ];
 
 /** The invite dialog's content: their email, the role and, for commenters, the projects they can review */
-export function InviteForm({ projects, fromProjectId, onDone, onInviteAnother }: {
+export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, onDone, onInviteAnother }: {
     projects: { id: string; name: string }[];
+    teams?: { id: string; name: string }[];
+    fromTeamId?: string;
     /** The project the invitation started from (ticked, and it opens after accepting) */
     fromProjectId?: string;
     onDone: () => void;
@@ -36,6 +39,8 @@ export function InviteForm({ projects, fromProjectId, onDone, onInviteAnother }:
     const [role, setRole] = useState<Role>('commenter');
     const [access, setAccess] = useState<Access>('selected');
     const [selected, setSelected] = useState<string[]>(() => fromProjectId ? [fromProjectId] : []);
+    const [relationship, setRelationship] = useState('external');
+    const [selectedTeams, setSelectedTeams] = useState<string[]>(fromTeamId ? [fromTeamId] : []);
     const fromProject = projects.find(project => project.id === fromProjectId);
 
     if (state?.ok) {
@@ -75,6 +80,8 @@ export function InviteForm({ projects, fromProjectId, onDone, onInviteAnother }:
             <input type="hidden" name="role" value={role} />
             <input type="hidden" name="access" value={access} />
             {access === 'selected' && selected.map(projectId => <input key={projectId} type="hidden" name="project" value={projectId} />)}
+            <input type="hidden" name="relationship" value={relationship} />
+            {selectedTeams.map(teamId => <input key={teamId} type="hidden" name="team" value={teamId} />)}
             <DialogHeader>
                 <DialogTitle>Invite someone</DialogTitle>
                 <DialogDescription>
@@ -96,6 +103,22 @@ export function InviteForm({ projects, fromProjectId, onDone, onInviteAnother }:
                         autoComplete="off"
                         placeholder="name@example.com" />
                 </Field>
+                <Field>
+                    <FieldLabel htmlFor={`${id}-relationship`}>Relationship</FieldLabel>
+                    <Select value={relationship} onValueChange={setRelationship}>
+                        <SelectTrigger id={`${id}-relationship`}><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectGroup><SelectItem value="external">External</SelectItem><SelectItem value="internal">Internal</SelectItem></SelectGroup></SelectContent>
+                    </Select>
+                    <FieldDescription>A workspace label. External reviewers have the same commenter permissions.</FieldDescription>
+                </Field>
+                {teams.length > 0 && <FieldSet><FieldLegend variant="label">Teams</FieldLegend>
+                    <FieldDescription>Teams and direct projects add together. Team access follows the team's current projects, including later changes.</FieldDescription>
+                    <FieldGroup className="gap-3">{teams.map(team => <Field key={team.id} orientation="horizontal">
+                        <Checkbox id={`${id}-${team.id}`} checked={selectedTeams.includes(team.id)} onCheckedChange={checked => setSelectedTeams(current => checked === true ? [...current, team.id] : current.filter(id => id !== team.id))} />
+                        <FieldLabel htmlFor={`${id}-${team.id}`}>{team.name}</FieldLabel>
+                    </Field>)}</FieldGroup>
+                </FieldSet>}
+                {(role === 'admin' || access === 'all') && <p className="text-sm text-destructive" role="status">This grants every project, including future projects{role === 'admin' ? ', and workspace administration' : ''}. Use selected teams and projects for restricted external access.</p>}
                 <FieldSet>
                     <FieldLegend variant="label">Role</FieldLegend>
                     <RadioGroup value={role} onValueChange={(value) => setRole(value === 'admin' ? 'admin' : 'commenter')}>
@@ -140,7 +163,7 @@ export function InviteForm({ projects, fromProjectId, onDone, onInviteAnother }:
                                     ))}
                                 </FieldGroup>
                             ) : (
-                                <FieldDescription>There are no projects yet. Choose all projects, or create one first.</FieldDescription>
+                                <FieldDescription>There are no projects yet. Choose a team, or create a project first.</FieldDescription>
                             )
                         )}
                     </FieldSet>

@@ -10,7 +10,7 @@ import { screenshotInfo } from './service';
 export async function replaceSavedScreenshot(
     store: CommentsStore, domain: string, id: string,
     input: { screenshot: ParsedScreenshot; expectedRevision: string | null },
-    authorize: (comment: DbComment) => void,
+    authorize: (comment: DbComment) => void | Promise<void>,
     finalize: (previous: DbComment, updated: DbComment) => DbComment = (_, updated) => updated
 ) {
     let counted = false;
@@ -18,7 +18,7 @@ export async function replaceSavedScreenshot(
         const stored = await store.get(domain, id);
         if (!stored) throw apiErrors.notFound();
         const comment = stored.comment;
-        authorize(comment);
+        await authorize(comment);
         if (!comment.thread.items[0] || comment.thread.items[0].deletedAt) throw apiErrors.notFound();
         if ((comment.screenshot?.revision ?? null) !== input.expectedRevision)
             throw new ApiError(409, 'conflict', 'The screenshot changed. Reload it before replacing it.');

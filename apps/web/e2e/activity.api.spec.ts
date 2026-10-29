@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import type { DbComment } from '../src/lib/db/schema';
@@ -61,6 +62,7 @@ test('legacy app feedback without a private flag stays out of showcase activity 
 test('per-reviewer cursors survive own posts, resolution, concurrent/stale reads and deleted replies', async () => {
     process.env.UIER_LOCAL = '1';
     const project = { id: randomUUID(), access: 'invited' } as DbProject;
+    await persistProjectAccess(project, [alice, bob]);
     const store = getMemoryCommentsStore();
     let comment: DbComment = {
         id: 'comment_activity', domain: `project:${project.id}`, path: '/one', position: { type: 'page' },
@@ -337,6 +339,7 @@ test('activity counts and unread content include older threads outside the bound
 test('reading then deleting a legacy reply cannot cause its cursor to be reused', async () => {
     process.env.UIER_LOCAL = '1';
     const project = { id: randomUUID(), access: 'invited' } as DbProject;
+    await persistProjectAccess(project, [alice, bob]);
     const store = getMemoryCommentsStore();
     const comment: DbComment = { id: 'comment_legacy_delete', domain: `project:${project.id}`, path: '/', authorId: 'user:alice',
         position: { type: 'page' }, thread: { items: [

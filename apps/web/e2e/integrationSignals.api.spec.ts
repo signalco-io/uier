@@ -6,7 +6,7 @@ import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, typ
 import { findOrCreateUser } from '../src/lib/app/users';
 import { toCommentDto } from '../src/lib/comments/dto';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
-import { PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from '../src/lib/comments/publicProject';
+import { ensurePublicProject, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from '../src/lib/comments/publicProject';
 import { isCommentDocument, syncTombstoneId, type DbComment, type DbSyncTombstone } from '../src/lib/db/schema';
 import { hasIntegrationBindings, integrationTargets, syncPendingKey, syncTombstone, withSyncMark } from '../src/lib/integrations/syncSignal';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
@@ -289,11 +289,11 @@ test('unbound hard deletes retain intent while public-project deletions create n
     await removeProjectComment(f.project, f.admin, created.id);
     expect((await pendingFor(created.domain)).find(doc => doc.id === syncTombstoneId(created.id)))
         .toMatchObject({ targets: [], syncVersion: 2, type: 'tombstone' });
-    const publicProject = { ...f.project, id: PUBLIC_PROJECT_ID };
+    const publicProject = await ensurePublicProject();
     const publicComment = source(publicProject, { domain: PUBLIC_PROJECT_PARTITION, authorId: `user:${f.owner.id}`,
         thread: { items: [{ id: 'first', text: 'Public showcase feedback', authorId: `user:${f.owner.id}` }] } });
     await f.store.create(publicComment);
-    await removeProjectComment(publicProject, f.admin, publicComment.id);
+    await removeProjectComment(publicProject, (await memberActor(publicProject, f.owner.id))!, publicComment.id);
     expect((await pendingFor(publicComment.domain)).some(doc => doc.id === syncTombstoneId(publicComment.id))).toBe(false);
 });
 

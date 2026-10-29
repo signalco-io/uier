@@ -17,6 +17,9 @@ was left from, with a screenshot when capture succeeds.
 2. Share a review link. Reviewers leave comments on the page, with invited access or guest access.
 3. Manage feedback in the toolbar inbox or the app's list and board. Assign threads, reply, and resolve them.
 
+Workspace admins can share selected projects with [teams](docs/teams-and-access.md). Team grants
+add to individual access; external reviewers sign in, while public guest links stay separate.
+
 You can try the toolbar on [uier.io](https://uier.io) itself. Feedback on its public pages is public.
 To add it to your own site, follow the [embedding guide](packages/toolbar/README.md#embedding).
 

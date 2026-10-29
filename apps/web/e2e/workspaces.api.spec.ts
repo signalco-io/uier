@@ -46,12 +46,12 @@ test('two concurrent admin removals leave exactly one admin and never restore a 
     ]);
     expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
-    expect(String((results.find(result => result.status === 'rejected') as PromiseRejectedResult).reason)).toContain('at least one admin');
+    expect(String((results.find(result => result.status === 'rejected') as PromiseRejectedResult).reason)).toMatch(/at least one admin|access changed/);
     const members = await store.query<DbMember>({ type: 'member', pk: a.pk, where: { role: 'admin' } });
     expect(members).toHaveLength(1);
     const removed = members[0]!.userId === alice.id ? bob : alice;
     expect(await getMember(workspace.id, removed.id)).toBeNull();
-    expect((await store.get<DbWorkspace>(workspace.pk, workspace.id))!.doc.memberRemovalVersion).toBe(1);
+    expect((await store.get<DbWorkspace>(workspace.pk, workspace.id))!.doc.accessRevision).toBe(1);
     await ensureOwnWorkspace(removed);
     expect(await getMember(workspace.id, removed.id)).toBeNull();
 });

@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { reattachReviewAnchor } from '../src/lib/review/anchorRoutes';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
@@ -80,6 +81,7 @@ test('member direct links use the stored permitted origin and safe saved state, 
     await app.create<DbProjectRef>({ type: 'project-ref', id: p.id, pk: projectRefPk(p.id), workspaceId: p.workspaceId });
     const member: DbMember = { type: 'member', id: memberId('owner'), pk: p.pk, workspaceId: p.workspaceId, userId: 'owner', email: 'owner@example.com', role: 'admin', projects: 'all', createdAt: '' };
     await app.create(member);
+    await persistProjectAccess(p, [{ userId: 'owner', name: 'Owner', isAdmin: true }]);
     const item = comment(p, staging); await store.create(item);
     const target = new URL((await memberReviewTarget('owner', p.id, `${production}/wrong`, item.id))!);
     expect(target.origin).toBe(staging);
@@ -93,7 +95,7 @@ test('member direct links use the stored permitted origin and safe saved state, 
 
 
 test('reattachment responses retain the original source and grouped aliases cannot change its origin', async () => {
-    const p = project(); p.pageState = { queryParameters: ['tab'], hashRouting: true };
+    const p = project(); await persistProjectAccess(p, []); p.pageState = { queryParameters: ['tab'], hashRouting: true };
     p.environments![0]!.group = 'Shared'; p.environments![1]!.group = 'Shared';
     const item = comment(p, staging); const store = getMemoryCommentsStore(); await store.create(item);
     const request = (expectedRevision: string | null) => new Request(`https://uier.io/api/review/${p.id}/comments/${item.id}/anchor`, {

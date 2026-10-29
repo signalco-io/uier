@@ -53,13 +53,14 @@ ${footerAction ? `<p><a href="${escapeHtml(footerAction.url)}" style="color:${co
     return { to, subject, text, html };
 }
 
-export function invitationEmail({ to, url, inviterName, inviterEmail, projectName, role }: {
+export function invitationEmail({ to, url, inviterName, inviterEmail, projectName, role, teamAccess = false }: {
     to: string;
     url: string;
     inviterName: string;
     inviterEmail: string;
     projectName?: string;
     role: 'admin' | 'commenter';
+    teamAccess?: boolean;
 }) {
     const what = projectName ? projectName : 'their projects';
     return layoutEmail({
@@ -67,6 +68,7 @@ export function invitationEmail({ to, url, inviterName, inviterEmail, projectNam
         subject: projectName ? `Review ${projectName} on ${brand.name}` : `Join ${inviterName} on ${brand.name}`,
         paragraphs: [
             `${inviterName} (${inviterEmail}) invited you to review ${what} on ${brand.name}${role === 'admin' ? ', as an admin' : ''}.`,
+            ...(teamAccess ? ["Your teams grant access to their current selected projects. Workspace admins can change those projects later. Teams and direct projects add together."] : []),
             `${brand.name} lets you leave comments directly on the site. Accepting signs you in as ${to}${projectName ? ' and opens the site with the toolbar' : ''}.`
         ],
         action: { label: 'Accept invitation', url },
