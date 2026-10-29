@@ -537,7 +537,10 @@ test('only admins save and clear the plain-text review brief, with server valida
     } finally { await member.context.close(); }
     await page.goto(`/app/projects/${project}/settings`);
     await expect(input).toHaveValue('Review pricing.\nThen checkout.');
+    // Clear the existing brief explicitly before exercising a whitespace-only submission.
+    await input.clear();
     await input.fill(' \n ');
+    await expect(input).toHaveValue(' \n ');
     await section.getByRole('button', { name: 'Save' }).click();
     await expect(section.getByRole('status')).toHaveText('The review brief is saved.');
     await page.reload();
