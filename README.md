@@ -70,7 +70,9 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 
 Stop the dev server before testing, or choose another port with `PORT=4104 pnpm test`.
 Tests start their own app server and local API stand-ins on `PORT + 1000` through `PORT + 5000`.
-See the [testing guide](docs/development.md#commands) for coverage and browser options.
+While implementing, use typecheck and [focused feature tests](docs/development.md#while-implementing).
+Run the short `pnpm test` check before a code PR; full regressions are exceptional.
+See the [testing guide](docs/development.md#test-categories) for categories and browser options.
 
 ## `/toolbar.js`
 

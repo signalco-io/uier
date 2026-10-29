@@ -52,17 +52,31 @@ human contributors; [the root guide](AGENTS.md) links to each one.
   retention, cookies or security controls also need the matching public documents updated; see
   [the web guide](apps/web/AGENTS.md#legal-documents).
 
+## Testing while implementing
+
+Run typecheck and the relevant feature's spec files during implementation. Start browser checks
+with Desktop Chrome; include Mobile Chrome for touch or responsive behavior. Refresh the production
+build after app or toolbar changes before invoking Playwright directly. The
+[testing guide](docs/development.md#while-implementing) has file, project and single-test commands.
+
+The short `pnpm test` run belongs before pushing a PR. Full regressions (`pnpm test:full`) are
+exceptional: use them for broad verification when focused checks are insufficient or a full run is
+explicitly requested. A new feature does not require a full run. For documentation-only changes,
+check content and links without running application checks.
+
 ## Pull requests
 
 1. Branch from `main` and open the pull request against `main`.
 2. Use [Conventional Commits](https://www.conventionalcommits.org/) for commits and the pull request
    title (`feat:`, `fix:`, `docs:`, `chore(deps):` …).
-3. Run `pnpm typecheck && pnpm build && pnpm test` before you push. Install the Playwright browser
+3. For code, dependency or build/test configuration changes, run
+   `pnpm typecheck && pnpm build && pnpm test` before you push. For documentation-only changes,
+   check the content and links. Install the Playwright browser
    once with `pnpm -C apps/web exec playwright install --with-deps chromium`. Stop the dev server
    or use `PORT=4104 pnpm test` to avoid a port conflict.
-   The required run includes all API tests and essential browser journeys. Use `pnpm test:full`
-   for broad browser regressions, or `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file>`
-   for a specific feature. Reserve `@smoke` / `@mobile-smoke` tags for critical user journeys.
+   The required run includes all API tests and essential browser journeys. The full regression
+   suite is not a routine PR requirement. Reserve `@smoke` / `@mobile-smoke` tags for critical
+   user journeys.
 4. Explain the problem, the resulting behavior and how you verified it. Update the relevant docs
    and package guide.
 5. Wait for **CI OK** before merging. CI selects web checks, the Vercel preview and the infrastructure

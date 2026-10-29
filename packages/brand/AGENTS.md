@@ -33,7 +33,11 @@ bundles it directly. It has no build step.
 3. Update `BRAND.md` so the rule and the value agree; it is the document people read.
 4. If the mark changed: `pnpm -C packages/brand icons`, copy `assets/favicon.svg` to
    `apps/web/public/favicon.svg`, commit the PNGs.
-5. Run the web app and check `/brand`; `pnpm test:full` covers the page and the assets.
+5. Run the web app and check `/brand`. After `pnpm build`, run the focused page/assets check:
+   `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test e2e/brand.spec.ts --project="Desktop Chrome" --retries=0`.
+   Include affected landing/toolbar specs for shared token changes and Mobile Chrome for responsive
+   changes. Follow the root [testing workflow](../../AGENTS.md#testing-while-implementing);
+   brand changes do not automatically require a full regression run.
 
 ## Do not
 
