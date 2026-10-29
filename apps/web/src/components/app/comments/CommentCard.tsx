@@ -83,6 +83,9 @@ import {
 
 export type AssigneeOption = { userId: string; name: string };
 
+/** A card leaving its list after Done or Reopen: the exit animation, and undoing it when the change fails */
+export type ResolveExit = { finished: Promise<void>; cancel: () => void };
+
 const deviceIcons = { desktop: MonitorIcon, tablet: TabletIcon, mobile: SmartphoneIcon } as const;
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
@@ -161,7 +164,7 @@ function MessageText({ text, edited }: { text: string; edited: boolean }) {
  * and actions on top, then who it is assigned to and where it came from, the messages, the quiet
  * thread actions, and the page it was left on at the bottom
  */
-export function CommentCard({ projectId, comment, reviewLink, assignees, userId }: {
+export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve }: {
     projectId: string;
     comment: ProjectCommentView;
     /** Review link that opens the page at this comment */
@@ -169,6 +172,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId 
     assignees: AssigneeOption[];
     /** The signed-in user: "Assigned to you" */
     userId: string;
+    /** Done or Reopen takes the comment out of its list: starts its exit right away */
+    onResolve?: (resolved: boolean) => ResolveExit;
 }) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -208,6 +213,19 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId 
         }
         if (success)
             toast.success(success);
+        router.refresh();
+    });
+
+    const toggleResolved = () => startTransition(async () => {
+        const resolved = !comment.resolved;
+        const exit = onResolve?.(resolved);
+        // The refresh removes the card only once its exit has played
+        const [result] = await Promise.all([setCommentResolvedAction(projectId, comment.id, resolved), exit?.finished]);
+        if (result && !result.ok) {
+            exit?.cancel();
+            toast.error(result.error);
+            return;
+        }
         router.refresh();
     });
 
@@ -314,7 +332,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId 
                                 size="sm"
                                 disabled={pending}
                                 className="mx-1 pointer-coarse:min-h-11"
-                                onClick={() => run(() => setCommentResolvedAction(projectId, comment.id, !comment.resolved))}>
+                                onClick={toggleResolved}>
                                 {comment.resolved ? <UndoIcon data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
                                 {/* Only the icon in a narrow card, as in the toolbar; the name stays */}
                                 <span className="@max-xs/comment:sr-only">{comment.resolved ? 'Reopen' : 'Done'}</span>

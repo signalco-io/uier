@@ -26,6 +26,14 @@ export type AuthorFilter = { reference: string; name: string };
 
 export type PeopleFilter = 'all' | 'assigned' | 'mine';
 export type CommentsView = 'list' | 'board';
+export type StatusFilter = 'open' | 'done' | 'all';
+
+/** The list's status filter: the toolbar inbox's tabs, in its order and words */
+export const statusFilterLabels: Record<StatusFilter, string> = {
+    open: 'Open',
+    done: 'Done',
+    all: 'All'
+};
 
 export const peopleFilterLabels: Record<PeopleFilter, string> = {
     all: 'Everyone',
