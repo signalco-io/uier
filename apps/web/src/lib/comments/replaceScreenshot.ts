@@ -1,3 +1,4 @@
+import { cleanupThread } from './cleanup';
 import { nanoid } from 'nanoid';
 import { screenshotDocumentId, type DbComment, type DbScreenshot } from '../db/schema';
 import type { CommentsStore } from '../repo/commentsStore';
@@ -35,7 +36,10 @@ export async function replaceSavedScreenshot(
             ...(comment.ttl !== undefined ? { ttl: comment.ttl } : {})
         };
         const result = await store.replaceScreenshot(updated, stored.etag, image);
-        if (result === 'ok') return updated;
+        if (result === 'ok') {
+            await cleanupThread(domain, id, false, store);
+            return updated;
+        }
         if (result === 'not_found') throw apiErrors.notFound();
         // A reply/private change can race us; reauthorize against its new version.
     }

@@ -1,3 +1,4 @@
+import { queueThreadCleanup } from '../comments/cleanup';
 import { syncTombstone, withSyncMark } from '../integrations/syncSignal';
 import { reattachAnchor } from '../comments/reattachAnchor';
 import type { ReattachAnchorInput } from '../comments/validation';
@@ -391,7 +392,8 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
         });
 }
 
-function deleteProjectThread(store: CommentsStore, project: DbProject, comment: DbComment, etag: string) {
+async function deleteProjectThread(store: CommentsStore, project: DbProject, comment: DbComment, etag: string) {
+    await queueThreadCleanup(comment.domain, comment.id, true);
     return project.id !== PUBLIC_PROJECT_ID
         ? store.deleteWithTombstone(comment.domain, comment.id, etag, syncTombstone(project, comment))
         : store.delete(comment.domain, comment.id, etag);

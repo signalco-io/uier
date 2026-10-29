@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="28 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="29 October 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -65,6 +65,8 @@ export default function PrivacyPolicyPage() {
                     discarding an unsent comment saves no image. Replies keep the original screenshot. On saved feedback,
                     its author or a workspace admin can supply an uploaded or pasted image, or save a redacted replacement.
                     We read clipboard images only when you choose Paste image or paste an image into saved feedback.
+                    Every image is decoded and re-encoded on our server before storage. We keep only the first frame
+                    and remove embedded metadata, including location, camera and author tags, and trailing data.
                     Supplied images follow the same visibility and retention rules. The original stays until replacement
                     succeeds, then its stored bytes are overwritten. We expose no image history. Replacement cannot remove
                     copies another person already downloaded. Image editing stays in memory in your browser until saved.
@@ -105,7 +107,8 @@ export default function PrivacyPolicyPage() {
             <h3>The visitor cookie</h3>
             <p>
                 Starting a draft keeps a random visitor token in local storage to recover a lost response.
-                Your first comment, reply or read acknowledgement sets the <code>uier_visitor</code> cookie. It holds a random token that
+                Opening a thread without an existing guest identity or session creates no identity. Your first
+                comment, reply or explicit Mark as read action sets the <code>uier_visitor</code> cookie. It holds a random token that
                 lets the server recognise your comments and read state, so only you can resolve or delete your comments. We store a hash of
                 the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
@@ -177,7 +180,8 @@ export default function PrivacyPolicyPage() {
                 We store the last activity you have read for each thread, the time you acknowledged it and your
                 member or hashed visitor identity. This lets the inbox distinguish unread feedback from open work.
                 Reading a thread does not resolve it. Members share their read state wherever they sign in. Guest
-                read state belongs to that browser and site; signing out clears that identity. Clearing identity storage, including the public site&rsquo;s
+                read state belongs to that browser and site; signing out clears that identity. Automatic acknowledgement requires an existing name or session.
+                Explicit Mark as read and Mark all as read can create a guest identity. Clearing identity storage, including the public site&rsquo;s
                 visitor cookie when present, starts a new identity. The toolbar refreshes comments while it is in the foreground.
             </p>
 
@@ -233,12 +237,13 @@ export default function PrivacyPolicyPage() {
                 excluded by default. Workspace admins can enable short comment excerpts for every
                 recipient, including verified guests; commenters can see this project setting.
                 Quoted page text, images and reproduction details stay out of these emails.
-                Every digest links to unsubscribe or manage notifications. Preferences and delivery
-                evidence remain until revoked or the associated data is removed. Delivery records can
+                Every digest links to unsubscribe or manage notifications. Thread subscriptions and delivery records are removed when their thread is deleted and expire
+                no later than a thread with automatic expiry. Completed, caught-up delivery records expire after
+                30 days. Project mute preferences remain until revoked or the associated project is removed. Delivery records can
                 include the recipient address and the exact email while a send is pending or its result is uncertain.
                 If excerpts were enabled, a retained failed or uncertain attempt can keep that comment
-                text until reconciliation, acceptance, suppression or removal of the record, with no
-                automatic expiry. Later edits, deletions or disabling excerpts do not change that retained email.
+                text until reconciliation, acceptance, suppression or removal of the record. Failed and uncertain
+                deliveries have no automatic expiry unless their thread expires. Later edits, deletions or disabling excerpts do not change that retained email.
                 Unsubscribe prevents further sends. We do not
                 add notification cookies or store guest email addresses in your browser.
             </p>
@@ -316,6 +321,13 @@ export default function PrivacyPolicyPage() {
                 totals: pages, referrers, countries, browsers, operating systems and device types.
             </p>
 
+            <h3>Toolbar fonts and sign-in links</h3>
+            <p>
+                The toolbar loads its Geist fonts from the configured {brand.name} API origin, normally {brand.domain}.
+                It sends no font requests to Google. When you choose Sign in on a reviewed page, the return address
+                contains the page origin and path, plus only the query fields and hash routes the project approved.
+            </p>
+
             <h3>Request logs</h3>
             <p>
                 Like any website, our hosting provider receives the usual request details (IP address, browser
@@ -365,8 +377,8 @@ export default function PrivacyPolicyPage() {
             <h2>How long we keep it</h2>
             <ul>
                 <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
-                <li>Member read cursors: until removed with the account or project on request. Guest read cursors: one year after the last acknowledgement that advances the cursor.</li>
-                <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
+                <li>Read cursors: removed when their thread is deleted, and expire no later than a thread with automatic expiry. Otherwise member cursors stay until removed with the account or project on request; guest cursors expire one year after the last acknowledgement that advances the cursor.</li>
+                <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, removes access to its screenshot and deletes the stored image. Failed image deletes are retried by a scheduled sweep once an unreferenced image is over an hour old. Legacy public-feedback copies are removed when the migrated thread is deleted or its screenshot is replaced. Cleanup intents contain only thread identifiers and expire one day after successful cleanup.</li>
                 <li>Coding tool credentials: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Moderation author-filter references: 24 hours.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>

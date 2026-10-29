@@ -41,7 +41,6 @@ const nextConfig: NextConfig = {
                 isDevelopment,
                 [
                     knownSecureHeadersExternalUrls.vercel,
-                    knownSecureHeadersExternalUrls.googleFonts,
                     // Local review toolbar dev server (packages/toolbar `pnpm dev`)
                     ...(isDevelopment
                         ? [{ scriptSrc: ['http://localhost:4005'], styleSrc: ['http://localhost:4005'], connectSrc: ['http://localhost:4005'] }]
@@ -60,9 +59,14 @@ const nextConfig: NextConfig = {
                 frameGuard: false
             }).concat([{ key: 'Cache-Control', value: 'no-store' }])
         }, {
-            // Toolbar bundle (packages/toolbar, copied to public/ by scripts/copy-toolbar.mjs).
-            // The URL is not versioned, so it is cached briefly (not immutable). Customer sites
-            // will embed it from uier.io, so any origin may load it.
+            // Self-hosted Geist files used on arbitrary reviewed origins.
+            source: '/toolbar-fonts/:asset*',
+            headers: [
+                { key: 'Access-Control-Allow-Origin', value: '*' },
+                { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600' }
+            ]
+        }, {
+            // Unversioned toolbar bundle: short cache and cross-origin embedding.
             source: '/toolbar.js',
             headers: [
                 { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },

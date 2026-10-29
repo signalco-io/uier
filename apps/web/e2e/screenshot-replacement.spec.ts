@@ -1,7 +1,19 @@
+import { parseScreenshot, sanitizeScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { expect, test, type Page } from '@playwright/test';
 import { isolatedOrigin, newVisitor, openLanding } from './support/toolbar';
 import { pngImage, jpegImage } from './support/images';
 import { expectNoAxeViolations } from './accessibility';
+
+let cleanPng: string;
+let cleanJpeg: string;
+test.beforeAll(async () => {
+    const encode = async (url: string) => {
+        const image = await sanitizeScreenshot(parseScreenshot(url) as ParsedScreenshot) as ParsedScreenshot;
+        return `data:${image.contentType};base64,${image.data.toString('base64')}`;
+    };
+    cleanPng = await encode(pngImage);
+    cleanJpeg = await encode(jpegImage);
+});
 
 const imageFile = (data = pngImage) => ({ name: 'evidence.png', mimeType: data.split(';')[0]!.slice(5), buffer: Buffer.from(data.split(',')[1]!, 'base64') });
 
@@ -27,6 +39,7 @@ async function storedImage(page: Page, id: string) {
 
 test('saved evidence: upload fallback, validation, denied clipboard and failed replacement preserve feedback', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     const id = await savedFeedback(page);
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
@@ -42,14 +55,14 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
     await expect(thread.getByRole('status')).toContainText('Screenshot replaced.');
     const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(thumbnail).toBeVisible();
-    expect(await storedImage(page, id)).toBe(pngImage);
+    expect(await storedImage(page, id)).toBe(cleanPng);
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('saved-evidence-light.png') });
 
     await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { read: async () => { throw new DOMException('Denied', 'NotAllowedError'); } } }));
     await thread.getByRole('button', { name: 'Paste image' }).click();
     await expect(thread.getByRole('alert')).toContainText('Clipboard access was denied');
-    expect(await storedImage(page, id)).toBe(pngImage);
+    expect(await storedImage(page, id)).toBe(cleanPng);
 
     await page.route(`**/api/comments/${id}/screenshot`, async route => {
         if (route.request().method() === 'POST') await route.fulfill({ status: 503, json: { error: 'unavailable', message: 'Image storage unavailable.' } });
@@ -57,7 +70,7 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
     });
     await input.setInputFiles(imageFile(jpegImage));
     await expect(thread.getByRole('alert')).toContainText('Replacement was not confirmed');
-    expect(await storedImage(page, id)).toBe(pngImage);
+    expect(await storedImage(page, id)).toBe(cleanPng);
     await expect(thread.getByText('Keep this saved feedback.')).toBeVisible();
     await page.unroute(`**/api/comments/${id}/screenshot`);
     // A keyboard paste is a fallback even when the permission-based Clipboard API was denied.
@@ -68,7 +81,7 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
         element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, composed: true }));
     }, jpegImage);
     await expect(thread.getByRole('status')).toContainText('Screenshot replaced.');
-    expect(await storedImage(page, id)).toBe(jpegImage);
+    expect(await storedImage(page, id)).toBe(cleanJpeg);
     await page.reload();
     await page.locator(`[data-uier-comment="${id}"]`).click();
     await expect(thumbnail).toBeVisible();
@@ -78,6 +91,7 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
 test('saved evidence: clipboard image, keyboard redaction, failed save, reload and deletion in dark mode', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await page.emulateMedia({ colorScheme: 'dark' });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     const id = await savedFeedback(page, pngImage);
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
@@ -123,11 +137,11 @@ test('saved evidence: clipboard image, keyboard redaction, failed save, reload a
     });
     await editor.getByRole('button', { name: 'Save redaction' }).click();
     await expect(editor.getByRole('alert')).toContainText('Redaction was not confirmed');
-    expect(await storedImage(page, id)).toBe(pngImage);
+    expect(await storedImage(page, id)).toBe(cleanPng);
     await page.unroute(`**/api/comments/${id}/screenshot`);
     await editor.getByRole('button', { name: 'Save redaction' }).click();
     await expect(thread.getByRole('status')).toContainText('Screenshot replaced.');
-    expect(await storedImage(page, id)).not.toBe(pngImage);
+    expect(await storedImage(page, id)).not.toBe(cleanPng);
     await page.reload();
     await page.locator(`[data-uier-comment="${id}"]`).click();
     await thumbnail.click();

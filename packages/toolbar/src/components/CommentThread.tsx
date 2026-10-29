@@ -10,6 +10,7 @@ import { CommentThreadHeader, sourceText } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
+import { useVisitor } from '../hooks/useVisitor';
 
 /** A thread: its first and last message, and "Show all" for the ones between */
 export function CommentThread({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
@@ -19,7 +20,8 @@ export function CommentThread({ commentItem, reading = false }: { commentItem: C
 function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; reading: boolean }) {
     const read = useReadComment();
     const threadRef = useRef<HTMLDivElement>(null);
-    const canReadAutomatically = reading && commentItem.thread.items.length <= 2;
+    const visitor = useVisitor().query.data;
+    const canReadAutomatically = reading && Boolean(visitor?.name || visitor?.member) && commentItem.thread.items.length <= 2;
     // Only an opened thread, while visible in a foreground window. Inbox previews stay unread
     // until explicitly acknowledged; just listing feedback must not suppress notifications.
     useEffect(() => {

@@ -10,7 +10,8 @@
                 "dist/**",
                 "public/sitemap*.xml",
                 "public/robots.txt",
-                "public/toolbar.js"
+                "public/toolbar.js",
+                "public/toolbar-fonts/**"
             ],
             "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV"]
         },

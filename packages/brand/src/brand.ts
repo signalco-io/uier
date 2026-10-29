@@ -85,4 +85,4 @@ export const PIN_VIEWBOX = '0 0 32 32';
 export const PIN_PATH = 'M31 16c0 8.284-6.716 15-15 15-8.284 0-15-6.716-15-15V1h15c8.284 0 15 6.716 15 15Z';
 
 /** The Google Fonts stylesheet for Geist and Geist Mono, used where next/font is not available (the toolbar). */
-export const GEIST_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap';
+export const GEIST_FONTS_PATH = '/toolbar-fonts/geist.css';

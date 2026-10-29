@@ -1,4 +1,5 @@
 import type { DbScreenshot } from '../db/schema';
+import sharp from 'sharp';
 import { MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_DIMENSION } from './limits';
 
 /** Image formats a screenshot can have (what browsers' canvas encoders produce) */
@@ -99,6 +100,29 @@ export function parseScreenshot(dataUrl: string): ParsedScreenshot | string {
         return `Screenshot must be at most ${MAX_SCREENSHOT_DIMENSION} pixels on a side.`;
 
     return { contentType, data, ...size };
+}
+
+/** Decode untrusted bytes and store only newly encoded pixels, never metadata or extra frames. */
+export async function sanitizeScreenshot(input: ParsedScreenshot): Promise<ParsedScreenshot | string> {
+    try {
+        const image = sharp(input.data, {
+            limitInputPixels: MAX_SCREENSHOT_DIMENSION ** 2, pages: 1, failOn: 'warning'
+        }).autoOrient();
+        const format = input.contentType === 'image/jpeg' ? 'jpeg' : input.contentType === 'image/png' ? 'png' : 'webp';
+        let result = await image.toFormat(format).toBuffer({ resolveWithObject: true });
+        let contentType = input.contentType;
+        if (result.data.length > MAX_SCREENSHOT_BYTES && format === 'png') {
+            result = await image.webp().toBuffer({ resolveWithObject: true });
+            contentType = 'image/webp';
+        }
+        if (result.info.width > MAX_SCREENSHOT_DIMENSION || result.info.height > MAX_SCREENSHOT_DIMENSION)
+            return `Screenshot must be at most ${MAX_SCREENSHOT_DIMENSION} pixels on a side.`;
+        if (result.data.length > MAX_SCREENSHOT_BYTES)
+            return `Screenshot must be at most ${MAX_SCREENSHOT_BYTES} bytes.`;
+        return { contentType, data: result.data, width: result.info.width, height: result.info.height };
+    } catch {
+        return 'Screenshot is not a valid decodable image.';
+    }
 }
 
 /**

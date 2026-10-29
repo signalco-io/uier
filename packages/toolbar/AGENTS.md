@@ -22,8 +22,8 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
   root (`:root` alone would not). The `[data-uier-root]` container gets the `dark` class when the
   system prefers dark, so threads follow the system theme; the pill and the sidebar are wrapped in
   `components/InkScope.tsx` (always the dark tokens), pins are always ink.
-- Fonts: `index.tsx` appends the Google Fonts stylesheet for Geist (`GEIST_FONTS_URL` from
-  `@uier/brand`) to the host document, because `@font-face` inside a shadow root is unreliable.
+- Fonts: `index.tsx` appends the self-hosted Geist stylesheet (`GEIST_FONTS_PATH` from
+  `@uier/brand`, resolved against `toolbarConfig.apiUrl`) to the host document, because `@font-face` inside a shadow root is unreliable.
   If the host's CSP blocks it, the toolbar falls back to `system-ui`.
 - The comments API base URL comes from `src/config.ts`: the script tag or `window.uierConfig`,
   else the toolbar script's origin, else the build-time `__UIER_API_URL__` (`tsup.config.ts`; the
@@ -103,7 +103,8 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 - Gate failures offer a copyable owner note made only from `location.origin`, the script's public
   project code and the API base URL's settings link. Never use fetched project details, reviewer
   identity, tokens or page path/query/hash in it; keep the manual clipboard fallback and announcement.
-  Ended sessions carry the fetched `signInUrl` on their error and reuse the invited sign-in flow.
+  Ended sessions carry the fetched `signInUrl` and page-state policy on their error. Both sign-in
+  notices send only `location.origin` plus `pagePath` with that policy, never the raw page URL.
 - UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
 - Keep the bundle small: no new large dependencies without a reason (`modern-screenshot`, about
@@ -141,7 +142,8 @@ Never infer recipients from display names or reveal account ids in guest DTOs.
 - The badge is unread activity, not unresolved feedback. `useCommentsRefresh` is the sole 15-second
   foreground scheduler (focus/online/visibility/expansion refresh immediately). Read receipts merge
   monotonically across page/site caches. Inbox previews do not mark every listed thread read;
-  short opened threads acknowledge after 800 ms, otherwise use Mark as read. Keep resolve separate.
+  short opened threads acknowledge after 800 ms only when `useVisitor` has a name or member session;
+  unidentified visitors use Mark as read. Keep resolve separate.
   Inbox Mark all as read snapshots only listed unread threads after every filter, including environment.
   `useReadComment` accepts a snapshot array and sends sequential batches of at most 200 to `comments/read`, merges successful
   receipts and refreshes lists/activity. Failed writes keep their original cursors for Retry; announce

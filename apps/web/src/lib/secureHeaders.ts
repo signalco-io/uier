@@ -16,10 +16,6 @@ export type SecureHeadersExternalUrls = {
 };
 
 export const knownSecureHeadersExternalUrls = {
-    googleFonts: {
-        fontSrc: ['https://fonts.gstatic.com'],
-        connectSrc: ['https://fonts.gstatic.com']
-    },
     vercel: {
         imgSrc: ['https://vercel.com', 'https://vercel.live', 'https://sockjs-mt1.pusher.com', 'data: blob:'],
         scriptSrc: ['https://vercel.live', 'https://vitals.vercel-insights.com', 'https://*.vercel-scripts.com'],

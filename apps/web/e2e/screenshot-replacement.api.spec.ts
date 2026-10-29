@@ -1,27 +1,49 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test, type APIResponse } from '@playwright/test';
 import { pngImage, jpegImage } from './support/images';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { replaceSavedScreenshot } from '../src/lib/comments/replaceScreenshot';
 import { createWithScreenshot, screenshotInfo } from '../src/lib/comments/service';
-import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
+import { parseScreenshot, sanitizeScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { replaceProjectScreenshot, getProjectScreenshot, removeProjectComment } from '../src/lib/review/comments';
 import type { DbComment } from '../src/lib/db/schema';
 import type { ReviewApiContext } from '../src/lib/review/http';
 import { RATE_LIMIT_DOMAIN_SCREENSHOTS } from '../src/lib/comments/limits';
 import { enforceScreenshotLimits } from '../src/lib/comments/rateLimits';
+import { privateImages, expectPrivateImageRemoved } from './support/privateImages';
 
-const original = parseScreenshot(pngImage) as ParsedScreenshot;
-const replacement = parseScreenshot(jpegImage) as ParsedScreenshot;
+let original: ParsedScreenshot;
+let replacement: ParsedScreenshot;
 const previousLocal = process.env.UIER_LOCAL;
 const previousSecret = process.env.UIER_COMMENTS_SECRET;
-test.beforeAll(() => {
+test.beforeAll(async () => {
+    original = await sanitizeScreenshot(parseScreenshot(pngImage) as ParsedScreenshot) as ParsedScreenshot;
+    replacement = await sanitizeScreenshot(parseScreenshot(jpegImage) as ParsedScreenshot) as ParsedScreenshot;
     process.env.UIER_LOCAL = '1';
     process.env.UIER_COMMENTS_SECRET = 'screenshot-replacement-local-test-secret';
 });
 test.afterAll(() => {
     if (previousLocal === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previousLocal;
     if (previousSecret === undefined) delete process.env.UIER_COMMENTS_SECRET; else process.env.UIER_COMMENTS_SECRET = previousSecret;
+});
+
+test('replacement endpoints re-encode private metadata and animation and reject invalid pixels', async ({ request }) => {
+    const created = await request.post('/api/comments', { data: {
+        path: `/private-replacement-${randomUUID()}`, text: 'Keep text', kind: 'feedback', position: { type: 'page' }, screenshot: pngImage
+    } });
+    expect(created.status()).toBe(201);
+    const comment = await created.json();
+    const url = `/api/comments/${comment.id}/screenshot`;
+    let expectedRevision: string | null = null;
+    for (const screenshot of await privateImages()) {
+        const response: APIResponse = await request.post(url, { data: { screenshot, expectedRevision } });
+        expect(response.status(), await response.text()).toBe(200);
+        expectedRevision = (await response.json()).screenshot.revision;
+        await expectPrivateImageRemoved(await (await request.get(url)).body());
+    }
+    const invalid = Buffer.from(original.data).subarray(0, 24);
+    expect((await request.post(url, { data: { screenshot: `data:image/png;base64,${invalid.toString('base64')}`, expectedRevision } })).status()).toBe(400);
+    await request.delete(`/api/comments/${comment.id}`);
 });
 
 async function saved(domain = `images-${randomUUID()}.localhost`) {

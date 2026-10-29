@@ -26,6 +26,8 @@ export type DocQuery<TType extends string> = {
     afterId?: string;
     /** Only due delivery rows. Always parameterized, never raw query text. */
     dueBefore?: string;
+    /** One-time adoption of expiry on old delivery rows; excludes already migrated records. */
+    missingTtl?: boolean;
 };
 
 /**
@@ -151,9 +153,10 @@ function createCosmosAppStore(): AppStore {
                 throw error;
             }
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const conditions = ['c.type = @type'];
+            if (missingTtl) conditions.push('NOT IS_DEFINED(c.ttl)');
             const parameters: SqlParameter[] = [{ name: '@type', value: type }];
             if (pk) {
                 conditions.push('c.pk = @pk');
@@ -259,12 +262,12 @@ function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
             let docs = pks
                 .flatMap(key => [...partition(key).values()].map(entry => entry.doc))
-                .filter(doc => doc.type === type && (afterId === undefined || doc.id > afterId)
+                .filter(doc => doc.type === type && (!missingTtl || doc.ttl === undefined) && (afterId === undefined || doc.id > afterId)
                     && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value)
                     && (dueBefore === undefined || (typeof (doc as Record<string, unknown>).nextAttemptAt === 'string'
                         && ((doc as Record<string, unknown>).nextAttemptAt as string) <= dueBefore)));

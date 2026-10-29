@@ -1,3 +1,4 @@
+import './copy-fonts.mjs';
 // Copies the production build of the uier toolbar (`@uier/toolbar`, packages/toolbar) to
 // public/toolbar.js, so this app serves it at /toolbar.js (headers in next.config.ts) and the
 // landing page embeds it like a customer site would.

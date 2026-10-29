@@ -196,7 +196,7 @@ test('onboarding creates a project with its addresses and shows the install guid
     await page.getByText('Advanced: security headers').click();
     await expect(page.getByText(/in proxy\.ts \(middleware\.ts before Next\.js 16\)/)).toBeVisible();
     await expect(page.getByText('connect-src http://')).toBeVisible();
-    await expect(page.getByText('style-src \'unsafe-inline\' https://fonts.googleapis.com')).toBeVisible();
+    await expect(page.getByText(/style-src 'unsafe-inline' http:\/\/localhost:\d+/)).toBeVisible();
     // Metadata is streamed after the content
     await expect(page).toHaveTitle('Install · uier');
     const reviewerStep = page.getByRole('region', { name: 'Invite a reviewer' });

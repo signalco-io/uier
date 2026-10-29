@@ -352,3 +352,22 @@ Independent readback on 29 October confirmed:
 No test message was sent. A recipient-authorized production digest is still required to prove the
 inbox display name, received-message authentication, report correlation and unsubscribe-header
 integrity/coverage. These remain separate from successful configuration and deployment.
+
+## Retention and deletion
+
+Whole-thread deletion shares `comments/cleanup.ts` across app, public and review APIs: it removes
+thread subscriptions (including guest email addresses), delivery ledgers and per-reviewer read
+cursors. Identifier-only cleanup intents retry failed cleanup through the scheduled worker without expiry
+until success, then remain for one day to catch in-flight writes. Thread-scoped records expire no later than a thread with a finite TTL.
+Caught-up accepted/suppressed ledgers expire after 30 days. Active work, failed and ambiguous
+ledgers have no shorter expiry than their thread; manual recovery remains required for blocked sends.
+Discovery records `notificationDiscoveredThrough` on the thread after every recipient ledger is
+durable, so a recreated expired ledger starts after already-discovered events. Worker blocked
+counts query only inactive failed/ambiguous ledgers. The same schedule sweeps orphan screenshot
+metadata in pages of 100 without fetching pixels, protecting writes younger than one hour and
+concurrent replacements with etags.
+
+The worker adopts the 30-day expiry for old completed ledgers in batches of at most 100 per
+status per run, selecting only records without a TTL. It first saves their discovery floor on
+the owning thread; a conflicting checkpoint defers expiry until a later run. Failed and
+ambiguous ledgers are excluded from this adoption.

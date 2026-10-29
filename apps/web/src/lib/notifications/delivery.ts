@@ -1,3 +1,4 @@
+import { threadRecordTtl } from '../comments/retention';
 import { feedbackSource } from '../app/environments';
 import { commentPath } from '../comments/dto';
 import { randomUUID } from 'node:crypto';
@@ -24,6 +25,7 @@ import { emailSuppression } from '../email/suppression';
 
 export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
+export const COMPLETED_DELIVERY_TTL = 30 * 24 * 60 * 60;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
 export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; itemId?: string; assigneeId?: string | null };
@@ -66,15 +68,18 @@ export async function discoverThreadNotifications(project: DbProject, comment: D
     for (const [actorId, userId] of recipients) {
         const doc: NotificationDelivery = { type: 'notification-delivery', id: deliveryId(comment.id, actorId), pk: notificationPk(project.id),
             projectId: project.id, threadId: comment.id, actorId, ...(userId ? { userId } : {}),
-            requestedThrough, processedThrough: 0, active: true, failures: 0, nextAttemptAt: iso(), status: 'queued' };
-        if (!await store.create(doc)) await updateDoc<NotificationDelivery>(doc.pk, doc.id, old => ({ ...old,
-            requestedThrough: Math.max(old.requestedThrough, requestedThrough),
-            active: old.status !== 'failed' && old.status !== 'ambiguous' && (old.active || requestedThrough > old.processedThrough) }));
+            requestedThrough, processedThrough: comment.notificationDiscoveredThrough ?? 0, active: true, failures: 0, nextAttemptAt: iso(), status: 'queued',
+            ttl: threadRecordTtl(comment) };
+        if (!await store.create(doc)) await updateDoc<NotificationDelivery>(doc.pk, doc.id, old => {
+            const active = old.status !== 'failed' && old.status !== 'ambiguous' && (old.active || requestedThrough > old.processedThrough);
+            return { ...old, requestedThrough: Math.max(old.requestedThrough, requestedThrough), active,
+                ttl: threadRecordTtl(comment, !active && ['accepted', 'suppressed'].includes(old.status) ? COMPLETED_DELIVERY_TTL : -1) };
+        });
     }
     const comments = getCommentsStore();
     const current = await comments.get(comment.domain, comment.id);
     if (current && Math.max(0, ...(current.comment.notificationEvents ?? []).map(event => event.sequence)) === requestedThrough)
-        await comments.replace({ ...current.comment, notificationPending: false }, current.etag);
+        await comments.replace({ ...current.comment, notificationPending: false, notificationDiscoveredThrough: requestedThrough }, current.etag);
 }
 
 async function recipientContext(delivery: NotificationDelivery) {
@@ -155,6 +160,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
     const lease = { id: randomUUID(), until: iso(now + 5 * 60 * 1000) };
     const delivery = { ...stored.doc, lease };
     if (await store.replace(delivery, stored.etag) !== 'ok') return;
+    const thread = (await getCommentsStore().get(`project:${delivery.projectId}`, delivery.threadId))?.comment;
     const save = async (patch: Partial<NotificationDelivery>) => updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
         if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
         const { lease: _lease, ...rest } = current;
@@ -162,6 +168,8 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         if (patch.status === 'accepted' && current.lastCode?.startsWith('ACSReport_')) saved.lastCode = current.lastCode;
         if (saved.status !== 'failed' && saved.status !== 'ambiguous')
             saved.active = Boolean(saved.attempt) || current.requestedThrough > saved.processedThrough;
+        saved.ttl = threadRecordTtl(thread ?? { ttl: -1 } as DbComment,
+            !saved.active && saved.processedThrough >= saved.requestedThrough && ['accepted', 'suppressed'].includes(saved.status) ? COMPLETED_DELIVERY_TTL : -1);
         return saved;
     }, store);
     try {
@@ -232,17 +240,35 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
     }
 }
 
-export async function runNotificationWorker(baseUrl: string, transport = deliverNotificationEmail) {
+export async function runNotificationWorker(baseUrl: string, transport = deliverNotificationEmail, store = getAppStore()) {
+    // Adopt expiry for old completed ledgers in bounded batches. Preserve a replay floor before
+    // making any pre-checkpoint ledger eligible to expire; an etag race retries on the next run.
+    for (const status of ['accepted', 'suppressed']) {
+        for (const old of await store.query<NotificationDelivery>({ type: 'notification-delivery',
+            where: { active: false, status }, missingTtl: true, limit: 100 })) {
+            if (old.attempt || old.processedThrough < old.requestedThrough) continue;
+            const comments = getCommentsStore();
+            const thread = await comments.get(`project:${old.projectId}`, old.threadId);
+            if (thread && await comments.replace({ ...thread.comment,
+                notificationDiscoveredThrough: Math.max(thread.comment.notificationDiscoveredThrough ?? 0, old.requestedThrough)
+            }, thread.etag) !== 'ok') continue;
+            await updateDoc<NotificationDelivery>(old.pk, old.id, current => {
+                if (current.active || current.attempt || current.processedThrough < current.requestedThrough
+                    || !['accepted', 'suppressed'].includes(current.status)) return current;
+                return { ...current, ttl: thread ? threadRecordTtl(thread.comment, COMPLETED_DELIVERY_TTL) : COMPLETED_DELIVERY_TTL };
+            }, store);
+        }
+    }
     for (const comment of await getCommentsStore().listNotificationPending()) {
         if (!comment.projectId) continue;
         const project = await findProject(comment.projectId);
         if (project) await discoverThreadNotifications(project, comment);
     }
-    const deliveries = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true } });
-    for (const delivery of deliveries) await processNotificationDelivery(delivery, baseUrl, transport);
-    const failures = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', where: { active: false } });
-    const blocked = failures.filter(delivery => delivery.status === 'failed' || delivery.status === 'ambiguous');
-    return { checked: deliveries.length, blocked: blocked.length };
+    const deliveries = await store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true } });
+    for (const delivery of deliveries) await processNotificationDelivery(delivery, baseUrl, transport, Date.now(), store);
+    const blocked = await Promise.all(['failed', 'ambiguous'].map(status =>
+        store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: false, status } })));
+    return { checked: deliveries.length, blocked: blocked.reduce((count, rows) => count + rows.length, 0) };
 }
 
 /** Manual workflow recovery. An uncertain send keeps its operation identity and is only reconciled. */

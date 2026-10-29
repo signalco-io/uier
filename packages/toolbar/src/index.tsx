@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { GEIST_FONTS_URL } from '@uier/brand';
+import { GEIST_FONTS_PATH } from '@uier/brand';
 import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
@@ -24,12 +24,13 @@ function ensureBrandFont() {
         if (getComputedStyle(document.documentElement).getPropertyValue('--font-geist-sans').trim()) {
             return;
         }
-        if (document.querySelector(`link[href="${GEIST_FONTS_URL}"]`)) {
+        const fontUrl = `${toolbarConfig.apiUrl}${GEIST_FONTS_PATH}`;
+        if ([...document.querySelectorAll('link[rel="stylesheet"]')].some(link => (link as HTMLLinkElement).href === fontUrl)) {
             return;
         }
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = GEIST_FONTS_URL;
+        link.href = fontUrl;
         document.head.appendChild(link);
     } catch (error) {
         console.debug('uier-toolbar: Could not load the brand font', error);

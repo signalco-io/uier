@@ -144,6 +144,36 @@ test('invited people only: a review link signs members in, everyone else is aske
     await expect(comment).toContainText('Open');
 });
 
+test('invited sign-in shares only approved page state and loads Geist solely from the API origin', async ({ page, browser, baseURL }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const settings = page.getByRole('region', { name: 'Page state' });
+    await settings.getByLabel('Meaningful query fields').fill('plan');
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await page.reload();
+    await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('plan');
+    const guest = await anonymousVisitor(browser, testInfo);
+    const requests: string[] = [];
+    guest.page.on('request', request => requests.push(request.url()));
+    try {
+        await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}&plan=yearly&session_token=private#private`);
+        await expect(toolbar(guest.page)).toContainText('Sign in to see and leave comments.');
+        await expect.poll(() => requests.some(url => url === `${baseURL}/toolbar-fonts/geist.css`)).toBe(true);
+        await guest.page.evaluate(() => document.fonts.ready);
+        expect(requests.filter(url => /fonts\.googleapis\.com|fonts\.gstatic\.com/.test(url))).toEqual([]);
+        const font = await page.request.get('/toolbar-fonts/geist.woff2');
+        expect(font.status()).toBe(200);
+        expect(font.headers()['access-control-allow-origin']).toBe('*');
+        expect((await font.body()).subarray(0, 4).toString()).toBe('wOF2');
+        await guest.page.getByRole('button', { name: 'Sign in', exact: true }).click();
+        await expect(guest.page).toHaveURL(/\/app\/sign-in\?next=/);
+        const next = new URL(new URL(guest.page.url()).searchParams.get('next')!, baseURL);
+        expect(next.searchParams.get('url')).toBe(`${siteOrigin()}/${projectId}/pricing?plan=yearly`);
+        expect(guest.page.url()).not.toContain('private');
+    } finally { await guest.context.close(); }
+});
+
 test('a schemeless localhost address opens an HTTP review and accepts feedback only on its configured origin', async ({ page }) => {
     await signIn(page, uniqueEmail('localhost'));
     const origin = `http://localhost:${sitePort}`;
@@ -600,7 +630,9 @@ test('an ended review session signs in through its notice and returns to the sam
         await guest.page.evaluate(projectId => localStorage.setItem(`uier:review-token:${projectId}`, 'expired-token'), projectId);
         await route.fulfill({ json: info, headers: { 'Access-Control-Allow-Origin': siteOrigin() } });
     });
-    const target = `${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}&plan=yearly#plans`;
+    info.project.pageState = { queryParameters: ['plan'], hashRouting: false };
+    const target = `${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}&plan=yearly&session_token=private#plans`;
+    const safeTarget = `${siteOrigin()}/${projectId}/pricing?plan=yearly`;
     await guest.page.goto(target);
     await expect(toolbar(guest.page)).toContainText('This review session ended.');
     expect(attempts).toBe(2);
@@ -613,9 +645,9 @@ test('an ended review session signs in through its notice and returns to the sam
     await expect(guest.page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Freview%2F/);
     const reviewLink = new URL(new URL(guest.page.url()).searchParams.get('next')!, baseURL);
     expect(reviewLink.pathname).toBe(`/app/review/${info.project.id}`);
-    expect(reviewLink.searchParams.get('url')).toBe(target);
+    expect(reviewLink.searchParams.get('url')).toBe(safeTarget);
     await signIn(guest.page, email, { from: guest.page.url() });
-    const resumed = new URL(target);
+    const resumed = new URL(safeTarget);
     resumed.searchParams.set('toolbar-code', info.project.id);
     await expect(guest.page).toHaveURL(resumed.href);
     await expect(guest.page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();

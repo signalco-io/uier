@@ -8,7 +8,7 @@ import { useAnnounce } from '../components/Announcer';
 import { clearReviewCode, consumeReviewCode, enableBackgroundSignIn, getReviewToken, setReviewToken } from './projectSession';
 import { backgroundSignIn } from './backgroundSession';
 import { checkInstallationReady } from './installationCheck';
-import { defaultPageStatePolicy, type PageStatePolicy } from '../pageState';
+import { defaultPageStatePolicy, pagePath, type PageStatePolicy } from '../pageState';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
@@ -24,7 +24,7 @@ export const reviewApiUrl = `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.
 let reviewCodeExchanged = false;
 
 class ReviewSessionEndedError extends CommentsApiError {
-    constructor(readonly signInUrl: string) {
+    constructor(readonly signInUrl: string, readonly pageState?: PageStatePolicy) {
         super('sign_in_required', 'This review session ended.', 401);
     }
 }
@@ -59,7 +59,7 @@ export async function loadReviewInfo() {
         setReviewToken(undefined);
         if (await backgroundSignIn()) info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
         if (info.viewer.kind !== 'member')
-            throw new ReviewSessionEndedError(info.signInUrl);
+            throw new ReviewSessionEndedError(info.signInUrl, info.project.pageState);
     }
     return info;
 }
@@ -86,9 +86,10 @@ export function useProjectViewer() {
     return useContext(ProjectViewerContext);
 }
 
-function signIn(signInUrl: string) {
+function signIn(signInUrl: string, policy?: PageStatePolicy) {
     const url = new URL(signInUrl);
-    url.searchParams.set('url', window.location.href);
+    const { origin, pathname, search, hash } = window.location;
+    url.searchParams.set('url', origin + pagePath(pathname + search + hash, policy));
     window.location.assign(url.toString());
 }
 
@@ -163,7 +164,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     if (error instanceof ReviewSessionEndedError)
-        return <ProjectNotice text="This review session ended." action={{ label: 'Sign in', onClick: () => signIn(error.signInUrl) }} onExitReview={onExitReview} />;
+        return <ProjectNotice text="This review session ended." action={{ label: 'Sign in', onClick: () => signIn(error.signInUrl, error.pageState) }} onExitReview={onExitReview} />;
 
     if (!info) {
         console.warn('uier-toolbar: The project could not be loaded on this site', error);
@@ -175,7 +176,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     if (!info.canComment) {
-        return <ProjectNotice text="Sign in to see and leave comments." action={{ label: 'Sign in', onClick: () => signIn(info.signInUrl) }} onExitReview={onExitReview} />;
+        return <ProjectNotice text="Sign in to see and leave comments." action={{ label: 'Sign in', onClick: () => signIn(info.signInUrl, info.project.pageState) }} onExitReview={onExitReview} />;
     }
 
     return <ProjectEnvironmentProvider key={info.viewer.draftScope ?? info.viewer.kind} info={info}>{children}</ProjectEnvironmentProvider>;

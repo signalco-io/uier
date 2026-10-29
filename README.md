@@ -7,7 +7,10 @@
 
 Review any live website by leaving comments directly on it. Pin feedback to an element or selected
 text, discuss it with your team, and mark it done. Each comment keeps the browser and viewport it
-was left from, with a screenshot when capture succeeds.
+was left from, with a screenshot when capture succeeds. The server decodes and re-encodes every
+screenshot before storage, removing embedded metadata and extra animation frames. Images stay
+within 512 KB and 4096 px per side. Deleting feedback removes its image; scheduled cleanup retries
+failed image deletes once unreferenced images are older than an hour.
 
 [Try uier](https://uier.io) · [Open the app](https://uier.io/app) · [Documentation](docs/README.md) · [Contribute](CONTRIBUTING.md)
 

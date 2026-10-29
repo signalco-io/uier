@@ -17,7 +17,12 @@ import { createCommentAuthorFilter, resolveCommentAuthorFilter } from '../src/li
 import { loadProjectComments } from '../src/lib/app/projectComments';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { pngImage } from './support/images';
+import { brand } from '@uier/brand';
+import { createWithScreenshot } from '../src/lib/comments/service';
+import { replaceSavedScreenshot } from '../src/lib/comments/replaceScreenshot';
 import { createProjectComment, replyToProjectComment, listProjectComments, getProjectComment, removeProjectComment, deleteProjectCommentItem } from '../src/lib/review/comments';
+
+
 
 test('public project provisioning is concurrent, permanent and preserves existing feedback and replies', async () => {
     const previous = process.env.UIER_LOCAL;
@@ -284,3 +289,28 @@ test('opaque author filters include opened and replied threads before the limit 
     const legacyRef = await createCommentAuthorFilter(context, project, opened.id);
     expect((await resolveCommentAuthorFilter(context, project, legacyRef))!.authorId).toBe(targetId);
 }));
+
+test('deleting migrated feedback or replacing its image removes the legacy comment and screenshot', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const store = getMemoryCommentsStore();
+        const app = getAppStore();
+        const project = await provisionPublicProject(app, store);
+        await app.create({ id: 'public-feedback-migration-v1', pk: project.pk, type: 'migration', ttl: -1 });
+        const image = parseScreenshot(pngImage) as ParsedScreenshot;
+        for (const operation of ['delete', 'replace']) {
+            const legacy: DbComment = { id: `comment_${randomUUID()}`, domain: brand.domain, path: '/', position: { type: 'page' },
+                screenshot: { contentType: image.contentType, bytes: image.data.length, width: image.width, height: image.height },
+                thread: { items: [{ id: 'first', text: 'Migrated image' }] } };
+            await createWithScreenshot(store, legacy, image);
+            await createWithScreenshot(store, { ...legacy, domain: PUBLIC_PROJECT_PARTITION }, image);
+            if (operation === 'delete') await removeProjectComment(project, { kind: 'member', userId: 'staff', isAdmin: true, name: 'Staff' }, legacy.id);
+            else await replaceSavedScreenshot(store, PUBLIC_PROJECT_PARTITION, legacy.id, { screenshot: image, expectedRevision: null }, () => {});
+            expect(await store.get(brand.domain, legacy.id)).toBeNull();
+            expect(await store.getScreenshot(brand.domain, legacy.id)).toBeNull();
+        }
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
+    }
+});
