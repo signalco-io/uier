@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { KnownPages } from '@/src/knownPages';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { Card } from '@/src/components/ui/card';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
@@ -14,6 +17,7 @@ export const metadata: Metadata = {
 /** Onboarding, step 1: the site (then step 2, the install page) */
 export default async function NewProjectPage() {
     const context = await requireAdminContext();
+    if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
     return (
         <div className="mx-auto flex w-full max-w-xl flex-col">
             <PageHeader

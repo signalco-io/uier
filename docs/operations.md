@@ -200,25 +200,68 @@ Nothing is recorded: there is no history or uptime figure, and none is claimed. 
 
 ## Removing abusive comments
 
-There is no moderation UI yet. Remove comments directly in Cosmos DB:
+1. Sign in with an allowlisted staff account. Switch to the **uier** workspace and open
+   **uier.io public feedback**. Choose **All environments** to include feedback from local or
+   historical addresses. App feedback is visible only to its author and staff.
+2. In a comment's actions, choose **More from this author** to see threads they opened or replied
+   to. Replies offer the same action. This admin-only filter is applied before the 1000-thread
+   listing limit. Its URL contains a random, account/project-bound reference that expires after
+   24 hours; stored account and guest author ids stay on the server. Clear the author filter to
+   return to everyone. The normal environment, people and page filters still apply.
+3. Choose **Delete** and confirm to remove a whole thread and its screenshot. Expand replies,
+   open a reply's actions and choose **Delete reply** to remove only that reply. Comment numbers
+   and rate-limit counters are retained. **Make private** hides a thread from other commenters;
+   feedback on `/app` pages remains private even when its explicit private flag is off.
 
-1. Azure portal -> resource group `uier-production8b2f56d6` -> Azure Cosmos DB account `uierdb...` ->
-   **Data Explorer** -> database `uierdata` -> container `comments` (`comments-preview` for preview deployments).
-2. **New SQL Query**, e.g. all comments of the landing page:
+The public workspace has no Users page, invitations, member removal or project creation. Its
+project settings are fixed; each member can still manage their own notification preference.
+An old invitation cannot assign an admin role. Customer workspaces keep their usual rules.
+
+**Add or remove staff:** the list is production-only and is the only source of public-project
+admin access. Keep it short: anyone with access to an allowlisted inbox can sign in as staff.
+An authorized owner must supply today's staff list before this release is merged. The Pulumi
+program requires the config key, so a missing key blocks preview/deployment rather than silently
+shipping an empty list.
+
+1. From `infra/`, with the documented Azure backend and secrets provider configured, run
+   `pulumi config set staffEmails --stack organization/uier/uier-production --secret`.
+   Enter the complete comma-separated list at the hidden prompt, adding or removing the intended
+   addresses. Do not put addresses in shell arguments, source, PR text, logs or plaintext config.
+2. Commit only the encrypted `uier:staffEmails` entry in `infra/Pulumi.uier-production.yaml` through
+   a reviewed PR. CI previews and applies it; never run `pulumi up` locally. Pulumi sets the
+   sensitive Vercel variable `UIER_STAFF_EMAILS` for **production only**, before the new web deployment.
+3. Verify the new production deployment: a retained staff account can moderate, and a removed
+   account cannot read another person's private feedback, including with an existing review token
+   or MCP credential. Changes take effect when the new deployment is live. The next app request
+   and each instance's first provisioning call reconcile stored memberships as well.
+
+Addresses are trimmed, lowercased and checked with `emailSchema`; malformed entries are skipped.
+A missing or empty runtime variable means no staff. Public pages, sign-in and personal workspaces
+still work. Previews receive no production staff list. Intentionally removing all staff requires
+an explicit empty secret value and leaves moderation unavailable until a staff list is deployed.
+
+**Cosmos DB fallback:** use Data Explorer only when the app procedure is unavailable.
+
+1. Open database `uierdata`, container `comments` (`comments-preview` for previews).
+2. Query the exact public project partition and thread id:
 
    ```sql
-   SELECT * FROM c WHERE c.domain = 'uier.io' AND c.path = '/' ORDER BY c._ts DESC
+   SELECT * FROM c WHERE c.domain = 'project:uier00000001' AND IS_DEFINED(c.path)
+     AND c.id = '<comment id>'
    ```
 
-   (`domain` is the host the comment was posted on, e.g. `uier.io`; other useful filters:
-   `CONTAINS(c.thread.items[0].text, 'spam')`, `c.authorId = '<authorId of a known abusive comment>'`.
-   Rate-limit counters are in the same container (`c.type = 'counter'`, no `path`) and expire by themselves.
-   So is each partition's comment numbers' sequence (`c.type = 'sequence'`, id `$sequence_comments`): do not
-   delete it, or numbering continues after the highest number still stored. A comment's screenshot is a
-   document of its own (`c.type = 'screenshot'`, id `$screenshot_<comment id>`): delete it with the comment.)
-3. Open the document and **Delete** it to remove the whole comment, or remove the offending entry from
-   `thread.items` and **Update** to remove a single reply. If only a deleted first item (`deletedAt`) would be
-   left, delete the document instead. Changes are visible immediately (the API does not cache).
+   Legacy source documents under `uier.io` were copied once and remain untouched; current public
+   feedback is in `project:uier00000001`. Confirm the partition and document id before any write.
+3. Delete only that comment and its `$screenshot_<comment id>` document in the same partition.
+   To remove one reply, remove its entry from `thread.items` and update the comment. If that leaves
+   only a deleted first-item placeholder, delete the thread and screenshot instead.
+   Never delete `$sequence_comments` or rate-limit counter documents. Refresh the app/API to
+   confirm the thread or reply is gone, its screenshot returns not found when the thread went,
+   and the next comment continues numbering. The API does not cache these reads.
+
+For an accidental operator delete, follow [Backups and restore](#backups-and-restore). Never recover
+abuse, an author's deletion or content covered by an erasure request.
+
 
 For an accidental operator delete, follow [Backups and restore](backups-and-restore.md#backups-and-restore). Never recover
 abuse, an author's deletion or content covered by an erasure request.

@@ -7,21 +7,22 @@ import { Dialog, DialogContent } from '@/src/components/ui/dialog';
 import type { ProjectStatus } from '../../../lib/app/model';
 import { InviteForm } from './InviteForm';
 
-const InviteContext = createContext<((projectId?: string) => void) | null>(null);
+const InviteContext = createContext<{ open: (projectId?: string) => void; enabled: boolean } | null>(null);
 
 /** Opens the invite dialog, optionally from a project (it is ticked and opens after accepting) */
 export function useInvite() {
     const openInvite = use(InviteContext);
     if (!openInvite)
         throw new Error('useInvite needs an InviteProvider (the app shell)');
-    return openInvite;
+    return openInvite.open;
 }
 
 /**
  * The one invite dialog of the app shell, so inviting never leaves the page. Pages open it with
  * `InviteButton` or `useInvite()`; only admins see those (the action checks the role again).
  */
-export function InviteProvider({ projects, children }: PropsWithChildren<{
+export function InviteProvider({ projects, children, enabled = true }: PropsWithChildren<{
+    enabled?: boolean;
     projects: { id: string; name: string; status: ProjectStatus }[];
 }>) {
     const [open, setOpen] = useState(false);
@@ -30,15 +31,16 @@ export function InviteProvider({ projects, children }: PropsWithChildren<{
     const [formKey, setFormKey] = useState(0);
 
     const openInvite = (projectId?: string) => {
+        if (!enabled) return;
         setFromProjectId(projectId);
         setFormKey(key => key + 1);
         setOpen(true);
     };
 
     return (
-        <InviteContext value={openInvite}>
+        <InviteContext value={{ open: openInvite, enabled }}>
             {children}
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={enabled && open} onOpenChange={setOpen}>
                 <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-lg">
                     <InviteForm
                         key={formKey}
@@ -55,9 +57,10 @@ export function InviteProvider({ projects, children }: PropsWithChildren<{
 
 /** The "Invite" button of the users page and a project's header */
 export function InviteButton({ projectId, variant = 'default' }: { projectId?: string; variant?: 'default' | 'outline' }) {
-    const openInvite = useInvite();
+    const context = use(InviteContext);
+    if (!context?.enabled) return null;
     return (
-        <Button variant={variant} onClick={() => openInvite(projectId)}>
+        <Button variant={variant} onClick={() => context.open(projectId)}>
             <UserPlusIcon data-icon="inline-start" />
             Invite
         </Button>

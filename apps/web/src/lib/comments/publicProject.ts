@@ -1,16 +1,16 @@
 import { brand } from '@uier/brand';
 import { KnownPages } from '../../knownPages';
-import { getAppStore, type AppStore } from '../app/store';
-import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../app/model';
+import { getAppStore, updateDoc, type AppStore } from '../app/store';
+import { memberId, projectRefPk, userPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../app/model';
 import type { DbComment } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { isLocalRuntime } from './environment';
+import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, publicProjectMember } from './publicProjectPolicy';
 
-export const PUBLIC_PROJECT_ID = 'uier00000001';
+export { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID } from './publicProjectPolicy';
 export const PUBLIC_PROJECT_PARTITION = `project:${PUBLIC_PROJECT_ID}`;
 export const HEADLINE_COMMENT_ID = 'comment_uier_headline';
 export const STEP_COMMENT_ID = 'comment_uier_first_step';
-export const PUBLIC_WORKSPACE_ID = 'w_uier_public';
 const workspaceId = PUBLIC_WORKSPACE_ID;
 const createdAt = '2026-10-25T00:00:00.000Z';
 
@@ -75,13 +75,13 @@ async function createIfMissing(store: CommentsStore, comment: DbComment) {
     }
 }
 
-/** All account holders can review uier. Existing team roles and project access are retained. */
+/** All accounts can review uier; only the configured staff can moderate it. */
 export async function joinPublicProject(user: DbUser, app = getAppStore()): Promise<DbMember> {
-    const member: DbMember = {
+    const member: DbMember = publicProjectMember({
         id: memberId(user.id), pk: workspacePk(workspaceId), type: 'member', workspaceId,
         userId: user.id, email: user.email, role: 'commenter', projects: [PUBLIC_PROJECT_ID],
         createdAt: new Date().toISOString(), ttl: -1
-    };
+    }, user.email);
     for (let attempt = 0; attempt < 8; attempt++) {
         const stored = await app.get<DbMember>(member.pk, member.id);
         if (!stored) {
@@ -89,9 +89,10 @@ export async function joinPublicProject(user: DbUser, app = getAppStore()): Prom
             continue;
         }
         const existing = stored.doc;
-        if (existing.role === 'admin' || existing.projects === 'all' || existing.projects.includes(PUBLIC_PROJECT_ID))
-            return existing;
-        const updated = { ...existing, projects: [...existing.projects, PUBLIC_PROJECT_ID] };
+        const updated = publicProjectMember({ ...existing, email: user.email }, user.email);
+        if (existing.role === updated.role && existing.email === updated.email && existing.ttl === -1
+            && JSON.stringify(existing.projects) === JSON.stringify(updated.projects))
+            return updated;
         if (await app.replace(updated, stored.etag) === 'ok') return updated;
     }
     throw new Error('Could not join the uier feedback project');
@@ -107,6 +108,13 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
     await app.create<DbWorkspace>({ id: workspaceId, pk: workspacePk(workspaceId), type: 'workspace', name: brand.name, createdBy: 'system', createdAt, ttl: -1 });
     await app.create(project);
     await app.create<DbProjectRef>({ id: PUBLIC_PROJECT_ID, pk: projectRefPk(PUBLIC_PROJECT_ID), type: 'project-ref', workspaceId, ttl: -1 });
+
+    // Run on every server instance's first ensure, not behind a durable migration receipt:
+    // a deployment may have removed staff since the preceding instance ran.
+    for (const member of await app.query<DbMember>({ type: 'member', pk: project.pk, where: { role: 'admin' } })) {
+        const user = (await app.get<DbUser>(userPk(member.userId), member.userId))?.doc;
+        await updateDoc<DbMember>(member.pk, member.id, current => publicProjectMember(current, user?.email ?? ''), app);
+    }
 
     // Backfill existing accounts once, with a receipt only after every membership was saved.
     const membersMigrationId = 'public-feedback-members-v1';

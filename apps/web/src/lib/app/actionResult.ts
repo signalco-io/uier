@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ApiError } from '../comments/http';
 import { EmailNotConfiguredError } from '../email/send';
 import { AccessDeniedError } from './context';
+import { UserFacingError } from './actionErrors';
 
 /** Result of a server action used with `useActionState` (`null` before the first submit) */
 export type ActionState<T = void> =
@@ -10,13 +11,7 @@ export type ActionState<T = void> =
     | { ok: false; error: string }
     | null;
 
-/** A message for the person, without internals */
-export class UserFacingError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'UserFacingError';
-    }
-}
+export { UserFacingError } from './actionErrors';
 
 export function firstIssueMessage(error: z.ZodError) {
     return error.issues[0]?.message ?? 'Check the form and try again.';

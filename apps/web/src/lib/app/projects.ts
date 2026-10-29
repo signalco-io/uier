@@ -7,6 +7,7 @@ import { memberCanAccessProject } from './workspaces';
 import type { AppContext } from './context';
 import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 
 const MAX_URL_LENGTH = 512;
 
@@ -161,6 +162,7 @@ export async function getVisibleProject(context: AppContext, projectId: string) 
 }
 
 export async function createProject(context: AppContext, { name, urls, clientName }: { name: string; urls: string[]; clientName?: string }) {
+    assertMutableWorkspace(context.workspace.id);
     const store = getAppStore();
     const now = new Date().toISOString();
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -202,6 +204,7 @@ export type ProjectUpdate = Partial<{
 }>;
 
 export async function updateProject(workspaceId: string, projectId: string, update: ProjectUpdate) {
+    assertMutableProject(workspaceId, projectId);
     return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => ({
         ...project,
         ...update,

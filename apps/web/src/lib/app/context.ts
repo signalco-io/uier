@@ -6,6 +6,7 @@ import { getSessionUser } from './session';
 import { ensureOwnWorkspace, getWorkspace, listUserMemberships, ownWorkspaceId } from './workspaces';
 import { ensurePublicProject, joinPublicProject, PUBLIC_WORKSPACE_ID } from '../comments/publicProject';
 import type { DbMember, DbUser, DbWorkspace } from './model';
+import { publicProjectMember } from '../comments/publicProjectPolicy';
 
 export const WORKSPACE_COOKIE_NAME = 'uier_workspace';
 
@@ -47,7 +48,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     if (!members.some(member => member.workspaceId !== PUBLIC_WORKSPACE_ID))
         members.push(await ensureOwnWorkspace(user));
     await ensurePublicProject();
-    const feedbackMember = await joinPublicProject(user);
+    const feedbackMember = publicProjectMember(await joinPublicProject(user), user.email);
     members = [...members.filter(member => member.workspaceId !== PUBLIC_WORKSPACE_ID), feedbackMember];
 
     const workspaces = await Promise.all(members.map(member => getWorkspace(member.workspaceId)));

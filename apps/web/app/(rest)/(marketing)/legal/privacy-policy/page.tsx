@@ -252,6 +252,15 @@ export default function PrivacyPolicyPage() {
                 Our provider may temporarily suppress an address independently.
             </p>
 
+            <h3>Moderation</h3>
+            <p>
+                Staff can make public feedback private and delete threads or individual replies. Staff
+                access to the shared feedback project is restricted by an email allowlist. To filter
+                feedback by author, the server keeps an account and project-bound mapping from a random
+                reference to the comment author id and display name for 24 hours. The URL contains only
+                the random reference, and only admins can use it.
+            </p>
+
             <h3>Coding tool access</h3>
             <p>
                 You can create a named credential in Account to let a coding tool access selected projects
@@ -359,6 +368,7 @@ export default function PrivacyPolicyPage() {
                 <li>Member read cursors: until removed with the account or project on request. Guest read cursors: one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, deletes its screenshot.</li>
                 <li>Coding tool credentials: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
+                <li>Moderation author-filter references: 24 hours.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>

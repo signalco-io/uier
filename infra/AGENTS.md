@@ -13,6 +13,9 @@ It manages:
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
   variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
   suggestions) when the repository secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
+- the production-only sensitive `UIER_STAFF_EMAILS` variable from required secret Pulumi config
+  `uier:staffEmails`. Never store staff addresses in plaintext. See README "Removing abusive
+  comments" for encrypted config updates, rollout and verification;
 - the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
 - the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
   containers `comments` and `comments-preview` partitioned by `/domain`, `app` and

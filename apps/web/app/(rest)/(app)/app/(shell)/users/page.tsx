@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { KnownPages } from '@/src/knownPages';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { FolderIcon, FoldersIcon, MailIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
@@ -73,6 +76,7 @@ function ListSection({ id, title, count, description, children }: {
 
 export default async function UsersPage({ searchParams }: PageProps<'/app/users'>) {
     const context = await requireAdminContext();
+    if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
     const { project: projectParam } = await searchParams;
     const [members, invitations, projects] = await Promise.all([
         listMembersWithUsers(context.workspace.id),
