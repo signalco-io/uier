@@ -580,3 +580,20 @@ per-credential/project budget, then the owner's budget; rejected credentials mus
 owner. Page, screenshot, paid rewrite and MCP transport limits stay independent. Coverage is in
 `review-rate-limits.api.spec.ts`, `public-project.api.spec.ts`, `mcp.api.spec.ts` and the unchanged
 `comments.api.spec.ts` rate cases.
+
+## Privacy cleanup
+
+`screenshotSchema` parses asynchronously and uses Sharp to decode/re-encode every incoming image,
+with a 4096² pixel cap, first-frame-only output and no metadata. Stored output stays within 512 KiB
+and 4096 px per side. All JSON route validation uses `safeParseAsync`.
+`comments/cleanup.ts` is shared by whole-thread deletes and public screenshot replacement.
+Authorized deletes persist an identifier-only cleanup intent before deleting the thread;
+pending intents never expire, while completed intents expire after one day;
+the scheduled notification worker retries related notification/read cleanup and legacy copies.
+It also pages through screenshot metadata older than one hour, rechecks comment references and
+uses image etags so a concurrent replacement survives the orphan sweep.
+Related record TTLs use the thread’s remaining lifetime. Completed notification ledgers expire
+after 30 days; the thread’s discovery floor prevents replay after ledger expiry. Blocked ledgers
+are queried by failed/ambiguous status.
+`copy-fonts.mjs` publishes the pinned Geist fonts and license before dev/build; static font files
+are CORS-readable. `cspSources` allows the API origin for both `style-src` and `font-src`.

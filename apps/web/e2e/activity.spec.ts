@@ -20,6 +20,36 @@ async function load(page: Page, origin: string) {
 
 const inbox = (page: Page) => page.getByRole('button', { name: /^Inbox(?:,|$)/ });
 
+test('anonymous direct thread opening sends no read and sets no cookie; explicit read actions still work', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const author = await newVisitor(browser, testInfo);
+    const reader = await newVisitor(browser, testInfo);
+    try {
+        const posted = await author.context.request.post(`${origin}/api/comments`, { data: {
+            path: '/brand', text: 'Read without an identity', position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }
+        } });
+        expect(posted.status()).toBe(201);
+        const comment = await posted.json();
+        const reads: string[] = [];
+        reader.page.on('request', request => {
+            if (request.method() === 'POST' && /\/comments\/(?:[^/]+\/)?read$/.test(new URL(request.url()).pathname)) reads.push(request.url());
+        });
+        await reader.page.goto(`${origin}/brand?review=true&uier-comment=${comment.id}`);
+        await addToolbarScript(reader.page);
+        await expect(openThread(reader.page)).toContainText('Read without an identity');
+        await foreground(reader.page);
+        await reader.page.waitForTimeout(1500); // Longer than the automatic read's 800 ms dwell.
+        expect(reads).toEqual([]);
+        expect((await reader.context.cookies()).filter(cookie => cookie.name === 'uier_visitor')).toEqual([]);
+        await inbox(reader.page).click();
+        const card = reader.page.getByRole('article', { name: `Comment #${comment.number}` });
+        await card.getByRole('button', { name: 'Mark as read', exact: true }).click();
+        await expect.poll(() => reads.length).toBe(1);
+        await expect.poll(async () => (await reader.context.cookies()).some(cookie => cookie.name === 'uier_visitor')).toBe(true);
+        await expect(card.getByRole('button', { name: 'Mark as read', exact: true })).toHaveCount(0);
+    } finally { await author.context.close(); await reader.context.close(); }
+});
+
 test('true unread activity is per reviewer and survives reading, resolution, reload and other pages', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const first = await newVisitor(browser, testInfo);
@@ -183,6 +213,9 @@ test('opened short threads become read in light/dark without moving composer foc
     try {
         await author.context.request.post(`${origin}/api/comments`, { data: {
             path: '/brand', position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Read on opening'
+        } });
+        await reader.context.request.post(`${origin}/api/comments`, { data: {
+            path: '/security', kind: 'feedback', position: { type: 'page' }, text: 'Existing identified reader'
         } });
         await load(reader.page, origin);
         await foreground(reader.page);

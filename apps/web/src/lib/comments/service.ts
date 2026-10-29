@@ -1,3 +1,4 @@
+import { cleanupThread, queueThreadCleanup } from './cleanup';
 import { readActivity, threadActivity, withThreadActivity } from './activity';
 import { getReadSequence, loadReadSequences, unreadComments } from './readState';
 import { nanoid } from 'nanoid';
@@ -116,6 +117,7 @@ async function updateComment<T extends DbComment | null>(
             throw apiErrors.notFound();
 
         const updated = update({ ...stored.comment, activity: threadActivity(stored.comment) });
+        if (!updated) await queueThreadCleanup(domain, id, true);
         const result = updated
             ? await store.replace(updated, stored.etag)
             : await store.delete(domain, id, stored.etag);
@@ -224,6 +226,10 @@ export function screenshotDocument(comment: DbComment, screenshot: ParsedScreens
  * failure here is retried once and logged, never turned into an error for a delete that happened.
  */
 export async function forgetScreenshot(store: CommentsStore, domain: string, id: string, hadScreenshot: boolean, updated: DbComment | null) {
+    if (!updated || (hadScreenshot && !updated.screenshot)) {
+        try { await cleanupThread(domain, id, !updated, store); }
+        catch { console.error('[comments] Related thread cleanup needs scheduled retry'); }
+    }
     if (!hadScreenshot || updated?.screenshot)
         return;
     for (let attempt = 1; attempt <= 2; attempt++) {

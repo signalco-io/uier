@@ -1,3 +1,4 @@
+import { parseScreenshot, sanitizeScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { createHash, randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
@@ -619,12 +620,13 @@ test('a comment can carry a screenshot of the page', async ({ newVisitor }) => {
         expect(response.headers()['content-type']).toBe(type);
     }
 
-    // Anyone who can see the comment gets the image, as it was sent
+    // Anyone who can see the comment gets only the server-reencoded image
     const image = await visitor.get(`/api/comments/${withScreenshot.id}/screenshot`);
     expect(image.status()).toBe(200);
     expect(image.headers()['content-type']).toBe('image/webp');
     expect(image.headers()['x-content-type-options']).toBe('nosniff');
-    expect(Buffer.from(await image.body()).equals(Buffer.from(webpImage.split(',')[1]!, 'base64'))).toBe(true);
+    const sanitized = await sanitizeScreenshot(parseScreenshot(webpImage) as ParsedScreenshot) as ParsedScreenshot;
+    expect(await image.body()).toEqual(sanitized.data);
     expect((await listComments(visitor, path)).find(c => c.id === withScreenshot.id)?.screenshot).toEqual({ width: 3, height: 2 });
 
     // Without one: nothing to fetch

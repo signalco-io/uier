@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import { MAX_SCREENSHOT_BYTES } from '../src/lib/comments/limits';
 import { parseScreenshot } from '../src/lib/comments/screenshot';
 import { jpegImage, pngImage, webpImage, webpLosslessImage } from './support/images';
+import sharp from 'sharp';
+import { privateImages, expectPrivateImageRemoved } from './support/privateImages';
 
 // The screenshot parser (src/lib/comments/screenshot.ts), used directly: the image's type and size
 // come from its bytes, never from what the client says
@@ -55,4 +57,25 @@ test('screenshots: anything else is refused', () => {
     expect(parseScreenshot(dataUrl('image/png', pngHeader(10, 10, MAX_SCREENSHOT_BYTES)))).toMatch(/at most 524288 bytes/);
     expect(parseScreenshot(dataUrl('image/png', pngHeader(5000, 10)))).toMatch(/at most 4096 pixels/);
     expect(parseScreenshot(dataUrl('image/webp', lossyWebpHeader(0, 10)))).toMatch(/at most 4096 pixels/);
+});
+
+test('new screenshots discard GPS/author metadata, text chunks, trailing bytes and animation; invalid pixels are rejected', async ({ request }) => {
+    const images = await privateImages();
+    expect((await sharp(Buffer.from(images[0]!.split(',')[1]!, 'base64')).metadata()).exif).toBeTruthy();
+    for (const screenshot of images) {
+        const response = await request.post('/api/comments', { data: {
+            path: '/private-image-test', text: 'Sanitized evidence', kind: 'feedback', position: { type: 'page' }, screenshot
+        } });
+        expect(response.status(), await response.text()).toBe(201);
+        const comment = await response.json();
+        const image = await request.get(`/api/comments/${comment.id}/screenshot`);
+        expect(image.status()).toBe(200);
+        await expectPrivateImageRemoved(await image.body());
+        await request.delete(`/api/comments/${comment.id}`);
+    }
+    const invalid = dataUrl('image/png', pngHeader(3, 2));
+    expect(parseScreenshot(invalid)).toMatchObject({ width: 3, height: 2 });
+    expect((await request.post('/api/comments', { data: {
+        path: '/private-image-test', text: 'Invalid pixels', kind: 'feedback', position: { type: 'page' }, screenshot: invalid
+    } })).status()).toBe(400);
 });

@@ -125,7 +125,7 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
         await app.create<AppDoc>({ id: membersMigrationId, pk: project.pk, type: 'migration', ttl: -1 });
     }
 
-    // Keep existing production feedback accessible. Copy once; leave the source untouched.
+    // Keep existing production feedback accessible. Copy once; cleanup removes the obsolete source on later deletes/replacements.
     const migrationId = 'public-feedback-migration-v1';
     if (legacyDomain && !await app.get(project.pk, migrationId)) {
         for (const comment of await comments.listAll(legacyDomain, 1000)) {

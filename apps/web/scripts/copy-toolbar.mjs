@@ -1,3 +1,4 @@
+import './copy-fonts.mjs';
 // Copies the production build of the uier toolbar (`@uier/toolbar`, packages/toolbar) to
 // public/toolbar.js and public/toolbar/<sha256>.js, with a retention manifest (headers in
 // next.config.ts). The landing page embeds the default like a customer site would.

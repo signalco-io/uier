@@ -12,7 +12,7 @@ both consume it, and [uier.io/brand](https://uier.io/brand) renders from it.
 | --- | --- | --- |
 | `BRAND.md` | the guidelines: name, voice, logo, colour, type, shape, review layer, marketing | humans and agents |
 | `tokens.css` | CSS variables (HSL triplets) that override the signalco minimal theme; `:root, :host` and `.dark` | `apps/web/app/global.css`, `packages/toolbar/src/index.css` |
-| `src/brand.ts` | `brand` constants (name, tagline, copy, links, contact addresses, hex mirrors, radii, fonts), `BRAND_URL` (the site, for bundles that need only the link), `MARK_PATH`, `PIN_PATH`, `GEIST_FONTS_URL` | metadata, manifest, OG image, footer, toolbar |
+| `src/brand.ts` | `brand` constants (name, tagline, copy, links, contact addresses, hex mirrors, radii, fonts), `BRAND_URL` (the site, for bundles that need only the link), `MARK_PATH`, `PIN_PATH`, `GEIST_FONTS_PATH` | metadata, manifest, OG image, footer, toolbar |
 | `src/Mark.tsx` | `<Mark />`, the mark as inline SVG in `currentColor` | nav, footer, brand page |
 | `src/Logo.tsx` | `<Logo />`, mark + wordmark lockup (inline styles, shadow-DOM safe) | nav, footer, brand page |
 | `src/Pin.tsx` | `<Pin count />`, the product pin with a white ring and thread count | landing, brand page |

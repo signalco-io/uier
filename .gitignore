@@ -61,3 +61,7 @@ yarn-error.log*
 *.code-workspace
 .history/
 Thumbs.db
+
+# Geist files copied from the pinned geist package before dev/build
+apps/web/public/toolbar-fonts/*.woff2
+apps/web/public/toolbar-fonts/LICENSE.txt

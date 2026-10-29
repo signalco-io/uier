@@ -210,6 +210,16 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.set(id, { document: comment, version: ++state().version, modifiedAt: Date.now() });
             return 'ok';
         },
+        async listScreenshotsBefore(before, continuation) {
+            const items = [...state().domains.keys()].flatMap(domain => [...domainEntries(domain).values()])
+                .flatMap(entry => {
+                    const image = entry.document;
+                    if (!('type' in image) || image.type !== 'screenshot' || image.createdAt >= before) return [];
+                    return [{ domain: image.domain, commentId: image.commentId, etag: String(entry.version), key: `${image.domain}:${image.id}` }];
+                }).filter(image => !continuation || image.key > continuation).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+            const page = items.slice(0, 100);
+            return { items: page, continuation: items.length > page.length ? page.at(-1)?.key : undefined };
+        },
         async createScreenshot(screenshot) {
             const entries = domainEntries(screenshot.domain);
             if (entries.has(screenshot.id))
@@ -233,8 +243,10 @@ export function getMemoryCommentsStore(): CommentsStore {
             const document = domainEntries(domain).get(screenshotDocumentId(commentId))?.document;
             return document && 'type' in document && document.type === 'screenshot' ? clone(document) : null;
         },
-        async deleteScreenshot(domain, commentId) {
-            domainEntries(domain).delete(screenshotDocumentId(commentId));
+        async deleteScreenshot(domain, commentId, etag) {
+            const entries = domainEntries(domain);
+            const id = screenshotDocumentId(commentId);
+            if (!etag || String(entries.get(id)?.version) === etag) entries.delete(id);
         },
         async nextCommentNumber(domain) {
             // A document in the partition, as in Cosmos DB; a missing one continues after the highest stored

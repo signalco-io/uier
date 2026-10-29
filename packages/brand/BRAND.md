@@ -140,7 +140,9 @@ A raw hex belongs only in `src/brand.ts`, for metadata and generated images.
 
 **Geist for everything. Geist Mono for what a machine wrote.** The web app loads both with
 `next/font` from the `geist` package (`--font-geist-sans`, `--font-geist-mono`); the toolbar
-injects the Google Fonts stylesheet into the reviewed page and falls back to `system-ui`.
+loads the Geist stylesheet and font files from its configured uier API origin into the reviewed
+page and falls back to `system-ui`. Font files come from the web app’s pinned `geist` package;
+reviewing never contacts Google Fonts.
 
 | Style | Size / line | Tracking | Weight |
 | --- | --- | --- | --- |

@@ -229,13 +229,18 @@ network result. Image revisions prevent stale replacements. These actions count 
 image budget. They cannot erase copies someone already downloaded.
 
 It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
-may then be up to about 700 KB. The server reads the type and size from the image itself (PNG, JPEG or WebP, at
-most 512 KB and 4096 px on a side) and stores it as a document of its own in the comment's partition
+may then be up to about 700 KB. The server checks the image type and header dimensions, then decodes
+with a 4096² pixel limit and re-encodes only the first frame without metadata or trailing bytes.
+Undecodable images are rejected. Newly encoded PNG, JPEG or WebP output must stay within 512 KB
+and 4096 px on a side; an oversized PNG is retried as WebP. It is stored in the comment’s partition
 (`type: 'screenshot'`, id `$screenshot_<comment id>`, which no route accepts, with the comment's `ttl`); the comment
 keeps `screenshot: { contentType, width, height, bytes, revision? }`. Anyone who can see the comment gets the image from
 `GET .../comments/<id>/screenshot` (the toolbar fetches it when the thread shows it, in the inbox as it scrolls into view); the app shows it on the comment
 (`/app/projects/<project>/comments/<id>/screenshot`). It is deleted with the comment, or with its author's text
-when others replied. A site gets at most 300 screenshots a day.
+when others replied. Failed image deletes are retried by the scheduled worker once an unreferenced
+image is older than one hour. The sweep pages over image metadata and conditionally deletes the
+observed version, preserving concurrent replacements. Migrated public-feedback deletes and image
+replacements also remove their obsolete legacy copy. A site gets at most 300 screenshots a day.
 
 ## Draft recovery and submission retries
 

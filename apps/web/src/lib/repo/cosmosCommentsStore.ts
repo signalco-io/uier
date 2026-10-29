@@ -225,6 +225,14 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }
             throw new Error(`Comment ${id} changed too often while replying`);
         },
+        async listScreenshotsBefore(before, continuation) {
+            const page = await getContainer().items.query<{ domain: string; commentId: string; _etag: string }>({
+                query: "SELECT c.domain, c.commentId, c._etag FROM c WHERE c.type = 'screenshot' AND c.createdAt < @before",
+                parameters: [{ name: '@before', value: before }]
+            }, { maxItemCount: 100, continuationToken: continuation }).fetchNext();
+            return { items: page.resources.map(image => ({ domain: image.domain, commentId: image.commentId, etag: image._etag })),
+                continuation: page.continuationToken || undefined };
+        },
         async createScreenshot(screenshot) {
             await getContainer().items.create<DbScreenshot>(screenshot);
         },
@@ -262,11 +270,11 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 throw error;
             }
         },
-        async deleteScreenshot(domain, commentId) {
+        async deleteScreenshot(domain, commentId, etag) {
             try {
-                await getContainer().item(screenshotDocumentId(commentId), domain).delete();
+                await getContainer().item(screenshotDocumentId(commentId), domain).delete(etag ? { accessCondition: { type: 'IfMatch', condition: etag } } : undefined);
             } catch (error) {
-                if (errorCode(error) !== 404)
+                if (errorCode(error) !== 404 && errorCode(error) !== 412)
                     throw error;
             }
         },

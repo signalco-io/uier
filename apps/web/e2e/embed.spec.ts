@@ -307,7 +307,7 @@ test('the toolbar mounts in its shadow root and leaves the reviewed site\'s styl
     });
     // The only thing added to the page is the Geist font stylesheet (`@font-face` only, src/index.tsx)
     const addedSheets = mounted.styleSheets.filter(href => !sheetsBefore.includes(href));
-    expect(addedSheets.every(href => href?.startsWith('https://fonts.googleapis.com/'))).toBe(true);
+    expect(addedSheets.every(href => href?.endsWith('/toolbar-fonts/geist.css'))).toBe(true);
     expect(mounted).toMatchObject({
         adoptedStyleSheets: 0,
         hostChildren: 0,

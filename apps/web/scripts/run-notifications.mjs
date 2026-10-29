@@ -12,5 +12,5 @@ if (process.argv[2]) {
 await mkdir('.next', { recursive: true });
 const outfile = resolve('.next/notifications-worker.mjs');
 await build({ entryPoints: ['scripts/notifications-worker.ts'], outfile, bundle: true, platform: 'node', format: 'esm',
-    external: ['@azure/*', '@vercel/*', 'next/*'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
+    external: ['@azure/*', '@vercel/*', 'next/*', 'sharp'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 await import(outfile);

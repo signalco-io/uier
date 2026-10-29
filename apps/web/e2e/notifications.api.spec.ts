@@ -9,13 +9,15 @@ import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser, findUserByEmail } from '../src/lib/app/users';
 import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { createProjectComment, deleteProjectCommentItem, editProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
+import { createProjectComment, deleteProjectCommentItem, removeProjectComment, editProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { markThreadRead } from '../src/lib/comments/readState';
 import { markProjectThreadsRead } from '../src/lib/review/bulkRead';
 import { threadActivity, withThreadActivity } from '../src/lib/comments/activity';
 import { withNotificationEvent } from '../src/lib/notifications/events';
-import { discoverThreadNotifications, processNotificationDelivery, retryNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
+import { discoverThreadNotifications, processNotificationDelivery, retryNotificationDelivery, runNotificationWorker, COMPLETED_DELIVERY_TTL, type NotificationDelivery } from '../src/lib/notifications/delivery';
+import { deleteComment, deleteThreadItem } from '../src/lib/comments/service';
+import { threadRecordTtl } from '../src/lib/comments/retention';
 import { actOnNotificationToken, followThread, inspectNotificationToken, notificationPk, notificationSubscription, notificationToken, setProjectMuted } from '../src/lib/notifications/preferences';
 import type { EmailMessage } from '../src/lib/email/send';
 import type { deliverNotificationEmail } from '../src/lib/notifications/transport';
@@ -58,6 +60,101 @@ async function dispatch(project: DbProject, comment: DbComment, sent: EmailMessa
     for (const delivery of await deliveries(project)) await processNotificationDelivery(delivery, baseUrl,
         transport ?? (async message => { sent.push(message); return { status: 'sent' }; }), Date.now() + 30 * 60 * 1000, store);
 }
+
+test('all whole-thread delete services remove subscriptions, delivery ledgers and per-reviewer cursors', async () => {
+    for (const method of ['project', 'project-item', 'public', 'public-item'] as const) {
+        const f = await fixture();
+        const app = getAppStore();
+        const link = await followThread(f.project, f.guest, f.comment.id, true, `${randomUUID()}@example.com`, baseUrl);
+        await actOnNotificationToken(new URL(link.verificationUrl!).searchParams.get('token'), 'verify');
+        await discoverThreadNotifications(f.project, await current(f.comment));
+        await markThreadRead(f.comment, `user:${f.owner.id}`, 1);
+        await markThreadRead(f.comment, f.guest.kind === 'guest' ? f.guest.visitorId : '', 1);
+        expect((await app.query({ type: 'review-read', where: { domain: f.comment.domain, id: f.comment.id } })).length).toBe(2);
+        const context = { request, domain: f.comment.domain, visitor: { authorId: f.comment.authorId } };
+        if (method === 'project') await removeProjectComment(f.project, f.ownerActor, f.comment.id);
+        if (method === 'project-item') await deleteProjectCommentItem(f.project, f.guest, f.comment.id, f.comment.thread.items[0]!.id);
+        if (method === 'public') await deleteComment(context, f.comment.id);
+        if (method === 'public-item') await deleteThreadItem(context, f.comment.id, f.comment.thread.items[0]!.id);
+        expect(await app.query({ type: 'review-read', where: { domain: f.comment.domain, id: f.comment.id } })).toEqual([]);
+        for (const type of ['notification-subscription', 'notification-delivery'])
+            expect(await app.query({ type, pk: notificationPk(f.project.id), where: { threadId: f.comment.id } })).toEqual([]);
+    }
+});
+
+test('related record TTLs are bounded by the remaining thread lifetime, including guest verification and unfollow', async () => {
+    const f = await fixture();
+    const comments = getCommentsStore();
+    const stored = (await comments.get(f.comment.domain, f.comment.id))!;
+    const comment = { ...stored.comment, ttl: 600, updatedAt: new Date(Date.now() - 120_000).toISOString() };
+    await comments.replace(comment, stored.etag);
+    expect(threadRecordTtl(comment)).toBeLessThanOrEqual(480);
+    await markThreadRead(comment, `user:${f.owner.id}`, 1);
+    const [read] = await getAppStore().query({ type: 'review-read', where: { domain: comment.domain, id: comment.id } });
+    expect(read!.ttl).toBeGreaterThan(0);
+    expect(read!.ttl).toBeLessThanOrEqual(480);
+    const link = await followThread(f.project, f.guest, comment.id, true, `${randomUUID()}@example.com`, baseUrl);
+    await actOnNotificationToken(new URL(link.verificationUrl!).searchParams.get('token'), 'verify');
+    expect((await notificationSubscription(f.project.id, comment.authorId!, comment.id))?.ttl).toBeLessThanOrEqual(480);
+    await followThread(f.project, f.ownerActor, comment.id, false);
+    expect((await notificationSubscription(f.project.id, `user:${f.owner.id}`, comment.id))?.ttl).toBeLessThanOrEqual(480);
+    await discoverThreadNotifications(f.project, comment);
+    expect((await deliveries(f.project)).every(delivery => delivery.ttl! > 0 && delivery.ttl! <= 480)).toBe(true);
+});
+
+test('completed ledgers expire without replaying past events when recreated', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    const ledger = (await deliveries(f.project)).find(row => row.userId === f.owner.id)!;
+    expect(ledger).toMatchObject({ active: false, status: 'accepted', ttl: COMPLETED_DELIVERY_TTL });
+    expect((await current(f.comment)).notificationDiscoveredThrough).toBe(1);
+    await getAppStore().delete(ledger.pk, ledger.id); // Cosmos TTL expiry.
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(1);
+    await followThread(f.project, f.ownerActor, f.comment.id, true);
+    await replyToProjectComment(request, f.project, f.guest, f.comment.id, { text: 'Only this new event', authorName: 'Ana' });
+    await getAppStore().delete(ledger.pk, ledger.id);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.text).toContain('replied');
+    expect(sent[1]!.text).not.toContain('left feedback');
+});
+
+test('worker adopts expiry on legacy completed ledgers only after persisting their replay floor', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    const ledger = (await deliveries(f.project)).find(row => row.userId === f.owner.id)!;
+    await updateDoc<NotificationDelivery>(ledger.pk, ledger.id, ({ ttl: _ttl, ...row }) => row);
+    const comments = getCommentsStore();
+    const stored = (await comments.get(f.comment.domain, f.comment.id))!;
+    const { notificationDiscoveredThrough: _floor, ...legacy } = stored.comment;
+    await comments.replace(legacy, stored.etag);
+    await runNotificationWorker(baseUrl, async () => ({ status: 'sent' }));
+    expect((await getAppStore().get<NotificationDelivery>(ledger.pk, ledger.id))?.doc.ttl).toBe(COMPLETED_DELIVERY_TTL);
+    expect((await current(f.comment)).notificationDiscoveredThrough).toBe(ledger.requestedThrough);
+    await getAppStore().delete(ledger.pk, ledger.id);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(1);
+});
+
+test('worker counts blocked ledgers through status-filtered queries', async () => {
+    const f = await fixture();
+    await discoverThreadNotifications(f.project, f.comment);
+    const ledger = (await deliveries(f.project))[0]!;
+    await updateDoc<NotificationDelivery>(ledger.pk, ledger.id, row => ({ ...row, active: false, status: 'ambiguous', ttl: -1 }));
+    const queries: unknown[] = [];
+    const app = getAppStore();
+    const result = await runNotificationWorker(baseUrl, async () => ({ status: 'sent' }), { ...app, query: async query => {
+        queries.push(query);
+        return app.query(query);
+    } });
+    expect(result.blocked).toBeGreaterThanOrEqual(1);
+    expect(queries).toContainEqual({ type: 'notification-delivery', where: { active: false, status: 'ambiguous' } });
+    expect(queries).not.toContainEqual({ type: 'notification-delivery', where: { active: false } });
+    expect((await app.get<NotificationDelivery>(ledger.pk, ledger.id))?.doc.ttl).toBe(-1);
+});
 
 test('owners receive new feedback, participants receive batched replies/status, actors do not receive their own activity', async () => {
     const f = await fixture();

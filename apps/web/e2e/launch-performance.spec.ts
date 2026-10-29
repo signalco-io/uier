@@ -103,12 +103,12 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
     const completedRequests: Promise<unknown>[] = [];
     guest.page.on('request', request => {
         const url = new URL(request.url());
-        if (url.pathname.startsWith('/api/review/') || url.hostname.startsWith('fonts.'))
+        if (url.pathname.startsWith('/api/review/') || (url.pathname.startsWith('/toolbar-fonts/') || url.hostname.startsWith('fonts.')))
             requests.push({ path: `${url.hostname}${url.pathname}${url.search}`, method: request.method() });
     });
     guest.page.on('requestfinished', request => {
         const url = new URL(request.url());
-        if (url.pathname === '/toolbar.js' || url.pathname.startsWith('/api/review/') || url.hostname.startsWith('fonts.'))
+        if (url.pathname === '/toolbar.js' || url.pathname.startsWith('/api/review/') || (url.pathname.startsWith('/toolbar-fonts/') || url.hostname.startsWith('fonts.')))
             completedRequests.push(request.sizes().then(sizes => ({ path: `${url.hostname}${url.pathname}${url.search}`,
                 method: request.method(), sizes, timing: request.timing() })));
     });

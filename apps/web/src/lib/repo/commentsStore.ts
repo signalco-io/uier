@@ -24,7 +24,7 @@ export function syncPendingPageLimit(options: SyncPendingOptions = {}) {
 
 /**
  * Persistence of comments. All operations are scoped to a single domain (the Cosmos partition key),
- * so every query is a single-partition query.
+ * except the explicit worker discovery and orphan-image projections.
  */
 export type CommentsStore = {
     /** Indexed syncKey page, including deletion intents: default 100, maximum 1000, ascending. */
@@ -65,13 +65,18 @@ export type CommentsStore = {
     /** The domain's next comment number (1, 2, 3, ...), atomically: its public id (`#12`) */
     nextCommentNumber(domain: string): Promise<number>;
 
+    /** A bounded cross-partition metadata page for the scheduled orphan sweep; never loads pixels. */
+    listScreenshotsBefore(before: string, continuation?: string): Promise<{
+        items: { domain: string; commentId: string; etag: string }[]; continuation?: string;
+    }>;
+
     /** Stores a comment's screenshot (a document of its own in the comment's partition) */
     createScreenshot(screenshot: DbScreenshot): Promise<void>;
     /** Atomically swaps image and comment metadata, conditional on the authorized comment version. */
     replaceScreenshot(comment: DbComment, etag: string, screenshot: DbScreenshot): Promise<ConditionalWriteResult>;
     getScreenshot(domain: string, commentId: string): Promise<DbScreenshot | null>;
     /** Deletes a comment's screenshot; nothing when there is none */
-    deleteScreenshot(domain: string, commentId: string): Promise<void>;
+    deleteScreenshot(domain: string, commentId: string, etag?: string): Promise<void>;
 };
 
 let warnedAboutMemoryStore = false;

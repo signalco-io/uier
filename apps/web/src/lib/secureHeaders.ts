@@ -16,10 +16,6 @@ export type SecureHeadersExternalUrls = {
 };
 
 export const knownSecureHeadersExternalUrls = {
-    googleFonts: {
-        fontSrc: ['https://fonts.gstatic.com'],
-        connectSrc: ['https://fonts.gstatic.com']
-    },
     vercelToolbar: {
         imgSrc: ['https://vercel.com', 'https://vercel.live', 'https://sockjs-mt1.pusher.com', 'data: blob:'],
         scriptSrc: ['https://vercel.live', 'https://vitals.vercel-insights.com', 'https://*.vercel-scripts.com'],
@@ -33,7 +29,6 @@ export const permissionsPolicy = 'camera=(), microphone=(), geolocation=(), disp
 /** Production analytics 2.0.1 loads /_vercel/insights/script.js and posts to this origin. */
 export function siteExternalUrls(isDevelopment: boolean, isPreview: boolean): SecureHeadersExternalUrls[] {
     return [
-        knownSecureHeadersExternalUrls.googleFonts,
         ...(isPreview ? [knownSecureHeadersExternalUrls.vercelToolbar] : []),
         ...(isDevelopment ? [{
             scriptSrc: ['http://localhost:4005', 'https://va.vercel-scripts.com'],

@@ -37,7 +37,7 @@ const items = [
     {
         name: '__Host-uier_visitor',
         type: 'Cookie (first party, HttpOnly)',
-        when: 'Your first comment, reply or read acknowledgement',
+        when: 'Your first comment, reply, Mark as read or Mark all as read action',
         purpose: 'Recognises your comments and read state, so only you can resolve or delete your comments. Holds a random token; the server stores only its hash.',
         duration: 'One year'
     },
@@ -119,6 +119,13 @@ export default function CookiePolicyPage() {
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
+            </p>
+
+            <p>
+                Opening a thread on {brand.domain} without an existing guest identity or session does not create
+                one or send an automatic read acknowledgement. Choosing Mark as read or Mark all as read can set
+                the visitor cookie below. Existing identified reviewers can acknowledge short opened threads automatically.
+                Toolbar fonts are served from the configured {brand.name} API origin, without Google Fonts requests.
             </p>
 
             <h2>What we store</h2>

@@ -42,9 +42,14 @@ const nextConfig: NextConfig = {
                 frameGuard: false
             })
         }, {
-            // Toolbar bundle (packages/toolbar, copied to public/ by scripts/copy-toolbar.mjs).
-            // The default URL follows releases, so it is cached briefly. Customer sites
-            // will embed it from uier.io, so any origin may load it.
+            // Self-hosted Geist files used on arbitrary reviewed origins.
+            source: '/toolbar-fonts/:asset*',
+            headers: [
+                { key: 'Access-Control-Allow-Origin', value: '*' },
+                { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600' }
+            ]
+        }, {
+            // Unversioned toolbar bundle: short cache and cross-origin embedding.
             source: '/toolbar.js',
             headers: [
                 { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },

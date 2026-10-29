@@ -1,3 +1,4 @@
+import { threadRecordTtl } from '../comments/retention';
 import { z } from 'zod';
 import type { AppDoc, DbProject } from '../app/model';
 import { getAppStore, updateDoc } from '../app/store';
@@ -109,6 +110,8 @@ export async function followThread(project: DbProject, actor: ProjectActor, thre
     following = z.boolean().parse(following);
     assertCanUseComments(project, actor);
     const state = await threadNotificationState(project, actor, threadId);
+    const comment = await getProjectComment(project, actor, threadId);
+    if (!comment) throw apiErrors.notFound();
     const actorId = actorAuthorId(actor)!;
     if (!state.eligible) throw apiErrors.forbidden('Leave a comment or reply before subscribing.');
     const old = await notificationSubscription(project.id, actorId, threadId);
@@ -124,7 +127,7 @@ export async function followThread(project: DbProject, actor: ProjectActor, thre
         const doc: NotificationSubscription = {
             type: 'notification-subscription', id: subscriptionId(actorId, threadId), pk: notificationPk(project.id),
             projectId: project.id, threadId, actorId, following: false, since: now,
-            email: parsed.data, version: randomToken(), pendingUntil: new Date(Date.now() + 86400000).toISOString(), ttl: 86400
+            email: parsed.data, version: randomToken(), pendingUntil: new Date(Date.now() + 86400000).toISOString(), ttl: threadRecordTtl(comment, 86400)
         };
         if (!await getAppStore().create(doc)) await updateDoc<NotificationSubscription>(doc.pk, doc.id, () => doc);
         const url = notificationManageUrl(baseUrl, notificationToken(doc, 'verify'));
@@ -134,7 +137,8 @@ export async function followThread(project: DbProject, actor: ProjectActor, thre
     const doc: NotificationSubscription = {
         type: 'notification-subscription', id: subscriptionId(actorId, threadId), pk: notificationPk(project.id),
         projectId: project.id, threadId, actorId, ...(actor.kind === 'member' ? { userId: actor.userId } : {}),
-        following, since: following ? new Date().toISOString() : old?.since ?? new Date().toISOString(), version: randomToken()
+        following, since: following ? new Date().toISOString() : old?.since ?? new Date().toISOString(), version: randomToken(),
+        ttl: threadRecordTtl(comment)
     };
     if (!await getAppStore().create(doc)) await updateDoc<NotificationSubscription>(doc.pk, doc.id, () => doc);
     return {};
@@ -160,18 +164,21 @@ export async function actOnNotificationToken(token: unknown, action: 'verify' | 
     if (action === 'verify') {
         if (payload.mode !== 'verify' || doc.type !== 'notification-subscription') throw apiErrors.forbidden();
         const project = await findProject(doc.projectId);
-        if (!project || project.access !== 'guests' || !await getProjectComment(project, { kind: 'guest', visitorId: doc.actorId }, doc.threadId)) throw apiErrors.notFound();
+        const comment = project && project.access === 'guests' ? await getProjectComment(project, { kind: 'guest', visitorId: doc.actorId }, doc.threadId) : null;
+        if (!comment) throw apiErrors.notFound();
         if (doc.email) await clearEmailSuppression(doc.email);
         await updateDoc<NotificationSubscription>(doc.pk, doc.id, current => {
             if (current.version !== doc.version || !current.pendingUntil) throw apiErrors.conflict();
             const { pendingUntil: _pending, ttl: _ttl, ...rest } = current;
-            return { ...rest, following: true, verifiedAt: new Date().toISOString(), since: new Date().toISOString() };
+            return { ...rest, following: true, verifiedAt: new Date().toISOString(), since: new Date().toISOString(), ttl: threadRecordTtl(comment) };
         });
     } else if (action === 'unsubscribe' && payload.mode === 'subscription' && doc.type === 'notification-subscription') {
+        const comment = (await getCommentsStore().get(`project:${doc.projectId}`, doc.threadId))?.comment;
+        if (!comment) { await getAppStore().delete(doc.pk, doc.id); return; }
         await updateDoc<NotificationSubscription>(doc.pk, doc.id, current => {
             if (current.version !== doc.version) throw apiErrors.conflict();
             const { email: _email, verifiedAt: _verified, pendingUntil: _pending, ttl: _ttl, ...rest } = current;
-            return { ...rest, following: false };
+            return { ...rest, following: false, ttl: threadRecordTtl(comment) };
         });
     } else if (action === 'mute' && payload.mode === 'project' && doc.type === 'notification-preference') {
         await updateDoc<NotificationPreference>(doc.pk, doc.id, current => {

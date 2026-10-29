@@ -78,7 +78,8 @@ export function expiredVisitorCookies(request: Request) {
 
 /**
  * Resolves the anonymous visitor from the `__Host-uier_visitor` cookie. A new identity is created only
- * for writes (`createIfMissing`), so reading comments never places a cookie.
+ * for writes (`createIfMissing`), including explicit Mark as read actions. GETs and anonymous
+ * thread opening do not create one; the toolbar skips automatic reads without an identity.
  */
 export function resolveVisitor(request: Request, createIfMissing: boolean): Visitor {
     const secure = shouldUseSecureCookie(request);

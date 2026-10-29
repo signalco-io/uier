@@ -14,7 +14,8 @@
  * `<canvas>`, video and iframes. They show as empty space.
  */
 import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
-import { GEIST_FONTS_URL } from '@uier/brand';
+import { GEIST_FONTS_PATH } from '@uier/brand';
+import { toolbarConfig } from './config';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
 import type { CommentItemPosition } from './components/@types/Comments';
 import { toolbarReviewTarget, toolbarReviewSurfaces } from './toolbarReview';
@@ -150,7 +151,7 @@ async function fontFaceCss() {
     const rules: string[] = [];
     for (const sheet of [...document.styleSheets]) {
         // The toolbar's own font (src/index.tsx adds it to the page): the toolbar is not in the picture
-        if (sheet.href === GEIST_FONTS_URL) {
+        if (sheet.href === `${toolbarConfig.apiUrl}${GEIST_FONTS_PATH}`) {
             continue;
         }
         const base = sheet.href ?? document.baseURI;

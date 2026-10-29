@@ -140,7 +140,7 @@ export async function parseJsonBody<TSchema extends z.ZodType>(request: Request,
         throw apiErrors.invalidRequest('Request body must be valid JSON.');
     }
 
-    const result = schema.safeParse(json);
+    const result = await schema.safeParseAsync(json);
     if (!result.success)
         throw apiErrors.invalidRequest(describeValidationError(result.error));
     return result.data;
@@ -187,7 +187,8 @@ export type CommentsApiHandlerOptions = {
 /**
  * Wraps a comments API route handler: resolves the domain and the account or guest, maps errors to
  * `{ error, message }` responses and disables caching. The visitor cookie is created only by a
- * successful write, so reading comments never places a cookie.
+ * successful write, including an explicit Mark as read action. GETs and anonymous thread
+ * opening do not create one; automatic read acknowledgements require an existing identity.
  */
 export function commentsApiHandler<TParams extends Record<string, string> = Record<string, never>>(
     handler: (context: CommentsApiContext, params: TParams) => Promise<Response>,

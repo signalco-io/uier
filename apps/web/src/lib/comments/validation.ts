@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { maxPageKeyLength } from '@uier/toolbar/page-state';
-import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot } from './screenshot';
+import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
     MAX_REWRITE_INSTRUCTION_LENGTH,
@@ -142,8 +142,9 @@ export const deviceSchema = z.object({
  */
 export const screenshotSchema = z.string()
     .max(MAX_SCREENSHOT_DATA_URL_LENGTH)
-    .transform((value, ctx) => {
-        const parsed = parseScreenshot(value);
+    .transform(async (value, ctx) => {
+        const header = parseScreenshot(value);
+        const parsed = typeof header === 'string' ? header : await sanitizeScreenshot(header);
         if (typeof parsed === 'string') {
             ctx.addIssue({ code: 'custom', message: parsed });
             return z.NEVER;

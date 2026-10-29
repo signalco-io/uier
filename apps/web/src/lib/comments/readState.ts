@@ -1,3 +1,4 @@
+import { threadRecordTtl } from './retention';
 import type { AppDoc } from '../app/model';
 import { getAppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
@@ -43,7 +44,7 @@ export async function markThreadRead(comment: DbComment, reviewerId: string, seq
             type: 'review-read', pk, id: comment.id, domain: comment.domain, reviewerId,
             readSequence, readAt: new Date().toISOString(),
             // Members retain their cursor; guest identity is browser/site-local and expires with inactivity.
-            ttl: reviewerId.startsWith('user:') ? -1 : 365 * 24 * 60 * 60
+            ttl: threadRecordTtl(comment, reviewerId.startsWith('user:') ? -1 : 365 * 24 * 60 * 60)
         };
         if (stored ? await store.replace(receipt, stored.etag) === 'ok' : await store.create(receipt))
             return readActivity(comment, reviewerId, readSequence);

@@ -41,6 +41,8 @@ export type DocQuery<TType extends string> = {
     targetId?: string;
     /** Only due delivery rows. Always parameterized, never raw query text. */
     dueBefore?: string;
+    /** One-time adoption of expiry on old delivery rows; excludes already migrated records. */
+    missingTtl?: boolean;
 };
 
 /**
@@ -214,9 +216,10 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
                 throw error;
             }
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, nameContains, targetId }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const conditions = ['c.type = @type'];
+            if (missingTtl) conditions.push('NOT IS_DEFINED(c.ttl)');
             const parameters: SqlParameter[] = [{ name: '@type', value: type }];
             if (pk) {
                 conditions.push('c.pk = @pk');
@@ -354,12 +357,12 @@ export function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, nameContains, targetId }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
             let docs = pks
                 .flatMap(key => [...partition(key).values()].map(entry => entry.doc))
-                .filter(doc => doc.type === type && (afterId === undefined || doc.id > afterId)
+                .filter(doc => doc.type === type && (!missingTtl || doc.ttl === undefined) && (afterId === undefined || doc.id > afterId)
                     && (targetId === undefined || (Array.isArray((doc as Record<string, unknown>).targetIds) && ((doc as Record<string, unknown>).targetIds as string[]).includes(targetId)))
                     && (nameContains === undefined || String((doc as Record<string, unknown>).nameKey ?? '').includes(nameContains.slice(0, 80).toLowerCase()))
                     && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value)
