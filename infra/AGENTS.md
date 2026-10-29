@@ -89,6 +89,13 @@ assignments and the OIDC subjects CI uses.
 
 ## Email rollout (#132)
 
+Root-domain inbound email uses Cloudflare Email Routing, managed in its dashboard. Keep its
+MX records and `cf2024-1._domainkey` TXT separate from ACS sending records. `emailRoutingSpf` merges
+Cloudflare's forwarding include into the existing protected root SPF resource, retaining ACS's
+sender authorization and final failure policy. Never add a second SPF record or replace the
+Microsoft include. `notify.uier.io` remains the transactional sending domain with its own SPF.
+Destination addresses must be verified before saving a forwarding rule; keep catch-all disabled.
+
 `src/email.ts` retains the protected root `uier.io` domain and its DNS records, and manages a
 separate protected `notify.uier.io` domain for all transactional mail: sign-in links, invitations,
 guest confirmations and review digests. The subdomain is active with display name `uier`; the

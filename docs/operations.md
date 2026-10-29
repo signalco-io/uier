@@ -33,7 +33,8 @@ credential and Cosmos DB cutover gates for #167. Production still uses its accou
   assignments (built-in Data Contributor) on the `comments-preview` and `app-preview` containers,
 - Azure Communication Services Email for transactional mail (`infra/src/email.ts`): the existing
   protected customer-managed `notify.uier.io` domain is active, and the Azure-managed domain remains
-  linked. The protected root `uier.io` domain and its records remain unchanged. The
+  linked. The protected root `uier.io` domain is retained; its single SPF record also authorizes
+  Cloudflare Email Routing while preserving the ACS sender include and failure policy. The
   subdomain gets ownership/SPF TXT and both DKIM CNAME records from ACS; relative DKIM owners are
   qualified for the parent Cloudflare zone. ACS omits a DMARC record, so the explicit owner policy is
   `_dmarc.notify.uier.io TXT "v=DMARC1; p=reject"`. No reporting or reply mailbox is invented.
@@ -45,6 +46,21 @@ credential and Cosmos DB cutover gates for #167. Production still uses its accou
   to check Azure's case-insensitive resource identity. Independent readback on 28 October confirmed
   `uier-email-delivery` is Succeeded and the real validation callback returned 200. See the
   [provisioning receipt and remaining gates](review-notifications.md#delivery-report-provisioning-receipt).
+
+### Incoming email forwarding
+
+Cloudflare Email Routing manages incoming mail for `uier.io` through the Cloudflare dashboard.
+The dashboard owns its three MX records and `cf2024-1._domainkey` TXT record. Pulumi retains the
+existing root SPF resource and merges `include:_spf.mx.cloudflare.net` with the ACS-provided
+`include:spf.protection.outlook.com`, preserving `-all`. Keep exactly one root SPF policy;
+do not use the dashboard's conflicting-record deletion or create a second policy. See
+[Cloudflare's domain configuration](https://developers.cloudflare.com/email-service/configuration/domains/).
+
+Add and verify the destination address in Email Routing, then create the exact source-address
+rule with the **Send to an email** action. Keep catch-all disabled. Destination verification,
+rule activation, authoritative DNS readback and an actual forwarded message are separate checks;
+MX records alone do not establish successful delivery. The transactional `notify.uier.io` records
+and sender identity are independent of inbound forwarding.
 
 ### Email domain verification and cutover
 
