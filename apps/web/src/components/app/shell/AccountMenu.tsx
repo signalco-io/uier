@@ -38,8 +38,8 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
 
     const person = (
         <>
-            <Avatar className="size-8 rounded-lg" aria-hidden="true">
-                <AvatarFallback className="rounded-lg">{initials(name)}</AvatarFallback>
+            <Avatar aria-hidden="true">
+                <AvatarFallback>{initials(name)}</AvatarFallback>
             </Avatar>
             <span className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{name}</span>
