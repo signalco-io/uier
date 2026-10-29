@@ -23,12 +23,14 @@ export function environmentOptions(project: Pick<DbProject, 'urls' | 'environmen
     return [...options].map(([id, label]) => ({ id, label }));
 }
 
+export function isEnvironmentSelection(project: Pick<DbProject, 'urls' | 'environments'>, input?: string | null): input is string {
+    return input === 'all' || input === 'unknown' || input === 'removed' || environmentOptions(project).some(option => option.id === input);
+}
+
 export function environmentSelection(project: DbProject, input?: string | null, origin?: string) {
-    if (input === 'all' || input === 'unknown' || input === 'removed') return input;
-    const options = environmentOptions(project);
-    if (options.some(option => option.id === input)) return input!;
+    if (isEnvironmentSelection(project, input)) return input;
     const current = configuredEnvironments(project).find(item => item.origin === origin);
-    return current ? environmentId(current) : options[0]?.id ?? 'unknown';
+    return current ? environmentId(current) : environmentOptions(project)[0]?.id ?? 'unknown';
 }
 
 export function environmentFilter(project: DbProject, selection: string): OriginFilter | undefined {

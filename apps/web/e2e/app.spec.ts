@@ -442,8 +442,7 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
         .toHaveAttribute('href', '/app/projects/uier00000001');
     await page.goto('/app/projects/uier00000001');
     // This local feedback has a loopback origin, outside the public project's production environment.
-    await page.getByRole('combobox', { name: 'Environment', exact: true }).click();
-    await page.getByRole('option', { name: 'All environments', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toContainText('All environments');
     await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();

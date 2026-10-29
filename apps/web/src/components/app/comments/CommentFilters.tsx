@@ -42,7 +42,7 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages,
 
     return (
         <div className="flex flex-wrap items-center gap-2">
-            <Select value={environment} onValueChange={value => go('environment', value)}>
+            <Select value={environment ?? 'all'} onValueChange={value => go('environment', value === 'all' ? undefined : value)}>
                 <SelectTrigger size="sm" aria-label="Environment" className="max-w-80 min-w-36"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectGroup>
                     {environments.map(item => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}

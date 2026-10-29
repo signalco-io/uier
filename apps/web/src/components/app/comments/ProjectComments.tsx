@@ -100,7 +100,9 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                 <EmptyDescription>
                     {access === 'disabled'
                         ? `Comments are off. ${projectAccessLabels.disabled.description}`
-                        : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.'}
+                        : query.environment === 'all'
+                            ? 'Install the script and open a review link to leave the first comment.'
+                            : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.'}
                 </EmptyDescription>
                 {access === 'invited' && isAdmin && (
                     <EmptyDescription>{projectAccessLabels.invited.description}</EmptyDescription>
