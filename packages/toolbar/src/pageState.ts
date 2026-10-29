@@ -69,6 +69,22 @@ export function pagePath(input: string, value?: Partial<PageStatePolicy> | null)
     return result.length <= maxPageKeyLength ? result : pathname;
 }
 
+/**
+ * Names, never values, of the query fields on a page that could identify a view: settings suggests
+ * them to admins. Only names that could be selected and that carry at least one value pagePath keeps.
+ */
+export function pageQueryKeys(input: string) {
+    try {
+        const url = new URL(input, 'https://page-state.invalid');
+        const route = /^#!?\//.test(url.hash) ? url.hash.split('#', 2)[1]!.replace(/^!/, '') : '';
+        const hashQuery = route.includes('?') ? route.slice(route.indexOf('?') + 1) : '';
+        const keys = [...url.searchParams, ...new URLSearchParams(hashQuery)]
+            .filter(([key, value]) => isMeaningfulQueryKey(key) && safeValue(value))
+            .map(([key]) => key);
+        return [...new Set(keys)].sort().slice(0, 12);
+    } catch { return []; }
+}
+
 /** Records marked v1 were filtered at creation. Preserve their approved view after policy changes. */
 export function storedPagePath(input: string, version?: number) {
     if (version !== 1) {

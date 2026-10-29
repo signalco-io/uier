@@ -3,6 +3,7 @@
 import { useActionState, useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { PlusIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
@@ -22,6 +23,7 @@ import { updateProjectBriefAction, setProjectStatusAction, updateProjectAccessAc
 import { updateProjectEmailExcerptsAction, updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
 import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
+import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
 
 /** The footer of a settings card: the outcome on the left, the submit button (of the form `formId`) on the right */
 function SaveFooter({ formId, state, pending }: { formId: string; state: Parameters<typeof FormMessage>[0]['state']; pending: boolean }) {
@@ -193,10 +195,12 @@ export function ProjectEmailsButton({ projectId, muted }: { projectId: string; m
     );
 }
 
-export function ProjectPageStateForm({ projectId, policy }: { projectId: string; policy?: PageStatePolicy }) {
+export function ProjectPageStateForm({ projectId, policy, suggestions }: { projectId: string; policy?: PageStatePolicy; suggestions: QueryFieldSuggestion[] }) {
     const initial = pageStatePolicy(policy);
     const formId = useId();
     const [query, setQuery] = useState(initial.queryParameters.join(', '));
+    const entered = query.split(/[,\s]+/).filter(Boolean);
+    const available = suggestions.filter(suggestion => !entered.includes(suggestion.key));
     const [hash, setHash] = useState(initial.hashRouting);
     const [state, action, pending] = useActionState(updateProjectPageStateAction, null);
     return <Section id="page-state" title="Page state" description="Keep comments with the view being reviewed. By default, only the page path matters."
@@ -209,6 +213,14 @@ export function ProjectPageStateForm({ projectId, policy }: { projectId: string;
                     <FieldLabel htmlFor={`${formId}-query`}>Meaningful query fields</FieldLabel>
                     <Input id={`${formId}-query`} name="queryParameters" value={query} onChange={event => setQuery(event.target.value)} placeholder="category, sort, tab" />
                     <FieldDescription>Up to 12 names, separated by commas. Tracking, identity and credential fields are excluded. Use short route values; emails, URLs and token-like values are not saved.</FieldDescription>
+                    {available.length > 0 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Query fields seen in recent comments">
+                        <span className="text-sm text-muted-foreground">Seen in recent comments:</span>
+                        {available.map(suggestion => <Button key={suggestion.key} type="button" variant="outline" size="xs"
+                            title={`On ${suggestion.comments} recent ${suggestion.comments === 1 ? 'comment' : 'comments'}`}
+                            onClick={() => setQuery([...entered, suggestion.key].join(', '))}>
+                            <PlusIcon data-icon="inline-start" /><span className="font-mono">{suggestion.key}</span>
+                        </Button>)}
+                    </div>}
                 </Field>
                 <Field orientation="horizontal">
                     <Checkbox id={`${formId}-hash`} checked={hash} onCheckedChange={value => setHash(value === true)} />

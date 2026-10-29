@@ -100,6 +100,11 @@ export type DbComment = {
     /** Canonical page key; v1 may include approved query/hash state. Older comments use pathname. */
     path: string;
     pageStateVersion?: 1;
+    /**
+     * Project comments: names (no values) of other non-sensitive query fields on the page when it was
+     * posted. Only for the page state suggestions in settings; never in a comment DTO.
+     */
+    queryKeys?: string[];
     position: DbCommentPosition;
     /** Original and immediately previous anchors, retained with the thread. No actor identifiers. */
     anchorContext?: { original: DbCommentPosition; previous: DbCommentPosition; revision: string; changedAt: string; changes: number };

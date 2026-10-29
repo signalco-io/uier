@@ -45,7 +45,9 @@ export default function PrivacyPolicyPage() {
                 <li>
                     the page it belongs to and where it is pinned. By default this is the domain and path. A project
                     owner can additionally choose non-sensitive query fields and hash routes that identify a view.
-                    Tracking, review activation and recognized credential fields are excluded; unapproved query fields are not stored.
+                    Tracking, review activation and recognized credential fields are excluded. For other query fields
+                    on a project's page, only their names are stored, never their values, so the project's admins can
+                    choose which ones identify a view.
                 </li>
                 <li>
                     if you or an allowed editor reattach a comment, the new position, original and immediately

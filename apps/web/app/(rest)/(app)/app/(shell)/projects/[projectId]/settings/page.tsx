@@ -6,6 +6,7 @@ import { getVisibleProject, listVisibleProjects } from '@/src/lib/app/projects';
 import { clientNames } from '@/src/lib/app/clients';
 import type { DbProject } from '@/src/lib/app/model';
 import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
+import { loadQueryFieldSuggestions } from '@/src/lib/app/pageStateSuggestions';
 import { listProjectMembers } from '@/src/lib/app/members';
 import { notificationPreference } from '@/src/lib/notifications/preferences';
 import { ProjectPeopleAndTeams } from '@/src/components/app/teams/ProjectAccess';
@@ -78,7 +79,8 @@ async function ProjectIntegrations({ project, context, query }: { project: DbPro
     </>;
 }
 
-function ProjectSetup({ project, clients }: { project: DbProject; clients: string[] }) {
+async function ProjectSetup({ project, clients }: { project: DbProject; clients: string[] }) {
+    const querySuggestions = await loadQueryFieldSuggestions(project);
     return (
         <>
             <ProjectNameForm projectId={project.id} name={project.name} />
@@ -87,7 +89,7 @@ function ProjectSetup({ project, clients }: { project: DbProject; clients: strin
             <ProjectBriefForm projectId={project.id} brief={project.brief} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />
             <ProjectEnvironmentsForm key={project.urls.join(' ')} projectId={project.id} environments={configuredEnvironments(project)} />
-            <ProjectPageStateForm projectId={project.id} policy={project.pageState} />
+            <ProjectPageStateForm projectId={project.id} policy={project.pageState} suggestions={querySuggestions} />
         </>
     );
 }

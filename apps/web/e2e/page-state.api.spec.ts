@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { pagePath, pageStatePolicy, storedPagePath } from '../../../packages/toolbar/src/pageState';
+import { pageQueryKeys, pagePath, pageStatePolicy, storedPagePath } from '../../../packages/toolbar/src/pageState';
+import { queryFieldSuggestions } from '../src/lib/app/pageStateSuggestions';
 import { projectPageStateSchema } from '../src/lib/app/projects';
 import { toCommentDto } from '../src/lib/comments/dto';
 import { toReproductionContext } from '../src/lib/comments/reproduction';
@@ -53,4 +54,19 @@ test('page queries separate v1 views and retain the legacy query-string fallback
     expect((await store.list(base.domain, '/search', 20)).map(comment => comment.id)).toEqual(['old']);
     expect((await store.list(base.domain, '/search?category=a', 20)).map(comment => comment.id)).toEqual(['a']);
     expect((await store.list(base.domain, '/search?category=b', 20)).map(comment => comment.id)).toEqual(['b']);
+});
+
+test('settings suggest unapproved query field names from recent comments, never values or sensitive names', () => {
+    expect(pageQueryKeys('/search?sort=new&tab=a&utm_source=mail&token=x&next=https%3A%2F%2Fevil.example#/items?view=grid')).toEqual(['sort', 'tab', 'view']);
+    expect(pageQueryKeys('/search?filter=user%40example.com&page=')).toEqual(['page']);
+    expect(pageQueryKeys('/search?sort=a#section?ignored=1')).toEqual(['sort']);
+    const suggestions = queryFieldSuggestions([
+        { path: '/search', queryKeys: ['sort', 'view'] },
+        { path: '/search?category=a', queryKeys: ['sort', 'email'] },
+        { path: '/old?sort=b&page=2' }
+    ], policy);
+    expect(suggestions).toEqual([{ key: 'sort', comments: 3 }, { key: 'page', comments: 1 }, { key: 'view', comments: 1 }]);
+    const comment: DbComment = { id: 'comment_keys', domain: 'project:test', path: '/search', pageStateVersion: 1, queryKeys: ['sort'],
+        position: { type: 'page' }, thread: { items: [{ id: 'first', text: 'A view' }] } };
+    expect(JSON.stringify(toCommentDto(comment, undefined))).not.toContain('queryKeys');
 });
