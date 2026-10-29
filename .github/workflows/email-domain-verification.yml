@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   verify:
-    name: "Verify uier.io email DNS"
+    name: "Verify notify.uier.io email DNS"
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -22,6 +22,12 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
       - name: Azure login (OIDC)
         uses: azure/login@v3
         with:
@@ -42,11 +48,12 @@ jobs:
           domain = (
               f"/subscriptions/{os.environ['AZURE_SUBSCRIPTION_ID']}"
               "/resourceGroups/uier-production8b2f56d6/providers/Microsoft.Communication"
-              "/emailServices/uier-email-service0e296b6b/domains/uier.io"
+              "/emailServices/uier-email-service0e296b6b/domains/notify.uier.io"
           )
           url = f"https://management.azure.com{domain}"
           api = "api-version=2026-03-18"
-          required = ["Domain", "SPF", "DKIM", "DKIM2", "DMARC"]
+          # ACS rejects initiateVerification(DMARC). Check its published DNS policy separately.
+          required = ["Domain", "SPF", "DKIM", "DKIM2"]
 
           def states():
               result = subprocess.run(
@@ -74,8 +81,16 @@ jobs:
           result = states()
           if any(result.get(record) != "Verified" for record in required):
               raise SystemExit("Email verification is incomplete; sender cutover remains blocked.")
-          summary = "## uier.io email verification\n\n" + "\n".join(f"- {key}: {result[key]}" for key in required) + "\n"
+          summary = "## notify.uier.io email verification\n\n" + "\n".join(f"- {key}: {result[key]}" for key in required) + "\n"
           print(summary)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
               output.write(summary)
           PY
+
+      - name: Verify the published DMARC policy at both authoritative servers
+        run: |
+          node --input-type=module <<'JS'
+          import { assertAuthoritativeEmailDmarc } from './infra/src/emailDmarc.ts';
+          await assertAuthoritativeEmailDmarc('notify.uier.io');
+          console.log('Authoritative notify.uier.io DMARC rejection policy verified.');
+          JS
