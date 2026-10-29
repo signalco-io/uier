@@ -249,7 +249,12 @@ names in Settings → Page state and enable `#/...` or `#!/...` hash routes. The
 trailing slashes, percent encoding, query order and duplicate values. Hash-route prefixes are preserved so copied
 links work with the site's router. Tracking, review activation and recognized credential/identity fields cannot
 be selected. Values are limited to five per field, 128 characters each; emails, URLs, token-like values and common
-credential hash routes are omitted. Choose only fields that never contain personal or secret values. Keys longer
+credential hash routes are omitted. Choose only fields that never contain personal or secret values.
+To help choose, a new project comment also stores `queryKeys`: the names, never the values, of up to 12 other
+query fields on the page (search and hash-route query) that could be selected and had a value the policy would
+keep. The toolbar sends them only while the page is still the comment's view, the API drops approved and invalid
+names, and they are never part of a comment response; Settings → Page state suggests the most common ones from the
+newest 200 comments, together with names in the stored path of older comments. Keys longer
 than 2048 characters fall back to pathname; the public showcase keeps its existing 512-character pathname contract.
 
 New project records have `pageStateVersion: 1`; their `path` is the canonical view key, used consistently by APIs,

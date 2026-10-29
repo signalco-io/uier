@@ -124,3 +124,29 @@ test('page-state settings reject sensitive fields and keep the attempted configu
     await expect(settings.getByRole('alert')).toContainText('credential');
     await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('category, session_token');
 });
+
+test('settings suggest query fields seen in recent comments', async ({ page }) => {
+    await signIn(page, uniqueEmail('page-state-suggest'));
+    const projectId = await createProject(page, { urls: [site.origin()], name: 'Suggestions' });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}/${projectId}/search?sort=new&token=secret&utm_source=mail`)}`);
+    const draft = await startComment(page);
+    await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Sorted list');
+    const posted = page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments` && response.request().method() === 'POST');
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    const response = await posted;
+    expect(response.request().postDataJSON().queryKeys).toEqual(['sort']);
+    expect(JSON.stringify(await response.json())).not.toContain('queryKeys');
+    await page.goto(`/app/projects/${projectId}/settings`);
+    const settings = page.getByRole('region', { name: 'Page state' });
+    const suggestions = settings.getByRole('group', { name: 'Query fields seen in recent comments' });
+    await expect(suggestions.getByRole('button')).toHaveText(['sort']);
+    await suggestions.getByRole('button', { name: 'sort' }).click();
+    await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('sort');
+    await expect(suggestions).toHaveCount(0);
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await page.reload();
+    await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('sort');
+    await expect(suggestions).toHaveCount(0);
+});

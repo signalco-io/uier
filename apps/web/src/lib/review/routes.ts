@@ -75,7 +75,9 @@ export async function createReviewSession({ request, project }: ReviewApiContext
     return Response.json({ token: session.token, viewer: viewerDto(session.actor) }, { status: 201 });
 }
 
-const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional() });
+// Query field names seen on the page, for the page state suggestions in settings; invalid names are dropped, not refused
+const queryKeysSchema = z.array(z.string().max(64)).max(12).transform(keys => pageStatePolicy({ queryParameters: keys }).queryParameters);
+const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional(), queryKeys: queryKeysSchema.optional() });
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
@@ -83,7 +85,9 @@ export async function createReviewComment(context: ReviewApiContext) {
     const input = await parseJsonBody(request, createSchema, MAX_COMMENT_BODY_BYTES);
     const authorName = writerName(actor, input.authorName);
     const origin = projectReviewOrigin(project, request, siteOrigin)!;
-    const comment = await createProjectComment(request, project, actor, { ...input, path: pagePath(input.path, project.pageState), pageStateVersion: 1, authorName, origin });
+    const approved = pageStatePolicy(project.pageState).queryParameters;
+    const queryKeys = input.queryKeys?.filter(key => !approved.includes(key));
+    const comment = await createProjectComment(request, project, actor, { ...input, path: pagePath(input.path, project.pageState), pageStateVersion: 1, authorName, origin, queryKeys });
     return await commentResponse(context, comment, 201);
 }
 

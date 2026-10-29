@@ -10,6 +10,7 @@ import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
 import { getCommentsErrorMessage } from '../components/CommentsErrorMessage';
 import { showErrorToast } from '../components/Toaster';
+import { pageQueryKeys, pagePath } from '../pageState';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -126,10 +127,18 @@ async function getComments(path: string, client: QueryClient, environment?: stri
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), comment => comment.path === path);
 }
 
+/** Project settings suggest page state from these names (never values), while the page is still the comment's view */
+function queryKeys(path: string) {
+    const current = `${location.pathname}${location.search}${location.hash}`;
+    if (!toolbarConfig.project || pagePath(current) !== pagePath(path)) return undefined;
+    const keys = pageQueryKeys(current);
+    return keys.length ? keys : undefined;
+}
+
 async function createComment(path: string, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, position, kind, text, mentions, quotedText, device, screenshot: await screenshot, authorName: guestAuthorName() }
+        body: { idempotencyKey, path, position, kind, text, mentions, quotedText, device, screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 

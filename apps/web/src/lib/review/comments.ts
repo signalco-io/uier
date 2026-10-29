@@ -181,6 +181,8 @@ export async function getProjectComment(project: DbProject, actor: ProjectActor,
 
 export type NewProjectComment = CreateCommentInput & {
     pageStateVersion?: 1;
+    /** Unapproved query field names seen on the page (no values), for the page state suggestions */
+    queryKeys?: string[];
     /** Origin of the site it was left on (one of the project's addresses) */
     origin: string;
     mentions?: DbMention[];
@@ -215,6 +217,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         origin: input.origin,
         path: input.path,
         ...(input.pageStateVersion === 1 ? { pageStateVersion: 1 as const } : {}),
+        ...(input.queryKeys?.length && project.id !== PUBLIC_PROJECT_ID ? { queryKeys: input.queryKeys } : {}),
         position: input.position,
         number: await store.nextCommentNumber(partition),
         kind: input.kind,
