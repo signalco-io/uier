@@ -5,7 +5,7 @@ import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/
 import { pngImage } from './support/images';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { chooseInboxPages, newVisitor, toolbar } from './support/toolbar';
+import { chooseInboxPages, dismissFirstRunHint, newVisitor, toolbar } from './support/toolbar';
 
 // Local regression budgets and methodology are in docs/mvp-launch-verification.md.
 // Measurements include browser event-to-next-frame timing, not Playwright round-trip time.
@@ -13,6 +13,62 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 test.setTimeout(90_000);
+
+test('many missing and ambiguous text anchors share an index and never search again on scroll or resize', async ({ page, browser, request }, testInfo) => {
+    await signIn(page, uniqueEmail('text-budget'));
+    const projectId = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, projectId, site.origin());
+    const response = await request.post(`/api/review/${projectId}/comments`, { headers, data: {
+        path: `/${projectId}/pricing`, text: 'Missing text fixture', authorName: 'Reviewer',
+        position: { type: 'text', text: 'AbsentAnchor0', startSelector: 'main>p', startType: 'text', startOffset: 0, endType: 'text', endOffset: 2 }
+    } });
+    expect(response.status()).toBe(201);
+    const saved = await response.json();
+    const comments = Array.from({ length: 40 }, (_, i) => ({ ...saved, id: `${saved.id}_${i}`, number: i + 1,
+        position: { ...saved.position, text: i < 30 ? `AbsentAnchor${i}` : 'every plan includes the toolbar' } }));
+    const guest = await newVisitor(browser, testInfo);
+    await guest.page.route(`**/api/review/${projectId}/comments?*`, route => route.fulfill({ json: comments }));
+    await guest.page.addInitScript(() => {
+        const walker = Document.prototype.createTreeWalker;
+        Document.prototype.createTreeWalker = function (root, what, filter) {
+            if (root === document.body && what === NodeFilter.SHOW_TEXT) performance.mark('page-text-index');
+            return walker.call(this, root, what, filter);
+        };
+        const indexOf = String.prototype.indexOf;
+        String.prototype.indexOf = function (needle, offset) {
+            if (typeof needle === 'string' && (needle.startsWith('AbsentAnchor') || needle === 'everyplanincludesthetoolbar')) performance.mark('anchor-text-search');
+            return indexOf.call(this, needle, offset);
+        };
+    });
+    try {
+        await guest.page.goto(`${site.origin()}/${projectId}/pricing?review=true&layout=html-scroll`);
+        await dismissFirstRunHint(guest.page);
+        await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
+        const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
+        await expect(inbox.getByRole('article')).toHaveCount(40);
+        await expect(inbox.getByText('Several targets match. Choose the intended target to reattach.').first()).toBeVisible();
+        await inbox.getByRole('button', { name: 'Close sidebar' }).click();
+        const measure = () => guest.page.evaluate(() => ({ indexes: performance.getEntriesByName('page-text-index').length,
+            searches: performance.getEntriesByName('anchor-text-search').length }));
+        const before = await measure();
+        expect(before.indexes).toBeGreaterThan(0);
+        expect(before.searches).toBeGreaterThanOrEqual(40);
+        for (let i = 0; i < 8; i++) {
+            await guest.page.evaluate(async () => { window.scrollBy(0, 60); await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+        }
+        const viewport = guest.page.viewportSize()!;
+        await guest.page.setViewportSize({ width: viewport.width - 40, height: viewport.height - 40 });
+        await guest.page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+        expect(await measure()).toEqual(before);
+        // One host DOM change invalidates all evidence, with only one shared page walk.
+        await guest.page.evaluate(() => {
+            const p = document.createElement('p'); p.textContent = 'AbsentAnchor0'; document.querySelector('main')!.appendChild(p);
+        });
+        await expect(guest.page.locator('[data-uier-highlight]')).not.toHaveCount(0);
+        expect((await measure()).indexes).toBe(before.indexes + 1);
+    } finally { await guest.context.close(); }
+});
 
 async function hostClicks(page: Page) {
     const start = await page.evaluate(() => performance.getEntriesByName('host-click-to-frame').length);

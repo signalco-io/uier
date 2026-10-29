@@ -3,6 +3,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { anchorSelector } from '../anchorSelector';
 import { CommentPoint } from './@types/Comments';
 import { canReviewToolbar, toolbarReviewTarget } from '../toolbarReview';
+import { getToolbarHost } from '../mount';
 
 type CommentPointOverlayProps = {
     onPoint: (commentPoint: CommentPoint) => void;
@@ -11,13 +12,13 @@ type CommentPointOverlayProps = {
 /** Only uier's own pages can cross the toolbar's shadow boundary while choosing an anchor. */
 function pageElementAt(x: number, y: number) {
     if (canReviewToolbar()) {
-        const root = document.getElementById('uier-toolbar')?.shadowRoot;
+        const root = getToolbarHost()?.shadowRoot;
         const target = root?.elementsFromPoint(x, y).find(element =>
             !element.closest('.review-overlay,[data-uier-outline]') && toolbarReviewTarget(element));
         if (target) return toolbarReviewTarget(target)!;
     }
     return window.document.elementsFromPoint(x, y)
-        ?.filter(el => el && el.id != 'uier-toolbar' && !el.classList.contains('review-overlay'))
+        ?.filter(el => el && el !== getToolbarHost() && !el.classList.contains('review-overlay'))
         .at(0);
 }
 

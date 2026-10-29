@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Row } from '@signalco/ui-primitives/Row';
-import { orderBy } from '@signalco/js';
-import { useResizeObserver } from '@enterwell/react-hooks';
+import { lowestRect } from '../hooks/useCommentItemRects';
 import { popoverWidth, popoverWindowMargin } from './@types/Comments';
 import { CommentIcon } from './CommentIcon';
 import { InkScope } from './InkScope';
@@ -24,9 +23,12 @@ type CommentSelectionPopoverProps = {
  */
 export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentSelectionPopoverProps) {
     const [popoverHeight, setPopoverHeight] = useState(0);
-    const resizeObserverRef = useResizeObserver((_, entry) => {
-        setPopoverHeight(entry.contentRect.height);
-    });
+    const resizeObserverRef = useCallback((element: HTMLDivElement | null) => {
+        if (!element) return;
+        const observer = new ResizeObserver(([entry]) => { if (entry) setPopoverHeight(entry.contentRect.height); });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
     const buttonsRef = useRef<(HTMLButtonElement | null)[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
     const actions = [
@@ -52,7 +54,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     };
 
     // Calculate position of comment popover
-    const lastRangeRect = orderBy(rects, rr => rr.bottom).at(-1);
+    const lastRangeRect = lowestRect(rects);
     const { bottom, top, right } = lastRangeRect ?? { bottom: 0, top: 0, right: 0 };
     const leftFixed = Math.min(window.innerWidth - popoverWidth / 2 - popoverWindowMargin, Math.max(popoverWidth / 2 + popoverWindowMargin, right ?? 0));
     const topFixed = (bottom ?? 0) + popoverHeight + 20 + popoverWindowMargin > window.innerHeight

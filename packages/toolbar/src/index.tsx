@@ -8,6 +8,8 @@ import { openFeedbackEvent, requestFeedbackOnMount } from './openFeedback';
 import { startInstallationCheck } from './project/installationCheck';
 import { backgroundSignIn } from './project/backgroundSession';
 import { loadReviewInfo } from './project/ProjectGate';
+import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
+import { adoptToolbarStyles } from './stylesheet';
 
 startInstallationCheck();
 
@@ -38,7 +40,7 @@ function ensureBrandFont() {
 
 function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     // The script can be included more than once (or re-run by client-side navigation)
-    if (document.getElementById(containerId)) {
+    if (getToolbarHost()) {
         console.debug('uier-toolbar: Already mounted');
         return;
     }
@@ -49,10 +51,7 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     container.setAttribute('id', containerId);
     const shadowRoot = container.attachShadow({ mode: 'open' });
 
-    // Create style element in shadow dom
-    const style = document.createElement('style');
-    style.innerHTML = '__uier_toolbar_css__/*\"\"*/';
-    shadowRoot.appendChild(style);
+    adoptToolbarStyles(shadowRoot);
 
     // Create inner container (in shadow DOM); styles/toolbar-theme.css resets the text styles it
     // would otherwise inherit from the reviewed page
@@ -70,6 +69,7 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     // Inject root container into body
     ensureBrandFont();
     document.body.appendChild(container);
+    toolbarMounts[toolbarMountKey] = container;
 
     // Run React
     const root = createRoot(shadowDomContainer);
@@ -80,6 +80,7 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
         window.setTimeout(() => {
             root.unmount();
             container.remove();
+            if (toolbarMounts[toolbarMountKey] === container) delete toolbarMounts[toolbarMountKey];
         }, 0);
     };
     // "Exit review": the review ends for this tab and the toolbar leaves the page.
@@ -110,7 +111,7 @@ if (toolbarConfig.mode === 'showcase') {
     // The script loads when someone asks to give feedback, and every later request after "Close
     // toolbar" mounts it again. A toolbar already on the page opens its feedback form itself.
     const openFeedback = () => whenBodyReady(() => {
-        if (document.getElementById(containerId)) {
+        if (getToolbarHost()) {
             return;
         }
         requestFeedbackOnMount();

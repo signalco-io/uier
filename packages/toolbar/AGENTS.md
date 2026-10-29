@@ -15,8 +15,11 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 ## How it is built
 
 - `src/index.tsx` creates `<div id="uier-toolbar">`, attaches an open shadow root (so assistive
-  technologies, axe and Playwright can reach it), injects the compiled CSS (tsup replaces the `__uier_toolbar_css__` placeholder with `dist/index.css`,
-  see `tsup.config.ts`) and renders `CommentsBootstrapper` into a `<div data-uier-root>` inside it.
+  technologies, axe and Playwright can reach it), adopts the shared constructed stylesheet from
+  `stylesheet.ts` (tsup replaces `__uier_toolbar_css__` with `dist/index.css`) and renders
+  `CommentsBootstrapper` into a `<div data-uier-root>` inside it. `mount.ts` tracks the actual host
+  with a window symbol, including helpers that cross its shadow boundary; never use an id as the
+  duplicate-mount guard. Clear only this instance's marker on exit.
 - Styles: Tailwind v4 (`src/index.css`) with the signalco minimal theme preset and
   **`@uier/brand/tokens.css`**. The tokens use `:root, :host`, so they apply inside the shadow
   root (`:root` alone would not). The `[data-uier-root]` container gets the `dark` class when the
@@ -27,7 +30,11 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
   If the host's CSP blocks it, the toolbar falls back to `system-ui`.
 - The comments API base URL comes from `src/config.ts`: the script tag or `window.uierConfig`,
   else the toolbar script's origin, else the build-time `__UIER_API_URL__` (`tsup.config.ts`; the
-  dev build always uses http://localhost:4004).
+  dev build always uses http://localhost:4004). Accept only plain window configuration with own
+  string-valued data properties; ignore named elements, accessors, non-strings and read failures.
+- The final CSS-inlined production bytes produce `dist/bundle.json` (`@uier/toolbar/bundle`):
+  SHA-256 path and SHA-384 SRI. The web build publishes the default and pinned copies. Keep
+  production pins/API compatibility for one year after last release as current (docs/api.md).
 - UI-kit `next/link` imports in the embedded IIFE resolve to `components/ToolbarLink.tsx`, a
   ref-forwarding native anchor: reviewed sites need browser navigation, not Next.js routing.
   `process.env` remains stubbed to `{}` for browser compatibility of dependencies.
@@ -42,7 +49,7 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 | `components/CommentToolbar.tsx` | the black pill (`nav` landmark): add comment, inbox with the blue unread count, about, profile, options, collapse/expand; the point-mode instruction (`role="status"`) |
 | `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest or account name) and the options (reset moved toolbar, view project, exit review, sign out) popovers; on uier's own pages, account sign-out stays in the app's account menu. Options always ends with "Powered by uier", a link to uier.io (the toolbar runs on other people's sites) |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
-| `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, in their own styled shadow root; never auto-focus on load |
+| `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, adopting the same constructed sheet in their shadow root, with cleanup; never auto-focus on load |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin with its thread popover (bounded by the window, clear of the pill) and reply form; one thread layout for popover and inbox: `CommentThreadHeader.tsx` is one row (status, `#id`, the blue unread dot, then icon actions with tooltips: Mark as read, Mark as done / Reopen, Copy issue, Copy link `?uier-comment=`, `src/review.ts`), then `CommentAssignment` ("Unassigned" / "Assigned to ...") and the source on one line; messages have an avatar column and no dividers. The app's `CommentCard` follows the same layout, icons and words: change both together |
 | `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line) in one bordered box with its hint or counter and the send button, keeps drafts |
@@ -66,8 +73,8 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 | `project/backgroundSession.ts` | silent member sign-in through `/review-session`; exact frame/origin/nonce checks, one three-second attempt per page, no popups or storage-access prompts. Sign-out opt-out and tab Exit review take precedence; only authorized members auto-open without a link |
 | `project/installationCheck.ts` | explicit `uier-check` nonce flow: public configuration/status reports to the install page, bounded lifetime, browser CSP evidence, read API and verification proof; never posts a test comment or sends tokens in a diagnostic report |
 | `pageState.ts`, `hooks/usePagePath.tsx` | shared browser/server canonical identity (pathname by default; approved query fields and optional hash routes), SPA history/hash subscriptions with cleanup and a fallback; exported as `@uier/toolbar/page-state` |
-| `hooks/useCommentItemRects.tsx` | resolves stored positions to rectangles and pin placements: text offsets across an element's text nodes, the stored text verified and searched for when it moved, explicit exact/restored/hidden/missing/ambiguous states; no pin for missing/ambiguous/hidden anchors; never throws (invalid selectors, out-of-range offsets) |
-| `hooks/useLayoutVersion.ts` | one shared "measure again" signal: scroll (capture), resize, size and DOM changes of the page |
+| `hooks/useCommentItemRects.tsx` | resolves positions to rectangles and pin placements; offsets are verified, then a lazy whitespace-free page index is shared by every comment, with one record per text node. Exact/restored/missing/ambiguous results persist until the DOM version changes; geometry/visibility is remeasured on layout frames. No pin for missing/ambiguous/hidden anchors; never throws |
+| `hooks/useLayoutVersion.ts` | shared geometry version for scroll (capture), resize, size and DOM changes; separate DOM evidence version for anchor/index invalidation, including observer restarts |
 | `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | shared pointer/touch handles, visible viewport bounds, toolbar position and reusable panel docking; versioned browser-local preferences and keyboard alternatives |
 | `hooks/useDrafts.tsx` | seven-day browser-local text/anchor/edit snapshots scoped to API/project/authorized reviewer/canonical page/item; `draftStorage.ts` handles expiry, discard, sign-out clearing, blocked storage and stable submission identities; captures stay in memory and refresh on reopen |
 
@@ -179,7 +186,9 @@ line breaks, in the shared hint and the inbox header. No linkification or rich t
 
 The composite UI CSS source scan covers only `Timeago`, the sole `@signalco/ui` import. Add another
 component's source if importing one; primitives retain their full source scan. Lightning CSS merges
-equivalent rules before CSS injection; retain the shadow-root properties fallback.
+equivalent rules before CSS injection; unused shadow-root `@property` registrations are removed,
+but retain the unconditional properties fallback. All review shadow roots share one constructed
+sheet; do not add plain style elements or require the host's `unsafe-inline` permission.
 
 ## Feedback export
 
@@ -193,6 +202,8 @@ Markdown fallback. Success appears beside the copy icon for two seconds without 
 thread layout; the shared announcer reports it to screen readers. Errors and manual copy text
 stay available until the reviewer retries or closes the text. `@uier/toolbar/feedback-context` is
 the pure versioned model and deterministic formatter for toolbar/app and future integrations.
+Titles, names and inline values use variable-length padded code spans to suppress GitHub/GitLab
+autolinks and mentions; messages/quotes remain fenced and the structured context stays unchanged.
 Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../docs/feedback-context.md).

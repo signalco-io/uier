@@ -11,6 +11,7 @@
     },
     "exports": {
         ".": "./dist/index.js",
+        "./bundle": "./dist/bundle.json",
         "./react": {
             "types": "./src/react.ts",
             "default": "./dist/react.js"

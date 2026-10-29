@@ -1,15 +1,16 @@
 // Copies the production build of the uier toolbar (`@uier/toolbar`, packages/toolbar) to
-// public/toolbar.js, so this app serves it at /toolbar.js (headers in next.config.ts) and the
-// landing page embeds it like a customer site would.
+// public/toolbar.js and public/toolbar/<sha256>.js, with a retention manifest (headers in
+// next.config.ts). The landing page embeds the default like a customer site would.
 //
 // Runs as the first step of `pnpm build`. Turborepo builds `@uier/toolbar` before this app
 // (`^build`), and Vercel builds through Turborepo too (vercel.json `buildCommand`).
 // The copy is generated: it is gitignored and a Turborepo build output.
 
-import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { publishToolbar } from './toolbar-assets.mjs';
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const target = join(appDir, 'public', 'toolbar.js');
@@ -33,6 +34,5 @@ if (readFileSync(source, 'utf8').includes('http://localhost:4004')) {
     fail(`${relative(appDir, source)} is a development build of the toolbar. Run \`pnpm build\` from the repository root to rebuild it for production.`);
 }
 
-mkdirSync(dirname(target), { recursive: true });
-copyFileSync(source, target);
-console.log(`[copy-toolbar] ${relative(appDir, source)} -> ${relative(appDir, target)}`);
+const pinned = await publishToolbar(source, dirname(target), { retainFrom: process.env.UIER_TOOLBAR_RETAIN_FROM });
+console.log(`[copy-toolbar] ${relative(appDir, source)} -> ${relative(appDir, target)} and ${pinned.path}`);

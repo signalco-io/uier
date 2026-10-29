@@ -85,7 +85,7 @@ test('feedback on a customer project page exports its uier owner and needs a gra
     const saved = await response.json();
     const packet = await (await page.request.get(`/api/comments/${saved.id}/context`)).json();
     expect(packet.context.identity.projectId).toBe(PUBLIC_PROJECT_ID);
-    expect(packet.markdown).toContain(`Project: ${PUBLIC_PROJECT_ID}`);
+    expect(packet.markdown).toContain(`Project: \` ${PUBLIC_PROJECT_ID} \``);
     expect(packet.context.source.path).toBe(`/app/projects/${projectId}`);
     const stranger = await playwright.request.newContext({ baseURL });
     try { expect((await stranger.get(`/api/comments/${saved.id}/context`)).status()).toBe(404); }

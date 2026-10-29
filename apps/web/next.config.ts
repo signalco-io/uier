@@ -61,7 +61,7 @@ const nextConfig: NextConfig = {
             }).concat([{ key: 'Cache-Control', value: 'no-store' }])
         }, {
             // Toolbar bundle (packages/toolbar, copied to public/ by scripts/copy-toolbar.mjs).
-            // The URL is not versioned, so it is cached briefly (not immutable). Customer sites
+            // The default URL follows releases, so it is cached briefly. Customer sites
             // will embed it from uier.io, so any origin may load it.
             source: '/toolbar.js',
             headers: [
@@ -69,6 +69,16 @@ const nextConfig: NextConfig = {
                 { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600' },
                 { key: 'Access-Control-Allow-Origin', value: '*' },
             ]
+        }, {
+            source: '/toolbar/:hash([a-f0-9]{64}).js',
+            headers: [
+                { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+                { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+                { key: 'Access-Control-Allow-Origin', value: '*' },
+            ]
+        }, {
+            source: '/toolbar/manifest.json',
+            headers: [{ key: 'Cache-Control', value: 'no-store' }]
         }];
     },
 };

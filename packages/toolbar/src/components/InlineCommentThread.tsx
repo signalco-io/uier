@@ -9,6 +9,7 @@ import { CommentComposer } from './CommentComposer';
 import { CommentThread } from './CommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import type { CommentItem } from './@types/Comments';
+import { adoptToolbarStyles } from '../stylesheet';
 
 /** An optional, live thread in the page's layout; uses the toolbar's styles, cache and identity. */
 function InlineCommentThread({ comment, target }: { comment: CommentItem; target: HTMLElement }) {
@@ -24,20 +25,19 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
             return;
         }
         const shadow = target.shadowRoot ?? target.attachShadow({ mode: 'open' });
-        const style = toolbarRoot.querySelector('style')?.cloneNode(true);
+        const removeStyles = adoptToolbarStyles(shadow);
         const content = document.createElement('div');
         content.dataset.uierRoot = '';
         const scheme = window.matchMedia('(prefers-color-scheme: dark)');
         const applyScheme = () => { content.className = scheme.matches ? 'dark' : ''; };
         applyScheme();
         scheme.addEventListener('change', applyScheme);
-        if (style) shadow.appendChild(style);
         shadow.appendChild(content);
         setContainer(content);
         return () => {
             scheme.removeEventListener('change', applyScheme);
             content.remove();
-            style?.parentNode?.removeChild(style);
+            removeStyles();
         };
     }, [target, rootElement]);
 

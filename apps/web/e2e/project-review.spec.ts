@@ -333,6 +333,42 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     await expect(thumbnail).toBeFocused();
 });
 
+test('strict style CSP supports point mode, text highlights, inline threads, inbox and capture', async ({ page, browser, request }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const guest = await anonymousVisitor(browser, testInfo);
+    const violations = await watchCsp(guest.page);
+    const response = await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?review=true`);
+    const policy = response!.headers()['content-security-policy'];
+    expect(policy).toContain("style-src 'self' https://fonts.googleapis.com");
+    expect(policy).not.toContain('unsafe-inline');
+    await dismissFirstRunHint(guest.page);
+    await addPointComment(guest.page, 'Point under a strict style policy.', { name: 'Strict reviewer' });
+    await expect(openThread(guest.page).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
+    await guest.page.keyboard.press('Escape');
+    await selectText(guest.page, 'Every plan includes the toolbar.');
+    await selectionToolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
+    await guest.page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Text under the same policy.');
+    await guest.page.getByRole('button', { name: 'Post comment', exact: true }).click();
+    await expect(guest.page.locator('[data-uier-highlight]')).not.toHaveCount(0);
+    await guest.page.keyboard.press('Escape');
+    const headers = await verifiedReviewHeaders(request, projectId, siteOrigin());
+    const comments = await (await request.get(`/api/review/${projectId}/comments?path=/${projectId}/pricing`, { headers })).json() as { id: string }[];
+    await guest.page.evaluate(id => {
+        const slot = document.createElement('div');
+        slot.dataset.uierThread = id;
+        document.querySelector('main')!.appendChild(slot);
+    }, comments[0]!.id);
+    const inline = guest.page.getByRole('region', { name: 'Headline comment thread' });
+    await expect(inline).toBeVisible();
+    await expect(inline).toHaveCSS('border-top-width', '1px');
+    expect(await guest.page.locator('[data-uier-thread]').evaluate(element => element.shadowRoot?.adoptedStyleSheets.length)).toBe(1);
+    await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
+    await expect(guest.page.getByRole('complementary', { name: 'Comments' })).toBeVisible();
+    expect(violations).toEqual([]);
+    await guest.context.close();
+});
+
 test('guest edits and original reproduction details persist; only members see and copy the details', async ({ page, browser, request }, testInfo) => {
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');

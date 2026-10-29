@@ -242,6 +242,12 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
+- `integration.ts` owns default and pinned HTML/Next.js snippets from `@uier/toolbar/bundle`.
+  `InstallGuide` offers both with the update/support policy. Constructed review sheets remove
+  `unsafe-inline` from its style CSP sources. `scripts/toolbar-assets.mjs` publishes identical
+  default/content-addressed bytes, checks and retains production pins for one year after last
+  release as current; deployment builds carry forward the verified uier.io archive. Keep the
+  manifest no-store and content-addressed JavaScript immutable with anonymous CORS.
 - Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
   `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
 - Sign-in emails contain a link and an eight-digit numeric code, sharing the same 15-minute request and
@@ -416,6 +422,9 @@ authorized feedback. `src/lib/review/feedbackContext.ts` is the common project s
 redaction, canonical page state and protected screenshot references intact. The complete packet
 contract is in [docs/feedback-context.md](../../docs/feedback-context.md); future MCP/tracker
 work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
+The formatter renders inline values (including titles and names) as literal code spans, suppressing
+tracker autolinks/mentions without changing the structured context. Only approved explicit links
+remain clickable.
 Public-project exports include `identity.projectId: uier00000001`, derived from the resolved
 partition even for legacy records. Isolated local host partitions have no project id. Never infer
 the owning project from the reviewed page path: `/app/projects/<id>` feedback belongs to uier.

@@ -7,6 +7,9 @@ import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
+import { embedScript } from '../src/lib/app/integration';
+import toolbarBundle from '@uier/toolbar/bundle' with { type: 'json' };
+import { createHash } from 'node:crypto';
 
 // A reviewed site embeds the toolbar from uier.io on its own origin:
 //     <script src="https://uier.io/toolbar.js" defer></script>
@@ -42,17 +45,20 @@ test.beforeAll(async ({ baseURL }) => {
 </html>`);
             return;
         }
-        const project = new URL(request.url ?? '/', 'http://reviewed.localhost').searchParams.get('project');
+        const params = new URL(request.url ?? '/', 'http://reviewed.localhost').searchParams;
+        const project = params.get('project');
         const projectAttribute = project && /^[a-z0-9]{12}$/.test(project) ? ` data-uier-project="${project}"` : '';
         response.end(`<!doctype html>
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
-    <script src="${toolbarUrl}"${projectAttribute} defer></script>
+    ${params.has('pinned') && project ? embedScript(new URL(toolbarUrl).origin, project, 'pinned')
+        : `<script src="${toolbarUrl}"${projectAttribute} defer></script>`}
 </head>
 <body>
     <main><h1>Pricing</h1><p>A page on a site under review.</p></main>
+    ${params.has('clobber') ? '<div id="uier-toolbar">Page content</div><form id="uierConfig"><input name="apiUrl"><input name="mode"><input name="project"></form>' : ''}
 </body>
 </html>`);
     });
@@ -187,6 +193,62 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
     expect(crossSiteProof.status()).toBe(403);
 });
 
+test('the pinned integrity-checked embed posts feedback despite named page elements and duplicate scripts', async ({ page, request, baseURL }) => {
+    const pinned = await request.get(toolbarBundle.path);
+    expect(pinned.status()).toBe(200);
+    expect(pinned.headers()['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(pinned.headers()['access-control-allow-origin']).toBe('*');
+    const bytes = await pinned.body();
+    expect(`sha384-${createHash('sha384').update(bytes).digest('base64')}`).toBe(toolbarBundle.integrity);
+    expect(toolbarBundle.path).toBe(`/toolbar/${createHash('sha256').update(bytes).digest('hex')}.js`);
+    expect((await (await request.get('/toolbar.js')).body()).equals(bytes)).toBe(true);
+    expect((await request.get('/toolbar.js')).headers()['cache-control']).toBe('public, max-age=300, s-maxage=3600');
+    const manifest = await request.get('/toolbar/manifest.json');
+    expect(manifest.headers()['cache-control']).toBe('no-store');
+    expect((await manifest.json()).current).toEqual(toolbarBundle);
+    await signIn(page, uniqueEmail('pinned'));
+    const projectId = await createProject(page, { urls: [reviewedSiteOrigin] });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true&pinned=1&clobber=1`);
+    await expect(toolbar(page)).toBeVisible();
+    await dismissFirstRunHint(page);
+    await page.addScriptTag({ url: new URL(toolbarBundle.path, baseURL).href });
+    await expect(toolbar(page)).toHaveCount(1);
+    await expect(page.locator('div#uier-toolbar').filter({ hasText: 'Page content' })).toBeVisible();
+    await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
+    const heading = (await page.getByRole('heading', { name: 'Pricing', exact: true }).boundingBox())!;
+    await page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+    await page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Posted with the pinned bundle.');
+    await page.getByRole('button', { name: 'Post comment', exact: true }).click();
+    await expect(openThread(page).getByText('Posted with the pinned bundle.', { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
+test('configuration ignores non-string fields, accessors and non-plain objects without throwing', async ({ page, baseURL }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    // Each case runs before the real embed is evaluated. A bad override must fall back to the
+    // script origin and default review mode, yielding the missing-project setup notice.
+    for (const kind of ['fields', 'array', 'element', 'getter', 'proxy', 'window-getter', 'null-prototype']) {
+        await page.goto(`${reviewedSiteOrigin}/styled?review=true`);
+        await page.evaluate(kind => {
+            const value = kind === 'fields' ? { apiUrl: document.body, project: 42, mode: true }
+                : kind === 'array' ? [] : kind === 'element' ? document.body
+                : kind === 'proxy' ? new Proxy({}, { getPrototypeOf() { throw new Error('Untrusted proxy'); } })
+                : kind === 'null-prototype' ? Object.assign(Object.create(null), { mode: 'review', apiUrl: 42 })
+                : Object.defineProperty({}, 'apiUrl', { get() { throw new Error('Untrusted getter'); } });
+            Object.defineProperty(window, 'uierConfig', kind === 'window-getter'
+                ? { configurable: true, get() { throw new Error('Untrusted window getter'); } }
+                : { configurable: true, value });
+        }, kind);
+        await page.addScriptTag({ url: new URL('/toolbar.js', baseURL).href });
+        await expect(page.getByRole('link', { name: 'Open install guide' })).toHaveAttribute('href', `${new URL(baseURL!).origin}/app/projects`);
+    }
+    expect(errors).toEqual([]);
+});
+
 test('a failed project comments load is visible and can be retried', async ({ page }) => {
     await signIn(page, uniqueEmail('embed-error'));
     const projectId = await createProject(page, { urls: [reviewedSiteOrigin] });
@@ -237,7 +299,7 @@ test('the toolbar mounts in its shadow root and leaves the reviewed site\'s styl
             adoptedStyleSheets: document.adoptedStyleSheets.length,
             // Everything is in the shadow root: no children in the page, the CSS is inside
             hostChildren: host?.children.length,
-            shadowStyles: host?.shadowRoot?.querySelectorAll('style').length,
+            shadowStyles: host?.shadowRoot?.adoptedStyleSheets.length,
             // Popovers render into the shadow root as well
             dialogsInPage: document.querySelectorAll('[role="dialog"]').length,
             dialogsInShadowRoot: host?.shadowRoot?.querySelectorAll('[role="dialog"]').length
