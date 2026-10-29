@@ -172,8 +172,8 @@ export type DbCommentScreenshot = {
 };
 
 /**
- * A comment's screenshot image, a document of its own in the comment's partition (comment lists
- * stay small). No `path`, so comment queries never match it, and an id no route accepts.
+ * A comment's screenshot reference, in its partition. Legacy/local records have inline base64;
+ * new Cosmos writes have a private immutable Blob name. No `path` or public route id.
  */
 export type DbScreenshot = DbCommentScreenshot & {
     /** {@link screenshotDocumentId} of the comment */
@@ -181,12 +181,10 @@ export type DbScreenshot = DbCommentScreenshot & {
     domain: string;
     type: 'screenshot';
     commentId: string;
-    /** The image, base64 */
-    data: string;
     createdAt: string;
     /** Like the comment's, when it has one */
     ttl?: number;
-};
+} & ({ data: string; blob?: never } | { blob: string; data?: never });
 
 /** Id of a comment's screenshot document: not an id the API accepts (`isValidId`: no `$`) */
 export function screenshotDocumentId(commentId: string) {

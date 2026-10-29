@@ -1,3 +1,4 @@
+import { screenshotUrlMediaType } from '../screenshots/blobStore';
 import { ensureProjectPublicId } from '../app/projectPublicIds';
 import { commentResponse } from './response';
 import { configuredEnvironments, environmentOptions } from '../app/environments';
@@ -146,8 +147,8 @@ export async function editReviewCommentItem(context: ReviewApiContext, { id, ite
 }
 
 /** GET /api/review/<code>/comments/<id>/screenshot: the screenshot of a comment the reviewer can see */
-export async function getReviewScreenshot({ project, actor }: ReviewApiContext, { id }: { id: string }) {
-    return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id)));
+export async function getReviewScreenshot({ project, actor, request }: ReviewApiContext, { id }: { id: string }) {
+    return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id)), request.headers.get('accept') === screenshotUrlMediaType ? 'url' : 'bytes');
 }
 
 /** Participant lookup is member-only and uses the same visibility rule as a thread read. */

@@ -6,7 +6,9 @@ the written procedure does not establish that a restore has been tested.
 Recovery owner: the repository owner, **AleksandarDev**, who names the human restore operator for each
 incident. This procedure requires continuous backup; check the live account before using it. It is not
 a recovery-time, recovery-point, uptime or regional disaster-recovery commitment. Vercel variables,
-email and Pulumi state are outside this runbook. Restores are billed by data restored, including on
+email, Azure Blob screenshot bytes and Pulumi state are outside this runbook. New screenshot documents
+contain Blob references; restoring Cosmos alone cannot recover missing pixels. Blob versioning and
+soft deletion are disabled to avoid retaining redacted/deleted images. See [screenshot storage](screenshot-storage.md). Restores are billed by data restored, including on
 the seven-day tier. Keep the source account, production endpoint and Vercel variables unchanged.
 
 ## Policy rollout and evidence

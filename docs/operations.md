@@ -201,6 +201,9 @@ and these role assignments:
 Contributor on the resource group also covers the preview managed identity, its federated credential and the
 Cosmos DB data plane role assignment (`Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments/write` is a
 Cosmos DB control plane action, not a `Microsoft.Authorization` one, which Contributor excludes).
+The [screenshot Blob rollout](screenshot-storage.md) requires two new Azure RBAC assignments;
+an owner must arrange narrowly scoped assignment permission or create/import those assignments
+before merging. This is separate from the existing Cosmos data-plane roles.
 
 The workflows do not use GitHub deployment environments; adding `environment:` to a job that logs into Azure
 changes its OIDC subject to `repo:signalco-io@89613566/uier@1432139886:environment:<name>`.

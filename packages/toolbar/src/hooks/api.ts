@@ -59,7 +59,7 @@ function errorCodeFromStatus(status: number): CommentsApiErrorCode {
 }
 
 /** A request to the uier API, answered with 2xx; errors are thrown as {@link CommentsApiError} */
-async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }): Promise<Response> {
+async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; accept?: string }): Promise<Response> {
     const hasBody = init?.body !== undefined;
     const crossOriginWrite = toolbarConfig.project && init?.method && init.method !== 'GET'
         && new URL(url).origin !== window.location.origin;
@@ -81,6 +81,7 @@ async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' 
             credentials: toolbarConfig.project ? 'omit' : 'include',
             headers: {
                 ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+                ...(init?.accept ? { Accept: init.accept } : {}),
                 ...(toolbarConfig.project ? projectHeaders() : { 'X-Uier-Visitor': getVisitorToken() }),
                 ...(verification ? { 'X-Uier-Verification': verification } : {})
             },
@@ -127,7 +128,19 @@ export async function apiRequest<T>(url: string, init?: { method?: 'GET' | 'POST
  * install guide's sources) but not necessarily the API's origin.
  */
 export async function apiImage(url: string): Promise<string> {
-    const blob = await (await apiFetch(url)).blob();
+    const response = await apiFetch(url, { accept: 'application/vnd.uier.screenshot-url+json' });
+    let image = response;
+    if (response.headers.get('content-type')?.startsWith('application/vnd.uier.screenshot-url+json')) {
+        const signed = await response.json() as { url: string };
+        const target = new URL(signed.url);
+        if (target.protocol !== 'https:' || !target.hostname.endsWith('.blob.core.windows.net') || target.username || target.password)
+            throw new CommentsApiError('server_error', 'Invalid screenshot location', 500);
+        // A separate request prevents review/visitor headers from being forwarded to Azure.
+        try { image = await fetch(signed.url, { credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error', cache: 'no-store' }); }
+        catch { image = await apiFetch(url); } // Existing embeds may still have the old connect-src CSP.
+        if (!image.ok) image = await apiFetch(url);
+    }
+    const blob = await image.blob();
     return await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));

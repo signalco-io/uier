@@ -1,3 +1,4 @@
+import { screenshotBytes } from '../../screenshots/blobStore';
 import { randomUUID } from 'node:crypto';
 import { sha256Hex } from '../../app/tokens';
 import { getAppStore } from '../../app/store';
@@ -338,10 +339,10 @@ async function uploadScreenshot(saved: LinearIssueGeneration, context: Integrati
     if (reference.state !== 'protected') return;
     const actor = { kind: 'member' as const, userId: connection.connectedBy, name: 'uier integration', isAdmin: true };
     const screenshot = await context.read(async () => getProjectScreenshot(context.project, actor, context.ledger.threadId));
-    const revision = screenshot.revision ?? sha256Hex(screenshot.data);
+    const data = await screenshotBytes(screenshot);
+    const revision = screenshot.revision ?? sha256Hex(data.toString('base64'));
     if (reference.revision && reference.revision !== revision) throw new LinearSetupError('screenshot_changed');
     if (saved.screenshot?.revision === revision && saved.screenshot.uploaded) return;
-    const data = Buffer.from(screenshot.data, 'base64');
     if (data.length > 512 * 1024) throw new LinearSetupError('screenshot_too_large');
     const upload = await write('prepare_upload', 'UierLinearFileUpload', 'mutation UierLinearFileUpload($contentType: String!, $filename: String!, $size: Int!) { fileUpload(contentType: $contentType, filename: $filename, size: $size, makePublic: false) { success uploadFile { uploadUrl assetUrl headers { key value } } } }',
         { contentType: screenshot.contentType, filename: `uier-screenshot.${screenshot.contentType.split('/')[1]}`, size: data.length }, value => {

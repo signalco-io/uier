@@ -1,3 +1,4 @@
+import { getScreenshotBlobStore, storeScreenshotBytes, type ScreenshotBlobStore } from '../screenshots/blobStore';
 import { originSql } from './originFilter';
 import { authorSql } from './authorFilter';
 import { withThreadActivity } from '../comments/activity';
@@ -29,7 +30,7 @@ function pathParameters(path: string): SqlParameter[] {
     ];
 }
 
-export function createCosmosCommentsStore(getContainer: () => Container = cosmosDataContainerComments): CommentsStore {
+export function createCosmosCommentsStore(getContainer: () => Container = cosmosDataContainerComments, getBlobs: () => ScreenshotBlobStore = getScreenshotBlobStore): CommentsStore {
     async function queryAll<T>(domain: string, query: string, parameters: SqlParameter[]) {
         const { resources } = await getContainer().items.query<T>({
             query,
@@ -37,7 +38,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         }, { partitionKey: domain }).fetchAll();
         return resources;
     }
-    return {
+    const store: CommentsStore = {
         async listSyncPending(options = {}) {
             // No production outbox predates syncKey. Audit missing keys explicitly on adoption;
             // don't use a non-indexed fallback expression that requires fetching the full queue.
@@ -138,12 +139,13 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }
         },
         async commitSubmission(receipt, comment, etag, screenshot) {
+            const image = screenshot ? await storeScreenshotBytes(screenshot, getBlobs()) : undefined;
             const operations: OperationInput[] = [
                 { operationType: 'Create', resourceBody: receipt },
                 etag
                     ? { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag }
                     : { operationType: 'Create', resourceBody: comment },
-                ...(screenshot ? [{ operationType: 'Create' as const, resourceBody: screenshot }] : [])
+                ...(image ? [{ operationType: 'Create' as const, resourceBody: image }] : [])
             ];
             try {
                 const response = await getContainer().items.batch(operations, receipt.domain);
@@ -227,21 +229,23 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         },
         async listScreenshotsBefore(before, continuation) {
             const page = await getContainer().items.query<{ domain: string; commentId: string; _etag: string }>({
-                query: "SELECT c.domain, c.commentId, c._etag FROM c WHERE c.type = 'screenshot' AND c.createdAt < @before",
+                query: "SELECT c.domain, c.commentId, c._etag FROM c WHERE c.type = 'screenshot' AND IS_STRING(c.data) AND c.createdAt < @before",
                 parameters: [{ name: '@before', value: before }]
             }, { maxItemCount: 100, continuationToken: continuation }).fetchNext();
             return { items: page.resources.map(image => ({ domain: image.domain, commentId: image.commentId, etag: image._etag })),
                 continuation: page.continuationToken || undefined };
         },
         async createScreenshot(screenshot) {
-            await getContainer().items.create<DbScreenshot>(screenshot);
+            await getContainer().items.create<DbScreenshot>(await storeScreenshotBytes(screenshot, getBlobs()));
         },
         async replaceScreenshot(comment, etag, screenshot) {
-            // One partition transaction: a failed metadata write never destroys the old image.
+            const previous = await store.getScreenshot(comment.domain, comment.id);
+            const image = await storeScreenshotBytes(screenshot, getBlobs());
+            // Only references participate in Cosmos; uncommitted immutable blobs are swept later.
             try {
                 const response = await getContainer().items.batch([
                     { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag },
-                    { operationType: 'Upsert', resourceBody: screenshot }
+                    { operationType: 'Upsert', resourceBody: image }
                 ], comment.domain);
                 const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
                     .filter((code): code is number => typeof code === 'number');
@@ -249,6 +253,9 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 if (codes.includes(404)) return 'not_found';
                 if (response.result?.length !== 2 || codes.some(code => code < 200 || code >= 300))
                     throw new Error('Screenshot replacement transaction failed.');
+                if (previous?.blob && previous.blob !== image.blob) {
+                    await getBlobs().delete(previous.blob).catch(() => console.error('[screenshots] Previous blob cleanup needs retry'));
+                }
                 return 'ok';
             } catch (error) {
                 // The SDK may wrap a top-level failure in Error.cause.
@@ -271,12 +278,65 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }
         },
         async deleteScreenshot(domain, commentId, etag) {
+            const target = getContainer().item(screenshotDocumentId(commentId), domain);
             try {
-                await getContainer().item(screenshotDocumentId(commentId), domain).delete(etag ? { accessCondition: { type: 'IfMatch', condition: etag } } : undefined);
+                const current = await target.read<DbScreenshot>();
+                if (!current.resource || !current.etag || (etag && etag !== current.etag)) return;
+                await target.delete({ accessCondition: { type: 'IfMatch', condition: current.etag } });
+                // A failed delete is safe: no pointer remains and the Blob sweep retries it.
+                if (current.resource.blob) await getBlobs().delete(current.resource.blob);
             } catch (error) {
-                if (errorCode(error) !== 404 && errorCode(error) !== 412)
-                    throw error;
+                if (errorCode(error) !== 404 && errorCode(error) !== 412) throw error;
             }
+        },
+        async migrateScreenshots() {
+            const { resources } = await getContainer().items.query<DbScreenshot & { _etag: string; _ts: number }>({
+                query: "SELECT TOP 20 * FROM c WHERE c.type = 'screenshot' AND IS_STRING(c.data)"
+            }).fetchAll();
+            const { resource: settings } = await getContainer().read();
+            let migrated = 0, failed = 0;
+            for (const legacy of resources) {
+                try {
+                    const metadata = withoutSystemProperties<DbScreenshot>(legacy as unknown as Record<string, unknown>);
+                    // Replacing a Cosmos item resets _ts; retain the original expiry.
+                    const lifetime = metadata.ttl ?? settings?.defaultTtl;
+                    if (lifetime && lifetime > 0) metadata.ttl = Math.max(1, legacy._ts + lifetime - Math.floor(Date.now() / 1000));
+                    const image = await storeScreenshotBytes(metadata, getBlobs());
+                    await getContainer().item(legacy.id, legacy.domain).replace(image, { accessCondition: { type: 'IfMatch', condition: legacy._etag } });
+                    migrated++;
+                } catch (error) {
+                    if (![404, 412].includes(Number(errorCode(error)))) { failed++; console.error('[screenshots] Legacy migration needs retry'); }
+                }
+            }
+            return { migrated, failed };
+        },
+        async sweepScreenshotBlobs(now) {
+            // Persist progress: avoid reading every live image's owner on every five-minute tick.
+            const stateItem = getContainer().item('$blob_sweep', '$screenshots');
+            let state: { continuation?: string; nextAt?: number } | undefined;
+            try { state = (await stateItem.read<NonNullable<typeof state>>()).resource; }
+            catch (error) { if (errorCode(error) !== 404) throw error; }
+            if ((state?.nextAt ?? 0) > now) return { removed: 0, failed: 0 };
+            const page = await getBlobs().listBefore(new Date(now - 60 * 60_000), state?.continuation);
+            let removed = 0, failed = 0;
+            for (const blob of page.items) {
+                try {
+                    const owner = await store.get(blob.domain, blob.commentId);
+                    const target = getContainer().item(screenshotDocumentId(blob.commentId), blob.domain);
+                    let image: { resource?: DbScreenshot; etag?: string } = {};
+                    try { image = await target.read<DbScreenshot>(); }
+                    catch (error) { if (errorCode(error) !== 404) throw error; }
+                    if (!owner?.comment.screenshot || image.resource?.blob !== blob.name) {
+                        await getBlobs().delete(blob.name, blob.etag);
+                        if (!owner?.comment.screenshot && image.resource?.blob === blob.name && image.etag)
+                            await store.deleteScreenshot(blob.domain, blob.commentId, image.etag);
+                        removed++;
+                    }
+                } catch { failed++; console.error('[screenshots] Blob cleanup needs retry'); }
+            }
+            if (!failed) await getContainer().items.upsert({ id: '$blob_sweep', domain: '$screenshots', type: 'blob-sweep', ttl: -1,
+                ...(page.continuation ? { continuation: page.continuation } : { nextAt: now + 60 * 60_000 }) });
+            return { removed, failed };
         },
         async nextCommentNumber(domain) {
             const container = getContainer();
@@ -342,4 +402,5 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             throw new Error(`Counter ${id} could not be updated`);
         }
     };
+    return store;
 }

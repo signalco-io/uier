@@ -36,7 +36,7 @@ export function cspSources(baseUrl: string) {
     const origin = new URL(baseUrl).origin;
     return [
         { directive: 'script-src', sources: [origin] },
-        { directive: 'connect-src', sources: [origin] },
+        { directive: 'connect-src', sources: [origin, ...(process.env.AZURE_SCREENSHOTS_ENDPOINT ? [new URL(process.env.AZURE_SCREENSHOTS_ENDPOINT).origin] : [])] },
         { directive: 'frame-src', sources: [origin] },
         { directive: 'style-src', sources: [origin] },
         { directive: 'img-src', sources: ['data:'] },

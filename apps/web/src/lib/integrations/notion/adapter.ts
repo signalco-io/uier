@@ -1,3 +1,4 @@
+import { screenshotBytes } from '../../screenshots/blobStore';
 import { createHash } from 'node:crypto';
 import { updateDoc } from '../../app/store';
 import { getProjectScreenshot } from '../../review/comments';
@@ -392,7 +393,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                     const actor = await memberActor(ctx.project, connection.connectedBy);
                     if (!actor || actor.kind !== 'member' || !actor.isAdmin) throw new NotionApiError(401, 'member_left');
                     const saved = await getProjectScreenshot(ctx.project, actor, ctx.ledger.threadId);
-                    const bytes = Buffer.from(saved.data, 'base64'); const revision = saved.revision ?? createHash('sha256').update(bytes).digest('hex');
+                    const bytes = await screenshotBytes(saved); const revision = saved.revision ?? createHash('sha256').update(bytes).digest('hex');
                     if (ctx.feedback.context.screenshot.revision !== undefined && ctx.feedback.context.screenshot.revision !== saved.revision)
                         throw new IntegrationControlError('projection_changed');
                     if (bytes.length > (config.maxFileUploadBytes ?? 5 * 1024 * 1024)) screenshotNote = 'Screenshot too large for this Notion plan.';
@@ -405,7 +406,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                             state.upload = { id: notionId(allocation.id), revision, expiryTime, sent: false, attached: false }; await persist(true);
                         }
                         if (!state.upload.sent) {
-                            const form = new FormData(); form.set('file', new Blob([bytes], { type: saved.contentType }), `screenshot.${saved.contentType.split('/')[1]}`);
+                            const form = new FormData(); form.set('file', new Blob([new Uint8Array(bytes)], { type: saved.contentType }), `screenshot.${saved.contentType.split('/')[1]}`);
                             await write('upload_send', 'POST', `/v1/file_uploads/${pathId(state.upload.id)}/send`, form, { uploadId: state.upload.id });
                             state.upload.sent = true; await persist(true);
                         }

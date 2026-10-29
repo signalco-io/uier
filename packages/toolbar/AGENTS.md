@@ -119,6 +119,9 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 - Capture starts automatically for new feedback. Image selection and redaction happen after saving,
   outside draft/idempotency storage. Saved thumbnails expand by click, tap or keyboard; failed image
   replacement retains feedback and reports the error. Keep the API's revision check on replacements.
+  `apiImage` negotiates short-lived private Blob URLs and fetches bytes without cookies, review
+  headers or referrers. Never forward uier headers by redirect. The embed CSP needs the configured
+  Blob origin in connect-src; rendered images still use memory-only data URLs.
 - Coarse pointers get a 44 px minimum button hit area from `styles/toolbar-theme.css`, including
   compact UI-kit movement and thread controls. Preserve this when changing toolbar/panel layouts.
 

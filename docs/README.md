@@ -14,6 +14,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.
 - [Review workflow](review-workflow.md): the app, access, assignment, screenshots, drafts, unread activity and environments.
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
+- [Screenshot storage](screenshot-storage.md): private Azure Blob bytes, direct reads, migration and cleanup.
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
 - [Coding tool access (MCP)](mcp.md): credentials, client setup, tools, prompts and retry contracts.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.

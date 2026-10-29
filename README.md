@@ -96,7 +96,7 @@ This is a TypeScript monorepo using pnpm and Turborepo.
 | [`apps/web`](apps/web) | Next.js website, signed-in app and APIs; deployed to Vercel |
 | [`packages/toolbar`](packages/toolbar) | React review toolbar, bundled with tsup and isolated in a shadow DOM |
 | [`packages/brand`](packages/brand) | Shared design tokens, logo components, copy and assets |
-| [`infra`](infra) | Pulumi infrastructure for Vercel, Cloudflare and Azure Cosmos DB |
+| [`infra`](infra) | Pulumi infrastructure for Vercel, Cloudflare, Azure Cosmos DB and Blob Storage |
 
 The pnpm workspace includes `apps/*` and `packages/*`. Infrastructure has its own dependencies
 and lockfile; install them separately only when working on infrastructure.
@@ -123,6 +123,7 @@ are documented in [Infrastructure and operations](docs/operations.md#required-gi
 | [Connected services](docs/integrations.md) | Mirror feedback to Notion, GitHub or Linear, or send Slack notifications |
 | [Brand guide](packages/brand/BRAND.md) · [Live brand page](https://uier.io/brand) | Work with the uier identity and shared tokens |
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |
+| [Screenshot storage](docs/screenshot-storage.md) | Private Blob images, direct access and migration |
 | [Backups and restore](docs/backups-and-restore.md) | Recover accidental deletions and inspect the recorded restore drill |
 
 ## Removing abusive comments
