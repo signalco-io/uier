@@ -145,6 +145,38 @@ test('forged installation hints and repository privileges cannot create a bindin
     expect(() => githubId('9007199254740993')).toThrow();
 });
 
+test('a second project reuses a workspace installation only after fresh GitHub authorization and repository selection', async () => {
+    const f = await fixture();
+    const store = getAppStore();
+    const project: DbProject = { ...f.project, id: randomUUID().replaceAll('-', '').slice(0, 12), integrations: undefined };
+    await store.create(project);
+    await store.create<DbProjectRef>({ type: 'project-ref', pk: projectRefPk(project.id), id: project.id, workspaceId: project.workspaceId });
+    const input = { ...f.input, projectId: project.id, baseUrl, installationId: '101' };
+    const settings = await getGitHubSettings(project, f.user.id);
+    expect(settings.installations).toEqual([{ id: '101', accountName: 'acme' }]);
+    const oauth = new URL(await beginGitHubConnect(input));
+    expect(oauth.pathname).toBe('/login/oauth/authorize');
+    expect(oauth.searchParams.get('code_challenge_method')).toBe('S256');
+    stub.faults.challenge = oauth.searchParams.get('code_challenge')!;
+    const result = await finishGitHubConnect({ userId: f.user.id, state: oauth.searchParams.get('state'), code: randomUUID(), baseUrl });
+    expect(result.status).toBe('connected');
+    expect((await store.get<DbProject>(project.pk, project.id))!.doc.integrations).toBeUndefined();
+    await saveGitHubRepository({ ...input, setupReceipt: result.setupReceipt!, repositoryId: '201', confirmPublic: false });
+    expect((await store.get<DbProject>(project.pk, project.id))!.doc.integrations?.github).toBeDefined();
+    expect((await store.get<DbProject>(f.project.pk, f.project.id))!.doc.integrations?.github).toEqual(f.project.integrations?.github);
+
+    await expect(beginGitHubConnect({ ...input, installationId: '999999' })).rejects.toMatchObject({ code: 'installation_unavailable' });
+    const foreign = await localProject();
+    expect((await getGitHubSettings(foreign.project, foreign.user.id)).installations).toEqual([]);
+    await expect(beginGitHubConnect({ ...foreign.input, baseUrl, installationId: '101' })).rejects.toMatchObject({ code: 'installation_unavailable' });
+
+    const revoked = new URL(await beginGitHubConnect(input));
+    stub.faults.challenge = revoked.searchParams.get('code_challenge')!;
+    stub.faults.userInstallation = false;
+    expect((await finishGitHubConnect({ userId: f.user.id, state: revoked.searchParams.get('state'), code: randomUUID(), baseUrl })).status).toBe('failed');
+    stub.faults.userInstallation = true;
+});
+
 test('real HTTP JWT/token transport mirrors issue, status and discussion while preserving human comments', async () => {
     const f = await fixture();
     let ledger = await sync(f);
@@ -524,8 +556,10 @@ test('settings review counts query only bounded stopped-ledger cohorts', async (
     const count = stub.calls.length;
     const settings = await getGitHubSettings(f.project, f.user.id, undefined, bounded);
     expect(settings.connection).toMatchObject({ needsReviewCount: 0, needsReviewCountCapped: false });
-    expect(queries).toEqual(['failed', 'ambiguous'].map(status => ({ type: 'github-sync', pk: `github:${f.project.id}`,
+    expect(queries.filter(query => query.type === 'github-sync')).toEqual(['failed', 'ambiguous'].map(status => ({ type: 'github-sync', pk: `github:${f.project.id}`,
         where: { connectionId: f.connection.id, status }, limit: 1000 })));
+    expect(queries.find(query => query.type === 'github-connection')).toEqual({ type: 'github-connection', pk: f.project.pk,
+        where: { workspaceId: f.project.workspaceId }, limit: 1000 });
     expect(stub.calls).toHaveLength(count);
 });
 

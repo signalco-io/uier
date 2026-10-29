@@ -58,10 +58,34 @@ async function verifiedInstallation(input: GitHubActorInput, installationId: str
     throw new GitHubError('installation_not_authorized');
 }
 
-export async function beginGitHubConnect(input: GitHubActorInput & { baseUrl: string }, store: AppStore = getAppStore()) {
+async function reusableInstallations(project: DbProject, store: AppStore) {
+    const connections = await store.query<GitHubConnection>({ type: 'github-connection', pk: project.pk,
+        where: { workspaceId: project.workspaceId }, limit: 1000 });
+    const ids = [...new Set(connections.filter(row => row.statusCode !== 'disconnected').map(row => row.config.installationId))];
+    const installations = await Promise.all(ids.map(id => store.get<GitHubInstallation>(githubInstallationPk(githubConfig().appId, id), 'installation')));
+    return installations.flatMap(row => row?.doc.status === 'connected'
+        ? [{ id: row.doc.installationId, accountName: row.doc.accountName }] : []);
+}
+
+async function beginUserAuthorization(input: GitHubActorInput & { baseUrl: string }, installationId: string, store: AppStore) {
+    const authorization = await createOauthState({ provider: 'github', userId: input.userId, workspaceId: input.workspaceId,
+        projectId: input.projectId, intent: 'authorize', pkce: true, key: githubSecretConfig(), metadata: { installationId } }, store);
+    const url = new URL(`${githubConfig().oauthBase}/login/oauth/authorize`);
+    for (const [name, value] of Object.entries({ client_id: githubConfig().clientId, redirect_uri: callback(input.baseUrl), state: authorization.state,
+        code_challenge: authorization.codeChallenge!, code_challenge_method: 'S256' })) url.searchParams.set(name, value);
+    return url.href;
+}
+
+export async function beginGitHubConnect(input: GitHubActorInput & { baseUrl: string; installationId?: string }, store: AppStore = getAppStore()) {
     const config = githubConfig();
-    await githubAdmin(input, store);
+    const project = await githubAdmin(input, store);
     callback(input.baseUrl);
+    if (input.installationId !== undefined) {
+        const id = githubId(input.installationId);
+        if (!(await reusableInstallations(project, store)).some(installation => installation.id === id))
+            throw new GitHubError('installation_unavailable');
+        return beginUserAuthorization(input, id, store);
+    }
     const { state } = await createOauthState({ provider: 'github', ...input, intent: 'install', pkce: false, key: githubSecretConfig() }, store);
     const url = new URL(`${config.oauthBase}/apps/${config.slug}/installations/new`);
     url.searchParams.set('state', state);
@@ -69,7 +93,6 @@ export async function beginGitHubConnect(input: GitHubActorInput & { baseUrl: st
 }
 
 export async function finishGitHubSetup(input: { userId: string; state: unknown; installationId: unknown; setupAction?: string; baseUrl: string }, store: AppStore = getAppStore()) {
-    const config = githubConfig();
     const state = await consumeOauthState({ provider: 'github', userId: input.userId, state: input.state, key: githubSecretConfig(), expected: { intent: 'install' } }, store);
     if (!state) throw new GitHubError('invalid_state');
     await githubAdmin(state, store);
@@ -77,12 +100,8 @@ export async function finishGitHubSetup(input: { userId: string; state: unknown;
         url: `${appOrigin(input.baseUrl)}/app/projects/${encodeURIComponent(state.projectId)}/settings?github=pending` };
     if (input.setupAction !== undefined && !['install', 'update'].includes(input.setupAction)) throw new GitHubError('invalid_setup');
     const installationId = githubId(input.installationId);
-    const authorization = await createOauthState({ provider: 'github', userId: input.userId, workspaceId: state.workspaceId,
-        projectId: state.projectId, intent: 'authorize', pkce: true, key: githubSecretConfig(), metadata: { installationId } }, store);
-    const url = new URL(`${config.oauthBase}/login/oauth/authorize`);
-    for (const [name, value] of Object.entries({ client_id: config.clientId, redirect_uri: callback(input.baseUrl), state: authorization.state,
-        code_challenge: authorization.codeChallenge!, code_challenge_method: 'S256' })) url.searchParams.set(name, value);
-    return { workspaceId: state.workspaceId, projectId: state.projectId, url: url.href };
+    return { workspaceId: state.workspaceId, projectId: state.projectId,
+        url: await beginUserAuthorization({ ...state, baseUrl: input.baseUrl }, installationId, store) };
 }
 
 export async function finishGitHubConnect(input: { userId: string; state: unknown; code?: string; error?: string; baseUrl: string }, store: AppStore = getAppStore()): Promise<{workspaceId: string; projectId: string; status: 'connected' | 'denied' | 'failed'; setupReceipt?: string}> {
@@ -216,7 +235,7 @@ export async function getGitHubSettings(project: DbProject, userId: string, setu
                 pending = { receipt: setupReceipt, expiresAt: value.expiresAt, accountName: value.accountName };
         }
     }
-    return { configured, connection: connection ? { status: status!, statusCode,
+    return { configured, installations: configured ? await reusableInstallations(fresh, store) : [], connection: connection ? { status: status!, statusCode,
         enabled: connection.enabled, repositoryName: `${githubLabel(connection.config.owner)}/${githubLabel(connection.config.name)}`,
         repositoryVisibility: connection.config.private ? 'private' as const : 'public' as const, lastSyncedAt: connection.lastSyncedAt,
         backfill: connection.backfill ? { queued: connection.backfill.queued, done: connection.backfill.done } : undefined,

@@ -2,7 +2,8 @@
 
 The code and local stubs do not register provider applications or prove that a real installation
 works. Provider registration, credentials, distribution approval and customer-data acceptance are
-manual gates. None of those portal actions has been attempted by this implementation.
+operator gates. The [activation record](integration-activation.md) separates completed registrations
+and production configuration from live delivery checks and remaining rollout work.
 
 A current uier workspace admin chooses a destination in each project's Settings. Providers are
 independent: configuring one does not enable another. Private feedback and the public showcase are
@@ -112,6 +113,9 @@ history or retained files.
 4. Test organization approval and SSO. From uier, install the app, complete user authorization, load
    repositories and select a repository where the authorizing GitHub user is an admin. An
    `installation_id` or a successful install redirect alone does not authorize a uier destination.
+   For an installation already connected to the current uier workspace, choose **Use account
+   installation** in Settings. This starts fresh user authorization without reopening GitHub's
+   installation page. Repository discovery and confirmation remain required for every project.
 
 GitHub's [setup URL](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-setup-url)
 and [user authorization](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)
@@ -151,6 +155,16 @@ notifications and selected-change counts, rather than complete discussions or sc
 unconfirmed message create needs review; uier does not add history scopes or blindly resend it.
 
 ## CI preview and production activation
+
+The scheduled worker also needs repository secret `UIER_COMMENTS_SECRET`, containing the existing
+production app signing key. Vercel omits this Sensitive variable from environment downloads. An
+authorized operator retrieves the current value privately from encrypted infrastructure state and
+stores it as a GitHub Actions secret; do not generate a replacement, change the protected Vercel
+variable or print the state. Refresh this copy whenever the production signing key rotates.
+`process.loadEnvFile` preserves the job-supplied value over Vercel's empty downloaded placeholder.
+The **Review notifications** manual workflow offers `integrations_only=true` to skip all email
+delivery and email retries while checking provider progress. Combining it with `retry_delivery`
+fails before any delivery.
 
 1. The owner completes registration and stores the desired credential map. Review the exact CI Pulumi
    preview before merging or deploying. Only the new integration environment/key resources belong to

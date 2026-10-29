@@ -334,6 +334,11 @@ provider message, address or report payload may be logged. Skip suppressed diges
 must retry. Show the generic notice only in the admin invite action. Requested sign-in/guest
 confirmation remain available and clear suppression only on completed mailbox proof. Ledger
 matching is production-gated until live message-id correlation is proven.
+The scheduled job supplies `UIER_COMMENTS_SECRET` from its repository secret because Vercel omits
+Sensitive values from downloads. Keep that copy aligned with the existing production key; never
+replace the app key to repair a worker. `integrations_only` manual runs must skip email delivery
+and reject a simultaneous email retry. GitHub Settings can reuse installations known to the current
+workspace, but fresh PKCE user authorization and repository administration checks remain required.
 Digest unsubscribe headers are persisted in `attempt.message.headers`; retries preserve them.
 `/api/notifications/unsubscribe` changes state only on a cookie-free RFC 8058 POST; GET and
 `/notifications` remain read-only. Never accept verify tokens for unsubscribe/mute.

@@ -6,15 +6,20 @@ import { runIntegrationWorker } from '../src/lib/integrations/worker';
 if (process.env.UIER_DEPLOYMENT_ENV !== 'production' || !process.env.COSMOSDB_CONNECTION_STRING || !process.env.UIER_COMMENTS_SECRET)
     throw new Error('The notification worker requires the production deployment configuration.');
 
-if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
+const integrationsOnly = process.env.UIER_INTEGRATIONS_ONLY === '1';
+if (integrationsOnly && process.env.UIER_NOTIFICATION_RETRY_DELIVERY)
+    throw new Error('An integration-only run cannot retry an email delivery.');
 const baseUrl = configuredAppBaseUrl();
 if (!baseUrl) throw new Error('The notification worker requires a trusted application URL.');
-const cleanup = await sweepCommentCleanup();
-console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
-if (cleanup.failed) process.exitCode = 1;
-const result = await runNotificationWorker(baseUrl);
-console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
-if (result.blocked) process.exitCode = 1;
+if (!integrationsOnly) {
+    const cleanup = await sweepCommentCleanup();
+    console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
+    if (cleanup.failed) process.exitCode = 1;
+    if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
+    const result = await runNotificationWorker(baseUrl);
+    console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
+    if (result.blocked) process.exitCode = 1;
+} else console.info('[notifications] Email delivery skipped for this integration-only run.');
 const integrations = await runIntegrationWorker(baseUrl);
 console.info(`[integrations] Discovered ${integrations.discovered.checked} source changes; ${integrations.discovered.deferred} deferred.`);
 for (const provider of integrations.providers)
