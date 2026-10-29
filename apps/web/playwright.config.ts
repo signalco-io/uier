@@ -5,6 +5,7 @@ import { generateKeyPairSync } from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 4004);
 const baseURL = `http://127.0.0.1:${PORT}`;
+const fullSuite = process.env.PLAYWRIGHT_FULL === '1';
 
 // Rewrite suggestions call a stand-in for the Anthropic API (e2e/support/anthropicStub.ts), on a
 // port derived from PORT so parallel runs don't collide, with a fake key: no test needs a real one
@@ -20,11 +21,15 @@ const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } }).privateKey;
 
-// Comments API tests (no browser) run once, not per device
+// API and service tests run once, without a browser or device duplication.
 const apiTests = /\.api\.spec\.ts$/;
 
 export default defineConfig({
-    retries: 2,
+    // The required suite should expose failures immediately, without retrying a slow browser flow.
+    retries: fullSuite ? 2 : 0,
+    workers: process.env.CI ? 2 : 4,
+    globalTimeout: fullSuite ? 0 : 3 * 60 * 1000,
+    reporter: [['dot'], ['json', { outputFile: 'playwright-report/results.json' }]],
     timeout: 30 * 1000,
     testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
     outputDir: 'test-results/',
@@ -92,7 +97,7 @@ export default defineConfig({
         headless: true,
         viewport: { width: 1280, height: 720 },
         baseURL,
-        trace: 'on-first-retry',
+        trace: 'retain-on-failure',
         video: 'off'
     },
     projects: [
@@ -103,6 +108,8 @@ export default defineConfig({
         {
             name: 'Desktop Chrome',
             testIgnore: apiTests,
+            grep: fullSuite ? undefined : /@smoke/,
+            fullyParallel: !fullSuite,
             use: {
                 ...devices['Desktop Chrome'],
             },
@@ -110,6 +117,8 @@ export default defineConfig({
         {
             name: 'Mobile Chrome',
             testIgnore: apiTests,
+            grep: fullSuite ? undefined : /@mobile-smoke/,
+            fullyParallel: !fullSuite,
             use: {
                 ...devices['Pixel 5'],
             },

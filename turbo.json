@@ -22,6 +22,7 @@
         },
         "test": {
             "dependsOn": ["build"],
+            "env": ["PLAYWRIGHT_FULL", "PLAYWRIGHT_CROSS_BROWSER"],
             "outputs": ["test-results/**", "playwright-report/**"],
             "passThroughEnv": ["CI", "PORT", "PLAYWRIGHT_*"]
         },

@@ -124,17 +124,19 @@ pnpm install --frozen-lockfile --store-dir .pnpm-store
 pnpm typecheck
 pnpm build
 PORT=4714 pnpm test
+PORT=4714 pnpm test:full
 
 # Install these once for the additional engines.
 pnpm -C apps/web exec playwright install firefox webkit
-PORT=4714 PLAYWRIGHT_CROSS_BROWSER=1 pnpm -C apps/web exec playwright test launch.spec.ts \
+PORT=4714 PLAYWRIGHT_FULL=1 PLAYWRIGHT_CROSS_BROWSER=1 pnpm -C apps/web exec playwright test launch.spec.ts \
   --project='Desktop Firefox' --project='Desktop WebKit' --project='Mobile WebKit' --workers=2
 
 # Repeat measured Chromium samples separately to limit competing browser load.
-PORT=4714 pnpm -C apps/web exec playwright test launch-performance.spec.ts --workers=1 --repeat-each=3
+PORT=4714 PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test launch-performance.spec.ts --workers=1 --repeat-each=3
 ```
 
-The normal required suite runs API, Desktop Chrome and Mobile Chrome. Extra engines are opt-in
+The normal required suite runs every API test and tagged Desktop Chrome / Mobile Chrome essentials;
+`pnpm test:full` runs all browser regressions. Extra engines are opt-in
 because existing touch tests use Chromium CDP; the portable launch scenarios are their test target.
 Every launched engine remains a real test with failures, not a swallowed exception.
 

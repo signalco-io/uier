@@ -95,7 +95,8 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --only-shell chromium
 
-      - name: End-to-end tests
+      - name: API and browser essentials
+        timeout-minutes: 5
         run: pnpm test
 
       - name: Upload Playwright results

@@ -53,7 +53,7 @@ async function expectSavedImage(page: Page) {
     await expect(thumbnail).toBeFocused();
 }
 
-test('owner checks installation, shares a review, replies and resolves; the named guest reopens its direct link', async ({ page, browser }, testInfo) => {
+test('owner checks installation, shares a review, replies and resolves; the named guest reopens its direct link', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page, browser }, testInfo) => {
     const origin = siteOrigin(testInfo);
     await signIn(page, uniqueEmail('launch-owner'));
     const projectId = await createProject(page, { urls: [origin], name: 'Launch review' });
@@ -135,7 +135,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
 test.describe('dark theme and reduced motion', () => {
     test.use({ colorScheme: 'dark', reducedMotion: 'reduce' });
 
-    test('text, rewrite and page feedback keep canonical routes, saved evidence and changed-anchor recovery', async ({ page }, testInfo) => {
+    test('text, rewrite and page feedback keep canonical routes, saved evidence and changed-anchor recovery', { tag: '@smoke' }, async ({ page }, testInfo) => {
         const origin = siteOrigin(testInfo);
         await signIn(page, uniqueEmail('launch-routes'));
         const projectId = await createProject(page, { urls: [origin], name: 'Launch routes' });
@@ -202,7 +202,7 @@ test.describe('dark theme and reduced motion', () => {
     });
 });
 
-test('recovery and keyboard movement preserve host styles, focus and reachable controls after viewport changes', async ({ page }, testInfo) => {
+test('recovery and keyboard movement preserve host styles, focus and reachable controls after viewport changes', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page }, testInfo) => {
     const origin = siteOrigin(testInfo);
     await signIn(page, uniqueEmail('launch-host'));
     const projectId = await createProject(page, { urls: [origin], name: 'Host isolation' });

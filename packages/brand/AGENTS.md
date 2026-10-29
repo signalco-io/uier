@@ -33,7 +33,7 @@ bundles it directly. It has no build step.
 3. Update `BRAND.md` so the rule and the value agree; it is the document people read.
 4. If the mark changed: `pnpm -C packages/brand icons`, copy `assets/favicon.svg` to
    `apps/web/public/favicon.svg`, commit the PNGs.
-5. Run the web app and check `/brand`; `pnpm test` covers the page and the assets.
+5. Run the web app and check `/brand`; `pnpm test:full` covers the page and the assets.
 
 ## Do not
 

@@ -153,10 +153,13 @@ test('private transitions scrub and trash without exporting private text, and vi
 test('hard deletion survives shared tombstone removal and clears the recorded page', async () => {
     const f = await fixture(); const comment = await source(f); await sync(f, comment);
     await removeProjectComment(f.project, f.actor, comment.id);
-    const tombstone = (await getCommentsStore().listSyncPending()).find(value => 'type' in value && value.type === 'tombstone' && value.commentId === comment.id)!;
+    // Other API fixtures can leave more than one page of pending sources in this worker.
+    const pending = () => getCommentsStore().listSyncPending({ after: `${comment.domain}:` });
+    const tombstone = (await pending()).find(value => 'type' in value && value.type === 'tombstone' && value.commentId === comment.id);
+    expect(tombstone).toBeDefined();
     const project = (await f.store.get<DbProject>(f.project.pk, f.project.id))!.doc;
-    expect(await discoverThreadIntegrationSync(project, tombstone, { adapters: [adapter] })).toBe(true);
-    expect((await getCommentsStore().listSyncPending()).some(value => 'type' in value && value.type === 'tombstone' && value.commentId === comment.id)).toBe(false);
+    expect(await discoverThreadIntegrationSync(project, tombstone!, { adapters: [adapter] })).toBe(true);
+    expect((await pending()).some(value => 'type' in value && value.type === 'tombstone' && value.commentId === comment.id)).toBe(false);
     const state = await sync(f, comment, { enqueue: false }); expect(state.tombstoned).toBe(true); expect(page(state).in_trash).toBe(true); expect(page(state).children).toHaveLength(0);
 });
 

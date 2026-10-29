@@ -51,12 +51,17 @@ When moving documentation, update relative links and links to section anchors ac
 | `pnpm dev` | website on http://localhost:4004 and the toolbar watch build on http://localhost:4005 |
 | `pnpm typecheck` | TypeScript in every package |
 | `pnpm build` | production build of the website and the toolbar |
-| `pnpm test` | Playwright e2e of `apps/web` against the built app (install the browser once: `pnpm -C apps/web exec playwright install --with-deps chromium`) |
+| `pnpm test` | All API tests and essential browser journeys against the built app (install the browser once: `pnpm -C apps/web exec playwright install --with-deps chromium`) |
+| `pnpm test:full` | Full Playwright regression suite, including every desktop/mobile browser spec |
 | `pnpm -C packages/brand icons` | re-render the PNG icon set from the mark |
 
 CI selects typecheck, build, e2e and a Vercel preview for app/workspace changes, and a
 `pulumi preview` for infrastructure changes. Fork PRs only run checks that need no secrets.
 The single required check is **CI OK**.
+
+Keep the default browser suite small: tag only critical journeys with `@smoke` (desktop) and
+`@mobile-smoke` (mobile). Feature permutations belong in `pnpm test:full`; authorization and
+validation belong in the API suite, which always runs. See [testing](docs/development.md#commands).
 
 ## Before you open a pull request
 

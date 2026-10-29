@@ -7,7 +7,7 @@ import { newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
 
-test('signed-out visitors are sent to sign in and come back afterwards', async ({ page }) => {
+test('signed-out visitors are sent to sign in and come back afterwards', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/app/account');
     await expect(page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Faccount$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
@@ -18,7 +18,7 @@ test('signed-out visitors are sent to sign in and come back afterwards', async (
     await expect(page).toHaveURL(/\/app\/account$/);
 });
 
-test('a sign-in link works once', async ({ page, browser }) => {
+test('a sign-in link works once', { tag: '@smoke' }, async ({ page, browser }) => {
     const email = uniqueEmail();
     await page.goto('/app/sign-in');
     await page.getByLabel('Email').fill(email);
