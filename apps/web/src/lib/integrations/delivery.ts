@@ -14,7 +14,7 @@ export const integrationFailureCode = (value: unknown) => typeof value === 'stri
 export const integrationBackoffMs = (failures: number) => Math.min(60 * 60 * 1000, 60 * 1000 * 2 ** Math.min(failures, 8));
 
 export class IntegrationControlError extends Error {
-    constructor(public readonly code: 'lease_lost' | 'authority_lost' | 'temporarily_unavailable' | 'projection_changed' | 'budget_exhausted' | 'uncertain_operation') {
+    constructor(public readonly code: 'lease_lost' | 'authority_lost' | 'temporarily_unavailable' | 'projection_changed' | 'budget_exhausted' | 'uncertain_operation' | 'backfill_destination_changed') {
         super('The integration attempt must wait or be reconciled.');
         this.name = 'IntegrationControlError';
     }
@@ -58,6 +58,11 @@ function connectionHash(connection: IntegrationConnection) {
         grantId: connection.grantId, config: connection.config, createdAt: connection.createdAt, updatedAt: connection.updatedAt }));
 }
 
+function allowsMode(connection: IntegrationConnection, mode: IntegrationDeliveryContext['mode']) {
+    return connection.status === 'connected' || (mode === 'cleanup' && connection.provider === 'github'
+        && connection.status === 'paused' && connection.statusCode === 'public_confirmation_required');
+}
+
 /** One connection's bounded leased attempt. No provider receives private feedback during cleanup. */
 export async function processIntegrationDelivery(candidate: IntegrationSync, baseUrl: string, adapter: IntegrationAdapter,
     options: DeliveryOptions = {}) {
@@ -97,13 +102,19 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             return;
         }
         const { connection, project, source, actor } = snapshot;
-        if (!adapter.isConfigured() || !connection.enabled || connection.status !== 'connected'
+        const mode = ledger.deletion || !source || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
+        if (ledger.reconcileDestinationRevision !== undefined && ledger.reconcileDestinationRevision !== connection.destinationRevision
+            && !ledger.attempt && mode === 'sync' && (ledger.sourceRequestedVersion ?? -1) <= ledger.processedVersion) {
+            await finish({ status: 'suppressed', active: false, processedRequestRevision: ledger.requestRevision,
+                lastCode: 'backfill_destination_changed' });
+            return;
+        }
+        if (!adapter.isConfigured() || !connection.enabled || !allowsMode(connection, mode)
             || (connection.pausedUntil && Date.parse(connection.pausedUntil) > now)) {
             await finish({ status: 'waiting', lastCode: !adapter.isConfigured() ? 'not_configured' : !connection.enabled ? 'turned_off' : connection.statusCode,
                 nextAttemptAt: connection.pausedUntil && Date.parse(connection.pausedUntil) > now ? connection.pausedUntil : new Date(now + 60_000).toISOString() });
             return;
         }
-        const mode = ledger.deletion || !source || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
         if (!ledger.deletion && source && (source.syncVersion ?? 0) < ledger.requestedVersion) {
             await finish({ status: 'waiting', lastCode: 'source_version_behind', nextAttemptAt: new Date(now + 60_000).toISOString() });
             return;
@@ -119,11 +130,17 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             ledger = retained.doc;
             const latest = await authority(ledger, store, comments);
             if (!latest) throw new IntegrationControlError('authority_lost');
-            if (!latest.connection.enabled || latest.connection.status !== 'connected' || !adapter.isConfigured())
+            if (!latest.connection.enabled || !allowsMode(latest.connection, mode) || !adapter.isConfigured())
                 throw new IntegrationControlError('temporarily_unavailable');
             if (connectionHash(latest.connection) !== connectionHash(connection)) throw new IntegrationControlError('projection_changed');
             if (latest.connection.pausedUntil && Date.parse(latest.connection.pausedUntil) > clock()) throw new IntegrationControlError('budget_exhausted');
             const latestMode = ledger.deletion || !latest.source || latest.source.private || isPrivateAppFeedback(latest.source) ? 'cleanup' : 'sync';
+            // Old uncertain creates may be reconciled, but clearing their receipt does not grant
+            // permission to export an old forced selection into a different destination.
+            if (write && latestMode === 'sync' && !ledger.attempt && ledger.reconcileDestinationRevision !== undefined
+                && ledger.reconcileDestinationRevision !== latest.connection.destinationRevision
+                && (ledger.sourceRequestedVersion ?? -1) <= ledger.processedVersion)
+                throw new IntegrationControlError('backfill_destination_changed');
             if (latestMode !== mode || (write && mode === 'sync' && ((latest.source?.syncVersion ?? 0) !== sourceVersion
                 || projectHash(latest.project) !== initialProjectHash))) throw new IntegrationControlError('projection_changed');
             // The asynchronous authority reads can themselves outlast the remaining lease/budget.
@@ -174,6 +191,8 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         try {
             if (error instanceof IntegrationControlError) {
                 if (error.code === 'authority_lost') await finish({ status: 'suppressed', active: false, lastCode: error.code });
+                else if (error.code === 'backfill_destination_changed') await finish({ status: 'suppressed', active: false,
+                    processedRequestRevision: ledger.requestRevision, lastCode: error.code });
                 else if (error.code === 'uncertain_operation') await finish({ status: 'ambiguous', active: false, lastCode: error.code });
                 else await finish({ status: 'waiting', active: true, lastCode: error.code, nextAttemptAt: new Date(clock() + 60_000).toISOString() });
             } else {

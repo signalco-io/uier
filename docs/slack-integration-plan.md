@@ -1,6 +1,6 @@
 # Slack notifications: implementation plan
 
-Status: plan, not shipped. Paths are repository-relative. Slack facts below were checked against official documentation on 2026-10-28. Proposed behavior, budgets and phases are uier design decisions, not claims about an implemented integration.
+Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 
 This adapter depends on the shared integration layer in [the Notion plan, section 2.1](notion-integration-plan.md#21-expansion-to-other-services). It can ship independently of Notion's later phases. [GitHub](github-integration-plan.md) and [Linear](linear-integration-plan.md) are issue integrations; Slack is a notification destination.
 

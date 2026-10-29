@@ -45,6 +45,33 @@ export async function getIntegrationConnection(project: DbProject, provider: Int
         && connection.workspaceId === project.workspaceId && connection.projectId === project.id ? connection : null;
 }
 
+/** A pause retains the destination and uncertain delivery identities for safe reconciliation. */
+export async function setIntegrationEnabled(project: DbProject, provider: IntegrationProviderId, userId: string, enabled: boolean,
+    store = getAppStore()) {
+    const member = await getMember(project.workspaceId, userId);
+    const currentProject = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
+    if (member?.role !== 'admin' || currentProject?.type !== 'project' || currentProject.workspaceId !== project.workspaceId
+        || currentProject.id === PUBLIC_PROJECT_ID) throw new IntegrationAccessError();
+    const connection = await getIntegrationConnection(currentProject, provider, store);
+    if (!connection) throw new Error('Integration is not connected');
+    if (enabled && (!configuredIntegrationAdapters.find(adapter => adapter.provider === provider)?.isConfigured()
+        || connection.status !== 'connected')) throw new Error('Reconnect this integration first');
+    const updated = await updateDoc<IntegrationConnection>(connection.pk, connection.id, current => {
+        if (current.destinationRevision !== connection.destinationRevision || current.grantId !== connection.grantId
+            || current.connectedBy !== connection.connectedBy || current.status !== connection.status)
+            throw new Error('Integration connection changed');
+        return { ...current, enabled, updatedAt: new Date().toISOString() };
+    }, store);
+    if (enabled) {
+        // Existing attempts remain intact. The worker rechecks authority before every call.
+        for (const ledger of await store.query<IntegrationSync>({ type: `${provider}-sync`, pk: `${provider}:${project.id}`,
+            where: { connectionId: connection.id, active: true }, limit: 1000 }))
+            await updateDoc<IntegrationSync>(ledger.pk, ledger.id, current => ({ ...current,
+                nextAttemptAt: new Date().toISOString() }), store);
+    }
+    return updated;
+}
+
 /** Disable before removing a pointer; stale workers still recheck the current row. */
 export async function disconnectIntegration(project: DbProject, provider: IntegrationProviderId, store = getAppStore()) {
     const connection = await getIntegrationConnection(project, provider, store);

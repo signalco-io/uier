@@ -22,6 +22,8 @@ export type DocQuery<TType extends string> = {
     /** Bounded worker scans; absent preserves existing callers' complete-list behavior. */
     limit?: number;
     orderBy?: 'id' | 'nextAttemptAt';
+    /** Exclusive cursor for ascending id order. */
+    afterId?: string;
     /** Only due delivery rows. Always parameterized, never raw query text. */
     dueBefore?: string;
 };
@@ -68,12 +70,14 @@ function withoutSystemProperties<T>(resource: Record<string, unknown>): T {
 
 const fieldPattern = /^[A-Za-z][A-Za-z0-9]*$/;
 
-function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefore?: string }) {
+function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefore?: string; afterId?: string }) {
     if (input.limit !== undefined && (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 1000))
         throw new Error('Invalid document query limit');
     if (input.orderBy !== undefined && input.orderBy !== 'id' && input.orderBy !== 'nextAttemptAt')
         throw new Error('Invalid document query order');
     if (input.dueBefore !== undefined && !Number.isFinite(Date.parse(input.dueBefore))) throw new Error('Invalid document query deadline');
+    if (input.afterId !== undefined && (input.orderBy !== 'id' || typeof input.afterId !== 'string'
+        || input.afterId.length < 1 || input.afterId.length > 256 || /[\p{Cc}]/u.test(input.afterId))) throw new Error('Invalid document query cursor');
 }
 
 function createCosmosAppStore(): AppStore {
@@ -147,8 +151,8 @@ function createCosmosAppStore(): AppStore {
                 throw error;
             }
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore }: DocQuery<T['type']>) {
-            validateQueryBounds({ limit, orderBy, dueBefore });
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId }: DocQuery<T['type']>) {
+            validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const conditions = ['c.type = @type'];
             const parameters: SqlParameter[] = [{ name: '@type', value: type }];
             if (pk) {
@@ -164,6 +168,10 @@ function createCosmosAppStore(): AppStore {
             if (dueBefore !== undefined) {
                 conditions.push('c.nextAttemptAt <= @dueBefore');
                 parameters.push({ name: '@dueBefore', value: dueBefore });
+            }
+            if (afterId !== undefined) {
+                conditions.push('c.id > @afterId');
+                parameters.push({ name: '@afterId', value: afterId });
             }
             if (limit !== undefined) parameters.push({ name: '@limit', value: limit });
 
@@ -251,16 +259,20 @@ function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore }: DocQuery<T['type']>) {
-            validateQueryBounds({ limit, orderBy, dueBefore });
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId }: DocQuery<T['type']>) {
+            validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
             let docs = pks
                 .flatMap(key => [...partition(key).values()].map(entry => entry.doc))
-                .filter(doc => doc.type === type
+                .filter(doc => doc.type === type && (afterId === undefined || doc.id > afterId)
                     && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value)
                     && (dueBefore === undefined || (typeof (doc as Record<string, unknown>).nextAttemptAt === 'string'
                         && ((doc as Record<string, unknown>).nextAttemptAt as string) <= dueBefore)));
-            if (orderBy) docs = docs.sort((a, b) => String((a as Record<string, unknown>)[orderBy] ?? '').localeCompare(String((b as Record<string, unknown>)[orderBy] ?? '')));
+            if (orderBy) docs = docs.sort((a, b) => {
+                const left = String((a as Record<string, unknown>)[orderBy] ?? '');
+                const right = String((b as Record<string, unknown>)[orderBy] ?? '');
+                return orderBy === 'id' ? (left < right ? -1 : left > right ? 1 : 0) : left.localeCompare(right);
+            });
             return (limit === undefined ? docs : docs.slice(0, limit)).map(doc => structuredClone(doc) as T);
         }
     };

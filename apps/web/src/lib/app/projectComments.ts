@@ -21,6 +21,8 @@ import { projectOrigins } from './projects';
 import { KnownPageLinks } from '../../knownPages';
 import { isNotificationParticipant, notificationPk, type NotificationSubscription } from '../notifications/preferences';
 import { getAppStore } from './store';
+import { loadIntegrationLinks } from '../integrations/links';
+import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
 
 /** The signed-in app user as the actor on a project of the current workspace */
 export function appActor(context: AppContext): ProjectActor {
@@ -38,6 +40,7 @@ export type ProjectCommentMessage = {
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    integrationLinks?: ExternalFeedbackLink[];
     source: FeedbackSource;
     following?: boolean;
     activity?: ReadActivity;
@@ -137,7 +140,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string) {
     const actor = appActor(context);
     const comments = await listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined);
-    const [names, members, reads] = await Promise.all([authorNames(comments), listProjectMembers(project.workspaceId, project.id), loadReadSequences(`project:${project.id}`, `user:${context.user.id}`)]);
+    const [names, members, reads, integrationLinks] = await Promise.all([authorNames(comments), listProjectMembers(project.workspaceId, project.id),
+        loadReadSequences(`project:${project.id}`, `user:${context.user.id}`), loadIntegrationLinks(project, actor, comments)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
     const views = comments
         .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id)))
@@ -145,7 +149,7 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
     const subscriptions = await getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } });
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));
     const participated = new Set(comments.filter(comment => isNotificationParticipant(comment, `user:${context.user.id}`)).map(comment => comment.id));
-    return views.map(view => ({ ...view, following: following.get(view.id) ?? participated.has(view.id) }));
+    return views.map(view => ({ ...view, following: following.get(view.id) ?? participated.has(view.id), integrationLinks: integrationLinks.get(view.id) }));
 }
 
 export type ProjectUsage = {

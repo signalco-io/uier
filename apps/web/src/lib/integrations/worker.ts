@@ -4,6 +4,7 @@ import { discoverIntegrationSync, type DiscoveryOptions } from './discovery';
 import { processIntegrationDelivery, type DeliveryOptions } from './delivery';
 import { isIntegrationProvider, type IntegrationProviderId, type IntegrationSync } from './model';
 import { configuredIntegrationAdapters, integrationRegistry } from './registry';
+import { queueIntegrationBackfills } from './backfill';
 
 export const INTEGRATION_RUN_BUDGET_MS = 8 * 60_000;
 export type IntegrationWorkerOptions = DiscoveryOptions & Pick<DeliveryOptions, 'now' | 'exportFeedback'> & { budgetMs?: number };
@@ -30,6 +31,21 @@ export async function runIntegrationWorker(baseUrl: string, options: Integration
         let checked = 0;
         let calls = 0;
         let deferred = 0;
+        try {
+            if (adapter.maintenance && now() < providerDeadline) {
+                const maintenance = await adapter.maintenance({ deadline: Math.min(providerDeadline, now() + Math.min(30_000, allowance / 4)),
+                    maxCalls: Math.min(20, adapter.maxCalls ?? 100) });
+                calls += maintenance.calls;
+                deferred += maintenance.deferred ?? 0;
+            }
+        } catch { deferred++; }
+        try {
+            if (now() < providerDeadline) {
+                const backfill = await queueIntegrationBackfills(adapter.provider, { store, comments, now,
+                    deadline: Math.min(providerDeadline, now() + Math.min(15_000, allowance / 4)) });
+                deferred += backfill.deferred;
+            }
+        } catch { deferred++; }
         let pending: IntegrationSync[];
         try {
             pending = (await store.query<IntegrationSync>({ type: `${adapter.provider}-sync`, where: { active: true },

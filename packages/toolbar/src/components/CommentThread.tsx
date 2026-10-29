@@ -101,6 +101,12 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
                 )}
             </Stack>
             <CommentAnchorDetails comment={commentItem} />
+            {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label="Connected services" className="flex flex-wrap gap-3 text-xs">
+                {commentItem.integrationLinks.map(link => <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
+                    className="text-muted-foreground underline underline-offset-2 hover:text-foreground">
+                    Open in {({ notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack' } as Record<string, string>)[link.provider] ?? link.provider}
+                </a>)}
+            </nav>}
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
         </Stack>
     );

@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
+import { generateKeyPairSync } from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 4004);
 const baseURL = `http://127.0.0.1:${PORT}`;
@@ -10,6 +11,14 @@ const baseURL = `http://127.0.0.1:${PORT}`;
 const anthropicStubPort = PORT + 1000;
 const anthropicStubUrl = `http://127.0.0.1:${anthropicStubPort}`;
 const anthropicStubApiKey = 'e2e-stub-key';
+const notionStubUrl = `http://127.0.0.1:${PORT + 2000}`;
+const githubStubUrl = `http://127.0.0.1:${PORT + 3000}`;
+const linearStubUrl = `http://127.0.0.1:${PORT + 4000}`;
+const slackStubUrl = `http://127.0.0.1:${PORT + 5000}`;
+const testTokenKey = Buffer.alloc(32, 93).toString('base64');
+// Generated only for this local test process; never a registered GitHub App private key.
+const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } }).privateKey;
 
 // Comments API tests (no browser) run once, not per device
 const apiTests = /\.api\.spec\.ts$/;
@@ -20,6 +29,14 @@ export default defineConfig({
     testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
     outputDir: 'test-results/',
     webServer: [
+        { command: 'node e2e/support/notionStub.ts', url: notionStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 2000), UIER_NOTION_STUB_APP_BASE_URL: baseURL } },
+        { command: 'node e2e/support/githubStub.ts', url: githubStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 3000), UIER_GITHUB_PRIVATE_KEY: githubPrivateKey, UIER_GITHUB_STUB_APP_BASE_URL: baseURL } },
+        { command: 'node e2e/support/linearStub.ts', url: linearStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 4000) } },
+        { command: 'node e2e/support/slackStub.ts', url: slackStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 5000) } },
         {
             command: 'node e2e/support/anthropicStub.ts',
             url: anthropicStubUrl,
@@ -53,6 +70,17 @@ export default defineConfig({
                 // Rewrite suggestions go to the stub above, never to the real API
                 ANTHROPIC_API_KEY: anthropicStubApiKey,
                 ANTHROPIC_BASE_URL: anthropicStubUrl,
+                NOTION_CLIENT_ID: 'notion-test-client', NOTION_CLIENT_SECRET: 'notion-test-secret', NOTION_TOKEN_KEY: testTokenKey,
+                NOTION_API_BASE_URL: notionStubUrl, NOTION_OAUTH_AUTHORIZE_URL: `${notionStubUrl}/v1/oauth/authorize`, NOTION_REQUEST_INTERVAL_MS: '0',
+                UIER_GITHUB_APP_ID: '999', UIER_GITHUB_APP_SLUG: 'uier-test', UIER_GITHUB_CLIENT_ID: 'Iv1.uier-test',
+                UIER_GITHUB_CLIENT_SECRET: 'test-client-secret', UIER_GITHUB_SETUP_KEY: testTokenKey,
+                UIER_GITHUB_WEBHOOK_SECRET: 'test-webhook-secret', UIER_GITHUB_PRIVATE_KEY: githubPrivateKey,
+                UIER_GITHUB_API_BASE_URL: githubStubUrl, UIER_GITHUB_OAUTH_BASE_URL: githubStubUrl,
+                LINEAR_CLIENT_ID: 'linear-test-client', LINEAR_CLIENT_SECRET: 'linear-test-secret', LINEAR_TOKEN_KEY: testTokenKey,
+                LINEAR_API_BASE_URL: `${linearStubUrl}/graphql`, LINEAR_OAUTH_AUTHORIZE_URL: `${linearStubUrl}/oauth/authorize`,
+                LINEAR_OAUTH_TOKEN_URL: `${linearStubUrl}/oauth/token`, LINEAR_OAUTH_REVOKE_URL: `${linearStubUrl}/oauth/revoke`,
+                SLACK_CLIENT_ID: 'slack-test-client', SLACK_CLIENT_SECRET: 'slack-test-secret', SLACK_APP_ID: 'ATESTAPP', SLACK_TOKEN_KEY: testTokenKey,
+                SLACK_API_BASE_URL: `${slackStubUrl}/api/`, SLACK_OAUTH_AUTHORIZE_URL: `${slackStubUrl}/oauth/authorize`,
             },
         },
     ],

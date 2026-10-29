@@ -76,8 +76,7 @@ assignments and the OIDC subjects CI uses.
 DKIM2/DMARC DNS records from `verificationRecords` when present. The live 2026-03-18 API omits
 DMARC even though it reports a verification state; `emailDns.ts` supplies the explicit owner policy
 `_dmarc.uier.io TXT "v=DMARC1; p=reject"` only in that case. No reporting mailbox is assumed.
-Keep the missing/malformed checks for the other records. Targeted regression check after build:
-`node --test tests/emailDns.test.mjs`. The existing Azure-managed domain, communication
+Keep the missing/malformed checks for the other records. Regression checks after build: `pnpm test` covers email DNS and the integration credential-map boundary. The existing Azure-managed domain, communication
 service name, connection string and sender remain. DNS preflight found no apex SPF or `_dmarc` TXT
 on 28 October 2026; recheck authoritative DNS and import/merge any externally created policy before
 applying. Never add a duplicate SPF or DMARC record.
@@ -126,3 +125,33 @@ operation-id correlation gate remain; neither is satisfied by subscription provi
 `Verified` before either linkedDomains or sender changes. Run `node --test tests/*.test.mjs` after
 building for DNS omission and strict cutover guard coverage. Do not enable auto-merge on the cutover
 PR while its required Azure state/preview gate is failing.
+
+## Connected service credentials
+
+`src/integrations.ts` adds only production Vercel environment variables and four stable protected
+`RandomBytes` resources for Notion, Linear, Slack and temporary GitHub setup encryption. Keep the
+logical resource names, 32-byte lengths and protection unchanged. They remain registered while a
+provider is disabled or an explicit key override is active. Never replace a key to fix a preview.
+
+The optional GitHub repository secret `UIER_INTEGRATION_ENV` is passed only to the Pulumi job by
+`ci.yml` / `deploy.yml` through `pulumi_reusable.yml`. It must be a JSON string map of the strict
+provider credential / rotation allowlist in `src/integrations.ts`. The program rejects unknown names,
+local endpoint overrides, empty/non-string values and invalid or colliding key ids without echoing
+submitted names or values. All supplied values are Pulumi secrets and production-only, retrievable encrypted Vercel
+variables (`sensitive: false`). The scheduled worker pulls production variables; write-only Sensitive
+values are omitted from that pull and would break delivery. Authorized Vercel members and the worker
+can retrieve these server-only values. Never log or upload the ephemeral pulled environment file. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
+
+No secret is needed to generate the four encryption keys. Each starts at `k1`. An explicit key
+rotation requires the current key and id together; a retained previous key and id are also paired,
+with different current/previous ids. Retain the override until old ciphertext and in-flight setup
+receipts no longer need it. Removing provider credentials disables that provider on the next deploy;
+it does not revoke external grants or clean up external content. See
+[connected service setup](../docs/integration-setup.md) for registration, activation and key rotation.
+
+Review the CI preview before merge: this change may add only the integration Vercel variables and
+four protected random-key resources. Existing databases, backups, domains, email resources, identities
+and protection must have no unrelated changes. Do not apply infrastructure locally or bypass a
+failed protection check.
+
+

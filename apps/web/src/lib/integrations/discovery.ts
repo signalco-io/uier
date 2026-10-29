@@ -7,7 +7,7 @@ import type { DbComment, DbSyncTombstone } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { integrationTargets } from './syncSignal';
 import { integrationRegistry } from './registry';
-import type { IntegrationAdapter, IntegrationProviderId, IntegrationSync } from './model';
+import type { IntegrationAdapter, IntegrationConnection, IntegrationProviderId, IntegrationSync } from './model';
 
 export const integrationPk = (provider: IntegrationProviderId, projectId: string) => `${provider}:${projectId}`;
 export const integrationSyncId = (provider: IntegrationProviderId, connectionId: string, projectId: string, threadId: string) =>
@@ -22,7 +22,8 @@ export async function integrationProject(projectId: string, store: AppStore = ge
 
 /** Idempotent outbox fan-out. Forced requests have a stable id so a backfill crash can replay. */
 export async function enqueueIntegrationSync(project: DbProject, provider: IntegrationProviderId, connectionId: string,
-    threadId: string, version: number, options: { deletion?: IntegrationSync['deletion']; cleanup?: boolean; requestId?: string; store?: AppStore; now?: number } = {}) {
+    threadId: string, version: number, options: { deletion?: IntegrationSync['deletion']; cleanup?: boolean; requestId?: string;
+        destinationRevision?: number; store?: AppStore; now?: number } = {}) {
     const store = options.store ?? getAppStore();
     if (project.id === PUBLIC_PROJECT_ID || !Number.isSafeInteger(version) || version < 0) throw new Error('Invalid integration source');
     const next: IntegrationSync = {
@@ -31,6 +32,8 @@ export async function enqueueIntegrationSync(project: DbProject, provider: Integ
         workspaceId: project.workspaceId, projectId: project.id, connectionId, threadId,
         requestedVersion: version, processedVersion: -1, requestRevision: 1, processedRequestRevision: 0,
         ...(options.requestId ? { reconcileRequestId: options.requestId } : {}),
+        ...(options.destinationRevision !== undefined ? { reconcileDestinationRevision: options.destinationRevision } : {}),
+        sourceRequestedVersion: options.requestId ? -1 : version,
         ...(options.deletion ? { deletion: options.deletion } : {}), tombstoned: false,
         active: true, failures: 0, nextAttemptAt: new Date(options.now ?? Date.now()).toISOString(), status: 'queued', state: {}
     };
@@ -38,14 +41,20 @@ export async function enqueueIntegrationSync(project: DbProject, provider: Integ
     const saved = await updateDoc<IntegrationSync>(next.pk, next.id, current => {
         if (current.provider !== provider || current.connectionId !== connectionId || current.projectId !== project.id
             || current.workspaceId !== project.workspaceId || current.threadId !== threadId) throw new Error('Integration ledger identity mismatch');
-        const changed = version > current.requestedVersion || (options.requestId !== undefined && options.requestId !== current.reconcileRequestId)
+        const previousSourceVersion = current.sourceRequestedVersion ?? (current.reconcileRequestId ? -1 : current.requestedVersion);
+        const changed = version > current.requestedVersion || (!options.requestId && version > previousSourceVersion)
+            || (options.requestId !== undefined && options.requestId !== current.reconcileRequestId)
             || (options.deletion !== undefined && (!current.deletion || options.deletion.version > current.deletion.version));
+        const cleanupChanged = changed && (options.deletion !== undefined || options.cleanup === true);
         return { ...current, requestedVersion: Math.max(current.requestedVersion, version),
+            ...(cleanupChanged ? { status: 'queued' as const, failures: 0, nextAttemptAt: next.nextAttemptAt } : {}),
             ...(options.deletion && (!current.deletion || options.deletion.version >= current.deletion.version) ? { deletion: options.deletion } : {}),
             ...(options.requestId ? { reconcileRequestId: options.requestId } : {}),
+            ...(options.destinationRevision !== undefined ? { reconcileDestinationRevision: options.destinationRevision } : {}),
+            sourceRequestedVersion: options.requestId ? previousSourceVersion : Math.max(previousSourceVersion, version),
             requestRevision: current.requestRevision + (changed ? 1 : 0),
             // A discovery retry must not bypass an explicit ambiguity/failure review.
-            active: changed && (options.deletion !== undefined || options.cleanup) ? true
+            active: cleanupChanged ? true
                 : current.status === 'failed' || current.status === 'ambiguous' ? false
                 : current.active || changed || current.processedVersion < version };
     }, store);
@@ -124,12 +133,17 @@ export async function discoverIntegrationSync(options: DiscoveryOptions = {}) {
 /** Explicitly selected provider only. No shared pending flag is changed by a backfill. */
 export async function enqueueIntegrationBackfill(project: DbProject, provider: IntegrationProviderId, connectionId: string,
     sources: readonly DbComment[], requestId: string = randomUUID(), store: AppStore = getAppStore()) {
-    const binding = project.integrations?.[provider];
+    const latest = (await store.get<DbProject>(project.pk, project.id))?.doc;
+    const binding = latest?.integrations?.[provider];
     if (binding?.connectionId !== connectionId) throw new Error('Integration backfill binding changed');
+    const connection = (await store.get<IntegrationConnection>(project.pk, connectionId))?.doc;
+    if (!connection || connection.type !== `${provider}-connection` || connection.workspaceId !== project.workspaceId
+        || connection.projectId !== project.id) throw new Error('Integration backfill connection changed');
     let queued = 0;
     for (const source of sources) {
         if (source.projectId !== project.id || source.domain !== `project:${project.id}` || source.private || isPrivateAppFeedback(source)) continue;
-        await enqueueIntegrationSync(project, provider, connectionId, source.id, source.syncVersion ?? 0, { store, requestId });
+        await enqueueIntegrationSync(project, provider, connectionId, source.id, source.syncVersion ?? 0,
+            { store, requestId, destinationRevision: connection.destinationRevision });
         queued++;
     }
     return { requestId, queued };

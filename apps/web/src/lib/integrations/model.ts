@@ -29,7 +29,8 @@ export type IntegrationConnection = AppDoc & {
     createdAt: string;
     updatedAt: string;
     lastSyncedAt?: string;
-    backfill?: { id: string; threadIds: string[]; queued: number; requestedAt: string; done: boolean };
+    backfill?: { id: string; threadIds: string[]; queued: number; requestedAt: string; done: boolean; destinationRevision?: number; canceled?: boolean };
+    backfillPending?: boolean;
 };
 
 /** Provider metadata only: ids, hashes, cursors and booleans. Never exported text or credentials. */
@@ -60,6 +61,9 @@ export type IntegrationSync = AppDoc & {
     requestRevision: number;
     processedRequestRevision: number;
     reconcileRequestId?: string;
+    reconcileDestinationRevision?: number;
+    /** Independent source intent prevents a forced backfill from masking later normal changes. */
+    sourceRequestedVersion?: number;
     deletion?: { version: number; deletedAt: string };
     tombstoned: boolean;
     active: boolean;
@@ -110,6 +114,8 @@ export type IntegrationAdapter = {
     /** A maximum; the fair worker allowance can be smaller. */
     maxRunMs?: number;
     maxCalls?: number;
+    /** Provider access/schema maintenance, without any feedback projection. */
+    maintenance?(options: { deadline: number; maxCalls: number }): Promise<{ calls: number; deferred?: number }>;
     /** Must reconcile ledger.attempt before planning another create, even during cleanup. */
     deliver(context: IntegrationDeliveryContext): Promise<IntegrationResult>;
     externalLink?(connection: IntegrationConnection, ledger: IntegrationSync): string | null;

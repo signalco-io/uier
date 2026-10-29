@@ -181,6 +181,40 @@ export default function PrivacyPolicyPage() {
                 visitor cookie when present, starts a new identity. The toolbar refreshes comments while it is in the foreground.
             </p>
 
+            <h3>Optional connected services</h3>
+            <p>
+                A workspace admin can connect a project to Notion, GitHub, Linear or Slack and choose
+                its destination. Shared feedback can then be copied to that service. Private feedback
+                and the public showcase are excluded. Notion pages and GitHub or Linear issues can
+                include feedback, replies, names, assignment, status, page links and reproduction
+                context. Notion can receive saved screenshots; Linear screenshot uploads are optional.
+                GitHub uses protected links to screenshots in uier. Slack receives bounded excerpts,
+                project and page context, links and optional reply-count or status summaries, without
+                screenshot files. People with access to the chosen destination can read these copies
+                under the service&rsquo;s own permissions.
+            </p>
+            <p>
+                We store destination identifiers, connection settings, encrypted authorization grants
+                and delivery metadata in Cosmos DB. A shared installation grant may serve several
+                projects in the same uier workspace. Delivery records retain identifiers, hashes,
+                progress and recovery evidence rather than feedback text or image bytes. Scheduled
+                GitHub-hosted runners temporarily process the authorized feedback and credentials
+                needed to deliver it; logs exclude that content and those credentials. These services
+                are available only when configured and authorized. Slack distribution approval is
+                an additional activation requirement.
+            </p>
+            <p>
+                Making feedback private or deleting it schedules cleanup of known copies while the
+                connection remains enabled and authorized. Delivery and cleanup run in the background;
+                an in-flight request or unknown send can need manual reconciliation. Provider history,
+                trash, retained files, notifications, human replies and copies made by others can
+                remain. Disconnecting or turning off a connection stops further delivery and cleanup;
+                it does not delete external copies. Disconnect removes an unused grant, but a grant
+                still used by another project remains. Recovery identifiers are retained until the
+                associated records are removed. Removing an app in the provider and requesting
+                removal of retained external data are separate actions governed by that service.
+            </p>
+
             <h3>Optional reply notifications</h3>
             <p>
                 Authorized project owners and admins receive new feedback by email. Members follow threads they post in and can
@@ -304,6 +338,7 @@ export default function PrivacyPolicyPage() {
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
                 <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
                 <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
+                <li>Connected services chosen by an admin: Notion, GitHub, Linear and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
