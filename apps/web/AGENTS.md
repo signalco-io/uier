@@ -107,6 +107,15 @@ started (`#get-started`), pricing (`#pricing`, `LandingPricing`) and questions (
 pricing copy, the FAQ keyboard behaviour and the footer line through the brand constants; update
 the test when you change those on purpose.
 
+## Integration pages
+
+Public `/integrations` and `/integrations/[provider]` pages use the shared marketing building
+blocks and `src/lib/integrations/catalog.ts` for actual provider capabilities and setup steps.
+Listing illustrations come from `scripts/render-integration-listings.mjs`, existing brand vectors
+and Geist fonts. They contain no customer data and are labelled illustrations. Keep permissions,
+privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
+`e2e/integration-pages.spec.ts` covers the public guides, support/setup links and accessibility.
+
 ## Footer
 
 Every public page gets `SiteFooter` from the marketing layout; pages do not render their own.
