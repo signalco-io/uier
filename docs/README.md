@@ -29,6 +29,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Review notifications](review-notifications.md): email delivery, retention, scheduler and production acceptance gates.
 - [Integration setup](integration-setup.md): provider registration, production credentials, activation and manual acceptance tasks.
 - [Integration activation](integration-activation.md): application ownership, deployment receipts and controlled live acceptance evidence.
+- [Integration publication](integration-publication.md): public setup materials, directory drafts and provider review gates.
 - [Integration operations](integration-operations.md): inspect stopped delivery and explicitly reconcile uncertain writes.
 - [MVP launch verification](mvp-launch-verification.md): coverage, measurements and outstanding hosted/device checks.
 - [Pinned toolbar bundles](operations.md#pinned-toolbar-bundles): retention, API compatibility and rollback builds.

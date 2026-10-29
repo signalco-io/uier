@@ -6,6 +6,7 @@ export const KnownPages = {
     Pricing: '/#pricing',
     Faq: '/#faq',
     Brand: '/brand',
+    Integrations: '/integrations',
     OpenSource: '/open-source',
     Security: '/security',
     Status: '/status',
@@ -42,6 +43,7 @@ export const KnownPages = {
 
 /** Pages with a parameter */
 export const KnownPageLinks = {
+    integration: (provider: string) => `/integrations/${encodeURIComponent(provider)}`,
     team: (id: string) => `/app/teams/${encodeURIComponent(id)}`,
     member: (id: string) => `/app/users/${encodeURIComponent(id)}`,
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,

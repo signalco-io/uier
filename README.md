@@ -121,6 +121,7 @@ are documented in [Infrastructure and operations](docs/operations.md#required-gi
 | [API reference](docs/api.md) | Work with review and comments APIs or toolbar delivery |
 | [Coding tool access (MCP)](docs/mcp.md) | Connect a coding tool to feedback: sign in from Claude Code, or use an access token |
 | [Connected services](docs/integrations.md) | Mirror feedback to Notion, GitHub or Linear, or send Slack notifications |
+| [Integration setup guides](https://uier.io/integrations) · [Publication status](docs/integration-publication.md) | Connect a project or inspect provider directory review gates |
 | [Brand guide](packages/brand/BRAND.md) · [Live brand page](https://uier.io/brand) | Work with the uier identity and shared tokens |
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |
 | [Screenshot storage](docs/screenshot-storage.md) | Private Blob images, direct access and migration |
