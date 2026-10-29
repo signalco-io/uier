@@ -134,8 +134,9 @@ marker while outstanding invitations it invalidates remain. Keep backup retentio
 
 ## Verification and operations
 
-Run `pnpm typecheck`, `pnpm build`, `pnpm test`. Focused coverage is in `teams.api.spec.ts` and
-`teams.spec.ts`, alongside the existing workspace/users/review/notifications/MCP suites. Browser
+Run `pnpm typecheck`, `pnpm build`, `pnpm test`. Use `pnpm test:full` for the team browser regressions.
+Focused coverage is in `teams.api.spec.ts` and `teams.spec.ts`, alongside the existing
+workspace/users/review/notifications/MCP suites. Browser
 coverage exercises team-only invitation, revocation, archive/empty restoration, safe tenant
 boundaries, light/dark axe scans, keyboard dialog focus and Mobile Chrome's 375 px layout.
 
