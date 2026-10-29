@@ -465,7 +465,7 @@ test('untrusted guest labels stay bounded, escaped, labeled and outside links', 
     expect(sent[0]!.subject).toContain(`uier <img src=x> https://evil.example/${'x'.repeat(21)}… (guest)`);
     expect(sent[0]!.subject).not.toMatch(/[\r\n]/);
     expect(sent[0]!.html).toContain('&lt;img src=x&gt;');
-    expect(sent[0]!.html).not.toContain('<img');
+    expect(sent[0]!.html).not.toContain('<img src=x');
     expect(sent[0]!.html).not.toMatch(/<a[^>]*>[^<]*evil/);
 });
 

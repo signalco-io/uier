@@ -47,5 +47,6 @@ export function digestContent(project: DbProject, comment: DbComment, recipient:
         ? actionLines[0]!
         : `${batch.length} updates${actors > 1 ? ` from ${actors} people` : ''} on ${place}`;
     if (batch.length > MAX_DIGEST_LINES) lines.push(`and ${batch.length - MAX_DIGEST_LINES} more`);
-    return { subject: `${plainLabel(project.name) || 'Project'}: ${summary}`, lines };
+    const title = plainLabel(project.name) || 'Project';
+    return { subject: `${title}: ${summary}`, title, lines };
 }

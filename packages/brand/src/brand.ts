@@ -2,7 +2,7 @@
  * uier brand constants.
  *
  * Hex values here mirror tokens.css and exist for places that cannot read CSS variables:
- * metadata, the web manifest, generated images (OG, icons) and documentation.
+ * metadata, the web manifest, generated images (OG, icons), emails and documentation.
  * The rules behind them are in BRAND.md.
  */
 
