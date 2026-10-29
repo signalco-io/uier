@@ -5,9 +5,10 @@ import { listProjectMembers } from '../app/members';
 import { apiErrors } from '../comments/http';
 import { memberActor, type ProjectActor } from './actor';
 import { canSeeComment } from './comments';
+import { userIdSchema } from '../app/validation';
 
 export const mentionsSchema = z.array(z.object({
-    userId: z.string().regex(/^u_[A-Za-z0-9_-]{1,64}$/),
+    userId: userIdSchema,
     start: z.int().min(0).max(1000),
     end: z.int().min(1).max(1000)
 })).max(20);

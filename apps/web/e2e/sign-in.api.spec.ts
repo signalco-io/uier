@@ -2,12 +2,30 @@ import { expect, test } from '@playwright/test';
 import { keyedHash } from '../src/lib/comments/environment';
 import { getAppStore } from '../src/lib/app/store';
 import type { DbSignInRequest } from '../src/lib/app/model';
-import { confirmSignIn, confirmSignInCode, getSignInRequest, SIGN_IN_LINK_TTL_SECONDS } from '../src/lib/app/signIn';
+import { confirmSignIn, confirmSignInCode, getSignInRequest, safeNextPath, SIGN_IN_LINK_TTL_SECONDS } from '../src/lib/app/signIn';
 import { boundSignInRequestId, signInRequestToken } from '../src/lib/app/signInCookie';
 import { randomToken, sha256Hex, signToken } from '../src/lib/app/tokens';
 import { signInEmail } from '../src/lib/email/templates';
 
 const originalLocal = process.env.UIER_LOCAL;
+test('sign-in return paths stay under app after URL normalization and reject encoded traversal and controls', () => {
+    for (const path of ['/app', '/app/', '/app/account', '/app?tab=all', '/app/projects/a?filter=open%20now'])
+        expect(safeNextPath(path)).toBe(path);
+    expect(safeNextPath('/app/account?tab=profile#details')).toBe('/app/account?tab=profile');
+    for (const path of [null, 123, {}, '', '/', '/application', '/app2', '//evil.example/app', 'https://evil.example/app',
+        '/app/../outside', '/app/./account', '/app/%2e%2e/outside', '/app/.%2E/outside', '/app/%2E./outside', '/app/%2e/account',
+        '/app/%2f../outside', '/app\\outside', '/app/%5coutside', '/app/\naccount', '/app/%0daccount', '/app?x=%09value',
+        '/app/%3f/../account', '/app/%23/%2e/account', '/app/projects/.. ',
+        '/app?x=\u0000', '/app/%', '/app/' + 'a'.repeat(2048)])
+        expect(safeNextPath(path), String(path)).toBeUndefined();
+});
+
+test('confirmation revalidates return paths saved before the current redirect rules', async () => {
+    const request = await pending();
+    const stored = (await getAppStore().get<DbSignInRequest>(request.doc.pk, request.doc.id))!;
+    await getAppStore().replace({ ...stored.doc, next: '/app/../outside' }, stored.etag);
+    expect(await confirmSignIn(request.token)).toMatchObject({ next: undefined });
+});
 test.beforeAll(() => { process.env.UIER_LOCAL = '1'; });
 test.afterAll(() => {
     if (originalLocal === undefined) delete process.env.UIER_LOCAL;

@@ -1,4 +1,4 @@
-import type { OperationInput, SqlParameter } from '@azure/cosmos';
+import type { DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
 import { cosmosDataContainerApp, isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import type { AppDoc } from './model';
@@ -42,6 +42,8 @@ export type AppStore = {
      * `false` when one of them already exists
      */
     createAll(docs: AppDoc[]): Promise<boolean>;
+    /** Atomically replaces a guard document and deletes a versioned document in its partition. */
+    replaceAndDelete<T extends AppDoc>(guard: T, guardEtag: string, target: StoredDoc<AppDoc>): Promise<ReplaceResult>;
     /** Replaces the document only when it was not changed since it was read (`etag`) */
     replace<T extends AppDoc>(doc: T, etag: string): Promise<ReplaceResult>;
     /** Returns `false` when the document does not exist */
@@ -123,6 +125,31 @@ function createCosmosAppStore(): AppStore {
                 const code = errorCode(error) ?? (error instanceof Error ? errorCode(error.cause) : undefined);
                 if (code === 409)
                     return false;
+                throw error;
+            }
+        },
+        async replaceAndDelete(guard, guardEtag, target) {
+            const pk = singlePartition([guard, target.doc]);
+            if (guard.id === target.doc.id) throw new Error('The guard and target must differ');
+            // DeleteOperationInput omits ifMatch; the SDK's serialized DeleteOperation supports it.
+            const deletion: DeleteOperation = { operationType: 'Delete', id: target.doc.id, ifMatch: target.etag };
+            const operations: OperationInput[] = [
+                { operationType: 'Replace', id: guard.id, resourceBody: guard, ifMatch: guardEtag },
+                deletion
+            ];
+            try {
+                const response = await container().items.batch(operations, pk);
+                const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
+                    .filter((code): code is number => typeof code === 'number');
+                if (codes.includes(412)) return 'conflict';
+                if (codes.includes(404)) return 'not_found';
+                if (response.result?.length !== operations.length || codes.some(code => code < 200 || code >= 300))
+                    throw new Error('Conditional member removal failed');
+                return 'ok';
+            } catch (error) {
+                const code = errorCode(error) ?? (error instanceof Error ? errorCode(error.cause) : undefined);
+                if (code === 412) return 'conflict';
+                if (code === 404) return 'not_found';
                 throw error;
             }
         },
@@ -246,6 +273,18 @@ function createMemoryAppStore(): AppStore {
                 return false;
             docs.forEach(setEntry);
             return true;
+        },
+        async replaceAndDelete(guard, guardEtag, target) {
+            const entries = partition(singlePartition([guard, target.doc]));
+            if (guard.id === target.doc.id) throw new Error('The guard and target must differ');
+            const guardEntry = entries.get(guard.id);
+            const targetEntry = entries.get(target.doc.id);
+            if (!guardEntry || !targetEntry) return 'not_found';
+            if (String(guardEntry.version) !== guardEtag || String(targetEntry.version) !== target.etag) return 'conflict';
+            // No await between the two writes: the memory transaction has the same atomicity.
+            setEntry(guard);
+            entries.delete(target.doc.id);
+            return 'ok';
         },
         async replace(doc, etag) {
             const entry = partition(doc.pk).get(doc.id);

@@ -1,12 +1,12 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { isLocalRuntime } from '../comments/environment';
-import { signToken, verifyToken } from './tokens';
-import { getUser } from './users';
+import { signToken } from './tokens';
+import { SESSION_COOKIE_NAME, sessionUser } from './sessionIdentity';
 import { reviewSsoCookie, REVIEW_SSO_COOKIE_NAME, reviewSsoCookieOptions } from './reviewSsoCookie';
 import { SIGN_IN_REQUEST_COOKIE_NAME } from './signInCookie';
 
-export const SESSION_COOKIE_NAME = 'uier_session';
+export { SESSION_COOKIE_NAME } from './sessionIdentity';
 export const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 type SessionPayload = { uid: string };
@@ -39,9 +39,5 @@ export async function endSession() {
 
 /** The signed-in user, or `null` (an invalid, expired or orphaned session counts as signed out) */
 export const getSessionUser = cache(async () => {
-    const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
-    const session = verifyToken<SessionPayload>('session', token);
-    if (!session || typeof session.uid !== 'string')
-        return null;
-    return await getUser(session.uid);
+    return sessionUser((await cookies()).get(SESSION_COOKIE_NAME)?.value);
 });

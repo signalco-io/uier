@@ -1,4 +1,5 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { pagePath } from '@uier/toolbar/page-state';
 import { mcpProject, type McpIdentity } from './credentials';
@@ -17,6 +18,7 @@ import { participantNames } from '../review/dto';
 import { environmentFilter, environmentOptions } from '../app/environments';
 import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
+import { userIdSchema } from '../app/validation';
 
 const page = {
     limit: z.number().int().min(1).max(25).default(20).describe('Results per page: 1–25, default 20. Use nextCursor for more results.'),
@@ -31,7 +33,7 @@ const feedbackFilters = z.object({
     path: reviewPathSchema.optional(),
     environment: z.string().min(1).max(512).optional(),
     anchorType: z.enum(['point', 'text', 'page']).optional(),
-    assignee: z.union([z.enum(['me', 'unassigned']), z.string().regex(/^u_[A-Za-z0-9_-]{1,64}$/)]).optional(),
+    assignee: z.union([z.enum(['me', 'unassigned']), userIdSchema]).optional(),
     authorKind: z.enum(['member', 'guest']).optional(),
     unread: z.boolean().optional(),
     hasScreenshot: z.boolean().optional()
@@ -150,19 +152,26 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const saved = await setProjectCommentResolved(project, actor, input.commentId, input.resolved, key(identity, input.idempotencyKey));
         return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved) });
     }));
-    server.registerTool('assign_feedback', { description: `Set a human-approved existing participant, or null to unassign. Private visibility and current membership are enforced. ${untrusted}`, inputSchema: { ...write, assigneeId: z.string().min(1).max(128).nullable() }, annotations: writeAnnotations }, input => safely(async () => {
+    server.registerTool('assign_feedback', { description: `Set a human-approved existing participant, or null to unassign. Private visibility and current membership are enforced. ${untrusted}`, inputSchema: { ...write, assigneeId: userIdSchema.nullable() }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const saved = await setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId, key(identity, input.idempotencyKey));
         return result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null });
     }));
     server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, async (uri, variables) => {
-        const { project, actor } = await mcpProject(identity, projectId.parse(variables.projectId), 'screenshots:read');
-        const id = commentId.parse(variables.commentId);
-        const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
-        if (packet.context.screenshot.state !== 'protected') throw apiErrors.notFound('Screenshot not found.');
-        const image = await getProjectScreenshot(project, actor, id);
-        if (Buffer.byteLength(image.data, 'base64') > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
-        return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: image.data }] };
+        try {
+            const { project, actor } = await mcpProject(identity, projectId.parse(variables.projectId), 'screenshots:read');
+            const id = commentId.parse(variables.commentId);
+            const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
+            if (packet.context.screenshot.state !== 'protected') throw apiErrors.notFound('Screenshot not found.');
+            const image = await getProjectScreenshot(project, actor, id);
+            if (Buffer.byteLength(image.data, 'base64') > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
+            return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: image.data }] };
+        } catch (error) {
+            if (error instanceof ApiError) throw new McpError(ErrorCode.InvalidParams, `${error.code}: ${error.message}`);
+            if (error instanceof z.ZodError) throw new McpError(ErrorCode.InvalidParams, 'Invalid resource arguments.');
+            console.error('[mcp] Resource failed');
+            throw new McpError(ErrorCode.InternalError, 'The operation failed.');
+        }
     });
     return server;
 }

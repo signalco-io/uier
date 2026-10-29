@@ -132,6 +132,14 @@ visibility is checked again. References never contain a credential or create a p
 Clients control whether images/text they retrieve are sent to their own model provider. Revoking
 access cannot retract data already received by a client.
 
+Assignment uses the shared account id format `^u_[A-Za-z0-9_-]{1,64}$` (or `null` to unassign);
+invalid ids produce an `invalid_request` tool error before participant reads or writes. Screenshot
+resources report expected API errors with their code/message as MCP `InvalidParams`, malformed
+resource arguments with fixed `InvalidParams` text, and unexpected failures as `InternalError`
+with `The operation failed.` Storage details never appear in resource errors.
+Transport handling has a 25-second deadline within the route's 30-second platform limit. Deadline
+and request cancellation return JSON-RPC errors and close the server.
+
 Responses mark feedback as `contentTrust: "untrusted"`; server instructions also identify text,
 anchors, names and images as untrusted content. Clients must treat them as data and keep changes
 user-initiated. The connector cannot edit code, run commands or deploy. A supported workflow is:

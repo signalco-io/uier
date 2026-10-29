@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { handleMcp } from '../src/lib/mcp/http';
 import { feedbackSkill } from '../src/lib/mcp/workflows';
 import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
@@ -52,6 +55,83 @@ async function connect(token: string) {
 }
 function data(result: Awaited<ReturnType<Client['callTool']>>) { return result.structuredContent as Record<string, any>; }
 const idempotencyKey = () => randomUUID();
+
+test('assignment validates the shared user id format before a write', async () => {
+    const f = await fixture();
+    const { token } = await createMcpCredential(f.context, { name: 'Validation', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:assign'], days: 7 });
+    const client = await connect(token);
+    const before = await getCommentsStore().get(f.comment.domain, f.comment.id);
+    try {
+        for (const assigneeId of ['', 'u_', 'u_bad/id', 'u_bad#id', 'u_bad?id', 'u_' + 'a'.repeat(65), 123, {}]) {
+            const response = await client.callTool({ name: 'assign_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id, assigneeId, idempotencyKey: idempotencyKey() } });
+            expect(response.isError).toBe(true);
+            expect(JSON.stringify(response.content)).toContain('invalid_request');
+        }
+        expect(await getCommentsStore().get(f.comment.domain, f.comment.id)).toEqual(before);
+    } finally { await client.close(); }
+});
+
+test('screenshot resources map validation, access and unexpected storage errors to fixed MCP errors', async () => {
+    const f = await fixture();
+    const { token } = await createMcpCredential(f.context, { name: 'Resource errors', projectIds: [f.project.id], scopes: ['feedback:read', 'screenshots:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        await expect(client.readResource({ uri: `uier://projects/invalid/feedback/${f.comment.id}/screenshot` }))
+            .rejects.toMatchObject({ code: ErrorCode.InvalidParams, message: expect.stringContaining('Invalid resource arguments.') });
+        await expect(client.readResource({ uri: `uier://projects/${f.project.id}/feedback/comment_missing/screenshot` }))
+            .rejects.toMatchObject({ code: ErrorCode.InvalidParams, message: expect.stringContaining('not_found: Comment not found.') });
+        const memory = (globalThis as typeof globalThis & { __uierCommentsMemoryStore2: { domains: Map<string, Map<string, { document: unknown }>> } }).__uierCommentsMemoryStore2;
+        const entry = memory.domains.get(f.comment.domain)!.get(f.comment.id)!;
+        const document = entry.document;
+        const log = console.error;
+        const messages: unknown[][] = [];
+        console.error = (...args) => { messages.push(args); };
+        Object.defineProperty(entry, 'document', { configurable: true, get() { throw new Error('private database diagnostics and submitted content'); } });
+        try {
+            await expect(client.readResource({ uri: `uier://projects/${f.project.id}/feedback/${f.comment.id}/screenshot` }))
+                .rejects.toMatchObject({ code: ErrorCode.InternalError, message: expect.stringMatching(/The operation failed\.$/) });
+            expect(messages).toEqual([['[mcp] Resource failed']]);
+        } finally {
+            console.error = log;
+            Object.defineProperty(entry, 'document', { configurable: true, writable: true, value: document });
+        }
+    } finally { await client.close(); }
+});
+
+test('MCP transport deadlines and request cancellation return JSON-RPC errors and always close the server', async () => {
+    const f = await fixture();
+    const { token } = await createMcpCredential(f.context, { name: 'Deadline', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const originalHandle = WebStandardStreamableHTTPServerTransport.prototype.handleRequest;
+    const originalClose = McpServer.prototype.close;
+    let closed = 0;
+    WebStandardStreamableHTTPServerTransport.prototype.handleRequest = async () => new Promise<Response>(() => {});
+    McpServer.prototype.close = async function () { closed++; await originalClose.call(this); };
+    const request = (signal?: AbortSignal) => new Request(`${base}/api/mcp`, { method: 'POST', signal,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 42, method: 'tools/list' }) });
+    try {
+        const start = Date.now();
+        const expired = await handleMcp(request(), base, 20);
+        expect(Date.now() - start).toBeLessThan(1000);
+        expect(expired.status).toBe(504);
+        expect(await expired.json()).toEqual({ jsonrpc: '2.0', id: 42, error: { code: ErrorCode.InternalError, message: 'The request timed out.' } });
+        expect(closed).toBe(1);
+        const controller = new AbortController();
+        const pending = handleMcp(request(controller.signal), base, 1000);
+        setTimeout(() => controller.abort(), 20);
+        const cancelled = await pending;
+        expect(cancelled.status).toBe(408);
+        expect(await cancelled.json()).toEqual({ jsonrpc: '2.0', id: 42, error: { code: ErrorCode.InternalError, message: 'The request was cancelled.' } });
+        expect(closed).toBe(2);
+        const alreadyAborted = await handleMcp(request(controller.signal), base, 1000);
+        expect(alreadyAborted.status).toBe(408);
+        expect(closed).toBe(3);
+        expect(expired.headers.get('Cache-Control')).toBe('private, no-store');
+    } finally {
+        WebStandardStreamableHTTPServerTransport.prototype.handleRequest = originalHandle;
+        McpServer.prototype.close = originalClose;
+    }
+});
 
 async function reader(f: Awaited<ReturnType<typeof fixture>>) {
     const user = await findOrCreateUser(`reader-${randomUUID()}@example.com`);

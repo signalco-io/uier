@@ -22,6 +22,7 @@ import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
 import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, isPrivateAppFeedback } from './publicProject';
+import { isVisible } from './visibility';
 
 const MAX_UPDATE_ATTEMPTS = 8;
 
@@ -76,12 +77,6 @@ function compactDevice(device: CreateCommentInput['device']): DbCommentDevice | 
 
     const compacted = Object.fromEntries(Object.entries(device).filter(([, value]) => value !== undefined)) as DbCommentDevice;
     return Object.keys(compacted).length ? compacted : undefined;
-}
-
-/** Private comments (made private by the team, or feedback on the app) show only to their author here */
-function isVisible(comment: DbComment, context: CommentsApiContext) {
-    return !(comment.private || isPrivateAppFeedback(comment))
-        || (Boolean(comment.authorId) && comment.authorId === context.visitor.authorId);
 }
 
 /** Public showcase uses the visitor cookie; private project threads still stay author-only. */
