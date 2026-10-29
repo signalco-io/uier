@@ -67,21 +67,11 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         dnsRecord(`${prefix}-email-transactional-${key.toLowerCase()}`, record.name, record.value, type, true);
     }
 
-    // Import IDs are plain strings in Pulumi. CI already supplies the active subscription;
-    // bind the temporary adoption ID to it and verify it against Azure's fresh domain result.
-    const subscriptionId = process.env.ARM_SUBSCRIPTION_ID;
-    if (!subscriptionId) throw new Error('ARM_SUBSCRIPTION_ID is required for default sender adoption.');
-    const senderImportId = `/subscriptions/${subscriptionId}/resourceGroups/uier-production8b2f56d6/providers/Microsoft.Communication/emailServices/uier-email-service0e296b6b/domains/notify.uier.io/senderUsernames/donotreply`;
     const verifiedDomain = getDomainOutput({
         resourceGroupName: resourceGroup.name,
         emailServiceName: emailService.name,
         domainName: 'notify.uier.io',
-    }, { dependsOn: [transactionalDomain] }).apply(async value => {
-        await verifyTransactionalEmailDomain(value);
-        if (`${value.id}/senderUsernames/donotreply`.toLowerCase() !== senderImportId.toLowerCase())
-            throw new Error('Unexpected transactional sender import target.');
-        return value;
-    });
+    }, { dependsOn: [transactionalDomain] }).apply(value => verifyTransactionalEmailDomain(value));
     const transactionalSender = new SenderUsername(`${prefix}-email-transactional-sender`, {
         resourceGroupName: resourceGroup.name,
         emailServiceName: emailService.name,
@@ -90,12 +80,7 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         senderUsername: 'donotreply',
         username: 'DoNotReply',
         displayName: 'uier',
-    }, {
-        protect: true,
-        // Azure creates this default resource with the domain. Adopt it before updating its name.
-        // Remove the import option once CI has recorded it in the stack.
-        import: senderImportId,
-    });
+    }, { protect: true });
     const senderIdentity = output({ domain: verifiedDomain, username: transactionalSender.username,
         displayName: transactionalSender.displayName }).apply(({ domain, username, displayName }) => {
         if (typeof username !== 'string' || username.toLowerCase() !== 'donotreply' || displayName !== 'uier')

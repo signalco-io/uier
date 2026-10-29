@@ -28,12 +28,12 @@ For recovery procedures, use [Backups and restore](backups-and-restore.md).
   credential for the Vercel OIDC token of the project's preview deployments and Cosmos DB data plane role
   assignments (built-in Data Contributor) on the `comments-preview` and `app-preview` containers,
 - Azure Communication Services Email for transactional mail (`infra/src/email.ts`): the existing
-  Azure-managed sender remains linked and active while a protected customer-managed `notify.uier.io`
-  domain is prepared. The protected root `uier.io` domain and its records remain unchanged. The
+  protected customer-managed `notify.uier.io` domain is active, and the Azure-managed domain remains
+  linked. The protected root `uier.io` domain and its records remain unchanged. The
   subdomain gets ownership/SPF TXT and both DKIM CNAME records from ACS; relative DKIM owners are
   qualified for the parent Cloudflare zone. ACS omits a DMARC record, so the explicit owner policy is
   `_dmarc.notify.uier.io TXT "v=DMARC1; p=reject"`. No reporting or reply mailbox is invented.
-  The selected inbox identity is `uier <DoNotReply@notify.uier.io>`; activation is staged below.
+  The configured inbox identity is `uier <donotreply@notify.uier.io>`; see the activation receipt below.
 - The report endpoint receives production-only `UIER_EMAIL_REPORT_SECRET`, `UIER_EMAIL_REPORT_TOPIC`
   and `UIER_EMAIL_REPORT_SUBSCRIPTION`. The deployed Event Grid subscription uses a secret static
   header, TLS 1.2, one-event batches and bounded retries (30 attempts / 24 hours). CI's authenticated
@@ -68,6 +68,13 @@ Display-name setup imports Azure's already-created default SenderUsername before
 removes the import option after successful adoption. It never recreates the default sender or puts a
 formatted `senderAddress` string in the application.
 Keep engagement tracking disabled. Apply through CI; never run `pulumi up` locally.
+
+Cutover #178 initially failed because Azure had already created the default sender. Repair #196
+imported that exact resource and updated it in place. [Deployment 40866577521](https://github.com/signalco-io/uier/actions/runs/40866577521)
+succeeded on 29 October 2026. Independent readback confirmed display name `uier`, the new domain
+link and production `UIER_EMAIL_SENDER=donotreply@notify.uier.io`. The completed one-time import
+option is removed from source; the sender remains protected and managed by Pulumi. See the
+[activation evidence](review-notifications.md#transactional-sender-activation).
 
 A recipient-authorized production digest remains necessary to prove report message-id correlation,
 received-message SPF/DKIM/DMARC, intact unsubscribe headers and DKIM coverage. Keep
