@@ -3,21 +3,63 @@
 Connect a coding tool to the projects and operations you choose. For the shared feedback packet,
 see [Feedback context](feedback-context.md).
 
-In **Account → Coding agents**, give a credential a name, select up to 20 projects in the current
-workspace, and choose operations. Read feedback is selected initially; screenshots, replies,
-status changes and assignments each need an explicit scope. The app issues a 30-day credential,
-shows the secret once, and lets its owner revoke it from any workspace. Store it outside source
-control in the environment of your chosen client. Only a SHA-256 hash and the grant metadata are
-stored. Removal of membership/project access and private visibility changes apply on the next
-request. Public project codes, guest ids, review links and app cookies cannot authorize MCP.
+**Account → Coding agents** has three parts:
+
+1. **Connect a coding tool**: the endpoint and a setup per verified client. A client that signs in
+   with OAuth opens uier in the browser, where the person approves the connection.
+2. **Connected apps**: one row per OAuth connection, with the app's name and hosts (an
+   **Unverified** badge when the app registered itself), the workspaces and projects it can reach,
+   its operations, and when it was connected, last used and expires. **Revoke** asks for
+   confirmation and ends access on the app's next request.
+3. **Access tokens** (collapsed): manual credentials for environments without a browser, such as
+   SSH sessions, containers and CI. Give a token a name, select up to 20 projects in the current
+   workspace, and choose operations. Read feedback is selected initially; screenshots, replies,
+   status changes and assignments each need an explicit scope. The app issues a 30-day token,
+   shows the secret once, and lets its owner revoke it from any workspace. Store it outside source
+   control in the environment of your chosen client. Only a SHA-256 hash and the grant metadata
+   are stored.
+
+Removal of membership/project access and private visibility changes apply on the next request,
+for both kinds of connection. Public project codes, guest ids, review links and app cookies cannot
+authorize MCP.
+
+**Consent** (`/app/connect/<requestId>`, reached from `/api/oauth/authorize` and through sign-in)
+shows "Connect <app> to uier", the signed-in email with **Use another account** (signs out and
+returns to the same request), the app's presentation: **Published at** the metadata host for a
+Client ID Metadata Document, **Unverified** for a dynamically registered app, **Sends you back to**
+the redirect host or "this computer" for a loopback redirect, with notices for unverified names
+and loopback returns. The person chooses **All my workspaces and projects, including new ones**
+(selected) or **Choose workspaces and projects** (per workspace, all projects including new ones,
+or individual projects), the operations (the requested ones selected, Read feedback always
+included, **Select all operations**), and the connection name that replies and status changes
+carry. Write operations combined with several workspaces, all of them, or guest-commentable
+projects add a warning. An existing connection from the same app is replaced unless the person
+unticks it; at the 20-app limit one must be chosen to replace. **Allow access** and **Cancel**
+return the URL to the client's callback, and the page navigates there itself ("Returning to <app>.
+You can close this tab.", with a link), because `form-action 'self'` blocks a redirect after a form
+post. Cancel sends `access_denied`. An unknown, expired or used request asks the person to start
+again from their coding tool. Requests that cannot go back to a client (unknown client or redirect
+URI, incomplete request) end on the public `/app/connect/error` page, which links nowhere outside uier.
 
 The endpoint is `https://uier.io/api/mcp` (use your local/preview origin while testing). It uses the
-[official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server),
-stateless JSON responses, and a manually configured `Authorization: Bearer <credential>` header.
-OAuth login/discovery and clients that require OAuth are not supported. **Client configuration**
-in Account offers the following setups, built from the same endpoint. Merge entries into the
-existing client file; keep the credential out of every file and URL. Set `UIER_MCP_TOKEN` in the
-environment of the process that starts the client, then restart it.
+[official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server)
+and stateless JSON responses. It accepts an OAuth access token from the sign-in above or an access
+token in a manually configured `Authorization: Bearer <token>` header. Account offers the following
+setups, built from the same endpoint.
+
+**Claude Code** signs in with OAuth. [Official remote server authentication](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers):
+
+```sh
+claude mcp add --transport http uier https://uier.io/api/mcp
+```
+
+Then run `/mcp` in Claude Code, choose uier and select **Authenticate**; the browser opens the
+consent page. A configured `Authorization` header disables Claude Code's OAuth path: remove the
+header from an existing uier entry (for example in `.mcp.json`) instead of adding the server again.
+
+**Codex** and **Cursor** use an access token until their OAuth sign-in is verified against uier.
+Merge entries into the existing client file; keep the token out of every file and URL. Set
+`UIER_MCP_TOKEN` in the environment of the process that starts the client, then restart it.
 
 **Codex** — `~/.codex/config.toml`. [Official bearer configuration](https://learn.chatgpt.com/docs/extend/mcp#streamable-http-servers):
 
@@ -26,23 +68,6 @@ environment of the process that starts the client, then restart it.
 url = "https://uier.io/api/mcp"
 bearer_token_env_var = "UIER_MCP_TOKEN"
 ```
-
-**Claude Code** — `.mcp.json`. [Official HTTP setup and variable expansion](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcpjson):
-
-```json
-{
-  "mcpServers": {
-    "uier": {
-      "type": "http",
-      "url": "https://uier.io/api/mcp",
-      "headers": { "Authorization": "Bearer ${UIER_MCP_TOKEN}" }
-    }
-  }
-}
-```
-
-Keep the reference literal. Do not use a shell-expanded bearer header with `claude mcp add`:
-it saves the expanded secret in settings. Approve the project server when Claude Code asks.
 
 **Cursor** — `.cursor/mcp.json`. [Official config interpolation](https://cursor.com/docs/mcp#config-interpolation):
 
@@ -62,32 +87,34 @@ session. The [official configuration reference](https://code.visualstudio.com/do
 documents HTTP headers and masked `promptString` inputs (`password: true`, `${input:...}`).
 A documentation check alone does not verify a connection; there is no ready block until that check passes.
 
-**Claude Desktop** is not offered in the picker without a verified connection. Its
+**Claude** on the web, desktop and mobile is not offered yet: its custom connector has not been
+checked against uier's OAuth sign-in. Its
 [custom connector request headers](https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers)
 are in beta for a limited set of organizations. Where available on an individual plan, add a
 custom connector by the endpoint URL, choose **No sign-in**, and enter
-`Authorization: Bearer <credential>` under **Request headers**. Claude connects from Anthropic’s
+`Authorization: Bearer <access token>` under **Request headers**. Claude connects from Anthropic’s
 servers, so this cannot reach a local endpoint. Remove and add the connector again after expiry
 or revocation; saved authentication cannot be edited. Team and Enterprise are not supported:
-an Owner adds custom connectors for the whole organization, so a personal uier credential would
-be shared. Without Request headers, Claude Desktop is unsupported until OAuth exists. Do not
-use a third-party bridge.
+an Owner adds custom connectors for the whole organization, so a personal uier token would
+be shared. Do not use a third-party bridge.
 
 **Windsurf** is not offered because a deployed client connection could not be verified here.
 Its [current documentation](https://docs.devin.ai/desktop/cascade/mcp) describes legacy Cascade
 in Devin Desktop, with `serverUrl` and `${env:UIER_MCP_TOKEN}` header interpolation. Documentation
 alone is not a completed client connection check.
 
-The credential belongs to the named human account. It grants no additional project or private
-feedback rights. Its selected projects do not expand when new projects are created.
+A connection belongs to the named human account. It grants no additional project or private
+feedback rights. An access token's selected projects do not expand when new projects are created;
+an OAuth connection reaches new projects only where the person chose "including new ones".
 
 Use the owning `projectId` in the copied feedback packet, not an id found in the reviewed page URL.
 Feedback about uier itself belongs to **uier.io public feedback** (`uier00000001`) in the **uier**
-workspace, including feedback left while viewing another project's page. To connect a coding tool
-to that feedback, switch to the uier workspace and create a credential with that project selected
-and the operations you intend to use (including Change status to close feedback), then reconnect
-your client. Credentials are bound to the workspace in which they were created; existing grants
-are never expanded automatically. `list_projects` shows the current grant. An absent project or a
+workspace, including feedback left while viewing another project's page. To reach that feedback
+with OAuth, connect with all workspaces, or choose the uier workspace or that project, and the
+operations you intend to use (including Change status to close feedback). With an access token,
+switch to the uier workspace and create a token with that project selected, then reconnect your
+client. Tokens are bound to the workspace in which they were created; existing grants are never
+expanded automatically. `list_projects` shows the current grant. An absent project or a
 `not_found` response does not prove that feedback was deleted.
 
 | Tool | Scope | Behavior |
@@ -190,5 +217,11 @@ the same attribution and use existing unread and notification rules. No notifica
 
 `e2e/mcp.api.spec.ts` uses the official SDK client for the read/fix/reply/status path and adversarial
 isolation, image, expiry, revocation, membership and retry checks. `e2e/mcp.spec.ts` connects that
-client to a credential created in the real Account UI, verifies light/dark accessibility and revokes
-access on the existing connection. This feature does not close the separate MVP launch audit #90.
+client to a token created in the real Account UI, verifies light/dark accessibility and revokes
+access on the existing connection. `e2e/mcpOauth.spec.ts` (main journey tagged `@smoke`) starts the
+SDK client's OAuth flow with dynamic registration and a loopback listener, signs in through the
+authorization URL, chooses two workspaces and a write operation on the consent page, approves,
+exchanges the code, lists projects (including one created after approval) and replies, then
+revokes the app in Account and expects 401. The full suite adds cancel (`access_denied`), reuse of
+a consumed request, Use another account, the error page, a 375 px layout and light/dark axe checks.
+This feature does not close the separate MVP launch audit #90.
