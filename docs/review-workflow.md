@@ -21,7 +21,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 - **Sign in** (`/app/sign-in`): no passwords. The app emails a single-use link and an eight-digit numeric
   code. Both expire after 15 minutes and share one request: using either invalidates both. The link token
   is stored only as a SHA-256 hash; the code only as a request-specific keyed hash, compared in constant time.
-  The code works only in the browser that requested it, using the signed HttpOnly `uier_sign_in_request`
+  The code works only in the browser that requested it, using the signed HttpOnly `__Host-uier_sign_in_request`
   cookie (SameSite=Lax, Secure outside local development). It expires with the request and is removed on
   sign-in. A new request in that browser replaces its binding. Type the code only where you asked to sign
   in and never share it. Invitations keep their seven-day links.
@@ -30,7 +30,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   another request. Sign-in emails remain limited to 5 per address and 20 per IP per hour, so new requests
   cannot bypass the email limits. Locally and on previews, the page shows both the link and code.
   The first sign-in creates the account. Opening the link shows a "Continue" button, because email scanners
-  open links before people do. The session is an HttpOnly `uier_session` cookie with a signed token (30 days;
+  open links before people do. The session is an HttpOnly `__Host-uier_session` cookie with a signed token (30 days;
   the key is derived from the server secret, like guest names). Signed-out visits to an app page return there
   after signing in (`proxy.ts`, `?next=`), including the toolbar's project review link.
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
@@ -85,7 +85,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     targets.
   - Project embeds also try background sign-in through the hidden `/review-session` frame. A signed-in
     member can start reviewing a configured site without a link or top-level navigation. The separate
-    `uier_review_sso` HttpOnly, Secure, SameSite=None cookie only authorizes project review handoffs;
+    `__Secure-uier_review_sso` HttpOnly, Secure, SameSite=None cookie only authorizes project review handoffs;
     the app session stays SameSite=Lax. Existing logins receive it on their next app visit. Browsers that
     block cross-site cookies or frames keep the explicit link flow. No storage-access prompts are opened.
     Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;

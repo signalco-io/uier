@@ -1,3 +1,5 @@
+import { headers } from 'next/headers';
+import { ClientProvider } from '@/src/components/providers/ClientProvider';
 import { PropsWithChildren } from 'react';
 import type { Metadata } from 'next';
 import { Toaster } from '@/src/components/ui/sonner';
@@ -9,11 +11,14 @@ export const metadata: Metadata = {
 };
 
 /** The app's UI is shadcn/ui (src/components/ui): tooltips and toasts for every app page */
-export default function AppLayout({ children }: PropsWithChildren) {
+export default async function AppLayout({ children }: PropsWithChildren) {
+    const nonce = (await headers()).get('x-nonce') ?? undefined;
     return (
-        <TooltipProvider delayDuration={300}>
-            {children}
-            <Toaster position="bottom-right" />
-        </TooltipProvider>
+        <ClientProvider nonce={nonce}>
+            <TooltipProvider delayDuration={300}>
+                {children}
+                <Toaster position="bottom-right" />
+            </TooltipProvider>
+        </ClientProvider>
     );
 }

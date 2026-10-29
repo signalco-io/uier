@@ -8,7 +8,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 
 | Path | What |
 | --- | --- |
-| `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`, providers |
+| `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, users, account), `review/[projectId]` review links |
@@ -21,7 +21,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
 | `app/review-session/`, `app/api/review/[projectId]/sso/` | empty frame and same-origin cookie endpoint for background member sign-in; validate the actual message parent origin against project addresses and recheck membership. Only accepts the separate `review-sso` cookie purpose, never the app cookie; no CORS, no cache, no storage-access prompts |
 | `src/lib/email/` | email through Azure Communication Services and the templates |
-| `proxy.ts` | sends signed-out visitors of `/app/*` to sign in (`?next=`) |
+| `proxy.ts` | exact-path page security headers, request nonces and signed-out `/app/*` redirects (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
@@ -32,7 +32,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
 | `src/components/brand/` | client helpers for the brand page (`ThemeToggle`, `TokenSwatch`, `ToolbarIllustration`) |
 | `src/knownPages.ts` | every route the site links to; add new pages here |
-| `src/lib/secureHeaders.ts`, `next.config.ts` | CSP and security headers (Google Fonts and Vercel are the only external origins) |
+| `src/lib/secureHeaders.ts`, `proxy.ts`, `next.config.ts` | page CSP in proxy, one-year HSTS with subdomains, Permissions-Policy, COOP and X-XSS-Protection: 0; BotID keeps a restrictive same-origin CSP |
 | `e2e/` | Playwright tests (landing, brand page, headers, axe accessibility, the toolbar on another origin) |
 | `public/` | icons rendered by `pnpm -C packages/brand icons`, `favicon.svg` copied from `packages/brand/assets` |
 
@@ -116,12 +116,45 @@ Labels are sentence case. `e2e/footer.spec.ts` checks the footer on every public
 
 `/legal/privacy-policy`, `/legal/terms-of-service`, `/legal/cookie-policy`,
 `/legal/acceptable-use-policy` and `/legal/sla` describe what the site actually does: what the
-comments API stores, the `uier_visitor` cookie, rate limits, BotID, Vercel Web Analytics, where data
+comments API stores, the `__Host-uier_visitor` cookie, rate limits, BotID, Vercel Web Analytics, where data
 is stored and for how long. When you change any of that (a new cookie or storage key, a new
 third party, a different retention), update the matching document and its effective date in the
 same pull request. The SLA states that there are no service commitments; do not add uptime targets
 or credits before they are decided. `e2e/legal.spec.ts` checks each document, the legal navigation
 and the footer links.
+
+## Page security and cookie migration
+
+`proxy.ts` overwrites incoming CSP and nonce headers and generates 128 random bits per request
+for `/app` pages and the exact `/review-verification` bridge. Next applies the forwarded CSP nonce
+to framework scripts; the app layout reads `x-nonce` and passes it to `ClientProvider` / `ThemeProvider`.
+Those pages render dynamically with `no-store`. The verification bridge has no app/theme/analytics
+providers. The fixed `/review-session` script and its SHA-256 source share `review/sessionDocument.ts`.
+Only those two exact paths are frameable; case variants get deny/`frame-ancestors 'none'`.
+
+Public pages deliberately retain static rendering and `script-src 'unsafe-inline'`: their generated
+Next bootstrap and theme scripts vary by build. We do not apply request nonces to cached HTML.
+Keep providers in the marketing/app layouts so a root `headers()` call does not turn the public site
+dynamic. `@vercel/analytics` 2.0.1 uses same-origin `/_vercel/insights/script.js` in production;
+only development permits `va.vercel-scripts.com`. Vercel toolbar/frame/Pusher hosts apply only to
+`UIER_DEPLOYMENT_ENV=preview` (set at build time). Clipboard permissions are left alone.
+COOP is `same-origin` on public pages and `same-origin-allow-popups` across the app, including
+`/app/review`: the installation check retains its WindowProxy when the popup redirects cross-origin.
+The app needs that policy from its initial document, including sign-in, because client navigation
+keeps COOP. `DocumentPolicyBoundary` in `ClientProvider` uses full document navigation for links
+crossing between public pages and `/app`, so both CSP and COOP change with the destination.
+BotID's custom headers allow same-origin scripts, workers, fetches and framing, with no inline scripts.
+`botIdProxy.ts` applies that same policy after fetching the response: Next's external rewrite proxy
+discards configured response headers. The local test-only upstream uses the existing API stub.
+HSTS is one year with subdomains. Do not add `preload` or submit to the preload list until an owner
+has observed this policy operating successfully.
+
+`src/lib/cookieNames.ts` centralizes HTTPS `__Host-` / `__Secure-` names, local HTTP names and
+bounded legacy reads. The fixed migration cutoff is 30 October 2026 UTC; legacy sign-in bindings
+stop being accepted 15 minutes later, session/SSO cookies after 30 days, visitor/workspace cookies
+after 365 days. Never reset this date on a rebuild. Prefer the new name even when its value is
+invalid; do not resurrect a legacy identity. New writes use only the chosen current name; sign-out
+expires both names so fallback cannot undo it. Remove the migration branches after their deadlines.
 
 ## Security and open source pages
 
@@ -252,7 +285,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
   `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.
 - Sign-in emails contain a link and an eight-digit numeric code, sharing the same 15-minute request and
-  atomic delete in `signIn.ts`. The code requires the signed HttpOnly `uier_sign_in_request` cookie;
+  atomic delete in `signIn.ts`. The code requires the signed HttpOnly `__Host-uier_sign_in_request` cookie;
   a newer request replaces the binding, and `startSession` clears it. Use `appCookieOptions` for the
   binding (SameSite=Lax, Secure outside local runtime). Store only the request-specific keyed code hash
   and compare in constant time. Never put codes in URLs, subjects or logs. Both atomic guess counters
@@ -331,7 +364,7 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
 
 ## Toolbar in development
 
-`app/layout.tsx` loads http://localhost:4005/index.js in development only. Open any page with a
+`ClientProvider` loads http://localhost:4005/index.js in development only. Open any page with a
 review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
 see the real toolbar on top of it. uier.io's public marketing layout embeds showcase mode on every page, using the same-origin cookie API
 backed by the static project `uier00000001`; feedback on `/app` pages (the sidebar's "Give feedback",
@@ -359,7 +392,7 @@ random, account/project-bound references expire after 24 hours, and stored autho
 the client boundary. `CommentsStore` matches both openers and remaining replies before list limits.
 App reply deletion reuses `deleteProjectCommentItem`; thread deletion must keep screenshot cleanup
 and never delete sequence or rate-limit documents. On the public project's
-same-origin comments API, `uier_session` takes precedence over guest identity. Store `user:<id>` just
+same-origin comments API, `__Host-uier_session` takes precedence over guest identity. Store `user:<id>` just
 as the review API does, resolve current account names for DTOs, and keep private app feedback
 author-only in the public API. Read the current public project and apply `assertCanUseComments`
 on every showcase request; the cached provisioning result is not current access policy. Listing,

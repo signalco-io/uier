@@ -58,12 +58,12 @@ test('blocked cookies leave ordinary visitors alone and preserve explicit sign-i
     // Leave the app before clearing the handoff cookie so pending app prefetches cannot
     // restore it. The Lax app cookie remains; the cross-site handoff has no credential.
     await page.goto('about:blank');
-    await page.context().clearCookies({ name: 'uier_review_sso' });
+    await page.context().clearCookies({ name: '__Secure-uier_review_sso' });
     // App navigation can still seed a companion in a streamed response. Model a browser
     // refusing that cookie on this cross-site request even if a late response restores it.
     await page.route(`**/api/review/${project}/sso`, async route => {
         const headers = await route.request().allHeaders();
-        headers.cookie = (headers.cookie ?? '').split(';').filter(cookie => !cookie.trim().startsWith('uier_review_sso=')).join(';');
+        headers.cookie = (headers.cookie ?? '').split(';').filter(cookie => !cookie.trim().startsWith('__Secure-uier_review_sso=')).join(';');
         const response = await route.fetch({ headers });
         await route.fulfill({ response });
     });
@@ -162,7 +162,7 @@ test('SSO requires the companion cookie, current membership, a configured parent
         expect(denied.headers()['access-control-allow-origin']).toBeUndefined();
     }
     // An existing app login is upgraded on its next first-party app visit.
-    await context.clearCookies({ name: 'uier_review_sso' });
+    await context.clearCookies({ name: '__Secure-uier_review_sso' });
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(204);
     await page.goto('/app/projects');
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(200);

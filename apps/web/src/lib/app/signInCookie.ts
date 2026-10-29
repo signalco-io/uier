@@ -1,6 +1,7 @@
+import { cookieName, cookieNames } from '../cookieNames';
 import { signToken, verifyToken } from './tokens';
 
-export const SIGN_IN_REQUEST_COOKIE_NAME = 'uier_sign_in_request';
+export const SIGN_IN_REQUEST_COOKIE_NAME = cookieName(cookieNames.signInRequest);
 const PURPOSE = 'sign-in-request';
 type SignInRequestPayload = { requestId: string };
 

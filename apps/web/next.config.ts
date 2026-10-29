@@ -1,9 +1,8 @@
 import type { NextConfig } from 'next';
 import { withBotId } from 'botid/next/config';
 import { createSecureHeaders } from 'next-secure-headers';
-import { combineSecureHeaders, knownSecureHeadersExternalUrls } from './src/lib/secureHeaders';
-
-const isDevelopment = process.env.NODE_ENV === 'development';
+import { botIdHeaders } from './src/lib/botIdProxy';
+import { combineSecureHeaders } from './src/lib/secureHeaders';
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
@@ -34,31 +33,14 @@ const nextConfig: NextConfig = {
     },
     async headers() {
         return [{
-            source: '/((?!review-(?:verification|session)$).*)',
-            headers: createSecureHeaders(combineSecureHeaders(
-                ['uier.io'],
-                false,
-                isDevelopment,
-                [
-                    knownSecureHeadersExternalUrls.vercel,
-                    knownSecureHeadersExternalUrls.googleFonts,
-                    // Local review toolbar dev server (packages/toolbar `pnpm dev`)
-                    ...(isDevelopment
-                        ? [{ scriptSrc: ['http://localhost:4005'], styleSrc: ['http://localhost:4005'], connectSrc: ['http://localhost:4005'] }]
-                        : []),
-                ]
-            ))
-        }, {
-            // Empty verification/session bridges return results only to the requesting parent;
-            // the server checks that origin against the project's sites.
-            source: '/review-:bridge(verification|session)',
+            // Response-independent defaults also cover static files and BotID rewrites. Page CSP,
+            // framing and browser capabilities are set in proxy.ts using exact pathname checks.
+            source: '/:path*',
             headers: createSecureHeaders({
-                ...combineSecureHeaders(['uier.io'], false, isDevelopment, [
-                    knownSecureHeadersExternalUrls.vercel,
-                    { frameAncestors: ['*'] }
-                ]),
+                ...combineSecureHeaders(['uier.io'], false, false, []),
+                contentSecurityPolicy: false,
                 frameGuard: false
-            }).concat([{ key: 'Cache-Control', value: 'no-store' }])
+            })
         }, {
             // Toolbar bundle (packages/toolbar, copied to public/ by scripts/copy-toolbar.mjs).
             // The default URL follows releases, so it is cached briefly. Customer sites
@@ -85,4 +67,7 @@ const nextConfig: NextConfig = {
 
 // BotID (comments API bot protection): proxies the BotID challenge scripts through this origin, so they are
 // covered by `script-src 'self'` / `connect-src 'self'`. Vercel also routes them automatically.
-export default withBotId(nextConfig);
+// Inspected the live challenge (JavaScript) and iframe endpoint (empty HTML). These are
+// same-origin scripts, workers and fetches, not app pages. Keep same-origin framing without
+// allowing arbitrary inline scripts or inheriting the public page's inline-script exception.
+export default withBotId(nextConfig, botIdHeaders);

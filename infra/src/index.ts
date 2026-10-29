@@ -5,7 +5,7 @@ import { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
 import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlResourceSqlRoleAssignment, DatabaseAccountOfferType, getDatabaseAccountOutput, listDatabaseAccountConnectionStringsOutput } from '@pulumi/azure-native/cosmosdb/index.js';
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
-import { dnsRecord } from './cloudflare.js';
+import { caaRecord, dnsRecord } from './cloudflare.js';
 import { acsEmail, acsEmailReports } from './email.js';
 import { integrationEnvironment } from './integrations.js';
 import { productionCosmosIdentity } from './productionCosmosIdentity.js';
@@ -48,6 +48,11 @@ const up = async () => {
         redirectStatusCode: 308,
     });
     dnsRecord('vercel-uier-www', 'www', 'cname.vercel-dns.com', 'CNAME', false);
+
+    // Vercel's documented issuer (verified 29 October 2026):
+    // https://vercel.com/docs/domains/working-with-ssl
+    // The apex policy also applies to subdomains without their own CAA policy.
+    caaRecord('vercel-uier-caa', '@', 'letsencrypt.org');
 
     // Azure
     const resourceGroupName = `uier-${stack}`;

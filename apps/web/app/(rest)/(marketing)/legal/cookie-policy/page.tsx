@@ -3,8 +3,8 @@ import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
 
-// Every cookie and storage key the site sets. Keep in sync with VISITOR_COOKIE_NAME
-// (src/lib/comments/limits.ts), the app's cookies (src/lib/app/session.ts, src/lib/app/context.ts)
+// Every cookie and storage key the site sets. Keep in sync with cookieNames
+// (src/lib/cookieNames.ts), the app's cookie options (src/lib/app/session.ts)
 // and the toolbar's storage keys (packages/toolbar).
 
 export const metadata: Metadata = {
@@ -35,35 +35,35 @@ const items = [
         duration: 'Until toolbar sign-out or you clear your browser data'
     },
     {
-        name: 'uier_visitor',
+        name: '__Host-uier_visitor',
         type: 'Cookie (first party, HttpOnly)',
         when: 'Your first comment, reply or read acknowledgement',
         purpose: 'Recognises your comments and read state, so only you can resolve or delete your comments. Holds a random token; the server stores only its hash.',
         duration: 'One year'
     },
     {
-        name: 'uier_sign_in_request',
+        name: '__Host-uier_sign_in_request',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You ask for a sign-in email',
         purpose: 'Binds the emailed code to this browser. Holds a signed request id, with no email address or code. A new request replaces it; signing in removes it.',
         duration: 'Until the sign-in request expires, at most 15 minutes'
     },
     {
-        name: 'uier_session',
+        name: '__Host-uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
         purpose: 'Keeps you signed in and identifies your feedback on uier.io by your account name, taking precedence over a guest identity. Holds a signed token with your account id; signing out in the app removes it.',
         duration: '30 days'
     },
     {
-        name: 'uier_review_sso',
+        name: '__Secure-uier_review_sso',
         type: 'Cookie (HttpOnly, Secure, SameSite=None)',
         when: 'You sign in or visit the signed-in app',
         purpose: 'Lets an empty uier frame sign you into a project on a configured site when your browser allows cross-site cookies. It cannot sign you into the app. The server checks your current project access; signing out of the app removes it.',
         duration: 'Until the app session expires, at most 30 days'
     },
     {
-        name: 'uier_workspace',
+        name: '__Host-uier_workspace',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You switch to another workspace in the app',
         purpose: 'Remembers which workspace the app shows.',
@@ -115,7 +115,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="28 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="29 October 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
@@ -145,6 +145,15 @@ export default function CookiePolicyPage() {
                 The cookies are <code>HttpOnly</code> (scripts on the page cannot read them), <code>Secure</code>
                 and <code>SameSite=Lax</code>, except the separate background sign-in cookie described above,
                 which uses <code>SameSite=None</code> and is restricted to the review API.
+            </p>
+
+            <p>
+                The <code>__Host-</code> prefix restricts these cookies to this host and the whole site.
+                The background sign-in cookie uses <code>__Secure-</code> because its path is limited to the review API.
+                During the name change, we still read the old, unprefixed names for their original lifetime:
+                15 minutes for the sign-in request, 30 days for sign-in and background sign-in, and one year
+                for visitor identity and workspace selection, counted from 30 October 2026. New cookies use
+                the prefixed names. Plain HTTP local development uses unprefixed names.
             </p>
 
             <h2>On sites that use {brand.name}</h2>
@@ -185,10 +194,10 @@ export default function CookiePolicyPage() {
             <h2>Removing them</h2>
             <p>
                 You can delete cookies and site data in your browser settings at any time. If you delete
-                the <code>uier_visitor</code> cookie and <code>uier:visitor</code> local storage, the server can no longer tell that your earlier comments are
+                the <code>__Host-uier_visitor</code> cookie and <code>uier:visitor</code> local storage, the server can no longer tell that your earlier comments are
                 yours: you will not be able to resolve or delete them, and your next comment starts a new guest
                 name. Visitor threads stay public until they expire 90 days after their last change, or until you ask us to
-                remove them. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>uier_session</code> cookie, you are signed out of the app.
+                remove them. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>__Host-uier_session</code> cookie, you are signed out of the app.
             </p>
 
             <h2>Contact</h2>

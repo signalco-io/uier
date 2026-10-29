@@ -1,3 +1,4 @@
+import { ClientProvider } from '@/src/components/providers/ClientProvider';
 import { Container } from '@signalco/ui-primitives/Container';
 import { PageNav } from '@signalco/ui/Nav';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -17,7 +18,7 @@ export default function RootMarketingLayout({ children, }: {
     children: React.ReactNode;
 }) {
     return (
-        <>
+        <ClientProvider>
             {/* /app: signed-out visitors go to sign in (proxy.ts), signed-in people straight into the app.
                 These pages are static, so the label does not depend on the session. */}
             <PageNav logo={<Logo size={18} />} links={navLinks}>
@@ -34,6 +35,6 @@ export default function RootMarketingLayout({ children, }: {
                 <SiteFooter />
             </div>
             <ToolbarScript mode="showcase" />
-        </>
+        </ClientProvider>
     );
 }
