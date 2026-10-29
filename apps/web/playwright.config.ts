@@ -77,6 +77,8 @@ export default defineConfig({
                 UIER_BOTID_DEV_BYPASS: '',
                 // Exercise rewrite headers without calling the real BotID service. The stub serves fixed challenge/proxy fixtures.
                 OVERRIDE_BOTID_SERVER_URL: anthropicStubUrl,
+                // MCP OAuth client metadata documents served by e2e/mcpOauth.api.spec.ts on http://127.0.0.1 (local runtime only)
+                UIER_OAUTH_TEST_HTTP_CLIENT_METADATA: '1',
                 // Rewrite suggestions go to the stub above, never to the real API
                 ANTHROPIC_API_KEY: anthropicStubApiKey,
                 ANTHROPIC_BASE_URL: anthropicStubUrl,

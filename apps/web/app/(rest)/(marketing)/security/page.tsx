@@ -36,7 +36,11 @@ const controls = [
     },
     {
         title: 'Bot protection and rate limits',
-        text: 'Browser writes require Vercel BotID verification. Coding tool writes require an expiring, revocable credential scoped to selected projects and operations, with current membership and private feedback checks on every request. On reviewed sites, an empty frame on uier’s origin verifies the browser and returns a proof valid for five minutes, bound to the site, project and reviewer. New comments and replies have rate limits with atomic counters.'
+        text: 'Browser writes require Vercel BotID verification. Coding tool writes require a revocable connection or access token limited to the projects and operations chosen for it, with current membership and private feedback checks on every request. On reviewed sites, an empty frame on uier’s origin verifies the browser and returns a proof valid for five minutes, bound to the site, project and reviewer. New comments and replies have rate limits with atomic counters.'
+    },
+    {
+        title: 'Coding tool sign-in',
+        text: 'Coding tools sign in through uier’s own OAuth server, for the MCP endpoint only. PKCE is required, codes work once within 60 seconds, access tokens last one hour and refresh tokens change on every use. Only token hashes are stored. Revoking a connection in Account ends its access on the next request.'
     },
     {
         title: 'Strict input, plain output',
@@ -91,7 +95,7 @@ export default function SecurityPage() {
                     </Tile>
                     <Tile title="While you test">
                         <p>Test with your own comments only. Do not read, change or delete other people&rsquo;s comments, do not overload the service, and do not post personal data.</p>
-                        <p>In scope: {brand.domain}, its comments API, <code className="font-mono">/toolbar.js</code> and the code in the repository.</p>
+                        <p>In scope: {brand.domain}, its comments API, the MCP connector and its OAuth sign-in, <code className="font-mono">/toolbar.js</code> and the code in the repository.</p>
                     </Tile>
                 </Panel>
             </PageSection>

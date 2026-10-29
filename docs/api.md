@@ -292,7 +292,7 @@ carry no IP-derived data:
 | Replies per visitor | 30 per hour |
 | New comments per project member | 100 per project per hour; public feedback commenters keep 10 |
 | Replies per project member | 300 per project per hour; public feedback commenters keep 30 |
-| Replies per MCP credential | 30 per project per hour, also counted against the owner's member budget |
+| Replies per MCP connection (access token or connected app) | 30 per project per hour, also counted against the owner's member budget |
 | Writes per IP (an IPv4 address or an IPv6 /64) | 30 per domain or project per hour for guests and public feedback commenters; project members do not consume it. The anonymous `/api/comments` API keeps this limit for every writer |
 | New comments per page | 100 per day (`reason: page_full`) |
 | Rewrite suggestions | 20 per visitor (with the cookie) or project reviewer per hour, 300 per domain or project per day; app-wide, whatever the site: 40 per IP per hour and 1000 per day; selected text and each suggestion up to 1000 characters (what a rewrite comment holds), instruction up to 300 |

@@ -6,7 +6,7 @@ import { projectId, thread } from './schemas';
 import { feedbackWorkflows } from './workflows';
 
 export function registerFeedbackPrompts(server: McpServer, identity: McpIdentity) {
-    for (const workflow of feedbackWorkflows(identity.credential.scopes)) {
+    for (const workflow of feedbackWorkflows(identity.scopes)) {
         server.registerPrompt(workflow.name, {
             title: workflow.title,
             description: workflow.description,

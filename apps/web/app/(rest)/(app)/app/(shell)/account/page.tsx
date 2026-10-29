@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
 import { requireAppContext } from '@/src/lib/app/context';
 import { SignOutButton } from '@/src/components/app/shell/SignOutButton';
-import { McpCredentials } from '@/src/components/app/mcp/McpCredentials';
+import { CodingAgents } from '@/src/components/app/mcp/CodingAgents';
 import { listMcpCredentials } from '@/src/lib/mcp/credentials';
+import { listAccessibleWorkspaces, listConnectedApps } from '@/src/lib/mcp/oauth/grants';
+import { connectedAppView } from '@/src/lib/mcp/oauth/connectedApps';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadWorkspaceAccess } from '@/src/lib/app/access';
 import { appBaseUrl } from '@/src/lib/app/request';
@@ -16,7 +18,9 @@ export const metadata: Metadata = {
 export default async function AccountPage() {
     const context = await requireAppContext();
     const { user } = context;
-    const [credentials, projects, access] = await Promise.all([listMcpCredentials(user.id), listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
+    const [credentials, projects, access, grants] = await Promise.all([listMcpCredentials(user.id), listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id), listConnectedApps(user.id)]);
+    // Names for chosen workspaces and projects come only from what the person can open now.
+    const accessible = grants.some(grant => grant.access.kind === 'selected') ? (await listAccessibleWorkspaces(user.id, user.email)).workspaces : [];
     return (
         <div className="flex max-w-3xl flex-col">
             <PageHeader title="Account" description={<span className="font-mono text-[13px]">{user.email}</span>} />
@@ -28,7 +32,8 @@ export default async function AccountPage() {
                 </Section>
                 <AccountForm name={user.name} />
                 <AppearanceSection />
-                <McpCredentials projects={projects.map(({ id, name }) => ({ id, name }))} credentials={credentials.map(({ id, name, projectIds, scopes, expiresAt }) => ({ id, name, projectIds, scopes, expiresAt }))} endpoint={`${await appBaseUrl()}/api/mcp`} />
+                <CodingAgents endpoint={`${await appBaseUrl()}/api/mcp`} apps={grants.map(grant => connectedAppView(grant, accessible))}
+                    projects={projects.map(({ id, name }) => ({ id, name }))} credentials={credentials.map(({ id, name, projectIds, scopes, expiresAt }) => ({ id, name, projectIds, scopes, expiresAt }))} />
                 <Section id="session" title="Sign out" description="Sign out of uier on this browser." actions={<SignOutButton />} />
             </div>
         </div>

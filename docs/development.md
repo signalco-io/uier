@@ -49,6 +49,38 @@ to `apps/web/.env.local` and set the variables there.
 No email is sent locally either: the sign-in page shows the link and code it would have emailed
 ("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
+### Testing MCP OAuth locally
+
+OAuth for the [MCP connector](mcp.md) is on locally too. The issuer, the protected resource and the
+consent page all come from the request host, and the app session cookie belongs to that host, so use
+`http://localhost:4004` everywhere:
+
+| What | Local address |
+| --- | --- |
+| MCP endpoint (the protected resource) | http://localhost:4004/api/mcp |
+| Protected resource metadata | http://localhost:4004/.well-known/oauth-protected-resource/api/mcp |
+| Authorization server metadata (issuer `http://localhost:4004`) | http://localhost:4004/.well-known/oauth-authorization-server |
+| Consent | `http://localhost:4004/app/connect/<requestId>` |
+
+When `UIER_BASE_URL` is set in `.env.local`, its origin is the issuer instead.
+
+- To try Claude Code against the local server, add a separate entry:
+  `claude mcp add --transport http uier-local http://localhost:4004/api/mcp`, then `/mcp` →
+  Authenticate. Sign in with the link and code the sign-in page shows. Claude Code identifies itself
+  with a metadata document on claude.ai, which the local server fetches over the internet.
+- Loopback redirect URIs (`http://localhost`, `http://127.0.0.1`, `http://[::1]`) match on any port, so
+  local clients and test listeners can pick an ephemeral port.
+- Without Cosmos DB, connected apps and tokens live in memory. After a restart the client gets
+  `invalid_token`, its refresh fails with `invalid_grant`, and it has to sign in again.
+- The OAuth routes do not rate-limit local loopback requests.
+- `UIER_MCP_OAUTH=off` in `.env.local` turns OAuth off, to check the access-token-only behavior.
+- **Client metadata test switch.** Client ID Metadata Documents must be public HTTPS URLs.
+  `UIER_OAUTH_TEST_HTTP_CLIENT_METADATA=1` also admits `http://localhost` and `http://127.0.0.1` URLs
+  (any port, with a path), so tests can serve their own documents. It works only in the local runtime
+  (`next dev` or `UIER_LOCAL=1`, never on Vercel); the Playwright test server sets it. Use it for local
+  tests only and never set it on a deployment. Without it, a local test can use dynamic client
+  registration instead, as the official SDK client does when it has no HTTPS metadata URL.
+
 ### Commands
 
 Run from the repository root (each one runs the matching script in every package through Turborepo):

@@ -3,7 +3,8 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { pagePath } from '@uier/toolbar/page-state';
-import { mcpProject, type McpIdentity } from './credentials';
+import { mcpProject, requireMcpScope, type McpIdentity } from './credentials';
+import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
@@ -61,21 +62,26 @@ async function safely(action: () => Promise<ReturnType<typeof result>>) {
 function slice<T>(items: T[], cursor: number, limit: number) {
     return { items: items.slice(cursor, cursor + limit), nextCursor: cursor + limit < items.length ? cursor + limit : null };
 }
-function key(identity: McpIdentity, value: string) { return sha256Hex(`mcp:${identity.credential.id}:${value}`); }
+// Keyed by the connection (credential or OAuth grant), never the access token, so retries survive a refresh.
+function key(identity: McpIdentity, value: string) { return sha256Hex(`mcp:${identity.connection.id}:${value}`); }
 
 export function createFeedbackMcpServer(identity: McpIdentity, request: Request, baseUrl: string) {
     const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} ${feedbackAccessGuidance} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
     registerFeedbackPrompts(server, identity);
-    const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.credential.name };
+    const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.connection.name, connection: { kind: identity.connection.kind } };
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-    server.registerTool('list_projects', { description: `List projects explicitly granted to this credential in its workspace and still accessible to its human owner. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, reconnect with a credential from that project's workspace with the project selected. ${untrusted}`, inputSchema: page, annotations: readAnnotations }, input => safely(async () => {
-        const projects = [];
-        for (const id of identity.credential.projectIds) {
-            try { const { project } = await mcpProject(identity, id); projects.push({ id, name: project.name, status: project.status }); }
-            catch (error) { if (!(error instanceof ApiError && error.status === 404)) throw error; }
-        }
-        return result({ actingAs, contentTrust: 'untrusted', ...slice(projects, input.cursor, input.limit) });
+    const { access } = identity;
+    server.registerTool('list_projects', { description: `List projects this connection can reach that its human owner can still access, with their workspace. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to reconnect and choose it. ${untrusted}`, inputSchema: { ...page, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
+        requireMcpScope(identity, 'feedback:read');
+        const { workspaces, truncated } = await listAccessibleWorkspaces(identity.user.id, identity.user.email, workspaceId =>
+            (input.workspaceId === undefined || workspaceId === input.workspaceId)
+            && (access.kind === 'all' || access.workspaces.some(entry => entry.workspaceId === workspaceId)));
+        const projects = workspaces.flatMap(({ workspace, projects: visible }) => visible
+            .filter(project => accessCovers(access, workspace.id, project.id))
+            .map(project => ({ id: project.id, name: project.name, status: project.status, workspace })));
+        return result({ actingAs, contentTrust: 'untrusted', access: access.kind === 'all' ? 'all' : { workspaces: access.workspaces.length },
+            ...(truncated ? { truncated: true, message: 'Too many workspaces or projects to list. Filter by workspaceId.' } : {}), ...slice(projects, input.cursor, input.limit) });
     }));
     server.registerTool('list_feedback', { description: `Search/list visible feedback in the latest 1000 threads matching the page and environment. Limit: 1–25 (default 20); follow nextCursor. Other filters apply within that window. Reading never marks feedback read. Cursor is an offset within the current result; concurrent additions can shift pages. ${untrusted}`, inputSchema: feedbackFilters, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId);
@@ -112,8 +118,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             let item: Record<string, unknown>;
             try {
                 const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
-                const screenshotResource = packet.context.screenshot.state === 'protected' && identity.credential.scopes.includes('screenshots:read')
-                    ? { uri: `uier://projects/${project.id}/feedback/${id}/screenshot`, access: 'Use resources/read with this credential. No public image URL is issued.' } : undefined;
+                const screenshotResource = packet.context.screenshot.state === 'protected' && identity.scopes.includes('screenshots:read')
+                    ? { uri: `uier://projects/${project.id}/feedback/${id}/screenshot`, access: 'Use resources/read with this connection. No public image URL is issued.' } : undefined;
                 item = { commentId: id, ...packet, screenshotResource };
                 // Match the single-read cap, also accounting for the batch envelope for a lone item.
                 if (resultBytes({ actingAs, contentTrust: 'untrusted', ...packet, screenshotResource }) > MAX_RESULT_BYTES
@@ -133,8 +139,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const { project, actor } = await mcpProject(identity, input.projectId);
         const packet = await projectFeedbackExport(project, actor, input.commentId, undefined, baseUrl);
         return result({ actingAs, contentTrust: 'untrusted', ...packet,
-            screenshotResource: packet.context.screenshot.state === 'protected' && identity.credential.scopes.includes('screenshots:read')
-                ? { uri: `uier://projects/${project.id}/feedback/${input.commentId}/screenshot`, access: 'Use resources/read with this credential. No public image URL is issued.' } : undefined });
+            screenshotResource: packet.context.screenshot.state === 'protected' && identity.scopes.includes('screenshots:read')
+                ? { uri: `uier://projects/${project.id}/feedback/${input.commentId}/screenshot`, access: 'Use resources/read with this connection. No public image URL is issued.' } : undefined });
     }));
     server.registerTool('list_assignees', { description: `List existing project participants eligible to see this thread. Limit: 1–25 (default 20); follow nextCursor. Assignment never grants access. ${untrusted}`, inputSchema: { ...thread, ...page }, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
@@ -142,7 +148,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         if (!comment) throw apiErrors.notFound();
         return result({ actingAs, contentTrust: 'untrusted', ...slice(await eligibleParticipants(project, actor, comment), input.cursor, input.limit) });
     }));
-    server.registerTool('reply_to_feedback', { description: `Post a human-approved reply as the credential owner, attributed to this connector. Reuse key and input on retries. ${untrusted}`, inputSchema: { ...write, text: textSchema }, annotations: writeAnnotations }, input => safely(async () => {
+    server.registerTool('reply_to_feedback', { description: `Post a human-approved reply as the connection owner, attributed to this connector. Reuse key and input on retries. ${untrusted}`, inputSchema: { ...write, text: textSchema }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:reply');
         assertCanUseComments(project, actor);
         const saved = await replyToProjectComment(request, project, actor, input.commentId, { text: input.text, idempotencyKey: key(identity, input.idempotencyKey) });

@@ -44,7 +44,8 @@ export type DbCommentDevice = {
 /** A selected account identity and its range in the saved message (UTF-16 offsets). */
 export type DbMention = { userId: string; start: number; end: number };
 
-export type AgentSource = { credentialId: string; name: string };
+/** `credentialId` is the manual credential id or, for OAuth, the grant id; `kind` is absent on older records. */
+export type AgentSource = { credentialId: string; name: string; kind?: 'credential' | 'oauth' };
 
 export type DbThreadItem = {
     /** Explicitly authorized connector; the author remains the human account. */
