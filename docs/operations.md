@@ -64,7 +64,9 @@ display name as `uier`, retain the Azure-managed domain in `linkedDomains`, and 
 `UIER_EMAIL_SENDER` to `DoNotReply@notify.uier.io`. Both the direct transactional sender and the digest
 transport use this variable. Its preview must update the communication service in place; reject
 replace/delete, resource renames, key rotation, connection-string replacement or unrelated changes.
-Display-name setup uses ACS SenderUsername, not a formatted `senderAddress` string in the application.
+Display-name setup imports Azure's already-created default SenderUsername before updating it, then
+removes the import option after successful adoption. It never recreates the default sender or puts a
+formatted `senderAddress` string in the application.
 Keep engagement tracking disabled. Apply through CI; never run `pulumi up` locally.
 
 A recipient-authorized production digest remains necessary to prove report message-id correlation,

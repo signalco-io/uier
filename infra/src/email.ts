@@ -80,7 +80,12 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         senderUsername: 'donotreply',
         username: 'DoNotReply',
         displayName: 'uier',
-    }, { protect: true });
+    }, {
+        protect: true,
+        // Azure creates this default resource with the domain. Adopt it before updating its name.
+        // Remove the import option once CI has recorded it in the stack.
+        import: transactionalDomain.id.apply(id => `${id}/senderUsernames/donotreply`),
+    });
     const senderIdentity = output({ domain: verifiedDomain, username: transactionalSender.username,
         displayName: transactionalSender.displayName }).apply(({ domain, username, displayName }) => {
         if (typeof username !== 'string' || username.toLowerCase() !== 'donotreply' || displayName !== 'uier')

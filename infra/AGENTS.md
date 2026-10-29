@@ -99,7 +99,8 @@ unsupported verification, not DMARC protection. `pnpm build && pnpm test` covers
 Preparation #193 deployed on 29 October with six creations and 59 resources unchanged. Verification
 run 40864313704 passed all four Azure states and authoritative DMARC. After all four
 Azure checks and authoritative DMARC pass, the separate cutover PR must read the domain fresh,
-configure its default `donotreply` sender resource with username `DoNotReply` and display name `uier`,
+import its Azure-created default `donotreply` sender resource before updating username `DoNotReply`
+and display name `uier`,
 retain the Azure-managed domain in `linkedDomains`, and switch production to
 `DoNotReply@notify.uier.io`. The sender variable must depend on successful domain linking so
 scheduled workers cannot use the new address prematurely. Configure display names in ACS's SenderUsername resource, never by
@@ -118,6 +119,11 @@ Readback on 28 October confirmed Succeeded and a real HTTP 200 handshake after #
 
 Subscription provisioning does not prove real delivery. Keep `UIER_EMAIL_REPORT_MATCH_OPERATIONS`
 unset until an authorized production digest proves report `messageId` equals the send operation id.
+Azure creates the default sender automatically; code-based import must target exactly the selected
+domain's `/senderUsernames/donotreply` ID. Review import plus an in-place display-name update; never
+recreate/delete the default sender or bypass protection. Remove the import option only after a
+successful CI apply, then require a no-diff preview.
+
 Received-message SPF/DKIM/DMARC, unsubscribe header integrity and DKIM header coverage remain separate
 acceptance gates. The [operations guide](../docs/operations.md#email-domain-verification-and-cutover)
 and [rollout evidence](../docs/review-notifications.md#staged-rollout-and-live-evidence) track the stages.
