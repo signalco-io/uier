@@ -2,7 +2,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { appNavigation, createProject, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { commentBubble, newVisitor, toolbar } from './support/toolbar';
 
@@ -98,7 +98,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenter.page).toHaveTitle('Invitation · uier');
     await expectNoAxeViolations(commenter.page);
     await commenter.page.getByRole('button', { name: 'Accept invitation' }).click();
-    await expect(commenter.page).toHaveURL(`${site.origin('alpha')}/?toolbar-code=${alpha}`);
+    await expect(commenter.page).toHaveURL(`${site.origin('alpha')}/?toolbar-code=${await projectPublicId(page, alpha)}`);
     await expect(commenter.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
 
     // An empty invited-only project offers the existing install action to commenters, never Invite.
@@ -211,7 +211,7 @@ test('a removed workspace creator is not added back to their workspace', async (
     const { adminEmail: creatorEmail, alpha } = await adminWithProjects(page);
     // The creator reviews Alpha, so the site keeps their review token
     await page.goto(`/app/review/${alpha}`);
-    await expect(page).toHaveURL(`${site.origin('alpha')}/?toolbar-code=${alpha}`);
+    await expect(page).toHaveURL(`${site.origin('alpha')}/?toolbar-code=${await projectPublicId(page, alpha)}`);
     await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
 
     const secondAdmin = uniqueEmail('second-admin');

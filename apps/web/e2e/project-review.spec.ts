@@ -4,7 +4,7 @@ import type { Browser, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, showcaseHint, animationsFinished, dismissFirstRunHint, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { pngImage } from './support/images';
 
@@ -109,7 +109,7 @@ test('invited people only: a review link signs members in, everyone else is aske
     const { code } = await requestSignInEmail(stranger.page, ownerEmail);
     await stranger.page.getByLabel('Sign-in code', { exact: true }).fill(code);
     await stranger.page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(stranger.page).toHaveURL(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await expect(stranger.page).toHaveURL(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${await projectPublicId(page, projectId)}`);
     await expect(stranger.page.getByRole('button', { name: 'Add comment' })).toBeVisible();
     await expect(stranger.page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0);
     expect(signInViolations).toEqual([]);
@@ -119,7 +119,7 @@ test('invited people only: a review link signs members in, everyone else is aske
     const violations = await watchCsp(page);
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}/${projectId}/pricing`)}`);
     // The single-use code is gone from the address once the toolbar used it
-    await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${await projectPublicId(page, projectId)}`);
     await expect(toolbar(page)).toBeVisible();
     await addPointComment(page, 'The yearly price is missing.');
     // Posting opens the thread
@@ -170,7 +170,7 @@ test('a schemeless localhost address opens an HTTP review and accepts feedback o
     }
 
     await page.goto(`/app/review/${projectId}`);
-    await expect(page).toHaveURL(`${origin}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await expect(page).toHaveURL(`${origin}/${projectId}/pricing?toolbar-code=${await projectPublicId(page, projectId)}`);
     await addPointComment(page, 'Feedback from localhost.');
     await page.reload();
     await expect(commentBubble(page, 1)).toBeVisible();
@@ -200,7 +200,7 @@ test('guest mode: anyone with the link comments under their name', async ({ page
         for (const [index, url] of urls.entries()) {
             const item = links.getByRole('listitem').nth(index);
             const expected = new URL(url);
-            expected.searchParams.set('toolbar-code', projectId);
+            expected.searchParams.set('toolbar-code', await projectPublicId(page, projectId));
             await expect(item.locator('p')).toHaveText(url.replace(/^https?:\/\//, ''));
             await expect(item.locator('code')).toHaveText(expected.toString());
             await item.getByRole('button', { name: /^Copy the guest link for / }).click();
@@ -498,7 +498,7 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
     await expect(toolbar(page).getByRole('button')).toHaveCount(1);
 
     // The notice still ends the review: the toolbar leaves, also after a reload
-    await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/?toolbar-code=${projectId}`);
+    await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/?toolbar-code=${await projectPublicId(page, projectId)}`);
     await page.getByRole('button', { name: 'Exit review' }).click();
     await expect(page.locator('#uier-toolbar')).toHaveCount(0);
     await expect(page).toHaveURL(`${siteOrigin()}/${projectId}/`);
@@ -614,10 +614,12 @@ test('an ended review session signs in through its notice and returns to the sam
     await guest.page.keyboard.press('Enter');
     await expect(guest.page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Freview%2F/);
     const reviewLink = new URL(new URL(guest.page.url()).searchParams.get('next')!, baseURL);
-    expect(reviewLink.pathname).toBe(`/app/review/${projectId}`);
+    expect(reviewLink.pathname).toBe(`/app/review/${info.project.id}`);
     expect(reviewLink.searchParams.get('url')).toBe(target);
     await signIn(guest.page, email, { from: guest.page.url() });
-    await expect(guest.page).toHaveURL(target);
+    const resumed = new URL(target);
+    resumed.searchParams.set('toolbar-code', info.project.id);
+    await expect(guest.page).toHaveURL(resumed.href);
     await expect(guest.page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await guest.context.close();
 });
@@ -739,7 +741,7 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
     const other = sidebar.getByRole('region', { name: `/${projectId}/checkout` }).getByRole('article', { name: 'Comment #2' });
     await expect(other).toContainText('The pay button is hidden.');
     await expect(other.getByRole('link', { name: `Open on /${projectId}/checkout` }))
-        .toHaveAttribute('href', `${siteOrigin()}/${projectId}/checkout?toolbar-code=${projectId}&uier-comment=${checkout.id}`);
+        .toHaveAttribute('href', `${siteOrigin()}/${projectId}/checkout?toolbar-code=${await projectPublicId(page, projectId)}&uier-comment=${checkout.id}`);
     await guest.context.close();
 
     // The app shows the same ids

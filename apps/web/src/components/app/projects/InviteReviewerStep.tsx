@@ -8,8 +8,9 @@ import { GuestReviewLinks } from './GuestReviewLinks';
 import { projectAccessLabels } from './projectLabels';
 
 /** The first reviewer step, shown below the install guide only during onboarding. */
-export function InviteReviewerStep({ projectId, access, urls, isAdmin }: {
+export function InviteReviewerStep({ projectId, publicId, access, urls, isAdmin }: {
     projectId: string;
+    publicId: string;
     access: ProjectAccess;
     urls: string[];
     isAdmin: boolean;
@@ -22,7 +23,7 @@ export function InviteReviewerStep({ projectId, access, urls, isAdmin }: {
                 ? `Comments are off. ${projectAccessLabels.disabled.description}`
                 : projectAccessLabels[access].description}>
             {access === 'invited' && isAdmin && <InviteButton projectId={projectId} />}
-            {access === 'guests' && <GuestReviewLinks projectId={projectId} urls={urls} />}
+            {access === 'guests' && <GuestReviewLinks publicId={publicId} urls={urls} />}
             {access === 'disabled' && isAdmin && (
                 <Button variant="outline" asChild>
                     <Link href={KnownPageLinks.projectSettings(projectId)}>Settings</Link>

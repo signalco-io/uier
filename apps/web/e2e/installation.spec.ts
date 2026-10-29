@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, signIn, uniqueEmail } from './support/app';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -22,7 +22,7 @@ test('checks the actual project toolbar, API and browser verification, then prov
     expect(await popup.evaluate(() => window.opener)).toBeNull();
     await expect(popup.getByRole('button', { name: 'Add comment' })).toBeVisible();
     expect(popup.url()).not.toMatch(/uier-token|uier-check/);
-    await expect(check.getByRole('link', { name: 'Open checked review' })).toHaveAttribute('href', `${site.origin('installed')}/?toolbar-code=${projectId}`);
+    await expect(check.getByRole('link', { name: 'Open checked review' })).toHaveAttribute('href', `${site.origin('installed')}/?toolbar-code=${await projectPublicId(page, projectId)}`);
     await expect(check.getByRole('button', { name: 'Copy checked review link' })).toBeVisible();
     await expectNoAxeViolations(page);
     await popup.close();
@@ -63,7 +63,7 @@ test('a successful check does not carry over to another selected address', async
 
 test('a failed browser-verification proof cannot confirm the installation', async ({ page, context }) => {
     const { projectId, check } = await setup(page, 'installed');
-    await context.route(`**/api/review/${projectId}/verification`, route => route.fulfill({
+    await context.route(`**/api/review/${await projectPublicId(page, projectId)}/verification`, route => route.fulfill({
         status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'bot_detected', message: 'Verification failed' })
     }));
     const opened = page.waitForEvent('popup');

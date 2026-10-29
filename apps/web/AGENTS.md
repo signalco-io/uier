@@ -182,6 +182,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   plain `reviewUrl` links, never `/app/review`, `uier-token` or `uier-check`. Comments-off states explain that
   comments are off and link admins to Settings; their header has no Invite. `inviteAction` still checks the
   admin role on the server. `e2e/app.spec.ts`, `project-review.spec.ts` and `users.spec.ts` cover these paths.
+- `app/projectPublicIds.ts` assigns stable 21-character public Nano IDs lazily with claimed references
+  and optimistic concurrency. Generated review URLs, embeds and guest email links use `publicId`;
+  internal project ids retain storage/membership/MCP meaning. Review routes use `findReviewProject`,
+  retaining legacy random codes but rejecting the fixed `uier00000001` code. Do not expose abandoned
+  references or overwrite a saved public id. See `docs/api.md#public-project-identifiers`.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

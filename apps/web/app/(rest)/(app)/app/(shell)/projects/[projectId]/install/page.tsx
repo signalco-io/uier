@@ -30,6 +30,7 @@ export default async function InstallProjectPage({ params, searchParams }: PageP
             <InstallGuide
                 baseUrl={await appBaseUrl()}
                 projectId={project.id}
+                publicId={project.publicId}
                 urls={project.urls}
                 reviewStep={(
                     <div className="flex flex-wrap gap-2">
@@ -40,7 +41,7 @@ export default async function InstallProjectPage({ params, searchParams }: PageP
                     </div>
                 )} />
             {onboarding === '1' && (
-                <InviteReviewerStep projectId={project.id} access={project.access} urls={project.urls} isAdmin={context.isAdmin} />
+                <InviteReviewerStep projectId={project.id} publicId={project.publicId} access={project.access} urls={project.urls} isAdmin={context.isAdmin} />
             )}
         </div>
     );

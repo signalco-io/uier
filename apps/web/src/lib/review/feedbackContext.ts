@@ -41,6 +41,6 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
         commentUrl,
         screenshotUrl: screenshot ? new URL(actor.kind === 'member'
             ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)
-            : `/api/review/${encodeURIComponent(project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined
+            : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined
     });
 }

@@ -5,7 +5,7 @@ window.addEventListener('message', async (event) => {
     if (event.source !== window.parent || !/^https?:\\/\\//.test(event.origin)) return;
     const data = event.data;
     if (data?.type !== 'uier:session' || typeof data.id !== 'string' || data.id.length > 128
-        || typeof data.project !== 'string' || !/^[a-z0-9]{12}$/.test(data.project)) return;
+        || typeof data.project !== 'string' || !/^(?:[a-z0-9]{12}|[A-Za-z0-9_-]{21})$/.test(data.project)) return;
     try {
         const response = await fetch('/api/review/' + data.project + '/sso', {
             method: 'POST', credentials: 'include',

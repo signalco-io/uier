@@ -51,8 +51,9 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `user` | `user:<id>` | `u_<nanoid>` |
 | `user-email` (unique email -> user) | `email:<email>` | the email |
 | `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash) | `sign-in:<hash>` | SHA-256 of the link token |
-| `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the project code |
-| `project-ref` (code -> workspace) | `project:<code>` | the project code |
+| `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the internal project id |
+| `project-ref` (internal id -> workspace) | `project:<id>` | the internal project id |
+| `project-public-ref` (public id -> project and workspace) | `project-public:<publicId>` | the public id |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |
 | `integration-discovery-cursor` (bounded source-outbox scan) | `integrations:worker` | `pending` |
 
@@ -64,6 +65,21 @@ work and never appears in comment lists or DTOs. See [the shared delivery contra
 Email goes through Azure Communication Services (`ACS_CONNECTION_STRING`, sender `UIER_EMAIL_SENDER`, both
 set by Pulumi). Links in emails use `https://uier.io` in production and the deployment URL on previews
 (`UIER_BASE_URL` overrides both); never the request's Host header.
+
+### Public project identifiers
+
+Generated guest links, member review redirects, install snippets and guest notification links use a
+separate `project.publicId`: a cryptographically random, URL-safe 21-character Nano ID (126 bits).
+The review API resolves it through a point-read reference, then verifies that it is still the
+project's published id. Internal project ids, comment partitions, memberships and MCP grants stay
+unchanged. Public ids are identifiers; project access settings and member authorization still apply.
+
+New projects receive a public id at creation. Existing projects receive one on their first app or
+internal service read, including uier's feedback project. An optimistic update keeps concurrent
+requests on one durable id; failed claims never resolve. No bulk data migration is required.
+Previously shared random 12-character project codes and installed embeds remain supported. The
+fixed `uier00000001` value is internal-only at the review API; copy its new link or script from the
+app. The same-origin public showcase continues through `/api/comments`.
 
 ## `/toolbar.js`
 

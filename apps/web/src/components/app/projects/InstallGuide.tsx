@@ -105,8 +105,8 @@ function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Pla
  * Where and how to add the script on the common platforms (with the CSP sources, in Advanced), then
  * opening a review link (`reviewStep`)
  */
-export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl: string; projectId: string; urls: string[]; reviewStep: ReactNode }) {
-    const script = embedScript(baseUrl, projectId);
+export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }: { baseUrl: string; projectId: string; publicId: string; urls: string[]; reviewStep: ReactNode }) {
+    const script = embedScript(baseUrl, publicId);
     return (
         <div className="flex flex-col gap-8">
             <ol className="m-0 flex list-none flex-col p-0">
@@ -114,12 +114,12 @@ export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl
                     <p className="m-0 text-sm text-muted-foreground">
                         Paste it before the closing <code className="font-mono">&lt;/body&gt;</code> tag on every page you want to review.
                         It loads the toolbar only when a page is opened with a review link
-                        (<code className="font-mono">?toolbar-code={projectId}</code>), so visitors never see it.
+                        (<code className="font-mono">?toolbar-code={publicId}</code>), so visitors never see it.
                     </p>
                     <CopyBlock value={script} label="Copy the script" />
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         Project code
-                        <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{projectId}</code>
+                        <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{publicId}</code>
                     </div>
                 </Step>
                 <Step number={2} title="Add it to your site">
@@ -135,7 +135,7 @@ export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl
                                     {platform.steps.map(step => <li key={step}>{step}</li>)}
                                 </ol>
                                 {platform.code && (
-                                    <CopyBlock value={platform.code(baseUrl, projectId)} label={`Copy the ${platform.label} code`} />
+                                    <CopyBlock value={platform.code(baseUrl, publicId)} label={`Copy the ${platform.label} code`} />
                                 )}
                                 <SecurityHeaders baseUrl={baseUrl} platform={platform} />
                             </TabsContent>
@@ -147,7 +147,7 @@ export function InstallGuide({ baseUrl, projectId, urls, reviewStep }: { baseUrl
                         Once the script is live, a review link opens your site with the toolbar. Pin a comment and it shows up in the app.
                     </p>
                     {reviewStep}
-                    <InstallationCheck key={urls.join('\0')} projectId={projectId} urls={urls} />
+                    <InstallationCheck key={urls.join('\0')} projectId={projectId} publicId={publicId} urls={urls} />
                 </Step>
             </ol>
 

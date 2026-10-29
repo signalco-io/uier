@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
@@ -117,7 +117,7 @@ test('admins control excerpts in both themes; commenters see saved state and can
             try {
                 await person.page.goto(invitation!);
                 await person.page.getByRole('button', { name: 'Accept invitation' }).click();
-                await expect(person.page).toHaveURL(new RegExp(`toolbar-code=${projectId}`));
+                await expect(person.page).toHaveURL(new RegExp(`toolbar-code=${await projectPublicId(page, projectId)}`));
                 await person.page.goto(`/app/projects/${projectId}/settings`);
                 const personEmails = person.page.getByRole('region', { name: 'Email notifications' });
                 await expect(personEmails).toContainText('Comment excerpts are on.');

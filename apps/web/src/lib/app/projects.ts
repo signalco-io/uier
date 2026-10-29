@@ -8,6 +8,7 @@ import type { AppContext } from './context';
 import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
+import { ensureProjectPublicId, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 
 const MAX_URL_LENGTH = 512;
 
@@ -122,15 +123,15 @@ export function projectReviewOrigin(project: Pick<DbProject, 'urls'>, request: R
 export const TOOLBAR_CODE_PARAM = 'toolbar-code';
 
 /** A review link: the site URL with the toolbar turned on for the project (`?toolbar-code=<code>`) */
-export function reviewUrl(siteUrl: string, projectId: string) {
+export function reviewUrl(siteUrl: string, publicId: string) {
     const url = new URL(siteUrl);
-    url.searchParams.set(TOOLBAR_CODE_PARAM, projectId);
+    url.searchParams.set(TOOLBAR_CODE_PARAM, publicId);
     return url.toString();
 }
 
 export async function listProjects(workspaceId: string) {
     const projects = await getAppStore().query<DbProject>({ type: 'project', pk: workspacePk(workspaceId) });
-    return projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return await Promise.all(projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(project => ensureProjectPublicId(project)));
 }
 
 /** Projects of the current workspace the member may see */
@@ -140,12 +141,17 @@ export async function listVisibleProjects(context: AppContext) {
 }
 
 export async function getProject(workspaceId: string, projectId: string) {
+    if (isProjectPublicId(projectId)) {
+        const project = await projectByPublicId(projectId);
+        return project?.workspaceId === workspaceId ? project : null;
+    }
     if (!isProjectId(projectId))
         return null;
-    return (await getAppStore().get<DbProject>(workspacePk(workspaceId), projectId))?.doc ?? null;
+    const project = (await getAppStore().get<DbProject>(workspacePk(workspaceId), projectId))?.doc;
+    return project ? await ensureProjectPublicId(project) : null;
 }
 
-/** A project by its public code (any workspace) */
+/** A project by its internal id (any workspace). */
 export async function findProject(projectId: string) {
     if (!isProjectId(projectId))
         return null;
@@ -153,6 +159,12 @@ export async function findProject(projectId: string) {
         await ensurePublicProject();
     const ref = (await getAppStore().get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
     return ref ? await getProject(ref.workspaceId, projectId) : null;
+}
+
+/** Public review boundary. Retain old random codes, never the predictable showcase id. */
+export async function findReviewProject(code: string) {
+    return await projectByPublicId(code)
+        ?? (code !== PUBLIC_PROJECT_ID ? await findProject(code) : null);
 }
 
 /** A project of the current workspace the member may see, or `null` */
@@ -186,7 +198,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
             updatedAt: now
         };
         await store.create(project);
-        return project;
+        return await ensureProjectPublicId(project, store);
     }
     throw new Error('Could not create a unique project code');
 }

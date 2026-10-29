@@ -19,7 +19,7 @@ const failures: Record<string, Result> = {
 };
 
 /** Observes the actual site via a nonce-bound, source/origin-checked diagnostic handshake. */
-export function InstallationCheck({ projectId, urls }: { projectId: string; urls: string[] }) {
+export function InstallationCheck({ projectId, publicId, urls }: { projectId: string; publicId: string; urls: string[] }) {
     const [address, setAddress] = useState(urls[0] ?? '');
     const [result, setResult] = useState<Result>();
     const popupRef = useRef<Window>(undefined);
@@ -44,7 +44,7 @@ export function InstallationCheck({ projectId, urls }: { projectId: string; urls
         const receive = (event: MessageEvent) => {
             const data = event.data;
             if (event.source !== popup || event.origin !== target.origin || data?.type !== 'uier:installation' || data.nonce !== nonce) return;
-            if (data.project !== projectId) { stop({ kind: 'failure', message: 'This page loads a toolbar for a different project. Replace its script with this project’s snippet.' }); return; }
+            if (data.project !== publicId && data.project !== projectId) { stop({ kind: 'failure', message: 'This page loads a toolbar for a different project. Replace its script with this project’s snippet.' }); return; }
             if (data.apiOrigin !== location.origin) { stop({ kind: 'failure', message: 'The toolbar points to a different uier API. Copy the script from this install guide and retry.' }); return; }
             if (data.stage === 'ready') stop({ kind: 'success', message: 'Installation confirmed. The correct toolbar, review API and browser verification work on this page.' });
             else if (data.stage === 'failed') stop((typeof data.code === 'string' && Object.hasOwn(failures, data.code) ? failures[data.code] : undefined)
@@ -64,7 +64,7 @@ export function InstallationCheck({ projectId, urls }: { projectId: string; urls
         popup.location.href = review.href;
     };
     const reviewLink = new URL(address);
-    reviewLink.searchParams.set('toolbar-code', projectId);
+    reviewLink.searchParams.set('toolbar-code', publicId);
     return (
         <section aria-label="Check installation" className="flex flex-col gap-3 rounded-xl border p-4">
             <h3 className="m-0 text-sm font-medium">Check installation</h3>

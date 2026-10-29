@@ -4,7 +4,7 @@ import { commentPath } from '../comments/dto';
 import { feedbackSource } from './environments';
 import type { AppContext } from './context';
 import type { DbMember } from './model';
-import { findProject, projectOrigins, reviewUrl } from './projects';
+import { findProject, findReviewProject, projectOrigins, reviewUrl } from './projects';
 import { getMember, memberCanAccessProject } from './workspaces';
 import { issueReviewCode, memberActor } from '../review/actor';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
@@ -28,7 +28,7 @@ export async function reviewTarget(context: AppContext, projectId: string, reque
 
 /** {@link reviewTarget} for a user (e.g. right after accepting an invitation) */
 export async function memberReviewTarget(userId: string, projectId: string, requestedUrl: string | null, commentId?: string | null, knownMemberships: DbMember[] = []) {
-    const project = await findProject(projectId);
+    const project = await findProject(projectId) ?? await findReviewProject(projectId);
     if (!project)
         return null;
 
@@ -60,7 +60,7 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
     if (!url)
         return null;
 
-    const target = new URL(reviewUrl(url, project.id));
+    const target = new URL(reviewUrl(url, project.publicId));
     target.searchParams.set(REVIEW_TOKEN_PARAM, await issueReviewCode(userId, project.id));
     if (commentId && commentIdPattern.test(commentId))
         target.searchParams.set(REVIEW_COMMENT_PARAM, commentId);

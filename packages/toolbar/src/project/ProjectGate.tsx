@@ -65,6 +65,7 @@ export async function loadReviewInfo() {
 }
 
 export type ProjectViewer = {
+    publicId?: string;
     access?: ReviewInfo['project']['access'];
     brief?: string;
     isMember?: boolean;
@@ -195,6 +196,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
         try { window.localStorage.setItem(storageKey, value); } catch { /* Filter still works for this page. */ }
     };
     return <ProjectViewerContext.Provider value={{
+        publicId: info.project.id,
         access: info.project.access, brief: info.project.brief,
         isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
         needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,

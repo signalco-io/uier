@@ -132,7 +132,7 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
         if (page.origin !== source.origin) throw new Error('Invalid notification page origin');
         if (delivery.userId) url = `${baseUrl}${KnownPageLinks.projectReview(project.id, page.toString(), comment.id)}`;
         else {
-            page.searchParams.set('toolbar-code', project.id);
+            page.searchParams.set('toolbar-code', project.publicId);
             page.searchParams.set('uier-comment', comment.id);
             url = page.toString();
         }

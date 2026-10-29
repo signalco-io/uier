@@ -1,5 +1,5 @@
 import { apiErrors, errorResponse } from '../comments/http';
-import { findProject, projectOrigins } from '../app/projects';
+import { findReviewProject, projectOrigins } from '../app/projects';
 import type { DbProject } from '../app/model';
 import { assertCanUseComments, resolveActor, VISITOR_HEADER, type ProjectActor } from './actor';
 import { assertVerifiedWrite, VERIFICATION_HEADER } from './verification';
@@ -57,7 +57,7 @@ export function reviewApiHandler<TParams extends ReviewParams>(
         let response: Response;
         try {
             const params = await routeContext.params;
-            const project = await findProject(params.projectId);
+            const project = await findReviewProject(params.projectId);
             if (!project)
                 throw apiErrors.notFound('Project not found.');
 
@@ -86,7 +86,7 @@ export function reviewPreflight(methods: string) {
         const headers = new Headers({ 'Cache-Control': 'no-store' });
         try {
             const { projectId } = await routeContext.params;
-            const project = await findProject(projectId);
+            const project = await findReviewProject(projectId);
             const origin = project ? allowedSiteOrigin(request, project) : undefined;
             corsHeaders(headers, origin);
             if (origin) {
