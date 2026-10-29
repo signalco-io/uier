@@ -288,21 +288,42 @@ export default function PrivacyPolicyPage() {
 
             <h3>Coding tool access</h3>
             <p>
-                You can create a named credential in Account to let a coding tool access selected projects
-                and operations as your account. We store its hash, your account and workspace ids, name,
-                project selection, scopes and expiry in Cosmos DB. The credential expires after 30 days
-                when created in the app and can be revoked immediately. We do not store the credential itself.
-                Replies and activity record your identity and the credential’s name and id, so other reviewers
+                A coding tool can connect to {brand.name} as your account in two ways: it signs in through your
+                browser and you allow it access, or you create a named access token in Account. Either way it
+                reaches only the workspaces, projects and operations you chose for it, subject to your current
+                membership and private feedback permissions.
+            </p>
+            <p>When a coding tool signs in, we store in Cosmos DB:</p>
+            <ul>
+                <li>
+                    the tool&rsquo;s description of itself: the name it gives, the host that publishes that description
+                    or the fact that the tool registered itself, and the addresses it asks to send you back to. To read
+                    a published description we fetch it from the address the tool gives; that request carries nothing
+                    about you;
+                </li>
+                <li>the pending sign-in request: the tool, its return address, the operations it asked for and the values it needs to finish sign-in;</li>
+                <li>
+                    each connection you allow: the tool, the connection name, the access and operations you chose,
+                    when it was created and last used, and when it ends;
+                </li>
+                <li>hashes of its sign-in codes, access tokens and refresh tokens, never the codes or tokens themselves.</li>
+            </ul>
+            <p>
+                For an access token from Account we store its hash, your account and workspace ids, name, project
+                selection, scopes and expiry. We do not store the token itself.
+            </p>
+            <p>
+                Replies and activity record your identity and the connection&rsquo;s name and id, so other reviewers
                 can recognize changes made through your coding tool. These records stay with the feedback.
                 Request counters expire after two minutes. Retry receipts contain hashes and feedback ids
                 and expire after 30 days.
             </p>
             <p>
-                Only the access you explicitly grant is available, subject to your current membership and
-                private feedback permissions. The client you choose receives the feedback and any screenshots
-                you authorize; its own terms and retention rules apply to copies it receives. Revocation prevents
-                further access but cannot remove copies already received by that client. MCP requests use the
-                scoped credential and rate limits instead of the browser’s BotID challenge.
+                The client you choose receives the feedback and any screenshots you authorize; its own terms and
+                retention rules apply to copies it receives. You can revoke a connection or an access token in Account
+                at any time. Revocation prevents further access but cannot remove copies already received by that
+                client. MCP requests use the connection&rsquo;s tokens and rate limits instead of the browser&rsquo;s
+                BotID challenge.
             </p>
 
             <h3>Rewrite suggestions</h3>
@@ -318,7 +339,8 @@ export default function PrivacyPolicyPage() {
                 Project members have higher hourly limits and do not share the IP write limit. Guests, commenters on our
                 public feedback project and every writer using the anonymous comments API keep the visitor and IP limits.
                 An IP limit counts an IPv4 address or the /64 network of an IPv6 address. MCP replies also count per
-                credential and against its owner&rsquo;s reply limit; MCP requests count per account per minute.
+                connection and against its owner&rsquo;s reply limit; MCP requests count per account per minute.
+                Coding tool sign-in, token, registration and revocation requests count per IP address.
             </p>
             <p>
                 Rewrite suggestions still count per visitor or reviewer, per IP address, per site or project and across
@@ -399,7 +421,8 @@ export default function PrivacyPolicyPage() {
                 <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
                 <li>Read cursors: removed when their thread is deleted, and expire no later than a thread with automatic expiry. Otherwise member cursors stay until removed with the account or project on request; guest cursors expire one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, removes access to its screenshot and deletes the stored image. Failed image deletes are retried by a scheduled sweep once an unreferenced image is over an hour old. Legacy public-feedback copies are removed when the migrated thread is deleted or its screenshot is replaced. Cleanup intents contain only thread identifiers and expire one day after successful cleanup.</li>
-                <li>Coding tool credentials: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
+                <li>Coding tool connections: until you revoke them, 30 days after the tool last renewed its access, or one year after you allowed them, whichever comes first. A tool&rsquo;s access tokens last one hour; its refresh tokens are replaced on each use and last at most 30 days, and the hash of a used one is kept for a day to detect reuse. Pending sign-in requests: 10 minutes. Sign-in codes: valid for 60 seconds, their hashes kept for 10 minutes. Descriptions of tools that registered themselves: 30 days after their last sign-in; published descriptions: cached for up to 24 hours. Expired records are deleted automatically. Attribution stays with the feedback.</li>
+                <li>Coding tool access tokens: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Moderation author-filter references: 24 hours.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>

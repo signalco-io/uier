@@ -294,7 +294,7 @@ shipping an empty list.
    sensitive Vercel variable `UIER_STAFF_EMAILS` for **production only**, before the new web deployment.
 3. Verify the new production deployment: a retained staff account can moderate, and a removed
    account cannot read another person's private feedback, including with an existing review token
-   or MCP credential. Changes take effect when the new deployment is live. The next app request
+   or MCP connection. Changes take effect when the new deployment is live. The next app request
    and each instance's first provisioning call reconcile stored memberships as well.
 
 Addresses are trimmed, lowercased and checked with `emailSchema`; malformed entries are skipped.
@@ -320,10 +320,6 @@ an explicit empty secret value and leaves moderation unavailable until a staff l
    Never delete `$sequence_comments` or rate-limit counter documents. Refresh the app/API to
    confirm the thread or reply is gone, its screenshot returns not found when the thread went,
    and the next comment continues numbering. The API does not cache these reads.
-
-For an accidental operator delete, follow [Backups and restore](#backups-and-restore). Never recover
-abuse, an author's deletion or content covered by an erasure request.
-
 
 For an accidental operator delete, follow [Backups and restore](backups-and-restore.md#backups-and-restore). Never recover
 abuse, an author's deletion or content covered by an erasure request.

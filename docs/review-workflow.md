@@ -178,7 +178,7 @@ Every uier account automatically joins this workspace. Only accounts in the serv
 feedback project, including former staff and admins previously set by hand. Existing accounts are
 enrolled by a one-time, resumable provisioning backfill; sign-in and app requests reconcile roles.
 Each server instance also resets stored admins on its first public-project provisioning call.
-Review tokens and MCP credentials recheck the allowlist at read time, before that stored reset.
+Review tokens and MCP connections (access tokens and connected apps) recheck the allowlist at read time, before that stored reset.
 This grants project access directly, with no invitation email or acceptance step, and keeps each person's current workspace
 and new-user onboarding as the default. Switch to the **uier** workspace to view the project.
 

@@ -43,7 +43,7 @@ For a current user and membership, on a project in the same workspace, access is
 `src/lib/app/access.ts` loads at most 101 active-team records in one workspace query, rejects a
 limit violation and supplies the pure rules in `accessRules.ts`. List operations reuse this
 snapshot across projects/people. The server never trusts submitted team ids as authority and
-stores no permission snapshot in a cookie, review token or MCP credential. Storage failures
+stores no permission snapshot in a cookie, review token, MCP access token or connected app. Storage failures
 propagate as errors; they cannot become a blanket grant. There is no process-wide positive
 authorization cache. The old direct-only predicate has been removed from all consumers.
 
@@ -54,8 +54,10 @@ on retries. Private-thread author/admin checks remain separate: being in the sam
 makes another person's private thread visible. Assignment cannot recover lost project access.
 
 Team membership alone does not follow every thread. Notification discovery deduplicates
-recipients and delivery rechecks current access and private visibility. MCP credentials remain
-limited to their original selected project ids/scopes intersected with current access.
+recipients and delivery rechecks current access and private visibility. MCP access tokens remain
+limited to their original selected project ids/scopes intersected with current access; connected
+apps (OAuth) store only the chosen workspaces, projects and scopes and intersect them with current
+access on every request.
 
 Guest-link visitors have no team membership. External reviewers are authenticated commenters;
 an admin invites their email with selected teams and optional direct projects. The invitation

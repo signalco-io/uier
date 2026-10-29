@@ -4,7 +4,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 ## Development
 
-- [Local development and testing](development.md): setup, ports, test categories, focused implementation checks and PR verification.
+- [Local development and testing](development.md): setup, ports, local MCP OAuth, test categories, focused implementation checks and PR verification.
 - [Contributing](../CONTRIBUTING.md): workflow, code conventions and documentation ownership.
 - [Agent guides](../AGENTS.md): package code maps and implementation rules.
 - [Brand guide](../packages/brand/BRAND.md) and [live brand page](https://uier.io/brand): voice, tokens, logo and components.
@@ -15,7 +15,8 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Review workflow](review-workflow.md): the app, access, assignment, screenshots, drafts, unread activity and environments.
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
-- [Coding tool access (MCP)](mcp.md): credentials, client setup, tools, prompts and retry contracts.
+- [Coding tool access (MCP)](mcp.md): OAuth sign-in, connected apps, access tokens, client setup, tools, prompts and retry contracts.
+- [MCP OAuth plan](mcp-oauth-plan.md): the design record for coding tool sign-in, the decisions taken and where the implementation differs.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.
 - [Connected services](integrations.md): Notion pages, GitHub and Linear issues, Slack notifications and the shared delivery protocol.
 
