@@ -60,6 +60,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
@@ -182,6 +183,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId 
     const [expanded, setExpanded] = useState(false);
     const firstRevealedRef = useRef<HTMLLIElement>(null);
     const DeviceIcon = comment.device ? deviceIcons[comment.device] : undefined;
+    // Hovering the device icon: what it was left from, then the viewport ("1674×1318 px · 2x")
+    const { windowSize, pixelRatio } = comment.reproduction;
+    const deviceDetails = [
+        [comment.device && deviceLabels[comment.device], comment.reproduction.browser, comment.reproduction.os].filter(Boolean).join(' · '),
+        [windowSize && `${windowSize[0]}×${windowSize[1]} px`, pixelRatio && `${pixelRatio}x`].filter(Boolean).join(' · ')
+    ].filter(Boolean);
     const { permissions, source } = comment;
     const author = comment.author.isMe ? 'You' : comment.author.name;
     const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
@@ -424,11 +431,19 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId 
                     <li>
                         <Message author={comment.deleted ? 'Deleted' : author} createdAt={comment.createdAt}
                             meta={DeviceIcon && comment.device && (
-                                <span title={[deviceLabels[comment.device], comment.reproduction.browser, comment.reproduction.os].filter(Boolean).join(' · ')}
-                                    className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground">
-                                    <DeviceIcon aria-hidden="true" className="size-3.5" />
-                                    <span className="sr-only">{deviceLabels[comment.device]}</span>
-                                </span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        {/* Focusable, so keyboard readers get the same details as a hover */}
+                                        <span tabIndex={0} className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
+                                            <DeviceIcon aria-hidden="true" className="size-3.5" />
+                                            <span className="sr-only">{deviceDetails.join(', ')}</span>
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="flex-col items-start gap-0.5">
+                                        <span>{deviceDetails[0]}</span>
+                                        {deviceDetails[1] && <span className="font-mono tabular-nums">{deviceDetails[1]}</span>}
+                                    </TooltipContent>
+                                </Tooltip>
                             )}>
                             <KindLabel kind={comment.kind} />
                             {comment.quotedText && (
