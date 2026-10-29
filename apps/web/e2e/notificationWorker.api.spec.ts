@@ -14,6 +14,10 @@ test.beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), 'uier-worker-test-'));
     worker = join(directory, 'worker.mjs');
     const modules: Record<string, string> = {
+        '../src/lib/repo/commentsStore': 'export function getCommentsStore() { return { async migrateScreenshots() { console.log("CALL migrate production"); return {migrated:0,failed:0}; } }; }',
+        '../src/lib/repo/cosmosCommentsStore': 'export function createCosmosCommentsStore() { return { async migrateScreenshots() { console.log("CALL migrate preview"); return {migrated:0,failed:0}; }, async sweepScreenshotBlobs() { console.log("CALL blobs"); return {removed:0,failed:0}; } }; }',
+        '../src/lib/db/client': 'export function cosmosDataContainerComments() { return {database:{container(){return {};}}}; }',
+        '../src/lib/screenshots/blobStore': 'export function getScreenshotBlobStore() { return {}; }',
         '../src/lib/comments/cleanup': 'export async function sweepCommentCleanup() { console.log("CALL cleanup"); return {removed:0,failed:0}; }',
         '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return {checked:0,blocked:0}; }',
         '../src/lib/app/deployment': 'export function configuredAppBaseUrl() { return "https://uier.io"; }',
@@ -37,11 +41,14 @@ async function run(integrationsOnly: boolean, retry = '') {
 test('integration-only runs do not invoke email discovery, sending or retry', async () => {
     const result = await run(true);
     expect(result.stdout).toContain('CALL integrations');
-    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup/);
+    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL migrate|CALL blobs/);
 });
 
 test('normal scheduled runs retain email retries and integration delivery', async () => {
     const result = await run(false, 'isolated-delivery');
+    expect(result.stdout).toContain('CALL migrate production');
+    expect(result.stdout).toContain('CALL migrate preview');
+    expect(result.stdout).toContain('CALL blobs');
     expect(result.stdout).toContain('CALL retry');
     expect(result.stdout).toContain('CALL email');
     expect(result.stdout).toContain('CALL integrations');

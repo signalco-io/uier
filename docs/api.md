@@ -312,7 +312,9 @@ never expire (`ttl: -1`). New visitor threads in the `comments` container carry 
 after their last change. The container has `defaultTtl: -1` (TTL enabled, nothing expires without its own
 `ttl`). New visitor threads in `comments-preview` have no per-item `ttl` and expire with the container default (7 days).
 
-**Storage.**
+**Storage.** Screenshot bytes use private Azure Blob Storage; Cosmos retains small references. Authorized
+new toolbar clients receive a 60-second single-image read URL, while older clients retain the image response.
+See [screenshot storage](screenshot-storage.md) for environments, CSP, migration and cleanup.
 
 | Environment | Store |
 | --- | --- |

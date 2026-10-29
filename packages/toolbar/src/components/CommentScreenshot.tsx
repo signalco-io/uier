@@ -84,7 +84,7 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
     });
     const replace = async (dataUrl: string) => {
         await replacement.mutateAsync(dataUrl);
-        setMessage('Screenshot replaced. The previous image has been removed.');
+        setMessage('Screenshot replaced.');
         setEditing(false);
         setOpen(false);
     };

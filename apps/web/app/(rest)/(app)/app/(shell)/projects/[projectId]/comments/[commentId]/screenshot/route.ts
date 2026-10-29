@@ -19,7 +19,7 @@ export async function GET(_request: Request, { params }: RouteContext<'/app/proj
         return new Response(null, { status: 404 });
 
     try {
-        const response = screenshotResponse(await getProjectScreenshot(project, appActor(context), commentId));
+        const response = await screenshotResponse(await getProjectScreenshot(project, appActor(context), commentId), 'redirect');
         response.headers.set('Cache-Control', 'private, no-store');
         return response;
     } catch (error) {

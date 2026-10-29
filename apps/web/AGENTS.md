@@ -265,7 +265,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   permission checks and etag retries preserve concurrent replies. `editedAt` is shown in the toolbar and app.
 - Saved image replacements use `POST .../comments/<id>/screenshot` with shared screenshot validation,
   the daily image budget and `expectedRevision`. `replaceScreenshot.ts` checks visibility/edit rights
-  on each attempt; stores atomically swap comment metadata and image bytes under the comment etag.
+  on each attempt; stores upload immutable Blob bytes, then atomically swap comment metadata and
+  image references under the comment etag. Never delete a proposed blob on an uncertain Cosmos result.
   Never delete the original before this transaction succeeds. Public authors and project authors/admins
   can replace evidence; readers retain the existing comment visibility rules. The screenshot replacement
   API/browser tests cover failure, reload, redaction, private visibility and deletion.
@@ -707,7 +708,12 @@ Authorized deletes persist an identifier-only cleanup intent before deleting the
 pending intents never expire, while completed intents expire after one day;
 the scheduled notification worker retries related notification/read cleanup and legacy copies.
 It also pages through screenshot metadata older than one hour, rechecks comment references and
-uses image etags so a concurrent replacement survives the orphan sweep.
+uses image etags so a concurrent replacement survives the orphan sweep. `src/lib/screenshots/blobStore.ts`
+stores raw bytes in private Azure Blob Storage; Cosmos stores only references on new writes. The
+worker migrates 20 legacy images per environment per tick, preserving remaining TTL, and sweeps
+Blob orphans in production and preview. See [screenshot storage](../../docs/screenshot-storage.md).
+Direct toolbar reads negotiate a 60-second read-only URL and download without uier headers; do
+not redirect header-authenticated requests to Blob Storage. MCP/integrations read bytes server-side.
 Related record TTLs use the thread’s remaining lifetime. Completed notification ledgers expire
 after 30 days; the thread’s discovery floor prevents replay after ledger expiry. Blocked ledgers
 are queried by failed/ambiguous status.

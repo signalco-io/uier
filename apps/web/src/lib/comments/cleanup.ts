@@ -75,5 +75,11 @@ export async function sweepCommentCleanup(comments = getCommentsStore(), app = g
         }
         cursor = page.continuation;
     } while (cursor);
+    if (comments.sweepScreenshotBlobs) {
+        try {
+            const blobs = await comments.sweepScreenshotBlobs(now);
+            removed += blobs.removed; failed += blobs.failed;
+        } catch { failed++; console.error('[screenshots] Blob sweep needs retry'); }
+    }
     return { removed, failed };
 }

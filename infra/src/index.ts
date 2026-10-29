@@ -1,3 +1,4 @@
+import { screenshotStorage } from './screenshots.js';
 import { Config, getStack, interpolate, secret } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectDomain, ProjectEnvironmentVariable } from '@pulumiverse/vercel';
@@ -196,6 +197,8 @@ const up = async () => {
         principalId: previewIdentity.principalId,
         scope: interpolate`${cosmosDbAccount.id}/dbs/${sqlDatabase.name}/colls/${appPreviewContainer.name}`,
     });
+
+    screenshotStorage(resourceGroup, app.projectId, previewIdentity.principalId);
 
     // Email (sign-in links and invitations), production only: like the account key, the email key
     // stays out of previews (they show sign-in links on the page instead, apps/web/src/lib/email/send.ts).

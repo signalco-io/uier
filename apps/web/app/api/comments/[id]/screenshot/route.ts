@@ -1,5 +1,6 @@
 import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../../../src/lib/comments/http';
 import { assertCommentAuthor, getCommentScreenshot, toPublicCommentDto } from '../../../../../src/lib/comments/service';
+import { screenshotUrlMediaType } from '../../../../../src/lib/screenshots/blobStore';
 import { screenshotResponse } from '../../../../../src/lib/comments/screenshot';
 import { isValidId, replaceScreenshotSchema } from '../../../../../src/lib/comments/validation';
 import { MAX_COMMENT_BODY_BYTES } from '../../../../../src/lib/comments/limits';
@@ -13,7 +14,7 @@ type Params = { id: string };
 export const GET = commentsApiHandler<Params>(async (context, { id }) => {
     if (!isValidId(id))
         throw apiErrors.notFound('Screenshot not found.');
-    return screenshotResponse(await getCommentScreenshot(context, id));
+    return screenshotResponse(await getCommentScreenshot(context, id), context.request.headers.get('accept') === screenshotUrlMediaType ? 'url' : 'bytes');
 });
 
 export const POST = commentsApiHandler<Params>(async (context, { id }) => {

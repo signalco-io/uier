@@ -1,3 +1,7 @@
+import { getCommentsStore } from '../src/lib/repo/commentsStore';
+import { createCosmosCommentsStore } from '../src/lib/repo/cosmosCommentsStore';
+import { cosmosDataContainerComments } from '../src/lib/db/client';
+import { getScreenshotBlobStore } from '../src/lib/screenshots/blobStore';
 import { sweepCommentCleanup } from '../src/lib/comments/cleanup';
 import { retryNotificationDelivery, runNotificationWorker } from '../src/lib/notifications/delivery';
 import { configuredAppBaseUrl } from '../src/lib/app/deployment';
@@ -12,7 +16,22 @@ if (integrationsOnly && process.env.UIER_NOTIFICATION_RETRY_DELIVERY)
 const baseUrl = configuredAppBaseUrl();
 if (!baseUrl) throw new Error('The notification worker requires a trusted application URL.');
 if (!integrationsOnly) {
-    const cleanup = await sweepCommentCleanup();
+    const comments = getCommentsStore();
+    try {
+        const migration = await comments.migrateScreenshots?.();
+        console.info(`[screenshots] Migrated ${migration?.migrated ?? 0} legacy production images; ${migration?.failed ?? 0} need retry.`);
+        if (migration?.failed) process.exitCode = 1;
+    } catch { console.error('[screenshots] Production migration needs retry'); process.exitCode = 1; }
+    // The production worker owns both environments; preview deployments cannot access production.
+    const preview = createCosmosCommentsStore(() => cosmosDataContainerComments().database.container('comments-preview'),
+        () => getScreenshotBlobStore('screenshots-preview'));
+    try {
+        const previewMigration = await preview.migrateScreenshots!();
+        const previewCleanup = await preview.sweepScreenshotBlobs!(Date.now());
+        console.info(`[screenshots] Migrated ${previewMigration.migrated} legacy preview images; swept ${previewCleanup.removed} preview blobs.`);
+        if (previewMigration.failed || previewCleanup.failed) process.exitCode = 1;
+    } catch { console.error('[screenshots] Preview migration/cleanup needs retry'); process.exitCode = 1; }
+    const cleanup = await sweepCommentCleanup(comments);
     console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
     if (cleanup.failed) process.exitCode = 1;
     if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);

@@ -207,6 +207,8 @@ test('recovery and keyboard movement preserve host styles, focus and reachable c
     await signIn(page, uniqueEmail('launch-host'));
     const projectId = await createProject(page, { urls: [origin], name: 'Host isolation' });
     const host = `${origin}/${projectId}/pricing?host-probe=1`;
+    // This journey starts before review; background member sign-in otherwise races that state.
+    await page.route('**/review-session', route => route.abort());
     await page.goto(host);
     await expect(toolbar(page)).toHaveCount(0);
     const hostStyles = () => page.locator('#host-probe').evaluate(element => {

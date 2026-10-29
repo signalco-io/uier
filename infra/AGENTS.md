@@ -52,6 +52,16 @@ computed `documentEndpoint`: account settings updates make that output unknown d
 and can propose an extra Vercel variable update. The lookup still reads Azure's actual endpoint;
 do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
 
+## Screenshot storage
+
+`src/screenshots.ts` adds protected private Azure Blob containers `screenshots` / `screenshots-preview`
+in a new Standard LRS Hot account. No CDN, anonymous access, versioning or soft deletion. Production
+gets a server-only retrievable storage key for the scheduled worker; previews retain OIDC and get
+Blob Data Contributor on their container plus Blob Delegator at account scope. These two Azure RBAC
+assignments require owner-arranged assignment permission beyond CI’s resource-group Contributor.
+Do not broaden CI permissions automatically. Review additions only, with existing protected resources
+unchanged. See [storage rollout](../docs/screenshot-storage.md) before merging or deploying.
+
 ## Rules
 
 - **CI applies changes.** Pull requests get a `pulumi preview` posted as a comment; pushes to

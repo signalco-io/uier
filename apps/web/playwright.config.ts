@@ -72,6 +72,7 @@ export default defineConfig({
                 // The comments API uses its in-memory store, never a database configured in .env.local
                 COSMOSDB_CONNECTION_STRING: '',
                 COSMOSDB_ENDPOINT: '',
+                AZURE_SCREENSHOTS_CONNECTION_STRING: '', AZURE_SCREENSHOTS_ENDPOINT: '', AZURE_SCREENSHOTS_CONTAINER: '',
                 // Locally BotID treats every request as human unless this simulates another verdict
                 UIER_BOTID_DEV_BYPASS: '',
                 // Exercise rewrite headers without calling the real BotID service. The stub serves fixed challenge/proxy fixtures.

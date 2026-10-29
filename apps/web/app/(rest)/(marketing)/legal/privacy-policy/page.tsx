@@ -70,7 +70,7 @@ export default function PrivacyPolicyPage() {
                     Every image is decoded and re-encoded on our server before storage. We keep only the first frame
                     and remove embedded metadata, including location, camera and author tags, and trailing data.
                     Supplied images follow the same visibility and retention rules. The original stays until replacement
-                    succeeds, then its stored bytes are overwritten. We expose no image history. Replacement cannot remove
+                    succeeds, then we delete the previous image. Failed image deletes are retried by our scheduled cleanup. We expose no image history. Replacement cannot remove
                     copies another person already downloaded. Image editing stays in memory in your browser until saved.
                 </li>
             </ul>
@@ -400,6 +400,7 @@ export default function PrivacyPolicyPage() {
             <h2>Where it is stored and who processes it</h2>
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
+                <li>Screenshots: private Microsoft Azure Blob Storage in West Europe. After checking your access, we issue a read-only link to one image for 60 seconds. Your browser downloads directly from Azure. A previously issued link can remain usable until it expires after a permission change. Earlier screenshots move from Cosmos DB in the background.</li>
                 <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
                 <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
                 <li>Connected services chosen by an admin: Notion, GitHub, Linear and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>

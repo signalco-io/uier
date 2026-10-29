@@ -1,3 +1,4 @@
+import { getScreenshotBlobStore, screenshotBytes, screenshotUrlMediaType, type ScreenshotBlobStore } from '../screenshots/blobStore';
 import type { DbScreenshot } from '../db/schema';
 import sharp from 'sharp';
 import { MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_DIMENSION } from './limits';
@@ -129,11 +130,20 @@ export async function sanitizeScreenshot(input: ParsedScreenshot): Promise<Parse
  * A stored screenshot as the response of `GET .../comments/<id>/screenshot`: the image, never
  * sniffed as anything else (the site's CSP, next.config.ts, applies to it as to every response)
  */
-export function screenshotResponse(screenshot: DbScreenshot) {
-    const data = Buffer.from(screenshot.data, 'base64');
+export async function screenshotResponse(screenshot: DbScreenshot, delivery: 'url' | 'redirect' | 'bytes' = 'bytes', blobs?: ScreenshotBlobStore) {
+    if (screenshot.blob && delivery !== 'bytes') {
+        const signed = await (blobs ?? getScreenshotBlobStore()).url(screenshot.blob);
+        const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', 'Vary': 'Accept' };
+        return delivery === 'url'
+            ? Response.json(signed, { headers: { ...headers, 'Content-Type': screenshotUrlMediaType } })
+            : new Response(null, { status: 307, headers: { ...headers, Location: signed.url } });
+    }
+    const data = await screenshotBytes(screenshot, blobs);
     return new Response(new Uint8Array(data), {
         headers: {
             'Content-Type': screenshot.contentType,
+            'Cache-Control': 'private, no-store',
+            'Vary': 'Accept',
             'Content-Length': String(data.length),
             'Content-Disposition': 'inline',
             'X-Content-Type-Options': 'nosniff'

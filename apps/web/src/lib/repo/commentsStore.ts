@@ -44,7 +44,7 @@ export type CommentsStore = {
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
     getSubmission(domain: string, id: string): Promise<DbSubmission | null>;
-    /** Receipt + create/conditional replacement + optional image: one partition transaction. */
+    /** Receipt + create/conditional replacement + optional image reference: one partition transaction. */
     commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot): Promise<'ok' | 'conflict'>;
     /** Replaces the comment only when it was not changed since it was read (`etag`) */
     replace(comment: DbComment, etag: string): Promise<ConditionalWriteResult>;
@@ -70,9 +70,13 @@ export type CommentsStore = {
         items: { domain: string; commentId: string; etag: string }[]; continuation?: string;
     }>;
 
+    /** Bounded legacy backfill and Blob orphan sweep; absent on the local memory store. */
+    migrateScreenshots?(): Promise<{ migrated: number; failed: number }>;
+    sweepScreenshotBlobs?(now: number): Promise<{ removed: number; failed: number }>;
+
     /** Stores a comment's screenshot (a document of its own in the comment's partition) */
     createScreenshot(screenshot: DbScreenshot): Promise<void>;
-    /** Atomically swaps image and comment metadata, conditional on the authorized comment version. */
+    /** Atomically swaps image reference and comment metadata, conditional on the authorized comment version. */
     replaceScreenshot(comment: DbComment, etag: string, screenshot: DbScreenshot): Promise<ConditionalWriteResult>;
     getScreenshot(domain: string, commentId: string): Promise<DbScreenshot | null>;
     /** Deletes a comment's screenshot; nothing when there is none */

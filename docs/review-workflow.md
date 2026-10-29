@@ -224,8 +224,8 @@ in a composer. Images are not persisted with drafts or in browser storage.
 Expand the saved thumbnail and choose **Redact screenshot** to cover content with opaque black rectangles.
 Drag with a mouse/touch, or enter left/top/width/height percentages and add an area using the keyboard.
 Undo and cancel affect only the editor. **Save redaction** flattens the masks into a replacement image.
-Upload, paste and redaction all use an authorized, conditional transaction that swaps the image and comment
-metadata together. The previous bytes remain until success, then are overwritten in the same storage document;
+Upload, paste and redaction upload a new immutable Blob, then use an authorized, conditional transaction
+to swap the image reference and comment metadata together. The previous bytes remain until success, then are deleted;
 the API exposes no image history. Failed or unconfirmed saves report an error; reload to check an uncertain
 network result. Image revisions prevent stale replacements. These actions count against the existing daily
 image budget. They cannot erase copies someone already downloaded.
@@ -234,11 +234,15 @@ It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data
 may then be up to about 700 KB. The server checks the image type and header dimensions, then decodes
 with a 4096² pixel limit and re-encodes only the first frame without metadata or trailing bytes.
 Undecodable images are rejected. Newly encoded PNG, JPEG or WebP output must stay within 512 KB
-and 4096 px on a side; an oversized PNG is retried as WebP. It is stored in the comment’s partition
+and 4096 px on a side; an oversized PNG is retried as WebP. Binary bytes live in private Azure Blob Storage,
+with a small reference stored in the comment’s partition
 (`type: 'screenshot'`, id `$screenshot_<comment id>`, which no route accepts, with the comment's `ttl`); the comment
-keeps `screenshot: { contentType, width, height, bytes, revision? }`. Anyone who can see the comment gets the image from
+keeps `screenshot: { contentType, width, height, bytes, revision? }`. Authorized viewers request the image through
 `GET .../comments/<id>/screenshot` (the toolbar fetches it when the thread shows it, in the inbox as it scrolls into view); the app shows it on the comment
-(`/app/projects/<project>/comments/<id>/screenshot`). It is deleted with the comment, or with its author's text
+(`/app/projects/<project>/comments/<id>/screenshot`). New clients download directly from Blob Storage with a
+read-only, single-image URL valid for 60 seconds; existing clients and inline images retain their API response.
+There is no CDN. A previously issued URL can remain usable for up to 60 seconds after a permission change.
+See [storage, migration and deployment](screenshot-storage.md), including the updated embed CSP source. It is deleted with the comment, or with its author's text
 when others replied. Failed image deletes are retried by the scheduled worker once an unreferenced
 image is older than one hour. The sweep pages over image metadata and conditionally deletes the
 observed version, preserving concurrent replacements. Migrated public-feedback deletes and image

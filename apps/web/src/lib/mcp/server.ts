@@ -1,3 +1,4 @@
+import { screenshotBytes } from '../screenshots/blobStore';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
@@ -170,8 +171,9 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
             if (packet.context.screenshot.state !== 'protected') throw apiErrors.notFound('Screenshot not found.');
             const image = await getProjectScreenshot(project, actor, id);
-            if (Buffer.byteLength(image.data, 'base64') > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
-            return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: image.data }] };
+            const bytes = await screenshotBytes(image);
+            if (bytes.length > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
+            return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: bytes.toString('base64') }] };
         } catch (error) {
             if (error instanceof ApiError) throw new McpError(ErrorCode.InvalidParams, `${error.code}: ${error.message}`);
             if (error instanceof z.ZodError) throw new McpError(ErrorCode.InvalidParams, 'Invalid resource arguments.');
