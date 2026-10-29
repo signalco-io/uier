@@ -8,7 +8,9 @@ import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
-import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
+import { displayUrl } from '@/src/components/app/projects/projectLabels';
+import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
+import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
 
 /** A project: its name, sites and review actions, and the tabs of its pages */
 export default async function ProjectLayout({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
@@ -50,10 +52,9 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                             )}
                             {project.urls.length > 1 && <span className="text-muted-foreground"> +{project.urls.length - 1}</span>}
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                            <AccessIcon access={project.access} className="size-4" aria-hidden="true" />
-                            {projectAccessLabels[project.access].label}
-                        </span>
+                        <ProjectAccessInfo access={project.access}>
+                            {project.access === 'guests' && project.urls[0] && <GuestReviewLinks publicId={project.publicId} urls={project.urls} />}
+                        </ProjectAccessInfo>
                         {project.clientName && <span className="min-w-0 break-words">Client: {project.clientName}</span>}
                         {project.status === 'done' && (
                             <Badge variant="outline" className="gap-1.5">

@@ -15,7 +15,8 @@ test('public ids work in embeds, guest writes, verification and member review re
     await expect(page.getByText(`data-uier-project="${publicId}"`).first()).toBeVisible();
     await setProjectAccess(page, id, 'Anyone with the link');
     await page.goto(`/app/projects/${id}`);
-    await expect(page.getByRole('region', { name: 'Guest link' }).locator('code')).toHaveText(`${site.origin()}/?toolbar-code=${publicId}`);
+    await page.getByRole('button', { name: /^Anyone with the link/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Anyone with the link' }).locator('code')).toHaveText(`${site.origin()}/?toolbar-code=${publicId}`);
     const guest = await browser.newContext();
     try {
         const guestPage = await guest.newPage();
