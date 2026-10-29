@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
@@ -150,6 +151,7 @@ test('assignment export resolves a current project member name without exposing 
         const id = randomUUID(); const workspaceId = `workspace-${id}`; const assigneeId = `u_${id}`;
         const app = getAppStore(); const comments = getMemoryCommentsStore();
         const project = { id, workspaceId, pk: workspacePk(workspaceId), urls: ['https://review.example'] } as DbProject;
+        await persistProjectAccess(project, []);
         await app.create<DbUser>({ type: 'user', pk: userPk(assigneeId), id: assigneeId, email: `${id}@example.com`,
             name: 'Reviewer *name*', createdAt: '2026-10-28', updatedAt: '2026-10-28' });
         await app.create<DbMember>({ type: 'member', pk: project.pk, id: memberId(assigneeId), workspaceId,

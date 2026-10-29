@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { KnownPages } from '@/src/knownPages';
+import { KnownPages, KnownPageLinks } from '@/src/knownPages';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { FolderIcon, FoldersIcon, MailIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
@@ -12,14 +13,16 @@ import { requireAdminContext } from '@/src/lib/app/context';
 import { listMembersWithUsers } from '@/src/lib/app/members';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { listProjects } from '@/src/lib/app/projects';
-import { memberCanAccessProject } from '@/src/lib/app/workspaces';
+import { hasProjectAccess, loadWorkspaceAccess } from '@/src/lib/app/access';
+import { BulkTeamForm } from '@/src/components/app/teams/AccessForms';
+import { UsersFilters } from '@/src/components/app/teams/UsersFilters';
 import type { ProjectsAccess } from '@/src/lib/app/model';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { initials } from '@/src/components/app/initials';
 import { ProjectFilter } from '@/src/components/app/users/ProjectFilter';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
-import { RemoveMemberButton, RevokeInvitationButton } from '@/src/components/app/users/UserActions';
+import { RemoveMemberButton, ResendInvitationButton, RevokeInvitationButton } from '@/src/components/app/users/UserActions';
 
 export const metadata: Metadata = {
     title: 'Users'
@@ -77,17 +80,23 @@ function ListSection({ id, title, count, description, children }: {
 export default async function UsersPage({ searchParams }: PageProps<'/app/users'>) {
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
-    const { project: projectParam } = await searchParams;
-    const [members, invitations, projects] = await Promise.all([
+    const { project: projectParam, relationship, team, state } = await searchParams;
+    const [members, invitations, projects, access] = await Promise.all([
         listMembersWithUsers(context.workspace.id),
         listInvitations(context.workspace.id),
-        listProjects(context.workspace.id)
+        listProjects(context.workspace.id), loadWorkspaceAccess(context.workspace.id)
     ]);
     const projectNames = new Map(projects.map(project => [project.id, project.name]));
     const project = typeof projectParam === 'string' && projectNames.has(projectParam) ? projectParam : undefined;
 
-    const shownMembers = project ? members.filter(({ member }) => memberCanAccessProject(member, project)) : members;
-    const shownInvitations = project ? invitations.filter(invitation => memberCanAccessProject(invitation, project)) : invitations;
+    const matches = (subject: import('@/src/lib/app/access').AccessSubject & { relationship?: string }) =>
+        (!project || hasProjectAccess(access, subject, { id: project, workspaceId: context.workspace.id }))
+        && (typeof relationship !== 'string' || relationship === 'all' || (subject.relationship ?? 'unspecified') === relationship)
+        && (typeof team !== 'string' || team === 'all' || subject.teamIds?.includes(team));
+    const shownMembers = state === 'pending' ? [] : members.filter(({ member }) => matches(member));
+    const shownInvitations = state === 'accepted' ? [] : invitations.filter(matches);
+    const data = { access, projects, people: members.filter(person => person.user).map(({ member, name }) => ({ member, name })), revision: context.workspace.accessRevision ?? 0 };
+    const teamChips = (ids: string[] = []) => <div className="flex flex-wrap gap-1">{access.teams.filter(team => ids.includes(team.id)).map(team => <Badge key={team.id} variant="outline"><Link href={KnownPageLinks.team(team.id)}>{team.name}</Link></Badge>)}</div>;
 
     return (
         <>
@@ -95,9 +104,10 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                 title="Users"
                 description="The people who review the projects in this workspace."
                 actions={<InviteButton projectId={project} />}>
-                <ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} />
+                <div className="flex flex-wrap gap-3"><ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} /><UsersFilters teams={access.teams.map(({ id, name }) => ({ id, name }))} /></div>
             </PageHeader>
             <div className="flex flex-col gap-10">
+                <ListSection id="bulk-teams" title="Team membership" count={members.length} description="Add or remove existing people without another invitation. Direct grants stay."><BulkTeamForm data={data} /></ListSection>
                 <ListSection
                     id="members"
                     title="People"
@@ -120,6 +130,9 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                         <ItemDescription className="truncate font-mono text-[13px]">{member.email}</ItemDescription>
                                     </ItemContent>
                                     <ItemContent className="min-w-0 basis-48">
+                                        <Link href={KnownPageLinks.member(member.userId)} className="text-sm">Manage access</Link>
+                                        <span className="text-xs text-muted-foreground">{member.relationship ?? 'Unspecified'}</span>
+                                        {teamChips(member.teamIds)}
                                         <Access role={member.role} projects={member.projects} names={projectNames} />
                                         <ItemDescription className="text-xs"><span>Joined <RelativeTime value={member.createdAt} /></span></ItemDescription>
                                     </ItemContent>
@@ -150,9 +163,12 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                             <ItemDescription className="text-xs"><span>Expires <RelativeTime value={invitation.expiresAt} /></span></ItemDescription>
                                         </ItemContent>
                                         <ItemContent className="min-w-0 basis-48">
+                                            <span className="text-xs text-muted-foreground">{invitation.relationship ?? 'Unspecified'}</span>
+                                            {teamChips(invitation.teamIds)}
                                             <Access role={invitation.role} projects={invitation.projects} names={projectNames} />
                                         </ItemContent>
                                         <ItemActions className="ml-auto">
+                                            <ResendInvitationButton invitationId={invitation.id} email={invitation.email} />
                                             <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
                                             <span className={roleColumn}><RoleBadge role={invitation.role} /></span>
                                         </ItemActions>

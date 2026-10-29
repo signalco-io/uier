@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import {
     AlertDialog,
@@ -15,7 +16,7 @@ import {
 } from '@/src/components/ui/alert-dialog';
 import { Button } from '@/src/components/ui/button';
 import type { ActionState } from '../../../lib/app/actionResult';
-import { removeMemberAction, revokeInvitationAction } from './actions';
+import { removeMemberAction, resendInvitationAction, revokeInvitationAction } from './actions';
 
 function useRun() {
     const router = useRouter();
@@ -45,7 +46,7 @@ export function RemoveMemberButton({ userId, name }: { userId: string; name: str
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Remove {name}?</AlertDialogTitle>
-                        <AlertDialogDescription>They lose access to every project in this workspace. Their comments stay.</AlertDialogDescription>
+                        <AlertDialogDescription>They lose access to every project in this workspace. Their comments stay. Guest links remain allowed where enabled; member removal does not revoke a public review link.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -71,4 +72,14 @@ export function RevokeInvitationButton({ invitationId, email }: { invitationId: 
             Revoke
         </Button>
     );
+}
+
+export function ResendInvitationButton({ invitationId, email }: { invitationId: string; email: string }) {
+    const [pending, startTransition] = useTransition(), [link, setLink] = useState<string>();
+    const router = useRouter();
+    return <div className="flex flex-col gap-1"><Button variant="ghost" size="sm" disabled={pending} aria-label={`Resend the invitation for ${email}`} onClick={() => startTransition(async () => {
+        const result = await resendInvitationAction(invitationId);
+        if (result?.ok) { setLink(result.data.devLink); toast.success('Invitation resent.'); router.refresh(); }
+        else if (result) toast.error(result.error);
+    })}>Resend</Button>{link && <Link href={link} className="text-xs">Open invitation</Link>}</div>;
 }

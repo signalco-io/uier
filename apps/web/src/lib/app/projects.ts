@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isMeaningfulQueryKey, pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
-import { memberCanAccessProject } from './workspaces';
+import { hasProjectAccess, loadWorkspaceAccess } from './access';
 import type { AppContext } from './context';
 import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
@@ -136,8 +136,8 @@ export async function listProjects(workspaceId: string) {
 
 /** Projects of the current workspace the member may see */
 export async function listVisibleProjects(context: AppContext) {
-    const projects = await listProjects(context.workspace.id);
-    return projects.filter(project => memberCanAccessProject(context.member, project.id));
+    const [projects, access] = await Promise.all([listProjects(context.workspace.id), loadWorkspaceAccess(context.workspace.id)]);
+    return projects.filter(project => hasProjectAccess(access, context.member, project));
 }
 
 export async function getProject(workspaceId: string, projectId: string) {
@@ -170,7 +170,7 @@ export async function findReviewProject(code: string) {
 /** A project of the current workspace the member may see, or `null` */
 export async function getVisibleProject(context: AppContext, projectId: string) {
     const project = await getProject(context.workspace.id, projectId);
-    return project && memberCanAccessProject(context.member, project.id) ? project : null;
+    return project && hasProjectAccess(await loadWorkspaceAccess(context.workspace.id), context.member, project) ? project : null;
 }
 
 export async function createProject(context: AppContext, { name, urls, clientName }: { name: string; urls: string[]; clientName?: string }) {

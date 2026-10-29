@@ -18,6 +18,7 @@ export const KnownPages = {
     AppProjects: '/app/projects',
     AppNewProject: '/app/projects/new',
     AppUsers: '/app/users',
+    AppTeams: '/app/teams',
     AppClients: '/app/clients',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
@@ -41,6 +42,8 @@ export const KnownPages = {
 
 /** Pages with a parameter */
 export const KnownPageLinks = {
+    team: (id: string) => `/app/teams/${encodeURIComponent(id)}`,
+    member: (id: string) => `/app/users/${encodeURIComponent(id)}`,
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
     /** The install guide; `onboarding` adds the progress of a project that was just created */

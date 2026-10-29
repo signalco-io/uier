@@ -1,4 +1,4 @@
-import type { DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
+import type { Container, DeleteOperation, JSONObject, OperationInput, SqlParameter } from '@azure/cosmos';
 import { cosmosDataContainerApp, isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import type { AppDoc } from './model';
@@ -10,6 +10,19 @@ export type StoredDoc<T> = {
 };
 
 export type ReplaceResult = 'ok' | 'conflict' | 'not_found';
+export type AppMutation =
+    | { kind: 'create'; doc: AppDoc & Record<string, unknown> }
+    | { kind: 'replace'; doc: AppDoc & Record<string, unknown>; etag: string }
+    | { kind: 'delete'; pk: string; id: string; etag: string };
+
+function mutationPartition(operations: AppMutation[]) {
+    const docs = operations.map(op => op.kind === 'delete' ? op : op.doc);
+    const pk = singlePartition(docs);
+    if (operations.length > 100 || new Set(docs.map(doc => doc.id)).size !== docs.length
+        || Buffer.byteLength(JSON.stringify(operations)) > 1_800_000)
+        throw new Error('Invalid access transaction size');
+    return pk;
+}
 
 type FieldValue = string | number | boolean;
 
@@ -24,6 +37,8 @@ export type DocQuery<TType extends string> = {
     orderBy?: 'id' | 'nextAttemptAt';
     /** Exclusive cursor for ascending id order. */
     afterId?: string;
+    nameContains?: string;
+    targetId?: string;
     /** Only due delivery rows. Always parameterized, never raw query text. */
     dueBefore?: string;
 };
@@ -44,6 +59,8 @@ export type AppStore = {
     createAll(docs: AppDoc[]): Promise<boolean>;
     /** Atomically replaces a guard document and deletes a versioned document in its partition. */
     replaceAndDelete<T extends AppDoc>(guard: T, guardEtag: string, target: StoredDoc<AppDoc>): Promise<ReplaceResult>;
+    /** Conditional mixed batch; any conflict rolls back the entire batch. */
+    transact(operations: AppMutation[]): Promise<boolean>;
     /** Replaces the document only when it was not changed since it was read (`etag`) */
     replace<T extends AppDoc>(doc: T, etag: string): Promise<ReplaceResult>;
     /** Returns `false` when the document does not exist */
@@ -58,7 +75,7 @@ function errorCode(error: unknown): number | string | undefined {
 }
 
 /** All documents share one partition key, which is returned */
-function singlePartition(docs: AppDoc[]) {
+function singlePartition(docs: Pick<AppDoc, 'id' | 'pk'>[]) {
     const pk = docs[0]?.pk;
     if (!pk || docs.some(doc => doc.pk !== pk))
         throw new Error('createAll needs documents of one partition');
@@ -82,8 +99,7 @@ function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefor
         || input.afterId.length < 1 || input.afterId.length > 256 || /[\p{Cc}]/u.test(input.afterId))) throw new Error('Invalid document query cursor');
 }
 
-function createCosmosAppStore(): AppStore {
-    const container = cosmosDataContainerApp;
+export function createCosmosAppStore(container: () => Container = cosmosDataContainerApp): AppStore {
     return {
         async get<T extends AppDoc>(pk: string, id: string) {
             try {
@@ -153,6 +169,26 @@ function createCosmosAppStore(): AppStore {
                 throw error;
             }
         },
+        async transact(operations) {
+            const pk = mutationPartition(operations);
+            const batch: OperationInput[] = operations.map(op => op.kind === 'create'
+                ? { operationType: 'Create', resourceBody: JSON.parse(JSON.stringify(op.doc)) as JSONObject }
+                : op.kind === 'replace'
+                    ? { operationType: 'Replace', id: op.doc.id, resourceBody: JSON.parse(JSON.stringify(op.doc)) as JSONObject, ifMatch: op.etag }
+                    : { operationType: 'Delete', id: op.id, ifMatch: op.etag });
+            try {
+                const response = await container().items.batch(batch, pk);
+                const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)];
+                if (codes.some(code => code === 409 || code === 412 || code === 404)) return false;
+                if (response.result?.length !== operations.length || codes.some(code => !code || code < 200 || code >= 300))
+                    throw new Error('Access transaction failed');
+                return true;
+            } catch (error) {
+                const code = errorCode(error) ?? (error instanceof Error ? errorCode(error.cause) : undefined);
+                if (code === 409 || code === 412 || code === 404) return false;
+                throw error;
+            }
+        },
         async replace(doc, etag) {
             try {
                 await container().item(doc.id, doc.pk).replace(doc, {
@@ -178,7 +214,7 @@ function createCosmosAppStore(): AppStore {
                 throw error;
             }
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, nameContains, targetId }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const conditions = ['c.type = @type'];
             const parameters: SqlParameter[] = [{ name: '@type', value: type }];
@@ -199,6 +235,14 @@ function createCosmosAppStore(): AppStore {
             if (afterId !== undefined) {
                 conditions.push('c.id > @afterId');
                 parameters.push({ name: '@afterId', value: afterId });
+            }
+            if (targetId !== undefined) {
+                conditions.push('ARRAY_CONTAINS(c.targetIds, @targetId)');
+                parameters.push({ name: '@targetId', value: targetId });
+            }
+            if (nameContains !== undefined) {
+                conditions.push('CONTAINS(c.nameKey, @nameContains)');
+                parameters.push({ name: '@nameContains', value: nameContains.slice(0, 80).toLowerCase() });
             }
             if (limit !== undefined) parameters.push({ name: '@limit', value: limit });
 
@@ -255,7 +299,7 @@ function setEntry(doc: AppDoc) {
     partition(doc.pk).set(doc.id, { doc: structuredClone(doc), version: ++memoryState().version, modifiedAt: Date.now() });
 }
 
-function createMemoryAppStore(): AppStore {
+export function createMemoryAppStore(): AppStore {
     return {
         async get<T extends AppDoc>(pk: string, id: string) {
             const entry = partition(pk).get(id);
@@ -286,6 +330,18 @@ function createMemoryAppStore(): AppStore {
             entries.delete(target.doc.id);
             return 'ok';
         },
+        async transact(operations) {
+            const entries = partition(mutationPartition(operations));
+            for (const op of operations) {
+                const entry = entries.get(op.kind === 'delete' ? op.id : op.doc.id);
+                if (op.kind === 'create' ? !!entry : !entry || String(entry.version) !== op.etag) return false;
+            }
+            for (const op of operations) {
+                if (op.kind === 'delete') entries.delete(op.id);
+                else setEntry(op.doc);
+            }
+            return true;
+        },
         async replace(doc, etag) {
             const entry = partition(doc.pk).get(doc.id);
             if (!entry)
@@ -298,12 +354,14 @@ function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId }: DocQuery<T['type']>) {
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, nameContains, targetId }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
             let docs = pks
                 .flatMap(key => [...partition(key).values()].map(entry => entry.doc))
                 .filter(doc => doc.type === type && (afterId === undefined || doc.id > afterId)
+                    && (targetId === undefined || (Array.isArray((doc as Record<string, unknown>).targetIds) && ((doc as Record<string, unknown>).targetIds as string[]).includes(targetId)))
+                    && (nameContains === undefined || String((doc as Record<string, unknown>).nameKey ?? '').includes(nameContains.slice(0, 80).toLowerCase()))
                     && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value)
                     && (dueBefore === undefined || (typeof (doc as Record<string, unknown>).nextAttemptAt === 'string'
                         && ((doc as Record<string, unknown>).nextAttemptAt as string) <= dueBefore)));

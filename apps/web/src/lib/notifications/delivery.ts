@@ -5,7 +5,8 @@ import type { AppDoc, DbProject } from '../app/model';
 import { getAppStore, updateDoc } from '../app/store';
 import { sha256Hex } from '../app/tokens';
 import { getUser } from '../app/users';
-import { getMember, listWorkspaceMembers, memberCanAccessProject } from '../app/workspaces';
+import { getMember, listWorkspaceMembers } from '../app/workspaces';
+import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
 import { findProject } from '../app/projects';
 import { memberActor, type ProjectActor } from '../review/actor';
 import { canSeeComment } from '../review/comments';
@@ -47,11 +48,11 @@ const failureCode = (code: string | undefined) => code && /^[A-Za-z0-9_.-]{1,80}
 export async function discoverThreadNotifications(project: DbProject, comment: DbComment) {
     const store = getAppStore();
     const recipients = new Map<string, string | undefined>();
-    const members = await listWorkspaceMembers(project.workspaceId);
+    const [members, access] = await Promise.all([listWorkspaceMembers(project.workspaceId), loadWorkspaceAccess(project.workspaceId)]);
     const subscriptions = await store.query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { threadId: comment.id } });
     for (const member of members) {
         const actorId = `user:${member.userId}`;
-        if (memberCanAccessProject(member, project.id) && (member.role === 'admin' || member.userId === project.createdBy
+        if (hasProjectAccess(access, member, project) && (member.role === 'admin' || member.userId === project.createdBy
             || isNotificationParticipant(comment, actorId)
             || subscriptions.some(sub => sub.actorId === actorId && sub.following))) recipients.set(actorId, member.userId);
     }
@@ -59,7 +60,7 @@ export async function discoverThreadNotifications(project: DbProject, comment: D
         recipients.set(subscription.actorId, undefined);
     // #91 can target existing authorized members; dispatch still checks mute, follow and visibility.
     for (const event of comment.notificationEvents ?? []) for (const actorId of event.recipients ?? []) {
-        const member = members.find(member => actorId === `user:${member.userId}` && memberCanAccessProject(member, project.id));
+        const member = members.find(member => actorId === `user:${member.userId}` && hasProjectAccess(access, member, project));
         if (member) recipients.set(actorId, member.userId);
     }
     const requestedThrough = Math.max(0, ...(comment.notificationEvents ?? []).map(event => event.sequence));

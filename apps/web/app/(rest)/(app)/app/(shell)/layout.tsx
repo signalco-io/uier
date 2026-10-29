@@ -6,16 +6,18 @@ import { listVisibleProjects } from '@/src/lib/app/projects';
 import { AppSidebar } from '@/src/components/app/shell/AppSidebar';
 import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
+import { loadWorkspaceAccess } from '@/src/lib/app/access';
 import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel */
 export default async function AppShellLayout({ children }: PropsWithChildren) {
     const context = await requireAppContext();
     const projects = await listVisibleProjects(context);
+    const teams = context.isAdmin ? (await loadWorkspaceAccess(context.workspace.id)).teams.map(({ id, name }) => ({ id, name })) : [];
 
     return (
         <SidebarProvider>
-            <InviteProvider enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
+            <InviteProvider teams={teams} enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
                 <AppSidebar
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
                     user={{ name: context.user.name, email: context.user.email }}

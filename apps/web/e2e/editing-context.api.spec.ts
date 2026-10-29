@@ -1,3 +1,4 @@
+import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { pngImage } from './support/images';
@@ -8,6 +9,10 @@ import { toReviewCommentDto } from '../src/lib/review/dto';
 import { toCommentDto } from '../src/lib/comments/dto';
 import { toReproductionContext } from '../src/lib/comments/reproduction';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
+
+const previousRuntime = process.env.UIER_LOCAL;
+test.beforeAll(() => { process.env.UIER_LOCAL = '1'; });
+test.afterAll(() => { if (previousRuntime === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previousRuntime; });
 
 const origin = 'https://reviewed.example';
 const device = { browser: 'Example Browser (123)', os: 'Example OS', pixelRatio: 2, windowSize: [1280, 720] as [number, number], capturedAt: '2026-10-25T09:00:00.000Z' };
@@ -55,6 +60,7 @@ test('project edits enforce guest/member/admin rights and retain concurrent repl
     process.env.UIER_LOCAL = '1';
     try {
         const project = { id: `edit-${randomUUID()}`, urls: [origin] } as DbProject;
+        await persistProjectAccess(project);
         const store = getMemoryCommentsStore();
         const comment: DbComment = {
             id: 'comment_edit', domain: `project:${project.id}`, origin, path: '/pricing', authorId: 'guest-owner', device,

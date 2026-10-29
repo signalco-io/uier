@@ -7,13 +7,13 @@ import type { ReattachAnchorInput } from './validation';
 
 /** ETag retries preserve concurrent messages/status; a changed anchor always needs fresh consent. */
 export async function reattachAnchor(store: CommentsStore, domain: string, id: string,
-    input: ReattachAnchorInput, authorize: (comment: DbComment) => void,
+    input: ReattachAnchorInput, authorize: (comment: DbComment) => void | Promise<void>,
     finalize: (previous: DbComment, updated: DbComment) => DbComment = (_, updated) => updated) {
     for (let attempt = 0; attempt < 8; attempt++) {
         const stored = await store.get(domain, id);
         if (!stored) throw apiErrors.notFound();
         const comment = stored.comment;
-        authorize(comment);
+        await authorize(comment);
         if (!comment.thread.items[0] || comment.thread.items[0].deletedAt) throw apiErrors.notFound();
         if (comment.position.type === 'page') throw apiErrors.invalidRequest('Page feedback has no anchor.');
         if (commentPath(comment) !== input.path) throw apiErrors.invalidRequest('Choose a target on the same reviewed page.');

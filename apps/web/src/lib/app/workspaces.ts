@@ -72,8 +72,3 @@ export async function ensureOwnWorkspace(user: DbUser): Promise<DbMember> {
     }
     throw new Error(`User ${user.id} was removed from ${MAX_OWN_WORKSPACES} workspaces of their own`);
 }
-
-/** Whether the member may review the project (admins and "all projects" members always can) */
-export function memberCanAccessProject(member: Pick<DbMember, 'role' | 'projects'>, projectId: string) {
-    return member.role === 'admin' || member.projects === 'all' || member.projects.includes(projectId);
-}

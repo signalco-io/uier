@@ -68,6 +68,7 @@ test('members exceed visitor budgets and stop at finite per-project comment and 
     await createProjectComment(f.requests[0]!, f.project, f.actors[0]!, input(f.project));
     // The same user in another project has an independent budget.
     const other = { ...f.project, id: randomUUID().replaceAll('-', '').slice(0, 12) };
+    await getAppStore().create(other);
     const member = (await getAppStore().get<DbMember>(f.project.pk, memberId(f.users[1]!.id)))!;
     await getAppStore().replace({ ...member.doc, projects: 'all' }, member.etag);
     const otherRequest = request({ Authorization: `Bearer ${signToken('review', { uid: f.users[1]!.id, pid: other.id }, 3600)}` });
