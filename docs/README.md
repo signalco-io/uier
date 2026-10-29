@@ -26,6 +26,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Integration setup](integration-setup.md): provider registration, production credentials, activation and manual acceptance tasks.
 - [Integration operations](integration-operations.md): inspect stopped delivery and explicitly reconcile uncertain writes.
 - [MVP launch verification](mvp-launch-verification.md): coverage, measurements and outstanding hosted/device checks.
+- [Pinned toolbar bundles](operations.md#pinned-toolbar-bundles): retention, API compatibility and rollback builds.
 
 ## Integration plans
 

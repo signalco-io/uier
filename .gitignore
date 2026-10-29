@@ -25,6 +25,7 @@ apps/web/public/robots.txt
 
 # Toolbar bundle copied from packages/toolbar on build (apps/web/scripts/copy-toolbar.mjs)
 apps/web/public/toolbar.js
+apps/web/public/toolbar/
 
 # Testing (Playwright)
 coverage/

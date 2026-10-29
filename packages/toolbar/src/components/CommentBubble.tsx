@@ -4,9 +4,8 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { orderBy } from '@signalco/js';
 import { newLocalId, useComments } from '../hooks/useComments';
-import { resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
+import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { captureCommentScreenshot } from '../screenshot';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
@@ -85,7 +84,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const triggerRef = useRef<HTMLButtonElement>(null);
     // Missing, ambiguous and hidden anchors have no pin; their threads stay in the inbox
     const { rects: placementRects } = useCommentPlacement(position);
-    const lastRect = orderBy(placementRects, r => r.bottom).at(-1);
+    const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
     const capture = useRef<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> } | undefined>(undefined);
     useEffect(() => {

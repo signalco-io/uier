@@ -124,7 +124,28 @@ an `ETag`). The URL is not versioned, so it is cached briefly and never `immutab
   `304` while the bundle is unchanged. A release reaches every visitor within 5 minutes of the deploy
   (other shared caches on the way may keep it for up to an hour).
 
-Every reviewed site always runs the latest toolbar; there are no pinned versions yet.
+The default embed follows new releases. **Pin this version** in the install guide instead provides
+HTML and Next.js snippets with `/toolbar/<sha256>.js`, `integrity="sha384-..."` and
+`crossorigin="anonymous"` (`crossOrigin` in JSX). These content-addressed files use
+`Cache-Control: public, max-age=31536000, immutable` and `Access-Control-Allow-Origin: *`.
+The SHA-256 path and SHA-384 integrity value are generated from the final CSS-inlined bytes by
+the toolbar build (`@uier/toolbar/bundle`). `copy-toolbar.mjs` publishes identical bytes at the
+default and pinned paths, plus a no-store `/toolbar/manifest.json` archive index.
+
+Pinned production bundles remain available and compatible with the review API for one year after
+their last release as the current version. They get fixes only when the site updates its snippet.
+This support window is independent of a browser's cache lifetime. Production builds fetch the
+previous manifest and supported bundles from uier.io, verify every SHA-256, and carry them forward
+before deployment, forcing build tasks so cached outputs cannot restore an older archive; expired
+files are pruned. Missing bundles, invalid manifests, size limits and
+fetch/hash failures fail the build. A manifest 404 bootstraps the first release. Previews also carry
+the production archive, but preview/local pins belong to their own deployment. For a rollback,
+rebuild the chosen revision with the current archive; promoting an old deployment can lose pins
+published after it. See [operations](operations.md#pinned-toolbar-bundles).
+
+The toolbar and its inline threads use a shared constructed stylesheet inside their shadow roots.
+The reviewed site's `style-src` needs no inline-style exception or nonce. The install guide lists
+the script/API/frame origin, data images and optional Google Fonts sources separately.
 
 **On other sites** the toolbar needs a project: with the project's script tag (`data-uier-project`, from the
 app's install guide) it uses the [review API](#review-api-a-projects-toolbar), which answers CORS for the

@@ -43,6 +43,10 @@ Markdown uses this field order and grows literal text fences beyond embedded bac
 the exact saved message and quotation. A rewrite labels the first message **Suggested rewrite
 (not original page copy)** and keeps **Quoted original text** separate. Text is never interpreted
 as Markdown instructions. No generated export timestamp changes otherwise identical exports.
+Titles, author/assignee names and other inline values use padded code spans whose delimiters grow
+past embedded backticks. GitHub and GitLab cannot turn URLs, `www.` hosts, `@user` or `@org/team`
+inside those values into links or notifications. Only the approved explicit page/comment/image
+links remain clickable. This formatting does not change the structured `context` fields.
 
 ## Access and URL policy
 

@@ -188,15 +188,20 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
     await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');
+    await page.getByRole('button', { name: 'Pin this version', exact: true }).click();
+    await expect(page.getByText('integrity="sha384-').first()).toContainText('crossorigin="anonymous"');
+    await expect(page.getByText(/It gets fixes only when you update the snippet/).first()).toBeVisible();
     await expect(page.getByText(/Paste it before the closing <\/body> tag/)).toBeVisible();
     for (const platform of ['HTML', 'Next.js', 'React', 'WordPress', 'Webflow', 'Shopify'])
         await expect(page.getByRole('tab', { name: platform })).toBeVisible();
     await page.getByRole('tab', { name: 'Next.js' }).click();
     await expect(page.getByText('strategy="afterInteractive"')).toBeVisible();
+    await page.getByRole('button', { name: 'Pin the Next.js version', exact: true }).click();
+    await expect(page.getByRole('tabpanel', { name: 'Next.js' }).getByText('crossOrigin="anonymous"')).toContainText('integrity="sha384-');
     await page.getByText('Advanced: security headers').click();
     await expect(page.getByText(/in proxy\.ts \(middleware\.ts before Next\.js 16\)/)).toBeVisible();
     await expect(page.getByText('connect-src http://')).toBeVisible();
-    await expect(page.getByText('style-src \'unsafe-inline\' https://fonts.googleapis.com')).toBeVisible();
+    await expect(page.getByText('style-src https://fonts.googleapis.com')).toBeVisible();
     // Metadata is streamed after the content
     await expect(page).toHaveTitle('Install · uier');
     const reviewerStep = page.getByRole('region', { name: 'Invite a reviewer' });

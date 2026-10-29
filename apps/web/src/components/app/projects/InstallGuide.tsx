@@ -4,14 +4,14 @@ import { Button } from '@/src/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { CopyBlock } from '../CopyBlock';
-import { cspSnippet, embedScript, nextJsSnippet } from '../../../lib/app/integration';
+import { cspSnippet, embedScript, nextJsSnippet, type EmbedVersion } from '../../../lib/app/integration';
 import { InstallationCheck } from './InstallationCheck';
 
 type Platform = {
     id: string;
     label: string;
     steps: string[];
-    code?: (baseUrl: string, projectId: string) => string;
+    code?: (baseUrl: string, projectId: string, version?: EmbedVersion) => string;
     /** Where a site on the platform gets its Content-Security-Policy */
     csp: ReactNode;
 };
@@ -117,6 +117,18 @@ export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }:
                         (<code className="font-mono">?toolbar-code={publicId}</code>), so visitors never see it.
                     </p>
                     <CopyBlock value={script} label="Copy the script" />
+                    <Collapsible className="flex flex-col gap-3">
+                        <CollapsibleTrigger asChild>
+                            <Button variant="outline" size="sm" className="self-start">Pin this version</Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="flex flex-col gap-3">
+                            <p className="m-0 text-sm text-muted-foreground">
+                                This version includes an integrity check. It gets fixes only when you update the snippet.
+                                Pinned production bundles work with the review API for one year after their last release as the current version.
+                            </p>
+                            <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label="Copy the pinned script" />
+                        </CollapsibleContent>
+                    </Collapsible>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         Project code
                         <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{publicId}</code>
@@ -134,9 +146,18 @@ export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }:
                                 <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-sm">
                                     {platform.steps.map(step => <li key={step}>{step}</li>)}
                                 </ol>
-                                {platform.code && (
+                                {platform.code && (<>
                                     <CopyBlock value={platform.code(baseUrl, publicId)} label={`Copy the ${platform.label} code`} />
-                                )}
+                                    <Collapsible className="flex flex-col gap-3">
+                                        <CollapsibleTrigger asChild>
+                                            <Button variant="outline" size="sm" className="self-start">Pin the {platform.label} version</Button>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="flex flex-col gap-3">
+                                            <p className="m-0 text-sm text-muted-foreground">It gets fixes only when you update the snippet.</p>
+                                            <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={`Copy the pinned ${platform.label} code`} />
+                                        </CollapsibleContent>
+                                    </Collapsible>
+                                </>)}
                                 <SecurityHeaders baseUrl={baseUrl} platform={platform} />
                             </TabsContent>
                         ))}

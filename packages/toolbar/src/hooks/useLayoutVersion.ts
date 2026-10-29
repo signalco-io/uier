@@ -1,10 +1,13 @@
 import { useSyncExternalStore } from 'react';
 import { canReviewToolbar, toolbarReviewSurfaces } from '../toolbarReview';
+import { getToolbarHost } from '../mount';
 
 // One set of listeners for every pin and highlight: a number that changes (once per frame at most)
 // when anything on the page may have moved, so positions are measured again.
 
 let version = 0;
+let domVersion = 0;
+let observedBefore = false;
 let frame = 0;
 const listeners = new Set<() => void>();
 let resizeObserver: ResizeObserver | undefined;
@@ -40,6 +43,9 @@ function schedule() {
 }
 
 function start() {
+    // Invalidate text caches after a gap with no subscribers (and therefore no observer).
+    if (observedBefore) domVersion++;
+    observedBefore = true;
     window.addEventListener('resize', schedule);
     // Capture: scrolling inside a scrollable element moves its content too
     document.addEventListener('scroll', schedule, { capture: true, passive: true });
@@ -51,14 +57,14 @@ function start() {
     }
     // The page changed (a `<details>` opened, content was added or edited). The toolbar's own
     // updates are in its shadow root, which this doesn't observe.
-    mutationObserver = new MutationObserver(schedule);
+    mutationObserver = new MutationObserver(() => { domVersion++; schedule(); });
     mutationObserver.observe(document.body ?? document.documentElement, {
         subtree: true,
         childList: true,
         characterData: true,
         attributes: true
     });
-    toolbarRoot = canReviewToolbar() ? document.getElementById('uier-toolbar')?.shadowRoot : null;
+    toolbarRoot = canReviewToolbar() ? getToolbarHost()?.shadowRoot : null;
     if (toolbarRoot) {
         toolbarRoot.addEventListener('scroll', schedule, { capture: true, passive: true });
         observeToolbarSurfaces();
@@ -108,8 +114,8 @@ function subscribe(listener: () => void) {
     };
 }
 
-/** Shared measurement version, also used to avoid repeating text searches within one frame. */
-export function getLayoutVersion() { return version; }
+/** Text/selector evidence changes only with the DOM, independently of scroll/resize geometry. */
+export function getDomVersion() { return domVersion; }
 
 /** Changes after the page scrolled, the window was resized or the page changed */
 export function useLayoutVersion() {

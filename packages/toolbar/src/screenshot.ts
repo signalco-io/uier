@@ -18,6 +18,7 @@ import { GEIST_FONTS_URL } from '@uier/brand';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
 import type { CommentItemPosition } from './components/@types/Comments';
 import { toolbarReviewTarget, toolbarReviewSurfaces } from './toolbarReview';
+import { getToolbarHost } from './mount';
 
 /** A screenshot sent to the API as a data URL; shown only on saved feedback. */
 export type CapturedScreenshot = {
@@ -215,7 +216,7 @@ async function fontFaceCss() {
 function markScrolledElements(includeToolbar: boolean) {
     const marked: Element[] = [];
     const elements = [...document.body.querySelectorAll('*')];
-    if (includeToolbar) elements.push(...document.getElementById('uier-toolbar')?.shadowRoot?.querySelectorAll('*') ?? []);
+    if (includeToolbar) elements.push(...getToolbarHost()?.shadowRoot?.querySelectorAll('*') ?? []);
     for (const element of elements) {
         if (element !== document.scrollingElement && (element.scrollTop || element.scrollLeft)) {
             element.setAttribute(scrollAttribute, `${element.scrollLeft},${element.scrollTop}`);
@@ -305,7 +306,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
     const view = windowSize();
     const scroll = { x: window.scrollX, y: window.scrollY };
     const scale = Math.min(window.devicePixelRatio || 1, maxScale);
-    const reviewRoot = includeToolbar ? document.getElementById('uier-toolbar')?.shadowRoot : undefined;
+    const reviewRoot = includeToolbar ? getToolbarHost()?.shadowRoot : undefined;
     const cssText = await fontFaceCss();
     const unmark = markScrolledElements(includeToolbar);
     let page: HTMLCanvasElement;

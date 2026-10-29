@@ -56,7 +56,7 @@ Run from the repository root (each one runs the matching script in every package
 | Command | Description |
 | --- | --- |
 | `pnpm dev` | Run the website (port 4004) and the toolbar watch build + server (port 4005) |
-| `pnpm build` | Production build of the toolbar, then the website (which copies the toolbar to `apps/web/public/toolbar.js`) |
+| `pnpm build` | Production build of the toolbar, then the website (default `public/toolbar.js`, content-addressed `public/toolbar/<sha256>.js` and archive manifest) |
 | `pnpm typecheck` | TypeScript checks |
 | `pnpm test` | Playwright end-to-end tests of `apps/web` against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
 | `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
@@ -82,14 +82,16 @@ An existing server on that port is never reused, inside or outside CI.
 The [MVP launch evidence matrix](mvp-launch-verification.md) maps the combined review flow to
 coverage and records pending hosted/physical-device checks. `launch.spec.ts` adds owner/guest review,
 canonical routes, capture and recovery checks; `launch-performance.spec.ts` records a 100-thread inbox,
-bundle/request budgets and host interaction timings. Optional Firefox/WebKit projects run the portable
+bundle/request budgets and host interaction timings, plus a 40-text-anchor search/index budget across
+scroll, resize and DOM changes. Optional Firefox/WebKit projects run the portable
 launch flow with `PLAYWRIGHT_CROSS_BROWSER=1`; see the matrix for commands and engine limitations.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwright.config.ts)):
 
 - **Desktop Chrome** and **Mobile Chrome** run a project's review flow
   ([`project-review.spec.ts`](../apps/web/e2e/project-review.spec.ts)) on a reviewed site on another origin that
-  embeds the install guide's script and sends exactly the CSP sources it lists (any CSP violation fails):
+  embeds the install guide's script and sends exactly the CSP sources it lists, without inline styles
+  (any CSP violation fails, including point/text/inline threads, inbox and capture):
   invited people (review link sign-in, "Sign in" for others), guests with names, comments off, other sites
   refused (CORS) with privacy-safe copyable owner notes, ended-session sign-in, offline recovery,
   and the app's comment list, board, filters, private comments, assignees, edit, delete,
@@ -114,6 +116,11 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   on an origin of its own (`<random>.localhost:4004`, on the test port), so its comments are isolated from the
   other tests. [`embed.spec.ts`](../apps/web/e2e/embed.spec.ts) loads `/toolbar.js` on a reviewed site on another
   origin (a small server on `reviewed.localhost`) and checks that it leaves that site's styles alone.
+  It also posts through an SRI-checked pinned snippet, verifies both delivery headers, and covers
+  named-element collisions, duplicate scripts and malformed/throwing window configuration.
+- **API** - `toolbar-assets.api.spec.ts` checks archive carry-forward on a clean deployment,
+  hash/fetch failures and expiry. `feedback-context.api.spec.ts` covers literal Markdown titles,
+  names and metadata, including URLs/hosts and user/team mentions, with unchanged structured context.
 
 Tests that leave feedback through the toolbar load BotID's challenge script, which the app proxies to Vercel
 (`api.vercel.com`), so they need network access.
