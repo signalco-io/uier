@@ -59,8 +59,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     every address, main site first. Comments-off projects say so and link admins to Settings. The Install
     tab on its own is the guide without the progress or reviewer step.
   - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
-    Comments, Install and Settings.
-  - Comments `/app/projects/<code>`: the guest links for every address (in guest mode, main site first) and the project's **comments**, as a
+    Comments, Install and Settings. Hovering or clicking who can comment shows more info; in guest mode
+    that includes the guest links for every address (main site first).
+  - Comments `/app/projects/<code>`: the project's **comments**, as a
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
     URLs). Each comment is laid out like the toolbar's thread: its state, `#number` and unread dot with the
     actions (Mark as read, Done or Reopen, Copy issue, Copy link and More) on top, then the assignee

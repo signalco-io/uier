@@ -221,7 +221,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `install?onboarding=1` adds `InviteReviewerStep` below the unchanged install guide. Invited-only projects
   use the shell's `InviteButton` with `projectId`, gated by `context.isAdmin`; the empty comments list does
   the same. Guest projects reuse `GuestReviewLinks` for every configured address in order (main site first),
-  in onboarding or the comments page's Guest link region, never again in its empty state. Copy fields use
+  in onboarding or the header's access popover (`ProjectAccessInfo`), never again in its empty state. Copy fields use
   plain `reviewUrl` links, never `/app/review`, `uier-token` or `uier-check`. Comments-off states explain that
   comments are off and link admins to Settings; their header has no Invite. `inviteAction` still checks the
   admin role on the server. `e2e/app.spec.ts`, `project-review.spec.ts` and `users.spec.ts` cover these paths.
