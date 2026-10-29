@@ -55,19 +55,56 @@ encrypted state and supplied through a repository secret for the scheduled job. 
 infrastructure or signing key was changed. Manual integration-only runs skip emails, retries and
 the unrelated screenshot sweep.
 
-Initial independent readback confirmed two distinct Notion pages (including the uploaded screenshot),
-the GitHub bot's fixture issue, two distinct Slack messages and Linear issue UIE-5 for project B with
-screenshots disabled. Editing project A updated its existing Notion/GitHub/Slack identities while
-project B retained its original version. These runs used the production delivery services with
-explicit fixture partitions; they did not invoke global email delivery.
+## Observed delivery and cleanup
+
+The fixture-only operator runs used production delivery services with explicit project partitions.
+They did not invoke global email delivery. Source creation, editing and screenshot replacement also
+ran through the real signed-in toolbar. Separate provider browser/API readback confirmed:
+
+| Provider | Creates and updates | Privacy and restoration |
+| --- | --- | --- |
+| Notion | Distinct pages for A/B, mapped title and `uier id`, uploaded screenshot, edited text and discussion. Refreshing A and B independently advanced each grant to generation 2; A still read its schema after B's refresh. | A's title became `Removed from uier`, its `uier id` was empty and its body was cleared before Trash. The provider UI confirmed the result; API reads of the trashed object returned `object_not_found`. Making the source shared again restored the same page and current content. B's page stayed unchanged. |
+| GitHub | Bot-owned issue #1 in the private fixture repository, updated in place with edited text, a reply and closed status. The deployed existing-installation flow authorized B and listed only the selected private repository. | A's issue was closed and scrubbed, with its managed reply removed. Sharing it again reopened and repopulated the same issue. B's connection remained active. |
+| Linear | A's issue UIE-6 included the uploaded private screenshot; B's UIE-5 kept only the protected uier screenshot link with uploads off. Updates preserved the issue and mirrored the reply and Done state. Forced refresh advanced the shared grant to generation 2; both projects still read Linear. | A's old issue became `Removed from uier`, its description was scrubbed, its managed reply disappeared and the issue was trashed. Sharing again created UIE-7 while the old copy remained scrubbed. B retained UIE-5. |
+| Slack | Separate roots for A/B. A's edited excerpt and Done status updated its existing root; one bounded thread summary said `Status: Done. 1 new reply in uier.` | Making A private deleted its root and summary. The channel still showed B unchanged. Sharing A again stayed silent until an explicit authorized per-thread resume created a new root. |
+
+The Linear screenshot returned HTTP 401 without authorization and HTTP 206 for an authenticated
+range read. Its signed Google Storage upload did not receive a Linear bearer token. These checks do
+not promise deletion of provider history, retained files, exports or delivered notifications.
+
+## Release and worker receipts
+
+[PR #220](https://github.com/signalco-io/uier/pull/220) merged as
+`48708cfb597253b065a1509343fffc60aa52a2c5`. Local typecheck/build and the required test suite passed
+(428 passed, one skipped), as did four focused GitHub desktop browser tests and the PR's CI OK.
+[Deploy 40963595990](https://github.com/signalco-io/uier/actions/runs/40963595990) reported **85 resources
+unchanged** and deployed [the production build](https://uier-jqf2testo-signalco.vercel.app), aliased to uier.io at
+22:11:29 UTC on 29 October 2026. The production Settings page then completed B's GitHub authorization
+through the new reuse action.
+
+[Production worker 40964199846](https://github.com/signalco-io/uier/actions/runs/40964199846), running
+the merged commit with `integrations_only=true`, succeeded. Its log explicitly skipped email and
+reported zero blocked/deferred ledgers for every provider. It delivered B's bounded GitHub backfill
+and current edited/Done version to all four providers. Independent store readback found A at source
+version 7 and B at version 3, with all eight provider ledgers accepted and inactive. GitHub readback
+confirmed separate bot-owned issues #1/#2; B's other provider identities were retained.
+
+[Replay 40964597391](https://github.com/signalco-io/uier/actions/runs/40964597391) also succeeded,
+with zero discovered changes and zero checked/blocked/deferred ledgers for every provider. Independent
+readback retained exactly two current Notion pages, the two GitHub fixture issues, Linear UIE-5/UIE-7
+and the two current Slack roots. The scrubbed Linear UIE-6 remains in provider Trash as expected.
+All four production Settings sections remained enabled for both projects.
 
 ## Remaining checks
 
-- Record real creates, updates, screenshots, privacy cleanup and duplicate checks independently
-  for each provider and both projects.
-- Verify refresh/rotation and disconnect ownership, provider access removal and retired destinations.
-- Record the scheduled worker separately from any fixture-only operator run. Existing email worker
-  failures do not establish integration success or failure.
+- Verify Slack's first expiry-driven token refresh; token rotation is enabled, but its current token
+  had not expired during this session. Notion and Linear refreshes were exercised live.
+- Extend live coverage to disconnect ownership, provider/admin access removal, changed destinations,
+  private/archived Slack channels and the deliberately uncertain-write recovery matrix.
+- Exercise permanent source deletion separately. This session verified the shared-to-private cleanup
+  and restoration path without permanently deleting source feedback or emptying provider Trash.
+- Automatic cron timing and normal email delivery remain separate from the successful manual run
+  of the production workflow. No email retry was requested and no global email delivery was invoked.
 - Exercise the full access, backfill, guest-link and rate-limit matrix in the setup runbook before
   claiming customer rollout acceptance.
 - Slack public unlisted distribution is enabled. Marketplace review has not been submitted.
