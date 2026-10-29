@@ -96,11 +96,13 @@ configured Cloudflare authoritative servers. Do not call `initiateVerification(D
 its `NotStarted` state to become Verified. Preserve the published policy; this defers only Azure's
 unsupported verification, not DMARC protection. `pnpm build && pnpm test` covers these DNS boundaries.
 
-Deploy the new domain and five DNS records with the existing sender unchanged. After all four
+Preparation #193 deployed on 29 October with six creations and 59 resources unchanged. Verification
+run 40864313704 passed all four Azure states and authoritative DMARC. After all four
 Azure checks and authoritative DMARC pass, the separate cutover PR must read the domain fresh,
 configure its default `donotreply` sender resource with username `DoNotReply` and display name `uier`,
 retain the Azure-managed domain in `linkedDomains`, and switch production to
-`DoNotReply@notify.uier.io`. Configure display names in ACS's SenderUsername resource, never by
+`DoNotReply@notify.uier.io`. The sender variable must depend on successful domain linking so
+scheduled workers cannot use the new address prematurely. Configure display names in ACS's SenderUsername resource, never by
 putting a formatted name into the SDK's `senderAddress`. Review an in-place service update; reject
 replacement, deletion, key rotation, connection-string replacement or unrelated changes. No local
 `pulumi up`, protection bypass, new reply mailbox or engagement tracking.

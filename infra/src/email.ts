@@ -94,6 +94,13 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         location: 'global',
         linkedDomains: [domain.id, senderIdentity.domainId],
     }, { protect: true });
+    // Production workers can read changed Vercel variables before the website redeploys.
+    // Make the sender variable wait for the new domain link, retaining the managed sender meanwhile.
+    const activeSenderAddress = all([senderIdentity, communicationService.linkedDomains]).apply(([identity, linkedDomains]) => {
+        if (!linkedDomains?.some(id => id.toLowerCase() === identity.domainId.toLowerCase()))
+            throw new Error('The transactional sender domain is not linked.');
+        return identity.address;
+    });
 
     const connectionString = listCommunicationServiceKeysOutput({
         resourceGroupName: resourceGroup.name,
@@ -107,7 +114,7 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     return {
         connectionString,
         communicationServiceId: communicationService.id,
-        senderAddress: senderIdentity.address,
+        senderAddress: activeSenderAddress,
     };
 }
 
