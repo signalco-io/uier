@@ -2,7 +2,9 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { FileIcon, KanbanIcon, ListIcon, UserIcon, XIcon } from 'lucide-react';
+import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
+import { Toggle } from '@/src/components/ui/toggle';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { peopleFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter } from './commentLabels';
@@ -49,9 +51,12 @@ export function CommentFilters({ unread, unreadCount, view, people, page, pages,
                     <SelectItem value="unknown">Source not recorded</SelectItem>
                 </SelectGroup></SelectContent>
             </Select>
-            <Button size="sm" variant="outline" aria-pressed={unread} onClick={() => go('unread', unread ? undefined : 'true')}>
-                Unread {unreadCount}
-            </Button>
+            {/* The toolbar inbox's Unread chip: a blue dot and count while there is unread activity */}
+            <Toggle size="sm" variant="outline" pressed={unread} onPressedChange={pressed => go('unread', pressed ? 'true' : undefined)}
+                className={cn('rounded-full px-3', !unread && 'text-muted-foreground')}>
+                {unreadCount > 0 && <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />}
+                Unread <span className={cn('tabular-nums', unreadCount > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unreadCount}</span>
+            </Toggle>
             {readAction}
             <ToggleGroup
                 type="single"

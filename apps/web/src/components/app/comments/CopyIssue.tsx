@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ClipboardCopyIcon, XIcon } from 'lucide-react';
+import { CopyIcon, XIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
 import { copyIssueAction } from './actions';
+import { ThreadAction } from './ThreadAction';
 
 export function useCopyIssue(projectId: string, commentId: string) {
     const [pending, setPending] = useState(false);
@@ -32,13 +33,12 @@ export function useCopyIssue(projectId: string, commentId: string) {
     return { pending, message, failed, manual, copy, close: () => { setManual(undefined); setMessage(''); } };
 }
 
+/** The toolbar's Copy issue: the same copy icon, next to Copy link */
 export function CopyIssueButton({ state }: { state: ReturnType<typeof useCopyIssue> }) {
     return (
-        <Button size="icon-sm" variant="ghost" className="pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-            title="Copy issue" aria-label="Copy issue" aria-busy={state.pending}
-            disabled={state.pending} onClick={state.copy}>
-            {state.pending ? <Spinner data-icon="inline-start" /> : <ClipboardCopyIcon aria-hidden="true" data-icon="inline-start" />}
-        </Button>
+        <ThreadAction label="Copy issue" busy={state.pending} disabled={state.pending} onClick={state.copy}>
+            {state.pending ? <Spinner /> : <CopyIcon aria-hidden="true" />}
+        </ThreadAction>
     );
 }
 

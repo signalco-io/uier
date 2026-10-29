@@ -6,7 +6,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { useReadComment } from '../hooks/useComments';
 import { CommentThreadItem } from './CommentThreadItem';
 import { CommentAssignment } from './CommentAssignment';
-import { CommentThreadHeader } from './CommentThreadHeader';
+import { CommentThreadHeader, sourceText } from './CommentThreadHeader';
 import { CommentItem } from './@types/Comments';
 import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
@@ -61,11 +61,15 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     const restComments = commentItem.thread.items.slice(1, -1);
     // Like the pin: a deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem.thread.items.filter(item => !item.deleted).length;
+    const source = commentItem.source && <span className="min-w-0 break-words">{sourceText(commentItem.source)}</span>;
 
     return (
         <Stack ref={threadRef} spacing={3} className="px-4 py-3">
             <CommentThreadHeader comment={commentItem} />
-            {(commentItem.permissions?.assign || commentItem.assignee) && <CommentAssignment comment={commentItem} />}
+            {/* Who it is assigned to and where it came from, on one line (the app's comment card) */}
+            {(commentItem.permissions?.assign || commentItem.assignee)
+                ? <CommentAssignment comment={commentItem}>{source}</CommentAssignment>
+                : source && <div className="text-xs text-muted-foreground">{source}</div>}
             {/* The messages, one under the other like a chat; the avatars make the column */}
             <Stack spacing={2}>
                 {threadFistItem && (
@@ -101,13 +105,13 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
                 )}
             </Stack>
             <CommentAnchorDetails comment={commentItem} />
+            {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
             {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label="Connected services" className="flex flex-wrap gap-3 text-xs">
                 {commentItem.integrationLinks.map(link => <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
                     className="text-muted-foreground underline underline-offset-2 hover:text-foreground">
                     Open in {({ notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack' } as Record<string, string>)[link.provider] ?? link.provider}
                 </a>)}
             </nav>}
-            {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
         </Stack>
     );
 }

@@ -243,7 +243,6 @@ test('guest mode: anyone with the link comments under their name', async ({ page
     await page.goto(`/app/projects/${projectId}`);
     const comment = page.getByRole('article', { name: 'Comment by Ana Guest' });
     await expect(comment).toContainText('Can the button be bigger?');
-    await comment.getByRole('button', { name: '1 reply' }).click();
     await expect(comment).toContainText('On mobile especially.');
 });
 
@@ -409,7 +408,6 @@ test('guest edits and original reproduction details persist; only members see an
     await page.goto(`/app/projects/${projectId}`);
     const card = page.getByRole('article', { name: 'Comment by Context reviewer' });
     await expect(card).toContainText('Admin clarified the report. (edited)');
-    await card.getByRole('button', { name: '1 reply' }).click();
     await expect(card).toContainText('Corrected guest reply. (edited)');
     await card.getByRole('button', { name: 'Reproduction details', exact: true }).click();
     await expect(card.locator('pre')).toHaveText(copied!);
@@ -804,10 +802,9 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     expect(await list(ben, about)).toHaveLength(1);
 
     // Assign to me, then the "Assigned to me" filter
-    await benCard.getByRole('button', { name: /More actions/ }).click();
-    await page.getByRole('menuitem', { name: 'Assign' }).click();
+    await benCard.getByRole('button', { name: /Change assignee$/ }).click();
     await page.getByRole('menuitem', { name: /^owner-/ }).click();
-    await expect(benCard).toContainText(/Assignee\s*owner-/);
+    await expect(benCard).toContainText('Assigned to you');
     await page.goto(`/app/projects/${projectId}`);
     await page.getByRole('combobox', { name: 'People' }).click();
     await page.getByRole('option', { name: 'Assigned to me' }).click();
