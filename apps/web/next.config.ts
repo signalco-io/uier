@@ -68,6 +68,14 @@ const nextConfig: NextConfig = {
             headers: [{ key: 'Cache-Control', value: 'no-store' }]
         }];
     },
+    async rewrites() {
+        // OAuth discovery for the MCP endpoint (src/lib/mcp/oauth). Only the path-specific protected
+        // resource document exists: a root document would describe another resource (RFC 9728).
+        return [
+            { source: '/.well-known/oauth-protected-resource/api/mcp', destination: '/api/oauth/metadata/protected-resource' },
+            { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/metadata/authorization-server' }
+        ];
+    },
 };
 
 // BotID (comments API bot protection): proxies the BotID challenge scripts through this origin, so they are

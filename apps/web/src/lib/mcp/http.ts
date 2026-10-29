@@ -1,6 +1,8 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
-import { authenticateMcp } from '@/src/lib/mcp/credentials';
+import { authenticateMcp, McpAuthenticationError } from '@/src/lib/mcp/credentials';
+import { mcpOauthEnabled } from '@/src/lib/mcp/oauth/config';
+import { bearerChallenge } from '@/src/lib/mcp/oauth/metadata';
 import { createFeedbackMcpServer } from '@/src/lib/mcp/server';
 import { ApiError, apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 import { keyedHash } from '@/src/lib/comments/environment';
@@ -14,7 +16,7 @@ export async function handleMcp(request: Request, allowedOrigin: string, deadlin
     try {
         const origin = request.headers.get('origin');
         if (origin && origin !== allowedOrigin) throw apiErrors.forbidden('Origin is not allowed.');
-        const identity = await authenticateMcp(request);
+        const identity = await authenticateMcp(request, allowedOrigin);
         const window = Math.floor(Date.now() / 60_000);
         if (!await getCommentsStore().incrementCounter('$mcp', `counter_${keyedHash('mcp-request', `${identity.user.id}:${window}`)}`, 120, 120))
             throw apiErrors.rateLimited('MCP request limit reached. Try again in one minute.', 60, 'too_fast');
@@ -53,8 +55,11 @@ export async function handleMcp(request: Request, allowedOrigin: string, deadlin
         }
     } catch (error) {
         response = errorResponse(error);
+        // The challenge points OAuth clients to discovery (RFC 9728); allowedOrigin is the issuer.
         if (error instanceof ApiError && error.status === 401)
-            response.headers.set('WWW-Authenticate', 'Bearer realm="uier MCP"');
+            response.headers.set('WWW-Authenticate', mcpOauthEnabled()
+                ? bearerChallenge(allowedOrigin, error instanceof McpAuthenticationError && error.tokenPresented)
+                : 'Bearer realm="uier MCP"');
     }
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('X-Content-Type-Options', 'nosniff');

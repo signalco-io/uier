@@ -1,15 +1,17 @@
 import { z } from 'zod';
-import type { AppDoc } from '../app/model';
+import type { AppDoc, DbUser } from '../app/model';
 import type { AppContext } from '../app/context';
-import { getVisibleProject, getProject } from '../app/projects';
+import { getVisibleProject, getProject, findProject } from '../app/projects';
 import { getAppStore } from '../app/store';
 import { randomToken, sha256Hex } from '../app/tokens';
 import { getUser } from '../app/users';
 import { memberActor } from '../review/actor';
 import { ApiError, apiErrors } from '../comments/http';
+import { mcpScopes, type McpScope } from './scopes';
+import { accessCovers, grantedWorkspaceOf, type AgentAccess } from './oauth/grants';
+import { authenticateAccessToken, isAccessTokenFormat } from './oauth/tokens';
 
-export const mcpScopes = ['feedback:read', 'screenshots:read', 'feedback:reply', 'feedback:status', 'feedback:assign'] as const;
-export type McpScope = typeof mcpScopes[number];
+export { mcpScopes, type McpScope } from './scopes';
 export const credentialSchema = z.object({
     name: z.string().trim().min(1, 'Enter a credential label.').max(60, 'Use at most 60 characters.'),
     projectIds: z.array(z.string().regex(/^[a-z0-9]{12}$/)).min(1, 'Choose at least one project.').max(20, 'Choose at most 20 projects.'),
@@ -50,25 +52,55 @@ export async function revokeMcpCredential(userId: string, id: string) {
     await getAppStore().delete(credentialPk(userId), id);
 }
 
-export async function authenticateMcp(request: Request) {
-    const match = /^Bearer (uier_mcp\.([A-Za-z0-9_-]{1,128})\.[A-Za-z0-9_-]{32,128})$/.exec(request.headers.get('authorization') ?? '');
-    const credential = match ? (await getAppStore().get<McpCredential>(credentialPk(match[2]!), sha256Hex(match[1]!)))?.doc : null;
-    const user = credential && Date.parse(credential.expiresAt) > Date.now() ? await getUser(credential.userId) : null;
-    if (!credential || !user) throw new ApiError(401, 'sign_in_required', 'Use an unexpired MCP credential from Account.');
-    return { credential, user };
+/** A manual credential or an OAuth connection, resolved to one grant shape that every tool call checks */
+export type McpIdentity = {
+    user: DbUser;
+    connection: { id: string; kind: 'credential' | 'oauth'; name: string; clientId?: string };
+    scopes: McpScope[];
+    access: AgentAccess;
+};
+
+export class McpAuthenticationError extends ApiError {
+    constructor(readonly tokenPresented: boolean) {
+        super(401, 'sign_in_required', 'Sign in again from your coding tool, or use an unexpired access token from Account.');
+    }
 }
-export type McpIdentity = Awaited<ReturnType<typeof authenticateMcp>>;
+
+function bearerToken(request: Request) {
+    const header = request.headers.get('authorization');
+    if (!header) return null;
+    return /^Bearer ([A-Za-z0-9._~+/-]{1,512}=*)$/.exec(header)?.[1] ?? '';
+}
+
+/** `issuer` defaults to the request origin; the MCP route passes the configured app origin. */
+export async function authenticateMcp(request: Request, issuer = new URL(request.url).origin): Promise<McpIdentity> {
+    const token = bearerToken(request);
+    if (token === null) throw new McpAuthenticationError(false);
+    if (isAccessTokenFormat(token)) {
+        const result = await authenticateAccessToken(token, issuer);
+        const user = result ? await getUser(result.grant.userId) : null;
+        if (!result || !user) throw new McpAuthenticationError(true);
+        return { user, connection: { id: result.grant.id, kind: 'oauth', name: result.grant.name, clientId: result.grant.clientId }, scopes: result.scopes, access: result.grant.access };
+    }
+    const match = /^(uier_mcp\.([A-Za-z0-9_-]{1,128})\.[A-Za-z0-9_-]{32,128})$/.exec(token);
+    const credential = match ? (await getAppStore().get<McpCredential>(credentialPk(match[2]!), sha256Hex(match[1]!)))?.doc : null;
+    const user = credential && credential.type === 'mcp-credential' && Date.parse(credential.expiresAt) > Date.now() ? await getUser(credential.userId) : null;
+    if (!credential || !user) throw new McpAuthenticationError(true);
+    return { user, connection: { id: credential.id, kind: 'credential', name: credential.name }, scopes: credential.scopes,
+        access: { kind: 'selected', workspaces: [{ workspaceId: credential.workspaceId, projects: credential.projectIds }] } };
+}
 
 export function requireMcpScope(identity: McpIdentity, scope: McpScope) {
-    if (!identity.credential.scopes.includes(scope)) throw apiErrors.forbidden(`This credential needs ${scope}.`);
+    if (!identity.scopes.includes(scope)) throw apiErrors.forbidden(`This connection needs ${scope}.`);
 }
 
 export async function mcpProject(identity: McpIdentity, projectId: string, scope: McpScope = 'feedback:read') {
     requireMcpScope(identity, scope);
-    const project = identity.credential.projectIds.includes(projectId)
-        ? await getProject(identity.credential.workspaceId, projectId) : null;
-    const actor = project ? await memberActor(project, identity.user.id) : null;
-    if (!project || !actor || actor.kind !== 'member')
-        throw apiErrors.notFound('Project not found. Check list_projects for projects granted in this credential’s workspace.');
-    return { project, actor: { ...actor, agent: { credentialId: identity.credential.id, name: identity.credential.name } } };
+    const workspaceId = grantedWorkspaceOf(identity.access, projectId);
+    const project = workspaceId ? await getProject(workspaceId, projectId) : await findProject(projectId);
+    const covered = project && project.id === projectId && accessCovers(identity.access, project.workspaceId, project.id);
+    const actor = covered ? await memberActor(project, identity.user.id) : null;
+    if (!project || !covered || !actor || actor.kind !== 'member')
+        throw apiErrors.notFound('Project not found. Check list_projects for the projects this connection can reach.');
+    return { project, actor: { ...actor, agent: { credentialId: identity.connection.id, name: identity.connection.name, kind: identity.connection.kind } } };
 }
