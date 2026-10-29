@@ -1,4 +1,4 @@
-import { all, interpolate, runtime, type Input } from '@pulumi/pulumi';
+import { all, output, runtime, type Input } from '@pulumi/pulumi';
 import { EventSubscription } from '@pulumi/azure-native/eventgrid/index.js';
 import type { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
 import {
@@ -6,17 +6,20 @@ import {
     Domain,
     DomainManagement,
     EmailService,
+    SenderUsername,
     UserEngagementTracking,
+    getDomainOutput,
     listCommunicationServiceKeysOutput
 } from '@pulumi/azure-native/communication/index.js';
 import { dnsRecord } from './cloudflare.js';
 import { emailDnsRecord } from './emailDns.js';
 import { emailReportsReady } from './emailReportsReady.js';
+import { verifyTransactionalEmailDomain } from './emailVerification.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
-// Keep the existing root domain and managed sender while preparing the transactional subdomain.
-// A separate cutover requires four supported ACS verifications plus authoritative DMARC DNS.
+// Retain the protected root/managed domains. Cutover requires four supported Azure states
+// and authoritative DMARC, independently of Azure's unsupported DMARC verification state.
 export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     const emailService = new EmailService(`${prefix}-email-service`, {
         resourceGroupName: resourceGroup.name,
@@ -64,12 +67,40 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         dnsRecord(`${prefix}-email-transactional-${key.toLowerCase()}`, record.name, record.value, type, true);
     }
 
+    const verifiedDomain = getDomainOutput({
+        resourceGroupName: resourceGroup.name,
+        emailServiceName: emailService.name,
+        domainName: 'notify.uier.io',
+    }, { dependsOn: [transactionalDomain] }).apply(value => verifyTransactionalEmailDomain(value));
+    const transactionalSender = new SenderUsername(`${prefix}-email-transactional-sender`, {
+        resourceGroupName: resourceGroup.name,
+        emailServiceName: emailService.name,
+        domainName: verifiedDomain.fromSenderDomain,
+        // This is the domain's existing default username, not an additional mailbox/alias.
+        senderUsername: 'donotreply',
+        username: 'DoNotReply',
+        displayName: 'uier',
+    }, { protect: true });
+    const senderIdentity = output({ domain: verifiedDomain, username: transactionalSender.username,
+        displayName: transactionalSender.displayName }).apply(({ domain, username, displayName }) => {
+        if (typeof username !== 'string' || username.toLowerCase() !== 'donotreply' || displayName !== 'uier')
+            throw new Error('The transactional sender identity was not applied.');
+        return { domainId: domain.id, address: `${username}@${domain.fromSenderDomain}` };
+    });
+
     const communicationService = new CommunicationService(`${prefix}-communication-service`, {
         resourceGroupName: resourceGroup.name,
         dataLocation: 'Europe',
         location: 'global',
-        linkedDomains: [domain.id],
+        linkedDomains: [domain.id, senderIdentity.domainId],
     }, { protect: true });
+    // Production workers can read changed Vercel variables before the website redeploys.
+    // Make the sender variable wait for the new domain link, retaining the managed sender meanwhile.
+    const activeSenderAddress = all([senderIdentity, communicationService.linkedDomains]).apply(([identity, linkedDomains]) => {
+        if (!linkedDomains?.some(id => id.toLowerCase() === identity.domainId.toLowerCase()))
+            throw new Error('The transactional sender domain is not linked.');
+        return identity.address;
+    });
 
     const connectionString = listCommunicationServiceKeysOutput({
         resourceGroupName: resourceGroup.name,
@@ -83,8 +114,7 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     return {
         connectionString,
         communicationServiceId: communicationService.id,
-        // Verify notify.uier.io and configure its uier display name before a separate cutover.
-        senderAddress: interpolate`DoNotReply@${domain.fromSenderDomain}`,
+        senderAddress: activeSenderAddress,
     };
 }
 

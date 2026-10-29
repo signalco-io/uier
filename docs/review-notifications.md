@@ -197,8 +197,8 @@ DNS validation. The published rejection policy remains mandatory.
 | --- | --- |
 | Existing report subscription/handshake | Confirmed Succeeded and HTTP 200 on 28 October; see receipt below |
 | New subdomain DNS preflight | Both Cloudflare authorities returned no TXT/SPF, DKIM or DMARC at the new owners |
-| notify.uier.io prepared and verified | Pending staged domain/DNS deployment and four Azure checks |
-| Authoritative transactional DMARC policy | Pending deployment; required independently of ACS's DMARC state |
+| notify.uier.io prepared and verified | #193 deployed; all four supported Azure states Verified in run 40864313704 |
+| Authoritative transactional DMARC policy | Both authoritative servers serve the full rejection policy; verification workflow passed |
 | Sender identity and in-place link | Pending; Azure-managed sender remains active during preparation |
 | Real report receipt/message-id correlation | Pending recipient-authorized production digest; matching remains disabled |
 | Received-message authentication, display name and headers | Pending recipient-authorized production digest |
@@ -298,3 +298,23 @@ DKIM and DKIM2 as `Verified`, with DMARC `NotStarted` despite authoritative
 [#178](https://github.com/signalco-io/uier/pull/178) stays unmerged, without auto-merge, until Azure
 verifies all five states and a reviewed preview proves an in-place link/sender change. Issue #132
 remains open.
+
+
+### Transactional subdomain preparation
+
+On 29 October 2026, [#193](https://github.com/signalco-io/uier/pull/193) provisioned the protected
+`notify.uier.io` domain and five DNS records through CI, with six creations and all 59 existing
+resources unchanged. [Deployment 40863868454](https://github.com/signalco-io/uier/actions/runs/40863868454)
+succeeded. Root-domain resources, the Azure-managed sender and the communication-service key remained.
+
+[Verification 40864313704](https://github.com/signalco-io/uier/actions/runs/40864313704) succeeded.
+Independent Azure readback confirmed Domain/SPF/DKIM/DKIM2 Verified and both `fromSenderDomain` and
+`mailFromSenderDomain` equal `notify.uier.io`. Both Cloudflare authorities serve the supplied ownership
+TXT, SPF, qualified DKIM owners and `_dmarc.notify.uier.io TXT "v=DMARC1; p=reject"`.
+The unsupported Azure DMARC state remains NotStarted and is intentionally not a cutover gate.
+
+#178 checks these conditions afresh before managing the existing default sender's display name as
+`uier` and linking the new domain in place. The production sender variable also waits for that link,
+so scheduled workers cannot observe the new sender address before Azure accepts the domain.
+The default username stays DoNotReply; this adds no reply mailbox or new sender alias.
+The application and digest transport share the same production sender configuration.
