@@ -8,10 +8,10 @@ import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, 
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
-import { createProject, updateProject } from '../src/lib/app/projects';
+import { createProject, updateProject, getProject } from '../src/lib/app/projects';
 import { memberId, type DbMember } from '../src/lib/app/model';
 import type { AppContext } from '../src/lib/app/context';
-import { createProjectComment, replyToProjectComment, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
+import { createProjectComment, replyToProjectComment, setProjectCommentPrivate, setProjectCommentResolved, removeProjectComment } from '../src/lib/review/comments';
 import { RATE_LIMIT_MEMBER_REPLIES } from '../src/lib/comments/limits';
 import { memberActor } from '../src/lib/review/actor';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
@@ -21,7 +21,7 @@ import type { DbComment } from '../src/lib/db/schema';
 import { environmentOptions } from '../src/lib/app/environments';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { withNotificationEvent } from '../src/lib/notifications/events';
-import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
+import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, joinPublicProject } from '../src/lib/comments/publicProject';
 import { pngImage } from './support/images';
 
 const originalEnv = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET, UIER_BASE_URL: process.env.UIER_BASE_URL };
@@ -482,4 +482,42 @@ test('prompt project checks recheck current membership without reflecting submit
             expect(response.status).toBe(400);
         }
     } finally { await client.close(); }
+});
+
+
+test('an already connected staff credential loses private app feedback and screenshot access immediately after allowlist removal', async () => {
+    const previous = process.env.UIER_STAFF_EMAILS;
+    const staff = await findOrCreateUser(`mcp-staff-${randomUUID()}@example.com`);
+    process.env.UIER_STAFF_EMAILS = staff.email;
+    const member = await joinPublicProject(staff);
+    const project = (await getProject(PUBLIC_WORKSPACE_ID, PUBLIC_PROJECT_ID))!;
+    const context = { user: staff, member, workspace: { id: PUBLIC_WORKSPACE_ID }, isAdmin: true } as AppContext;
+    const owner = await findOrCreateUser(`mcp-feedback-${randomUUID()}@example.com`);
+    const author = (await memberActor(project, owner.id))!;
+    const feedback = await createProjectComment(new Request(base), project, author, { origin: 'https://uier.io', path: '/app/account', kind: 'feedback', position: { type: 'page' }, text: 'Private app feedback', screenshot: parseScreenshot(pngImage) as ParsedScreenshot });
+    const own = await createProjectComment(new Request(base), project, (await memberActor(project, staff.id))!, { origin: 'https://uier.io', path: '/app/projects', kind: 'feedback', position: { type: 'page' }, text: 'My own private feedback' });
+    const { token } = await createMcpCredential(context, { name: 'Public moderation', projectIds: [project.id], scopes: mcpScopes, days: 7 });
+    const client = await connect(token);
+    try {
+        const args = { projectId: project.id, commentId: feedback.id };
+        const packet = data(await client.callTool({ name: 'get_feedback', arguments: args }));
+        expect(packet.context.feedback.text).toBe('Private app feedback');
+        expect((await client.readResource({ uri: packet.screenshotResource.uri })).contents).toHaveLength(1);
+        process.env.UIER_STAFF_EMAILS = '';
+        // mcpProject uses getProject, so no ensurePublicProject reset can hide a missing read-time check.
+        expect((await getAppStore().get<DbMember>(member.pk, member.id))!.doc.role).toBe('admin');
+        const identity = await authenticateMcp(new Request(`${base}/api/mcp`, { headers: { Authorization: `Bearer ${token}` } }));
+        expect((await mcpProject(identity, project.id)).actor.isAdmin).toBe(false);
+        expect(data(await client.callTool({ name: 'get_feedback', arguments: args })).error).toBe('not_found');
+        await expect(client.readResource({ uri: packet.screenshotResource.uri })).rejects.toThrow();
+        expect((await client.callTool({ name: 'reply_to_feedback', arguments: { ...args, text: 'No longer staff', idempotencyKey: idempotencyKey() } })).isError).toBe(true);
+        expect(data(await client.callTool({ name: 'get_feedback', arguments: { projectId: project.id, commentId: own.id } })).context.feedback.text).toBe('My own private feedback');
+    } finally {
+        await client.close();
+        process.env.UIER_STAFF_EMAILS = staff.email;
+        const moderator = (await memberActor(project, staff.id))!;
+        await removeProjectComment(project, moderator, feedback.id);
+        await removeProjectComment(project, moderator, own.id);
+        if (previous === undefined) delete process.env.UIER_STAFF_EMAILS; else process.env.UIER_STAFF_EMAILS = previous;
+    }
 });

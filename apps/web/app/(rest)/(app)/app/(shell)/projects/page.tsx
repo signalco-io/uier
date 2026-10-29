@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
 import { FolderOpenIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 
 export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
     const context = await requireAppContext();
+    const canManageProjects = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
     const { status: statusParam, client: clientParam } = await searchParams;
     const status = statusParam === 'done' ? 'done' : 'active';
     const projects = await listVisibleProjects(context);
@@ -50,7 +52,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
             <PageHeader
                 title="Projects"
                 description="Each project is one site you review, with its addresses and its comments."
-                actions={context.isAdmin && (
+                actions={canManageProjects && (
                     <Button asChild>
                         <Link href={KnownPages.AppNewProject}>
                             <PlusIcon data-icon="inline-start" />
@@ -94,7 +96,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                             </CardDescription>
                                             {project.clientName && <CardDescription className="truncate">Client: {project.clientName}</CardDescription>}
                                         </div>
-                                        {context.isAdmin && (
+                                        {canManageProjects && (
                                             <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="relative z-10 -mr-1.5" />
                                         )}
                                     </CardHeader>
@@ -130,12 +132,12 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                 ? 'No projects match this client and status. Choose another filter to see more projects.'
                                 : status === 'done'
                                 ? 'Projects you mark as done move here. You can reopen them any time.'
-                                : context.isAdmin
+                                : canManageProjects
                                     ? 'Create a project for the site you want to review, then add one script tag to it.'
                                     : 'Projects you are invited to show up here.'}
                         </EmptyDescription>
                     </EmptyHeader>
-                    {status === 'active' && context.isAdmin && (
+                    {status === 'active' && canManageProjects && (
                         <EmptyContent>
                             <Button asChild>
                                 <Link href={KnownPages.AppNewProject}>

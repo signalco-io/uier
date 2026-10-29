@@ -1,4 +1,4 @@
-import { getStack, interpolate, secret } from '@pulumi/pulumi';
+import { Config, getStack, interpolate, secret } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectDomain, ProjectEnvironmentVariable } from '@pulumiverse/vercel';
 import { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
@@ -15,6 +15,9 @@ const up = async () => {
     const stack = getStack().replace('uier-', '');
     if (stack !== 'production')
         throw new Error(`Unsupported stack "${getStack()}": only uier-production is deployed.`);
+
+    // Fail before registering resources when the owner has not configured the staff list.
+    const staffEmails = new Config().requireSecret('staffEmails');
 
     // Every push to main runs `pulumi up` without an approval step. `protect` makes Pulumi refuse to
     // delete or replace the resources that hold data or serve uier.io (a replace-triggering change,
@@ -195,6 +198,15 @@ const up = async () => {
     // Vercel allows one variable per key and target, so a replace of the new variables (a changed
     // `key` or `sensitive`) has to delete the old one first; variables apply to new deployments only.
     const envVarOptions = { deleteBeforeReplace: true };
+    // Required config is a release gate: never deploy an accidental empty staff list.
+    // Config is encrypted at rest; Vercel receives it only for production, write-only.
+    new ProjectEnvironmentVariable('vercel-uier-env-staff-emails', {
+        projectId: app.projectId,
+        key: 'UIER_STAFF_EMAILS',
+        value: staffEmails,
+        targets: ['production'],
+        sensitive: true,
+    }, envVarOptions);
     // #163/#174 deployed the receiver and credential before this subscription's handshake.
     // Event Grid validates synchronously during pulumi up, before the next Vercel deployment.
     const emailReportSecret = new RandomBytes('uier-email-report-secret', { length: 32 }).hex;

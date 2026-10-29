@@ -7,6 +7,7 @@ import { toReproductionContext, type ReproductionContext } from '../comments/rep
 import type { ProjectActor } from '../review/actor';
 import {
     canDeleteComment,
+    canDeleteItem,
     canEditComment,
     canMakeCommentPrivate,
     canResolveComment,
@@ -36,6 +37,8 @@ export type ProjectCommentMessage = {
     createdAt?: string;
     deleted: boolean;
     edited: boolean;
+    canDelete: boolean;
+    canFilterAuthor: boolean;
 };
 
 /** A comment as the app shows it */
@@ -70,6 +73,7 @@ export type ProjectCommentView = {
     deleted: boolean;
     edited: boolean;
     replies: ProjectCommentMessage[];
+    canFilterAuthor: boolean;
     permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean };
 };
 
@@ -118,13 +122,16 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         quotedText: first.deletedAt ? undefined : first.quotedText,
         deleted: Boolean(first.deletedAt),
         edited: Boolean(first.editedAt),
+        canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(first.authorId ?? comment.authorId) && !first.deletedAt,
         replies: replies.map(reply => ({
             id: String(reply.id),
             author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId },
             text: mentionText(reply, participants),
             createdAt: reply.createdAt,
             deleted: Boolean(reply.deletedAt),
-            edited: Boolean(reply.editedAt)
+            edited: Boolean(reply.editedAt),
+            canDelete: actor.kind === 'member' && actor.isAdmin && canDeleteItem(reply, actor),
+            canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(reply.authorId) && !reply.deletedAt
         })),
         permissions: {
             resolve: canResolveComment(comment, actor),
@@ -137,9 +144,9 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string) {
     const actor = appActor(context);
-    const comments = await listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined);
+    const comments = await listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId);
     const [names, members, reads, integrationLinks] = await Promise.all([authorNames(comments), listProjectMembers(project.workspaceId, project.id),
         loadReadSequences(`project:${project.id}`, `user:${context.user.id}`), loadIntegrationLinks(project, actor, comments)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));

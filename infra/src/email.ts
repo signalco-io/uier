@@ -1,4 +1,4 @@
-import { all, interpolate, runtime, type Input } from '@pulumi/pulumi';
+import { all, output, runtime, type Input } from '@pulumi/pulumi';
 import { EventSubscription } from '@pulumi/azure-native/eventgrid/index.js';
 import type { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
 import {
@@ -6,19 +6,20 @@ import {
     Domain,
     DomainManagement,
     EmailService,
+    SenderUsername,
     UserEngagementTracking,
     getDomainOutput,
     listCommunicationServiceKeysOutput
 } from '@pulumi/azure-native/communication/index.js';
 import { dnsRecord } from './cloudflare.js';
 import { emailDnsRecord } from './emailDns.js';
-import { assertEmailDomainVerified } from './emailVerification.js';
 import { emailReportsReady } from './emailReportsReady.js';
+import { verifyTransactionalEmailDomain } from './emailVerification.js';
 
 // Adapted from signalco infra/packages/pulumi/src/azure/acsEmails.ts.
 //
-// #163/#174 provisioned uier.io and DNS with the Azure-managed sender unchanged.
-// Cutover stays blocked until Azure verifies all five records, including DMARC.
+// Retain the protected root/managed domains. Cutover requires four supported Azure states
+// and authoritative DMARC, independently of Azure's unsupported DMARC verification state.
 export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     const emailService = new EmailService(`${prefix}-email-service`, {
         resourceGroupName: resourceGroup.name,
@@ -51,20 +52,47 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
         dnsRecord(`${prefix}-email-${key.toLowerCase()}`, record.name, record.value, type, true);
     }
 
+    const transactionalDomain = new Domain(`${prefix}-email-domain-transactional`, {
+        resourceGroupName: resourceGroup.name,
+        emailServiceName: emailService.name,
+        domainName: 'notify.uier.io',
+        domainManagement: DomainManagement.CustomerManaged,
+        location: 'global',
+        userEngagementTracking: UserEngagementTracking.Disabled,
+    }, { protect: true });
+    // Authoritative preflight on 2026-10-29 found no existing SPF, DKIM or DMARC here.
+    // Qualify Azure's relative DKIM owners for the parent uier.io Cloudflare zone.
+    for (const [key, type] of [['domain', 'TXT'], ['sPF', 'TXT'], ['dKIM', 'CNAME'], ['dKIM2', 'CNAME'], ['dMARC', 'TXT']] as const) {
+        const record = transactionalDomain.verificationRecords.apply(records => emailDnsRecord(records, key, type, 'notify.uier.io'));
+        dnsRecord(`${prefix}-email-transactional-${key.toLowerCase()}`, record.name, record.value, type, true);
+    }
+
     const verifiedDomain = getDomainOutput({
         resourceGroupName: resourceGroup.name,
         emailServiceName: emailService.name,
-        domainName: 'uier.io',
-    }, { dependsOn: [customerDomain] }).apply(value => {
-        assertEmailDomainVerified(value);
-        return value;
+        domainName: 'notify.uier.io',
+    }, { dependsOn: [transactionalDomain] }).apply(value => verifyTransactionalEmailDomain(value));
+    const transactionalSender = new SenderUsername(`${prefix}-email-transactional-sender`, {
+        resourceGroupName: resourceGroup.name,
+        emailServiceName: emailService.name,
+        domainName: verifiedDomain.fromSenderDomain,
+        // This is the domain's existing default username, not an additional mailbox/alias.
+        senderUsername: 'donotreply',
+        username: 'DoNotReply',
+        displayName: 'uier',
+    }, { protect: true });
+    const senderIdentity = output({ domain: verifiedDomain, username: transactionalSender.username,
+        displayName: transactionalSender.displayName }).apply(({ domain, username, displayName }) => {
+        if (typeof username !== 'string' || username.toLowerCase() !== 'donotreply' || displayName !== 'uier')
+            throw new Error('The transactional sender identity was not applied.');
+        return { domainId: domain.id, address: `${username}@${domain.fromSenderDomain}` };
     });
 
     const communicationService = new CommunicationService(`${prefix}-communication-service`, {
         resourceGroupName: resourceGroup.name,
         dataLocation: 'Europe',
         location: 'global',
-        linkedDomains: [domain.id, verifiedDomain.id],
+        linkedDomains: [domain.id, senderIdentity.domainId],
     }, { protect: true });
 
     const connectionString = listCommunicationServiceKeysOutput({
@@ -79,8 +107,7 @@ export function acsEmail(prefix: string, resourceGroup: ResourceGroup) {
     return {
         connectionString,
         communicationServiceId: communicationService.id,
-        // Both this sender and linkedDomains depend on the same fresh verification guard.
-        senderAddress: interpolate`DoNotReply@${verifiedDomain.fromSenderDomain}`,
+        senderAddress: senderIdentity.address,
     };
 }
 

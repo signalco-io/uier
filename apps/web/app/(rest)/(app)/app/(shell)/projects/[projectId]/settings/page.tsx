@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { notFound } from 'next/navigation';
 import { requireAppContext, type AppContext } from '@/src/lib/app/context';
 import { getVisibleProject, listVisibleProjects } from '@/src/lib/app/projects';
@@ -35,13 +36,14 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+    const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
     const notifications = await notificationPreference(project.id, `user:${context.user.id}`);
     const muted = notifications?.muted ?? false;
 
     return (
         <div className="flex max-w-3xl flex-col gap-6">
             <h2 className="sr-only">Settings</h2>
-            {context.isAdmin && <ProjectSetup project={project} clients={clientNames(await listVisibleProjects(context))} />}
+            {canConfigure && <ProjectSetup project={project} clients={clientNames(await listVisibleProjects(context))} />}
             <Section
                 id="emails"
                 title="Email notifications"
@@ -49,13 +51,13 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
                     ? 'You get no emails from this project. Threads you follow stay followed.'
                     : 'Owners and admins get new feedback. Posting in a thread follows it. Emails are batched for 5 minutes.'}
                 actions={<ProjectEmailsButton projectId={project.id} muted={muted} />}>
-                {context.isAdmin
+                {canConfigure
                     ? <ProjectEmailExcerptsForm projectId={project.id} enabled={project.emailCommentExcerpts === true} />
-                    : <p className="m-0 text-sm text-muted-foreground">Comment excerpts are {project.emailCommentExcerpts ? 'on' : 'off'}. When on, short comment excerpts go to every recipient, verified guests included. Only workspace admins can change this.</p>}
+                    : <p className="m-0 text-sm text-muted-foreground">Comment excerpts are {project.emailCommentExcerpts ? 'on' : 'off'}. When on, short comment excerpts go to every recipient, verified guests included. {project.workspaceId === PUBLIC_WORKSPACE_ID ? 'The public feedback project settings are fixed.' : 'Only workspace admins can change this.'}</p>}
             </Section>
-            {context.isAdmin && project.id !== PUBLIC_PROJECT_ID
+            {canConfigure && project.id !== PUBLIC_PROJECT_ID
                 && <ProjectIntegrations project={project} context={context} query={await searchParams} />}
-            {context.isAdmin && <ProjectState context={context} project={project} />}
+            {canConfigure && <ProjectState context={context} project={project} />}
         </div>
     );
 }

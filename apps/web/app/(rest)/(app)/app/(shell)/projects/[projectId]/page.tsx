@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
+import { resolveCommentAuthorFilter } from '@/src/lib/app/commentAuthors';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
@@ -27,9 +28,11 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
         notFound();
 
     const query = parseCommentsQuery(await searchParams);
+    const author = query.author ? await resolveCommentAuthorFilter(context, project, query.author) : undefined;
+    if (query.author && !author) notFound();
     query.environment = environmentSelection(project, query.environment);
     const [comments, members] = await Promise.all([
-        loadProjectComments(context, project, query.environment),
+        loadProjectComments(context, project, query.environment, author?.authorId),
         listProjectMembers(context.workspace.id, project.id)
     ]);
     return (
@@ -53,6 +56,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
                     isAdmin={context.isAdmin}
                     comments={comments}
                     query={query}
+                    authorFilter={author?.filter}
                     userId={context.user.id}
                     installHref={KnownPageLinks.projectInstall(project.id)}
                     assignees={members.map(({ member, name }) => ({ userId: member.userId, name }))} />

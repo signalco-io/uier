@@ -5,6 +5,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { AppSidebar } from '@/src/components/app/shell/AppSidebar';
 import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel */
@@ -14,9 +15,9 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
 
     return (
         <SidebarProvider>
-            <InviteProvider projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
+            <InviteProvider enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
                 <AppSidebar
-                    isAdmin={context.isAdmin}
+                    isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
                     user={{ name: context.user.name, email: context.user.email }}
                     currentWorkspaceId={context.workspace.id}
                     workspaces={context.memberships.map(({ workspace, member }) => ({

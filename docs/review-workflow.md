@@ -164,16 +164,19 @@ the page and can reply to it. Embedding options and the toolbar's modes are desc
 
 The static project `uier00000001` and workspace `w_uier_public` are created in the deployment's
 `app` container on the first public API request. The two starter threads are created in `comments`
-with stable ids and `ttl: -1` (no expiry). Provisioning is create-only and safe across concurrent
+with stable ids and `ttl: -1` (no expiry). Project and thread provisioning is create-only and safe across concurrent
 cold starts: it preserves replies, status and numbers. Production feedback previously stored under
 `uier.io` is copied once, with a persistent migration receipt; source records remain untouched.
 Previews use only their configured preview containers. Local subdomains keep independent, unseeded
 partitions for testing.
 
-Every uier account automatically joins this workspace as a commenter of the feedback project.
-Existing accounts are enrolled by a one-time, resumable provisioning backfill; sign-in and app
-requests also ensure membership. Existing team admins keep their roles. This grants project access
-directly, with no invitation email or acceptance step, and keeps each person's current workspace
+Every uier account automatically joins this workspace. Only accounts in the server-side
+`UIER_STAFF_EMAILS` allowlist are admins (`projects: all`); everyone else is a commenter of the
+feedback project, including former staff and admins previously set by hand. Existing accounts are
+enrolled by a one-time, resumable provisioning backfill; sign-in and app requests reconcile roles.
+Each server instance also resets stored admins on its first public-project provisioning call.
+Review tokens and MCP credentials recheck the allowlist at read time, before that stored reset.
+This grants project access directly, with no invitation email or acceptance step, and keeps each person's current workspace
 and new-user onboarding as the default. Switch to the **uier** workspace to view the project.
 
 The hero's `data-uier-thread="comment_uier_headline"` slot renders a live thread in an open shadow

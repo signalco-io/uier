@@ -1,6 +1,7 @@
 import type { DbMember, DbUser } from './model';
 import { getUser } from './users';
 import { listWorkspaceMembers, memberCanAccessProject } from './workspaces';
+import { publicProjectMember } from '../comments/publicProjectPolicy';
 
 export type MemberWithUser = {
     member: DbMember;
@@ -16,7 +17,7 @@ export async function listMembersWithUsers(workspaceId: string): Promise<MemberW
     return members
         .map((member, index) => {
             const user = users[index] ?? null;
-            return { member, user, name: user?.name ?? member.email };
+            return { member: publicProjectMember(member, user?.email ?? ''), user, name: user?.name ?? member.email };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
 }

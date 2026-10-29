@@ -1,4 +1,5 @@
 import { originSql } from './originFilter';
+import { authorSql } from './authorFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
@@ -95,21 +96,23 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }).fetchAll();
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async list(domain, path, limit, originFilter) {
+        async list(domain, path, limit, originFilter, authorId) {
             const filter = originSql(originFilter);
+            const author = authorSql(authorId);
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause} ORDER BY c.createdAt DESC`,
-                [...filter.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause}${author.clause} ORDER BY c.createdAt DESC`,
+                [...filter.parameters, ...author.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async listAll(domain, limit, originFilter) {
+        async listAll(domain, limit, originFilter, authorId) {
             const filter = originSql(originFilter);
+            const author = authorSql(authorId);
             // Rate-limit counters and the comment numbers' sequence share the partition; they have no `path`
             const resources = await queryAll<Record<string, unknown>>(
                 domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause} ORDER BY c.createdAt DESC`,
-                [...filter.parameters, { name: '@limit', value: limit }]);
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause}${author.clause} ORDER BY c.createdAt DESC`,
+                [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
         async get(domain, id): Promise<StoredComment | null> {

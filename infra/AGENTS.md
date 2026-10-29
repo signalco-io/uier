@@ -13,6 +13,9 @@ It manages:
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
   variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
   suggestions) when the repository secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
+- the production-only sensitive `UIER_STAFF_EMAILS` variable from required secret Pulumi config
+  `uier:staffEmails`. Never store staff addresses in plaintext. See README "Removing abusive
+  comments" for encrypted config updates, rollout and verification;
 - the Cloudflare DNS records for `uier.io` and `www.uier.io` (DNS only, not proxied);
 - the Azure resource group with a serverless Cosmos DB account (database `uierdata`,
   containers `comments` and `comments-preview` partitioned by `/domain`, `app` and
@@ -72,59 +75,50 @@ assignments and the OIDC subjects CI uses.
 
 ## Email rollout (#132)
 
-`src/email.ts` first provisions a protected customer-managed `uier.io` domain and Domain/SPF/DKIM/
-DKIM2/DMARC DNS records from `verificationRecords` when present. The live 2026-03-18 API omits
-DMARC even though it reports a verification state; `emailDns.ts` supplies the explicit owner policy
-`_dmarc.uier.io TXT "v=DMARC1; p=reject"` only in that case. No reporting mailbox is assumed.
-Keep the missing/malformed checks for the other records. Regression checks after build: `pnpm test` covers email DNS and the integration credential-map boundary. The existing Azure-managed domain, communication
-service name, connection string and sender remain. DNS preflight found no apex SPF or `_dmarc` TXT
-on 28 October 2026; recheck authoritative DNS and import/merge any externally created policy before
-applying. Never add a duplicate SPF or DMARC record.
+`src/email.ts` retains the protected root `uier.io` domain and its DNS records, and prepares a
+separate protected `notify.uier.io` domain for all transactional mail: sign-in links, invitations,
+guest confirmations and review digests. The current Azure-managed sender and communication-service
+name/key remain until a separate cutover. Never rename/remove the existing root or managed resources.
 
-The report receiver's credential, expected subscription name and ACS topic are production-only.
-`acsEmailReports` subscribes only to delivery reports, using Event Grid schema, TLS 1.2, one event
-per batch and bounded retries (30 attempts / 24 hours). It shares the receiver's secret header.
-Deploy the receiver before adding an Event Grid subscription in a later PR; Pulumi runs before
-Vercel and subscription creation immediately calls the validation handshake. Event Grid must be
-registered. Deliver the credential as a secret static HTTP header, never a query parameter.
-Validation requires the per-subscription secret and the expected Azure subscription name (case-insensitive); report notifications
-additionally require the configured ACS topic. Do not bypass WAF or authentication.
+The subdomain's ownership TXT, SPF TXT and both DKIM CNAME values come from ACS `verificationRecords`.
+Azure's relative DKIM owners must be qualified as `<selector>._domainkey.notify.uier.io` in the
+parent `uier.io` Cloudflare zone. `emailDns.ts` preserves the legacy root resource inputs and rejects
+owners outside the explicitly selected sending domain. ACS omits DMARC from the live record response;
+the owner policy is `_dmarc.notify.uier.io TXT "v=DMARC1; p=reject"`. No report mailbox is assumed.
+Authoritative preflight on 29 October 2026 found no existing TXT/SPF, DKIM or DMARC records at the
+new owners on either Cloudflare server. Recheck before applying and import/merge any external record;
+never add duplicate SPF or DMARC policies.
 
-Before creating/updating the subscription, CI applies run an authenticated validation-only readiness
-probe; previews skip network probing. The probe uses the existing credential without logging it,
-sends no email, writes no app data and rejects redirects. It validates the echoed code and reports
-only bounded failure status/reason, never raw response bodies. Build and run
-`node --test tests/*.test.mjs` for the readiness and DNS omission checks. Independently read the
-subscription's provisioning state before claiming the handshake succeeded.
+On 29 October the owner approved replacing the unsupported Azure DMARC-state gate with independent
+authoritative DNS validation. The main-only **Verify email domain** workflow verifies Domain, SPF,
+DKIM and DKIM2 for `notify.uier.io`, then `emailDmarc.ts` requires one full rejection policy at both
+configured Cloudflare authoritative servers. Do not call `initiateVerification(DMARC)` or require
+its `NotStarted` state to become Verified. Preserve the published policy; this defers only Azure's
+unsupported verification, not DMARC protection. `pnpm build && pnpm test` covers these DNS boundaries.
 
-The main-only **Verify email domain** workflow runs Azure DNS verification through OIDC, serialized
-with Pulumi deployments. It never changes DNS, linkedDomains, senders, keys or protection. Read all five
-live `verificationStates` until `Verified`. Link and switch only in a separate reviewed PR, using
-a fresh `getDomainOutput` guard. Keep the Azure-managed domain linked. The preview must update
-`linkedDomains` in place and must not replace the communication service or change its key/connection
-string. Never remove protection or apply infrastructure manually. The [operations guide](../docs/operations.md#email-domain-verification-and-cutover) documents
-the exact sequence; `docs/review-notifications.md` tracks production evidence. Keep ledger matching
-disabled until an authorized production digest proves report `messageId` equals its send operation
-id; then enable `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` for production through Pulumi.
+Deploy the new domain and five DNS records with the existing sender unchanged. After all four
+Azure checks and authoritative DMARC pass, the separate cutover PR must read the domain fresh,
+configure its default `donotreply` sender resource with username `DoNotReply` and display name `uier`,
+retain the Azure-managed domain in `linkedDomains`, and switch production to
+`DoNotReply@notify.uier.io`. Configure display names in ACS's SenderUsername resource, never by
+putting a formatted name into the SDK's `senderAddress`. Review an in-place service update; reject
+replacement, deletion, key rotation, connection-string replacement or unrelated changes. No local
+`pulumi up`, protection bypass, new reply mailbox or engagement tracking.
 
+The report receiver's credential, expected subscription name and ACS topic remain production-only.
+`acsEmailReports` uses Event Grid schema, only delivery reports, TLS 1.2, one event per batch and
+30 attempts / 24 hours of retries with a secret static header. Its authenticated validation-only
+readiness probe sends no email, writes no app data, rejects redirects and skips network calls in
+previews. The probe supplies uppercase subscription metadata; receivers compare Azure resource names
+case-insensitively but still require the exact subscriber identity and ACS topic for reports.
+Readback on 28 October confirmed Succeeded and a real HTTP 200 handshake after #186/#187. See the
+[provisioning receipt](../docs/review-notifications.md#delivery-report-provisioning-receipt).
 
-Live verification on 28 October 2026 passed Domain/SPF/DKIM/DKIM2. Azure rejected DMARC's documented
-verification type (`InitiateVerificationFailed: Invalid verification type: DMARC`), leaving its
-state `NotStarted`. Keep the sender and linkedDomains unchanged until Azure resolves this gate;
-a valid public DMARC record does not substitute for the required Azure state.
-
-The case-insensitive Azure resource-name receiver deployed in #186 before #187 created the
-subscription. Independent Azure readback on 28 October 2026 confirmed `Succeeded`; the uppercase-name
-readiness request and real Azure callback returned 200 and logged only `normalized_subscription_case`.
-Keep the uppercase-name probe so later applies confirm that receiver compatibility. Missing/other
-names, wrong credentials and report topics still fail. The [provisioning receipt](../docs/review-notifications.md#delivery-report-provisioning-receipt)
-separates this handshake from the pending real-digest acceptance. The five-state sender gate and
-operation-id correlation gate remain; neither is satisfied by subscription provisioning.
-
-`emailVerification.ts` requires the expected `uier.io` domain and all five live states to be exactly
-`Verified` before either linkedDomains or sender changes. Run `node --test tests/*.test.mjs` after
-building for DNS omission and strict cutover guard coverage. Do not enable auto-merge on the cutover
-PR while its required Azure state/preview gate is failing.
+Subscription provisioning does not prove real delivery. Keep `UIER_EMAIL_REPORT_MATCH_OPERATIONS`
+unset until an authorized production digest proves report `messageId` equals the send operation id.
+Received-message SPF/DKIM/DMARC, unsubscribe header integrity and DKIM header coverage remain separate
+acceptance gates. The [operations guide](../docs/operations.md#email-domain-verification-and-cutover)
+and [rollout evidence](../docs/review-notifications.md#staged-rollout-and-live-evidence) track the stages.
 
 ## Connected service credentials
 

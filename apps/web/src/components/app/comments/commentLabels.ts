@@ -13,6 +13,9 @@ export const kindLabels: Record<Exclude<DbCommentKind, 'comment'>, string> = {
     rewrite: 'Suggested rewrite'
 };
 
+/** Only an opaque server reference and a display name cross the client boundary. */
+export type AuthorFilter = { reference: string; name: string };
+
 export type PeopleFilter = 'all' | 'assigned' | 'mine';
 export type CommentsView = 'list' | 'board';
 

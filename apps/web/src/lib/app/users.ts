@@ -5,7 +5,7 @@ import { emailPk, userPk, type DbUser, type DbUserEmail } from './model';
 import { MAX_NAME_LENGTH } from './limits';
 import { ensurePublicProject, joinPublicProject } from '../comments/publicProject';
 
-export const emailSchema = z.string().trim().toLowerCase().max(254).pipe(z.email('Enter a valid email address.'));
+export { emailSchema } from './email';
 
 export const nameSchema = z.string().trim()
     .min(1, 'Enter your name.')

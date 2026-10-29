@@ -299,3 +299,56 @@ test('only admins see the bounced-address notice in the invite dialog', async ({
     await expect(dialog.getByRole('link', { name: 'Open the invitation link' })).toHaveCount(0);
     await expectNoAxeViolations(page);
 });
+
+test('public staff cannot open Users, invite, create projects or edit public settings and retain their selected workspace', async ({ page }, testInfo) => {
+    const device = testInfo.project.name.startsWith('Mobile') ? 'mobile' : 'desktop';
+    await signIn(page, `e2e-users-staff-${device}@example.test`);
+    const ownProject = await createProject(page, { urls: ['https://staff-personal.example'], name: 'Staff personal project' });
+    // Capture a real settings action to prove the server rejects it in the public workspace.
+    await page.goto(`/app/projects/${ownProject}/settings`);
+    await page.getByRole('region', { name: 'General', exact: true }).getByLabel('Project name').fill('Personal project renamed');
+    const save = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
+    await page.getByRole('region', { name: 'General', exact: true }).getByRole('button', { name: 'Save', exact: true }).click();
+    const saved = await save;
+    await expect(page.getByRole('status')).toHaveText('The name is saved.');
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
+    await page.goto('/app/projects/uier00000001');
+    let nav = await appNavigation(page);
+    await expect(nav.getByRole('link', { name: 'Users', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Create project', exact: true })).toHaveCount(0);
+    await page.goto('/app/users');
+    await expect(page).toHaveURL(/\/app\/projects$/);
+    await page.goto('/app/projects/new');
+    await expect(page).toHaveURL(/\/app\/projects$/);
+    await page.goto('/app/projects/uier00000001/settings');
+    await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Who can comment', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'General', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Turn on comment excerpts', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
+    const denied = await page.request.post(saved.url(), {
+        headers: { 'Next-Action': saved.headers()['next-action']!, 'Content-Type': saved.headers()['content-type']!, Origin: new URL(saved.url()).origin },
+        data: Buffer.from(saved.postDataBuffer()!.toString().replaceAll(ownProject, 'uier00000001'))
+    });
+    expect(await denied.text()).toContain('The public feedback project settings are managed by uier.');
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'uier.io public feedback', exact: true })).toBeVisible();
+    // A fresh sign-in keeps the chosen workspace. The personal project's admin remains intact.
+    await page.goto('/app/account');
+    await page.getByRole('region', { name: 'Sign out', exact: true }).getByRole('button', { name: 'Sign out', exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/sign-in$/);
+    await signIn(page, `e2e-users-staff-${device}@example.test`);
+    await expect(page).toHaveURL(/\/app\/projects$/);
+    await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('uier.io public feedback');
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: new RegExp(`e2e-users-staff-${device}@example.test.*Admin`) }).click();
+    await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('Personal project renamed');
+    await page.goto(`/app/projects/${ownProject}/settings`);
+    await expect(page.getByRole('region', { name: 'General', exact: true })).toBeVisible();
+    nav = await appNavigation(page);
+    await expect(nav.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
+});

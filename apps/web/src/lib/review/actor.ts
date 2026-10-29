@@ -6,6 +6,7 @@ import { getUser } from '../app/users';
 import { isRandomToken, randomToken, sha256Hex, signToken, verifyToken } from '../app/tokens';
 import { MAX_NAME_LENGTH } from '../app/limits';
 import type { AppDoc, DbProject } from '../app/model';
+import { publicProjectMember } from '../comments/publicProjectPolicy';
 
 /**
  * Who is using the toolbar on a project's site:
@@ -47,12 +48,15 @@ export function actorAuthorId(actor: ProjectActor) {
 /** A member of the project's workspace with access to it, as an actor; `null` otherwise */
 export async function memberActor(project: DbProject, userId: string): Promise<ProjectActor | null> {
     const member = await getMember(project.workspaceId, userId);
-    if (!member || !memberCanAccessProject(member, project.id))
+    if (!member)
         return null;
     const user = await getUser(userId);
     if (!user)
         return null;
-    return { kind: 'member', userId, name: user.name, isAdmin: member.role === 'admin' };
+    const effective = publicProjectMember(member, user.email);
+    if (!memberCanAccessProject(effective, project.id))
+        return null;
+    return { kind: 'member', userId, name: user.name, isAdmin: effective.role === 'admin' };
 }
 
 /** The actor of a toolbar request; an invalid or foreign review token counts as none */
