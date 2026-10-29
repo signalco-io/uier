@@ -10,6 +10,11 @@ on:
         description: 'Failed delivery id to retry, or ambiguous delivery id to reconcile with ACS'
         required: false
         type: string
+      integrations_only:
+        description: 'Process integrations without sending or retrying email digests'
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 concurrency:
@@ -49,11 +54,14 @@ jobs:
         run: '"$HOME/.vercel-cli/bin/vercel" pull --yes --environment=production'
       - name: Mask production configuration before subsequent steps
         run: node apps/web/scripts/mask-environment.mjs .vercel/.env.production.local
-      - name: Deliver due digests
+      - name: Deliver due notifications
         working-directory: apps/web
         env:
           UIER_DEPLOYMENT_ENV: production
+          # Vercel does not return Sensitive variables in environment downloads.
+          UIER_COMMENTS_SECRET: ${{ secrets.UIER_COMMENTS_SECRET }}
           UIER_NOTIFICATION_RETRY_DELIVERY: ${{ inputs.retry_delivery }}
+          UIER_INTEGRATIONS_ONLY: ${{ inputs.integrations_only && '1' || '0' }}
         run: node scripts/run-notifications.mjs ../../.vercel/.env.production.local
       - name: Remove production configuration
         if: always()

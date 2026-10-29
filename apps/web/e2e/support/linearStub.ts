@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 export type StubLinearIssue = { id: string; identifier: string; url: string; title: string; description: string; creator: { id: string };
     team: { id: string }; project: { id: string } | null; state: { id: string }; labels: { nodes: { id: string }[] }; trashed: boolean; archivedAt: string | null };
 export type StubLinearComment = { id: string; body: string; user: { id: string }; issue: { id: string } };
-export type LinearFault = 'rate_limit' | 'partial' | 'lost' | 'forbidden' | 'invalid_success' | 'unauthenticated';
+export type LinearFault = 'rate_limit' | 'partial' | 'lost' | 'forbidden' | 'invalid_success' | 'unauthenticated' | 'invalid_input';
 export type LinearStub = Awaited<ReturnType<typeof startLinearStub>>;
 
 async function rawBody(request: IncomingMessage) { const parts = []; for await (const part of request) parts.push(Buffer.from(part)); return Buffer.concat(parts); }
@@ -14,6 +14,9 @@ const send = (response: ServerResponse, value: unknown, status = 200, headers: R
     response.writeHead(status, { 'Content-Type': 'application/json', ...headers }); response.end(JSON.stringify(value));
 };
 const gqlError = (response: ServerResponse, code: string, data: unknown = null) => send(response, { errors: [{ message: 'Stub provider error, never display this text', extensions: { code } }], data });
+const missingEntity = (response: ServerResponse, entity: 'Issue' | 'Comment') => send(response, { errors: [{
+    message: `Entity not found: ${entity}`, extensions: { code: 'INPUT_ERROR', type: 'invalid input', statusCode: 400, userError: true }
+}], data: null });
 
 export async function startLinearStub(port = 0) {
     const organizationId = randomUUID(); const appUserId = randomUUID(); const teamId = randomUUID(); const projectId = randomUUID();
@@ -132,6 +135,8 @@ export async function startLinearStub(port = 0) {
             if (fault === 'unauthenticated') return send(response, {}, 401);
             if (fault === 'partial') return gqlError(response, 'INTERNAL_SERVER_ERROR', { someUnrelatedField: 'partial success' });
             if (fault === 'invalid_success') return send(response, { data: { issueCreate: { success: false, issue: null } } });
+            if (fault === 'invalid_input') return send(response, { errors: [{ message: 'Invalid issue filter',
+                extensions: { code: 'INPUT_ERROR', type: 'invalid input', statusCode: 400, userError: true } }], data: null });
             let result: Record<string, unknown>;
             if (name === 'UierLinearIdentity') result = { viewer: { id: appUserId, app: auth.app, active: true }, organization: { id: auth.orgId, name: 'Test organization', urlKey: 'test' } };
             else if (['UierLinearTeams', 'UierLinearProjects', 'UierLinearStates', 'UierLinearLabels'].includes(name)) {
@@ -141,7 +146,7 @@ export async function startLinearStub(port = 0) {
             } else if (name === 'UierLinearDestination') result = { team: { id: teamId, archivedAt: null, organization: { id: auth.orgId } },
                 open: { id: openStateId, type: 'unstarted', archivedAt: null, team: { id: teamId } }, done: { id: doneStateId, type: 'completed', archivedAt: null, team: { id: teamId } } };
             else if (name === 'UierLinearIssue') {
-                const issue = issues.get(v.id as string); if (!issue) return gqlError(response, 'ENTITY_NOT_FOUND', { issue: null }); result = { issue };
+                const issue = issues.get(v.id as string); if (!issue) return missingEntity(response, 'Issue'); result = { issue };
             } else if (name === 'UierLinearIssueCreate') {
                 const input = v.input as Record<string, unknown>;
                 if (issues.has(input.id as string)) return gqlError(response, 'CONFLICT');
@@ -165,7 +170,7 @@ export async function startLinearStub(port = 0) {
                 if (payload.query.includes('permanentlyDelete: true')) return gqlError(response, 'FORBIDDEN');
                 issue.trashed = true; result = { issueDelete: { success: true } };
             } else if (name === 'UierLinearComment') {
-                const comment = comments.get(v.id as string); if (!comment) return gqlError(response, 'ENTITY_NOT_FOUND', { comment: null }); result = { comment };
+                const comment = comments.get(v.id as string); if (!comment) return missingEntity(response, 'Comment'); result = { comment };
             } else if (name === 'UierLinearCommentCreate') {
                 const input = v.input as Record<string, unknown>;
                 if (comments.has(input.id as string)) return gqlError(response, 'CONFLICT');

@@ -71,13 +71,19 @@ export async function linearGraphql<T>(token: string, operationName: string, que
     const errors = object(body) && Array.isArray(body.errors) ? body.errors : [];
     const first = errors[0];
     const code = object(first) && object(first.extensions) ? safeCode(first.extensions.code, 'graphql_error') : 'graphql_error';
+    // Live entity lookups use INPUT_ERROR for a missing id. Other input errors must not
+    // become absence evidence, especially when reconciling an uncertain create.
+    const missingEntity = code === 'INPUT_ERROR' && errors.length === 1 && object(first) && object(first.extensions)
+        && first.extensions.statusCode === 400 && first.extensions.type === 'invalid input'
+        && ((operationName === 'UierLinearIssue' && first.message === 'Entity not found: Issue')
+            || (operationName === 'UierLinearComment' && first.message === 'Entity not found: Comment'));
     if (response.status === 429 || code === 'RATELIMITED') {
         const retryAt = retryTime(response.headers);
         const budget = requestBudgets.get(bucketKey)!; budget.pausedUntil = Math.max(budget.pausedUntil, Date.parse(retryAt));
         throw new LinearApiError('rate_limited', response.status, retryAt, requestId, true);
     }
     if (!response.ok || errors.length) throw new LinearApiError(response.status === 401 || code === 'UNAUTHENTICATED' ? 'unauthenticated'
-        : response.status === 403 || code === 'FORBIDDEN' ? 'forbidden' : code === 'ENTITY_NOT_FOUND' || code === 'NOT_FOUND' ? 'not_found'
+        : response.status === 403 || code === 'FORBIDDEN' ? 'forbidden' : missingEntity || code === 'ENTITY_NOT_FOUND' || code === 'NOT_FOUND' ? 'not_found'
             : response.status >= 500 ? 'server_error' : safeCode(code, 'graphql_error'), response.status, undefined, requestId,
         response.status < 500 && !(errors.length && object(body) && object(body.data) && Object.values(body.data).some(value => value !== null)));
     if (!object(body) || !object(body.data)) throw new LinearApiError('invalid_response', response.status, undefined, requestId);
@@ -119,7 +125,7 @@ export function validLinearAsset(value: unknown, upload = false): value is strin
         if (url.username || url.password || url.hash) return false;
         if (isLocalRuntime() && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return ['http:', 'https:'].includes(url.protocol);
         if (url.protocol !== 'https:' || (!upload && url.search)) return false;
-        return url.hostname === 'uploads.linear.app' || (upload && (url.hostname.endsWith('.s3.amazonaws.com')
+        return url.hostname === 'uploads.linear.app' || (upload && (url.hostname === 'storage.googleapis.com' || url.hostname.endsWith('.s3.amazonaws.com')
             || /^[a-z0-9.-]+\.s3\.[a-z0-9-]+\.amazonaws\.com$/.test(url.hostname)));
     } catch { return false; }
 }

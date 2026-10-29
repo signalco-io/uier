@@ -47,6 +47,14 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
                                 <ArrowUpRight data-icon="inline-start" />{connection ? 'Reconnect GitHub' : 'Connect GitHub'}
                             </a>
                         </Button>}
+                    {!settings.setup && settings.installations.length > 0 && <div className="flex flex-col gap-2">
+                        <p className="m-0 text-sm text-muted-foreground">Or use an installation already connected to this workspace. GitHub verifies your account before you choose a repository.</p>
+                        {settings.installations.map(installation => <Button key={installation.id} asChild className="w-fit" variant="outline">
+                            <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`}>
+                                Use {installation.accountName} installation
+                            </a>
+                        </Button>)}
+                    </div>}
                     {connection && <>
                         <p className="m-0 text-sm">Repository: {connection.repositoryName} ({publicConfirmationRequired ? 'public access needs confirmation' : connection.repositoryVisibility}).</p>
                         {publicConfirmationRequired && <Alert>
