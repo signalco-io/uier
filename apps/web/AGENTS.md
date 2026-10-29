@@ -341,7 +341,16 @@ never name other mention/assignment recipients. Events store item/new-assignee i
 New attempts rebuild from fresh settings/items at the send boundary; retained provider operations
 keep their exact message, which can retain opt-in excerpts until reconciliation without a TTL.
 
-- `pnpm typecheck` (runs `next typegen` first), `pnpm build`, then `pnpm test` (Playwright
+- While implementing, run `pnpm typecheck` plus the relevant spec file and project (`API` or
+  `Desktop Chrome`; add `Mobile Chrome` for touch or responsive changes). Direct Playwright
+  commands need `pnpm build` after app/toolbar changes. Enable untagged browser cases with
+  `PLAYWRIGHT_FULL=1` and use `--retries=0`; the file/project filters still limit the run.
+  See [focused commands and test categories](../../docs/development.md#while-implementing).
+  New features do not require `pnpm test:full`; reserve it for broad regression verification
+  when focused checks are insufficient or a full run is explicitly requested. Documentation-only
+  changes need content and link checks, without application checks.
+- Before pushing code, dependencies or build/test configuration, run `pnpm typecheck` (runs
+  `next typegen` first), `pnpm build`, then the short `pnpm test` check (Playwright
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
   Mobile Chrome). The default runs every `.api.spec.ts`, desktop `@smoke` tests and mobile
   `@mobile-smoke` tests: landing, sign-in, security policy, installation, owner/guest discussion,
@@ -350,7 +359,7 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
   API tests and the full suite retain their file ordering. Failures retain traces, and
   `playwright-report/results.json` records timings. `pnpm test:full` restores every browser spec
   and two retries. For a specific regression use
-  `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file>`.
+  `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file> --project="Desktop Chrome" --retries=0`.
   Keep new feature permutations in the full suite; do not add smoke tags by default.
   A server that already answers on that port is never reused (the run fails), so
   stop `pnpm dev` or pick another `PORT`. Rewrite suggestions go to `e2e/support/anthropicStub.ts`

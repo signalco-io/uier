@@ -80,6 +80,50 @@ PORT=4104 pnpm test
 
 An existing server on that port is never reused, inside or outside CI.
 
+### Test categories
+
+| Category | Selection | Use |
+| --- | --- | --- |
+| API and service tests | `*.api.spec.ts`, project `API` | Focused logic, authorization, persistence and HTTP checks; these share one project rather than separate unit/integration runners |
+| Desktop browser tests | Feature spec, project `Desktop Chrome` | UI and browser integration for the changed feature |
+| Mobile browser tests | Feature spec, project `Mobile Chrome` | Touch, responsive layout and mobile behavior |
+| Required suite | `pnpm test` | All API/service tests and tagged browser essentials, before a PR and in CI |
+| Full regression suite | `pnpm test:full` | Exceptional broad verification across every API and desktop/mobile case |
+
+### While implementing
+
+Run `pnpm typecheck` and the relevant feature tests. Select the spec file and one project,
+starting with Desktop Chrome for browser work. Include Mobile Chrome when changing touch,
+responsive layout or mobile behavior. Do not run the required suite after every edit, and do
+not run the full suite just because you are implementing a feature or adding a regression test.
+
+Direct Playwright commands do not rebuild the application. Run `pnpm build` after app or toolbar
+changes so they exercise the current production build. The API project also uses this server
+setup, including for in-process service tests. Then choose the relevant command, for example:
+
+```bash
+# API/service example: only this file, without browser projects.
+PORT=4104 pnpm -C apps/web exec playwright test e2e/notion.api.spec.ts --project=API
+
+# Browser example: only this feature on desktop, including its untagged cases.
+PLAYWRIGHT_FULL=1 PORT=4104 pnpm -C apps/web exec playwright test e2e/drafts.spec.ts \
+  --project="Desktop Chrome" --retries=0
+```
+
+Use the `e2e/` path in file arguments: Playwright matches them as regular expressions, so a bare
+`drafts.spec.ts` also matches `assignment-mentions-drafts.spec.ts`.
+`PLAYWRIGHT_FULL=1` lifts the smoke-tag filter; the file and project filters still apply, so the
+browser example does not run the entire suite. `--retries=0` overrides full mode's two retries
+for immediate feedback. Use `--project="Mobile Chrome"` for the mobile version, or append
+`-g "part of the test title"` to narrow a file to one scenario. All these commands start their
+own production server and local stubs; they do not attach to the dev server.
+
+Before pushing code, dependency or build/test configuration changes, run
+`pnpm typecheck && pnpm build && pnpm test` once the change is ready. That is the short required
+suite. For documentation-only changes, validate content and links without application checks.
+Run `pnpm test:full` only for broad regression verification when focused checks are insufficient
+or a full run is explicitly requested. It is not a routine implementation or PR requirement.
+
 ### Required suite
 
 `pnpm test` and pull-request CI run every `.api.spec.ts` once, plus **12 browser tests**:
@@ -100,12 +144,8 @@ Traces are retained on failure; `playwright-report/results.json` records per-tes
 and is uploaded with the CI artifacts. `pnpm test:full` keeps the existing two retries and file ordering
 without the three-minute budget. Turbo caches the two modes separately.
 
-To run a specific browser regression that is outside the required set:
-
-```bash
-pnpm build
-PLAYWRIGHT_FULL=1 PORT=4104 pnpm -C apps/web exec playwright test drafts.spec.ts
-```
+For specific browser regressions outside the required set, use the
+[focused implementation commands](#while-implementing).
 
 ### Full regression coverage
 

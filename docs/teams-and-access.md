@@ -134,8 +134,12 @@ marker while outstanding invitations it invalidates remain. Keep backup retentio
 
 ## Verification and operations
 
-Run `pnpm typecheck`, `pnpm build`, `pnpm test`. Use `pnpm test:full` for the team browser regressions.
-Focused coverage is in `teams.api.spec.ts` and `teams.spec.ts`, alongside the existing
+While implementing, run typecheck and the relevant `teams.api.spec.ts` / `teams.spec.ts` cases.
+After refreshing the production build, use `--project=API` for the API file, or
+`PLAYWRIGHT_FULL=1` with `--project="Desktop Chrome" --retries=0` for the browser file. Include
+Mobile Chrome for touch or responsive changes. See the [focused test commands](development.md#while-implementing).
+Run the short `pnpm typecheck && pnpm build && pnpm test` checks before a code PR; team changes
+do not automatically require a full regression run. Related coverage lives in the
 workspace/users/review/notifications/MCP suites. Browser
 coverage exercises team-only invitation, revocation, archive/empty restoration, safe tenant
 boundaries, light/dark axe scans, keyboard dialog focus and Mobile Chrome's 375 px layout.

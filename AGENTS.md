@@ -61,11 +61,29 @@ The single required check is **CI OK**.
 
 Keep the default browser suite small: tag only critical journeys with `@smoke` (desktop) and
 `@mobile-smoke` (mobile). Feature permutations belong in `pnpm test:full`; authorization and
-validation belong in the API suite, which always runs. See [testing](docs/development.md#commands).
+validation belong in the API suite, which always runs in the default check.
+
+## Testing while implementing
+
+- Run `pnpm typecheck` and the tests for the feature you changed. Select a spec file and the
+  `API` or `Desktop Chrome` project; add `Mobile Chrome` for touch, responsive layout or mobile
+  behavior changes. Narrow further with `-g` when checking one scenario.
+- Direct Playwright commands need an up-to-date production build: run `pnpm build` after app or
+  toolbar changes. Use `PLAYWRIGHT_FULL=1` to enable untagged browser tests in the selected file,
+  with `--retries=0` for immediate feedback. File and project filters still apply.
+- Save the short `pnpm test` check for before pushing or opening a PR. Do not run it after every
+  edit. Run `pnpm test:full` only for broad regression verification when focused coverage is
+  insufficient or a full run is explicitly requested; adding a feature does not require it.
+- Documentation-only changes need content and link checks, without typecheck, build or browser runs.
+
+See [the focused test commands](docs/development.md#while-implementing) and
+[test categories](docs/development.md#test-categories).
 
 ## Before you open a pull request
 
-1. `pnpm typecheck && pnpm build && pnpm test` pass locally.
+1. For code, dependency or build/test configuration changes,
+   `pnpm typecheck && pnpm build && pnpm test` pass locally. For documentation-only changes,
+   check the content and links. The full regression suite is not a routine PR requirement.
 2. Anything user-facing matches `BRAND.md`; if you changed a brand value, `BRAND.md` and
    [uier.io/brand](https://uier.io/brand) (`/brand` locally) say the same thing.
 3. Docs that describe what you changed are updated (the relevant guide in `docs/`, package
