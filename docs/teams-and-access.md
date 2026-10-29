@@ -195,6 +195,11 @@ offboarding. Reissue approved invitations after the supported handler is restore
   bytes for a conservative combined guard/team/event transaction (three operations). Its
   deliberately oversized combined event was 13,626 bytes. These fit well below the 1.8 MB
   application batch guard and Cosmos's 2 MB item/batch bounds.
+- Hosted multi-account smoke passed on the [PR preview](https://uier-f7v9f3ig8-signalco.vercel.app):
+  team-only external invitation/acceptance, assigned-project access, other-client/admin-directory
+  denial, archive revocation with the same session, empty restoration and team deletion. This
+  preview contains feature commit `994f0827`; the later search-field width fix passed typecheck,
+  build and both Desktop/Mobile Teams browser tests locally.
 
 The full-suite and deployed-preview results are recorded in the pull request. Deployed smoke
 testing remains separate from local checks and the account's consistency guarantees. No

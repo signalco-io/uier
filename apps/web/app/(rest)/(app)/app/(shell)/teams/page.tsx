@@ -34,7 +34,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
             />
             <div className="flex flex-col gap-8">
                 <form className="flex flex-wrap items-end gap-3">
-                    <FieldGroup className="w-auto">
+                    <FieldGroup className="w-full sm:w-64">
                         <Field>
                             <FieldLabel htmlFor="team-search">Search teams</FieldLabel>
                             <Input id="team-search" name="q" defaultValue={text('q')} maxLength={80} />
