@@ -30,14 +30,15 @@ function ReviewLayer({
     rootElement,
     onExitReview
 }: CommentsGlobalProps) {
-    const { pageState, draftScope } = useProjectViewer();
+    const { pageState, draftScope, publicId } = useProjectViewer();
     const path = usePagePath(pageState);
-    const context = useMemo(() => ({ rootElement, mode, review, path }), [rootElement, mode, review, path]);
+    const publicReview = useMemo(() => review && publicId ? { ...review, projectCode: publicId } : review, [review, publicId]);
+    const context = useMemo(() => ({ rootElement, mode, review: publicReview, path }), [rootElement, mode, publicReview, path]);
 
     return (
         <CommentsBootstrapperContext.Provider value={context}>
             <DraftsProvider key={draftScope}>
-                <CommentsGlobal key={path} mode={mode} review={review} rootElement={rootElement} onExitReview={onExitReview} />
+                <CommentsGlobal key={path} mode={mode} review={publicReview} rootElement={rootElement} onExitReview={onExitReview} />
             </DraftsProvider>
         </CommentsBootstrapperContext.Provider>
     );

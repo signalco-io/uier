@@ -6,6 +6,7 @@ import type { DbComment } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { isLocalRuntime } from './environment';
 import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, publicProjectMember } from './publicProjectPolicy';
+import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
 
 export { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID } from './publicProjectPolicy';
 export const PUBLIC_PROJECT_PARTITION = `project:${PUBLIC_PROJECT_ID}`;
@@ -152,10 +153,10 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
             await createIfMissing(comments, comment);
         }
     }
-    return project;
+    return await ensureProjectPublicId(project, app);
 }
 
-let provisioned: Promise<DbProject> | undefined;
+let provisioned: Promise<PublicProject> | undefined;
 
 export function ensurePublicProject() {
     // This project disables Vercel system envs; the deploy workflow inlines UIER_DEPLOYMENT_ENV.

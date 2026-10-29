@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
 
 test('Linear OAuth, explicit destination choices, sync controls, backfill and disconnect stay admin-only', async ({ page, browser, baseURL }, testInfo) => {
@@ -64,7 +64,8 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     try {
         await member.page.goto(invitationLink!);
         await member.page.getByRole('button', { name: 'Accept invitation' }).click();
-        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === projectId);
+        const publicId = await projectPublicId(page, projectId);
+        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === publicId);
         await member.page.goto(new URL(settingsUrl, baseURL).href);
         await expect(member.page.getByRole('region', { name: 'Linear', exact: true })).toHaveCount(0);
         const denied = await member.page.request.get(new URL(`/app/linear/connect?project=${projectId}`, baseURL).href, { maxRedirects: 0 });

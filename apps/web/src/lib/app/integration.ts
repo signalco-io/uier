@@ -2,18 +2,18 @@
 // e2e tests (e2e/review.spec.ts) use the same snippets, so the instructions match the integration.
 
 /** The script tag for a project: loads the toolbar from uier (or the deployment `baseUrl`) */
-export function embedScript(baseUrl: string, projectId: string) {
-    return `<script src="${baseUrl}/toolbar.js" data-uier-project="${projectId}" defer></script>`;
+export function embedScript(baseUrl: string, publicId: string) {
+    return `<script src="${baseUrl}/toolbar.js" data-uier-project="${publicId}" defer></script>`;
 }
 
 /** Next.js (App Router): the same tag through next/script in the root layout */
-export function nextJsSnippet(baseUrl: string, projectId: string) {
+export function nextJsSnippet(baseUrl: string, publicId: string) {
     return [
         '// app/layout.tsx',
         'import Script from \'next/script\';',
         '',
         '// Inside <body>, after {children}:',
-        `<Script src="${baseUrl}/toolbar.js" data-uier-project="${projectId}" strategy="afterInteractive" />`
+        `<Script src="${baseUrl}/toolbar.js" data-uier-project="${publicId}" strategy="afterInteractive" />`
     ].join('\n');
 }
 

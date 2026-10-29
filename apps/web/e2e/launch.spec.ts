@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, dismissFirstRunHint, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
@@ -57,13 +57,14 @@ test('owner checks installation, shares a review, replies and resolves; the name
     const origin = siteOrigin(testInfo);
     await signIn(page, uniqueEmail('launch-owner'));
     const projectId = await createProject(page, { urls: [origin], name: 'Launch review' });
+    const publicId = await projectPublicId(page, projectId);
     const check = page.getByRole('region', { name: 'Check installation' });
     const popupOpened = page.waitForEvent('popup');
     await check.getByRole('button', { name: 'Check installation', exact: true }).click();
     const checked = await popupOpened;
     await expect(check.getByRole('status', { name: 'Installation result' })).toHaveAttribute('data-result', 'success');
     const shared = await check.getByRole('link', { name: 'Open checked review' }).getAttribute('href');
-    expect(shared).toBe(`${origin}/?toolbar-code=${projectId}`);
+    expect(shared).toBe(`${origin}/?toolbar-code=${publicId}`);
     await checked.close();
     await setProjectAccess(page, projectId, 'Anyone with the link');
 
@@ -75,7 +76,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Explain the annual price.');
         await expect(draft.getByRole('img')).toHaveCount(0);
         await expect(draft.getByRole('button', { name: /screenshot/i })).toHaveCount(0);
-        const saved = await post(guest.page, () => draft.getByRole('button', { name: 'Post comment' }).click(), projectId);
+        const saved = await post(guest.page, () => draft.getByRole('button', { name: 'Post comment' }).click(), publicId);
         expect(saved.screenshot?.width).toBeGreaterThan(0);
         await expectSavedImage(guest.page);
         const publicNumber = thread(guest.page).getByText(`Comment #${saved.number}`, { exact: true });
@@ -115,7 +116,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await expect(doneCard).toContainText('Status: Done');
         // A recovered reply draft keeps even a Done thread pinned. Wait for the durable
         // status write rather than using the pin count as evidence that Reopen finished.
-        const reopened = guest.page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments/${saved.id}`
+        const reopened = guest.page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${publicId}/comments/${saved.id}`
             && response.request().method() === 'PATCH');
         await doneCard.getByRole('button', { name: 'Reopen' }).click();
         const reopenResponse = await reopened;

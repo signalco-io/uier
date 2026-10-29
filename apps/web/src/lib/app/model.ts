@@ -87,8 +87,10 @@ export type ProjectStatus = 'active' | 'done';
 
 export type DbProject = AppDoc & {
     type: 'project';
-    /** The public project code used by the embed script, e.g. `k3m9x2p7q4ab` */
+    /** Internal id, retained for storage, memberships and existing random review codes. */
     id: string;
+    /** Independent 21-character Nano ID for public review links and embeds. Assigned lazily on old projects. */
+    publicId?: string;
     pk: `workspace:${string}`;
     workspaceId: string;
     name: string;

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
-import type { DbComment } from '../src/lib/db/schema';
+import { screenshotDocumentId, type DbComment } from '../src/lib/db/schema';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../src/lib/app/model';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
@@ -122,6 +122,12 @@ test('project export enforces private visibility, original allowed source and me
         expect(guestPacket.context.source.environment).toBe('Preview');
         expect(guestPacket.context.links.comment).toContain(`${origin}/pricing?plan=team&review=true&uier-comment=comment_packet`);
         expect(JSON.stringify(guestPacket)).not.toMatch(/Original Browser|Original OS|pixelRatio|capturedAt/);
+        await store.createScreenshot({ ...comment.screenshot!, type: 'screenshot', id: screenshotDocumentId(comment.id),
+            domain: comment.domain, commentId: comment.id, data: pngImage.split(',')[1]!, createdAt: new Date().toISOString() });
+        const publicId = 'V1StGXR8_Z5jdHi6B-myT';
+        const withImage = await projectFeedbackExport({ ...project, publicId }, guest, comment.id, origin, base);
+        expect(withImage.context.screenshot).toMatchObject({ state: 'protected',
+            url: `${base}/api/review/${publicId}/comments/${comment.id}/screenshot` });
         expect((await projectFeedbackExport(project, guest, comment.id, otherOrigin, base)).context.links).toEqual({ page: undefined, comment: undefined });
         const removed = await projectFeedbackExport({ ...project, urls: [otherOrigin] }, admin, comment.id, undefined, base);
         expect(removed.context.links.page).toBeUndefined();

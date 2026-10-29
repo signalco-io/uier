@@ -10,7 +10,7 @@ export default function ReviewVerificationPage() {
                 return;
             const data = event.data;
             if (data?.type !== 'uier:verify' || typeof data.id !== 'string'
-                || typeof data.project !== 'string' || !/^[a-z0-9]{12}$/.test(data.project)
+                || typeof data.project !== 'string' || !/^(?:[a-z0-9]{12}|[A-Za-z0-9_-]{21})$/.test(data.project)
                 || typeof data.visitor !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(data.visitor))
                 return;
             try {

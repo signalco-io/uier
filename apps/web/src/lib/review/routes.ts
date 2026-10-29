@@ -1,3 +1,4 @@
+import { ensureProjectPublicId } from '../app/projectPublicIds';
 import { commentResponse } from './response';
 import { configuredEnvironments, environmentOptions } from '../app/environments';
 import { z } from 'zod';
@@ -52,13 +53,14 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
 
 /** GET /api/review/<code>: the project, the reviewer and whether they can comment */
 export async function getReviewInfo({ project, actor }: ReviewApiContext) {
+    const { publicId } = await ensureProjectPublicId(project);
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
-        project: { id: project.id, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) },
+        project: { id: publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) },
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)
-        signInUrl: `${await appBaseUrl()}${KnownPageLinks.projectReview(project.id)}`
+        signInUrl: `${await appBaseUrl()}${KnownPageLinks.projectReview(publicId)}`
     });
 }
 

@@ -43,7 +43,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
                     <AlertTitle id="share-title">Guest link</AlertTitle>
                     <AlertDescription className="flex flex-col gap-3">
                         Anyone with this link can comment as a guest. They are asked for their name.
-                        <GuestReviewLinks projectId={project.id} urls={project.urls} />
+                        <GuestReviewLinks publicId={project.publicId} urls={project.urls} />
                     </AlertDescription>
                 </Alert>
             )}

@@ -2,7 +2,7 @@
  * Toolbar configuration, read synchronously while the toolbar script runs.
  *
  * Embed the toolbar with a classic script tag:
- *     <script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
+ *     <script src="https://uier.io/toolbar.js" data-uier-project="V1StGXR8_Z5jdHi6B-myT" defer></script>
  * or configure it before the script runs:
  *     <script>window.uierConfig = { mode: 'showcase', apiUrl: 'https://uier.io' };</script>
  */
@@ -62,7 +62,7 @@ function readMode(value: string | undefined): ToolbarMode | undefined {
 
 function readProject(value: string | undefined) {
     const project = value?.trim();
-    return project && /^[0-9a-z]{12}$/.test(project) ? project : undefined;
+    return project && /^(?:[0-9a-z]{12}|[A-Za-z0-9_-]{21})$/.test(project) ? project : undefined;
 }
 
 function trimTrailingSlash(url: string) {

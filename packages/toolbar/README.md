@@ -11,8 +11,11 @@ Vercel's CDN (caching and updates: [`/toolbar.js`](../../docs/api.md#toolbarjs))
 site embeds it with its project's script tag from the uier app's install guide:
 
 ```html
-<script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
+<script src="https://uier.io/toolbar.js" data-uier-project="V1StGXR8_Z5jdHi6B-myT" defer></script>
 ```
+
+Copy the public project code from the install guide: a random 21-character Nano ID, separate from
+the internal database id. Existing random 12-character codes remain supported.
 
 The toolbar opens automatically for signed-in project members when background authentication is available.
 Otherwise it starts on a page opened with a review link: `?toolbar-code=<project code>`, the links the
@@ -96,7 +99,7 @@ code starts nothing (`src/review.ts`).
 The uier app's install guide gives each project its script tag, with the project code:
 
 ```html
-<script src="https://uier.io/toolbar.js" data-uier-project="k3m9x2p7q4ab" defer></script>
+<script src="https://uier.io/toolbar.js" data-uier-project="V1StGXR8_Z5jdHi6B-myT" defer></script>
 ```
 
 With a project the toolbar uses the review API, `<API base URL>/api/review/<project>`, instead of

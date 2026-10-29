@@ -53,6 +53,13 @@ export async function createProject(page: Page, { urls, name, clientName }: { ur
     return projectId;
 }
 
+/** The independent id shown in generated guest links and embeds (legacy codes still resolve). */
+export async function projectPublicId(page: Page, projectId: string) {
+    const response = await page.request.get(`/api/review/${projectId}`);
+    expect(response.status()).toBe(200);
+    return (await response.json() as { project: { id: string } }).project.id;
+}
+
 /**
  * Types a project's client name and moves on with Tab, as people do. Tab closes the field's suggestions,
  * which hide the rest of the page from assistive technology while they are open.

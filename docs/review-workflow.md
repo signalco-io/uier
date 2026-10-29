@@ -68,7 +68,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     context and assignment labels include icons. Empty lists retain Install the script; invited-only projects
     also offer admins Invite with the email sign-in explanation. Comments-off lists say so and link admins
     to Settings. Filtered lists keep Nothing here.
-  - Install `/app/projects/<code>/install`: the install guide with the project code and **Check installation**.
+  - Install `/app/projects/<code>/install`: the install guide with the public project code and **Check installation**.
     The check opens the actual configured site, confirms the script's project/API, reads comments and obtains a
     browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence
     exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
@@ -78,7 +78,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     off), addresses, meaningful page-state fields, and see usage (comments, open, done, replies, pages, people
     with access) and done.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
-    toolbar's review link parameter `?toolbar-code=<code>`, a single-use code that signs the toolbar in
+    toolbar's review link parameter `?toolbar-code=<publicId>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
     targets.
   - Project embeds also try background sign-in through the hidden `/review-session` frame. A signed-in

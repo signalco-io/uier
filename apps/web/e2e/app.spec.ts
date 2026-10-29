@@ -1,7 +1,7 @@
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { pngImage } from './support/images';
 import { newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -185,8 +185,8 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
     await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Add the script');
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByText(projectId, { exact: true })).toBeVisible();
-    await expect(page.getByText(`data-uier-project="${projectId}"`).first()).toBeVisible();
+    await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
+    await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
     await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');
     await expect(page.getByText(/Paste it before the closing <\/body> tag/)).toBeVisible();
     for (const platform of ['HTML', 'Next.js', 'React', 'WordPress', 'Webflow', 'Shopify'])
@@ -254,15 +254,15 @@ test('review links open the project\'s own sites with the toolbar turned on', as
         return target.toString();
     };
 
-    expect(await location('')).toBe(`https://example.com/?toolbar-code=${projectId}`);
+    expect(await location('')).toBe(`https://example.com/?toolbar-code=${await projectPublicId(page, projectId)}`);
     expect(await location(`?url=${encodeURIComponent('https://staging.example.com/pricing?plan=1')}`))
-        .toBe(`https://staging.example.com/pricing?plan=1&toolbar-code=${projectId}`);
+        .toBe(`https://staging.example.com/pricing?plan=1&toolbar-code=${await projectPublicId(page, projectId)}`);
     // A missing comment has no known original source and must not be retargeted to the main site.
     const missing = await request.get(`/app/review/${projectId}?comment=comment_abc123`, { maxRedirects: 0 });
     expect(missing.status()).toBe(404);
     expect(await missing.text()).toContain('original site address may have been removed');
     // Another site is never a redirect target
-    expect(await location(`?url=${encodeURIComponent('https://evil.example.net/')}`)).toBe(`https://example.com/?toolbar-code=${projectId}`);
+    expect(await location(`?url=${encodeURIComponent('https://evil.example.net/')}`)).toBe(`https://example.com/?toolbar-code=${await projectPublicId(page, projectId)}`);
 
     // Someone without access to the project gets nothing
     const response = await request.get('/app/review/aaaaaaaaaaaa', { maxRedirects: 0 });
@@ -523,7 +523,8 @@ test('only admins save and clear the plain-text review brief, with server valida
     try {
         await member.page.goto(link!);
         await member.page.getByRole('button', { name: 'Accept invitation' }).click();
-        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === project);
+        const publicId = await projectPublicId(page, project);
+        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === publicId);
         // Wait for invitation acceptance and its cookies before inspecting settings.
         await member.page.goto(`/app/projects/${project}/settings`);
         await expect(member.page.getByRole('heading', { name: 'Settings', exact: true })).toBeAttached();

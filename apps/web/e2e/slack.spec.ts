@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
 
 test('Slack consent, explicit channel choice, optional summaries, test send, backfill and disconnect are admin-only', async ({ page, browser, baseURL }, testInfo) => {
@@ -56,7 +56,8 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     try {
         await member.page.goto(link!);
         await member.page.getByRole('button', { name: 'Accept invitation' }).click();
-        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === projectId);
+        const publicId = await projectPublicId(page, projectId);
+        await member.page.waitForURL(url => url.searchParams.get('toolbar-code') === publicId);
         await member.page.goto(new URL(settingsUrl, baseURL).href);
         await expect(member.page.getByRole('region', { name: 'Slack', exact: true })).toHaveCount(0);
         const denied = await member.page.request.get(new URL(`/app/slack/connect?project=${projectId}`, baseURL).href, { maxRedirects: 0 });
