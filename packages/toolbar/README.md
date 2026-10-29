@@ -138,7 +138,7 @@ disables background sign-in until an explicit authenticated review link. Exit re
 automatic reopening in that tab. Background authentication uses a separate HttpOnly uier cookie and
 silently gives up after three seconds if cookies or framing are blocked; it never opens a popup or
 requests storage access. Comment APIs continue using headers and cookie-free browser verification.
-`?uier-comment=<comment id>` (from "Link to comment" in the app) opens that comment's thread. The API only
+`?uier-comment=<comment id>` (from "Copy link" in the app or a thread) opens that comment's thread. The API only
 answers the project's own site addresses (CORS), so the script works only on those sites. Sites with a
 Content-Security-Policy add the sources from the install guide's "Advanced" section, including uier's
 origin in `frame-src`. Before a cross-origin write, an empty frame on the API's origin runs BotID and

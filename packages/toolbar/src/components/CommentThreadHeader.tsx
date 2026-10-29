@@ -37,6 +37,11 @@ export function UnreadDot({ className }: { className?: string }) {
     );
 }
 
+/** Where the thread came from: "Production · https://example.com", as in the app's comment card */
+export function sourceText(source: NonNullable<CommentItem['source']>) {
+    return `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''}${!source.available ? ' · Original source unavailable' : ''}`;
+}
+
 /** The thread's quiet icon actions; the tooltip names them, so does the label for assistive technologies */
 export const threadActionClassName = 'size-7 text-muted-foreground hover:text-foreground';
 
@@ -134,11 +139,6 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                 </Row>
             </Row>
             <CopyIssueResult state={issue} />
-            {comment.source && (
-                <p className="m-0 break-words text-xs text-muted-foreground">
-                    {comment.source.label}{comment.source.origin && comment.source.origin !== comment.source.label ? ` · ${comment.source.origin}` : ''}{!comment.source.available ? ' · Original source unavailable' : ''}
-                </p>
-            )}
             <CommentsErrorMessage error={resolve.error ?? read.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">

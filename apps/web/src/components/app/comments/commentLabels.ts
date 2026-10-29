@@ -13,6 +13,14 @@ export const kindLabels: Record<Exclude<DbCommentKind, 'comment'>, string> = {
     rewrite: 'Suggested rewrite'
 };
 
+/** "Open in Notion": the connected services a comment was sent to */
+export const integrationLabels: Record<string, string> = {
+    notion: 'Notion',
+    github: 'GitHub',
+    linear: 'Linear',
+    slack: 'Slack'
+};
+
 /** Only an opaque server reference and a display name cross the client boundary. */
 export type AuthorFilter = { reference: string; name: string };
 

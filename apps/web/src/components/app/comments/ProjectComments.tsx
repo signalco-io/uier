@@ -53,11 +53,12 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
     });
 }
 
-function CommentList({ projectId, comments, assignees, label }: {
+function CommentList({ projectId, comments, assignees, label, userId }: {
     projectId: string;
     comments: ProjectCommentView[];
     assignees: AssigneeOption[];
     label: string;
+    userId: string;
 }) {
     return (
         <ul aria-label={label} className="m-0 flex list-none flex-col gap-3 p-0">
@@ -67,7 +68,8 @@ function CommentList({ projectId, comments, assignees, label }: {
                         projectId={projectId}
                         comment={comment}
                         reviewLink={KnownPageLinks.projectReview(projectId, comment.url, comment.id)}
-                        assignees={assignees} />
+                        assignees={assignees}
+                        userId={userId} />
                 </li>
             ))}
         </ul>
@@ -154,13 +156,13 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                                 <span className="font-normal tabular-nums text-muted-foreground">{column.items.length}</span>
                             </h3>
                             {column.items.length
-                                ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} label={`${column.title} comments list`} />
+                                ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
                                 : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
                         </section>
                     ))}
                 </div>
             ) : (
-                <CommentList projectId={projectId} comments={shown} assignees={assignees} label="Comments" />
+                <CommentList projectId={projectId} comments={shown} assignees={assignees} userId={userId} label="Comments" />
             )}
         </div>
     );

@@ -293,8 +293,7 @@ test('app bulk read follows environment, page and people filters in list and boa
         }
         await page.goto(`/app/projects/${projectId}`);
         const selected = page.getByRole('article', { name: 'Comment by Selected', exact: true });
-        await selected.getByRole('button', { name: /More actions/ }).click();
-        await page.getByRole('menuitem', { name: 'Assign', exact: true }).click();
+        await selected.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
         await page.getByRole('menuitem', { name: /^bulk-owner-/ }).click();
         const url = `/app/projects/${projectId}?unread=true&people=assigned&page=${encodeURIComponent(path)}`;
         await page.goto(url);

@@ -49,7 +49,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.screenshot({ path: testInfo.outputPath(`assigned-thread-${colorScheme}.png`) });
         const appPage = await page.context().newPage();
         await appPage.goto(`/app/projects/${projectId}`);
-        await expect(appPage.getByRole('article', { name: 'Comment by you' })).toContainText(new RegExp(`Assignee\\s*${name}`));
+        await expect(appPage.getByRole('article', { name: 'Comment by you' })).toContainText('Assigned to you');
         await appPage.close();
         await expectNoAxeViolations(page);
         await page.reload();
@@ -68,7 +68,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await inbox.getByRole('button', { name: 'Unassign', exact: true }).click();
         await expect(inbox.getByRole('article')).toHaveCount(0);
         await inbox.getByRole('button', { name: 'Assigned to me', exact: true }).click();
-        await expect(inbox).toContainText('Assigned to nobody');
+        await expect(inbox).toContainText('Unassigned');
         // The app consumes the same saved assignment and selected mention text.
         await page.goto(`/app/projects/${projectId}`);
         const card = page.getByRole('article', { name: 'Comment by you' });

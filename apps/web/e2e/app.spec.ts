@@ -601,7 +601,6 @@ test('staff moderate public feedback with opaque author filters, single-reply de
     const authorQuery = new URL(page.url()).searchParams.get('author');
     await page.reload();
     await expect(card('Replied by target')).toBeVisible();
-    await card('Replied by target').getByRole('button', { name: '1 reply', exact: true }).click();
     const replyActions = card('Replied by target').getByRole('button', { name: /^More actions for reply by/ });
     await replyActions.click();
     await page.getByRole('menuitem', { name: 'Delete reply', exact: true }).click();
