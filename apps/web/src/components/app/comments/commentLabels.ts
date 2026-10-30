@@ -18,7 +18,8 @@ export const integrationLabels: Record<string, string> = {
     notion: 'Notion',
     github: 'GitHub',
     linear: 'Linear',
-    slack: 'Slack'
+    slack: 'Slack',
+    'azure-devops': 'Azure DevOps'
 };
 
 /** Only an opaque server reference and a display name cross the client boundary. */

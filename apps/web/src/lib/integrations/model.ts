@@ -1,10 +1,10 @@
 import type { FeedbackExport } from '@uier/toolbar/feedback-context';
 import type { AppDoc, DbProject } from '../app/model';
 
-export const integrationProviders = ['notion', 'github', 'linear', 'slack'] as const;
+export const integrationProviders = ['notion', 'github', 'linear', 'slack', 'azure-devops'] as const;
 export type IntegrationProviderId = typeof integrationProviders[number];
 export const integrationLabels: Record<IntegrationProviderId, string> = {
-    notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack'
+    notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack', 'azure-devops': 'Azure DevOps'
 };
 export function isIntegrationProvider(value: unknown): value is IntegrationProviderId {
     return typeof value === 'string' && integrationProviders.some(provider => provider === value);

@@ -17,9 +17,11 @@ import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { configuredEnvironments } from '@/src/lib/app/environments';
 import { PUBLIC_PROJECT_ID } from '@/src/lib/comments/publicProject';
+import { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops';
 import { getGitHubSettings } from '@/src/lib/integrations/github';
 import { getLinearSettings } from '@/src/lib/integrations/linear';
 import { getNotionSettings } from '@/src/lib/integrations/notion';
+import { AzureDevOpsSection } from '@/src/components/app/azure-devops/AzureDevOpsSection';
 import { GitHubSection } from '@/src/components/app/github/GitHubSection';
 import { LinearSection } from '@/src/components/app/linear/LinearSection';
 import { NotionSection } from '@/src/components/app/notion/NotionSection';
@@ -78,13 +80,14 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
 async function ProjectIntegrations({ project, context, query }: { project: DbProject; context: AppContext;
     query: Record<string, string | string[] | undefined> }) {
     const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
-    const [notion, github, linear, slack] = await Promise.all([getNotionSettings(project, context.user.id),
+    const [notion, github, linear, azureDevOps, slack] = await Promise.all([getNotionSettings(project, context.user.id),
         getGitHubSettings(project, context.user.id, value('githubSetup')), getLinearSettings(project, context.user.id),
-        getSlackSettings(project, context.user.id)]);
+        getAzureDevOpsSettings(project, context.user.id), getSlackSettings(project, context.user.id)]);
     return <>
         <NotionSection projectId={project.id} settings={notion} outcome={value('notion')} />
         <GitHubSection projectId={project.id} settings={github} outcome={value('github')} />
         <LinearSection projectId={project.id} settings={linear} outcome={value('linear')} />
+        <AzureDevOpsSection projectId={project.id} settings={azureDevOps} outcome={value('azure-devops')} />
         <SlackSection projectId={project.id} settings={slack} outcome={value('slack')} />
     </>;
 }

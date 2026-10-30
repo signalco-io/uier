@@ -15,6 +15,7 @@ verified on 30 October.
 | GitHub | Public [uier for GitHub](https://github.com/apps/uier-for-github), owned by signalco-io. Start setup from a uier project's Settings. | Draft listing created. Not submitted. Direct Marketplace installation onboarding, listing fields, webhook, security checklist and Marketplace Developer Agreement remain gates. |
 | Linear | Public OAuth application in the dedicated uier workspace. | Directory submission on hold. The operator confirmed there is no registered company, so the published formal-company criterion is not met. Public OAuth installation remains available. |
 | Notion | Public uier connection, installable in any workspace. | Submitted for review on 30 October. Notion displayed the success confirmation. Awaiting provider review; no approval or published listing is claimed. |
+| Azure DevOps | Not registered. A multitenant Microsoft Entra app is needed; see [setup](integration-setup.md#azure-devops). | Microsoft has no Azure DevOps directory review for OAuth apps. Publisher verification in Entra is optional and not started. |
 | Slack | Public unlisted distribution is enabled. | Not submitted. Slack requires at least 10 active installed workspaces throughout review. The 29 October dashboard reported zero; the controlled installation is not evidence of ten active customer workspaces. |
 
 Do not certify untested behavior or create artificial installations to meet a review threshold.

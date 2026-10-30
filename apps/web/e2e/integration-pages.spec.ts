@@ -2,19 +2,19 @@ import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 import { assertAccessibility } from './accessibility';
 
-test('the integrations index leads to the four setup guides', async ({ page }) => {
+test('the integrations index leads to the five setup guides', async ({ page }) => {
     await page.goto('/integrations');
     await expect(page).toHaveTitle(`Integrations · ${brand.name}`);
-    for (const provider of ['Notion', 'GitHub', 'Linear', 'Slack']) {
+    for (const provider of ['Notion', 'GitHub', 'Linear', 'Azure DevOps', 'Slack']) {
         await expect(page.getByRole('main').getByRole('link', { name: `Set up ${provider}` }))
-            .toHaveAttribute('href', `/integrations/${provider.toLowerCase()}`);
+            .toHaveAttribute('href', `/integrations/${provider.toLowerCase().replace(' ', '-')}`);
     }
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Integrations', exact: true })).toHaveAttribute('href', '/integrations');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await assertAccessibility(page, '/integrations');
 });
 
-for (const provider of ['notion', 'github', 'linear', 'slack']) {
+for (const provider of ['notion', 'github', 'linear', 'azure-devops', 'slack']) {
     test(`${provider} has a public setup, permissions and support guide`, async ({ page }, testInfo) => {
         const response = await page.goto(`/integrations/${provider}`);
         expect(response?.status()).toBe(200);

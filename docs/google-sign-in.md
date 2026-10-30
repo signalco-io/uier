@@ -146,7 +146,7 @@ Never copy the production client to a local or preview environment.
 
 ## Tests
 
-`e2e/support/googleStub.ts` stands in for Google's authorization and token endpoints (on `PORT + 6000`
+`e2e/support/googleStub.ts` stands in for Google's authorization and token endpoints (on `PORT + 7000`
 in `playwright.config.ts`, which points `GOOGLE_OAUTH_AUTHORIZE_URL`, `GOOGLE_OAUTH_TOKEN_URL` and
 `GOOGLE_OAUTH_ISSUER` at it; these overrides work only in local runtime). `e2e/google-sign-in.api.spec.ts`
 covers every linking rule, state, nonce and PKCE replay and expiry, missing and foreign browser

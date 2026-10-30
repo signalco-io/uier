@@ -21,7 +21,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Coding tool access (MCP)](mcp.md): OAuth sign-in and consent, connected apps, access tokens, client setup, tools, prompts and retry contracts.
 - [MCP OAuth plan](mcp-oauth-plan.md): the design record for coding tool sign-in, the decisions taken and where the implementation differs.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.
-- [Connected services](integrations.md): Notion pages, GitHub and Linear issues, Slack notifications and the shared delivery protocol.
+- [Connected services](integrations.md): Notion pages, GitHub and Linear issues, Azure DevOps work items, Slack notifications and the shared delivery protocol.
 
 ## Operations
 
@@ -44,6 +44,7 @@ authorization, delivery and recovery rules, privacy limits, validation and relea
 - [Notion](notion-integration-plan.md), including the shared provider architecture.
 - [GitHub](github-integration-plan.md), for a one-way issue mirror.
 - [Linear](linear-integration-plan.md), for a one-way issue mirror.
+- [Azure DevOps](azure-devops-integration-plan.md), for a one-way Azure Boards work item mirror.
 - [Slack notifications](slack-integration-plan.md), for project updates in a channel.
 
 The shared connection, discovery, delivery and external-link contracts are defined in the

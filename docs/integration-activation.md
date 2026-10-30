@@ -15,6 +15,9 @@ Verified on 29 October 2026:
 | Notion | Dedicated uier workspace, business Google account | Public uier connection, installable in any workspace. Read, insert and update content; no comments or user-information capability. Fixture authorization shares only the acceptance database. |
 | Slack | Dedicated uier workspace (T0CD752K529), business Google account | uier app A0CD684DPU3. Bot scopes `chat:write`, `channels:read`, `groups:read`; OAuth token rotation enabled. Owner approved and activated public unlisted distribution and production gate `1`. Marketplace submission/review remains separate. |
 
+Azure DevOps was added after this verification. It has no registered Microsoft Entra app, no
+production credentials and no live check yet; nothing in this record applies to it.
+
 All callbacks use the exact production URLs in the runbook. Provider credentials were captured
 privately and stored in the repository's `UIER_INTEGRATION_ENV` secret. No token, client secret,
 private key, review code or authorization receipt belongs in this record.

@@ -245,12 +245,13 @@ export default function PrivacyPolicyPage() {
 
             <h3>Optional connected services</h3>
             <p>
-                A workspace admin can connect a project to Notion, GitHub, Linear or Slack and choose
+                A workspace admin can connect a project to Notion, GitHub, Linear, Azure DevOps or Slack and choose
                 its destination. Shared feedback can then be copied to that service. Private feedback
-                and the public showcase are excluded. Notion pages and GitHub or Linear issues can
-                include feedback, replies, names, assignment, status, page links and reproduction
+                and the public showcase are excluded. Notion pages, GitHub or Linear issues and Azure DevOps
+                work items can include feedback, replies, names, assignment, status, page links and reproduction
                 context. Notion can receive saved screenshots; Linear screenshot uploads are optional.
-                GitHub uses protected links to screenshots in uier. Slack receives bounded excerpts,
+                GitHub and Azure DevOps use protected links to screenshots in uier. Azure DevOps work items are
+                written as the Microsoft account that connected the project. Slack receives bounded excerpts,
                 project and page context, links and optional reply-count or status summaries, without
                 screenshot files. People with access to the chosen destination can read these copies
                 under the service&rsquo;s own permissions.
@@ -443,7 +444,7 @@ export default function PrivacyPolicyPage() {
                 <li>Screenshots: private Microsoft Azure Blob Storage in West Europe. After checking your access, we issue a read-only link to one image for 60 seconds. Your browser downloads directly from Azure. A previously issued link can remain usable until it expires after a permission change. Earlier screenshots move from Cosmos DB in the background.</li>
                 <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
                 <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
-                <li>Connected services chosen by an admin: Notion, GitHub, Linear and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>
+                <li>Connected services chosen by an admin: Notion, GitHub, Linear, Azure DevOps and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>
                 <li>
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.

@@ -5,6 +5,7 @@ import { ProjectEnvironmentVariable } from '@pulumiverse/vercel';
 const credentialNames = [
     'NOTION_CLIENT_ID', 'NOTION_CLIENT_SECRET',
     'LINEAR_CLIENT_ID', 'LINEAR_CLIENT_SECRET',
+    'AZURE_DEVOPS_CLIENT_ID', 'AZURE_DEVOPS_CLIENT_SECRET', 'AZURE_DEVOPS_TENANT',
     'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET', 'SLACK_APP_ID', 'SLACK_DISTRIBUTION_APPROVED',
     'UIER_GITHUB_APP_ID', 'UIER_GITHUB_APP_SLUG', 'UIER_GITHUB_CLIENT_ID', 'UIER_GITHUB_CLIENT_SECRET',
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_WEBHOOK_SECRET',
@@ -13,7 +14,7 @@ const credentialNames = [
 ] as const;
 const encryptionKeys = [
     ['notion', 'NOTION_TOKEN_KEY'], ['linear', 'LINEAR_TOKEN_KEY'],
-    ['slack', 'SLACK_TOKEN_KEY'], ['github-setup', 'UIER_GITHUB_SETUP_KEY'],
+    ['slack', 'SLACK_TOKEN_KEY'], ['github-setup', 'UIER_GITHUB_SETUP_KEY'], ['azure-devops', 'AZURE_DEVOPS_TOKEN_KEY'],
 ] as const;
 const allowedNames = new Set<string>([...credentialNames,
     ...encryptionKeys.flatMap(([, name]) => [name, `${name}_ID`, `${name}_PREVIOUS`, `${name}_PREVIOUS_ID`])]);
@@ -39,6 +40,8 @@ export function parseIntegrationEnvironment(encoded: string | undefined): Record
     }
     if (values.SLACK_DISTRIBUTION_APPROVED !== undefined && !['0', '1'].includes(values.SLACK_DISTRIBUTION_APPROVED))
         throw new Error('UIER_INTEGRATION_ENV has an invalid distribution gate.');
+    if (values.AZURE_DEVOPS_TENANT !== undefined && !/^(organizations|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(values.AZURE_DEVOPS_TENANT))
+        throw new Error('UIER_INTEGRATION_ENV has an invalid Microsoft Entra tenant.');
     for (const [, name] of encryptionKeys) {
         const current = values[name]; const currentId = values[`${name}_ID`];
         const previous = values[`${name}_PREVIOUS`]; const previousId = values[`${name}_PREVIOUS_ID`];

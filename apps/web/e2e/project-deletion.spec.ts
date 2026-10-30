@@ -14,7 +14,7 @@ test('an admin deletes a project from the danger zone after typing its name', as
     const open = danger.getByRole('button', { name: 'Delete project' });
     await open.click();
     const dialog = page.getByRole('alertdialog', { name: 'Delete Old site?' });
-    await expect(dialog).toContainText('Copies already sent to Notion, GitHub, Linear or Slack stay there.');
+    await expect(dialog).toContainText('Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay there.');
     const name = dialog.getByLabel('Type the project name to confirm');
     const confirm = dialog.getByRole('button', { name: 'Delete project' });
     await expect(name).toBeFocused();

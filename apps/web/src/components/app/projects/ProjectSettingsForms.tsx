@@ -226,7 +226,7 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Its comments, screenshots, review links, access and integration settings are deleted, and the toolbar stops working on its sites. Copies already sent to Notion, GitHub, Linear or Slack stay there. This can&apos;t be undone.
+                            Its comments, screenshots, review links, access and integration settings are deleted, and the toolbar stops working on its sites. Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay there. This can&apos;t be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <Field>

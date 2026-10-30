@@ -16,7 +16,8 @@ const notionStubUrl = `http://127.0.0.1:${PORT + 2000}`;
 const githubStubUrl = `http://127.0.0.1:${PORT + 3000}`;
 const linearStubUrl = `http://127.0.0.1:${PORT + 4000}`;
 const slackStubUrl = `http://127.0.0.1:${PORT + 5000}`;
-const googleStubUrl = `http://127.0.0.1:${PORT + 6000}`;
+const azureDevOpsStubUrl = `http://127.0.0.1:${PORT + 6000}`;
+const googleStubUrl = `http://127.0.0.1:${PORT + 7000}`;
 const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 // Generated only for this local test process; never a registered GitHub App private key.
 const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
@@ -43,8 +44,10 @@ export default defineConfig({
             env: { PORT: String(PORT + 4000) } },
         { command: 'node e2e/support/slackStub.ts', url: slackStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 5000) } },
-        { command: 'node e2e/support/googleStub.ts', url: googleStubUrl, timeout: 30_000, reuseExistingServer: false,
+        { command: 'node e2e/support/azureDevOpsStub.ts', url: azureDevOpsStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 6000) } },
+        { command: 'node e2e/support/googleStub.ts', url: googleStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 7000) } },
         {
             command: 'node e2e/support/anthropicStub.ts',
             url: anthropicStubUrl,
@@ -96,6 +99,9 @@ export default defineConfig({
                 LINEAR_OAUTH_TOKEN_URL: `${linearStubUrl}/oauth/token`, LINEAR_OAUTH_REVOKE_URL: `${linearStubUrl}/oauth/revoke`,
                 SLACK_CLIENT_ID: 'slack-test-client', SLACK_CLIENT_SECRET: 'slack-test-secret', SLACK_APP_ID: 'ATESTAPP', SLACK_TOKEN_KEY: testTokenKey,
                 SLACK_API_BASE_URL: `${slackStubUrl}/api/`, SLACK_OAUTH_AUTHORIZE_URL: `${slackStubUrl}/oauth/authorize`,
+                AZURE_DEVOPS_CLIENT_ID: 'ado-test-client', AZURE_DEVOPS_CLIENT_SECRET: 'ado-test-secret', AZURE_DEVOPS_TOKEN_KEY: testTokenKey,
+                AZURE_DEVOPS_API_BASE_URL: `${azureDevOpsStubUrl}/devops`, AZURE_DEVOPS_PROFILE_BASE_URL: `${azureDevOpsStubUrl}/vssps`,
+                AZURE_DEVOPS_OAUTH_AUTHORIZE_URL: `${azureDevOpsStubUrl}/oauth2/v2.0/authorize`, AZURE_DEVOPS_OAUTH_TOKEN_URL: `${azureDevOpsStubUrl}/oauth2/v2.0/token`,
                 // Google sign-in goes to e2e/support/googleStub.ts (overrides apply only in local runtime)
                 GOOGLE_CLIENT_ID: 'google-test-client', GOOGLE_CLIENT_SECRET: 'google-test-secret',
                 GOOGLE_OAUTH_AUTHORIZE_URL: `${googleStubUrl}/o/oauth2/v2/auth`, GOOGLE_OAUTH_TOKEN_URL: `${googleStubUrl}/token`,
