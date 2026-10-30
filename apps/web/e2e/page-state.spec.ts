@@ -100,8 +100,8 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await expect(page.getByRole('article')).toHaveCount(3);
     const cardA = page.getByRole('article').filter({ hasText: 'Feedback for view A' });
     await expect(cardA.getByRole('link', { name: new RegExp('category=a') })).toHaveAttribute('href', new RegExp('category%3Da|category=a'));
-    await cardA.getByRole('button', { name: 'Reproduction details' }).click();
-    await expect(cardA.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${viewA}`);
+    await cardA.getByRole('button', { name: /^Device:/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Device and browser' }).getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${viewA}`);
     // Removing routing fields does not reassign old feedback; direct links retain its saved details.
     await page.goto(`/app/projects/${projectId}/settings`);
     await settings.getByLabel('Meaningful query fields').fill('');

@@ -13,12 +13,9 @@ import {
     LockIcon,
     LockOpenIcon,
     MailCheckIcon,
-    MonitorIcon,
     MoreHorizontalIcon,
     PencilIcon,
     ReplaceIcon,
-    SmartphoneIcon,
-    TabletIcon,
     Trash2Icon,
     UndoIcon,
     UserIcon
@@ -60,17 +57,16 @@ import {
 import { Field, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
 import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
-import { CommentReproduction } from './CommentReproduction';
+import { CommentDevice } from './CommentDevice';
 import { NotificationControls } from './NotificationControls';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 import { ThreadAction } from './ThreadAction';
-import { deviceLabels, integrationLabels, kindLabels } from './commentLabels';
+import { integrationLabels, kindLabels } from './commentLabels';
 import {
     markCommentReadAction,
     deleteCommentAction,
@@ -87,7 +83,6 @@ export type AssigneeOption = { userId: string; name: string };
 /** A card leaving its list after Done or Reopen: the exit animation, and undoing it when the change fails */
 export type ResolveExit = { finished: Promise<void>; cancel: () => void };
 
-const deviceIcons = { desktop: MonitorIcon, tablet: TabletIcon, mobile: SmartphoneIcon } as const;
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
 const maxTextLength = 1000;
@@ -130,7 +125,7 @@ function KindLabel({ kind }: { kind: DbCommentKind }) {
 function Message({ author, createdAt, meta, actions, children }: {
     author: string;
     createdAt?: string;
-    /** After the time: the device the comment was left from */
+    /** After the time: the screen and browser the comment was left from */
     meta?: ReactNode;
     actions?: ReactNode;
     children: ReactNode;
@@ -187,13 +182,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [confirmingReply, setConfirmingReply] = useState<string>();
     const [expanded, setExpanded] = useState(false);
     const firstRevealedRef = useRef<HTMLLIElement>(null);
-    const DeviceIcon = comment.device ? deviceIcons[comment.device] : undefined;
-    // Hovering the device icon: what it was left from, then the viewport ("1674×1318 px · 2x")
-    const { windowSize, pixelRatio } = comment.reproduction;
-    const deviceDetails = [
-        [comment.device && deviceLabels[comment.device], comment.reproduction.browser, comment.reproduction.os].filter(Boolean).join(' · '),
-        [windowSize && `${windowSize[0]}×${windowSize[1]} px`, pixelRatio && `${pixelRatio}x`].filter(Boolean).join(' · ')
-    ].filter(Boolean);
     const { permissions, source } = comment;
     const author = comment.author.isMe ? 'You' : comment.author.name;
     const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
@@ -448,21 +436,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <ol className="m-0 flex list-none flex-col gap-2 p-0">
                     <li>
                         <Message author={comment.deleted ? 'Deleted' : author} createdAt={comment.createdAt}
-                            meta={DeviceIcon && comment.device && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        {/* Focusable, so keyboard readers get the same details as a hover */}
-                                        <span tabIndex={0} className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
-                                            <DeviceIcon aria-hidden="true" className="size-3.5" />
-                                            <span className="sr-only">{deviceDetails.join(', ')}</span>
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="flex-col items-start gap-0.5">
-                                        <span>{deviceDetails[0]}</span>
-                                        {deviceDetails[1] && <span className="font-mono tabular-nums">{deviceDetails[1]}</span>}
-                                    </TooltipContent>
-                                </Tooltip>
-                            )}>
+                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
                             <KindLabel kind={comment.kind} />
                             {comment.quotedText && (
                                 <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
@@ -507,7 +481,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 </ol>
 
                 {/* Quiet thread actions, as in the toolbar */}
-                <CommentReproduction context={comment.reproduction}>
+                <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
                     <NotificationControls projectId={projectId} threadId={comment.id} following={comment.following} />
                     {comment.integrationLinks?.map(link => (
                         <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
@@ -515,7 +489,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             Open in {integrationLabels[link.provider] ?? link.provider}
                         </a>
                     ))}
-                </CommentReproduction>
+                </div>
             </div>
 
             {/* The page it was left on, like the toolbar inbox's card footer */}

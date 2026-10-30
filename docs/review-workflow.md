@@ -67,8 +67,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number` and unread dot with the
     actions (Mark as read, Done or Reopen, Copy issue, Copy link and More) on top, then the assignee
     ("Unassigned", or a menu of people for those who can assign) and its source, the first and last message
-    with Show all for the rest, the quiet Follow thread, Open in a connected service and Reproduction details,
-    and its page URL at the bottom. The author or an admin edits and deletes it, and only admins make it
+    with Show all for the rest, the quiet Follow thread and Open in a connected service, and its page URL at
+    the bottom. Two icons after the first message's time show the screen size and browser it was left from;
+    hovering or clicking them shows the viewport, pixel ratio, browser, OS, capture time and reviewed page,
+    with Copy reproduction details for the same fields as text. The author or an admin edits and deletes it, and only admins make it
     private. The Unread filter is the inbox's chip: a blue dot and count. Empty lists retain Install the script; invited-only projects
     also offer admins Invite with the email sign-in explanation. Comments-off lists say so and link admins
     to Settings. Filtered lists keep Nothing here.
