@@ -98,9 +98,23 @@ for (const colorScheme of ['light', 'dark'] as const) {
             expect(copied).not.toContain('uier-token');
             await page.goto(`/app/projects/${projectId}`);
             const card = page.getByRole('article', { name: 'Comment by you', exact: true });
-            await card.getByRole('button', { name: 'Copy issue', exact: true }).click();
-            await expect(card.getByRole('status').filter({ hasText: 'Issue copied.' })).toBeVisible();
+            await animationsFinished(card);
+            const cardHeight = (await card.boundingBox())!.height;
+            const button = card.getByRole('button', { name: 'Copy issue', exact: true });
+            await button.click();
+            // The confirmation is the button's tooltip, under it; the card does not grow
+            const confirmation = page.locator('[data-slot="tooltip-content"]').filter({ hasText: 'Issue copied.' });
+            await expect(confirmation).toBeVisible();
+            await expect(card.getByRole('status').filter({ hasText: 'Issue copied.' })).toBeAttached();
+            await animationsFinished(confirmation);
+            const buttonBox = (await button.boundingBox())!;
+            const confirmationBox = (await confirmation.boundingBox())!;
+            expect(confirmationBox.y).toBeGreaterThanOrEqual(buttonBox.y + buttonBox.height);
+            expect(confirmationBox.y - buttonBox.y - buttonBox.height).toBeLessThanOrEqual(16);
+            expect((await card.boundingBox())!.height).toBeCloseTo(cardHeight, 0);
+            await page.screenshot({ path: testInfo.outputPath(`app-copy-success-${colorScheme}.png`) });
             expect(await page.evaluate(() => (window as unknown as { copiedIssue: string }).copiedIssue)).toBe(copied);
+            await expect(confirmation).toBeHidden({ timeout: 4000 });
             await page.evaluate(() => { (window as unknown as { rejectClipboard: boolean }).rejectClipboard = true; });
             await card.getByRole('button', { name: 'Copy issue', exact: true }).click();
             await expect(card.getByRole('textbox', { name: 'Issue Markdown' })).toHaveValue(copied);

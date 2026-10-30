@@ -228,8 +228,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   Follow thread and Open in ..., and the page link in the footer. Change both together. The first
   message's time is followed by `CommentDevice`: screen size and browser icons whose popover (hover or
   click, `useHoverPopover` like the project header's access info) lists the reproduction context and
-  copies its text; the toolbar still shows one device icon with details under the message. Copy
-  issue's status and manual clipboard fallback stay in the body; pending actions show `Spinner`.
+  copies its text; the toolbar still shows one device icon with details under the message. Copy issue
+  confirms "Issue copied." in its tooltip under the button (`ThreadAction`'s `notice`) for 2 seconds,
+  as the toolbar does; its errors and manual clipboard fallback stay in the body; pending actions show
+  `Spinner`.
 - `app/global.css` defines `--radius-sm/md/lg` (the preset's radii are JS values with no variables);
   shadcn's small buttons read `var(--radius-md)`.
 - **Onboarding.** `OnboardingSteps` shows Your site, Add the script and Invite a reviewer. Only
