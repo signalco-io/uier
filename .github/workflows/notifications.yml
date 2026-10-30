@@ -26,7 +26,7 @@ env:
   VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc
   VERCEL_TELEMETRY_DISABLED: "1"
   # renovate: datasource=npm depName=vercel
-  VERCEL_CLI_VERSION: "65.7.0"
+  VERCEL_CLI_VERSION: "65.8.0"
 
 jobs:
   deliver:
