@@ -1,8 +1,34 @@
-import { getAppStore } from './store';
+import { z } from 'zod';
+import { getAppStore, updateDoc } from './store';
 import { memberId, workspacePk, type DbMember, type DbUser, type DbWorkspace } from './model';
+import { UserFacingError } from './actionErrors';
+import { MAX_WORKSPACE_NAME_LENGTH } from './limits';
+import { assertMutableWorkspace } from '../comments/publicProjectPolicy';
+
+/** One line in the workspace menu: repeated whitespace and line breaks are not part of the name */
+export const workspaceNameSchema = z.string()
+    .transform(value => value.normalize('NFKC').replace(/\s+/g, ' ').trim())
+    .pipe(z.string()
+        .min(1, 'Enter a workspace name.')
+        .max(MAX_WORKSPACE_NAME_LENGTH, `Use at most ${MAX_WORKSPACE_NAME_LENGTH} characters.`));
 
 export async function getWorkspace(workspaceId: string) {
     return (await getAppStore().get<DbWorkspace>(workspacePk(workspaceId), workspaceId))?.doc ?? null;
+}
+
+/**
+ * Renames a workspace for one of its admins (checked against the stored membership). Only the name
+ * changes: the access and removal guards on the same document keep their current values.
+ */
+export async function renameWorkspace(workspaceId: string, userId: string, name: unknown) {
+    assertMutableWorkspace(workspaceId);
+    const parsed = workspaceNameSchema.parse(name);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin')
+        throw new UserFacingError('Only admins can do this.');
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, name: parsed }));
+    if (!updated)
+        throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
 }
 
 export async function getMember(workspaceId: string, userId: string) {

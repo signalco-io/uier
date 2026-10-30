@@ -35,7 +35,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   after signing in (`proxy.ts`, `?next=`), including the toolbar's project review link.
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
-  between them. The workspace and its admin are created together, so a creator whom an admin removed is
+  between them. A new workspace is named after its creator's email until an admin renames it in the
+  workspace settings. The workspace and its admin are created together, so a creator whom an admin removed is
   never added back by opening the app again: with no other workspace, they get a new, empty one of their own.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
@@ -110,6 +111,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
     in (their account is created on first use), adds them to the workspace and opens the project's review
     link, or the projects when the invitation has no project.
+- **Workspace settings** (`/app/settings`, admins only): the workspace name (up to 80 characters, on one
+  line), which everyone in the workspace sees in the workspace menu and when they connect a coding tool.
+  Admins open it from the workspace menu at the top of the sidebar or from the sidebar's sections. The uier
+  workspace that everyone joins for feedback on the app has no settings page.
 - **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
   sign out.
 

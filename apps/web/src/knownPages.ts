@@ -23,6 +23,7 @@ export const KnownPages = {
     AppClients: '/app/clients',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
+    AppSettings: '/app/settings',
     AppNotionConnect: '/app/notion/connect',
     AppNotionCallback: '/app/notion/callback',
     AppGitHubConnect: '/app/github/connect',

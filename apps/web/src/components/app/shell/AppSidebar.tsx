@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseIcon, LayoutGridIcon, PlusIcon, UsersIcon } from 'lucide-react';
+import { BriefcaseIcon, LayoutGridIcon, PlusIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -61,8 +61,9 @@ function GroupLinkAction({ href, label, current = false, className, children }: 
 
 /**
  * The app's navigation: the workspace, the active projects for quick switching (their header links
- * to every project), then at the bottom the sections (clients, users), feedback on the app and the
- * signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
+ * to every project), then at the bottom the sections (clients, teams, users, workspace settings),
+ * feedback on the app and the signed-in person. Collapses to icons on desktop and opens as a sheet
+ * on small screens.
  */
 export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, projects, hasClients }: {
     isAdmin: boolean;
@@ -81,16 +82,20 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
     // A listed project is current in its own entry; All projects covers the list and every other project page
     const inListedProject = projects.some(project => isCurrent(pathname, KnownPageLinks.project(project.id)));
     const allProjectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
-    // Clients first: Users keeps its place above feedback whether or not Clients shows
+    // Clients first: the admin sections keep their place above feedback whether or not Clients shows
     const sections = [
         ...hasClients ? [{ href: KnownPages.AppClients, label: 'Clients', icon: BriefcaseIcon }] : [],
-        ...isAdmin ? [{ href: KnownPages.AppTeams, label: 'Teams', icon: UsersIcon }, { href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon }] : []
+        ...isAdmin ? [
+            { href: KnownPages.AppTeams, label: 'Teams', icon: UsersIcon },
+            { href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon },
+            { href: KnownPages.AppSettings, label: 'Workspace settings', icon: SettingsIcon }
+        ] : []
     ].map(section => ({ ...section, current: isCurrent(pathname, section.href) }));
 
     return (
         <Sidebar variant="inset" collapsible="icon">
             <SidebarHeader>
-                <WorkspaceSwitcher workspaces={workspaces} currentWorkspaceId={currentWorkspaceId} />
+                <WorkspaceSwitcher workspaces={workspaces} currentWorkspaceId={currentWorkspaceId} canManage={isAdmin} />
             </SidebarHeader>
             <SidebarContent>
                 <nav aria-label="App" className="contents">

@@ -6,10 +6,10 @@ import { newVisitor } from './support/toolbar';
 test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('clients-page'));
     await createProject(page, { urls: ['plain.example.com'], name: 'Plain site' });
-    // No project has a client yet: no Clients section, and Users sits at the bottom of the navigation
+    // No project has a client yet: no Clients section, and the admin sections sit at the bottom of the navigation
     let navigation = await appNavigation(page);
     await expect(navigation.getByRole('link', { name: 'Clients' })).toHaveCount(0);
-    await expect(navigation.getByRole('link').last()).toHaveAccessibleName('Users');
+    await expect(navigation.getByRole('link').last()).toHaveAccessibleName('Workspace settings');
     await closeAppNavigation(page);
     await page.goto('/app/clients');
     await expect(page.getByText('No clients yet', { exact: true })).toBeVisible();
@@ -18,9 +18,10 @@ test('clients show in the sidebar and on their page, and new projects pick an ex
     await createProject(page, { urls: ['acme.example.com'], name: 'Acme site', clientName: 'Acme Studio' });
     navigation = await appNavigation(page);
     const links = navigation.getByRole('link');
-    await expect(links.nth(-3)).toHaveAccessibleName('Clients');
-    await expect(links.nth(-2)).toHaveAccessibleName('Teams');
-    await expect(links.last()).toHaveAccessibleName('Users');
+    await expect(links.nth(-4)).toHaveAccessibleName('Clients');
+    await expect(links.nth(-3)).toHaveAccessibleName('Teams');
+    await expect(links.nth(-2)).toHaveAccessibleName('Users');
+    await expect(links.last()).toHaveAccessibleName('Workspace settings');
     await closeAppNavigation(page);
 
     // The same input suggests the existing clients and takes a new name

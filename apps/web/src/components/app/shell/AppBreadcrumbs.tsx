@@ -38,6 +38,8 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
         return [{ label: 'Clients', href: KnownPages.AppClients }];
     if (section === 'account')
         return [{ label: 'Account', href: KnownPages.AppAccount }];
+    if (section === 'settings')
+        return [{ label: 'Workspace settings', href: KnownPages.AppSettings }];
     return [];
 }
 
