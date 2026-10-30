@@ -478,9 +478,24 @@ test('guest edits and original reproduction details persist; only members see an
     const card = page.getByRole('article', { name: 'Comment by Context reviewer' });
     await expect(card).toContainText('Admin clarified the report. (edited)');
     await expect(card).toContainText('Corrected guest reply. (edited)');
-    await card.getByRole('button', { name: 'Reproduction details', exact: true }).click();
-    await expect(card.locator('pre')).toHaveText(copied!);
-    await card.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    // The screen and browser icons by the time: hovering shows the original capture, a click keeps it open to copy
+    const cardDevice = card.getByRole('button', { name: /^Device:/ });
+    await expect(cardDevice).toHaveAccessibleName(/Example Browser \(123\) · Example OS/);
+    const details = page.getByRole('dialog', { name: 'Device and browser' });
+    if (!testInfo.project.name.startsWith('Mobile')) {
+        await cardDevice.hover();
+        await expect(details).toContainText('Example Browser (123)');
+        await page.mouse.move(0, 0);
+        await expect(details).toBeHidden();
+        // Hovering never moves focus, neither into the details nor back to the icons
+        await expect(cardDevice).not.toBeFocused();
+    }
+    await cardDevice.click();
+    await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
+    await expect(details).toContainText('Example OS');
+    await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
+    await details.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    await expect(details).toBeVisible();
     expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
     await expectNoAxeViolations(page);
 });
