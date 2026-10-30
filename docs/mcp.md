@@ -410,6 +410,11 @@ ask the client to read selected feedback, approve a code fix in the coding tool,
 approve its reply and status update. Tool annotations identify reads and mutations, but annotations
 are hints, not an approval system. Reading does not acknowledge inbox unread activity.
 
+Server instructions, prompts and the skill also tell clients to cite feedback by its uier link:
+`[uier #12](comment link)` with `links.comment` in pull requests, issues and replies, the comment
+link itself in commit messages, and `uier #12` in a code span when there is no link. A bare `#12`
+links to the repository's own issue or pull request on GitHub and GitLab.
+
 ## Prompts and agent skill
 
 The connector exposes these user-selected MCP prompts:

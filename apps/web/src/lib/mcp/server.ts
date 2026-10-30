@@ -15,7 +15,7 @@ import { sha256Hex } from '../app/tokens';
 import { eligibleParticipants } from '../review/participants';
 import { projectId, commentId, thread } from './schemas';
 import { registerFeedbackPrompts } from './prompts';
-import { feedbackAccessGuidance, untrustedFeedback as untrusted } from './workflows';
+import { feedbackAccessGuidance, feedbackCitation, untrustedFeedback as untrusted } from './workflows';
 import { participantNames } from '../review/dto';
 import { environmentFilter, environmentOptions } from '../app/environments';
 import { projectCommentRouting } from '../app/projectCommentRouting';
@@ -66,7 +66,7 @@ function slice<T>(items: T[], cursor: number, limit: number) {
 function key(identity: McpIdentity, value: string) { return sha256Hex(`mcp:${identity.connection.id}:${value}`); }
 
 export function createFeedbackMcpServer(identity: McpIdentity, request: Request, baseUrl: string) {
-    const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} ${feedbackAccessGuidance} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
+    const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} ${feedbackAccessGuidance} ${feedbackCitation} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
     registerFeedbackPrompts(server, identity);
     const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.connection.name, connection: { kind: identity.connection.kind } };
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
