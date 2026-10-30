@@ -198,10 +198,11 @@ test('deleting a project removes its comments, images, public ids, grants and re
     expect(await store.get(keptPreference.pk, keptPreference.id)).not.toBeNull();
     expect(await findReviewProject(kept.publicId)).not.toBeNull();
 
-    // Deletion intents were recorded like any thread delete, and discovery drops them: nothing is bound any more
-    const tombstones = async () => (await comments.listSyncPending({ limit: 1000 })).filter(source => source.domain === domain);
+    // Deletion intents were recorded like any thread delete, and discovery drops them: nothing is bound any more.
+    // Scoped to this domain: other specs in the worker can leave more than a page of pending sources.
+    const tombstones = async () => (await comments.listSyncPending({ after: `${domain}:`, limit: 1000 })).filter(source => source.domain === domain);
     expect((await tombstones()).map(source => 'type' in source ? source.type : 'comment')).toEqual(['tombstone', 'tombstone', 'tombstone']);
-    for (let attempt = 0; attempt < 3 && (await tombstones()).length; attempt++) await discoverIntegrationSync({ maxSources: 1000 });
+    expect(await discoverIntegrationSync({ comments: { ...comments, listSyncPending: tombstones } })).toEqual({ checked: 3, deferred: 0 });
     expect(await tombstones()).toEqual([]);
 
     const intent = (await store.get<ProjectDeletion>('project-deletion', doomed.id))?.doc;
