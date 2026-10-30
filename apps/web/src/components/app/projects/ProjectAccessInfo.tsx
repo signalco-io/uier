@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { InfoIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
 import type { ProjectAccess } from '../../../lib/app/model';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
@@ -46,7 +45,6 @@ export function ProjectAccessInfo({ access, children }: { access: ProjectAccess;
                 }}>
                 <AccessIcon access={access} className="size-4" aria-hidden="true" />
                 {label}
-                <InfoIcon className="size-3.5 text-muted-foreground" aria-label="More info" />
             </PopoverTrigger>
             <PopoverContent
                 align="start"
