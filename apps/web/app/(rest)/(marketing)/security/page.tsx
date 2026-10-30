@@ -39,6 +39,10 @@ const controls = [
         text: 'Browser writes require Vercel BotID verification. Coding tool writes require a revocable connection or access token limited to the projects and operations chosen for it, with current membership and private feedback checks on every request. On reviewed sites, an empty frame on uier’s origin verifies the browser and returns a proof valid for five minutes, bound to the site, project and reviewer. New comments and replies have rate limits with atomic counters.'
     },
     {
+        title: 'Passkey sign-in',
+        text: 'Passkeys need user verification on the device. Each challenge works once within five minutes, in the browser that asked for it. Adding a passkey needs a sign-in from the last 10 minutes. The private key never leaves the device or password manager; uier keeps the public key and rejects a signature counter that goes backwards. A removed passkey stops working at once.'
+    },
+    {
         title: 'Coding tool sign-in',
         text: 'Coding tools sign in through uier’s own OAuth server, for the MCP endpoint only. PKCE is required, codes work once within 60 seconds, access tokens last one hour and refresh tokens change on every use. Only token hashes are stored. Revoking a connection in Account ends its access on the next request.'
     },
