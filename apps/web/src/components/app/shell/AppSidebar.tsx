@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseIcon, LayoutGridIcon, PlusIcon, SettingsIcon, UsersIcon } from 'lucide-react';
+import { BriefcaseIcon, LayoutGridIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -60,10 +60,10 @@ function GroupLinkAction({ href, label, current = false, className, children }: 
 }
 
 /**
- * The app's navigation: the workspace, the active projects for quick switching (their header links
- * to every project), then at the bottom the sections (clients, teams, users, workspace settings),
- * feedback on the app and the signed-in person. Collapses to icons on desktop and opens as a sheet
- * on small screens.
+ * The app's navigation: the workspace (its menu has the workspace settings), the active projects for
+ * quick switching (their header links to every project), then at the bottom the sections (clients,
+ * teams, users), feedback on the app and the signed-in person. Collapses to icons on desktop and
+ * opens as a sheet on small screens.
  */
 export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, projects, hasClients }: {
     isAdmin: boolean;
@@ -87,8 +87,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
         ...hasClients ? [{ href: KnownPages.AppClients, label: 'Clients', icon: BriefcaseIcon }] : [],
         ...isAdmin ? [
             { href: KnownPages.AppTeams, label: 'Teams', icon: UsersIcon },
-            { href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon },
-            { href: KnownPages.AppSettings, label: 'Workspace settings', icon: SettingsIcon }
+            { href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon }
         ] : []
     ].map(section => ({ ...section, current: isCurrent(pathname, section.href) }));
 

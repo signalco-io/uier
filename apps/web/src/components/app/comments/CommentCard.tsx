@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from 'reac
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     ArrowUpRightIcon,
+    BellIcon,
+    BellOffIcon,
     BugIcon,
     CheckIcon,
     ChevronDownIcon,
@@ -62,7 +64,7 @@ import type { DbCommentKind } from '../../../lib/db/schema';
 import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
 import { CommentDevice } from './CommentDevice';
-import { NotificationControls } from './NotificationControls';
+import { updateNotificationAction } from './notificationActions';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 import { ThreadAction } from './ThreadAction';
 import { integrationLabels, kindLabels } from './commentLabels';
@@ -187,9 +189,9 @@ function MessageText({ text, edited }: { text: string; edited: boolean }) {
 }
 
 /**
- * A project comment in the app's list and board, laid out like the toolbar's thread: status, number
- * and actions on top, then who it is assigned to and where it came from, the messages, the quiet
- * thread actions, and the page it was left on at the bottom
+ * A project comment in the app's list and board, laid out like the toolbar's thread: status, number,
+ * who it is assigned to and actions (following the thread among them) on one row, then the messages,
+ * the linked issues, and the page it was left on at the bottom
  */
 export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve }: {
     projectId: string;
@@ -330,8 +332,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     return (
         <Card role="article" aria-label={label} className="@container/comment gap-0 py-0">
             <div className="flex flex-col gap-3 px-4 py-3">
-                {/* The toolbar's thread header: status, public id and unread dot, then the actions
-                    (on a line of their own in a narrow board column) */}
+                {/* The toolbar's thread header: status, public id, unread dot and who it is assigned to,
+                    then the actions (on a line of their own in a narrow board column) */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex min-w-0 items-center gap-2">
                         {permissions.resolve
@@ -348,6 +350,45 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <LockIcon aria-hidden="true" data-icon="inline-start" />
                                 Private
                             </Badge>
+                        )}
+                        {/* The list of people for those who can assign */}
+                        {permissions.assign ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="xs" disabled={pending} aria-label={`${assigned}. Change assignee`}
+                                        className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
+                                        <UserIcon aria-hidden="true" data-icon="inline-start" />
+                                        <span className="truncate">{assigned}</span>
+                                        <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
+                                        {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
+                                            <DropdownMenuItem
+                                                key={option.userId}
+                                                onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
+                                                {option.name}
+                                                {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuGroup>
+                                    {comment.assignee && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, null))}>
+                                                Unassign
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <span className="inline-flex min-h-6 min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                                <UserIcon aria-hidden="true" className="size-3 shrink-0" />
+                                <span className="truncate">{assigned}</span>
+                            </span>
                         )}
                     </div>
                     <div className="-mr-1.5 ml-auto flex shrink-0 items-center gap-0.5">
@@ -370,6 +411,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     <DropdownMenuItem disabled={!source.available} onSelect={copyLink}>
                                         <Link2Icon />
                                         {source.available ? 'Copy link' : 'Copy link (original source unavailable)'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onSelect={() => run(
+                                            () => updateNotificationAction(projectId, comment.id, !comment.following),
+                                            comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.')}>
+                                        {comment.following ? <BellOffIcon /> : <BellIcon />}
+                                        {comment.following ? 'Unfollow thread' : 'Follow thread'}
                                     </DropdownMenuItem>
                                     {permissions.edit && (
                                         <DropdownMenuItem
@@ -412,48 +460,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 </div>
                 <CopyIssueResult state={copyIssue} />
-
-                {/* Who it is assigned to (the list of people for those who can assign) */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    {permissions.assign ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="xs" disabled={pending} aria-label={`${assigned}. Change assignee`}
-                                    className="-ml-2 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
-                                    <UserIcon aria-hidden="true" data-icon="inline-start" />
-                                    {assigned}
-                                    <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
-                                <DropdownMenuGroup>
-                                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
-                                    {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
-                                        <DropdownMenuItem
-                                            key={option.userId}
-                                            onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
-                                            {option.name}
-                                            {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuGroup>
-                                {comment.assignee && (
-                                    <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, null))}>
-                                            Unassign
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    ) : (
-                        <span className="inline-flex min-h-6 items-center gap-1">
-                            <UserIcon aria-hidden="true" className="size-3 shrink-0" />
-                            {assigned}
-                        </span>
-                    )}
-                </div>
 
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-2 p-0">
@@ -503,16 +509,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     {lastReply && <li>{reply(lastReply)}</li>}
                 </ol>
 
-                {/* Quiet thread actions, as in the toolbar */}
-                <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
-                    <NotificationControls projectId={projectId} threadId={comment.id} following={comment.following} />
-                    {comment.integrationLinks?.map(link => (
-                        <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex min-h-6 items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground pointer-coarse:min-h-11">
-                            Open in {integrationLabels[link.provider] ?? link.provider}
-                        </a>
-                    ))}
-                </div>
+                {/* The issues it is linked to, quiet as in the toolbar */}
+                {comment.integrationLinks?.length ? (
+                    <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
+                        {comment.integrationLinks.map(link => (
+                            <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex min-h-6 items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground pointer-coarse:min-h-11">
+                                Open in {integrationLabels[link.provider] ?? link.provider}
+                            </a>
+                        ))}
+                    </div>
+                ) : null}
             </div>
 
             {/* The page it was left on, like the toolbar inbox's card footer, and where it came from */}

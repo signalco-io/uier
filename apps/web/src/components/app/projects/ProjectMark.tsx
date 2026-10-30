@@ -52,8 +52,10 @@ export function ProjectMark({ name, url, className }: { name: string; url?: stri
                     }}
                     onLoad={() => setLoaded(true)}
                     onError={next}
-                    // An SVG favicon that follows the colour scheme draws its light-tab version on the light tile
-                    className={cn('absolute inset-0 size-full object-contain [color-scheme:light]', !loaded && 'invisible')} />
+                    // An SVG favicon that follows the colour scheme draws its light-tab version on the light tile.
+                    // Padding keeps edge-to-edge icons off the border and out of the rounded corners, so
+                    // they read as an icon on the tile; larger tiles set their own (`[&>img]:p-1.5`).
+                    className={cn('absolute inset-0 size-full object-contain p-0.5 [color-scheme:light]', !loaded && 'invisible')} />
             )}
         </span>
     );

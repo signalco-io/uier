@@ -66,10 +66,14 @@ test('guest comments without email, then separately verifies and revokes reply n
     await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
     await page.goto(`/app/projects/${projectId}`);
     const article = page.getByRole('article', { name: 'Comment by Ana notifications' });
-    await article.getByRole('button', { name: 'Follow thread', exact: true }).click();
-    await expect(article.getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
+    // Following is in the comment's More actions menu
+    const moreActions = article.getByRole('button', { name: /^More actions for the comment/ });
+    await moreActions.click();
+    await page.getByRole('menuitem', { name: 'Follow thread', exact: true }).click();
+    await expect(page.getByText('You follow this thread now.', { exact: true })).toBeVisible();
     await page.reload();
-    await expect(article.getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
+    await moreActions.click();
+    await expect(page.getByRole('menuitem', { name: 'Unfollow thread', exact: true })).toBeVisible();
 });
 
 
