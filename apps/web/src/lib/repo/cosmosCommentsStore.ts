@@ -338,6 +338,14 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 ...(page.continuation ? { continuation: page.continuation } : { nextAt: now + 60 * 60_000 }) });
             return { removed, failed };
         },
+        async deleteSequence(domain) {
+            try {
+                await getContainer().item(commentSequenceId, domain).delete();
+            } catch (error) {
+                if (errorCode(error) !== 404)
+                    throw error;
+            }
+        },
         async nextCommentNumber(domain) {
             const container = getContainer();
             const id = commentSequenceId;

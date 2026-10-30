@@ -23,7 +23,7 @@ import { NotionSection } from '@/src/components/app/notion/NotionSection';
 import { SlackSection } from '@/src/components/app/slack/SlackSection';
 import { getSlackSettings } from '@/src/lib/integrations/slack/settings';
 import {
-    ProjectBriefForm, ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEmailExcerptsForm, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
+    DeleteProjectButton, ProjectBriefForm, ProjectAccessForm, ProjectClientNameForm, ProjectEmailsButton, ProjectEmailExcerptsForm, ProjectEnvironmentsForm, ProjectNameForm, ProjectPageStateForm, ProjectStatusButton, ProjectUrlsForm
 } from '@/src/components/app/projects/ProjectSettingsForms';
 
 export const metadata: Metadata = {
@@ -123,13 +123,31 @@ async function ProjectState({ context, project }: { context: AppContext; project
                     ))}
                 </dl>
             </Section>
-            <Section
-                id="status"
-                title="Status"
-                description={project.status === 'done'
-                    ? 'This project is done. Reopen it to move it back to the active projects.'
-                    : 'Mark the project as done when the review is over. It moves to the done projects; nothing is deleted.'}
-                actions={<ProjectStatusButton projectId={project.id} status={project.status} />} />
+            {/* Changes to the whole project, each a row with its button */}
+            <Section id="danger-zone" title="Danger zone" className="border-destructive/40">
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <h3 className="m-0 text-sm font-medium">{project.status === 'done' ? 'Reopen project' : 'Mark as done'}</h3>
+                            <p className="m-0 text-sm text-muted-foreground">
+                                {project.status === 'done'
+                                    ? 'This project is done. Reopen it to move it back to the active projects.'
+                                    : 'Mark the project as done when the review is over. It moves to the done projects; nothing is deleted.'}
+                            </p>
+                        </div>
+                        <ProjectStatusButton projectId={project.id} status={project.status} />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-6">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <h3 className="m-0 text-sm font-medium">Delete project</h3>
+                            <p className="m-0 text-sm text-muted-foreground">
+                                Deletes the project with its comments, screenshots, review links and integration settings. This can't be undone.
+                            </p>
+                        </div>
+                        <DeleteProjectButton projectId={project.id} name={project.name} />
+                    </div>
+                </div>
+            </Section>
         </>
     );
 }

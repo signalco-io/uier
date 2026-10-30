@@ -83,7 +83,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   - Settings `/app/projects/<code>/settings`: everyone mutes or unmutes their own project emails there. Admins
     also set the name, optional client name, who can comment (invited people, anyone with the link, or comments
     off), addresses, meaningful page-state fields, and see usage (comments, open, done, replies, pages, people
-    with access) and done.
+    with access). The Danger zone marks the project as done or reopens it, and deletes it after the admin types
+    its name ([project deletion](project-deletion.md)).
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<publicId>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect

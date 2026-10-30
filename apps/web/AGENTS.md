@@ -12,7 +12,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
@@ -247,6 +247,15 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   internal project ids retain storage/membership/MCP meaning. Review routes use `findReviewProject`,
   retaining legacy random codes but rejecting the fixed `uier00000001` code. Do not expose abandoned
   references or overwrite a saved public id. See `docs/api.md#public-project-identifiers`.
+- Project deletion (`app/projectDeletion.ts`, the settings Danger zone, `deleteProjectAction`) is admin-only,
+  requires the typed name and refuses the public workspace/project in the service too. Disconnect services
+  through their own Disconnect paths while the project exists, then store the identifier-only
+  `project-deletion` intent before deleting anything. Every step must stay idempotent: the scheduled worker
+  (`sweepProjectDeletions`) repeats pending intents and, for a day, the thread/record passes. Retire code and
+  public id claims (`project-ref-retired`, `project-public-ref-retired`), never delete them; resolve only live
+  claims. Access changes go through `mutateAccess`; members are updated, never deleted or recreated. Threads use
+  `deleteProjectThread` + `forgetScreenshot`. A new project-keyed record type must be added to the deletion, the
+  privacy policy and [project deletion](../../docs/project-deletion.md); `e2e/project-deletion{,.api}.spec.ts` cover it.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.
@@ -434,7 +443,7 @@ Keep all ordinary workspace behavior unchanged. Admin author filtering uses `app
 random, account/project-bound references expire after 24 hours, and stored author ids never cross
 the client boundary. `CommentsStore` matches both openers and remaining replies before list limits.
 App reply deletion reuses `deleteProjectCommentItem`; thread deletion must keep screenshot cleanup
-and never delete sequence or rate-limit documents. On the public project's
+and never delete sequence or rate-limit documents (only project deletion removes the sequence). On the public project's
 same-origin comments API, `__Host-uier_session` takes precedence over guest identity. Store `user:<id>` just
 as the review API does, resolve current account names for DTOs, and keep private app feedback
 author-only in the public API. Read the current public project and apply `assertCanUseComments`

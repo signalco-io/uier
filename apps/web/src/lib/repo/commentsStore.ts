@@ -64,6 +64,8 @@ export type CommentsStore = {
 
     /** The domain's next comment number (1, 2, 3, ...), atomically: its public id (`#12`) */
     nextCommentNumber(domain: string): Promise<number>;
+    /** Only when the whole partition goes (project deletion); thread deletes keep the numbers. */
+    deleteSequence(domain: string): Promise<void>;
 
     /** A bounded cross-partition metadata page for the scheduled orphan sweep; never loads pixels. */
     listScreenshotsBefore(before: string, continuation?: string): Promise<{

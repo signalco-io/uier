@@ -22,7 +22,8 @@ import {
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { configuredEnvironments } from '../../../lib/app/environments';
 import { parseActionInput } from '../../../lib/app/validation';
-import { projectStatusActionSchema } from './actionSchemas';
+import { deleteProjectActionSchema, projectStatusActionSchema } from './actionSchemas';
+import { deleteProject } from '../../../lib/app/projectDeletion';
 
 const environmentSchema = z.array(z.object({
     origin: z.string().max(512),
@@ -116,6 +117,17 @@ export async function setProjectStatusAction(projectId: string, status: ProjectS
         const input = parseActionInput(projectStatusActionSchema, { projectId, status });
         await saveProject(input.projectId, { status: input.status });
     });
+}
+
+/** Admins only; the client goes to the projects list after a success. */
+export async function deleteProjectAction(projectId: string, confirmation: string): Promise<ActionState> {
+    const result = await actionResult(async () => {
+        const input = parseActionInput(deleteProjectActionSchema, { projectId, confirmation });
+        await deleteProject(await appContextOrThrow({ admin: true }), input.projectId, input.confirmation);
+    });
+    if (result?.ok)
+        revalidatePath('/app', 'layout');
+    return result;
 }
 
 export async function updateProjectPageStateAction(_: ActionState, formData: FormData): Promise<ActionState> {

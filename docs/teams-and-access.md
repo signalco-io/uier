@@ -126,8 +126,9 @@ mutation and before/after arrays remain well below the payload bound at the docu
 
 History is admin-only and paginated on the server. Events include actor, server time, action,
 target ids and before/after access metadata; no credentials, tokens, comment text or screenshots.
-The privacy policy describes relationship data and 180-day retention. There is no self-service
-account/workspace deletion flow today. For a verified erasure request, include team/name records,
+The privacy policy describes relationship data and 180-day retention. Deleting a project removes it
+from team, member and invitation grants through the same guard, in `project.deleted` events
+([project deletion](project-deletion.md)). There is no self-service account/workspace deletion flow today. For a verified erasure request, include team/name records,
 member/invitation relationships, email-hashed generation records and affected access events in
 the existing scoped operator process. For workspace erasure, enumerate all these types in that
 workspace partition. For account erasure, remove membership relationships and events where the

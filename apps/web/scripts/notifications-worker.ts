@@ -3,6 +3,7 @@ import { createCosmosCommentsStore } from '../src/lib/repo/cosmosCommentsStore';
 import { cosmosDataContainerComments } from '../src/lib/db/client';
 import { getScreenshotBlobStore } from '../src/lib/screenshots/blobStore';
 import { sweepCommentCleanup } from '../src/lib/comments/cleanup';
+import { sweepProjectDeletions } from '../src/lib/app/projectDeletion';
 import { retryNotificationDelivery, runNotificationWorker } from '../src/lib/notifications/delivery';
 import { configuredAppBaseUrl } from '../src/lib/app/deployment';
 import { runIntegrationWorker } from '../src/lib/integrations/worker';
@@ -31,6 +32,9 @@ if (!integrationsOnly) {
         console.info(`[screenshots] Migrated ${previewMigration.migrated} legacy preview images; swept ${previewCleanup.removed} preview blobs.`);
         if (previewMigration.failed || previewCleanup.failed) process.exitCode = 1;
     } catch { console.error('[screenshots] Preview migration/cleanup needs retry'); process.exitCode = 1; }
+    // Before the comment sweep, which then completes the thread cleanups a project deletion queued
+    const deletions = await sweepProjectDeletions({ comments });
+    if (deletions.failed) { console.error(`[projects] ${deletions.failed} project deletions need retry.`); process.exitCode = 1; }
     const cleanup = await sweepCommentCleanup(comments);
     console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
     if (cleanup.failed) process.exitCode = 1;

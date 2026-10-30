@@ -75,6 +75,10 @@ reads. Shared discovery unions captured and current targets, saves each connecti
 deletion intent, rechecks bindings, then conditionally removes the source tombstone. Its 30-day
 TTL bounds recovery; expiry does not prove removal of an external copy.
 
+Deleting a project disconnects each connected service first, then removes its connections, ledgers,
+per-project grants and OAuth state. Copies already sent stay with the provider. Discovery drops the
+project's tombstones once its code is retired, since no target remains ([project deletion](project-deletion.md)).
+
 ## Discovery and delivery
 
 Discovery scans a bounded page ordered by indexed `syncKey`. A durable rotating cursor prevents

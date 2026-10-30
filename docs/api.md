@@ -96,6 +96,9 @@ Previously shared random 12-character project codes and installed embeds remain 
 fixed `uier00000001` value is internal-only at the review API; copy its new link or script from the
 app. The same-origin public showcase continues through `/api/comments`.
 
+Deleting a project replaces its code and public id claims with retired claims that name no project.
+Both ids then answer `404` and are never issued again ([project deletion](project-deletion.md)).
+
 ## `/toolbar.js`
 
 Collapsing the toolbar hides on-page comment pins, text highlights, comment popovers and inline threads, leaving the page

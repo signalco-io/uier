@@ -2,13 +2,13 @@ import { z } from 'zod';
 import type { AppDoc, DbUser } from '../app/model';
 import type { AppContext } from '../app/context';
 import { getVisibleProject, getProject, findProject } from '../app/projects';
-import { getAppStore } from '../app/store';
+import { getAppStore, type AppStore } from '../app/store';
 import { randomToken, sha256Hex } from '../app/tokens';
 import { getUser } from '../app/users';
 import { memberActor } from '../review/actor';
 import { ApiError, apiErrors } from '../comments/http';
 import { mcpScopes, type McpScope } from './scopes';
-import { accessCovers, grantedWorkspaceOf, type AgentAccess } from './oauth/grants';
+import { accessCovers, grantedWorkspaceOf, type AgentAccess, type McpGrant } from './oauth/grants';
 import { authenticateAccessToken, isAccessTokenFormat } from './oauth/tokens';
 import { mcpOauthEnabled } from './oauth/config';
 
@@ -54,6 +54,53 @@ export async function revokeMcpCredential(userId: string, id: string) {
     const stored = await getAppStore().get<McpCredential>(credentialPk(userId), id);
     if (stored?.doc.type === 'mcp-credential' && stored.doc.userId === userId)
         await getAppStore().delete(credentialPk(userId), id);
+}
+
+/** Seconds until `until`, for a replaced record whose database expiry would otherwise restart */
+const remainingSeconds = (until: string, extra = 0) => Math.max(1, Math.ceil((Date.parse(until) - Date.now()) / 1000) + extra);
+
+/**
+ * Project deletion: no access token or connected app keeps naming the project. One that selected
+ * nothing else is revoked, as Revoke in Account does; the others keep their remaining selection.
+ */
+export async function removeProjectFromMcpAccess(workspaceId: string, projectId: string, store: AppStore = getAppStore()) {
+    const save = async <T extends McpCredential | McpGrant>(id: { pk: string; id: string }, change: (doc: T) => T | null) => {
+        for (let attempt = 0; attempt < 8; attempt++) {
+            const stored = await store.get<T>(id.pk, id.id);
+            if (!stored) return;
+            const next = change(stored.doc);
+            if (next === stored.doc) return;
+            if (!next) { await store.delete(id.pk, id.id); return; }
+            // A token refresh replaces the grant under its etag too
+            if (await store.replace(next, stored.etag) !== 'conflict') return;
+        }
+        throw new Error('An MCP connection changed too often while its project was removed');
+    };
+    for (const credential of await store.query<McpCredential>({ type: 'mcp-credential', where: { workspaceId } })) {
+        if (!credential.projectIds.includes(projectId)) continue;
+        await save<McpCredential>(credential, doc => {
+            if (doc.workspaceId !== workspaceId || !doc.projectIds.includes(projectId)) return doc;
+            const projectIds = doc.projectIds.filter(id => id !== projectId);
+            return projectIds.length ? { ...doc, projectIds, ttl: remainingSeconds(doc.expiresAt) } : null;
+        });
+    }
+    // Selections are nested, so every grant is read; deletions are rare
+    for (const grant of await store.query<McpGrant>({ type: 'mcp-grant' })) {
+        if (grant.access.kind !== 'selected' || !grant.access.workspaces.some(entry => entry.workspaceId === workspaceId
+            && Array.isArray(entry.projects) && entry.projects.includes(projectId))) continue;
+        await save<McpGrant>(grant, doc => {
+            if (doc.access.kind !== 'selected') return doc;
+            const workspaces = doc.access.workspaces.flatMap(entry => {
+                if (entry.workspaceId !== workspaceId || !Array.isArray(entry.projects)) return [entry];
+                const projects = entry.projects.filter(id => id !== projectId);
+                return projects.length ? [{ ...entry, projects }] : [];
+            });
+            if (JSON.stringify(workspaces) === JSON.stringify(doc.access.workspaces)) return doc;
+            return workspaces.length
+                ? { ...doc, access: { kind: 'selected', workspaces }, ttl: remainingSeconds(doc.idleExpiresAt, 86400) }
+                : null;
+        });
+    }
 }
 
 /** A manual credential or an OAuth connection, resolved to one grant shape that every tool call checks */

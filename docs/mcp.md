@@ -101,7 +101,8 @@ through the [revocation endpoint](#endpoints) with its refresh token; revoking a
 that token. Revocation cannot retract data the client already received.
 
 You cannot edit a connection's access yet. To change it, connect again from the tool and replace the
-existing connection.
+existing connection. Deleting a project removes it from every connection and access token that
+selected it; one left with nothing selected is revoked ([project deletion](project-deletion.md)).
 
 ## Access tokens
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef } from '../app/model';
+import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef, type DbRetiredProjectRef } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
@@ -18,6 +18,11 @@ export async function integrationProject(projectId: string, store: AppStore = ge
     if (!ref || ref.type !== 'project-ref' || projectId === PUBLIC_PROJECT_ID) return null;
     const project = (await store.get<DbProject>(workspacePk(ref.workspaceId), projectId))?.doc;
     return project?.type === 'project' && project.workspaceId === ref.workspaceId ? project : null;
+}
+
+/** Only a deletion retires a project code (`project-ref-retired`). */
+async function isDeletedProject(projectId: string, store: AppStore) {
+    return (await store.get<DbRetiredProjectRef>(projectRefPk(projectId), projectId))?.doc.type === 'project-ref-retired';
 }
 
 /** Idempotent outbox fan-out. Forced requests have a stable id so a backfill crash can replay. */
@@ -115,7 +120,13 @@ export async function discoverIntegrationSync(options: DiscoveryOptions = {}) {
         cursor = `${source.domain}:${source.id}`;
         try {
             const project = source.projectId ? await integrationProject(source.projectId, store) : null;
-            if (!project) { deferred++; continue; }
+            if (!project) {
+                // A deleted project's services were disconnected and its ledgers removed: nothing remains to fan out to.
+                if ('type' in source && source.type === 'tombstone' && await isDeletedProject(source.projectId, store)
+                    && await comments.deleteTombstone(source.domain, source.commentId, source.syncVersion) === 'ok') checked++;
+                else deferred++;
+                continue;
+            }
             if (await discoverThreadIntegrationSync(project, source, { ...options, store, comments })) checked++;
             else deferred++;
         } catch {

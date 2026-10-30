@@ -1,9 +1,19 @@
 'use client';
 
-import { useActionState, useId, useState, useTransition } from 'react';
+import { useActionState, useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { PlusIcon } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
+} from '@/src/components/ui/alert-dialog';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
@@ -13,14 +23,15 @@ import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Spinner } from '@/src/components/ui/spinner';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
-import { Section } from '../PageHeader';
+import { destructiveTextClassName, Section } from '../PageHeader';
 import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { ClientNameInput } from './ClientNameInput';
 import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { updateProjectBriefAction, setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
-import { updateProjectEmailExcerptsAction, updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
+import { deleteProjectAction, updateProjectEmailExcerptsAction, updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
+import { KnownPages } from '../../../knownPages';
 import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
@@ -170,6 +181,67 @@ export function ProjectStatusButton({ projectId, status }: { projectId: string; 
             {pending && <Spinner data-icon="inline-start" />}
             {status === 'done' ? 'Reopen project' : 'Mark as done'}
         </Button>
+    );
+}
+
+/** Deletes the project once its name is typed; the server checks the admin role and the name again */
+export function DeleteProjectButton({ projectId, name }: { projectId: string; name: string }) {
+    const router = useRouter();
+    const inputId = useId();
+    const input = useRef<HTMLInputElement>(null);
+    const [open, setOpen] = useState(false);
+    const [confirmation, setConfirmation] = useState('');
+    const [pending, startTransition] = useTransition();
+    const confirmed = confirmation.trim() === name;
+
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!confirmed || pending) return;
+        startTransition(async () => {
+            const result = await deleteProjectAction(projectId, confirmation);
+            if (result && !result.ok) {
+                toast.error(result.error);
+                return;
+            }
+            toast.success(`${name} was deleted.`);
+            router.push(KnownPages.AppProjects);
+        });
+    };
+
+    return (
+        <AlertDialog open={open} onOpenChange={next => {
+            if (pending) return;
+            setOpen(next);
+            if (!next) setConfirmation('');
+        }}>
+            <AlertDialogTrigger asChild>
+                {/* Outlined like the row above; the variant's tinted fill leaves its red text under 4.5:1 */}
+                <Button variant="outline" className={destructiveTextClassName}>Delete project</Button>
+            </AlertDialogTrigger>
+            {/* Opens on the name field: typing it is the only way on */}
+            <AlertDialogContent onOpenAutoFocus={event => { event.preventDefault(); input.current?.focus(); }}>
+                <form className="contents" onSubmit={handleSubmit}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Its comments, screenshots, review links, access and integration settings are deleted, and the toolbar stops working on its sites. Copies already sent to Notion, GitHub, Linear or Slack stay there. This can&apos;t be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <Field>
+                        <FieldLabel htmlFor={inputId}>Type the project name to confirm</FieldLabel>
+                        <Input ref={input} id={inputId} value={confirmation} onChange={event => setConfirmation(event.target.value)}
+                            placeholder={name} autoComplete="off" spellCheck={false} disabled={pending} />
+                    </Field>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                        <Button type="submit" variant="outline" className={destructiveTextClassName} disabled={!confirmed || pending}>
+                            {pending && <Spinner data-icon="inline-start" />}
+                            Delete project
+                        </Button>
+                    </AlertDialogFooter>
+                </form>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 }
 
