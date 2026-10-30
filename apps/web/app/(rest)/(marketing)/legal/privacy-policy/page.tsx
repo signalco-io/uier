@@ -152,6 +152,18 @@ export default function PrivacyPolicyPage() {
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>
             <p>
+                You can also sign in with a passkey that you add on your Account page. A passkey is a key pair: its
+                private key stays on your device or in your password manager. We store its public key and credential
+                id, a signature counter, how your device can reach it (such as built in or USB), the authenticator
+                model it reports, whether it is synced, the name you give it, and when it was added and last used.
+                Your fingerprint, face or screen lock only unlocks the passkey on your device; none of it reaches us.
+                Each passkey prompt uses a one-time challenge that we keep for at most five minutes, bound to your
+                browser by the HttpOnly <code>__Host-uier_passkey_challenge</code> cookie. The sign-in page asks for
+                one when it opens, so your browser can offer your passkeys in the email field. Adding a passkey
+                needs a sign-in from the last 10 minutes. We count passkey attempts per IP address to stop abuse.
+                Removing a passkey deletes it from our records at once.
+            </p>
+            <p>
                 When an admin of a workspace invites you, we store your email address, the role and projects they
                 chose, and who invited you, and we email you the invitation link. We store only a hash of the token
                 in the link. The invitation is deleted when you accept it, when the admin revokes it, or after 7
@@ -448,6 +460,7 @@ export default function PrivacyPolicyPage() {
                 <li>Comments in projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
+                <li>Passkeys: until you remove them on your Account page, or with your account. Passkey challenges: at most five minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>
                 <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>

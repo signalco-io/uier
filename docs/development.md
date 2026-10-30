@@ -49,6 +49,16 @@ to `apps/web/.env.local` and set the variables there.
 No email is sent locally either: the sign-in page shows the link and code it would have emailed
 ("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
+Passkeys work locally on http://localhost:4004: browsers allow WebAuthn on `localhost` over plain
+HTTP, and the relying party (RP ID `localhost`, origin `http://localhost:4004`) comes from the request's
+host there, as it does on previews. They do not work on `127.0.0.1`, because an IP address can't be
+an RP ID; the app says so instead of showing a browser error. A passkey made locally belongs to
+`localhost` only, and the in-memory store forgets it on restart, while your password manager keeps
+it: remove it there, or let the sign-in page tell the browser it is unknown. Adding a passkey needs
+a sign-in from the last 10 minutes (Account offers Sign in again). Without a device, use Chrome
+DevTools > More tools > WebAuthn to add a virtual authenticator; `e2e/passkeys.spec.ts` does the same
+through the DevTools protocol.
+
 ### Testing MCP OAuth locally
 
 OAuth for the [MCP connector](mcp.md) is on locally too. The issuer, the protected resource and the

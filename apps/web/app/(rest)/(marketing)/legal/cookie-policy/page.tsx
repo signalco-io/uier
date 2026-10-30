@@ -49,6 +49,13 @@ const items = [
         duration: 'Until the sign-in request expires, at most 15 minutes'
     },
     {
+        name: '__Host-uier_passkey_challenge',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You open the sign-in page in a browser that supports passkeys, or add a passkey in the app',
+        purpose: 'Binds the one-time passkey challenge to this browser. Holds a signed challenge id, with nothing about you or your passkey. A new prompt replaces it; checking the passkey removes it.',
+        duration: 'Until the challenge expires, at most five minutes'
+    },
+    {
         name: '__Host-uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
@@ -115,7 +122,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="29 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="30 October 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.

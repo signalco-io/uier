@@ -9,7 +9,9 @@ export const cookieNames = {
     session: { name: '__Host-uier_session', legacy: 'uier_session', lifetime: 30 * day },
     signInRequest: { name: '__Host-uier_sign_in_request', legacy: 'uier_sign_in_request', lifetime: 15 * 60 },
     workspace: { name: '__Host-uier_workspace', legacy: 'uier_workspace', lifetime: 365 * day },
-    reviewSso: { name: '__Secure-uier_review_sso', legacy: 'uier_review_sso', lifetime: 30 * day }
+    reviewSso: { name: '__Secure-uier_review_sso', legacy: 'uier_review_sso', lifetime: 30 * day },
+    // New after the cutoff: `legacy` is only the local HTTP name, never read on HTTPS (see passkeys.ts).
+    passkeyChallenge: { name: '__Host-uier_passkey_challenge', legacy: 'uier_passkey_challenge', lifetime: 5 * 60 }
 } as const;
 type CookieName = typeof cookieNames[keyof typeof cookieNames];
 type CookieReader = { get(name: string): { value: string } | undefined };

@@ -24,6 +24,8 @@ export const knownSecureHeadersExternalUrls = {
     }
 } satisfies Record<string, SecureHeadersExternalUrls>;
 
+// Passkeys use publickey-credentials-create/-get with their default `self` allowlist (the top-level
+// app pages); never list them here as `()`. e2e/passkeys.spec.ts runs both under these headers.
 export const permissionsPolicy = 'camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()';
 
 /** Production analytics 2.0.1 loads /_vercel/insights/script.js and posts to this origin. */

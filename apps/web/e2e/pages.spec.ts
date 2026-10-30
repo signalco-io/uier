@@ -23,6 +23,8 @@ test('security page publishes the reporting contact and the controls', async ({ 
     await expect(page.getByRole('heading', { level: 3, name: 'Continuous backups', exact: true })).toBeVisible();
     await expect(page.getByText('Production data has continuous backup with a seven-day point-in-time restore window in West Europe.', { exact: true })).toBeVisible();
     await expect(page.getByText('Keys live in the hosting environment, set by the infrastructure code. CI signs in to Azure with short-lived OIDC tokens instead of stored credentials. Deletion protection for data resources applies to Pulumi changes.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 3, name: 'Passkey sign-in', exact: true })).toBeVisible();
+    await expect(page.getByText('Each challenge works once within five minutes, in the browser that asked for it.', { exact: false })).toBeVisible();
     await expect(page.getByRole('heading', { level: 3, name: 'Checked changes', exact: true })).toBeVisible();
     await expect(page.getByText('Production changes go through pull requests with passing checks. An approving review is not required. Selected type declarations and browser-test tools may merge automatically after three days. Other dependency and action updates wait for a maintainer to merge them. Infrastructure is applied only by CI.', { exact: true })).toBeVisible();
     await expect(page.getByRole('main').getByRole('link', { name: 'privacy policy' })).toHaveAttribute('href', '/legal/privacy-policy');
