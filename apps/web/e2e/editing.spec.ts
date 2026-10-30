@@ -115,7 +115,14 @@ test('missing browser hints stay unknown and public feedback never exposes repro
     const saved = await response.json();
     expect(saved.device).toEqual({ size: sent.device.size, windowSize: sent.device.windowSize });
     expect(saved.reproduction).toBeUndefined();
-    await openThread(page).getByRole('button', { name: /^Device:/ }).click();
-    await expect(openThread(page).getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
+    // Public feedback shows the screen size and viewport only: no browser icon, OS, capture time or copy
+    const device = openThread(page).getByRole('button', { name: /^Device:/ });
+    await expect(device).toHaveAccessibleName(new RegExp(`^Device: \\w+ · ${sent.device.windowSize[0]}×${sent.device.windowSize[1]} px$`));
+    await device.click();
+    const details = page.getByRole('dialog', { name: 'Device', exact: true });
+    await expect(details).toContainText(`${sent.device.windowSize[0]}×${sent.device.windowSize[1]} CSS px`);
+    await expect(details).not.toContainText('Unknown browser');
+    await expect(details).not.toContainText('Captured');
+    await expect(details.getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
     await context.close();
 });
