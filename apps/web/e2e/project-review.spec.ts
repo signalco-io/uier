@@ -512,7 +512,7 @@ test('guest edits and original reproduction details persist; only members see an
     // The screen and browser icons by the time: hovering shows the original capture, a click keeps it open to copy
     const cardDevice = card.getByRole('button', { name: /^Device:/ });
     await expect(cardDevice).toHaveAccessibleName(/Example Browser \(123\) · Example OS/);
-    const details = page.getByRole('dialog', { name: 'Device and browser' });
+    // The same details dialog as the toolbar's (`details` above)
     if (!testInfo.project.name.startsWith('Mobile')) {
         await cardDevice.hover();
         await expect(details).toContainText('Example Browser (123)');
