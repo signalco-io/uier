@@ -11,7 +11,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, install and settings tabs, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
@@ -218,20 +218,38 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   All projects and Create project icon links in their header, then at the bottom the sections (Clients when a
   visible project has a client; Teams, Users and Workspace settings for admins), Give feedback and the account menu), the inset
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
-  (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header and tabs are
-  `projects/[projectId]/layout.tsx`; its pages render the tab content.
+  (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header is
+  `projects/[projectId]/layout.tsx` (client, then who can comment, whose popover has Invite for admins; no tabs:
+  Settings is an icon button after Open review); its pages
+  render the comments, settings or install guide under it.
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
-  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Check`/`Undo`,
-  `Copy`, `Link2`) and words: state, `#number` and unread dot with the actions on top (`ThreadAction`:
-  icon-only with a tooltip and accessible name; Done keeps its label unless the card is narrow), then
-  "Unassigned" / "Assigned to ..." and the source, the first and last message with Show all, the quiet
-  Follow thread and Open in ..., and the page link in the footer. Change both together. The first
+  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)
+  and words: state, `#number` and unread dot with the actions on top (`ThreadAction`: icon-only with a
+  tooltip and accessible name). For those who can resolve, the state badge is the Open/Done menu
+  ("Status: Open. Change status"); Copy link is in the More actions menu. Then "Unassigned" /
+  "Assigned to ...", the first and last message with Show all, the quiet Follow thread and Open in ...,
+  and the page link in the footer, with the source's environment name (or why the original source is
+  unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's
+  header still has its icon Done/Reopen and Copy link: change both together where they match. The first
   message's time is followed by `CommentDevice`: screen size and browser icons whose popover (hover or
   click, `useHoverPopover` like the project header's access info) lists the reproduction context and
   copies its text; the toolbar still shows one device icon with details under the message. Copy issue
   confirms "Issue copied." in its tooltip under the button (`ThreadAction`'s `notice`) for 2 seconds,
   as the toolbar does; its errors and manual clipboard fallback stay in the body; pending actions show
   `Spinner`.
+- `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, loaded by the
+  browser from the project's main address over HTTPS (`/favicon.ico`, `/favicon.svg`,
+  `/apple-touch-icon.png`, no favicon service or server fetch; `proxy.ts` adds `img-src https:` on app
+  pages), on a light tile in both themes, with the project's first letter until one loads.
+- The project header's Open review is a menu with Review and Visit site for every address; the header does not
+  repeat the addresses. The install guide
+  opens from the empty comments list and from Settings → Installation. It shows "Connected" with the latest
+  comment's time once a comment came from one of the project's addresses, with the guide behind Show install
+  guide (onboarding always shows the guide).
+- The comments' filter row: status tabs, Unread and Mark all as read, then one Environment and page control
+  (`LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
+  sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`) and People, then the
+  count and List/Board on the right. Choosing an environment keeps the panel open and reloads its pages.
 - `app/global.css` defines `--radius-sm/md/lg` (the preset's radii are JS values with no variables);
   shadcn's small buttons read `var(--radius-md)`.
 - **Onboarding.** `OnboardingSteps` shows Your site, Add the script and Invite a reviewer. Only
@@ -240,7 +258,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   the same. Guest projects reuse `GuestReviewLinks` for every configured address in order (main site first),
   in onboarding or the header's access popover (`ProjectAccessInfo`), never again in its empty state. Copy fields use
   plain `reviewUrl` links, never `/app/review`, `uier-token` or `uier-check`. Comments-off states explain that
-  comments are off and link admins to Settings; their header has no Invite. `inviteAction` still checks the
+  comments are off and link admins to Settings; their header popover has no Invite. `inviteAction` still checks the
   admin role on the server. `e2e/app.spec.ts`, `project-review.spec.ts` and `users.spec.ts` cover these paths.
 - `app/projectPublicIds.ts` assigns stable 21-character public Nano IDs lazily with claimed references
   and optimistic concurrency. Generated review URLs, embeds and guest email links use `publicId`;

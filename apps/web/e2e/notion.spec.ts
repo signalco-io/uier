@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
 
 test('Notion OAuth, explicit field mapping, destination confirmation and sync controls stay admin-only', async ({ page, browser, baseURL }, testInfo) => {
@@ -79,7 +79,7 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await expect(notion).toContainText('Destination: Other feedback.');
 
     await page.goto(`/app/projects/${projectId}`);
-    await page.getByRole('button', { name: 'Invite', exact: true }).first().click();
+    await openProjectInvite(page);
     const invitation = page.getByRole('dialog');
     await invitation.getByLabel('Email', { exact: true }).fill(uniqueEmail('notion-member'));
     await invitation.getByRole('button', { name: 'Send invitation' }).click();

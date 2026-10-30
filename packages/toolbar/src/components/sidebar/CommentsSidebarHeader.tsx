@@ -58,7 +58,7 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     );
 }
 
-/** A filter that is on or off, as a rounded toggle next to the page picker (as tall as it) */
+/** A filter that is on or off, an outlined toggle like the page picker beside it (and the app's Unread filter) */
 export function FilterChip({ pressed, onClick, children }: {
     pressed: boolean;
     onClick: () => void;
@@ -66,7 +66,7 @@ export function FilterChip({ pressed, onClick, children }: {
 }) {
     return (
         <Button variant="outlined" aria-pressed={pressed} onClick={onClick}
-            className={cx('shrink-0 rounded-full', pressed ? 'bg-accent' : 'text-muted-foreground')}>
+            className={cx('shrink-0 rounded-md font-normal', pressed && 'bg-accent')}>
             {children}
         </Button>
     );

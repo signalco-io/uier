@@ -66,7 +66,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     const source = commentItem.source && <span className="min-w-0 break-words">{sourceText(commentItem.source)}</span>;
 
     return (
-        <Stack ref={threadRef} spacing={3} className="px-4 py-3">
+        <Stack ref={threadRef} spacing={2} className="px-4 py-3">
             <CommentThreadHeader comment={commentItem} />
             {/* Who it is assigned to and where it came from, on one line (the app's comment card) */}
             {(commentItem.permissions?.assign || commentItem.assignee)

@@ -27,6 +27,8 @@ type CommentToolbarProps = {
     /** Whether the API returned a full list (there may be more comments than `commentsCount`) */
     commentsCountCapped?: boolean;
     hintOpen?: boolean;
+    /** "About uier" and its hint: uier.io's landing page introduction, nowhere else */
+    showAbout?: boolean;
     /** `id` of the first-run hint, while it is open */
     hintId?: string;
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -61,7 +63,7 @@ function countText(count: number, capped: boolean) {
 }
 
 export function CommentToolbar({
-    mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, hintId, projectUrl,
+    mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onToggleSidebar, onFeedbackOpen,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
@@ -176,17 +178,19 @@ export function CommentToolbar({
                                 <Inbox />
                                 {badge}
                             </IconButton>
-                            <IconButton
-                                ref={hintButtonRef}
-                                variant={hintOpen ? 'soft' : 'plain'}
-                                className="rounded-full"
-                                onClick={onToggleHint}
-                                title="About uier"
-                                aria-label="About uier"
-                                aria-expanded={hintOpen}
-                                aria-controls={hintOpen ? hintId : undefined}>
-                                <Info />
-                            </IconButton>
+                            {showAbout && (
+                                <IconButton
+                                    ref={hintButtonRef}
+                                    variant={hintOpen ? 'soft' : 'plain'}
+                                    className="rounded-full"
+                                    onClick={onToggleHint}
+                                    title="About uier"
+                                    aria-label="About uier"
+                                    aria-expanded={hintOpen}
+                                    aria-controls={hintOpen ? hintId : undefined}>
+                                    <Info />
+                                </IconButton>
+                            )}
                             <Divider orientation="vertical" className="mx-1 h-6" />
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined} />

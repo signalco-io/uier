@@ -3,7 +3,6 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Upload } from '@signalco/ui-icons';
 import { Input } from '@signalco/ui-primitives/Input';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
@@ -56,8 +55,9 @@ function useSeen<T extends Element>() {
 }
 
 /**
- * The screenshot under a thread's first message, with icon buttons to upload or paste a new one
- * for its author (the limits are in their tooltips). The image is fetched when it comes into view
+ * The screenshot under a thread's first message. Its author replaces it from the expanded view
+ * (Redact, Upload image, Paste image; the limits are in their tooltips), or adds one from the
+ * thread while there is none. Pasting with the keyboard works in both. The image is fetched when it comes into view
  * (the inbox lists many threads), once per image revision; until then a placeholder of its size
  * keeps the thread from jumping. Without a screenshot and nothing to do, it renders nothing.
  */
@@ -115,6 +115,26 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
         return null;
     }
 
+    // Upload and paste: small labelled buttons beside "No screenshot", or in the expanded view
+    const replaceActions = canReplace && <>
+        <Button size="xs" variant="plain" className="text-muted-foreground hover:text-foreground"
+            title={`Upload image. ${imageLimits}`} startDecorator={<Upload size={14} />}
+            disabled={busy || editing} onClick={() => sectionRef.current?.querySelector('input')?.click()}>
+            Upload image
+        </Button>
+        <Button size="xs" variant="plain" className="text-muted-foreground hover:text-foreground"
+            title={`Paste image. ${imageLimits}`} startDecorator={<PasteIcon size={14} />}
+            disabled={busy || editing} onClick={() => { void supply(clipboard); }}>
+            Paste image
+        </Button>
+    </>;
+    // Shown where the person is: in the expanded view while it is open, under the thumbnail otherwise
+    const notices = <>
+        {busy && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">Saving replacement...</p>}
+        {message && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">{message}</p>}
+        {failure && <p role="alert" className={`m-0 basis-full text-xs ${destructiveTextClassName}`}>{failure}</p>}
+    </>;
+
     return <section ref={sectionRef} aria-label="Screenshot evidence" className="flex flex-wrap items-center gap-1" onPaste={event => {
         if (!canReplace || busy || editing) return;
         const file = [...event.clipboardData.files][0];
@@ -141,9 +161,14 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                     onSave={replace} onCancel={() => setEditing(false)} /> : <>
                     <img src={data} width={size.width} height={size.height} alt="Expanded screenshot"
                         className="block min-h-0 w-full object-contain" />
-                    {canReplace && <Button variant="plain" className="min-h-11 self-start" onClick={() => { setMessage(''); setEditing(true); }}>Redact screenshot</Button>}
+                    {canReplace && (
+                        <div className="flex flex-wrap items-center gap-1">
+                            <Button variant="plain" className="min-h-11" disabled={busy} onClick={() => { setMessage(''); setEditing(true); }}>Redact screenshot</Button>
+                            {replaceActions}
+                        </div>
+                    )}
                 </>}
-                {replacement.isPending && <p role="status" className="m-0 text-sm">Saving replacement...</p>}
+                {open && notices}
             </Popper>
         )
         : (
@@ -153,26 +178,15 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                 className="mr-1 h-16 w-24 animate-pulse rounded-lg border bg-muted"
                 style={{ aspectRatio: `${size.width} / ${size.height}` }} />
         )}
-        {canReplace && <>
+        {canReplace && (
             <Input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload screenshot image" className="hidden"
                 disabled={busy} onChange={event => {
                     const file = event.target.files?.[0];
                     event.target.value = '';
                     if (file) void supply(async () => file);
                 }} />
-            <IconButton size="xs" variant="plain" className="size-7 text-muted-foreground hover:text-foreground"
-                title={`Upload image. ${imageLimits}`} aria-label="Upload image"
-                disabled={busy || editing} onClick={() => sectionRef.current?.querySelector('input')?.click()}>
-                <Upload size={16} />
-            </IconButton>
-            <IconButton size="xs" variant="plain" className="size-7 text-muted-foreground hover:text-foreground"
-                title={`Paste image. ${imageLimits}`} aria-label="Paste image"
-                disabled={busy || editing} onClick={() => { void supply(clipboard); }}>
-                <PasteIcon />
-            </IconButton>
-        </>}
-        {busy && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">Saving replacement...</p>}
-        {message && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">{message}</p>}
-        {failure && <p role="alert" className={`m-0 basis-full text-xs ${destructiveTextClassName}`}>{failure}</p>}
+        )}
+        {!size && replaceActions}
+        {!open && notices}
     </section>;
 }

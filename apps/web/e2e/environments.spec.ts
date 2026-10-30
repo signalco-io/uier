@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { chooseInboxPages, commentBubbles } from './support/toolbar';
+import { chooseInboxPages, commentBubbles, inboxPages } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -37,10 +37,13 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(settings.getByLabel(`Environment label for ${staging}`, { exact: true })).toHaveValue('Staging');
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toContainText('All environments');
+    // One control for where: the environment, then the page
+    const where = page.getByRole('button', { name: /^Environment and page:/ });
+    await expect(where).toContainText('All environments and pages');
     await expect(page.getByRole('article')).toHaveCount(3);
-    await page.getByRole('combobox', { name: 'Environment', exact: true }).click();
-    await page.getByRole('option', { name: 'Production', exact: true }).click();
+    await where.click();
+    await page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Production', exact: true }).click();
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('article')).toHaveCount(1);
     await page.reload();
     await expect(page.getByRole('article')).toHaveCount(1);
@@ -49,7 +52,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox).toContainText('Reviewing Production');
-    await expect(inbox.getByRole('combobox', { name: 'Environment', exact: true })).toContainText('All environments');
+    await expect(inboxPages(page)).toContainText('All environments');
     await expect(inbox.getByRole('region', { name: 'This page', exact: true }).getByRole('article')).toHaveCount(1);
     await chooseInboxPages(page, /^All pages/);
     await expect(inbox.getByRole('article')).toHaveCount(3);
@@ -66,12 +69,13 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
         await page.screenshot({ path: screenshot });
         await testInfo.attach(`environment-inbox-${colorScheme}`, { path: screenshot, contentType: 'image/png' });
     }
-    await inbox.getByRole('combobox', { name: 'Environment', exact: true }).click();
-    await page.getByRole('option', { name: 'Production', exact: true }).click();
+    await inboxPages(page).click();
+    await page.getByRole('dialog', { name: 'Environment and page' }).getByRole('group', { name: 'Environment' })
+        .getByRole('button', { name: 'Production', exact: true }).click();
     await page.reload();
     await expect(commentBubbles(page)).toHaveCount(1);
     await page.getByRole('button', { name: /^Inbox/ }).click();
-    await expect(inbox.getByRole('combobox', { name: 'Environment', exact: true })).toContainText('Production');
+    await expect(inboxPages(page)).toContainText('Production');
     await expect(inbox.getByRole('article')).toHaveCount(1);
     await chooseInboxPages(page, /^All pages/);
     await expect(inbox.getByRole('article')).toHaveCount(1);

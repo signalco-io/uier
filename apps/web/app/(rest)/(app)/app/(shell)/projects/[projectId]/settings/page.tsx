@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Button } from '@/src/components/ui/button';
+import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext, type AppContext } from '@/src/lib/app/context';
 import { getVisibleProject, listVisibleProjects } from '@/src/lib/app/projects';
 import { clientNames, loadClients, projectClient } from '@/src/lib/app/clients';
@@ -46,6 +49,16 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
         <div className="flex max-w-3xl flex-col gap-6">
             <h2 className="sr-only">Settings</h2>
             {canConfigure && <ProjectSetup project={project} context={context} />}
+            {/* The install guide, once the empty comments list no longer links to it */}
+            <Section
+                id="installation"
+                title="Installation"
+                description="The script for your site, steps for common platforms and the installation check."
+                actions={(
+                    <Button variant="outline" asChild>
+                        <Link href={KnownPageLinks.projectInstall(project.id)}>Open install guide</Link>
+                    </Button>
+                )} />
             <Section
                 id="emails"
                 title="Email notifications"

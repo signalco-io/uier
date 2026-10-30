@@ -19,7 +19,7 @@ export function ClientNameInput({ id, value, onValueChange, clients, className }
     if (!clients.length) {
         return (
             <Input id={id} name="clientName" value={value} onChange={event => onValueChange(event.target.value)}
-                maxLength={MAX_CLIENT_NAME_LENGTH} className={className} />
+                maxLength={MAX_CLIENT_NAME_LENGTH} placeholder="Who the site is for, e.g. Acme" className={className} />
         );
     }
 

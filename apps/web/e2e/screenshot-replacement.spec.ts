@@ -60,9 +60,13 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
     await page.screenshot({ path: testInfo.outputPath('saved-evidence-light.png') });
 
     await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { read: async () => { throw new DOMException('Denied', 'NotAllowedError'); } } }));
-    await thread.getByRole('button', { name: 'Paste image' }).click();
-    await expect(thread.getByRole('alert')).toContainText('Clipboard access was denied');
+    // With a saved image, Upload and Paste are in the expanded view, which shows their errors
+    await thumbnail.click();
+    const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    await expanded.getByRole('button', { name: 'Paste image' }).click();
+    await expect(expanded.getByRole('alert')).toContainText('Clipboard access was denied');
     expect(await storedImage(page, id)).toBe(cleanPng);
+    await expanded.getByRole('button', { name: 'Close screenshot' }).click();
 
     await page.route(`**/api/comments/${id}/screenshot`, async route => {
         if (route.request().method() === 'POST') await route.fulfill({ status: 503, json: { error: 'unavailable', message: 'Image storage unavailable.' } });
@@ -98,12 +102,13 @@ test('saved evidence: clipboard image, keyboard redaction, failed save, reload a
     await page.evaluate(data => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
         read: async () => [{ types: ['image/png'], getType: async () => new Blob([Uint8Array.from(atob(data.split(',')[1]!), c => c.charCodeAt(0))], { type: 'image/png' }) }]
     } }), pngImage);
-    await thread.getByRole('button', { name: 'Paste image' }).click();
-    await expect(thread.getByRole('status')).toContainText('Screenshot replaced.');
     const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    await thumbnail.click();
+    await expanded.getByRole('button', { name: 'Paste image' }).click();
+    await expect(thread.getByRole('status')).toContainText('Screenshot replaced.');
     await thumbnail.focus();
     await page.keyboard.press('Enter');
-    const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
     await expanded.getByRole('button', { name: 'Redact screenshot' }).click();
     const editor = expanded.getByRole('region', { name: 'Redact screenshot' });
     const surface = editor.getByRole('img', { name: 'Image redaction surface' });

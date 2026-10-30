@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
 
 test('Slack consent, explicit channel choice, optional summaries, test send, backfill and disconnect are admin-only', async ({ page, browser, baseURL }, testInfo) => {
@@ -47,7 +47,7 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     await expect(slack).toContainText('Notifications on');
 
     await page.goto(`/app/projects/${projectId}`);
-    await page.getByRole('button', { name: 'Invite', exact: true }).first().click();
+    await openProjectInvite(page);
     const invitation = page.getByRole('dialog');
     await invitation.getByLabel('Email', { exact: true }).fill(uniqueEmail('slack-member'));
     await invitation.getByRole('button', { name: 'Send invitation' }).click();

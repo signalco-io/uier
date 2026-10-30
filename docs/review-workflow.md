@@ -58,14 +58,14 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     the sources to add to it). Both pages show the three-step progress (Your site, Add the script, Invite a
     reviewer). The install page starts at step 2 of 3 and adds the reviewer step below the guide: admins
     invite people by email for invited-only projects; guest projects show a plain, copyable review link for
-    every address, main site first. Comments-off projects say so and link admins to Settings. The Install
-    tab on its own is the guide without the progress or reviewer step.
-  - A project has a header (name, addresses, who can comment, Invite and Open review) and three tabs:
-    Comments, Install and Settings. Hovering or clicking who can comment shows more info; in guest mode
-    that includes the guest links for every address (main site first).
+    every address, main site first. Comments-off projects say so and link admins to Settings. The install
+    guide on its own (from the empty comments list or Settings → Installation) has no progress or reviewer step.
+  - A project has a header (name, client, who can comment, Open review and a Settings button) above
+    its comments. Open review lists every address (main site first) to review or visit. Hovering or clicking
+    who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
   - Comments `/app/projects/<code>`: the project's **comments**, as a
-    list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and page (relative
-    URLs). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
+    list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
+    (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
     counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number` and unread dot with the
     actions (Mark as read, Done or Reopen, Copy issue, Copy link and More) on top, then the assignee
     ("Unassigned", or a menu of people for those who can assign) and its source, the first and last message
@@ -111,7 +111,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   remove people (the last admin stays), including the person who created the workspace, and revoke
   invitations. A removed member's review token stops working at once, because the review API checks the
   membership on every request.
-  - Invite (a dialog from the users page, a project's header or its card menu): the email, the role and,
+  - Invite (a dialog from the users page, a project's header (in who can comment) or its card menu): the email, the role and,
     for commenters, the selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
     stored only as a SHA-256 hash; 50 invitations per workspace per day). Inviting the same address again
     replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
@@ -174,7 +174,7 @@ Every public page embeds the toolbar from the marketing layout in **showcase** m
 
 ([`ToolbarScript`](../apps/web/src/components/toolbar/ToolbarScript.tsx), which renders the toolbar's React component
 `<UierToolbar mode="showcase" />` from `@uier/toolbar/react`). The toolbar
-is always mounted on public pages and shows a dismissible first-run hint; anonymous visitors can leave point comments,
+is always mounted on public pages, and the landing page shows a dismissible first-run hint (with About uier to reopen it); anonymous visitors can leave point comments,
 text-selection comments and replies. **Feedback is public**: every visitor sees every unresolved comment on
 the page and can reply to it. Embedding options and the toolbar's modes are described in
 [`packages/toolbar/README.md`](../packages/toolbar/README.md).
@@ -229,8 +229,8 @@ images that haven't loaded within a second (lazy ones below the window), `<canva
 `backdrop-filter` come out empty or plain.
 
 For missing or unsuitable captures, the author (or a workspace admin) can choose **Upload image** or
-**Paste image** on saved feedback in the toolbar. Keyboard image paste also works while a saved image
-control has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
+**Paste image** on saved feedback in the toolbar: beside "No screenshot", or in the expanded screenshot next
+to Redact screenshot. Keyboard image paste also works while a saved image control has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
 invalid images and denied clipboard access show an error and keep the saved feedback. Nothing is previewed
 in a composer. Images are not persisted with drafts or in browser storage.
 
@@ -369,8 +369,8 @@ identical, case-sensitive alias group on equivalent origins to share feedback fo
 page views. A label alone never groups addresses. Grouping changes the view; it does not copy or
 migrate comments, change permission checks, or rewrite their source origins.
 
-The toolbar's pins follow the current environment or explicit alias group. Its inbox has a visible
-Environment filter (All environments by default). Counts/unread and bounded lists use the
+The toolbar's pins follow the current environment or explicit alias group. Its inbox picks the environment
+in the same location picker as its pages (All environments by default). Counts/unread and bounded lists use the
 same server-side scope. Selecting another environment changes the inbox, while new feedback is
 still recorded on the site being reviewed. The filter is saved on that site for the API, project
 and reviewer in `uier:environment:v1:<api>:<project>:<reviewer>` until browser data is cleared.

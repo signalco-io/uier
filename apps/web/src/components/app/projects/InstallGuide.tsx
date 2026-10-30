@@ -78,26 +78,35 @@ function Step({ number, title, last = false, children }: { number: number; title
     );
 }
 
-/** The CSP sources, and where the platform's site sets its policy */
-function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Platform }) {
+/** A quiet disclosure for what most sites do not need: "Advanced: ..." with a chevron */
+function Advanced({ title, children }: { title: string; children: ReactNode }) {
     return (
         <Collapsible className="flex flex-col gap-2">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent">
                     <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-open/advanced:rotate-90" />
-                    Advanced: security headers
+                    Advanced: {title}
                 </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-3">
-                <p className="m-0 text-sm text-muted-foreground">
-                    {platform.csp} Without them the browser blocks the toolbar.
-                </p>
-                <CopyBlock value={cspSnippet(baseUrl)} label="Copy the CSP sources" />
-                <p className="m-0 text-sm text-muted-foreground">
-                    The font is optional: when it is blocked the toolbar uses the system font.
-                </p>
+                {children}
             </CollapsibleContent>
         </Collapsible>
+    );
+}
+
+/** The CSP sources, and where the platform's site sets its policy */
+function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Platform }) {
+    return (
+        <Advanced title="security headers">
+            <p className="m-0 text-sm text-muted-foreground">
+                {platform.csp} Without them the browser blocks the toolbar.
+            </p>
+            <CopyBlock value={cspSnippet(baseUrl)} label="Copy the CSP sources" />
+            <p className="m-0 text-sm text-muted-foreground">
+                The font is optional: when it is blocked the toolbar uses the system font.
+            </p>
+        </Advanced>
     );
 }
 
@@ -117,22 +126,17 @@ export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }:
                         (<code className="font-mono">?toolbar-code={publicId}</code>), so visitors never see it.
                     </p>
                     <CopyBlock value={script} label="Copy the script" />
-                    <Collapsible className="flex flex-col gap-3">
-                        <CollapsibleTrigger asChild>
-                            <Button variant="outline" size="sm" className="self-start">Pin this version</Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="flex flex-col gap-3">
-                            <p className="m-0 text-sm text-muted-foreground">
-                                This version includes an integrity check. It gets fixes only when you update the snippet.
-                                Pinned production bundles work with the review API for one year after their last release as the current version.
-                            </p>
-                            <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label="Copy the pinned script" />
-                        </CollapsibleContent>
-                    </Collapsible>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                         Project code
                         <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{publicId}</code>
                     </div>
+                    <Advanced title="pin this version">
+                        <p className="m-0 text-sm text-muted-foreground">
+                            This version includes an integrity check. It gets fixes only when you update the snippet.
+                            Pinned production bundles work with the review API for one year after their last release as the current version.
+                        </p>
+                        <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label="Copy the pinned script" />
+                    </Advanced>
                 </Step>
                 <Step number={2} title="Add it to your site">
                     <Tabs defaultValue="html" className="gap-3">
@@ -148,15 +152,10 @@ export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }:
                                 </ol>
                                 {platform.code && (<>
                                     <CopyBlock value={platform.code(baseUrl, publicId)} label={`Copy the ${platform.label} code`} />
-                                    <Collapsible className="flex flex-col gap-3">
-                                        <CollapsibleTrigger asChild>
-                                            <Button variant="outline" size="sm" className="self-start">Pin the {platform.label} version</Button>
-                                        </CollapsibleTrigger>
-                                        <CollapsibleContent className="flex flex-col gap-3">
-                                            <p className="m-0 text-sm text-muted-foreground">It gets fixes only when you update the snippet.</p>
-                                            <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={`Copy the pinned ${platform.label} code`} />
-                                        </CollapsibleContent>
-                                    </Collapsible>
+                                    <Advanced title={`pin the ${platform.label} version`}>
+                                        <p className="m-0 text-sm text-muted-foreground">It gets fixes only when you update the snippet.</p>
+                                        <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={`Copy the pinned ${platform.label} code`} />
+                                    </Advanced>
                                 </>)}
                                 <SecurityHeaders baseUrl={baseUrl} platform={platform} />
                             </TabsContent>

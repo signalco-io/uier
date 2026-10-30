@@ -9,6 +9,7 @@ import { KnownPageLinks } from '../../../knownPages';
 import { InviteButton } from '../users/InviteDialog';
 import type { AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
+import { pageMatches } from './pageFilter';
 import { CommentList } from './CommentList';
 import type { AuthorFilter, CommentsView, PeopleFilter, StatusFilter } from './commentLabels';
 import { MarkAllRead } from './MarkAllRead';
@@ -21,7 +22,7 @@ export type CommentsQuery = {
     /** Open, Done or All in the list (the board shows Open and Done side by side) */
     status: StatusFilter;
     people: PeopleFilter;
-    /** A page (relative URL) or every page */
+    /** A page (relative URL), a section (`/blog/*`) or every page */
     page?: string;
 };
 
@@ -48,7 +49,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string) {
     return comments.filter(comment => {
         if (query.unread && !comment.activity?.unread) return false;
-        if (query.page && comment.path !== query.page)
+        if (query.page && !pageMatches(query.page, comment.path))
             return false;
         if (query.people === 'assigned')
             return comment.assignee?.id === userId;
@@ -72,6 +73,16 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
     /** The install guide, offered while there are no comments */
     installHref: string;
 }) {
+    const installText = query.environment === 'all'
+        ? 'Install the script and open a review link to leave the first comment.'
+        : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.';
+    const installButton = (className?: string) => (
+        <Button variant="outline" asChild className={className}>
+            <Link href={installHref}>Install the script</Link>
+        </Button>
+    );
+    // Invited projects take two steps, each with its button: the script, then the people
+    const steps = access === 'invited' && isAdmin;
     const emptyState = (
         <Empty className="border">
             <EmptyHeader>
@@ -79,32 +90,46 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                     <MessageSquareDashedIcon />
                 </EmptyMedia>
                 <EmptyTitle>No comments yet</EmptyTitle>
-                <EmptyDescription>
-                    {access === 'disabled'
-                        ? `Comments are off. ${projectAccessLabels.disabled.description}`
-                        : query.environment === 'all'
-                            ? 'Install the script and open a review link to leave the first comment.'
-                            : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.'}
-                </EmptyDescription>
-                {access === 'invited' && isAdmin && (
-                    <EmptyDescription>{projectAccessLabels.invited.description}</EmptyDescription>
+                {!steps && (
+                    <EmptyDescription>
+                        {access === 'disabled' ? `Comments are off. ${projectAccessLabels.disabled.description}` : installText}
+                    </EmptyDescription>
                 )}
             </EmptyHeader>
-            <EmptyContent>
-                {access === 'invited' && isAdmin && <InviteButton projectId={projectId} />}
-                {access === 'disabled' && isAdmin && (
-                    <Button variant="outline" asChild>
-                        <Link href={KnownPageLinks.projectSettings(projectId)}>Settings</Link>
-                    </Button>
-                )}
-                <Button variant="outline" asChild>
-                    <Link href={installHref}>Install the script</Link>
-                </Button>
-            </EmptyContent>
+            {steps ? (
+                <EmptyContent className="max-w-2xl">
+                    <ol className="m-0 grid w-full list-none gap-3 p-0 sm:grid-cols-2">
+                        {[
+                            { text: installText, action: installButton('w-full') },
+                            { text: projectAccessLabels.invited.description, action: <InviteButton projectId={projectId} className="w-full" /> }
+                        ].map((step, index) => (
+                            <li key={index} className="flex flex-col items-center gap-3 px-2">
+                                <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-xs font-medium tabular-nums">{index + 1}</span>
+                                <p className="m-0 text-muted-foreground">{step.text}</p>
+                                <div className="mt-auto w-full">{step.action}</div>
+                            </li>
+                        ))}
+                    </ol>
+                </EmptyContent>
+            ) : (
+                <EmptyContent>
+                    {/* One column: the buttons take the width of the widest */}
+                    <div className="grid gap-2">
+                        {access === 'disabled' && isAdmin && (
+                            <Button variant="outline" asChild>
+                                <Link href={KnownPageLinks.projectSettings(projectId)}>Settings</Link>
+                            </Button>
+                        )}
+                        {installButton()}
+                    </div>
+                </EmptyContent>
+            )}
         </Empty>
     );
 
-    const pages = [...new Set(comments.map(comment => comment.path))].sort();
+    // Each page with its number of comments, for the page search
+    const pages = [...comments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
+        .map(([path, count]) => ({ path, count }));
     const filtered = applyFilters(comments, query, userId);
     const statusCounts: Record<StatusFilter, number> = {
         open: filtered.filter(comment => !comment.resolved).length,
@@ -122,15 +147,15 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
-                    readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />} />
-                <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
-                    {shown.length === comments.length
-                        ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
-                        : `${shown.length} of ${comments.length} comments`}
-                </p>
-            </div>
+            <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
+                readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}
+                summary={(
+                    <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
+                        {shown.length === comments.length
+                            ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
+                            : `${shown.length} of ${comments.length} comments`}
+                    </p>
+                )} />
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>

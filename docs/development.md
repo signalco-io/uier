@@ -30,11 +30,11 @@ pnpm dev
 | http://localhost:4004 | `apps/web` (Next.js dev server) |
 | http://localhost:4005/index.js | `packages/toolbar` (tsup watch build served from `dist/`); the web app loads this script instead of `/toolbar.js` |
 
-- Every public page runs in **showcase** mode: always mounted, with the first-run hint.
-- Review links also show the first-run guide. About uier reopens it; dismissal is remembered per API
-  and project on the reviewed site. Feedback mode keeps its form focused without opening the guide.
+- Every public page runs in **showcase** mode: always mounted. Only the landing page has the first-run hint
+  and About uier; the other public pages, the app, reviews and embeds have neither. Feedback mode keeps
+  its form focused.
 - Project settings lets admins save a plain-text review brief (up to 2000 characters). Everyone who can
-  comment under the current access setting can read it in the guide and inbox; other visitors never
+  comment under the current access setting can read it in the inbox; other visitors never
   receive it. Blank input clears it. HTML, Markdown and URLs remain literal text.
 - Review links (`?toolbar-code=<project code>` or `?review=true`) start **review** mode instead; the
   review continues in that tab until "Exit review". In development the signed-in app loads review mode only.

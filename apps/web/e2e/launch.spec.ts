@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, dismissFirstRunHint, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
 // Integration evidence, not a substitute for the hosted/physical-device checklist in
 // docs/mvp-launch-verification.md. Local identity/email/BotID use the repository's test mode.
@@ -222,7 +222,6 @@ test('recovery and keyboard movement preserve host styles, focus and reachable c
         : route.continue());
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(host)}`);
     await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible({ timeout: 20_000 });
-    await dismissFirstRunHint(page);
     await page.getByRole('button', { name: 'Host interaction' }).click();
     await expect(page.locator('#host-probe')).toHaveAttribute('data-clicks', '1');
     failing = false;

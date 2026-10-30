@@ -5,6 +5,7 @@ import {
     animationsFinished,
     chooseInboxPages,
     inboxPages,
+    inboxPageOptions,
     isolatedOrigin,
     newVisitor,
     openLanding,
@@ -202,7 +203,7 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     const thisPage = sidebar.getByRole('region', { name: 'This page', exact: true });
     const allPages = sidebar.getByRole('region', { name: 'All pages', exact: true });
     const pagesButton = inboxPages(page);
-    const pageOptions = page.getByRole('listbox');
+    const pageOptions = inboxPageOptions(page);
     const choosePage = (name: RegExp) => chooseInboxPages(page, name);
 
     // This page first: its open comments, newest first, with their public id and status
@@ -215,12 +216,10 @@ test('inbox: this page by default, other pages from the picker, searched and fil
 
     // The picker: this page, all pages and the other pages, with their open comments
     await pagesButton.click();
-    await expect(pageOptions.getByRole('option', { name: /^This page/ })).toHaveAttribute('data-state', 'checked');
-    await expect(pageOptions.getByRole('option', { name: /^All pages\D*3$/ })).toBeVisible();
-    await expect(pageOptions.getByRole('option')).toHaveCount(3);
-    // (While the select is open it hides the rest of the page from assistive technologies, like a
-    // dialog; the scans below run with it closed.)
-    await pageOptions.getByRole('option', { name: /^\/security\D*1$/ }).click();
+    await expect(pageOptions.getByRole('button', { name: /^This page/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(pageOptions.getByRole('button', { name: 'All pages, 3 comments' })).toBeVisible();
+    await expect(pageOptions.getByRole('button')).toHaveCount(3);
+    await pageOptions.getByRole('button', { name: '/security, 1 comment' }).click();
     await expect(pageOptions).toBeHidden();
     await expect(pagesButton).toContainText('/security');
     const security = sidebar.getByRole('region', { name: '/security', exact: true });

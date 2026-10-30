@@ -1,4 +1,3 @@
-import { SelectItems } from '@signalco/ui-primitives/SelectItems';
 import React, { useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { useActivitySummary } from '../../hooks/useComments';
@@ -8,7 +7,7 @@ import { useProjectViewer } from '../../project/ProjectGate';
 import { Search } from '@signalco/ui-icons';
 import { CommentsSidebarHeader, CommentsStatusTabs, FilterChip } from './CommentsSidebarHeader';
 import { CommentsSidebarCommentsList } from './CommentsSidebarCommentsList';
-import { PagePicker } from './PagePicker';
+import { LocationPicker } from './LocationPicker';
 import { useInboxComments } from './useInboxComments';
 import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
@@ -32,9 +31,9 @@ export type CommentsSidebarProps = {
 };
 
 /**
- * The inbox: the search on top (it applies whatever else is chosen), the pages to list (this page
- * by default, all pages or another page) with the unread and assigned filters, then the status
- * tabs right above the comments.
+ * The inbox: the search on top (it applies whatever else is chosen), where the comments are from
+ * (the environment, then this page by default, all pages, a section or another page) with the
+ * unread and assigned filters, then the status tabs right above the comments.
  */
 export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage }: CommentsSidebarProps) {
     const { isMember, environment, environmentOptions, setEnvironment, environmentLabel } = useProjectViewer();
@@ -74,8 +73,10 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
                     : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
                 <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                    <Stack spacing={3} className="shrink-0 px-4 pt-3">
+                    <Stack spacing={2} className="shrink-0 px-4 pt-3">
                         <CommentsSidebarHeader onClose={handleClose} />
+                        {/* The search and filters are one group, closer together than the title and the tabs */}
+                        <Stack spacing={1}>
                         {/* With a decorator the kit's focus ring is on the box, which never has the focus itself */}
                         <Input
                             type="search"
@@ -88,16 +89,15 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                             value={filter.keywords ?? ''}
                             onChange={(e) => setFilter({ ...filter, keywords: e.target.value })}
                             onKeyDown={handleSearchKeyDown} />
-                        {setEnvironment && <Stack spacing={1}>
-                            <p className="m-0 text-xs text-muted-foreground">Reviewing {environmentLabel ?? window.location.origin}. New feedback stays here.</p>
-                            <EnvironmentSelect value={environment} options={environmentOptions ?? []} onChange={setEnvironment} />
-                        </Stack>}
+                        {setEnvironment && <p className="m-0 text-xs text-muted-foreground">Reviewing {environmentLabel ?? window.location.origin}. New feedback stays here.</p>}
                         <div className="flex flex-wrap items-center gap-2">
-                            <PagePicker
+                            <LocationPicker
                                 value={inbox.scope}
                                 pages={inbox.pages}
+                                currentPath={inbox.currentPath}
                                 currentCount={inbox.currentCount}
                                 otherCount={inbox.otherCount}
+                                environment={setEnvironment && { value: environment, options: environmentOptions ?? [], onChange: setEnvironment }}
                                 onChange={(page) => setFilter({ ...filter, page })} />
                             {/* Unread threads can be done ones and on any page (the pill counts the whole
                                 site): the filter shows every status, and turning it on every page */}
@@ -112,6 +112,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                                 </FilterChip>
                             )}
                         </div>
+                        </Stack>
                         <CommentsStatusTabs
                             counts={inbox.counts}
                             status={filter.status}
@@ -131,10 +132,3 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
     );
 }
 
-
-function EnvironmentSelect({ value, options, onChange }: { value?: string; options: { id: string; label: string }[]; onChange: (value: string) => void }) {
-    const [container, setContainer] = useState<HTMLDivElement | null>(null);
-    return <div ref={setContainer} className="dark"><SelectItems container={container ?? undefined} label="Environment" value={value} onValueChange={onChange}
-        items={[...options.map(item => ({ value: item.id, label: item.label })),
-            { value: 'all', label: 'All environments' }, { value: 'removed', label: 'Removed addresses' }, { value: 'unknown', label: 'Source not recorded' }]} /></div>;
-}

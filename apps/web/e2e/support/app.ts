@@ -37,10 +37,9 @@ export async function createProject(page: Page, { urls, name, clientName }: { ur
     await page.goto('/app/projects/new');
     const [main, ...others] = urls;
     await page.getByLabel('Main site address').fill(main ?? '');
-    for (const [index, url] of others.entries()) {
-        await page.getByRole('button', { name: 'Add another address' }).click();
+    // Typing in the last address adds the field for the next one
+    for (const [index, url] of others.entries())
         await page.getByLabel(`Address ${index + 2}`, { exact: true }).fill(url);
-    }
     if (name)
         await page.getByLabel('Project name').fill(name);
     if (clientName !== undefined)
@@ -78,6 +77,12 @@ export async function setProjectAccess(page: Page, projectId: string, label: Pro
     await access.getByRole('radio', { name: label }).click();
     await access.getByRole('button', { name: 'Save' }).click();
     await expect(access.getByRole('status')).toContainText('Saved.');
+}
+
+/** Opens the invite dialog from the project header: Invite is in the popover of who can comment */
+export async function openProjectInvite(page: Page, access: ProjectAccessLabel = 'Invited people') {
+    await page.getByRole('button', { name: access, exact: true }).click();
+    await page.getByRole('dialog', { name: access }).getByRole('button', { name: 'Invite', exact: true }).click();
 }
 
 /** The sidebar as a sheet (small screens), while it is open or closing */
