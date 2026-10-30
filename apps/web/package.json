@@ -37,7 +37,7 @@
     "@tanstack/react-query-devtools": "5.105.0",
     "@uier/brand": "workspace:*",
     "@vercel/analytics": "2.0.1",
-    "@vercel/oidc": "4.0.4",
+    "@vercel/oidc": "4.0.5",
     "botid": "1.5.12",
     "class-variance-authority": "0.7.1",
     "cn": "0.5.0",
