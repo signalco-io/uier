@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useId, useRef, useState, useTransition, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { PlusIcon } from 'lucide-react';
@@ -21,6 +22,7 @@ import { Textarea } from '@/src/components/ui/textarea';
 import { Input } from '@/src/components/ui/input';
 import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Spinner } from '@/src/components/ui/spinner';
+import { KnownPages } from '../../../knownPages';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { destructiveTextClassName, Section } from '../PageHeader';
@@ -31,7 +33,6 @@ import { UrlListInput } from './UrlListInput';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
 import { updateProjectBriefAction, setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
 import { deleteProjectAction, updateProjectEmailExcerptsAction, updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
-import { KnownPages } from '../../../knownPages';
 import { updateNotificationAction } from '../comments/notificationActions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
@@ -83,7 +84,8 @@ export function ProjectClientNameForm({ projectId, clientName, clients }: { proj
     const [state, formAction, pending] = useActionState(updateProjectClientNameAction, null);
     const [value, setValue] = useState(clientName ?? '');
     return (
-        <Section id="client" title="Client" description="An optional name for the client this project is for. Leave it blank to remove it."
+        <Section id="client" title="Client"
+            description={<>An optional name for the client this project is for. Leave it blank to remove it. Rename a client or change its icon and colour on the <Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">Clients page</Link>.</>}
             footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
             <form id={formId} action={formAction}>
                 <input type="hidden" name="projectId" value={projectId} />

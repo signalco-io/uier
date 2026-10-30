@@ -5,10 +5,13 @@ import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { hasProjectAccess, loadWorkspaceAccess } from './access';
 import type { AppContext } from './context';
-import { MAX_CLIENT_NAME_LENGTH, MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
+import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 import { ensureProjectPublicId, isProjectPublicId, projectByPublicId } from './projectPublicIds';
+import { createProjectWithClient, ensureProjectClient } from './clients';
+
+export { projectClientNameSchema } from './clients';
 
 const MAX_URL_LENGTH = 512;
 
@@ -83,12 +86,6 @@ export const projectNameSchema = z.string().trim()
     .min(1, 'Enter a project name.')
     .max(MAX_PROJECT_NAME_LENGTH, `Use at most ${MAX_PROJECT_NAME_LENGTH} characters.`);
 
-/** Blank input clears the optional label; repeated whitespace is not part of a client name. */
-export const projectClientNameSchema = z.string()
-    .transform(value => value.replace(/\s+/g, ' ').trim())
-    .pipe(z.string().max(MAX_CLIENT_NAME_LENGTH, `Use at most ${MAX_CLIENT_NAME_LENGTH} characters for the client name.`))
-    .transform(value => value || undefined);
-
 /** `https://www.example.com/app` -> `example.com` */
 export function defaultProjectName(url: string) {
     const { hostname } = new URL(url);
@@ -131,7 +128,8 @@ export function reviewUrl(siteUrl: string, publicId: string) {
 
 export async function listProjects(workspaceId: string) {
     const projects = await getAppStore().query<DbProject>({ type: 'project', pk: workspacePk(workspaceId) });
-    return await Promise.all(projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(project => ensureProjectPublicId(project)));
+    return await Promise.all(projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(async project => await ensureProjectPublicId(await ensureProjectClient(project))));
 }
 
 /** Projects of the current workspace the member may see */
@@ -143,12 +141,12 @@ export async function listVisibleProjects(context: AppContext) {
 export async function getProject(workspaceId: string, projectId: string) {
     if (isProjectPublicId(projectId)) {
         const project = await projectByPublicId(projectId);
-        return project?.workspaceId === workspaceId ? project : null;
+        return project?.workspaceId === workspaceId ? await ensureProjectPublicId(await ensureProjectClient(project)) : null;
     }
     if (!isProjectId(projectId))
         return null;
     const project = (await getAppStore().get<DbProject>(workspacePk(workspaceId), projectId))?.doc;
-    return project ? await ensureProjectPublicId(project) : null;
+    return project ? await ensureProjectPublicId(await ensureProjectClient(project)) : null;
 }
 
 /** A project by its internal id (any workspace). */
@@ -174,6 +172,7 @@ export async function getVisibleProject(context: AppContext, projectId: string) 
     return project && hasProjectAccess(await loadWorkspaceAccess(context.workspace.id), context.member, project) ? project : null;
 }
 
+/** A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one */
 export async function createProject(context: AppContext, { name, urls, clientName }: { name: string; urls: string[]; clientName?: string }) {
     assertMutableWorkspace(context.workspace.id);
     const store = getAppStore();
@@ -190,7 +189,6 @@ export async function createProject(context: AppContext, { name, urls, clientNam
             pk: workspacePk(context.workspace.id),
             workspaceId: context.workspace.id,
             name,
-            ...(clientName ? { clientName } : {}),
             urls,
             status: 'active',
             access: 'invited',
@@ -198,8 +196,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
             createdAt: now,
             updatedAt: now
         };
-        await store.create(project);
-        return await ensureProjectPublicId(project, store);
+        return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
     }
     throw new Error('Could not create a unique project code');
 }
@@ -209,7 +206,6 @@ export type ProjectUpdate = Partial<{
     pageState: PageStatePolicy;
     environments: import('./environments').ProjectEnvironment[];
     name: string;
-    clientName: string | undefined;
     brief: string | undefined;
     urls: string[];
     status: ProjectStatus;

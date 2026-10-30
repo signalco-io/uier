@@ -44,8 +44,9 @@ the action is `deleteProjectAction` in
 Integration discovery drops a tombstone whose project code is retired: the project's services were
 disconnected and its ledgers removed, so there is nothing to fan out to.
 
-Rate-limit counters (an hour or a day) and submission receipts (30 days, hashes only) in the comment
-partition expire on their own. Access events keep the project id for 180 days. Backups keep deleted
+The project's client (`DbClient`) is a workspace record and stays, as it does when a project's client is
+cleared; the app shows a client only through projects that point to it. Rate-limit counters (an hour or a
+day) and submission receipts (30 days, hashes only) in the comment partition expire on their own. Access events keep the project id for 180 days. Backups keep deleted
 data for up to seven days ([backups and restore](backups-and-restore.md)).
 
 ## Retries

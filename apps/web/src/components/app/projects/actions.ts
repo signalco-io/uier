@@ -21,6 +21,7 @@ import {
 } from '../../../lib/app/projects';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
 import { configuredEnvironments } from '../../../lib/app/environments';
+import { setProjectClient } from '../../../lib/app/clients';
 import { parseActionInput } from '../../../lib/app/validation';
 import { deleteProjectActionSchema, projectStatusActionSchema } from './actionSchemas';
 import { deleteProject } from '../../../lib/app/projectDeletion';
@@ -88,7 +89,10 @@ export async function updateProjectNameAction(_: ActionState, formData: FormData
 
 export async function updateProjectClientNameAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
-        await saveProject(formData.get('projectId'), { clientName: projectClientNameSchema.parse(formData.get('clientName') ?? '') });
+        const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
+        const { context, project } = await adminProject(formData.get('projectId'));
+        await setProjectClient(context, project.id, clientName);
+        revalidatePath('/app', 'layout');
     }, 'The client name is saved.');
 }
 

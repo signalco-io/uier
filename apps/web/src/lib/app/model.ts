@@ -1,4 +1,5 @@
 import type { PageStatePolicy } from '@uier/toolbar/page-state';
+import type { ClientColor, ClientIcon } from './clientAppearance';
 
 // Documents of the `app` container (partition key `/pk`). Ids and partition keys are set by the
 // server only. Related documents share a partition: a workspace with its members and projects.
@@ -119,7 +120,12 @@ export type DbProject = AppDoc & {
     pk: `workspace:${string}`;
     workspaceId: string;
     name: string;
-    /** Optional client label, normalized whitespace; older projects have no client. */
+    /** The project's client (`DbClient`). Optional: a project without one has no client. */
+    clientId?: string;
+    /**
+     * Older projects only: the client's name from before clients were documents. `ensureProjectClient`
+     * (`clients.ts`) moves it to `clientId` the first time the project is listed or read.
+     */
     clientName?: string;
     /** Plain-text instructions shared only with people who can comment. */
     brief?: string;
@@ -138,6 +144,34 @@ export type DbProject = AppDoc & {
     createdBy: string;
     createdAt: string;
     updatedAt: string;
+};
+
+/**
+ * Who a workspace's projects are for. Projects point to it with `clientId`, so renaming a client is
+ * one write that every project follows. The name is unique in the workspace (`DbClientName`).
+ */
+export type DbClient = AppDoc & {
+    type: 'client';
+    /** `client_<nanoid>` */
+    id: string;
+    pk: `workspace:${string}`;
+    workspaceId: string;
+    /** Normalized with `projectClientNameSchema` */
+    name: string;
+    description?: string;
+    icon?: ClientIcon;
+    color?: ClientColor;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
+/** Client name -> client (`client_name_<sha256 of the name>`), so a name belongs to one client of the workspace */
+export type DbClientName = AppDoc & {
+    type: 'client-name';
+    pk: `workspace:${string}`;
+    workspaceId: string;
+    clientId: string;
 };
 
 /** Project code -> workspace, so the toolbar can find a project with a point read */

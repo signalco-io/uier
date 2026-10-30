@@ -60,6 +60,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `user-email` (unique email -> user) | `email:<email>` | the email |
 | `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash) | `sign-in:<hash>` | SHA-256 of the link token |
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the internal project id |
+| `client` (who projects are for: name, description, icon, colour; projects point to it with `clientId`), `client-name` (unique name -> client) | `workspace:<id>` | `client_<nanoid>`, `client_name_<SHA-256 of the name>` |
 | `project-ref` (internal id -> workspace) | `project:<id>` | the internal project id |
 | `project-public-ref` (public id -> project and workspace) | `project-public:<publicId>` | the public id |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |

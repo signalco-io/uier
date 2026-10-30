@@ -43,8 +43,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   active or done projects as cards with their open comments, who can comment and review links.
   An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
   in settings; the field suggests the existing clients as you type, and any other name adds a new one. It
-  appears in project details and cards. The client filter sits beside Active/Done,
-  offers All clients and No client, and stays selected in the URL across status changes and reloads.
+  appears with the client's tile in project details and cards. The client filter sits beside Active/Done,
+  offers All clients and No client, and stays selected in the URL (`?client=<client id>`) across status
+  changes, reloads and renames. Links from before clients had ids (`?client=name:<name>`) open the id link.
   Client choices come only from projects the current member can see in the current workspace. The project
   code (12 lowercase letters and digits) is public: it is in the embed script.
   Addresses can include localhost, its subdomains, and loopback IPs for local development
@@ -97,10 +98,14 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;
     Exit review suppresses automatic opening in that tab. Pending one-use codes survive host redirects
     in session storage for at most ten minutes and are removed after exchange or definitive rejection.
-- **Clients** (`/app/clients`): the client names of the projects the member can see, each with its projects
-  and how many are active or done. A client opens the projects list filtered to it (its done projects when
-  none is active). Clients are labels on projects, not records of their own: a client with no projects left
-  is gone.
+- **Clients** (`/app/clients`): the clients of the projects the member can see, each with its tile (an icon
+  or its first letter, on its colour), description, projects and how many are active or done. A client
+  opens the projects list filtered to it (its done projects when none is active). Admins edit a client
+  there: its name, a short description (up to 280 characters), one of twelve icons and a colour from the
+  brand tokens (blue, green, amber, red, or ink). A client is a record of the workspace and projects point
+  to it, so a rename shows on every project at once. Names stay unique in the workspace: a rename to
+  another client's name is refused while that client has projects. A client with no projects left is no
+  longer shown; a project that names it again gets it back with its details, and a rename can take its name.
 - **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
   remove people (the last admin stays), including the person who created the workspace, and revoke
