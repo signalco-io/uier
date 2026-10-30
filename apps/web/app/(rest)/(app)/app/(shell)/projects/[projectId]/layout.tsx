@@ -3,9 +3,11 @@ import { Badge } from '@/src/components/ui/badge';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
+import { clientSummary, getClient } from '@/src/lib/app/clients';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
+import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { displayUrl } from '@/src/components/app/projects/projectLabels';
@@ -19,6 +21,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+    const client = project.clientId ? (await getClient(context.workspace.id, project.clientId))?.doc : undefined;
 
     const tabs = [
         { href: KnownPageLinks.project(project.id), label: 'Comments' },
@@ -55,7 +58,12 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                         <ProjectAccessInfo access={project.access}>
                             {project.access === 'guests' && project.urls[0] && <GuestReviewLinks publicId={project.publicId} urls={project.urls} />}
                         </ProjectAccessInfo>
-                        {project.clientName && <span className="min-w-0 break-words">Client: {project.clientName}</span>}
+                        {client && (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                                <ClientMark client={clientSummary(client)} />
+                                <span className="min-w-0 break-words">Client: {client.name}</span>
+                            </span>
+                        )}
                         {project.status === 'done' && (
                             <Badge variant="outline" className="gap-1.5">
                                 <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />

@@ -4,8 +4,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import type { ProjectStatus } from '@/src/lib/app/model';
 
-/** Client names come only from projects the current member can see. */
-export function ClientFilter({ clients, value, status }: { clients: string[]; value?: string; status: ProjectStatus }) {
+/** Clients come only from projects the current member can see; the filter value is the client's id (or `none`). */
+export function ClientFilter({ clients, value, status }: { clients: { id: string; name: string }[]; value?: string; status: ProjectStatus }) {
     const router = useRouter();
     const pathname = usePathname();
     return (
@@ -22,7 +22,7 @@ export function ClientFilter({ clients, value, status }: { clients: string[]; va
                 <SelectGroup>
                     <SelectItem value="all">All clients</SelectItem>
                     <SelectItem value="none">No client</SelectItem>
-                    {clients.map(client => <SelectItem key={client} value={`name:${client}`}>{client}</SelectItem>)}
+                    {clients.map(client => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}
                 </SelectGroup>
             </SelectContent>
         </Select>
