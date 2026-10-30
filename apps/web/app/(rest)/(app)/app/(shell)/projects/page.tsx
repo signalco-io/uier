@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { FolderOpenIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
@@ -8,12 +9,13 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
-import { clientNames } from '@/src/lib/app/clients';
+import { loadClients, projectClient, projectClients } from '@/src/lib/app/clients';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectActionsMenu } from '@/src/components/app/projects/ProjectActionsMenu';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
+import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
@@ -28,10 +30,18 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
     const { status: statusParam, client: clientParam } = await searchParams;
     const status = statusParam === 'done' ? 'done' : 'active';
     const projects = await listVisibleProjects(context);
-    const clients = clientNames(projects);
-    const client = typeof clientParam === 'string' && (clientParam === 'none' || clients.some(name => clientParam === `name:${name}`))
+    const clientDocs = await loadClients(context.workspace.id);
+    // Only clients of visible projects: a filter never names a client of a project the person cannot open
+    const clients = projectClients(projects, clientDocs);
+    // Links from before clients had ids filter by name (`name:<name>`); they open the client's id link
+    const named = typeof clientParam === 'string' && clientParam.startsWith('name:')
+        ? clients.find(({ name }) => clientParam === `name:${name}`) : undefined;
+    if (named)
+        redirect(KnownPageLinks.clientProjects(named.id, status));
+    const client = typeof clientParam === 'string' && (clientParam === 'none' || clients.some(({ id }) => clientParam === id))
         ? clientParam : undefined;
-    const matching = projects.filter(project => !client || (client === 'none' ? !project.clientName : `name:${project.clientName}` === client));
+    const clientOf = (project: (typeof projects)[number]) => projectClient(project, clientDocs);
+    const matching = projects.filter(project => !client || (client === 'none' ? !clientOf(project) : project.clientId === client));
     const statusHref = (next: 'active' | 'done') => {
         const query = new URLSearchParams();
         if (next === 'done') query.set('status', next);
@@ -69,7 +79,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                             { href: statusHref('done'), label: 'Done', count: counts.done, current: status === 'done' }
                         ]} />
                     {/* Only when a project has a client, like the sidebar's Clients link */}
-                    {clients.length > 0 && <ClientFilter clients={clients} value={client} status={status} />}
+                    {clients.length > 0 && <ClientFilter clients={clients.map(({ id, name }) => ({ id, name }))} value={client} status={status} />}
                 </div>
             </PageHeader>
             {shown.length ? (
@@ -77,6 +87,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                     {shown.map((project, index) => {
                         const open = openCounts[index] ?? 0;
                         const access = projectAccessLabels[project.access];
+                        const projectClientSummary = clientOf(project);
                         return (
                             <li key={project.id} className="flex">
                                 <Card size="sm" className="relative flex-1 transition-colors hover:border-foreground/20">
@@ -95,7 +106,12 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                 {displayUrl(project.urls[0] ?? '')}
                                                 {project.urls.length > 1 && ` +${project.urls.length - 1}`}
                                             </CardDescription>
-                                            {project.clientName && <CardDescription className="truncate">Client: {project.clientName}</CardDescription>}
+                                            {projectClientSummary && (
+                                                <CardDescription className="flex min-w-0 items-center gap-1.5">
+                                                    <ClientMark client={projectClientSummary} />
+                                                    <span className="truncate">Client: {projectClientSummary.name}</span>
+                                                </CardDescription>
+                                            )}
                                         </div>
                                         {canManageProjects && (
                                             <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="relative z-10 -mr-1.5" />

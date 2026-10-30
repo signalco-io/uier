@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, fillClientName, signIn, uniqueEmail } from './support/app';
-import { newVisitor } from './support/toolbar';
+import { animationsFinished, newVisitor } from './support/toolbar';
 
 test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('clients-page'));
@@ -67,14 +67,87 @@ test('clients show in the sidebar and on their page, and new projects pick an ex
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('clients-dark.png'), fullPage: true });
 
+    // Clients link to the projects list by their stable id, so a rename keeps the links working
     await clients.nth(1).getByRole('link').click();
     await expect(page).toHaveURL(url => url.pathname === '/app/projects'
-        && url.searchParams.get('status') === 'done' && url.searchParams.get('client') === 'name:Northwind');
+        && url.searchParams.get('status') === 'done' && /^client_[\w-]{21}$/.test(url.searchParams.get('client') ?? ''));
     await expect(page.getByRole('list', { name: 'Done projects' }).getByRole('listitem')).toHaveCount(1);
     await page.goto('/app/clients');
     await clients.nth(0).getByRole('link').click();
-    await expect(page).toHaveURL(url => url.searchParams.get('client') === 'name:Acme Studio' && !url.searchParams.has('status'));
+    await expect(page).toHaveURL(url => /^client_[\w-]{21}$/.test(url.searchParams.get('client') ?? '') && !url.searchParams.has('status'));
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')).toHaveCount(2);
+    // Links from before clients had ids name the client; they open its id link
+    const idLink = page.url();
+    await page.goto('/app/projects?client=name%3AAcme%20Studio');
+    await expect(page).toHaveURL(idLink);
+    await expect(page.getByRole('combobox', { name: 'Client', exact: true })).toContainText('Acme Studio');
+});
+
+test('admins rename a client and set its description, icon and colour; every project follows', async ({ page }, testInfo) => {
+    await signIn(page, uniqueEmail('client-edit'));
+    const first = await createProject(page, { urls: ['first.acme.example.com'], name: 'Acme first', clientName: 'Acme' });
+    await createProject(page, { urls: ['second.acme.example.com'], name: 'Acme second', clientName: 'Acme' });
+    await createProject(page, { urls: ['northwind-edit.example.com'], name: 'Northwind site', clientName: 'Northwind' });
+    await page.goto('/app/projects');
+    await page.getByRole('combobox', { name: 'Client', exact: true }).click();
+    await page.getByRole('option', { name: 'Acme', exact: true }).click();
+    await expect(page).toHaveURL(url => /^client_[\w-]{21}$/.test(url.searchParams.get('client') ?? ''));
+    const filtered = page.url();
+
+    await page.goto('/app/clients');
+    const clients = page.getByRole('list', { name: 'Clients' }).getByRole('listitem');
+    await clients.nth(0).getByRole('button', { name: 'Edit Acme', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Edit client' });
+    await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
+    await expect(dialog.getByRole('radio', { name: 'First letter' })).toBeChecked();
+    await expect(dialog.getByRole('radio', { name: 'Ink' })).toBeChecked();
+    await animationsFinished(page.locator('body')); // Scan the opened dialog, not its fade-in
+    await expectNoAxeViolations(page);
+
+    // Another client's name is refused, and nothing changes
+    await dialog.getByLabel('Client name').fill('Northwind');
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(dialog.getByRole('alert')).toHaveText('Another client already uses this name.');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(clients.nth(0)).toContainText('Acme');
+
+    await clients.nth(0).getByRole('button', { name: 'Edit Acme', exact: true }).click();
+    await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
+    await dialog.getByLabel('Client name').fill('  Acme   Studio ');
+    await dialog.getByLabel('Description (optional)').fill('Retail sites for the spring launch.');
+    await dialog.getByRole('radio', { name: 'Rocket' }).click();
+    await dialog.getByRole('radio', { name: 'Blue' }).click();
+    await expect(dialog.getByRole('radio', { name: 'Rocket' })).toBeChecked();
+    await page.screenshot({ path: testInfo.outputPath('client-edit-light.png') });
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByText('Acme Studio is saved.', { exact: true })).toBeVisible();
+    await expect(clients.nth(0)).toContainText('Acme Studio');
+    await expect(clients.nth(0)).toContainText('Retail sites for the spring launch.');
+    await expect(clients.nth(0)).toContainText('Acme second, Acme first');
+    await expect(clients.nth(0).locator('[data-slot="client-mark"] svg')).toBeVisible();
+    await page.reload();
+    await clients.nth(0).getByRole('button', { name: 'Edit Acme Studio', exact: true }).click();
+    await expect(dialog.getByLabel('Client name')).toHaveValue('Acme Studio');
+    await expect(dialog.getByRole('radio', { name: 'Rocket' })).toBeChecked();
+    await expect(dialog.getByRole('radio', { name: 'Blue' })).toBeChecked();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.reload(); // Scan settled dark colors, outside the theme's color transition.
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    await expectNoAxeViolations(page);
+    await page.screenshot({ path: testInfo.outputPath('clients-edited-dark.png'), fullPage: true });
+
+    // Every project shows the new name, and the earlier filter link still opens the same client
+    await page.goto(filtered);
+    const active = page.getByRole('list', { name: 'Active projects' });
+    await expect(active.getByRole('listitem')).toHaveCount(2);
+    await expect(active.getByText('Client: Acme Studio', { exact: true })).toHaveCount(2);
+    await expect(page.getByRole('combobox', { name: 'Client', exact: true })).toContainText('Acme Studio');
+    await page.goto(`/app/projects/${first}/settings`);
+    await expect(page.getByText('Client: Acme Studio', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Client', exact: true }).getByLabel('Client name (optional)')).toHaveValue('Acme Studio');
+    await expectNoAxeViolations(page);
 });
 
 test('client names validate, normalize, persist in details and can be cleared', async ({ page }, testInfo) => {
@@ -150,7 +223,10 @@ test('client filtering combines with status and survives reloads', async ({ page
         await filter.click();
         await page.getByRole('option', { name, exact: true }).click();
         await expect(filter).toContainText(name);
-        await expect(page).toHaveURL(url => url.searchParams.get('client') === (name === 'All clients' ? null : name === 'No client' ? 'none' : `name:${name}`));
+        await expect(page).toHaveURL(url => {
+            const client = url.searchParams.get('client');
+            return name === 'All clients' ? client === null : name === 'No client' ? client === 'none' : /^client_[\w-]{21}$/.test(client ?? '');
+        });
     };
     await chooseClient('North & South');
     const active = page.getByRole('list', { name: 'Active projects' });
@@ -193,7 +269,14 @@ test('client names and updates stay in the current workspace and out of guest DT
     const other = await newVisitor(browser, testInfo);
     await signIn(other.page, uniqueEmail('client-other'));
     const otherId = await createProject(other.page, { urls: ['other-client.example.com'], clientName: 'Other client' });
-    await other.page.goto('/app/projects?client=name%3APrivate%20client');
+    await page.goto('/app/clients');
+    const privateLink = await page.getByRole('link', { name: 'Private client', exact: true }).getAttribute('href');
+    // Neither the old name link nor the id of another workspace's client filters or reveals it
+    for (const link of ['/app/projects?client=name%3APrivate%20client', privateLink!]) {
+        await other.page.goto(link);
+        await expect(other.page.getByRole('combobox', { name: 'Client', exact: true })).toContainText('All clients');
+        await expect(other.page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')).toHaveCount(1);
+    }
     await other.page.getByRole('combobox', { name: 'Client', exact: true }).click();
     await expect(other.page.getByRole('option', { name: 'Private client', exact: true })).toHaveCount(0);
     await expect(other.page.getByRole('option', { name: 'Other client', exact: true })).toBeVisible();
@@ -212,6 +295,9 @@ test('client names and updates stay in the current workspace and out of guest DT
     await expect(page.getByText('Client: Private client', { exact: true })).toBeVisible();
     const response = await other.page.request.get(`/api/review/${projectId}`, { headers: { Origin: 'https://private-client.example.com' } });
     expect(response.status()).toBe(200);
-    expect((await response.json()).project).not.toHaveProperty('clientName');
+    const reviewed = (await response.json()).project;
+    expect(reviewed).not.toHaveProperty('clientName');
+    expect(reviewed).not.toHaveProperty('clientId');
+    expect(JSON.stringify(reviewed)).not.toContain('Private client');
     await other.context.close();
 });

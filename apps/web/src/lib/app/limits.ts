@@ -4,6 +4,7 @@ export const MAX_NAME_LENGTH = 80;
 export const MAX_WORKSPACE_NAME_LENGTH = 80;
 export const MAX_PROJECT_NAME_LENGTH = 80;
 export const MAX_CLIENT_NAME_LENGTH = 80;
+export const MAX_CLIENT_DESCRIPTION_LENGTH = 280;
 export const MAX_PROJECT_BRIEF_LENGTH = 2000;
 export const MAX_PROJECT_URLS = 10;
 export const MAX_ACTIVE_TEAMS = 100;

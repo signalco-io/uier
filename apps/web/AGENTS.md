@@ -15,7 +15,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
-| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
+| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
@@ -268,14 +268,29 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.
-- Client names are optional project labels (`clientName`), not address/environment configuration or client entities.
-  `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit is 80 characters.
-  The list builds client choices only after `listVisibleProjects` and preserves the client/status query filters.
-  `src/lib/app/clients.ts` derives clients (the Clients page, the sidebar link and the suggestions) from visible
-  projects the same way. The client field (`ClientNameInput`) is free text that suggests existing clients: it is
-  built on `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn
-  has no autocomplete, and Combobox only takes one of its items).
-  Client names belong to the signed-in app, not the public review project DTO.
+- Clients are workspace documents (`DbClient`: name, description, icon, colour) in the workspace partition;
+  projects point to one with `clientId`, and `DbClientName` (`client_name_<sha256>`) keeps names unique. A
+  rename is one transaction on the client and its name reservations, so every project follows at once.
+  `src/lib/app/clients.ts` owns them: `createProjectWithClient` / `setProjectClient` find or create the
+  client by name and rewrite the client document in the same transaction as the project, so `updateClient`
+  can delete an unused client (when a rename takes its name) without leaving a project pointing at nothing.
+  Older projects have `clientName` only; `ensureProjectClient` moves it to a client on read (in
+  `listProjects` and `getProject`, like `ensureProjectPublicId`), and `updateClient` migrates the whole
+  workspace first. `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit
+  is 80 characters (280 for descriptions). Icons (`clientIcons`, Lucide) and colours (`clientColors`:
+  tints of `--brand-accent`, `--brand-success`, `--brand-warning`, `--destructive`; letters stay ink) live
+  in `clientAppearance.ts`; `ClientMark` draws the tile. More colours need new brand tokens first.
+  Show clients only through visible projects: pages call `listVisibleProjects` first, then `loadClients`,
+  and `projectClients` / `clientNames` / `projectClient` keep only clients those projects point to (the
+  Clients page, the sidebar link, the suggestions, the filter, cards and the project header). The filter
+  value is the client id (`?client=<id>` or `none`); old `name:<name>` links redirect to it. The client
+  field (`ClientNameInput`) is free text that suggests existing clients: it is built on
+  `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn has
+  no autocomplete, and Combobox only takes one of its items). Admins edit a client in `ClientEditDialog`
+  on the Clients page (`updateClientAction`). Client data belongs to the signed-in app: `reviewProjectDto`
+  (the review API's project) and MCP project lists never include it. `e2e/clients.api.spec.ts` covers
+  rename, admin-only access, workspace isolation, migration and DTO exclusion; `project-clients.spec.ts`
+  and `users.spec.ts` the UI.
 - Every server action parses its arguments with zod and checks the session and role itself
   (`appContextOrThrow({ admin })`); pages use `requireAppContext()` / `requireAdminContext()`.
   Positional argument schemas live next to the actions, outside `'use server'` modules; use

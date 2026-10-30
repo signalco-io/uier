@@ -28,7 +28,7 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                         role: member.role === 'admin' ? 'Admin' : 'Commenter'
                     }))}
                     projects={projects.filter(project => project.status !== 'done').map(({ id, name, urls }) => ({ id, name, url: urls[0] }))}
-                    hasClients={projects.some(project => project.clientName)} />
+                    hasClients={projects.some(project => project.clientId)} />
                 {/* On wide screens the panel keeps its frame and scrolls inside it, like a desktop app */}
                 <SidebarInset className="min-w-0 md:h-[calc(100svh-1rem)] md:overflow-hidden">
                     <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 md:static">

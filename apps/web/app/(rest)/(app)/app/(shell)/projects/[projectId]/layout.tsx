@@ -3,9 +3,11 @@ import { Badge } from '@/src/components/ui/badge';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
+import { clientSummary, getClient } from '@/src/lib/app/clients';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { ProjectSettingsLink } from '@/src/components/app/projects/ProjectSettingsLink';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
+import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
@@ -18,6 +20,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+    const client = project.clientId ? (await getClient(context.workspace.id, project.clientId))?.doc : undefined;
 
     return (
         <>
@@ -30,7 +33,12 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 )}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        {project.clientName && <span className="min-w-0 break-words">Client: {project.clientName}</span>}
+                        {client && (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                                <ClientMark client={clientSummary(client)} />
+                                <span className="min-w-0 break-words">Client: {client.name}</span>
+                            </span>
+                        )}
                         {/* Who can comment, with the guest links and (for admins) Invite in its popover */}
                         <ProjectAccessInfo access={project.access}>
                             {project.access === 'guests' && project.urls[0] && <GuestReviewLinks publicId={project.publicId} urls={project.urls} />}

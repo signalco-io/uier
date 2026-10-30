@@ -6,7 +6,7 @@ import { Button } from '@/src/components/ui/button';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext, type AppContext } from '@/src/lib/app/context';
 import { getVisibleProject, listVisibleProjects } from '@/src/lib/app/projects';
-import { clientNames } from '@/src/lib/app/clients';
+import { clientNames, loadClients, projectClient } from '@/src/lib/app/clients';
 import type { DbProject } from '@/src/lib/app/model';
 import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
 import { loadQueryFieldSuggestions } from '@/src/lib/app/pageStateSuggestions';
@@ -48,7 +48,7 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
     return (
         <div className="flex max-w-3xl flex-col gap-6">
             <h2 className="sr-only">Settings</h2>
-            {canConfigure && <ProjectSetup project={project} clients={clientNames(await listVisibleProjects(context))} />}
+            {canConfigure && <ProjectSetup project={project} context={context} />}
             {/* The install guide, once the empty comments list no longer links to it */}
             <Section
                 id="installation"
@@ -89,12 +89,13 @@ async function ProjectIntegrations({ project, context, query }: { project: DbPro
     </>;
 }
 
-async function ProjectSetup({ project, clients }: { project: DbProject; clients: string[] }) {
-    const querySuggestions = await loadQueryFieldSuggestions(project);
+async function ProjectSetup({ project, context }: { project: DbProject; context: AppContext }) {
+    const [querySuggestions, projects] = await Promise.all([loadQueryFieldSuggestions(project), listVisibleProjects(context)]);
+    const clients = await loadClients(context.workspace.id);
     return (
         <>
             <ProjectNameForm projectId={project.id} name={project.name} />
-            <ProjectClientNameForm projectId={project.id} clientName={project.clientName} clients={clients} />
+            <ProjectClientNameForm projectId={project.id} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)} />
             <ProjectAccessForm projectId={project.id} access={project.access} />
             <ProjectBriefForm projectId={project.id} brief={project.brief} access={project.access} />
             <ProjectUrlsForm projectId={project.id} urls={project.urls} />

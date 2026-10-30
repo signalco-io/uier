@@ -69,12 +69,12 @@ export const KnownPageLinks = {
         const search = query.toString();
         return `/app/review/${encodeURIComponent(projectId)}${search ? `?${search}` : ''}`;
     },
-    /** The projects list filtered to one client (the `client` filter of /app/projects) */
-    clientProjects: (clientName: string, status: 'active' | 'done' = 'active') => {
+    /** The projects list filtered to one client by its id (the `client` filter of /app/projects) */
+    clientProjects: (clientId: string, status: 'active' | 'done' = 'active') => {
         const query = new URLSearchParams();
         if (status === 'done')
             query.set('status', status);
-        query.set('client', `name:${clientName}`);
+        query.set('client', clientId);
         return `/app/projects?${query}`;
     }
 } as const;
