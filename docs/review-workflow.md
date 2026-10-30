@@ -11,7 +11,7 @@ The signed-in app at [uier.io/app](https://uier.io/app) ("Get started" on the la
 actions that check the session and the role every time.
 
 The app is a sidebar layout (shadcn/ui `Sidebar`, inset variant): the workspace at the top (a menu switches
-between workspaces), the active projects for quick switching (their header links to all projects and, for
+between workspaces, creates a new one and, for admins, opens the workspace settings), the active projects for quick switching (their header links to all projects and, for
 admins, to a new one), and at the bottom Clients (once a project has a client), Users (admins), "Give feedback"
 (uier's own toolbar, see [public feedback](#landing-page-showcase-and-public-feedback)) and the account menu
 (account, theme, sign out). It
@@ -35,8 +35,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   after signing in (`proxy.ts`, `?next=`), including the toolbar's project review link.
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
-  between them. A new workspace is named after its creator's email until an admin renames it in the
-  workspace settings. The workspace and its admin are created together, so a creator whom an admin removed is
+  between them. A first workspace is named after its creator's email until an admin renames it in the
+  workspace settings. Create workspace in the same menu adds another one with the name typed there, makes its
+  creator the admin and opens it to add its first project; one person can create up to 20 workspaces, the first
+  one included. The workspace and its admin are created together, so a creator whom an admin removed is
   never added back by opening the app again: with no other workspace, they get a new, empty one of their own.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
@@ -66,10 +68,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   - Comments `/app/projects/<code>`: the project's **comments**, as a
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
     (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
-    counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number` and unread dot with the
-    actions (Mark as read, Done or Reopen, Copy issue, Copy link and More) on top, then the assignee
-    ("Unassigned", or a menu of people for those who can assign) and its source, the first and last message
-    with Show all for the rest, the quiet Follow thread and Open in a connected service, and its page URL at
+    counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot and
+    assignee ("Unassigned", or a menu of people for those who can assign) with the actions (Mark as read,
+    Done or Reopen, Copy issue, and More with Copy link and Follow thread) on one row, then the first and last
+    message with Show all for the rest, the quiet Open in a connected service, and its page URL and source at
     the bottom. Two icons after the first message's time show the screen size and browser it was left from;
     hovering or clicking them shows the viewport, pixel ratio, browser, OS, capture time and reviewed page,
     with Copy reproduction details for the same fields as text. The author or an admin edits and deletes it, and only admins make it
@@ -119,7 +121,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     link, or the projects when the invitation has no project.
 - **Workspace settings** (`/app/settings`, admins only): the workspace name (up to 80 characters, on one
   line), which everyone in the workspace sees in the workspace menu and when they connect a coding tool.
-  Admins open it from the workspace menu at the top of the sidebar or from the sidebar's sections. The uier
+  Admins open it from the workspace menu at the top of the sidebar. The uier
   workspace that everyone joins for feedback on the app has no settings page.
 - **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
   sign out.

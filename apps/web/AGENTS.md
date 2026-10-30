@@ -214,9 +214,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). Toasts are `sonner`
   (`toast()`), mounted with the tooltip provider in the app layout.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
-  workspaces and, for admins, opens Workspace settings), active projects with
+  workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
+  settings, which has no sidebar entry of its own), active projects with
   All projects and Create project icon links in their header, then at the bottom the sections (Clients when a
-  visible project has a client; Teams, Users and Workspace settings for admins), Give feedback and the account menu), the inset
+  visible project has a client; Teams and Users for admins), Give feedback and the account menu), the inset
   panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header is
   `projects/[projectId]/layout.tsx` (client, then who can comment, whose popover has Invite for admins; no tabs:
@@ -224,10 +225,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   render the comments, settings or install guide under it.
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
   (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)
-  and words: state, `#number` and unread dot with the actions on top (`ThreadAction`: icon-only with a
-  tooltip and accessible name). For those who can resolve, the state badge is the Open/Done menu
-  ("Status: Open. Change status"); Copy link is in the More actions menu. Then "Unassigned" /
-  "Assigned to ...", the first and last message with Show all, the quiet Follow thread and Open in ...,
+  and words: state, `#number`, unread dot and "Unassigned" / "Assigned to ..." with the actions on one row
+  (`ThreadAction`: icon-only with a tooltip and accessible name). For those who can resolve, the state badge
+  is the Open/Done menu ("Status: Open. Change status"); Copy link and Follow thread / Unfollow thread are in
+  the More actions menu. Then the first and last message with Show all, the quiet Open in ...,
   and the page link in the footer, with the source's environment name (or why the original source is
   unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's
   header still has its icon Done/Reopen and Copy link: change both together where they match. The first
@@ -240,7 +241,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, loaded by the
   browser from the project's main address over HTTPS (`/favicon.ico`, `/favicon.svg`,
   `/apple-touch-icon.png`, no favicon service or server fetch; `proxy.ts` adds `img-src https:` on app
-  pages), on a light tile in both themes, with the project's first letter until one loads.
+  pages), on a light tile in both themes, with the project's first letter until one loads. The icon keeps
+  2 px of padding inside the 16 px tile (larger tiles set their own with `[&>img]:p-*`), so icons drawn
+  edge to edge stay clear of the border and the rounded corners.
 - The project header's Open review is a menu with Review and Visit site for every address; the header does not
   repeat the addresses. The install guide
   opens from the empty comments list and from Settings → Installation. It shows "Connected" with the latest
@@ -308,8 +311,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   persist boolean settings validate them again. Never trust ids without loading the document
   from the current workspace.
 - Apart from uier's own public feedback project, which every account joins (`joinPublicProject`), a
-  membership is only ever created by an invitation or together with a new workspace (`ensureOwnWorkspace`,
-  one `createAll` transaction). Never recreate a missing member document of a customer workspace: a missing
+  membership is only ever created by an invitation or together with a new workspace (`ensureOwnWorkspace`
+  or `createWorkspace` from the workspace menu, one `createAll` transaction each; at most
+  `MAX_CREATED_WORKSPACES` per creator). Never recreate a missing member document of a customer workspace: a missing
   member is someone an admin removed, and recreating it undoes the removal (their review tokens, MCP access
   tokens and connected apps work again). `e2e/workspaces.api.spec.ts` and the users e2e tests cover it.
   Member removal uses `mutateAccess` / `AppStore.transact` to conditionally update the workspace

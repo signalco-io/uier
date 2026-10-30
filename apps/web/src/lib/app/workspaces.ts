@@ -1,8 +1,9 @@
+import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { getAppStore, updateDoc } from './store';
 import { memberId, workspacePk, type DbMember, type DbUser, type DbWorkspace } from './model';
 import { UserFacingError } from './actionErrors';
-import { MAX_WORKSPACE_NAME_LENGTH } from './limits';
+import { MAX_CREATED_WORKSPACES, MAX_WORKSPACE_NAME_LENGTH } from './limits';
 import { assertMutableWorkspace } from '../comments/publicProjectPolicy';
 
 /** One line in the workspace menu: repeated whitespace and line breaks are not part of the name */
@@ -55,6 +56,45 @@ export function ownWorkspaceId(userId: string, generation = 1) {
 /** Own workspaces a user can be removed from before opening the app fails */
 const MAX_OWN_WORKSPACES = 20;
 
+/** The workspace document and its creator's admin membership, created together */
+function newWorkspaceDocs(workspaceId: string, name: string, user: DbUser): [DbWorkspace, DbMember] {
+    const now = new Date().toISOString();
+    return [{
+        type: 'workspace',
+        id: workspaceId,
+        pk: workspacePk(workspaceId),
+        name,
+        createdBy: user.id,
+        createdAt: now
+    }, {
+        type: 'member',
+        id: memberId(user.id),
+        pk: workspacePk(workspaceId),
+        workspaceId,
+        userId: user.id,
+        email: user.email,
+        role: 'admin',
+        projects: 'all',
+        createdAt: now
+    }];
+}
+
+/**
+ * A new workspace with the user as its admin (`w_<nanoid>`), from the workspace menu. Like
+ * {@link ensureOwnWorkspace}, the workspace and the membership are one transaction.
+ */
+export async function createWorkspace(user: DbUser, name: unknown): Promise<DbWorkspace> {
+    const parsed = workspaceNameSchema.parse(name);
+    const store = getAppStore();
+    const created = await store.query<DbWorkspace>({ type: 'workspace', where: { createdBy: user.id } });
+    if (created.length >= MAX_CREATED_WORKSPACES)
+        throw new UserFacingError(`You can create up to ${MAX_CREATED_WORKSPACES} workspaces.`);
+    const docs = newWorkspaceDocs(`w_${nanoid()}`, parsed, user);
+    if (!await store.createAll(docs))
+        throw new Error('Could not create the workspace');
+    return docs[0];
+}
+
 /**
  * The user's own workspace with the user as its admin, for a user who is in no workspace at all: a
  * new user, or one removed from every workspace.
@@ -68,28 +108,9 @@ export async function ensureOwnWorkspace(user: DbUser): Promise<DbMember> {
     const store = getAppStore();
     for (let generation = 1; generation <= MAX_OWN_WORKSPACES; generation++) {
         const workspaceId = ownWorkspaceId(user.id, generation);
-        const now = new Date().toISOString();
-        const workspace: DbWorkspace = {
-            type: 'workspace',
-            id: workspaceId,
-            pk: workspacePk(workspaceId),
-            name: user.email,
-            createdBy: user.id,
-            createdAt: now
-        };
-        const member: DbMember = {
-            type: 'member',
-            id: memberId(user.id),
-            pk: workspacePk(workspaceId),
-            workspaceId,
-            userId: user.id,
-            email: user.email,
-            role: 'admin',
-            projects: 'all',
-            createdAt: now
-        };
-        if (await store.createAll([workspace, member]))
-            return member;
+        const docs = newWorkspaceDocs(workspaceId, user.email, user);
+        if (await store.createAll(docs))
+            return docs[1];
 
         // It exists: a concurrent request created it (still a member), or an admin removed them from it
         const existing = await getMember(workspaceId, user.id);

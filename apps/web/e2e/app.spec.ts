@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { projectPublicId, appNavigation, closeAppNavigation, createProject, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { pngImage } from './support/images';
-import { newVisitor, showcaseHint, toolbar } from './support/toolbar';
+import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
 
@@ -396,9 +396,9 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await expect(page.getByRole('status').filter({ hasText: 'The workspace name is saved.' })).toBeVisible();
     await expectNoAxeViolations(page);
 
-    // The sidebar shows the new name, and its section is the current page
+    // The sidebar shows the new name; the settings are only in the workspace menu
     const navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link', { name: 'Workspace settings' })).toHaveAttribute('aria-current', 'page');
+    await expect(navigation.getByRole('link', { name: 'Workspace settings' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Acme studio');
     await closeAppNavigation(page);
     await page.reload();
@@ -418,6 +418,34 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await page.keyboard.press('Escape');
     await page.goto('/app/settings');
     await expect(page).toHaveURL(/\/app\/projects$/);
+});
+
+test('anyone creates a workspace from its menu and lands on its first project', async ({ page }) => {
+    await signIn(page, uniqueEmail('workspace-create'));
+    await createProject(page, { urls: ['first.example.com'], name: 'First site' });
+
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: 'Create workspace' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Create workspace' });
+    await expect(dialog.getByLabel('Workspace name')).toBeFocused();
+    // The menu fades out as the dialog fades in: scan once both are done
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await animationsFinished(dialog);
+    await expectNoAxeViolations(page);
+    await dialog.getByLabel('Workspace name').fill('  Client   work ');
+    await dialog.getByRole('button', { name: 'Create workspace' }).click();
+
+    // The new workspace is current, empty and the creator is its admin
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    await appNavigation(page);
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Client work');
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Admin');
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await expect(page.getByRole('menuitem', { name: /Client work.*Admin/ })).toBeVisible();
+    await page.getByRole('menuitem', { name: /@example\.com.*Admin/ }).click();
+    await expect(page).toHaveURL(/\/app\/projects$/);
+    await expect(page.getByRole('link', { name: 'First site' }).first()).toBeVisible();
 });
 
 test('feedback on the app opens uier\'s toolbar and stays private', async ({ page, browser }, testInfo) => {

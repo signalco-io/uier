@@ -2,6 +2,8 @@
 
 export const MAX_NAME_LENGTH = 80;
 export const MAX_WORKSPACE_NAME_LENGTH = 80;
+/** Workspaces one person can create, their own first workspace included */
+export const MAX_CREATED_WORKSPACES = 20;
 export const MAX_PROJECT_NAME_LENGTH = 80;
 export const MAX_CLIENT_NAME_LENGTH = 80;
 export const MAX_CLIENT_DESCRIPTION_LENGTH = 280;

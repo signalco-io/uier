@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
-import { ensureOwnWorkspace, getMember, getWorkspace, listUserMemberships, ownWorkspaceId, renameWorkspace } from '../src/lib/app/workspaces';
+import { createWorkspace, ensureOwnWorkspace, getMember, getWorkspace, listUserMemberships, ownWorkspaceId, renameWorkspace } from '../src/lib/app/workspaces';
+import { MAX_CREATED_WORKSPACES } from '../src/lib/app/limits';
 import { memberId, workspacePk, type DbMember, type DbWorkspace } from '../src/lib/app/model';
 import { removeMember } from '../src/lib/app/invitations';
 import type { AppContext } from '../src/lib/app/context';
@@ -140,4 +141,26 @@ test('only a current admin renames a workspace, and the name is one normalized l
     await expect(renameWorkspace(ownWorkspaceId(removed.id), removed.id, 'Missing')).rejects.toThrow('Only admins can do this.');
     expect(await store.get(member.pk, member.workspaceId)).toEqual(before);
     expect((await renameWorkspace(member.workspaceId, admin.id, 'a'.repeat(80))).name).toHaveLength(80);
+});
+
+test('a created workspace has its creator as its only admin, and one person creates at most the limit', async () => {
+    const user = await newUser();
+    const own = await ensureOwnWorkspace(user);
+    const created = await createWorkspace(user, '  Client\n work ');
+    expect(created).toMatchObject({ type: 'workspace', name: 'Client work', createdBy: user.id });
+    expect(created.id).toMatch(/^w_[A-Za-z0-9_-]{21}$/);
+    expect(created.id).not.toBe(own.workspaceId);
+    expect(await getWorkspace(created.id)).toEqual(created);
+    expect(await getMember(created.id, user.id)).toMatchObject({ role: 'admin', projects: 'all', email: user.email });
+    expect(await getAppStore().query<DbMember>({ type: 'member', pk: workspacePk(created.id) })).toHaveLength(1);
+    expect(new Set(await memberOf(user.id))).toEqual(new Set([own.workspaceId, created.id]));
+
+    for (const name of ['', '   ', 'a'.repeat(81), null, 42, ['Acme']])
+        await expect(createWorkspace(user, name)).rejects.toThrow();
+    expect(await ownWorkspaces(user.id)).toHaveLength(2);
+
+    // The own workspace counts: the limit is reached after 18 more
+    await Promise.all(Array.from({ length: MAX_CREATED_WORKSPACES - 2 }, (_, index) => createWorkspace(user, `Workspace ${index}`)));
+    await expect(createWorkspace(user, 'One too many')).rejects.toThrow(`You can create up to ${MAX_CREATED_WORKSPACES} workspaces.`);
+    expect(await ownWorkspaces(user.id)).toHaveLength(MAX_CREATED_WORKSPACES);
 });
