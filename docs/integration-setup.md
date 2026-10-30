@@ -10,7 +10,8 @@ independent: configuring one does not enable another. Private feedback and the p
 excluded. Delivery runs in the scheduled review-notifications worker; a queued backfill or a successful
 settings action does not prove an external write. See [shared delivery](integrations.md) and the
 [Notion](notion-integration-plan.md), [GitHub](github-integration-plan.md),
-[Linear](linear-integration-plan.md) and [Slack](slack-integration-plan.md) plans.
+[Linear](linear-integration-plan.md), [Slack](slack-integration-plan.md) and
+[Azure DevOps](azure-devops-integration-plan.md) plans.
 
 ## Production credentials
 
@@ -34,6 +35,7 @@ The accepted provider credentials are:
 | GitHub | `UIER_GITHUB_APP_ID`, `UIER_GITHUB_APP_SLUG`, `UIER_GITHUB_CLIENT_ID`, `UIER_GITHUB_CLIENT_SECRET`, `UIER_GITHUB_PRIVATE_KEY`, `UIER_GITHUB_WEBHOOK_SECRET` | GitHub App id, slug, OAuth pair, downloaded RSA private key and the matching webhook secret |
 | Linear | `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET` | OAuth application's client id and secret |
 | Slack | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_APP_ID`, `SLACK_DISTRIBUTION_APPROVED` | App/client ids, client secret and the explicit release gate (`"0"` or `"1"`) |
+| Azure DevOps | `AZURE_DEVOPS_CLIENT_ID`, `AZURE_DEVOPS_CLIENT_SECRET`, optional `AZURE_DEVOPS_TENANT` | Microsoft Entra application (client) id, a client secret, and `organizations` (default) or one tenant id |
 
 For example, a Notion-only map has this shape; replace placeholders through the owner's secret
 manager or GitHub's repository-secret interface, not in a committed file:
@@ -51,7 +53,7 @@ Do not put this map, provider credentials or decrypted tokens in issues, logs, P
 `UIER_DEPLOYMENT_ENV=production` is set by Pulumi separately. App configuration never accepts a
 customer-supplied API host.
 
-Pulumi automatically creates four stable 32-byte encryption keys and their `k1` ids:
+Pulumi automatically creates five stable 32-byte encryption keys and their `k1` ids:
 
 | Credentials being encrypted | Production key name |
 | --- | --- |
@@ -59,11 +61,13 @@ Pulumi automatically creates four stable 32-byte encryption keys and their `k1` 
 | Linear grant | `LINEAR_TOKEN_KEY` |
 | Slack installation grant | `SLACK_TOKEN_KEY` |
 | Temporary GitHub setup and PKCE receipts | `UIER_GITHUB_SETUP_KEY` |
+| Azure DevOps project grant | `AZURE_DEVOPS_TOKEN_KEY` |
 
-No encryption key needs to be generated or copied by hand for initial setup. The four RandomBytes
+No encryption key needs to be generated or copied by hand for initial setup. The five RandomBytes
 resources are protected and remain registered while a provider is disabled or a rotation override is
-active. Their outputs are not published as stack outputs. The initial preview without the credential map adds four
-random-key resources and nine Vercel variables (four keys, four key ids and the deployment mode).
+active. Their outputs are not published as stack outputs. The first four keys are already deployed;
+the first preview after Azure DevOps was added creates one random-key resource and two Vercel
+variables (`AZURE_DEVOPS_TOKEN_KEY` and its key id).
 Each supplied credential adds one production variable; each previous-key pair adds two.
 
 ## Provider registration
@@ -137,6 +141,27 @@ See [Linear OAuth](https://linear.app/developers/oauth-2-0-authentication) and
 [app actor authorization](https://linear.app/developers/oauth-actor-authorization). Validate token
 rotation, app-user identity and trash/restoration against a real installation before customer rollout.
 
+### Azure DevOps
+
+Azure DevOps OAuth apps no longer accept registrations, so uier uses Microsoft Entra ID OAuth.
+
+1. In the Microsoft Entra admin center, register a multitenant web application for
+   **Accounts in any organizational directory**. Personal Microsoft accounts are not supported for
+   the Azure DevOps resource. Add the exact redirect URI `https://uier.io/app/azure-devops/callback`.
+2. Under API permissions, add the delegated **Azure DevOps** permissions `vso.work_write` and
+   `vso.profile`. The implemented request also asks for `offline_access`. Do not add
+   `user_impersonation`, `vso.work_full` or any code, build or administration scope.
+3. Create a client secret, record it with the application (client) id and note its expiry: an expired
+   secret stops every refresh until the map is updated. Set `AZURE_DEVOPS_TENANT` only to restrict
+   sign-in to one tenant id.
+4. In a dedicated test organization, connect as a Contributor without tenant-wide admin consent and
+   as a tenant admin, then run the checks in the
+   [design's release gates](azure-devops-integration-plan.md#10-testing-and-release-gates).
+
+Work items are created and edited as the connecting account. There is no remote revocation call:
+people remove uier from their Microsoft account's apps, or a tenant admin removes the enterprise
+application. See [Entra OAuth for Azure DevOps](https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/entra-oauth).
+
 ### Slack notifications
 
 1. Register a Slack app with exact OAuth redirect `https://uier.io/app/slack/callback`.
@@ -176,7 +201,8 @@ fails before any delivery.
 3. On controlled fixtures, connect **two separate uier projects to the same external installation or
    workspace**, then exercise both. In particular, verify that a second Notion authorization does not
    invalidate the first project's token pair. If it does, keep Notion unavailable to customers until
-   grant sharing is redesigned and tested. Check Linear/Slack installation-ownership boundaries and
+   grant sharing is redesigned and tested. Check Linear/Slack installation-ownership boundaries, Azure
+   DevOps access with two different Microsoft accounts, and
    GitHub repository restrictions across the two projects.
 4. Create shared feedback, edit/reply/delete a reply, change status and replace a screenshot where
    supported. Independently inspect the external object and the next worker result. Check names and
@@ -198,7 +224,7 @@ runbook; it does not claim those actions have occurred.
 
 ## Explicit key rotation
 
-The credential map also accepts the four key names above and each key's `_ID`, `_PREVIOUS` and
+The credential map also accepts the five key names above and each key's `_ID`, `_PREVIOUS` and
 `_PREVIOUS_ID` companions. Keys must be canonical base64 encodings of exactly 32 bytes. An explicit
 current-key override requires its id; a previous key requires its previous id. Current and previous
 ids must differ. Defaults remain `k1` when no override is supplied.
@@ -211,7 +237,7 @@ with both pairs. For example, rotate the Notion key from `k1` to `k2` by setting
 id. Do not print/export decrypted credentials or the key material to verify the change.
 
 Review the preview for in-place environment value updates and the previous-pair additions; the
-four protected generated-key resources must remain unchanged. After the deployment, prove old
+five protected generated-key resources must remain unchanged. After the deployment, prove old
 ciphertext still decrypts through controlled grant use and new writes use the current id. Grant
 refreshes can rewrite token pairs; dormant grants are not automatically re-encrypted. Retain the
 previous key until every still-authorized grant has refreshed/reconnected or been deliberately
@@ -226,7 +252,7 @@ and handle provider-side revocation/retention separately.
 
 ## Manual work remaining
 
-- Register the four provider applications under the operator's account, configure the listed
+- Register the five provider applications under the operator's account, configure the listed
   permissions and exact URLs, and complete each provider's consent/identity requirements. The
   available repository tools cannot perform those account-owner portal decisions.
 - Store the provider-issued credentials in `UIER_INTEGRATION_ENV` and deploy that configuration

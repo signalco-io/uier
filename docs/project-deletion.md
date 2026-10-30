@@ -13,8 +13,9 @@ the action is `deleteProjectAction` in
 
 1. **Connected services.** Each connected service is disconnected with its own Disconnect path, as the
    deleting admin, while the project still exists. That releases shared provider credentials (a Linear
-   or Slack grant no other project uses) and stops delivery. Copies already sent to Notion, GitHub,
-   Linear or Slack stay with the provider: deleting a project does not clean them up.
+   or Slack grant no other project uses, and the project's own Azure DevOps grant) and stops delivery.
+   Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay with the provider: deleting
+   a project does not clean them up.
 2. **Intent.** A `project-deletion` record (`pk: project-deletion`, id = the project id) stores only
    the workspace id, the public id, the requesting admin and the time. It has no expiry while pending.
 3. **Unpublish.** The project document is deleted. Its `project-ref` code claim and every
@@ -38,7 +39,7 @@ the action is `deleteProjectAction` in
 7. **Records.** The `notifications:<id>` partition (preferences, subscriptions, deliveries),
    `review-read` cursors, `review-code`s, `comment-author` filters, `slack-test` receipts, every
    `<provider>-sync` ledger, `<provider>-connection`, `<provider>-oauth-state`, `notion-grant`,
-   `linear-selection` and `github-setup` record of the project.
+   `linear-selection`, `azure-devops-selection`, `azure-devops-grant` and `github-setup` record of the project.
 8. The intent is marked complete and expires one day later.
 
 Integration discovery drops a tombstone whose project code is retired: the project's services were

@@ -3,6 +3,7 @@ import { notionAdapter } from './notion';
 import { githubAdapter } from './github';
 import { linearAdapter } from './linear';
 import { slackAdapter } from './slack';
+import { azureDevOpsAdapter } from './azure-devops';
 
 // Providers also use shared authority helpers. Resolve their exports only when called, after
 // module initialization, so route bundles and the standalone worker share a cycle-safe registry.
@@ -17,7 +18,8 @@ function deferredAdapter(provider: IntegrationProviderId, resolve: () => Integra
     };
 }
 export const configuredIntegrationAdapters: readonly IntegrationAdapter[] = [deferredAdapter('notion', () => notionAdapter),
-    deferredAdapter('github', () => githubAdapter), deferredAdapter('linear', () => linearAdapter), deferredAdapter('slack', () => slackAdapter)];
+    deferredAdapter('github', () => githubAdapter), deferredAdapter('linear', () => linearAdapter), deferredAdapter('slack', () => slackAdapter),
+    deferredAdapter('azure-devops', () => azureDevOpsAdapter)];
 
 export function integrationRegistry(adapters: readonly IntegrationAdapter[] = configuredIntegrationAdapters) {
     const entries = new Map<IntegrationProviderId, IntegrationAdapter>();

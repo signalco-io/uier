@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-The shared synchronization foundation, four adapters, OAuth routes and admin-only project settings
+The shared synchronization foundation, five adapters, OAuth routes and admin-only project settings
 are implemented. Each provider stays unavailable until its deployment configuration is valid:
 
 | Provider | Contract | Status |
@@ -11,9 +11,10 @@ are implemented. Each provider stays unavailable until its deployment configurat
 | [GitHub](github-integration-plan.md) | One-way issue mirror | Implemented; GitHub App registration and hosted acceptance required |
 | [Linear](linear-integration-plan.md) | One-way issue mirror | Implemented; app registration and hosted acceptance required |
 | [Slack](slack-integration-plan.md) | Bounded channel notifications | Implemented; rotating bot credentials, distribution approval and hosted acceptance required |
+| [Azure DevOps](azure-devops-integration-plan.md) | One-way work item mirror | Implemented; Microsoft Entra app registration and hosted acceptance required |
 
 An admin must connect a provider and explicitly save its destination before delivery starts.
-Connections are independent: a project can use all four services. The provider's own permissions
+Connections are independent: a project can use all five services. The provider's own permissions
 control access to its copies. See [setup and manual tasks](integration-setup.md) and
 [delivery operations](integration-operations.md). No live provider acceptance is implied by a local test.
 
@@ -44,6 +45,14 @@ control access to its copies. See [setup and manual tasks](integration-setup.md)
   must adopt its known timestamp or explicitly attest absence before another post is allowed.
   Fresh channel metadata is checked before content writes; a channel becoming shared or otherwise
   ineligible stops those writes while known-copy cleanup remains possible.
+- **Azure DevOps:** Microsoft Entra ID OAuth with delegated `vso.work_write` and `vso.profile`
+  scopes, so work items are written as the connecting admin's work or school account. Each project
+  connection has its own grant. Admins choose an organization, project, work item type, open and done
+  states from the type's state categories, and an optional area path. One work item per thread holds
+  the feedback, context and uier discussion as escaped HTML in Description (Repro Steps for bugs).
+  The mapped state changes only when the uier status changes, so board moves are kept. A lost create
+  is reconciled through a WIQL query and a marker in the text. Privacy cleanup replaces the text and
+  deletes the work item to the project's recycle bin; work item history keeps earlier revisions.
 
 Each adapter retains ids and original destination authority for old copies. Changing a destination
 does not promise their removal. Unavailable old authority produces a visible cleanup failure rather
@@ -137,7 +146,7 @@ key/context isolation, OAuth replay/expiry and refresh lease races. `integration
 exercises fan-out failures, source/binding races, leases, privacy cleanup, uncertainty, backfill,
 provider fairness and link safety with instrumented adapters and the real authorized export.
 
-`notion.api.spec.ts`, `github.api.spec.ts`, `linear.api.spec.ts` and `slack.api.spec.ts` use actual
+`notion.api.spec.ts`, `github.api.spec.ts`, `linear.api.spec.ts`, `slack.api.spec.ts` and `azure-devops.api.spec.ts` use actual
 HTTP requests to local provider simulators. The matching browser specs cover OAuth returns,
 explicit destination controls, permission checks, persistent settings and disconnect. Playwright
 uses generated fixture credentials and loopback simulators; it never needs real provider tokens.
