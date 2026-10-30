@@ -23,7 +23,7 @@ export class IntegrationAdminError extends Error {
 }
 
 const identifier = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
-const ledgerId = z.string().regex(/^(notion|github|linear|slack)_[a-f0-9]{64}$/);
+const ledgerId = z.string().regex(/^(notion|github|linear|slack|azure-devops)_[a-f0-9]{64}$/);
 const actor = { workspaceId: identifier, projectId: z.string().regex(/^[a-z0-9]{12}$/), userId: identifier,
     provider: z.enum(integrationProviders) };
 const inputSchema = z.discriminatedUnion('action', [

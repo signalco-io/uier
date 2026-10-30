@@ -163,8 +163,8 @@ and [rollout evidence](../docs/review-notifications.md#staged-rollout-and-live-e
 
 ## Connected service credentials
 
-`src/integrations.ts` adds only production Vercel environment variables and four stable protected
-`RandomBytes` resources for Notion, Linear, Slack and temporary GitHub setup encryption. Keep the
+`src/integrations.ts` adds only production Vercel environment variables and five stable protected
+`RandomBytes` resources for Notion, Linear, Slack, Azure DevOps and temporary GitHub setup encryption. Keep the
 logical resource names, 32-byte lengths and protection unchanged. They remain registered while a
 provider is disabled or an explicit key override is active. Never replace a key to fix a preview.
 
@@ -177,7 +177,7 @@ variables (`sensitive: false`). The scheduled worker pulls production variables;
 values are omitted from that pull and would break delivery. Authorized Vercel members and the worker
 can retrieve these server-only values. Never log or upload the ephemeral pulled environment file. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
 
-No secret is needed to generate the four encryption keys. Each starts at `k1`. An explicit key
+No secret is needed to generate the five encryption keys. Each starts at `k1`. An explicit key
 rotation requires the current key and id together; a retained previous key and id are also paired,
 with different current/previous ids. Retain the override until old ciphertext and in-flight setup
 receipts no longer need it. Removing provider credentials disables that provider on the next deploy;
@@ -185,7 +185,8 @@ it does not revoke external grants or clean up external content. See
 [connected service setup](../docs/integration-setup.md) for registration, activation and key rotation.
 
 Review the CI preview before merge: this change may add only the integration Vercel variables and
-four protected random-key resources. Existing databases, backups, domains, email resources, identities
+five protected random-key resources (the Azure DevOps key is the newest; its first preview adds that
+resource and its key and key id variables). Existing databases, backups, domains, email resources, identities
 and protection must have no unrelated changes. Do not apply infrastructure locally or bypass a
 failed protection check.
 

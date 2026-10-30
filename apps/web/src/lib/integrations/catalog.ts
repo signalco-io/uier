@@ -48,6 +48,22 @@ export const integrationCatalog = {
         limits: 'This is a one-way copy from uier. Linear changes do not update the original feedback. Screenshot uploads are optional; when off, the issue keeps a protected link to the screenshot in uier.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed issues and comments. Linear history and retained files can remain. Disconnect keeps existing copies; remove the app in Linear to revoke its access.'
     },
+    'azure-devops': {
+        name: 'Azure DevOps',
+        title: 'Website feedback in Azure Boards',
+        description: 'Turn shared website feedback into work items in your Azure DevOps project.',
+        result: 'One work item per feedback thread',
+        detail: 'uier creates a work item for each shared feedback thread in the project and area you choose. It keeps the description and discussion up to date and sets your open or done state when the feedback’s status changes.',
+        steps: [
+            'Sign in to uier, open or create a project and add its toolbar to your website.',
+            'As a uier workspace admin, open the project’s Settings, find Azure DevOps and choose Connect Azure DevOps.',
+            'Sign in with your Microsoft work or school account and allow uier to read your profile and read and write work items.',
+            'Load your organizations and projects, choose a work item type, its open and done states and an optional area path, then save. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
+        ],
+        access: 'Work items (read and write) and user profile (read), delegated through Microsoft Entra ID. uier acts as the account that connects and can reach only what that account can. It does not request code, pipelines or administration access.',
+        limits: 'This is a one-way copy from uier. Changes in Azure DevOps do not update the original feedback. Screenshots stay behind protected links to uier. Personal Microsoft accounts are not supported.',
+        removal: 'Making a thread private or deleting it replaces the work item’s text and moves it to the project’s recycle bin. Azure DevOps keeps earlier revisions in the work item history. Disconnect keeps existing work items; remove uier from your Microsoft account’s apps to revoke its access.'
+    },
     slack: {
         name: 'Slack',
         title: 'Website feedback notifications in Slack',

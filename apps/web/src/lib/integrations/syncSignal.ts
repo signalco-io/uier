@@ -3,7 +3,7 @@ import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProje
 import { syncTombstoneId, type DbComment, type DbSyncTombstone } from '../db/schema';
 import type { IntegrationProviderId } from './model';
 
-const providers = ['notion', 'github', 'linear', 'slack'] as const satisfies readonly IntegrationProviderId[];
+const providers = ['notion', 'github', 'linear', 'slack', 'azure-devops'] as const satisfies readonly IntegrationProviderId[];
 export const syncTombstoneTtlSeconds = 30 * 24 * 60 * 60;
 
 export const syncPendingKey = (domain: string, id: string) => `${domain}:${id}`;

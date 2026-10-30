@@ -540,7 +540,7 @@ budgets and progress. Preserve uncertain creates for reconciliation, and run cle
 feedback packet. Every external call checks current membership, binding, source and destination.
 Never persist feedback bodies in integration ledgers or expose credentials in views/logs.
 
-The registry resolves all four adapters lazily to avoid initialization cycles with shared authority
+The registry resolves all five adapters lazily to avoid initialization cycles with shared authority
 helpers. Settings rendering is database-only; provider option/schema requests require an explicit
 admin action. OAuth return routes bypass the signed-out proxy so transient codes and states are
 never echoed into a sign-in return URL. Provider credentials are production-only, configured
@@ -548,6 +548,12 @@ through the setup runbook. Off/disconnect must work even when credentials are un
 
 The shared API suites are
 `integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
+Azure DevOps (`azure-devops/`) uses Microsoft Entra delegated OAuth with one grant per project
+connection, so its work items are written as the connecting admin. It mirrors each thread into one work
+item's text field rather than its Discussion, sets the mapped state only when the uier status changes,
+and reconciles a lost create through WIQL and the copy's marker; see
+[the Azure DevOps design](../../docs/azure-devops-integration-plan.md). `azure-devops.api.spec.ts` and
+`azure-devops.spec.ts` run against `e2e/support/azureDevOpsStub.ts`.
 Provider tests and live acceptance are additional gates, not substitutes for shared isolation.
 
 ## Feedback export

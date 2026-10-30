@@ -101,7 +101,7 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 ```
 
 The tests start their own server on port 4004 and local API stand-ins on `PORT + 1000` through
-`PORT + 5000` (Anthropic, Notion, GitHub, Linear and Slack). They use fake credentials and fail
+`PORT + 6000` (Anthropic, Notion, GitHub, Linear, Slack and Azure DevOps). They use fake credentials and fail
 if a port is taken: a running server is never reused, so `pnpm dev` (maybe with a real API key) is never tested
 by mistake. To use another port, for example to run them in two worktrees at once or while `pnpm dev` holds
 4004, set `PORT`:

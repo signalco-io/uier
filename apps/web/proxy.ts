@@ -11,7 +11,7 @@ import { reviewSsoCookie } from './src/lib/app/reviewSsoCookie';
 const publicAppPaths = ['/app/sign-in', '/app/invitation', '/app/connect/error'];
 // OAuth routes strip transient codes and states themselves, including when the session expired.
 const integrationReturns = new Set(['/app/notion/callback', '/app/github/setup', '/app/github/callback',
-    '/app/linear/callback', '/app/slack/callback']);
+    '/app/linear/callback', '/app/slack/callback', '/app/azure-devops/callback']);
 
 /**
  * Signed-out visitors of an app page go to sign in, and come back to the same page afterwards

@@ -4,7 +4,7 @@ import { parseIntegrationEnvironment } from '../dist/integrations.js';
 
 const current = Buffer.alloc(32, 1).toString('base64');
 const previous = Buffer.alloc(32, 2).toString('base64');
-const families = ['NOTION_TOKEN_KEY', 'LINEAR_TOKEN_KEY', 'SLACK_TOKEN_KEY', 'UIER_GITHUB_SETUP_KEY'];
+const families = ['NOTION_TOKEN_KEY', 'LINEAR_TOKEN_KEY', 'SLACK_TOKEN_KEY', 'UIER_GITHUB_SETUP_KEY', 'AZURE_DEVOPS_TOKEN_KEY'];
 const parse = value => parseIntegrationEnvironment(JSON.stringify(value));
 
 test('an absent map and a supported provider subset preserve exact server-only values', () => {
@@ -20,6 +20,7 @@ test('an absent map and a supported provider subset preserve exact server-only v
 test('endpoint, public-variable and deployment-mode overrides are outside the credential allowlist', () => {
     for (const name of ['NOTION_API_BASE_URL', 'NOTION_OAUTH_AUTHORIZE_URL', 'LINEAR_API_BASE_URL', 'LINEAR_OAUTH_TOKEN_URL',
         'LINEAR_OAUTH_AUTHORIZE_URL', 'LINEAR_OAUTH_REVOKE_URL', 'SLACK_API_BASE_URL', 'SLACK_OAUTH_AUTHORIZE_URL',
+        'AZURE_DEVOPS_API_BASE_URL', 'AZURE_DEVOPS_PROFILE_BASE_URL', 'AZURE_DEVOPS_OAUTH_AUTHORIZE_URL', 'AZURE_DEVOPS_OAUTH_TOKEN_URL',
         'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL', 'UIER_DEPLOYMENT_ENV', 'UIER_LOCAL', 'NEXT_PUBLIC_NOTION_CLIENT_SECRET'])
         assert.throws(() => parse({ [name]: 'https://fixture.invalid' }), /unsupported variable/);
 });
@@ -29,6 +30,13 @@ test('maps require non-empty bounded strings and a known Slack release flag', ()
     for (const value of [null, 1, true, {}, [], '', '  ', 'fixture\0secret', 'x'.repeat(16_385)])
         assert.throws(() => parse({ NOTION_CLIENT_SECRET: value }), /non-empty bounded strings/);
     for (const value of ['true', 'yes', '01']) assert.throws(() => parse({ SLACK_DISTRIBUTION_APPROVED: value }), /distribution gate/);
+});
+
+test('the Azure DevOps tenant is either all work and school accounts or one tenant id', () => {
+    for (const value of ['organizations', '72f988bf-86f1-41af-91ab-2d7cd011db47'])
+        assert.deepEqual(parse({ AZURE_DEVOPS_TENANT: value }), { AZURE_DEVOPS_TENANT: value });
+    for (const value of ['common', 'consumers', 'contoso.onmicrosoft.com', '../organizations'])
+        assert.throws(() => parse({ AZURE_DEVOPS_TENANT: value }), /Microsoft Entra tenant/);
 });
 
 test('each encryption family requires explicit paired ids, canonical key material and distinct previous ids', () => {

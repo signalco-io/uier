@@ -96,6 +96,7 @@ async function disconnectProvider(provider: IntegrationProviderId, project: DbPr
         case 'github': return (await import('../integrations/github/connection')).disconnectGitHub({ userId, workspaceId: project.workspaceId, projectId: project.id });
         case 'linear': return (await import('../integrations/linear/connection')).disconnectLinear(project, userId);
         case 'slack': return (await import('../integrations/slack/connection')).disconnectSlack(project, userId);
+        case 'azure-devops': return (await import('../integrations/azure-devops/connection')).disconnectAzureDevOps(project, userId);
     }
 }
 
@@ -247,6 +248,8 @@ async function deleteProjectRecords(intent: ProjectDeletion, app: AppStore) {
     }
     await remove(await app.query({ type: 'notion-grant', pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
     await remove(await app.query({ type: 'linear-selection', pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
+    for (const type of ['azure-devops-selection', 'azure-devops-grant'])
+        await remove(await app.query({ type, pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
     await remove(await app.query({ type: 'github-setup', where: { projectId: intent.id, workspaceId: intent.workspaceId } }));
 }
 
