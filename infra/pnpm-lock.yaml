@@ -173,8 +173,8 @@ importers:
         specifier: 6.23.2
         version: 6.23.2(typescript@7.0.2)
       '@pulumi/pulumi':
-        specifier: 3.272.0
-        version: 3.272.0(typescript@7.0.2)
+        specifier: 3.273.0
+        version: 3.273.0(typescript@7.0.2)
       '@pulumi/random':
         specifier: 4.21.4
         version: 4.21.4(typescript@7.0.2)
@@ -431,8 +431,8 @@ packages:
   '@pulumi/cloudflare@6.23.2':
     resolution: {integrity: sha512-0pkVCTydiMJD9vQmRt0V50cMFeWW8AinAaY/PjKPbC7X5aSYKooZ0F30oVVY/Ewi7o5/utBO+5ciqzz1/hYREA==}
 
-  '@pulumi/pulumi@3.272.0':
-    resolution: {integrity: sha512-DepbT+tA3HnNo5+OtEMEevK1pC45PD/71sQh3tlWYFtW4tjuZijAQprvgCYcQUKNwRP3/Y3z83Kbvxn7y9HR2w==}
+  '@pulumi/pulumi@3.273.0':
+    resolution: {integrity: sha512-Yh2k0Kry4u5LM730KUO5HZFnqHdlW9ypoQ8zgO0Tqam1G6urFXjIUTUaLxvWrdsm6gKCoyVS6CPdeOGcV+Msvg==}
     engines: {node: '>=22'}
     peerDependencies:
       ts-node: '>= 7.0.1 < 12'
@@ -1477,7 +1477,7 @@ snapshots:
 
   '@pulumi/azure-native@3.29.0(typescript@7.0.2)':
     dependencies:
-      '@pulumi/pulumi': 3.272.0(typescript@7.0.2)
+      '@pulumi/pulumi': 3.273.0(typescript@7.0.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -1485,13 +1485,13 @@ snapshots:
 
   '@pulumi/cloudflare@6.23.2(typescript@7.0.2)':
     dependencies:
-      '@pulumi/pulumi': 3.272.0(typescript@7.0.2)
+      '@pulumi/pulumi': 3.273.0(typescript@7.0.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/pulumi@3.272.0(typescript@7.0.2)':
+  '@pulumi/pulumi@3.273.0(typescript@7.0.2)':
     dependencies:
       '@grpc/grpc-js': 1.14.6
       '@logdna/tail-file': 2.2.0
@@ -1525,7 +1525,7 @@ snapshots:
 
   '@pulumi/random@4.21.4(typescript@7.0.2)':
     dependencies:
-      '@pulumi/pulumi': 3.272.0(typescript@7.0.2)
+      '@pulumi/pulumi': 3.273.0(typescript@7.0.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -1533,7 +1533,7 @@ snapshots:
 
   '@pulumiverse/vercel@5.21.1(typescript@7.0.2)':
     dependencies:
-      '@pulumi/pulumi': 3.272.0(typescript@7.0.2)
+      '@pulumi/pulumi': 3.273.0(typescript@7.0.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node

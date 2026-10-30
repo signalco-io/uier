@@ -50,7 +50,7 @@ jobs:
       # Pinned: otherwise the action uses whatever Pulumi CLI the runner image ships. CLI and SDK are
       # released together; keep this equal to @pulumi/pulumi in infra/package.json (Renovate groups them).
       # renovate: datasource=npm depName=@pulumi/pulumi
-      PULUMI_VERSION: "3.272.0"
+      PULUMI_VERSION: "3.273.0"
     # No job-level `defaults.run.working-directory: infra`: the first step runs before checkout,
     # when infra/ does not exist yet, so each step that needs infra/ sets it itself.
     steps:
