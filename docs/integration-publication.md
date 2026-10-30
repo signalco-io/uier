@@ -7,13 +7,14 @@ delivery. Its remaining acceptance checks still apply; a listing draft does not 
 ## Provider status
 
 Publication progress updated on 30 October 2026. Provider registrations and distribution settings
-were verified on 29 October; the Notion draft and creator profile were read back on 30 October.
+were verified on 29 October; Notion's completed draft, creator profile and review submission were
+verified on 30 October.
 
 | Provider | Public installation | Directory or Marketplace review |
 | --- | --- | --- |
 | GitHub | Public [uier for GitHub](https://github.com/apps/uier-for-github), owned by signalco-io. Start setup from a uier project's Settings. | Draft listing created. Not submitted. Direct Marketplace installation onboarding, listing fields, webhook, security checklist and Marketplace Developer Agreement remain gates. |
 | Linear | Public OAuth application in the dedicated uier workspace. | Directory submission on hold. The operator confirmed there is no registered company, so the published formal-company criterion is not met. Public OAuth installation remains available. |
-| Notion | Public uier connection, installable in any workspace. | Complete draft saved and read back; uier creator profile created. Final submission is not confirmed: Edge blocked automation at the submission button. Verify the dashboard's Submitted section before recording a submission receipt. |
+| Notion | Public uier connection, installable in any workspace. | Submitted for review on 30 October. Notion displayed the success confirmation. Awaiting provider review; no approval or published listing is claimed. |
 | Slack | Public unlisted distribution is enabled. | Not submitted. Slack requires at least 10 active installed workspaces throughout review. The 29 October dashboard reported zero; the controlled installation is not evidence of ten active customer workspaces. |
 
 Do not certify untested behavior or create artificial installations to meet a review threshold.
@@ -21,7 +22,7 @@ Keep the dedicated uier workspace/account boundaries used during registration. P
 contacts use the owner's business account; no credentials or authorization receipts belong in
 listing text, images, forms or this record.
 
-## Notion draft and creator profile
+## Notion review submission
 
 The saved draft is named **uier**, with tagline **Turn website feedback into Notion pages.**
 It uses the **Workflow automation** feature and **Design** category, the existing uier mark,
@@ -36,10 +37,12 @@ independent-developer description. The listing identifies **Aleksandar Toplek (i
 developer)** rather than claiming a registered company. The optional email contact switch is off;
 no location was supplied.
 
-The draft remained under **Drafts** after profile creation. A subsequent submission attempt was
-interrupted by an open Edge extension panel; no **Submitted** status or review receipt has been
-observed. The completed form is available for the operator to submit. Do not interpret a saved
-draft, enabled submit button or attempted click as an accepted review request.
+After profile creation, the saved draft was reopened and submitted. Notion displayed **Submitted
+for review**, with the message **After review, your public connection will be listed on the
+connections gallery.** The underlying form also reported that the connection already has a
+listing submission. The visible confirmation, rather than an attempted click, is the submission
+receipt. Track the result from the connection listings dashboard; approval and publication remain
+separate provider decisions.
 
 ## Public materials
 
