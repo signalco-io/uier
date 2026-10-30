@@ -728,8 +728,9 @@ Desktop (`serverUrl`, `${env:UIER_MCP_TOKEN}` in headers); it is not offered wit
 (`projectId`, `commentId`). Share identifier schemas with tools in `mcp/schemas.ts`. Recheck
 `mcpProject` even when rendering instructions; never echo failed arguments or embed feedback.
 Report-back is registered only for reply/status grants and names only the permitted writes.
-`mcp/workflows.ts` is the common source for prompt instructions, the untrusted-content rule and
-the copy/download `SKILL.md` in Coding agents. Keep the tool/scope table aligned with the server.
+`mcp/workflows.ts` is the common source for prompt instructions, the untrusted-content rule, the
+citation rule (link feedback as `[uier #12](comment link)`, never a bare `#12`, which GitHub and
+GitLab link to their own issue) and the copy/download `SKILL.md` in Coding agents. Keep the tool/scope table aligned with the server.
 Triage changes nothing, fix proposes local code work only, and report-back waits for human approval
 before every write. The skill also requires approval for assignments and stable retry keys.
 

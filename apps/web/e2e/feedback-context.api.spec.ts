@@ -200,6 +200,13 @@ test('titles, author names and all inline metadata remain literal for GitHub and
             expect(markdown).toContain(`${label}: \` ${unsafe} \``);
         expect(context).toEqual(original);
         expect(markdown).toContain(`\n\n\` ${unsafe} \`\n`);
+        // A bare #12 would link to the repository's own issue #12, not to the uier comment.
+        const identity = { ...packet.context.identity, number: 12 };
+        const linked = feedbackMarkdown({ ...packet.context, identity });
+        expect(packet.context.links.comment).toContain('https://uier.io/app/review/');
+        expect(linked).toContain(`Feedback: \` ${comment.id} \` ([uier #12](<${packet.context.links.comment}>))`);
+        expect(linked.match(/#12/g)).toHaveLength(1);
+        expect(feedbackMarkdown({ ...packet.context, identity, links: {} })).toContain(`Feedback: \` ${comment.id} \` (\` uier #12 \`)`);
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
     }

@@ -47,6 +47,9 @@ Titles, author/assignee names and other inline values use padded code spans whos
 past embedded backticks. GitHub and GitLab cannot turn URLs, `www.` hosts, `@user` or `@org/team`
 inside those values into links or notifications. Only the approved explicit page/comment/image
 links remain clickable. This formatting does not change the structured `context` fields.
+The public number is written as `uier #12`, linked to the comment review entry when the packet
+has one and in a code span otherwise. A bare `#12` would link to the repository's own issue or
+pull request #12 on GitHub and GitLab, including in synced GitHub issues.
 
 ## Access and URL policy
 
