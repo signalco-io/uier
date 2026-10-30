@@ -8,9 +8,11 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
-import { projectClients } from '@/src/lib/app/clients';
+import { loadClients, projectClients } from '@/src/lib/app/clients';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { PageHeader } from '@/src/components/app/PageHeader';
-import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
+import { ClientEditDialog } from '@/src/components/app/clients/ClientEditDialog';
+import { ClientMark } from '@/src/components/app/clients/ClientMark';
 
 export const metadata: Metadata = {
     title: 'Clients'
@@ -24,7 +26,10 @@ function statusText(active: number, done: number) {
 /** The clients of the projects the person can see, each opening the projects list filtered to it */
 export default async function ClientsPage() {
     const context = await requireAppContext();
-    const clients = projectClients(await listVisibleProjects(context));
+    const canEdit = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
+    // Projects first: listing them moves older client names to client documents
+    const projects = await listVisibleProjects(context);
+    const clients = projectClients(projects, await loadClients(context.workspace.id));
 
     return (
         <>
@@ -37,25 +42,32 @@ export default async function ClientsPage() {
                         {clients.map(client => {
                             const active = client.projects.filter(project => project.status !== 'done').length;
                             const done = client.projects.length - active;
+                            const { projects: _, ...summary } = client;
                             return (
-                                <div key={client.name} role="listitem">
-                                    <Item asChild className="rounded-none">
-                                        {/* Done-only clients open the done projects, so the list is never empty */}
-                                        <Link href={KnownPageLinks.clientProjects(client.name, active ? 'active' : 'done')}>
-                                            <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
-                                                <ProjectMark name={client.name} className="size-8 rounded-lg text-sm" />
-                                            </ItemMedia>
-                                            <ItemContent className="min-w-0">
-                                                <ItemTitle className="max-w-full break-words">{client.name}</ItemTitle>
-                                                <ItemDescription className="truncate">
-                                                    {client.projects.map(project => project.name).join(', ')}
-                                                </ItemDescription>
-                                            </ItemContent>
-                                            <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
-                                                {statusText(active, done)}
-                                                <ChevronRightIcon aria-hidden="true" className="size-4" />
-                                            </ItemActions>
-                                        </Link>
+                                <div key={client.id} role="listitem">
+                                    <Item className="relative rounded-none has-[a:hover]:bg-muted">
+                                        <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
+                                            <ClientMark client={client} className="size-8 rounded-lg text-sm" />
+                                        </ItemMedia>
+                                        <ItemContent className="min-w-0">
+                                            <ItemTitle className="max-w-full break-words">
+                                                {/* The whole row opens the client's projects; done-only clients open the done ones, so the list is never empty. The edit button sits above the link. */}
+                                                <Link
+                                                    href={KnownPageLinks.clientProjects(client.id, active ? 'active' : 'done')}
+                                                    className="outline-none after:absolute after:inset-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset">
+                                                    {client.name}
+                                                </Link>
+                                            </ItemTitle>
+                                            {client.description && <ItemDescription className="break-words whitespace-pre-line">{client.description}</ItemDescription>}
+                                            <ItemDescription className="truncate">
+                                                {client.projects.map(project => project.name).join(', ')}
+                                            </ItemDescription>
+                                        </ItemContent>
+                                        <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
+                                            {statusText(active, done)}
+                                            {canEdit && <ClientEditDialog client={summary} className="relative z-10" />}
+                                            <ChevronRightIcon aria-hidden="true" className="size-4" />
+                                        </ItemActions>
                                     </Item>
                                 </div>
                             );

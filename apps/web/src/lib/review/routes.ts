@@ -1,5 +1,5 @@
 import { screenshotUrlMediaType } from '../screenshots/blobStore';
-import { ensureProjectPublicId } from '../app/projectPublicIds';
+import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
 import { commentResponse } from './response';
 import { configuredEnvironments, environmentOptions } from '../app/environments';
 import { z } from 'zod';
@@ -52,12 +52,18 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
     return authorName;
 }
 
+/** The project as the toolbar sees it: listed fields only, never its client, members or integrations */
+export function reviewProjectDto(project: PublicProject, canComment: boolean) {
+    return { id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
+}
+
 /** GET /api/review/<code>: the project, the reviewer and whether they can comment */
 export async function getReviewInfo({ project, actor }: ReviewApiContext) {
-    const { publicId } = await ensureProjectPublicId(project);
+    const publicProject = await ensureProjectPublicId(project);
+    const { publicId } = publicProject;
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
-        project: { id: publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) },
+        project: reviewProjectDto(publicProject, canComment),
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)
