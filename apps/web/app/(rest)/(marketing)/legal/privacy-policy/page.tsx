@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="29 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="30 October 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -194,6 +194,18 @@ export default function PrivacyPolicyPage() {
                 for up to ten minutes to survive the reviewed site&rsquo;s own authentication redirects.
                 The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> describes these keys and controls.
             </p>
+            <p>
+                A workspace admin can delete a project in its settings after typing its name. We then delete its
+                settings, comments, replies, screenshots, notification preferences, subscriptions and delivery
+                records, read cursors, author filters, review codes, invitations that name only that project, its
+                place in team and member access and in coding tool connections, and its connected-service
+                settings, credentials and delivery records. A connection or access token that selected only that
+                project is revoked. Its review links and the script on its sites stop working at once. If a step
+                fails, a scheduled job repeats it until it completes, using a deletion record that contains only
+                identifiers. The project&rsquo;s code and public id stay reserved, without any content or names, so
+                they are never given to another project. Access history keeps the change for 180 days.
+                The public feedback project on {brand.domain} cannot be deleted this way.
+            </p>
 
             <h3>Read activity</h3>
             <p>
@@ -237,6 +249,8 @@ export default function PrivacyPolicyPage() {
                 still used by another project remains. Recovery identifiers are retained until the
                 associated records are removed. Removing an app in the provider and requesting
                 removal of retained external data are separate actions governed by that service.
+                Deleting a project disconnects its services first and then deletes these records; copies
+                already sent stay with the provider.
             </p>
 
             <h3>Optional reply notifications</h3>
@@ -429,8 +443,9 @@ export default function PrivacyPolicyPage() {
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
-                <li>Your account, workspace and projects: until you ask us to delete them.</li>
-                <li>Comments in projects: until their author or a project admin deletes them.</li>
+                <li>Your account and workspace: until you ask us to delete them.</li>
+                <li>Projects: until a workspace admin deletes them or you ask us to. Deletion intents contain only identifiers and expire one day after the deletion completes; the reserved code and public id contain no names or content and are kept.</li>
+                <li>Comments in projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>

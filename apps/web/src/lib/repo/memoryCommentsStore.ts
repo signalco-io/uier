@@ -262,6 +262,9 @@ export function getMemoryCommentsStore(): CommentsStore {
             });
             return next;
         },
+        async deleteSequence(domain) {
+            domainEntries(domain).delete(commentSequenceId);
+        },
         async incrementCounter(domain, id, limit, ttlSeconds) {
             const counters = state().counters;
             const key = `${domain}/${id}`;

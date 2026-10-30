@@ -19,6 +19,7 @@ test.beforeAll(async () => {
         '../src/lib/db/client': 'export function cosmosDataContainerComments() { return {database:{container(){return {};}}}; }',
         '../src/lib/screenshots/blobStore': 'export function getScreenshotBlobStore() { return {}; }',
         '../src/lib/comments/cleanup': 'export async function sweepCommentCleanup() { console.log("CALL cleanup"); return {removed:0,failed:0}; }',
+        '../src/lib/app/projectDeletion': 'export async function sweepProjectDeletions() { console.log("CALL deletions"); return {failed:0}; }',
         '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return {checked:0,blocked:0}; }',
         '../src/lib/app/deployment': 'export function configuredAppBaseUrl() { return "https://uier.io"; }',
         '../src/lib/integrations/worker': 'export async function runIntegrationWorker() { console.log("CALL integrations"); return {discovered:{checked:0,deferred:0},providers:[],blocked:0}; }'
@@ -41,7 +42,7 @@ async function run(integrationsOnly: boolean, retry = '') {
 test('integration-only runs do not invoke email discovery, sending or retry', async () => {
     const result = await run(true);
     expect(result.stdout).toContain('CALL integrations');
-    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL migrate|CALL blobs/);
+    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL deletions|CALL migrate|CALL blobs/);
 });
 
 test('normal scheduled runs retain email retries and integration delivery', async () => {
@@ -49,6 +50,8 @@ test('normal scheduled runs retain email retries and integration delivery', asyn
     expect(result.stdout).toContain('CALL migrate production');
     expect(result.stdout).toContain('CALL migrate preview');
     expect(result.stdout).toContain('CALL blobs');
+    // Project deletions queue thread cleanups that the comment sweep then completes
+    expect(result.stdout).toMatch(/CALL deletions[\s\S]*CALL cleanup/);
     expect(result.stdout).toContain('CALL retry');
     expect(result.stdout).toContain('CALL email');
     expect(result.stdout).toContain('CALL integrations');

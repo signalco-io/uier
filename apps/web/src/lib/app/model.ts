@@ -181,6 +181,16 @@ export type DbProjectRef = AppDoc & {
     workspaceId: string;
 };
 
+/**
+ * A deleted project's code: the claim stays, so the code is never issued again, but it names no
+ * workspace. Integration discovery reads it as proof that the project's deletion intents can be dropped.
+ */
+export type DbRetiredProjectRef = AppDoc & {
+    type: 'project-ref-retired';
+    pk: `project:${string}`;
+    retiredAt: string;
+};
+
 /** A pending invitation to a workspace (in the workspace's partition, listed with its members) */
 export type DbInvitation = AppDoc & {
     type: 'invitation';

@@ -52,7 +52,7 @@ const controls = [
     },
     {
         title: 'Minimal data, short retention',
-        text: 'The API never returns author ids, IP data or device details beyond the device size. Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies do not expire.'
+        text: 'The API never returns author ids, IP data or device details beyond the device size. Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies do not expire. Only a workspace admin can delete a project, after typing its name; its comments, screenshots, access and integration records go with it, and a scheduled job repeats any step that fails.'
     },
     {
         title: 'Encrypted at rest, in the EU',

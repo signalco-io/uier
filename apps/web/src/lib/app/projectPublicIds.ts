@@ -10,6 +10,9 @@ type DbProjectPublicRef = AppDoc & {
     projectId: string;
 };
 
+/** A deleted project's public id: it keeps the claim, so the id is never issued again, and names no project. */
+type DbRetiredPublicRef = AppDoc & { type: 'project-public-ref-retired'; retiredAt: string };
+
 const publicRefPk = (id: string) => `project-public:${id}`;
 export const isProjectPublicId = (id: string) => /^[A-Za-z0-9_-]{21}$/.test(id);
 
@@ -37,7 +40,25 @@ export async function ensureProjectPublicId(project: DbProject, store: AppStore 
 export async function projectByPublicId(publicId: string, store: AppStore = getAppStore()): Promise<PublicProject | null> {
     if (!isProjectPublicId(publicId)) return null;
     const ref = (await store.get<DbProjectPublicRef>(publicRefPk(publicId), publicId))?.doc;
-    if (!ref) return null;
+    if (ref?.type !== 'project-public-ref') return null;
     const project = (await store.get<DbProject>(`workspace:${ref.workspaceId}`, ref.projectId))?.doc;
     return project?.publicId === publicId ? project as PublicProject : null;
+}
+
+/**
+ * Project deletion: every claim of the project, published or abandoned, becomes a retired claim
+ * without workspace or project ids. Never deleted, so a review link or embed of the deleted
+ * project can never reach a project that later draws the same id.
+ */
+export async function retireProjectPublicIds(projectId: string, publicId: string | undefined, store: AppStore = getAppStore()) {
+    const refs = await store.query<DbProjectPublicRef>({ type: 'project-public-ref', where: { projectId } });
+    const ids = new Set([...refs.map(ref => ref.id), ...(publicId ? [publicId] : [])]);
+    for (const id of ids) {
+        const retired: DbRetiredPublicRef = { type: 'project-public-ref-retired', id, pk: publicRefPk(id), retiredAt: new Date().toISOString(), ttl: -1 };
+        const current = await store.get<DbProjectPublicRef | DbRetiredPublicRef>(retired.pk, id);
+        if (current?.doc.type === 'project-public-ref-retired') continue;
+        if (current && (current.doc.type !== 'project-public-ref' || current.doc.projectId !== projectId)) continue;
+        const saved = current ? await store.replace(retired, current.etag) === 'ok' : await store.create(retired);
+        if (!saved) throw new Error('A public project id changed while it was retired');
+    }
 }

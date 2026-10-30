@@ -9,7 +9,7 @@ export const syncTombstoneTtlSeconds = 30 * 24 * 60 * 60;
 export const syncPendingKey = (domain: string, id: string) => `${domain}:${id}`;
 
 /** A bounded snapshot of destinations; external input never selects an arbitrary provider. */
-export function integrationTargets(project: DbProject): DbSyncTombstone['targets'] {
+export function integrationTargets(project: Pick<DbProject, 'id' | 'integrations'>): DbSyncTombstone['targets'] {
     if (project.id === PUBLIC_PROJECT_ID) return [];
     return providers.flatMap(provider => {
         const binding = project.integrations?.[provider];
@@ -43,7 +43,7 @@ export function withSyncMark(project: DbProject, before: DbComment | null | unde
 }
 
 /** Only identifiers and a version survive deletion; never copy feedback, image or author data. */
-export function syncTombstone(project: DbProject, comment: DbComment): DbSyncTombstone {
+export function syncTombstone(project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment): DbSyncTombstone {
     if (project.id === PUBLIC_PROJECT_ID || comment.domain !== `project:${project.id}`
         || (comment.projectId !== undefined && comment.projectId !== project.id))
         throw new Error('Deletion intent requires a matching project.');

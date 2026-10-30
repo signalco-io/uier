@@ -156,7 +156,8 @@ export async function findProject(projectId: string) {
     if (projectId === PUBLIC_PROJECT_ID)
         await ensurePublicProject();
     const ref = (await getAppStore().get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
-    return ref ? await getProject(ref.workspaceId, projectId) : null;
+    // A deleted project's retired claim names no workspace
+    return ref?.type === 'project-ref' ? await getProject(ref.workspaceId, projectId) : null;
 }
 
 /** Public review boundary. Retain old random codes, never the predictable showcase id. */
