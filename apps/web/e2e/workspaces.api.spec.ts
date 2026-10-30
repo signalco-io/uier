@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
-import { ensureOwnWorkspace, getMember, listUserMemberships, ownWorkspaceId } from '../src/lib/app/workspaces';
+import { ensureOwnWorkspace, getMember, getWorkspace, listUserMemberships, ownWorkspaceId, renameWorkspace } from '../src/lib/app/workspaces';
 import { memberId, workspacePk, type DbMember, type DbWorkspace } from '../src/lib/app/model';
 import { removeMember } from '../src/lib/app/invitations';
 import type { AppContext } from '../src/lib/app/context';
@@ -116,4 +116,28 @@ test('a creator removed from their own workspace gets a new one, never the old o
     expect(third.workspaceId).toBe(ownWorkspaceId(user.id, 3));
     expect(await getMember(first.workspaceId, user.id)).toBeNull();
     expect(await getMember(second, user.id)).toBeNull();
+});
+
+test('only a current admin renames a workspace, and the name is one normalized line', async () => {
+    const [admin, commenter, removed] = await Promise.all([newUser(), newUser(), newUser()]);
+    const member = await ensureOwnWorkspace(admin);
+    const store = getAppStore();
+    await store.create<DbMember>({ ...member, id: memberId(commenter.id), userId: commenter.id, email: commenter.email, role: 'commenter', projects: [] });
+    // The access and removal guards share the document; a rename must not reset them
+    const guarded = (await store.get<DbWorkspace>(member.pk, member.workspaceId))!;
+    expect(await store.replace({ ...guarded.doc, accessRevision: 3, memberRemovalVersion: 2 }, guarded.etag)).toBe('ok');
+
+    const renamed = await renameWorkspace(member.workspaceId, admin.id, '  Acme\n  studio\t ');
+    expect(renamed).toMatchObject({ name: 'Acme studio', accessRevision: 3, memberRemovalVersion: 2, createdBy: admin.id });
+    expect(await getWorkspace(member.workspaceId)).toEqual(renamed);
+
+    const before = await store.get<DbWorkspace>(member.pk, member.workspaceId);
+    await expect(renameWorkspace(member.workspaceId, commenter.id, 'Commenter name')).rejects.toThrow('Only admins can do this.');
+    await expect(renameWorkspace(member.workspaceId, removed.id, 'Outsider name')).rejects.toThrow('Only admins can do this.');
+    for (const name of ['', '   ', 'a'.repeat(81), null, 42, ['Acme']])
+        await expect(renameWorkspace(member.workspaceId, admin.id, name)).rejects.toThrow();
+    await expect(renameWorkspace(PUBLIC_WORKSPACE_ID, admin.id, 'Not uier')).rejects.toThrow('Everyone joins the uier workspace automatically.');
+    await expect(renameWorkspace(ownWorkspaceId(removed.id), removed.id, 'Missing')).rejects.toThrow('Only admins can do this.');
+    expect(await store.get(member.pk, member.workspaceId)).toEqual(before);
+    expect((await renameWorkspace(member.workspaceId, admin.id, 'a'.repeat(80))).name).toHaveLength(80);
 });
