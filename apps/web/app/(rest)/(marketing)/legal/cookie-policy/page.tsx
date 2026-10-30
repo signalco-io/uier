@@ -56,6 +56,13 @@ const items = [
         duration: 'Until the Google sign-in finishes, at most 15 minutes'
     },
     {
+        name: '__Host-uier_passkey_challenge',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You open the sign-in page in a browser that supports passkeys, or add a passkey in the app',
+        purpose: 'Binds the one-time passkey challenge to this browser. Holds a signed challenge id, with nothing about you or your passkey. A new prompt replaces it; checking the passkey removes it.',
+        duration: 'Until the challenge expires, at most five minutes'
+    },
+    {
         name: '__Host-uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',

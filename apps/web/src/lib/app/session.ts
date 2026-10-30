@@ -10,7 +10,8 @@ import { GOOGLE_SIGN_IN_COOKIE_NAME } from './google/cookie';
 
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from './sessionIdentity';
 
-type SessionPayload = { uid: string };
+/** `iat`: when this browser signed in (adding a passkey needs a recent sign-in) */
+type SessionPayload = { uid: string; iat: number };
 
 export function appCookieOptions(maxAge: number) {
     return {
@@ -26,7 +27,7 @@ export function appCookieOptions(maxAge: number) {
 /** Signs the user in on this browser (server actions and route handlers only) */
 export async function startSession(userId: string) {
     const jar = await cookies();
-    const token = signToken<SessionPayload>('session', { uid: userId }, SESSION_TTL_SECONDS);
+    const token = signToken<SessionPayload>('session', { uid: userId, iat: Math.floor(Date.now() / 1000) }, SESSION_TTL_SECONDS);
     jar.set(SESSION_COOKIE_NAME, token, appCookieOptions(SESSION_TTL_SECONDS));
     jar.set(SIGN_IN_REQUEST_COOKIE_NAME, '', appCookieOptions(0));
     jar.set(GOOGLE_SIGN_IN_COOKIE_NAME, '', appCookieOptions(0));

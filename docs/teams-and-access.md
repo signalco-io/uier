@@ -132,7 +132,9 @@ from team, member and invitation grants through the same guard, in `project.dele
 member/invitation relationships, email-hashed generation records and affected access events in
 the existing scoped operator process. For workspace erasure, enumerate all these types in that
 workspace partition. For account erasure, remove membership relationships and events where the
-account is actor/target, considering other people's retained records. Do not erase a revocation
+account is actor/target, considering other people's retained records, and the account's `passkey`
+documents in `user:<id>` with the `passkey-credential` lookup of each (`passkey:<SHA-256 of the
+credential id>`). Do not erase a revocation
 marker while outstanding invitations it invalidates remain. Keep backup retention rules intact.
 
 ## Verification and operations

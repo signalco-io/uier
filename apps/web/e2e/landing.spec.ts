@@ -53,6 +53,9 @@ test('app scripts use a fresh nonce, including the theme script, and reject inje
     expect(second.headers()['content-security-policy']).not.toContain('attacker');
     expect(violations).toEqual([]);
     await page.route('**/app/sign-in', async route => {
+        // Only the document: the page's own requests (the passkey autofill's challenge) pass through.
+        if (!route.request().isNavigationRequest())
+            return await route.fallback();
         const response = await route.fetch();
         await route.fulfill({ response, body: (await response.text()).replace('</body>',
             '<script>window.__uierInjected = true</script></body>') });

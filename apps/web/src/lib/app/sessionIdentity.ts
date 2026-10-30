@@ -12,11 +12,11 @@ export async function sessionUser(token: string | undefined) {
     return getUser(session.uid);
 }
 
-/** When this browser signed in (Unix seconds): sessions are never re-signed, so `exp` minus the lifetime */
+/** When this browser signed in (Unix seconds): `iat`, or `exp` minus the lifetime on older tokens */
 export function sessionSignedInAt(token: string | undefined) {
-    const session = verifyToken<{ uid: string }>('session', token);
+    const session = verifyToken<{ uid: string; iat?: unknown }>('session', token);
     if (!session || typeof session.uid !== 'string') return null;
-    return { userId: session.uid, signedInAt: session.exp - SESSION_TTL_SECONDS };
+    return { userId: session.uid, signedInAt: typeof session.iat === 'number' ? session.iat : session.exp - SESSION_TTL_SECONDS };
 }
 
 export function requestSessionUser(request: Request) {

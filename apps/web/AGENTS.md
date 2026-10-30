@@ -12,7 +12,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` (Google sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` (Google sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
@@ -367,10 +367,20 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   refused; only `@gmail.com` or a matching `hd` finds or creates the account and links at once. Every other
   address, new or existing, first proves its inbox with a browser-bound email code (`googleLinkId` on the sign-in
   request, `google-link` record): never create an account for it from Google alone (stale verification would
-  pre-hijack it). Account links (only with a sign-in from the last 10 minutes, `sessionSignedInAt`, checked at the
-  start and again at the callback) and unlinks; a `sub` of another user is refused. The button shows only in
+  pre-hijack it). Account links (only with a sign-in from the last 10 minutes, the passkeys' `requireRecentSignIn` on
+  `sessionSignedInAt`, checked at the start and again at the callback) and unlinks; a `sub` of another user is refused. The button shows only in
   production and local runtime; endpoint overrides work only locally. `google-sign-in{,.api}.spec.ts` use
   `e2e/support/googleStub.ts`.
+- Passkeys (`src/lib/app/passkeys.ts`; `PasskeySignIn` on sign-in, `PasskeysSection` on Account) use
+  `@simplewebauthn/server` and `/browser` with the RP ID and origin of `appBaseUrl()` (none on an IP
+  address). Challenges are single-use records (5 minutes, atomic delete) bound by the signed HttpOnly
+  `__Host-uier_passkey_challenge` cookie; every verification clears it. Adding a passkey needs a session
+  signed in within 10 minutes (`iat` in the session token): a stolen older cookie cannot add one.
+  The `passkey` document in `user:<id>` is the source of truth; its `passkey:<hash>` lookup is written
+  first and deleted last. Keep counter checks, user verification, Ed25519/P-256/RSA only (not ML-DSA)
+  and the per-IP limits. The email field has `autocomplete="email webauthn"` for passkey autofill.
+  `e2e/passkeys.api.spec.ts` covers the rules; `passkeys.spec.ts` uses Chromium's virtual authenticator on
+  `localhost`, with the autofill stubbed off where a test clicks the button.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and

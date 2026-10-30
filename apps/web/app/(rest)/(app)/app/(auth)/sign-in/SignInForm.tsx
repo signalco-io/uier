@@ -10,6 +10,7 @@ import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { confirmSignInCodeAction, requestSignInAction, type SignInLinkSent } from './actions';
+import { PasskeySignIn } from './PasskeySignIn';
 
 export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: string }) {
     const id = useId();
@@ -85,7 +86,7 @@ export function SignInForm({ next }: { next?: string }) {
                         type="email"
                         value={email}
                         onChange={(event) => setEmail(event.target.value)}
-                        autoComplete="email"
+                        autoComplete="email webauthn"
                         required
                         placeholder="you@example.com" />
                 </Field>
@@ -94,6 +95,7 @@ export function SignInForm({ next }: { next?: string }) {
                     {pending && <Spinner data-icon="inline-start" />}
                     Email me a sign-in code
                 </Button>
+                <PasskeySignIn next={next} />
             </FieldGroup>
         </form>
     );

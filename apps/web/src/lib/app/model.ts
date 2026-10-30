@@ -230,7 +230,54 @@ export type DbInvitationToken = AppDoc & {
     ttl: number;
 };
 
-export const workspacePk = (workspaceId: string) => `workspace:${workspaceId}` as const;
+/**
+ * A passkey (WebAuthn credential) in its user's partition, listed on Account. It is the source of
+ * truth: sign-in finds it through `DbPasskeyCredential` and rejects the credential once it is gone.
+ */
+export type DbPasskey = AppDoc & {
+    type: 'passkey';
+    /** `passkey_<SHA-256 of the credential id>` */
+    id: string;
+    pk: `user:${string}`;
+    /** base64url, as the authenticator returns it */
+    credentialId: string;
+    /** COSE public key, base64url */
+    publicKey: string;
+    /** Signature counter; stays 0 on authenticators without one */
+    counter: number;
+    transports: string[];
+    /** Authenticator model (all zeros when the authenticator doesn't say) */
+    aaguid: string;
+    deviceType: 'singleDevice' | 'multiDevice';
+    /** Synced to a password manager or another device */
+    backedUp: boolean;
+    name: string;
+    createdAt: string;
+    lastUsedAt?: string;
+};
+
+/** Unique credential id -> user, for a point read at sign-in (id: SHA-256 of the credential id) */
+export type DbPasskeyCredential = AppDoc & {
+    type: 'passkey-credential';
+    pk: `passkey:${string}`;
+    userId: string;
+    createdAt: string;
+};
+
+/** A single-use WebAuthn challenge, bound to one browser by a signed cookie with its id */
+export type DbPasskeyChallenge = AppDoc & {
+    type: 'passkey-challenge';
+    pk: `passkey-challenge:${string}`;
+    purpose: 'register' | 'sign-in';
+    /** base64url */
+    challenge: string;
+    /** Registration only: the signed-in user who asked */
+    userId?: string;
+    createdAt: string;
+    ttl: number;
+};
+
+export const workspacePk =(workspaceId: string) => `workspace:${workspaceId}` as const;
 export const userPk = (userId: string) => `user:${userId}` as const;
 export const emailPk = (email: string) => `email:${email}` as const;
 export const projectRefPk = (projectId: string) => `project:${projectId}` as const;

@@ -63,6 +63,9 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `google-link` (a verified Google account, for an address Google is not authoritative for, waiting for an email code before the account is created or linked, `ttl` 15 min) | `google-link:<id>` | 64 random hex characters |
 | `user-identity` (unique Google account -> user) | `identity:google:<sub>` | Google's `sub` |
 | `google-account` (the user's linked Google account: `sub`, its address for display, when it was linked) | `user:<id>` | `google` |
+| `passkey` (a user's passkey: credential id, COSE public key, signature counter, transports, AAGUID, backup flags, name, `createdAt`, `lastUsedAt`; the source of truth) | `user:<id>` | `passkey_<SHA-256 of the credential id>` |
+| `passkey-credential` (unique credential id -> user, for a point read at sign-in) | `passkey:<hash>` | SHA-256 of the credential id |
+| `passkey-challenge` (single-use WebAuthn challenge, `ttl` 5 min; `register` with its user or `sign-in`) | `passkey-challenge:<id>` | 32 random bytes, hex |
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the internal project id |
 | `client` (who projects are for: name, description, icon, colour; projects point to it with `clientId`), `client-name` (unique name -> client) | `workspace:<id>` | `client_<nanoid>`, `client_name_<SHA-256 of the name>` |
 | `project-ref` (internal id -> workspace) | `project:<id>` | the internal project id |
@@ -85,6 +88,19 @@ loaded user id, then atomically updates the workspace removal version and delete
 member; concurrent removals recheck the admin count. A removed membership is never restored.
 Sign-in return paths are rebuilt with `new URL()` against a fixed origin, restricted to `/app`
 and its descendants, and reject dot segments (including encoded forms), backslashes and controls.
+
+Passkeys (`src/lib/app/passkeys.ts`, `@simplewebauthn/server`) use the RP ID and origin of
+`appBaseUrl()`. Every ceremony's challenge is a single-use record that only the winner of an atomic
+delete may verify, bound to the browser by the signed HttpOnly `__Host-uier_passkey_challenge` cookie
+(the record id only). Registration requires a discoverable credential, user verification, `none`
+attestation, Ed25519, P-256 or RSA, and a session signed in within the last 10 minutes (the session
+token's `iat`), checked for the options and again against the challenge. A registration writes the
+`passkey-credential` lookup first and the `passkey` second, so an interrupted write leaves only an
+unused lookup; sign-in needs both, and a lookup older than a minute without its passkey is replaced
+or deleted. Removal deletes the passkey first, so it stops working at once. Sign-in rejects a
+signature counter that does not move forward unless both counters are zero, and updates the passkey
+conditionally on its version. Options (60) and verifications (30) are limited per IP address per
+10 minutes.
 
 ### Public project identifiers
 
