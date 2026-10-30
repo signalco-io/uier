@@ -1,23 +1,34 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 
 /**
  * A quiet icon action in a comment's header (Mark as read, Copy issue, Copy link): the same
- * actions, icons and order as the toolbar's thread header. The tooltip names it.
+ * actions, icons and order as the toolbar's thread header. The tooltip names it; a notice
+ * (Issue copied.) opens it under the button while set.
  */
-export function ThreadAction({ label, tooltip = label, disabled, busy, onClick, children }: {
+export function ThreadAction({ label, tooltip = label, notice, disabled, busy, onClick, children }: {
     label: string;
     tooltip?: string;
+    notice?: string;
     disabled?: boolean;
     busy?: boolean;
     onClick: () => void;
     children: ReactNode;
 }) {
+    const [hovered, setHovered] = useState(false);
+    // The notice keeps its text and side while it fades out; hovering again brings back the name
+    const [shownNotice, setShownNotice] = useState(notice);
+    if (notice && notice !== shownNotice)
+        setShownNotice(notice);
     return (
-        <Tooltip>
+        <Tooltip open={hovered || Boolean(notice)} onOpenChange={open => {
+            setHovered(open);
+            if (open && !notice)
+                setShownNotice(undefined);
+        }}>
             <TooltipTrigger asChild>
                 {/* A disabled button gets no pointer events: the span keeps its tooltip */}
                 <span className="inline-flex">
@@ -27,7 +38,7 @@ export function ThreadAction({ label, tooltip = label, disabled, busy, onClick, 
                     </Button>
                 </span>
             </TooltipTrigger>
-            <TooltipContent>{tooltip}</TooltipContent>
+            <TooltipContent side={shownNotice ? 'bottom' : undefined}>{shownNotice ?? tooltip}</TooltipContent>
         </Tooltip>
     );
 }

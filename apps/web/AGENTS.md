@@ -226,7 +226,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   icon-only with a tooltip and accessible name; Done keeps its label unless the card is narrow), then
   "Unassigned" / "Assigned to ..." and the source, the first and last message with Show all, the quiet
   Follow thread, Open in ... and Reproduction details, and the page link in the footer. Change both
-  together. Copy issue's status and manual clipboard fallback stay in the body; pending actions show `Spinner`.
+  together. Copy issue confirms "Issue copied." in its tooltip under the button (`ThreadAction`'s
+  `notice`) for 2 seconds, as the toolbar does; its errors and manual clipboard fallback stay in the
+  body; pending actions show `Spinner`.
 - `app/global.css` defines `--radius-sm/md/lg` (the preset's radii are JS values with no variables);
   shadcn's small buttons read `var(--radius-md)`.
 - **Onboarding.** `OnboardingSteps` shows Your site, Add the script and Invite a reviewer. Only
