@@ -19,7 +19,8 @@ credential and Cosmos DB cutover gates for #167. Production still uses its accou
   `COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` (the managed identity below) and
   `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`.
   The app's data container is `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`); only production gets the
-  email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
+  email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
+  scheduled notifications worker reads both from `vercel pull`), and `ANTHROPIC_API_KEY` (rewrite
   suggestions) once the repository secret `ANTHROPIC_API_KEY` is set,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
   both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself;

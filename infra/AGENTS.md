@@ -11,7 +11,8 @@ It manages:
   variables (production: `COSMOSDB_CONNECTION_STRING` with the primary key and `comments`,
   preview: the managed identity below and `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
-  variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER`, and `ANTHROPIC_API_KEY` (rewrite
+  variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
+  scheduled worker reads both from `vercel pull`), and `ANTHROPIC_API_KEY` (rewrite
   suggestions) when the repository secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
 - the production-only sensitive `UIER_STAFF_EMAILS` variable from required secret Pulumi config
   `uier:staffEmails`. Never store staff addresses in plaintext. See README "Removing abusive

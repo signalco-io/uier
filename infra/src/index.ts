@@ -318,7 +318,9 @@ const up = async () => {
         key: 'ACS_CONNECTION_STRING',
         value: email.connectionString,
         targets: ['production'],
-        sensitive: true,
+        // Retrievable, not "Sensitive": the scheduled notifications worker reads it from `vercel pull`,
+        // which omits Sensitive values. Changing this replaces only the variable, never the key.
+        sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-email-sender', {
         projectId: app.projectId,
