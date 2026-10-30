@@ -5,13 +5,14 @@ import { getSessionUser } from '@/src/lib/app/session';
 import { safeNextPath } from '@/src/lib/app/signIn';
 import { AuthCard } from '@/src/components/app/AuthCard';
 import { SignInForm } from './SignInForm';
+import { GoogleSignInButton, GoogleSignInProblem } from './GoogleSignIn';
 
 export const metadata: Metadata = {
     title: 'Sign in'
 };
 
 export default async function SignInPage({ searchParams }: PageProps<'/app/sign-in'>) {
-    const { next } = await searchParams;
+    const { next, google } = await searchParams;
     const nextPath = safeNextPath(next);
     if (await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
@@ -20,7 +21,8 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/sign-
         <AuthCard
             title="Sign in"
             description="Enter your email and we will send you a code and a link. New here? Signing in creates your account.">
-            <SignInForm next={nextPath} />
+            <GoogleSignInProblem outcome={google} />
+            <SignInForm next={nextPath} alternatives={<GoogleSignInButton next={nextPath} />} />
         </AuthCard>
     );
 }

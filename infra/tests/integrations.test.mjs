@@ -12,7 +12,8 @@ test('an absent map and a supported provider subset preserve exact server-only v
     assert.deepEqual(parseIntegrationEnvironment(''), {});
     assert.deepEqual(parse({}), {});
     const subset = { NOTION_CLIENT_ID: 'fixture-client', NOTION_CLIENT_SECRET: 'fixture-secret',
-        SLACK_APP_ID: 'A123FIXTURE', SLACK_DISTRIBUTION_APPROVED: '0', UIER_GITHUB_PRIVATE_KEY: 'fixture\nmultiline\nkey' };
+        SLACK_APP_ID: 'A123FIXTURE', SLACK_DISTRIBUTION_APPROVED: '0', UIER_GITHUB_PRIVATE_KEY: 'fixture\nmultiline\nkey',
+        GOOGLE_CLIENT_ID: 'fixture.apps.googleusercontent.com', GOOGLE_CLIENT_SECRET: 'fixture-google-secret' };
     assert.deepEqual(parse(subset), subset);
     assert.deepEqual(parse({ SLACK_DISTRIBUTION_APPROVED: '1' }), { SLACK_DISTRIBUTION_APPROVED: '1' });
 });
@@ -21,7 +22,8 @@ test('endpoint, public-variable and deployment-mode overrides are outside the cr
     for (const name of ['NOTION_API_BASE_URL', 'NOTION_OAUTH_AUTHORIZE_URL', 'LINEAR_API_BASE_URL', 'LINEAR_OAUTH_TOKEN_URL',
         'LINEAR_OAUTH_AUTHORIZE_URL', 'LINEAR_OAUTH_REVOKE_URL', 'SLACK_API_BASE_URL', 'SLACK_OAUTH_AUTHORIZE_URL',
         'AZURE_DEVOPS_API_BASE_URL', 'AZURE_DEVOPS_PROFILE_BASE_URL', 'AZURE_DEVOPS_OAUTH_AUTHORIZE_URL', 'AZURE_DEVOPS_OAUTH_TOKEN_URL',
-        'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL', 'UIER_DEPLOYMENT_ENV', 'UIER_LOCAL', 'NEXT_PUBLIC_NOTION_CLIENT_SECRET'])
+        'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL', 'GOOGLE_OAUTH_AUTHORIZE_URL', 'GOOGLE_OAUTH_TOKEN_URL', 'GOOGLE_OAUTH_ISSUER',
+        'UIER_DEPLOYMENT_ENV', 'UIER_LOCAL', 'NEXT_PUBLIC_NOTION_CLIENT_SECRET'])
         assert.throws(() => parse({ [name]: 'https://fixture.invalid' }), /unsupported variable/);
 });
 

@@ -17,6 +17,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Project deletion](project-deletion.md): what deleting a project removes, in what order, what stays and how failed steps are retried.
 - [Screenshot storage](screenshot-storage.md): private Azure Blob bytes, direct reads, migration and cleanup.
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
+- [Google sign-in](google-sign-in.md): Continue with Google, account linking rules, what is stored and creating the Google OAuth client.
 - [Coding tool access (MCP)](mcp.md): OAuth sign-in and consent, connected apps, access tokens, client setup, tools, prompts and retry contracts.
 - [MCP OAuth plan](mcp-oauth-plan.md): the design record for coding tool sign-in, the decisions taken and where the implementation differs.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.

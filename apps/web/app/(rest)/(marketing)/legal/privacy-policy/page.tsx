@@ -32,7 +32,8 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>
                     Commenting on {brand.domain} needs no account. If you sign in to the {brand.name} app, we store your
-                    email address and name to sign you in and show who you work with.
+                    email address and name to sign you in and show who you work with. If you sign in with Google, we
+                    also store your Google account id and address.
                 </li>
                 <li>We do not show ads, sell data or follow you to other sites.</li>
             </ul>
@@ -150,6 +151,19 @@ export default function PrivacyPolicyPage() {
                 you signed in. The <code>__Host-uier_workspace</code> cookie remembers your selected workspace.
                 The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> lists lifetimes and the temporary reads of old cookie names. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
+            </p>
+            <p>
+                If you choose Continue with Google, you sign in at Google, which tells us your Google account id, your
+                email address and whether Google verified it, your Google Workspace domain if you have one, your name and
+                your profile picture. We store the account id, that address (shown on your Account page) and when you
+                linked the account. An account created for a Gmail or Google Workspace address takes your Google name
+                as its display name. We do not store your picture or any Google token. During sign-in we keep hashes of
+                the values that tie Google&rsquo;s answer to your request for up to 10 minutes, and the HttpOnly
+                <code>__Host-uier_google_sign_in</code> cookie ties them to your browser. For any other address, we keep
+                the Google account id and address for up to 15 minutes while you confirm the address with an email
+                code; the Google account is linked only in the browser that asked. We count Google sign-in attempts per
+                IP address. Linking Google from your Account page needs a sign-in from the last 10 minutes. You can
+                unlink Google there at any time; email sign-in stays available.
             </p>
             <p>
                 You can also sign in with a passkey that you add on your Account page. A passkey is a key pair: its
@@ -436,6 +450,7 @@ export default function PrivacyPolicyPage() {
                     are delivered from Vercel&rsquo;s global network.
                 </li>
                 <li>Rewrite suggestions: Anthropic receives the selected text and your instruction to write them.</li>
+                <li>Google sign-in, only if you choose it: you sign in at Google, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>DNS: Cloudflare answers DNS queries for {brand.domain}. It does not see the pages you visit.</li>
             </ul>
             <p>
@@ -461,6 +476,7 @@ export default function PrivacyPolicyPage() {
                 <li>Comments in projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
+                <li>A linked Google account: until you unlink it or ask us to delete your account. Google sign-ins in progress: at most 10 minutes. A Google account waiting for an email code: at most 15 minutes.</li>
                 <li>Passkeys: until you remove them on your Account page, or with your account. Passkey challenges: at most five minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>

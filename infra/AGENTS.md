@@ -176,6 +176,8 @@ submitted names or values. All supplied values are Pulumi secrets and production
 variables (`sensitive: false`). The scheduled worker pulls production variables; write-only Sensitive
 values are omitted from that pull and would break delivery. Authorized Vercel members and the worker
 can retrieve these server-only values. Never log or upload the ephemeral pulled environment file. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
+The allowlist also carries the Google sign-in client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
+[Google sign-in](../docs/google-sign-in.md)), which needs no encryption key.
 
 No secret is needed to generate the five encryption keys. Each starts at `k1`. An explicit key
 rotation requires the current key and id together; a retained previous key and id are also paired,

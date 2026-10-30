@@ -49,6 +49,13 @@ const items = [
         duration: 'Until the sign-in request expires, at most 15 minutes'
     },
     {
+        name: '__Host-uier_google_sign_in',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You choose Continue with Google, or link Google on your Account page',
+        purpose: 'Ties Google’s answer to the sign-in this browser started, and a Google account waiting for an email code to this browser. Holds a signed record id, with no email address or Google data. Google’s answer or signing in removes it.',
+        duration: 'Until the Google sign-in finishes, at most 15 minutes'
+    },
+    {
         name: '__Host-uier_passkey_challenge',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You open the sign-in page in a browser that supports passkeys, or add a passkey in the app',

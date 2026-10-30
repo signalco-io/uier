@@ -6,6 +6,7 @@ import { signToken } from './tokens';
 import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS, sessionSignedInAt, sessionUser } from './sessionIdentity';
 import { reviewSsoCookie, REVIEW_SSO_COOKIE_NAME, reviewSsoCookieOptions } from './reviewSsoCookie';
 import { SIGN_IN_REQUEST_COOKIE_NAME } from './signInCookie';
+import { GOOGLE_SIGN_IN_COOKIE_NAME } from './google/cookie';
 
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from './sessionIdentity';
 
@@ -29,6 +30,7 @@ export async function startSession(userId: string) {
     const token = signToken<SessionPayload>('session', { uid: userId, iat: Math.floor(Date.now() / 1000) }, SESSION_TTL_SECONDS);
     jar.set(SESSION_COOKIE_NAME, token, appCookieOptions(SESSION_TTL_SECONDS));
     jar.set(SIGN_IN_REQUEST_COOKIE_NAME, '', appCookieOptions(0));
+    jar.set(GOOGLE_SIGN_IN_COOKIE_NAME, '', appCookieOptions(0));
     if (SIGN_IN_REQUEST_COOKIE_NAME !== cookieNames.signInRequest.legacy)
         jar.set(cookieNames.signInRequest.legacy, '', appCookieOptions(0));
     const companion = reviewSsoCookie(token);

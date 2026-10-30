@@ -58,7 +58,11 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | --- | --- | --- |
 | `user` | `user:<id>` | `u_<nanoid>` |
 | `user-email` (unique email -> user) | `email:<email>` | the email |
-| `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash) | `sign-in:<hash>` | SHA-256 of the link token |
+| `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash; `googleLinkId` when it confirms a waiting Google account) | `sign-in:<hash>` | SHA-256 of the link token |
+| `google-sign-in` (a [Google sign-in](google-sign-in.md) in progress, `ttl` 10 min; state and nonce as SHA-256 hashes, no PKCE verifier) | `google-sign-in:<id>` | 64 random hex characters |
+| `google-link` (a verified Google account, for an address Google is not authoritative for, waiting for an email code before the account is created or linked, `ttl` 15 min) | `google-link:<id>` | 64 random hex characters |
+| `user-identity` (unique Google account -> user) | `identity:google:<sub>` | Google's `sub` |
+| `google-account` (the user's linked Google account: `sub`, its address for display, when it was linked) | `user:<id>` | `google` |
 | `passkey` (a user's passkey: credential id, COSE public key, signature counter, transports, AAGUID, backup flags, name, `createdAt`, `lastUsedAt`; the source of truth) | `user:<id>` | `passkey_<SHA-256 of the credential id>` |
 | `passkey-credential` (unique credential id -> user, for a point read at sign-in) | `passkey:<hash>` | SHA-256 of the credential id |
 | `passkey-challenge` (single-use WebAuthn challenge, `ttl` 5 min; `register` with its user or `sign-in`) | `passkey-challenge:<id>` | 32 random bytes, hex |

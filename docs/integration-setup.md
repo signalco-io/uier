@@ -36,6 +36,7 @@ The accepted provider credentials are:
 | Linear | `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET` | OAuth application's client id and secret |
 | Slack | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_APP_ID`, `SLACK_DISTRIBUTION_APPROVED` | App/client ids, client secret and the explicit release gate (`"0"` or `"1"`) |
 | Azure DevOps | `AZURE_DEVOPS_CLIENT_ID`, `AZURE_DEVOPS_CLIENT_SECRET`, optional `AZURE_DEVOPS_TENANT` | Microsoft Entra application (client) id, a client secret, and `organizations` (default) or one tenant id |
+| Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Web application OAuth client id and secret ([Google sign-in](google-sign-in.md#create-the-google-oauth-client)) |
 
 For example, a Notion-only map has this shape; replace placeholders through the owner's secret
 manager or GitHub's repository-secret interface, not in a committed file:

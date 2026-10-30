@@ -9,6 +9,8 @@ const credentialNames = [
     'SLACK_CLIENT_ID', 'SLACK_CLIENT_SECRET', 'SLACK_APP_ID', 'SLACK_DISTRIBUTION_APPROVED',
     'UIER_GITHUB_APP_ID', 'UIER_GITHUB_APP_SLUG', 'UIER_GITHUB_CLIENT_ID', 'UIER_GITHUB_CLIENT_SECRET',
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_WEBHOOK_SECRET',
+    // "Continue with Google" sign-in (docs/google-sign-in.md), production only like the providers above
+    'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
 ] as const;
 const encryptionKeys = [
     ['notion', 'NOTION_TOKEN_KEY'], ['linear', 'LINEAR_TOKEN_KEY'],
