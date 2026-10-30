@@ -7,8 +7,7 @@ import { safeNextPath } from '../signIn';
 import { isGoogleSignInConfigured } from './config';
 import { GOOGLE_SIGN_IN_COOKIE_NAME } from './cookie';
 import { GOOGLE_LINK_TTL_SECONDS } from './link';
-import { beginGoogleSignIn, finishGoogleSignIn, GOOGLE_SIGN_IN_TTL_SECONDS, GoogleSignInError, recentEnoughToLink,
-    type GoogleSignInOutcome } from './signIn';
+import { beginGoogleSignIn, finishGoogleSignIn, GOOGLE_SIGN_IN_TTL_SECONDS, GoogleSignInError, type GoogleSignInOutcome } from './signIn';
 
 function redirect(location: string) {
     return new Response(null, { status: 302, headers: { Location: location, 'Cache-Control': 'no-store' } });
@@ -50,8 +49,6 @@ export async function startGoogleSignInRoute(request: Request) {
         return redirect(signInUrl(baseUrl, undefined, KnownPages.AppAccount));
     if (!linking && user)
         return redirect(new URL(next ?? KnownPages.App, baseUrl).href);
-    if (linking && !recentEnoughToLink(session!.signedInAt))
-        return redirect(back('sign_in_again'));
     try {
         const started = await beginGoogleSignIn({ next, link: linking ? session! : undefined, baseUrl, ipBucket: await requestIpBucket() });
         (await cookies()).set(GOOGLE_SIGN_IN_COOKIE_NAME, started.binding, appCookieOptions(GOOGLE_SIGN_IN_TTL_SECONDS));

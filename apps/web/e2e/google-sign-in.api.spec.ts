@@ -15,8 +15,9 @@ import { findUserByGoogleSubject, getGoogleAccount, linkGoogleAccount, unlinkGoo
 import { getGoogleLink, googleLinkIdFor } from '../src/lib/app/google/link';
 import { GOOGLE_ACCOUNT_ID, googleIdentityPk, googleLinkPk, googleSignInPk, type DbGoogleLink, type DbGoogleSignIn,
     type DbUserIdentity } from '../src/lib/app/google/model';
-import { beginGoogleSignIn, finishGoogleSignIn, googleIdTokenClaims, googleIsAuthoritative, GOOGLE_LINK_RECENT_SIGN_IN_SECONDS,
-    GOOGLE_SIGN_IN_TTL_SECONDS, recentEnoughToLink, type GoogleSignInOutcome } from '../src/lib/app/google/signIn';
+import { beginGoogleSignIn, finishGoogleSignIn, googleIdTokenClaims, googleIsAuthoritative, GOOGLE_SIGN_IN_TTL_SECONDS,
+    type GoogleSignInOutcome } from '../src/lib/app/google/signIn';
+import { PASSKEY_RECENT_SIGN_IN_SECONDS } from '../src/lib/app/passkeys';
 import { googleSubject, startGoogleStub, type GoogleStub, type StubGoogleIdentity } from './support/googleStub';
 import { uniqueEmail } from './support/app';
 
@@ -301,11 +302,12 @@ test('rule 5: Account links and unlinks, and refuses an account that belongs to 
 });
 
 test('rule 5: linking needs a sign-in from the last 10 minutes when it starts, rechecked at the callback', async ({ google }) => {
+    // The rule for adding a passkey (`requireRecentSignIn`)
     const user = await findOrCreateUser(uniqueEmail('google-recent'));
-    const stale = nowSeconds() - GOOGLE_LINK_RECENT_SIGN_IN_SECONDS - 60;
+    const stale = nowSeconds() - PASSKEY_RECENT_SIGN_IN_SECONDS - 60;
     await expect(beginGoogleSignIn({ link: { userId: user.id, signedInAt: stale }, baseUrl })).rejects.toMatchObject({ code: 'sign_in_again' });
-    expect(recentEnoughToLink(nowSeconds() - GOOGLE_LINK_RECENT_SIGN_IN_SECONDS + 30)).toBe(true);
-    expect(recentEnoughToLink(stale)).toBe(false);
+    const started = await beginGoogleSignIn({ link: { userId: user.id, signedInAt: nowSeconds() - PASSKEY_RECENT_SIGN_IN_SECONDS + 30 }, baseUrl });
+    expect((await flowRecord(started.binding))?.doc.linkUserId).toBe(user.id);
 
     // Another, older session of the same account cannot finish a link a recent one started
     expect((await viaGoogle(google, { sub: googleSubject() }, { linkUserId: user.id, session: { userId: user.id, signedInAt: stale } })).outcome)
@@ -313,10 +315,10 @@ test('rule 5: linking needs a sign-in from the last 10 minutes when it starts, r
     expect(await getGoogleAccount(user.id)).toBeNull();
     expect((await viaGoogle(google, { sub: googleSubject() }, { linkUserId: user.id })).outcome).toEqual({ kind: 'linked' });
 
-    // Sessions are never re-signed, so the sign-in time is the expiry minus the lifetime
-    const token = signToken('session', { uid: user.id }, SESSION_TTL_SECONDS);
-    expect(Math.abs(sessionSignedInAt(token)!.signedInAt - nowSeconds())).toBeLessThanOrEqual(1);
-    expect(sessionSignedInAt(token)!.userId).toBe(user.id);
+    // The session's `iat`, or on older tokens without it the expiry minus the lifetime
+    const iat = nowSeconds() - 120;
+    const token = signToken('session', { uid: user.id, iat }, SESSION_TTL_SECONDS);
+    expect(sessionSignedInAt(token)).toEqual({ userId: user.id, signedInAt: iat });
     expect(sessionSignedInAt(signToken('session', { uid: user.id }, SESSION_TTL_SECONDS - 3600))!.signedInAt).toBeLessThanOrEqual(nowSeconds() - 3599);
     for (const value of [undefined, '', signToken('review-sso', { uid: user.id }, 60), `${token}x`])
         expect(sessionSignedInAt(value)).toBeNull();
@@ -483,30 +485,28 @@ test.describe('routes', () => {
             expect(cookie).toMatch(attribute);
     });
 
-    test('linking from Account needs a sign-in from the last 10 minutes', async ({ playwright, baseURL }) => {
+    test('linking from Account starts with a fresh session and needs one', async ({ playwright, baseURL }) => {
+        // A stale session is refused in-process ('rule 5: linking needs a sign-in ...'): sessions minted here
+        // would use this worker's server secret, which other API specs change, not the server's.
         const fresh = await playwright.request.newContext({ baseURL });
         try {
-            // A Gmail account signs up through the stub, so the server has the user and a fresh session
+            const signedOut = await fresh.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
+            const back = new URL(signedOut.headers().location!);
+            expect(`${back.pathname}${back.search}`).toBe('/app/sign-in?next=%2Fapp%2Faccount');
+
+            // A Gmail account signs up through the stub: the server has the user and a fresh session
             const start = await fresh.get('/app/sign-in/google', { maxRedirects: 0 });
             const authorize = start.headers().location!;
             const flow = /name="flow" value="([^"]+)"/.exec(await (await fresh.get(authorize)).text())![1]!;
             const decision = await fresh.post(new URL('/decision', authorize).href, { form: { flow, sub: googleSubject(),
                 email: gmail('google-recent-route'), email_verified: 'true', decision: 'allow' }, maxRedirects: 0 });
             expect((await fresh.get(decision.headers().location!, { maxRedirects: 0 })).status()).toBe(302);
-            const session = (await fresh.storageState()).cookies.find(cookie => cookie.name === 'uier_session')!.value;
-            const uid = (JSON.parse(Buffer.from(session.split('.')[0]!, 'base64url').toString()) as { uid: string }).uid;
 
-            const recent = await fresh.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
-            expect(new URL(recent.headers().location!).pathname).toBe('/o/oauth2/v2/auth');
-
-            // The same account with a sign-in from 11 minutes ago starts nothing
-            const old = signToken('session', { uid }, SESSION_TTL_SECONDS - GOOGLE_LINK_RECENT_SIGN_IN_SECONDS - 60);
-            const stale = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { cookie: `uier_session=${old}` } });
-            const refused = await stale.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
-            const location = new URL(refused.headers().location!);
-            expect(`${location.pathname}${location.search}${location.hash}`).toBe('/app/account?google=sign_in_again#google');
-            expect(refused.headers()['set-cookie'] ?? '').not.toContain('google_sign_in');
-            await stale.dispose();
+            const link = await fresh.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
+            const google = new URL(link.headers().location!);
+            expect(google.pathname).toBe('/o/oauth2/v2/auth');
+            expect(google.searchParams.get('prompt')).toBe('select_account');
+            expect(link.headersArray().some(header => header.name.toLowerCase() === 'set-cookie' && header.value.startsWith('uier_google_sign_in='))).toBe(true);
         } finally { await fresh.dispose(); }
     });
 

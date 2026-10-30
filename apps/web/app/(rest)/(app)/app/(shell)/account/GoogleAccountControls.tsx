@@ -7,7 +7,8 @@ import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { KnownPages } from '@/src/knownPages';
-import { signInToLinkGoogleAction, unlinkGoogleAction } from './googleActions';
+import { unlinkGoogleAction } from './googleActions';
+import { signInAgainAction } from './passkeyActions';
 
 const outcomes: Record<string, string> = {
     linked: 'Google account linked. You can sign in with it now.',
@@ -56,7 +57,7 @@ export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }:
                     : (
                         <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
                             <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">To link a Google account, sign in again. Linking needs a sign-in from the last 10 minutes.</p>
-                            <form action={signInToLinkGoogleAction}>
+                            <form action={signInAgainAction}>
                                 <Button type="submit" variant="outline">
                                     <LogInIcon data-icon="inline-start" />
                                     Sign in again

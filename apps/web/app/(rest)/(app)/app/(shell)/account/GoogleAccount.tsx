@@ -1,7 +1,7 @@
 import { Section } from '@/src/components/app/PageHeader';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { getGoogleAccount } from '@/src/lib/app/google/identity';
-import { recentEnoughToLink } from '@/src/lib/app/google/signIn';
+import { PASSKEY_RECENT_SIGN_IN_SECONDS } from '@/src/lib/app/passkeys';
 import { getSessionSignIn } from '@/src/lib/app/session';
 import { GoogleAccountControls } from './GoogleAccountControls';
 
@@ -11,8 +11,9 @@ export async function GoogleAccount({ userId }: { userId: string }) {
     const configured = isGoogleSignInConfigured();
     if (!account && !configured)
         return null;
-    // Rendered per request (the app pages are dynamic), so the time is current
-    const recentSignIn = session?.userId === userId && recentEnoughToLink(session.signedInAt);
+    // The rule for adding a passkey. Rendered per request (the app pages are dynamic), so the time is current.
+    const recentSignIn = session?.userId === userId
+        && Date.now() - session.signedInAt * 1000 <= PASSKEY_RECENT_SIGN_IN_SECONDS * 1000;
     return (
         <Section id="google" title="Google account" description="Sign in with Google instead of an email code. Email sign-in always stays available.">
             <GoogleAccountControls linkedEmail={account ? account.email : null} configured={configured} recentSignIn={recentSignIn} />

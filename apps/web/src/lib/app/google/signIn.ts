@@ -5,6 +5,7 @@ import { keyedHash } from '../../comments/environment';
 import { getAppStore } from '../store';
 import { isRandomToken, randomToken, sha256Hex } from '../tokens';
 import { safeNextPath } from '../signIn';
+import { requireRecentSignIn } from '../passkeys';
 import { emailSchema, findOrCreateUserWithStatus, nameSchema, updateUserName } from '../users';
 import { googleConfig, googleRedirectUri, isGoogleSignInConfigured } from './config';
 import { boundGoogleRecordId, googleBindingToken } from './cookie';
@@ -18,12 +19,18 @@ const GOOGLE_STARTS_PER_IP = 30;
 const HOUR = 60 * 60;
 /** Allowed difference between Google's clock and ours for `iat` */
 const CLOCK_SKEW_SECONDS = 5 * 60;
-/** Linking from Account needs a sign-in this recent, like adding a passkey: a stolen session cannot attach a Google account that outlives it */
-export const GOOGLE_LINK_RECENT_SIGN_IN_SECONDS = 10 * 60;
 
-/** Whether a session that signed in at `signedInAt` (Unix seconds) may link Google at `at` (ms) */
-export function recentEnoughToLink(signedInAt: number, at = Date.now()) {
-    return at - signedInAt * 1000 <= GOOGLE_LINK_RECENT_SIGN_IN_SECONDS * 1000;
+/**
+ * Linking from Account follows the rule for adding a passkey (`requireRecentSignIn`): a sign-in
+ * from the last 10 minutes, so a stolen session cannot attach a Google account that outlives it.
+ */
+function signedInRecently(signedInAt: number, at?: number) {
+    try {
+        requireRecentSignIn(signedInAt, at);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export class GoogleSignInError extends Error {
@@ -51,7 +58,7 @@ function sameHash(expected: string, actual: string) {
 export async function beginGoogleSignIn(input: { next?: string; link?: { userId: string; signedInAt: number }; baseUrl: string; ipBucket?: string }) {
     if (!isGoogleSignInConfigured())
         throw new GoogleSignInError('not_configured');
-    if (input.link && !recentEnoughToLink(input.link.signedInAt))
+    if (input.link && !signedInRecently(input.link.signedInAt))
         throw new GoogleSignInError('sign_in_again');
     if (input.ipBucket)
         await consume(getCommentsStore(), APP_COUNTERS_PARTITION, { key: `google-sign-in-ip:${input.ipBucket}`, limit: GOOGLE_STARTS_PER_IP,
@@ -183,7 +190,7 @@ export async function finishGoogleSignIn(input: {
     // Linking from Account continues only in the session that started it, still recent when it started
     if (linking && input.session?.userId !== flow.linkUserId)
         return problem('failed');
-    if (linking && !recentEnoughToLink(input.session!.signedInAt, createdAt))
+    if (linking && !signedInRecently(input.session!.signedInAt, createdAt))
         return problem('sign_in_again');
 
     let claims: GoogleClaims | null;

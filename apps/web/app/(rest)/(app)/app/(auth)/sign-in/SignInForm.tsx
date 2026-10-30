@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useId, useState } from 'react';
+import { useActionState, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { MailCheckIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
@@ -64,7 +64,8 @@ export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: st
     );
 }
 
-export function SignInForm({ next }: { next?: string }) {
+/** `alternatives`: other sign-in buttons (Google), after the passkey button under the same "or" */
+export function SignInForm({ next, alternatives }: { next?: string; alternatives?: ReactNode }) {
     const id = useId();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
     // Controlled, so a failed attempt keeps what was typed (React resets forms after an action)
@@ -96,6 +97,7 @@ export function SignInForm({ next }: { next?: string }) {
                     Email me a sign-in code
                 </Button>
                 <PasskeySignIn next={next} />
+                {alternatives}
             </FieldGroup>
         </form>
     );

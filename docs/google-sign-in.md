@@ -1,7 +1,8 @@
 # Google sign-in
 
 "Continue with Google" on the app's sign-in card signs people in with their Google account, next to
-the email code and link. Email sign-in always stays available. A signed-in person can link or unlink
+the email code and link and passkeys (under the email form's "or", after "Sign in with a passkey").
+Email sign-in always stays available. A signed-in person can link or unlink
 Google under Account → Google account.
 
 The flow is OpenID Connect's authorization code flow with PKCE, written in `apps/web/src/lib/app/google/`
@@ -78,16 +79,16 @@ checked first.
    in the browser that asked. The link opened anywhere else signs in by email and links nothing.
    The email says that using it also links a Google account.
 5. **Account:** a signed-in person links Google (`?intent=link`) only with a sign-in from the last
-   10 minutes, like adding a passkey: a stolen session cookie could otherwise attach a Google account
+   10 minutes, the rule for adding a passkey (`requireRecentSignIn` in `passkeys.ts`): a stolen session cookie could otherwise attach a Google account
    that outlives the 30-day session and survives sign-out. The start route checks it, and the
    callback checks it again against the request's creation time, in the session that started it.
-   An older sign-in gets "Sign in again" on Account, which signs out and returns there after signing
-   in. The callback links to the user who started it, whatever the Google address is. A `sub` linked
+   An older sign-in gets the passkeys' "Sign in again" on Account (`signInAgainAction`), which signs
+   out and returns there after signing in. The callback links to the user who started it, whatever the Google address is. A `sub` linked
    to another user is refused (`taken`), and so is a second Google account (`other_account`).
    Unlinking is always allowed.
 
-The sign-in time is `sessionSignedInAt` in `sessionIdentity.ts`: sessions are never re-signed, so it
-is the token's expiry minus `SESSION_TTL_SECONDS`.
+The sign-in time is `sessionSignedInAt` in `sessionIdentity.ts`: the session token's `iat`, or on older
+tokens without it the expiry minus `SESSION_TTL_SECONDS`.
 
 If the Google account was linked elsewhere while an email proof was pending, the person is still
 signed in by email and lands on Account with `google=taken`.
