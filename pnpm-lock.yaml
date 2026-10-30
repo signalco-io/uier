@@ -185,8 +185,8 @@ importers:
         specifier: 4.14.0
         version: 4.14.0(supports-color@7.2.0)
       '@azure/storage-blob':
-        specifier: 12.32.0
-        version: 12.32.0(supports-color@7.2.0)
+        specifier: 12.34.0
+        version: 12.34.0(supports-color@7.2.0)
       '@base-ui/react':
         specifier: 1.9.0
         version: 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -519,9 +519,9 @@ packages:
     resolution: {integrity: sha512-ixSO1Y/kCVRthRs+hSx/5qkwaunX1/RAePhlMN0wIpIQ4WEZ6AREGGnGd1AP0qspHVsAwzWQKGubpjh50JyJIQ==}
     engines: {node: '>=20'}
 
-  '@azure/storage-blob@12.32.0':
-    resolution: {integrity: sha512-80LzSNnFQye2LCCBFghAJS6jJQJ7N4bfgZ6qDMgVGRtugZ7TLDKQZ2hczMigmZH3jAcMRdma/IygsC5+0gT7Tw==}
-    engines: {node: '>=20.0.0'}
+  '@azure/storage-blob@12.34.0':
+    resolution: {integrity: sha512-cXDTCAMwDx8Ng9yUe82kOOd2kPnZ8AQqe4FkLMcpaQ3Mvr3/PXVdvRhyP0FtY5/U5Oh6JGk3EcEibaFOymRLFw==}
+    engines: {node: '>=22.0.0'}
 
   '@azure/storage-common@12.5.0':
     resolution: {integrity: sha512-bttzuhQiCIwrkzjPDA+AtAR7dg19L/CC6ztcqJ5LfvWpXuys9mHp0UQ0udYnoUvv9SCT9KTR5kqFvFr0e6k0lQ==}
@@ -2170,6 +2170,9 @@ packages:
   '@types/node@24.19.2':
     resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
 
+  '@types/node@25.9.9':
+    resolution: {integrity: sha512-b4e2xxj/yMeT2hNlD6x7zNFiQK2Dlmkb9CQ6v3/1G2RezKN4YS2lcEv8lzGm1mhs4f2lM4yNAMI/zUDBZBBt7w==}
+
   '@types/react-dom@19.3.0':
     resolution: {integrity: sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==}
     peerDependencies:
@@ -2393,6 +2396,10 @@ packages:
 
   anynum@1.0.1:
     resolution: {integrity: sha512-N6//FLET/tXYNM/F6ABca1oH6fWB+KlTt909Le28WMDBk8oaT4vY17DCrwg2MvmuqUKt3Ni4N5dGJ/EoBgcO6A==}
+
+  apache-arrow@21.2.0:
+    resolution: {integrity: sha512-Hxe6Agq26gQOM954qpzYSllJBPJl+e16U5CkfuMUhLrNba+5nKkttIVlflaovN6oaTratqMGAO8H5u/aNhmHWQ==}
+    hasBin: true
 
   arch@2.2.0:
     resolution: {integrity: sha512-Of/R0wqp83cgHozfIYLbBMnej79U/SVGOOyuB3VVFv1NRM/PSFMK12x9KVtiYzJqmnU5WR2qp0Z5rHb7sWGnFQ==}
@@ -2759,6 +2766,9 @@ packages:
   fix-dts-default-cjs-exports@1.0.1:
     resolution: {integrity: sha512-pVIECanWFC61Hzl2+oOCtoJ3F17kglZC/6N94eRWycFgBH35hHx0Li604ZIzhseh97mf2p0cv7vVrOZGoqhlEg==}
 
+  flatbuffers@25.9.23:
+    resolution: {integrity: sha512-MI1qs7Lo4Syw0EOzUl0xjs2lsoeqFku44KpngfIduHBYvzm8h2+7K8YMQh1JtVVVrUvhLpNwqVi4DERegUJhPQ==}
+
   forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
@@ -2945,6 +2955,9 @@ packages:
 
   json-schema-typed@8.0.2:
     resolution: {integrity: sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==}
+
+  json-with-bigint@3.5.12:
+    resolution: {integrity: sha512-uwbF/wSSuOgC7qqlq27Xp5B6a2MHVug3t0idZdTqu0JnlFvgJuH7ju+KAk/J06C7GfhoYy2gnb9wz2INqcne7w==}
 
   jsonwebtoken@9.0.3:
     resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
@@ -4008,7 +4021,7 @@ snapshots:
       '@azure/msal-common': 16.14.1
       jsonwebtoken: 9.0.3
 
-  '@azure/storage-blob@12.32.0(supports-color@7.2.0)':
+  '@azure/storage-blob@12.34.0(supports-color@7.2.0)':
     dependencies:
       '@azure/abort-controller': 2.2.0
       '@azure/core-auth': 1.11.0(supports-color@7.2.0)
@@ -4022,6 +4035,7 @@ snapshots:
       '@azure/core-xml': 1.6.0
       '@azure/logger': 1.4.0(supports-color@7.2.0)
       '@azure/storage-common': 12.5.0(@azure/core-client@1.11.1(supports-color@7.2.0))(supports-color@7.2.0)
+      apache-arrow: 21.2.0
       events: 3.3.0
       tslib: 2.8.1
     transitivePeerDependencies:
@@ -5500,6 +5514,10 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
+  '@types/node@25.9.9':
+    dependencies:
+      undici-types: 7.24.6
+
   '@types/react-dom@19.3.0(@types/react@19.3.0)':
     dependencies:
       '@types/react': 19.3.0
@@ -5635,6 +5653,13 @@ snapshots:
   any-promise@1.3.0: {}
 
   anynum@1.0.1: {}
+
+  apache-arrow@21.2.0:
+    dependencies:
+      '@types/node': 25.9.9
+      flatbuffers: 25.9.23
+      json-with-bigint: 3.5.12
+      tslib: 2.8.1
 
   arch@2.2.0: {}
 
@@ -6029,6 +6054,8 @@ snapshots:
       mlly: 1.8.2
       rollup: 4.65.0
 
+  flatbuffers@25.9.23: {}
+
   forwarded@0.2.0: {}
 
   fresh@2.0.0: {}
@@ -6176,6 +6203,8 @@ snapshots:
   json-schema-traverse@1.0.0: {}
 
   json-schema-typed@8.0.2: {}
+
+  json-with-bigint@3.5.12: {}
 
   jsonwebtoken@9.0.3:
     dependencies:
