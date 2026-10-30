@@ -5,7 +5,7 @@ import { keyedHash } from '../../comments/environment';
 import { getAppStore } from '../store';
 import { isRandomToken, randomToken, sha256Hex } from '../tokens';
 import { safeNextPath } from '../signIn';
-import { emailSchema, findOrCreateUserWithStatus, findUserByEmail, nameSchema, updateUserName } from '../users';
+import { emailSchema, findOrCreateUserWithStatus, nameSchema, updateUserName } from '../users';
 import { googleConfig, googleRedirectUri, isGoogleSignInConfigured } from './config';
 import { boundGoogleRecordId, googleBindingToken } from './cookie';
 import { findUserByGoogleSubject, isGoogleSubject, linkGoogleAccount, refreshGoogleAccountEmail } from './identity';
@@ -18,9 +18,16 @@ const GOOGLE_STARTS_PER_IP = 30;
 const HOUR = 60 * 60;
 /** Allowed difference between Google's clock and ours for `iat` */
 const CLOCK_SKEW_SECONDS = 5 * 60;
+/** Linking from Account needs a sign-in this recent, like adding a passkey: a stolen session cannot attach a Google account that outlives it */
+export const GOOGLE_LINK_RECENT_SIGN_IN_SECONDS = 10 * 60;
+
+/** Whether a session that signed in at `signedInAt` (Unix seconds) may link Google at `at` (ms) */
+export function recentEnoughToLink(signedInAt: number, at = Date.now()) {
+    return at - signedInAt * 1000 <= GOOGLE_LINK_RECENT_SIGN_IN_SECONDS * 1000;
+}
 
 export class GoogleSignInError extends Error {
-    constructor(readonly code: 'not_configured' | 'token_exchange' | 'invalid_id_token') {
+    constructor(readonly code: 'not_configured' | 'sign_in_again' | 'token_exchange' | 'invalid_id_token') {
         super('Google sign-in did not work.');
         this.name = 'GoogleSignInError';
     }
@@ -39,11 +46,13 @@ function sameHash(expected: string, actual: string) {
 
 /**
  * Starts the authorization code flow with PKCE and a nonce. Returns Google's address and the
- * browser binding (the route sets it as a cookie). `linkUserId` links Google to a signed-in user.
+ * browser binding (the route sets it as a cookie). `link` links Google to a recently signed-in user.
  */
-export async function beginGoogleSignIn(input: { next?: string; linkUserId?: string; baseUrl: string; ipBucket?: string }) {
+export async function beginGoogleSignIn(input: { next?: string; link?: { userId: string; signedInAt: number }; baseUrl: string; ipBucket?: string }) {
     if (!isGoogleSignInConfigured())
         throw new GoogleSignInError('not_configured');
+    if (input.link && !recentEnoughToLink(input.link.signedInAt))
+        throw new GoogleSignInError('sign_in_again');
     if (input.ipBucket)
         await consume(getCommentsStore(), APP_COUNTERS_PARTITION, { key: `google-sign-in-ip:${input.ipBucket}`, limit: GOOGLE_STARTS_PER_IP,
             windowSeconds: HOUR, reason: 'too_fast', message: 'Too many sign-in attempts. Try again later.' });
@@ -54,7 +63,7 @@ export async function beginGoogleSignIn(input: { next?: string; linkUserId?: str
     const nonce = randomToken();
     await getAppStore().create<DbGoogleSignIn>({
         type: 'google-sign-in', id, pk: googleSignInPk(id), stateHash: sha256Hex(state), nonceHash: sha256Hex(nonce),
-        next: safeNextPath(input.next), linkUserId: input.linkUserId, createdAt: new Date().toISOString(), ttl: GOOGLE_SIGN_IN_TTL_SECONDS
+        next: safeNextPath(input.next), linkUserId: input.link?.userId, createdAt: new Date().toISOString(), ttl: GOOGLE_SIGN_IN_TTL_SECONDS
     });
     const url = new URL(config.authorizeUrl);
     url.search = new URLSearchParams({
@@ -135,7 +144,7 @@ export function googleIsAuthoritative(email: string, hd: string | undefined) {
     return domain === 'gmail.com' || (hd !== undefined && domain === hd);
 }
 
-export type GoogleProblem = 'cancelled' | 'unverified' | 'failed' | 'expired' | 'taken' | 'other_account';
+export type GoogleProblem = 'cancelled' | 'unverified' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again';
 export type GoogleSignInOutcome =
     | { kind: 'signed_in'; userId: string; next?: string }
     | { kind: 'confirm_email'; binding: string }
@@ -147,7 +156,9 @@ export type GoogleSignInOutcome =
  * up by a delete: only its winner exchanges the code. Then the linking rules decide who signs in.
  */
 export async function finishGoogleSignIn(input: {
-    binding: string | undefined; state: unknown; code: unknown; error: unknown; baseUrl: string; sessionUserId?: string;
+    binding: string | undefined; state: unknown; code: unknown; error: unknown; baseUrl: string;
+    /** The browser's session (`getSessionSignIn`), for linking from Account */
+    session?: { userId: string; signedInAt: number } | null;
 }): Promise<GoogleSignInOutcome> {
     const expired = { kind: 'problem', problem: 'expired', linking: false } as const;
     const id = boundGoogleRecordId('flow', input.binding);
@@ -169,9 +180,11 @@ export async function finishGoogleSignIn(input: {
         return problem(input.error === 'access_denied' ? 'cancelled' : 'failed');
     if (typeof input.code !== 'string' || !input.code || input.code.length > 2048)
         return problem('failed');
-    // Linking from Account continues only in the session that started it
-    if (linking && input.sessionUserId !== flow.linkUserId)
+    // Linking from Account continues only in the session that started it, still recent when it started
+    if (linking && input.session?.userId !== flow.linkUserId)
         return problem('failed');
+    if (linking && !recentEnoughToLink(input.session!.signedInAt, createdAt))
+        return problem('sign_in_again');
 
     let claims: GoogleClaims | null;
     try {
@@ -203,19 +216,19 @@ export async function finishGoogleSignIn(input: {
     if (!email)
         return problem('unverified');
 
-    // 3. A new address gets a new account. 4. An existing one is linked at once only where Google
-    // is authoritative for the address; otherwise the inbox is proven once with an email code.
-    const authoritative = googleIsAuthoritative(email, claims.hd);
-    if (authoritative || !await findUserByEmail(email)) {
+    // 3. Where Google is authoritative for the address (Gmail, a Workspace domain it names), it
+    // finds or creates the account and links it at once.
+    if (googleIsAuthoritative(email, claims.hd)) {
         const { user, created } = await findOrCreateUserWithStatus(email);
-        if (authoritative || created) {
-            const name = nameSchema.safeParse(claims.name);
-            if (created && name.success)
-                await updateUserName(user.id, name.data);
-            const result = await linkGoogleAccount(user.id, { sub: claims.sub, email });
-            return result === 'linked' ? { kind: 'signed_in', userId: user.id, next } : problem(result);
-        }
+        const name = nameSchema.safeParse(claims.name);
+        if (created && name.success)
+            await updateUserName(user.id, name.data);
+        const result = await linkGoogleAccount(user.id, { sub: claims.sub, email });
+        return result === 'linked' ? { kind: 'signed_in', userId: user.id, next } : problem(result);
     }
+    // 4. Any other address proves its inbox once with an email code, with or without an account:
+    // Google's verification of it can be stale (a former employee, a re-registered domain), and an
+    // account created for it now would be waiting, already linked, for its real owner.
     const pending = await createGoogleLink({ sub: claims.sub, email }, next);
     return { kind: 'confirm_email', binding: pending.binding };
 }

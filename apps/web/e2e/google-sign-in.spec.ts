@@ -3,7 +3,7 @@ import { uniqueEmail } from './support/app';
 
 // The browser journey through the local Google stand-in (e2e/support/googleStub.ts). Linking rules,
 // replays and bindings are covered by google-sign-in.api.spec.ts.
-test('Continue with Google creates an account, returns to the page and can be unlinked on Account', async ({ page }) => {
+test('Continue with Google confirms a non-Gmail address by email, links the account and can be unlinked', async ({ page }) => {
     const email = uniqueEmail('google-browser');
     await page.goto('/app/sign-in?next=/app/account');
     const google = page.getByRole('link', { name: 'Continue with Google' });
@@ -12,13 +12,20 @@ test('Continue with Google creates an account, returns to the page and can be un
 
     await expect(page.getByRole('heading', { name: 'Choose a Google test account' })).toBeVisible();
     await page.getByLabel('Email', { exact: true }).fill(email);
-    await page.getByLabel('Name').fill('Grace Google');
     await page.getByRole('button', { name: 'Allow' }).click();
+
+    // Google is not authoritative for this address: the inbox is proven once, in this browser
+    await page.waitForURL(url => url.pathname === '/app/sign-in/google/link');
+    await expect(page.getByRole('heading', { level: 1, name: 'Confirm your email' })).toBeVisible();
+    await expect(page.getByRole('main')).toContainText(`Confirm ${email} once with an email code`);
+    await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
+    await expect(page.getByRole('status')).toContainText(`We sent a code and a sign-in link to ${email}`);
+    await page.getByLabel('Sign-in code', { exact: true }).fill((await page.locator('[data-sign-in-code]').textContent())!);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
     await page.waitForURL(url => url.pathname === '/app/account');
     const section = page.getByRole('region', { name: 'Google account' });
     await expect(section).toContainText(`Linked to ${email}.`);
-    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Grace Google');
 
     await section.getByRole('button', { name: 'Unlink Google account' }).click();
     await expect(section.getByRole('status')).toHaveText('Google account unlinked. Sign in with your email from now on.');

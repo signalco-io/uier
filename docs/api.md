@@ -60,7 +60,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `user-email` (unique email -> user) | `email:<email>` | the email |
 | `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash; `googleLinkId` when it confirms a waiting Google account) | `sign-in:<hash>` | SHA-256 of the link token |
 | `google-sign-in` (a [Google sign-in](google-sign-in.md) in progress, `ttl` 10 min; state and nonce as SHA-256 hashes, no PKCE verifier) | `google-sign-in:<id>` | 64 random hex characters |
-| `google-link` (a verified Google account waiting for an email code before it is linked to an existing account, `ttl` 15 min) | `google-link:<id>` | 64 random hex characters |
+| `google-link` (a verified Google account, for an address Google is not authoritative for, waiting for an email code before the account is created or linked, `ttl` 15 min) | `google-link:<id>` | 64 random hex characters |
 | `user-identity` (unique Google account -> user) | `identity:google:<sub>` | Google's `sub` |
 | `google-account` (the user's linked Google account: `sub`, its address for display, when it was linked) | `user:<id>` | `google` |
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the internal project id |

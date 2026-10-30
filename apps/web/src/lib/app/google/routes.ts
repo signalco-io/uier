@@ -2,12 +2,13 @@ import { cookies } from 'next/headers';
 import { KnownPages } from '../../../knownPages';
 import { ApiError } from '../../comments/http';
 import { appBaseUrl, requestIpBucket } from '../request';
-import { appCookieOptions, getSessionUser, startSession } from '../session';
+import { appCookieOptions, getSessionSignIn, getSessionUser, startSession } from '../session';
 import { safeNextPath } from '../signIn';
 import { isGoogleSignInConfigured } from './config';
 import { GOOGLE_SIGN_IN_COOKIE_NAME } from './cookie';
 import { GOOGLE_LINK_TTL_SECONDS } from './link';
-import { beginGoogleSignIn, finishGoogleSignIn, GOOGLE_SIGN_IN_TTL_SECONDS, type GoogleSignInOutcome } from './signIn';
+import { beginGoogleSignIn, finishGoogleSignIn, GOOGLE_SIGN_IN_TTL_SECONDS, GoogleSignInError, recentEnoughToLink,
+    type GoogleSignInOutcome } from './signIn';
 
 function redirect(location: string) {
     return new Response(null, { status: 302, headers: { Location: location, 'Cache-Control': 'no-store' } });
@@ -44,17 +45,20 @@ export async function startGoogleSignInRoute(request: Request) {
     if (!isGoogleSignInConfigured())
         return redirect(back('unavailable'));
 
-    const user = await getSessionUser();
-    if (linking && !user)
+    const [user, session] = await Promise.all([getSessionUser(), getSessionSignIn()]);
+    if (linking && (!user || session?.userId !== user.id))
         return redirect(signInUrl(baseUrl, undefined, KnownPages.AppAccount));
     if (!linking && user)
         return redirect(new URL(next ?? KnownPages.App, baseUrl).href);
+    if (linking && !recentEnoughToLink(session!.signedInAt))
+        return redirect(back('sign_in_again'));
     try {
-        const started = await beginGoogleSignIn({ next, linkUserId: linking ? user!.id : undefined, baseUrl, ipBucket: await requestIpBucket() });
+        const started = await beginGoogleSignIn({ next, link: linking ? session! : undefined, baseUrl, ipBucket: await requestIpBucket() });
         (await cookies()).set(GOOGLE_SIGN_IN_COOKIE_NAME, started.binding, appCookieOptions(GOOGLE_SIGN_IN_TTL_SECONDS));
         return redirect(started.url);
     } catch (error) {
-        return redirect(back(error instanceof ApiError && error.code === 'rate_limited' ? 'too_fast' : 'failed'));
+        return redirect(back(error instanceof ApiError && error.code === 'rate_limited' ? 'too_fast'
+            : error instanceof GoogleSignInError && error.code === 'sign_in_again' ? 'sign_in_again' : 'failed'));
     }
 }
 
@@ -69,7 +73,7 @@ export async function finishGoogleSignInRoute(request: Request) {
     let outcome: GoogleSignInOutcome;
     try {
         outcome = await finishGoogleSignIn({ binding, state: params.get('state'), code: params.get('code'), error: params.get('error'),
-            baseUrl, sessionUserId: (await getSessionUser())?.id });
+            baseUrl, session: await getSessionSignIn() });
     } catch {
         outcome = { kind: 'problem', problem: 'failed', linking: false };
     }

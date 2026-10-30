@@ -364,10 +364,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   exchanges the code. Never copy the code or state into a URL. The ID token comes straight from the token endpoint,
   so its claims are checked and its signature is not; check the signature first if a token ever arrives another way.
   A linked `sub` signs in (never the email, and the uier email never follows Google); unverified addresses are
-  refused; a new address creates the user; an existing one links at once only for `@gmail.com` or a matching `hd`,
-  otherwise after a browser-bound email code (`googleLinkId` on the sign-in request, `google-link` record). Account
-  links and unlinks; a `sub` of another user is refused. The button shows only in production and local runtime;
-  endpoint overrides work only locally. `google-sign-in{,.api}.spec.ts` use `e2e/support/googleStub.ts`.
+  refused; only `@gmail.com` or a matching `hd` finds or creates the account and links at once. Every other
+  address, new or existing, first proves its inbox with a browser-bound email code (`googleLinkId` on the sign-in
+  request, `google-link` record): never create an account for it from Google alone (stale verification would
+  pre-hijack it). Account links (only with a sign-in from the last 10 minutes, `sessionSignedInAt`, checked at the
+  start and again at the callback) and unlinks; a `sub` of another user is refused. The button shows only in
+  production and local runtime; endpoint overrides work only locally. `google-sign-in{,.api}.spec.ts` use
+  `e2e/support/googleStub.ts`.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and

@@ -15,8 +15,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Google found a uier account with this address but is not authoritative for it (not Gmail, not a
- * Workspace domain), so the person proves the inbox once before the Google account is linked.
+ * Google is not authoritative for this address (not Gmail, not a Workspace domain), so the person
+ * proves the inbox once before the Google account is linked. The page never says whether a uier
+ * account already uses the address.
  */
 export default async function GoogleLinkPage() {
     if (await getSessionUser())
@@ -37,8 +38,8 @@ export default async function GoogleLinkPage() {
         <AuthCard
             title="Confirm your email"
             description={<>
-                A uier account already uses <span className="font-medium text-foreground">{link.email}</span>.
-                Confirm the address once with an email code to link your Google account to it.
+                Confirm <span className="font-medium text-foreground">{link.email}</span> once with an email code
+                to finish signing in with Google.
             </>}>
             <GoogleLinkForm email={link.email} next={link.next} />
         </AuthCard>

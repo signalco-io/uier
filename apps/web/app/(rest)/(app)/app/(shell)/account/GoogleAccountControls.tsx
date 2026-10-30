@@ -2,11 +2,12 @@
 
 import { useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { LogInIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { KnownPages } from '@/src/knownPages';
-import { unlinkGoogleAction } from './googleActions';
+import { signInToLinkGoogleAction, unlinkGoogleAction } from './googleActions';
 
 const outcomes: Record<string, string> = {
     linked: 'Google account linked. You can sign in with it now.',
@@ -17,9 +18,10 @@ const outcomes: Record<string, string> = {
     expired: 'Google did not link. Try again.',
     too_fast: 'Too many attempts. Try again later.',
     unavailable: 'Google sign-in is not available here.'
+    // `sign_in_again` has no line: the panel under the status says it
 };
 
-export function GoogleAccountControls({ linkedEmail, configured }: { linkedEmail: string | null; configured: boolean }) {
+export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }: { linkedEmail: string | null; configured: boolean; recentSignIn: boolean }) {
     const [state, formAction, pending] = useActionState(unlinkGoogleAction, null);
     const outcome = useSearchParams().get('google');
     const linked = linkedEmail !== null;
@@ -44,12 +46,24 @@ export function GoogleAccountControls({ linkedEmail, configured }: { linkedEmail
                         </Button>
                     </form>
                 )
-                : configured && (
-                    <Button variant="outline" asChild>
-                        {/* A full navigation, never prefetched: the route starts the link with Google */}
-                        <a href={`${KnownPages.AppSignInGoogle}?intent=link`}>Link Google account</a>
-                    </Button>
-                )}
+                : configured && (recentSignIn
+                    ? (
+                        <Button variant="outline" asChild>
+                            {/* A full navigation, never prefetched: the route starts the link with Google */}
+                            <a href={`${KnownPages.AppSignInGoogle}?intent=link`}>Link Google account</a>
+                        </Button>
+                    )
+                    : (
+                        <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+                            <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">To link a Google account, sign in again. Linking needs a sign-in from the last 10 minutes.</p>
+                            <form action={signInToLinkGoogleAction}>
+                                <Button type="submit" variant="outline">
+                                    <LogInIcon data-icon="inline-start" />
+                                    Sign in again
+                                </Button>
+                            </form>
+                        </div>
+                    ))}
         </div>
     );
 }

@@ -61,20 +61,33 @@ checked first.
    never on the email, and a changed Google address never changes the uier email (Account shows the
    latest verified Google address).
 2. **`email_verified` is false:** refused (`google=unverified`), pointing to email sign-in.
-3. **No uier user has the address:** the user is created with `findOrCreateUserWithStatus` (the
-   Google `name`, when valid, becomes the display name) and the account is linked.
-4. **A uier user has the address:** linked at once only where Google is authoritative for it: an
-   `@gmail.com` address, or an `hd` claim equal to the address's domain (Google Workspace). For any
-   other address the verified Google account waits in a `google-link` record for 15 minutes, bound to
-   the browser by the same cookie, and `/app/sign-in/google/link` asks the person to confirm the address
-   with the usual email code. That sign-in request carries the link's id (`googleLinkId`), and
-   consuming it links the account only when the request's browser binding matches: the code always,
-   the emailed link only in the browser that asked. The link opened anywhere else signs in by email
-   and links nothing. The email says that using it also links a Google account.
-5. **Account:** a signed-in person links Google (`?intent=link`); the callback links to the user who
-   started it, only in that session, whatever the Google address is. A `sub` linked to another user
-   is refused (`taken`), and so is a second Google account (`other_account`). Unlinking is always
-   allowed.
+3. **Google is authoritative for the address:** an `@gmail.com` address, or an `hd` claim equal to
+   the address's domain (Google Workspace). The account is found or created with
+   `findOrCreateUserWithStatus` (a new account takes the Google `name`, when valid, as its display
+   name) and linked at once.
+4. **Any other verified address**, whether or not a uier account has it: the inbox is proven once
+   with the usual email code before anything is created or linked. Google's verification of such an
+   address can be stale (a former employee, a re-registered domain); an account created for it at
+   once, already linked, would wait for the address's real owner, who would then sign in by email
+   into an account a stranger reaches through Google. The verified Google account waits in a
+   `google-link` record for 15 minutes, bound to the browser by the same cookie, and
+   `/app/sign-in/google/link` asks the person to confirm the address. The page does not say whether
+   an account exists. That sign-in request carries the link's id (`googleLinkId`); consuming it
+   creates the account if needed (`findOrCreateUser`, as for email sign-in) and links the Google
+   account only when the request's browser binding matches: the code always, the emailed link only
+   in the browser that asked. The link opened anywhere else signs in by email and links nothing.
+   The email says that using it also links a Google account.
+5. **Account:** a signed-in person links Google (`?intent=link`) only with a sign-in from the last
+   10 minutes, like adding a passkey: a stolen session cookie could otherwise attach a Google account
+   that outlives the 30-day session and survives sign-out. The start route checks it, and the
+   callback checks it again against the request's creation time, in the session that started it.
+   An older sign-in gets "Sign in again" on Account, which signs out and returns there after signing
+   in. The callback links to the user who started it, whatever the Google address is. A `sub` linked
+   to another user is refused (`taken`), and so is a second Google account (`other_account`).
+   Unlinking is always allowed.
+
+The sign-in time is `sessionSignedInAt` in `sessionIdentity.ts`: sessions are never re-signed, so it
+is the token's expiry minus `SESSION_TTL_SECONDS`.
 
 If the Google account was linked elsewhere while an email proof was pending, the person is still
 signed in by email and lands on Account with `google=taken`.
@@ -137,5 +150,6 @@ in `playwright.config.ts`, which points `GOOGLE_OAUTH_AUTHORIZE_URL`, `GOOGLE_OA
 `GOOGLE_OAUTH_ISSUER` at it; these overrides work only in local runtime). `e2e/google-sign-in.api.spec.ts`
 covers every linking rule, state, nonce and PKCE replay and expiry, missing and foreign browser
 bindings, a `sub` linked to another user, the ID token checks, return paths, rate limits and the
-routes. `e2e/google-sign-in.spec.ts` (full suite) signs up through the stub, unlinks on Account and
+routes, including the recent sign-in rule for linking. `e2e/google-sign-in.spec.ts` (full suite) signs
+in through the stub with a non-Gmail address, confirms it by email code, unlinks on Account and
 cancels a consent.

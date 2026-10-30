@@ -156,14 +156,14 @@ export default function PrivacyPolicyPage() {
                 If you choose Continue with Google, you sign in at Google, which tells us your Google account id, your
                 email address and whether Google verified it, your Google Workspace domain if you have one, your name and
                 your profile picture. We store the account id, that address (shown on your Account page) and when you
-                linked the account. A new account takes your Google name as its display name. We do not store your
-                picture or any Google token. During sign-in we keep hashes of the values that tie Google&rsquo;s answer
-                to your request for up to 10 minutes, and the HttpOnly <code>__Host-uier_google_sign_in</code> cookie ties
-                them to your browser. When your address already has an account and Google does not manage that address,
-                we keep the Google account id and address for up to 15 minutes while you confirm the address with an
-                email code; the Google account is linked only in the browser that asked. We count Google sign-in
-                attempts per IP address. You can unlink Google on your Account page at any time; email sign-in stays
-                available.
+                linked the account. An account created for a Gmail or Google Workspace address takes your Google name
+                as its display name. We do not store your picture or any Google token. During sign-in we keep hashes of
+                the values that tie Google&rsquo;s answer to your request for up to 10 minutes, and the HttpOnly
+                <code>__Host-uier_google_sign_in</code> cookie ties them to your browser. For any other address, we keep
+                the Google account id and address for up to 15 minutes while you confirm the address with an email
+                code; the Google account is linked only in the browser that asked. We count Google sign-in attempts per
+                IP address. Linking Google from your Account page needs a sign-in from the last 10 minutes. You can
+                unlink Google there at any time; email sign-in stays available.
             </p>
             <p>
                 When an admin of a workspace invites you, we store your email address, the role and projects they

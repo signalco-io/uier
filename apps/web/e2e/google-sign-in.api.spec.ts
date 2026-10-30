@@ -8,14 +8,15 @@ import { confirmSignIn, confirmSignInCode, SIGN_IN_LINK_TTL_SECONDS } from '../s
 import { signInRequestToken } from '../src/lib/app/signInCookie';
 import { randomToken, sha256Hex, signToken } from '../src/lib/app/tokens';
 import { findOrCreateUser, findUserByEmail, getUser } from '../src/lib/app/users';
+import { SESSION_TTL_SECONDS, sessionSignedInAt } from '../src/lib/app/sessionIdentity';
 import { googleConfig, googleRedirectUri, isGoogleSignInConfigured } from '../src/lib/app/google/config';
 import { boundGoogleRecordId, googleBindingToken } from '../src/lib/app/google/cookie';
 import { findUserByGoogleSubject, getGoogleAccount, linkGoogleAccount, unlinkGoogleAccount } from '../src/lib/app/google/identity';
 import { getGoogleLink, googleLinkIdFor } from '../src/lib/app/google/link';
 import { GOOGLE_ACCOUNT_ID, googleIdentityPk, googleLinkPk, googleSignInPk, type DbGoogleLink, type DbGoogleSignIn,
     type DbUserIdentity } from '../src/lib/app/google/model';
-import { beginGoogleSignIn, finishGoogleSignIn, googleIdTokenClaims, googleIsAuthoritative, GOOGLE_SIGN_IN_TTL_SECONDS,
-    type GoogleSignInOutcome } from '../src/lib/app/google/signIn';
+import { beginGoogleSignIn, finishGoogleSignIn, googleIdTokenClaims, googleIsAuthoritative, GOOGLE_LINK_RECENT_SIGN_IN_SECONDS,
+    GOOGLE_SIGN_IN_TTL_SECONDS, recentEnoughToLink, type GoogleSignInOutcome } from '../src/lib/app/google/signIn';
 import { googleSubject, startGoogleStub, type GoogleStub, type StubGoogleIdentity } from './support/googleStub';
 import { uniqueEmail } from './support/app';
 
@@ -45,14 +46,28 @@ test.afterAll(() => {
     else process.env.UIER_LOCAL = originalLocal;
 });
 
-type Options = { next?: string; linkUserId?: string; sessionUserId?: string; claims?: Record<string, unknown> };
+type Session = { userId: string; signedInAt: number };
+type Options = { next?: string; linkUserId?: string; signedInAt?: number; session?: Session | null; claims?: Record<string, unknown> };
 
-/** Starts a sign-in, approves it at the stub as `identity` and runs the callback with the browser's binding */
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+/** Google is authoritative for Gmail, so these sign in (or up) without an email code */
+const gmail = (label: string) => `${label}-${randomUUID().slice(0, 8)}@gmail.com`;
+
+/**
+ * Starts a sign-in, approves it at the stub as `identity` and runs the callback with the browser's
+ * binding. `linkUserId` links from Account with a session that signed in at `signedInAt` (now).
+ */
 async function viaGoogle(google: GoogleStub, identity: StubGoogleIdentity, options: Options = {}) {
-    const started = await beginGoogleSignIn({ next: options.next, linkUserId: options.linkUserId, baseUrl });
+    const link = options.linkUserId ? { userId: options.linkUserId, signedInAt: options.signedInAt ?? nowSeconds() } : undefined;
+    const started = await beginGoogleSignIn({ next: options.next, link, baseUrl });
     const { code, state } = google.approve(started.url, identity, options.claims);
-    const callback = { binding: started.binding, state, code, error: null, baseUrl, sessionUserId: options.sessionUserId ?? options.linkUserId };
+    const callback = { binding: started.binding, state, code, error: null, baseUrl, session: options.session !== undefined ? options.session : link ?? null };
     return { started, callback, outcome: await finishGoogleSignIn(callback) };
+}
+
+function confirmEmail(outcome: GoogleSignInOutcome) {
+    expect(outcome.kind, JSON.stringify(outcome)).toBe('confirm_email');
+    return (outcome as Extract<GoogleSignInOutcome, { kind: 'confirm_email' }>).binding;
 }
 
 function signedIn(outcome: GoogleSignInOutcome) {
@@ -97,8 +112,8 @@ test('the authorization request uses S256 PKCE, a nonce, the registered callback
     expect(Object.keys(JSON.parse(Buffer.from(started.binding.split('.')[0]!, 'base64url').toString()) as object)).toEqual(['id', 'exp']);
 });
 
-test('rule 3: a new verified address creates the account with its Google name and links it', async ({ google }) => {
-    const email = uniqueEmail('google-new');
+test('rule 3: a new Gmail address creates the account with its Google name and links it', async ({ google }) => {
+    const email = gmail('google-new');
     const sub = googleSubject();
     const { outcome } = await viaGoogle(google, { sub, email, name: 'Ada Lovelace' }, { next: '/app/projects?status=open' });
     const result = signedIn(outcome);
@@ -111,7 +126,7 @@ test('rule 3: a new verified address creates the account with its Google name an
 });
 
 test('rule 1: a linked account signs in by subject only, and a changed Google email never changes the uier email', async ({ google }) => {
-    const email = uniqueEmail('google-linked');
+    const email = gmail('google-linked');
     const sub = googleSubject();
     const first = signedIn((await viaGoogle(google, { sub, email })).outcome);
 
@@ -124,10 +139,12 @@ test('rule 1: a linked account signs in by subject only, and a changed Google em
     expect(signedIn((await viaGoogle(google, { sub })).outcome).userId).toBe(first.userId);
     expect((await getGoogleAccount(first.userId))?.email).toBe(changed);
 
-    // Another Google account with the uier address does not reach this user through the email
-    const other = await viaGoogle(google, { sub: googleSubject(), email: changed });
-    expect(other.outcome.kind).toBe('signed_in');
-    expect((other.outcome as { userId: string }).userId).not.toBe(first.userId);
+    // Other Google accounts never reach this user through an address: not the Google address on
+    // record (not authoritative, so an email code first), and not the uier address (already linked)
+    confirmEmail((await viaGoogle(google, { sub: googleSubject(), email: changed })).outcome);
+    expect(await findUserByEmail(changed)).toBeNull();
+    expect((await viaGoogle(google, { sub: googleSubject(), email })).outcome).toMatchObject({ kind: 'problem', problem: 'other_account' });
+    expect((await getGoogleAccount(first.userId))?.sub).toBe(sub);
 });
 
 test('rule 2: an unverified address is refused and creates nothing', async ({ google }) => {
@@ -140,7 +157,7 @@ test('rule 2: an unverified address is refused and creates nothing', async ({ go
     expect(await findUserByEmail(email)).toBeNull();
 });
 
-test('rule 4: Gmail and a matching Workspace domain link an existing account at once', async ({ google }) => {
+test('rule 3: Gmail and a matching Workspace domain link an existing account at once', async ({ google }) => {
     const gmail = `google-${randomUUID().slice(0, 8)}@gmail.com`;
     const gmailUser = await findOrCreateUser(gmail);
     const gmailSub = googleSubject();
@@ -159,14 +176,32 @@ test('rule 4: Gmail and a matching Workspace domain link an existing account at 
         expect(googleIsAuthoritative(email, hd), email).toBe(false);
 });
 
-test('rule 4: another address needs one browser-bound email proof before the account is linked', async ({ google }) => {
+test('rule 4: a new address Google is not authoritative for creates nothing before the email proof', async ({ google }) => {
+    // Google's verification can be stale (a former employee, a re-registered domain): an account
+    // created now, already linked, would be waiting for the address's real owner.
+    const email = uniqueEmail('google-stale');
+    const sub = googleSubject();
+    const binding = confirmEmail((await viaGoogle(google, { sub, email, name: 'Not the owner' }, { next: '/app/account' })).outcome);
+    for (const hd of ['example.org', 'gmail.com'])
+        confirmEmail((await viaGoogle(google, { sub: googleSubject(), email, hd })).outcome);
+    expect(await findUserByEmail(email)).toBeNull();
+    expect(await findUserByGoogleSubject(sub)).toBeNull();
+    expect(await getGoogleLink(binding)).toMatchObject({ sub, email, next: '/app/account' });
+
+    // The inbox owner's code in that browser creates the account and links it
+    const request = await emailRequest(email, await googleLinkIdFor(binding, email));
+    const result = (await confirmSignInCode(request.requestId, request.code, request.binding))!;
+    expect(result.user.email).toBe(email);
+    expect(result.user.name).toBe(email.split('@')[0]);
+    expect((await findUserByGoogleSubject(sub))?.id).toBe(result.user.id);
+});
+
+test('rule 4: an existing address needs one browser-bound email proof before the account is linked', async ({ google }) => {
     const email = uniqueEmail('google-existing');
     const user = await findOrCreateUser(email);
     const sub = googleSubject();
     // A Workspace account of another domain is not authoritative for this address either
-    const { outcome } = await viaGoogle(google, { sub, email, hd: 'example.org', name: 'Not used' }, { next: '/app/projects' });
-    expect(outcome.kind).toBe('confirm_email');
-    const binding = (outcome as { binding: string }).binding;
+    const binding = confirmEmail((await viaGoogle(google, { sub, email, hd: 'example.org', name: 'Not used' }, { next: '/app/projects' })).outcome);
     expect(await findUserByGoogleSubject(sub)).toBeNull();
     expect(await getGoogleAccount(user.id)).toBeNull();
     expect(await getGoogleLink(binding)).toMatchObject({ sub, email, next: '/app/projects' });
@@ -251,8 +286,9 @@ test('rule 5: Account links and unlinks, and refuses an account that belongs to 
 
     // The flow continues only in the session that started it
     const hijack = await findOrCreateUser(uniqueEmail('google-hijack'));
-    expect((await viaGoogle(google, { sub: googleSubject() }, { linkUserId: hijack.id, sessionUserId: owner.id })).outcome)
-        .toMatchObject({ problem: 'failed', linking: true });
+    for (const session of [{ userId: owner.id, signedInAt: nowSeconds() }, null])
+        expect((await viaGoogle(google, { sub: googleSubject() }, { linkUserId: hijack.id, session })).outcome)
+            .toMatchObject({ problem: 'failed', linking: true });
     expect(await getGoogleAccount(hijack.id)).toBeNull();
 
     await unlinkGoogleAccount(owner.id);
@@ -262,6 +298,28 @@ test('rule 5: Account links and unlinks, and refuses an account that belongs to 
     await unlinkGoogleAccount(owner.id);
     // Unlinked, the Google account no longer reaches the owner: its address is not theirs
     expect((await viaGoogle(google, { sub, email: second.email }, { linkUserId: second.id })).outcome).toEqual({ kind: 'linked' });
+});
+
+test('rule 5: linking needs a sign-in from the last 10 minutes when it starts, rechecked at the callback', async ({ google }) => {
+    const user = await findOrCreateUser(uniqueEmail('google-recent'));
+    const stale = nowSeconds() - GOOGLE_LINK_RECENT_SIGN_IN_SECONDS - 60;
+    await expect(beginGoogleSignIn({ link: { userId: user.id, signedInAt: stale }, baseUrl })).rejects.toMatchObject({ code: 'sign_in_again' });
+    expect(recentEnoughToLink(nowSeconds() - GOOGLE_LINK_RECENT_SIGN_IN_SECONDS + 30)).toBe(true);
+    expect(recentEnoughToLink(stale)).toBe(false);
+
+    // Another, older session of the same account cannot finish a link a recent one started
+    expect((await viaGoogle(google, { sub: googleSubject() }, { linkUserId: user.id, session: { userId: user.id, signedInAt: stale } })).outcome)
+        .toEqual({ kind: 'problem', problem: 'sign_in_again', next: undefined, linking: true });
+    expect(await getGoogleAccount(user.id)).toBeNull();
+    expect((await viaGoogle(google, { sub: googleSubject() }, { linkUserId: user.id })).outcome).toEqual({ kind: 'linked' });
+
+    // Sessions are never re-signed, so the sign-in time is the expiry minus the lifetime
+    const token = signToken('session', { uid: user.id }, SESSION_TTL_SECONDS);
+    expect(Math.abs(sessionSignedInAt(token)!.signedInAt - nowSeconds())).toBeLessThanOrEqual(1);
+    expect(sessionSignedInAt(token)!.userId).toBe(user.id);
+    expect(sessionSignedInAt(signToken('session', { uid: user.id }, SESSION_TTL_SECONDS - 3600))!.signedInAt).toBeLessThanOrEqual(nowSeconds() - 3599);
+    for (const value of [undefined, '', signToken('review-sso', { uid: user.id }, 60), `${token}x`])
+        expect(sessionSignedInAt(value)).toBeNull();
 });
 
 test('a claim left by an interrupted unlink never signs in and is replaced by the next link', async () => {
@@ -276,7 +334,7 @@ test('a claim left by an interrupted unlink never signs in and is replaced by th
 });
 
 test('state, nonce and PKCE: replays, mismatches, expiry and parallel callbacks', async ({ google }) => {
-    const identity = () => ({ sub: googleSubject(), email: uniqueEmail('google-replay') });
+    const identity = () => ({ sub: googleSubject(), email: gmail('google-replay') });
     const first = await viaGoogle(google, identity());
     signedIn(first.outcome);
     expect(await finishGoogleSignIn(first.callback)).toEqual({ kind: 'problem', problem: 'expired', linking: false });
@@ -324,7 +382,7 @@ test('state, nonce and PKCE: replays, mismatches, expiry and parallel callbacks'
 
 test('a missing, forged, wrong-purpose or foreign browser binding is refused before the code is used', async ({ google }) => {
     const victim = await beginGoogleSignIn({ baseUrl });
-    const approval = google.approve(victim.url, { sub: googleSubject(), email: uniqueEmail('google-binding') });
+    const approval = google.approve(victim.url, { sub: googleSubject(), email: gmail('google-binding') });
     const attacker = await beginGoogleSignIn({ baseUrl });
     const victimId = boundGoogleRecordId('flow', victim.binding)!;
     const calls = google.tokenCalls.length;
@@ -339,14 +397,14 @@ test('a missing, forged, wrong-purpose or foreign browser binding is refused bef
 
 test('return paths stay under /app when the request starts and again when it finishes', async ({ google }) => {
     for (const next of ['//evil.example/app', 'https://evil.example/app', '/app/../outside', '/application', '/app/%2e%2e/x'])
-        expect(signedIn((await viaGoogle(google, { sub: googleSubject(), email: uniqueEmail('google-next') }, { next })).outcome).next, next).toBeUndefined();
-    expect(signedIn((await viaGoogle(google, { sub: googleSubject(), email: uniqueEmail('google-next') }, { next: '/app/account?tab=x#y' })).outcome).next)
+        expect(signedIn((await viaGoogle(google, { sub: googleSubject(), email: gmail('google-next') }, { next })).outcome).next, next).toBeUndefined();
+    expect(signedIn((await viaGoogle(google, { sub: googleSubject(), email: gmail('google-next') }, { next: '/app/account?tab=x#y' })).outcome).next)
         .toBe('/app/account?tab=x');
 
     const started = await beginGoogleSignIn({ baseUrl, next: '/app' });
     const stored = (await flowRecord(started.binding))!;
     await getAppStore().replace({ ...stored.doc, next: '/app/../outside' }, stored.etag);
-    const approval = google.approve(started.url, { sub: googleSubject(), email: uniqueEmail('google-next') });
+    const approval = google.approve(started.url, { sub: googleSubject(), email: gmail('google-next') });
     expect(signedIn(await finishGoogleSignIn({ binding: started.binding, ...approval, error: null, baseUrl })).next).toBeUndefined();
 });
 
@@ -425,6 +483,33 @@ test.describe('routes', () => {
             expect(cookie).toMatch(attribute);
     });
 
+    test('linking from Account needs a sign-in from the last 10 minutes', async ({ playwright, baseURL }) => {
+        const fresh = await playwright.request.newContext({ baseURL });
+        try {
+            // A Gmail account signs up through the stub, so the server has the user and a fresh session
+            const start = await fresh.get('/app/sign-in/google', { maxRedirects: 0 });
+            const authorize = start.headers().location!;
+            const flow = /name="flow" value="([^"]+)"/.exec(await (await fresh.get(authorize)).text())![1]!;
+            const decision = await fresh.post(new URL('/decision', authorize).href, { form: { flow, sub: googleSubject(),
+                email: gmail('google-recent-route'), email_verified: 'true', decision: 'allow' }, maxRedirects: 0 });
+            expect((await fresh.get(decision.headers().location!, { maxRedirects: 0 })).status()).toBe(302);
+            const session = (await fresh.storageState()).cookies.find(cookie => cookie.name === 'uier_session')!.value;
+            const uid = (JSON.parse(Buffer.from(session.split('.')[0]!, 'base64url').toString()) as { uid: string }).uid;
+
+            const recent = await fresh.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
+            expect(new URL(recent.headers().location!).pathname).toBe('/o/oauth2/v2/auth');
+
+            // The same account with a sign-in from 11 minutes ago starts nothing
+            const old = signToken('session', { uid }, SESSION_TTL_SECONDS - GOOGLE_LINK_RECENT_SIGN_IN_SECONDS - 60);
+            const stale = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { cookie: `uier_session=${old}` } });
+            const refused = await stale.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
+            const location = new URL(refused.headers().location!);
+            expect(`${location.pathname}${location.search}${location.hash}`).toBe('/app/account?google=sign_in_again#google');
+            expect(refused.headers()['set-cookie'] ?? '').not.toContain('google_sign_in');
+            await stale.dispose();
+        } finally { await fresh.dispose(); }
+    });
+
     test('the callback signs in once, returns to the stored path and never echoes the code or state', async ({ playwright, baseURL }) => {
         const request = await playwright.request.newContext({ baseURL });
         try {
@@ -432,7 +517,7 @@ test.describe('routes', () => {
             const authorize = start.headers().location!;
             const consent = await (await request.get(authorize)).text();
             const flow = /name="flow" value="([^"]+)"/.exec(consent)![1]!;
-            const email = uniqueEmail('google-route');
+            const email = gmail('google-route');
             const decision = await request.post(new URL('/decision', authorize).href, { form: { flow, sub: googleSubject(), email,
                 email_verified: 'true', name: 'Route Test', decision: 'allow' }, maxRedirects: 0 });
             const callback = decision.headers().location!;
