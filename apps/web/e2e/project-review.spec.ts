@@ -434,9 +434,18 @@ test('guest edits and original reproduction details persist; only members see an
     });
     expect(forbidden.status()).toBe(403);
     const guestThread = openThread(guest.page);
-    // Guests see the device, never the member-only reproduction details
-    await guestThread.getByRole('button', { name: /^Device:/ }).click();
-    await expect(guestThread.getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
+    // Guests see the screen size and viewport, never the member-only browser, OS or reproduction details
+    const guestDevice = guestThread.getByRole('button', { name: /^Device:/ });
+    await expect(guestDevice).toHaveAccessibleName(new RegExp(`^Device: \\w+ · ${originalViewport[0]}×${originalViewport[1]} px$`));
+    await guestDevice.click();
+    const guestDetails = guest.page.getByRole('dialog', { name: 'Device', exact: true });
+    await expect(guestDetails).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
+    await expect(guestDetails).not.toContainText('Example');
+    await expect(guestDetails.getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
+    // Escape closes only the details and returns focus to the icons
+    await guest.page.keyboard.press('Escape');
+    await expect(guestDetails).toBeHidden();
+    await expect(guestDevice).toBeFocused();
     await guestThread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Original reply.');
     await guestThread.getByRole('button', { name: 'Post reply', exact: true }).click();
     await guestThread.getByRole('button', { name: 'More options for your reply' }).click();
@@ -452,13 +461,35 @@ test('guest edits and original reproduction details persist; only members see an
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${siteOrigin()}${path}?session_token=never-copy-this#private`)}`);
     await page.locator('[data-uier-comment]').click();
     const thread = openThread(page);
-    // The device icon names the browser; a click shows it with the reproduction details
+    // The screen and browser icons by the time name the original capture
     const device = thread.getByRole('button', { name: /^Device:/ });
     await expect(device).toHaveAccessibleName(/Example Browser \(123\) · Example OS/);
-    await device.click();
-    await expect(thread).toContainText('Example Browser (123) · Example OS');
-    await expect(thread.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
-    await thread.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    const details = page.getByRole('dialog', { name: 'Device and browser' });
+    if (!testInfo.project.name.startsWith('Mobile')) {
+        // Hovering shows the details and never moves focus, neither into them nor back to the icons
+        await device.hover();
+        await expect(details).toContainText('Example Browser (123)');
+        await page.mouse.move(0, 0);
+        await expect(details).toBeHidden();
+        await expect(device).not.toBeFocused();
+    }
+    // Enter opens them with focus on the copy button
+    await device.focus();
+    await page.keyboard.press('Enter');
+    const copyDetails = details.getByRole('button', { name: 'Copy reproduction details', exact: true });
+    await expect(copyDetails).toBeFocused();
+    await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
+    await expect(details).toContainText('Example OS');
+    await expect(details).toContainText('Captured');
+    await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
+    await copyDetails.click();
+    await expect(details).toBeVisible();
+    await expectNoAxeViolations(page);
+    // Escape closes only the details and returns focus to the icons
+    await page.keyboard.press('Escape');
+    await expect(details).toBeHidden();
+    await expect(device).toBeFocused();
+    await expect(thread).toBeVisible();
     const copied = await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext);
     expect(copied).toContain(`Viewport: ${originalViewport[0]}×${originalViewport[1]} CSS px`);
     expect(copied).toContain(`Captured: ${sent.device.capturedAt}`);
@@ -471,7 +502,7 @@ test('guest edits and original reproduction details persist; only members see an
     await page.reload();
     await page.locator('[data-uier-comment]').click();
     await openThread(page).getByRole('button', { name: /^Device:/ }).click();
-    await openThread(page).getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
+    await details.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
     expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
 
     await page.goto(`/app/projects/${projectId}`);

@@ -306,9 +306,11 @@ test('every comment keeps the viewport it was left from', async ({ browser }, te
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('button', { name: new RegExp(`^Device: .*${first[0]}×${first[1]}`) })).toBeVisible();
-    const mobile = sidebar.getByRole('button', { name: 'Device: Mobile · 700×600' });
+    const mobile = sidebar.getByRole('button', { name: 'Device: Mobile · 700×600 px' });
     await mobile.click();
-    await expect(sidebar.getByText('Mobile · 700×600', { exact: true })).toBeVisible();
+    const details = page.getByRole('dialog', { name: 'Device', exact: true });
+    await expect(details).toContainText('Mobile');
+    await expect(details).toContainText('700×600 CSS px');
 
     await context.close();
 });

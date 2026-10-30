@@ -298,10 +298,13 @@ error boundary, so one bad comment never breaks the toolbar.
   Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
   [Screenshots](../../docs/review-workflow.md#screenshots).
 - Every comment saves the device size, viewport and supported browser/OS hints when feedback starts (`getDeviceInfo`).
-  A thread shows it as a desktop, tablet or phone icon next to the first message's time; its tooltip has the size
-  and viewport ("Desktop · 1280×720"), and a click shows them. Authorized project members also get copyable
-  reproduction details there: browser/version, OS, pixel ratio, original capture time and a safe page
-  link. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
+  A thread shows it as two icons after the first message's time, like the app's comment cards: the screen size
+  (desktop, tablet or phone; none when it was not recorded) and, for authorized project members, a browser globe.
+  Hovering shows the details without moving focus; a click keeps them open, Enter opens them with the focus
+  inside, and Escape returns it to the icons. Everyone sees the screen size and viewport ("1280×720 CSS px"); members also see
+  the pixel ratio, browser/version, OS, original capture time and a safe page link, with **Copy reproduction
+  details** for the same fields as text. Guests and public viewers never get the browser, OS, capture time or
+  copy. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
 - The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
   popover closes (a new comment stays as a draft pin until it is posted or discarded).

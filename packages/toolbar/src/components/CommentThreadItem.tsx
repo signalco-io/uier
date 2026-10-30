@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -11,7 +11,7 @@ import { CommentThreadItemMenu } from './CommentThreadItemMenu';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentKindLabel } from './CommentKindLabel';
-import { CommentDeviceButton, CommentDeviceDetails, hasDeviceMeta } from './info/CommentDeviceMeta';
+import { CommentDevice } from './info/CommentDevice';
 import { useReattach } from './CommentAnchorDetails';
 import { CommentScreenshot } from './CommentScreenshot';
 import { CommentComposer } from './CommentComposer';
@@ -59,8 +59,6 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     const { delete: deleteComment, deleteReply, edit } = useComments();
     const announce = useAnnounce();
     const reattach = useReattach(comment);
-    const deviceDetailsId = useId();
-    const [deviceOpen, setDeviceOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLButtonElement>(null);
     const drafts = useDrafts();
@@ -121,8 +119,6 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
         }
     };
 
-    const showDevice = first && hasDeviceMeta(comment.device, comment.reproduction);
-
     return (
         <div ref={rootRef} className="flex gap-2">
             <Avatar size="sm" aria-hidden="true" className="shrink-0 border bg-accent text-[11px] font-semibold text-foreground">{avatarText(authorName)}</Avatar>
@@ -137,14 +133,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                                 <CommentTime date={createdAt} />
                             </span>
                         )}
-                        {showDevice && (
-                            <CommentDeviceButton
-                                device={comment.device}
-                                reproduction={comment.reproduction}
-                                expanded={deviceOpen}
-                                controls={deviceDetailsId}
-                                onToggle={() => setDeviceOpen(!deviceOpen)} />
-                        )}
+                        {first && <CommentDevice device={comment.device} reproduction={comment.reproduction} />}
                     </Row>
                     {(canDelete || canEdit) && !editing && (
                         <CommentThreadItemMenu
@@ -167,9 +156,6 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             } : undefined} />
                     )}
                 </Row>
-                {showDevice && deviceOpen && (
-                    <CommentDeviceDetails id={deviceDetailsId} device={comment.device} reproduction={comment.reproduction} />
-                )}
                 {first && <CommentKindLabel kind={comment.kind} />}
                 {Boolean(quote?.length) && (
                     <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
