@@ -134,7 +134,9 @@ Blue is never a background for a section, a card or a button.
 (`--sidebar`: Ink 100 on light, Surface on dark; `--sidebar-accent`: Ink 200 / Border for hover
 and the current item). Components use the semantic classes (`text-muted-foreground`,
 `border-border`, `bg-primary`, `bg-sidebar`) or these variables.
-A raw hex belongs only in `src/brand.ts`, for metadata and generated images.
+A raw hex belongs only in `src/brand.ts`, for metadata and generated images. The one exception in
+the product is the "Continue with Google" button, whose colours, "G" and font (Google Sans Medium)
+are fixed by Google's branding rules ([Google sign-in](../../docs/google-sign-in.md)).
 
 ## Typography
 

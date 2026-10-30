@@ -12,6 +12,7 @@ import { findOrCreateUser } from './users';
 import type { DbSignInRequest, DbUser } from './model';
 import { boundSignInRequestId } from './signInCookie';
 import { clearEmailSuppression } from '../email/suppression';
+import { completeGoogleLink } from './google/link';
 
 export const SIGN_IN_LINK_TTL_SECONDS = 15 * 60;
 export const SIGN_IN_CODE_LENGTH = 8;
@@ -43,8 +44,9 @@ export function safeNextPath(next: unknown) {
 
 /**
  * Sends a link and code. The action exposes the credentials only locally and on previews.
+ * `googleLinkId` attaches a Google account waiting for this proof (`googleLinkIdFor`).
  */
-export async function requestSignInLink(email: string, next: string | undefined) {
+export async function requestSignInLink(email: string, next: string | undefined, googleLinkId?: string) {
     // Confirmation also runs without an HTTP context; only requesting an email needs headers.
     const { appBaseUrl, requestIpBucket } = await import('./request');
     const counters = getCommentsStore();
@@ -65,12 +67,13 @@ export async function requestSignInLink(email: string, next: string | undefined)
         email,
         codeHash: keyedHash('sign-in-code', `${tokenHash}:${code}`),
         next: safeNextPath(next),
+        googleLinkId,
         createdAt,
         ttl: SIGN_IN_LINK_TTL_SECONDS
     });
 
     const url = `${await appBaseUrl()}${KnownPages.AppSignInConfirm}?token=${encodeURIComponent(token)}`;
-    await sendEmail(signInEmail({ to: email, url, code }));
+    await sendEmail(signInEmail({ to: email, url, code, linksGoogle: Boolean(googleLinkId) }));
     return { url, code, requestId: tokenHash, expiresAt: Date.parse(createdAt) + SIGN_IN_LINK_TTL_SECONDS * 1000 };
 }
 
@@ -89,18 +92,26 @@ async function getSignInRequestById(requestId: string) {
     return request;
 }
 
-/** Uses up the link: returns the (new or existing) user and where to continue, or `null` */
-export async function confirmSignIn(token: unknown): Promise<{ user: DbUser; next?: string } | null> {
-    return await consumeSignInRequest(await getSignInRequest(token));
+/**
+ * Uses up the link: returns the (new or existing) user and where to continue, or `null`. The link
+ * works in any browser, but links a waiting Google account only in the one bound to the request.
+ */
+export async function confirmSignIn(token: unknown, binding?: string): Promise<{ user: DbUser; next?: string } | null> {
+    const request = await getSignInRequest(token);
+    return await consumeSignInRequest(request, request !== null && boundSignInRequestId(binding) === request.id);
 }
 
 /** Both paths use this delete: only its winner may create a user or start a session. */
-async function consumeSignInRequest(request: DbSignInRequest | null): Promise<{ user: DbUser; next?: string } | null> {
+async function consumeSignInRequest(request: DbSignInRequest | null, bound: boolean): Promise<{ user: DbUser; next?: string } | null> {
     if (!request || !await getAppStore().delete(request.pk, request.id))
         return null;
 
     const user = await findOrCreateUser(request.email);
     await clearEmailSuppression(request.email);
+    const google = request.googleLinkId && bound ? await completeGoogleLink(request.googleLinkId, user.id, request.email) : null;
+    // Signed in either way: the inbox is proven. Account says why Google was not linked.
+    if (google === 'taken' || google === 'other_account')
+        return { user, next: `${KnownPages.AppAccount}?google=${google}` };
     return { user, next: safeNextPath(request.next) };
 }
 
@@ -122,7 +133,7 @@ export async function confirmSignInCode(requestId: unknown, code: unknown, bindi
     const actual = Buffer.from(keyedHash('sign-in-code', `${boundId}:${candidate}`), 'hex');
     const expected = Buffer.from(request.codeHash, 'hex');
     if (expected.length === actual.length && timingSafeEqual(expected, actual))
-        return await consumeSignInRequest(request);
+        return await consumeSignInRequest(request, true);
 
     await consumeCodeBudget(request, 'wrong', SIGN_IN_WRONG_CODE_LIMIT - 1);
     return null;

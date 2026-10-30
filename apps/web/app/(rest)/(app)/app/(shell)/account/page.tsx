@@ -10,6 +10,7 @@ import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadWorkspaceAccess } from '@/src/lib/app/access';
 import { appBaseUrl } from '@/src/lib/app/request';
 import { AccountForm, AppearanceSection } from './AccountForm';
+import { GoogleAccount } from './GoogleAccount';
 
 export const metadata: Metadata = {
     title: 'Account'
@@ -31,6 +32,7 @@ export default async function AccountPage() {
                     <p className="m-0 text-sm">Projects: {projects.map(project => project.name).join(', ') || 'None'}</p>
                 </Section>
                 <AccountForm name={user.name} />
+                <GoogleAccount userId={user.id} />
                 <AppearanceSection />
                 <CodingAgents endpoint={`${await appBaseUrl()}/api/mcp`} apps={grants.map(grant => connectedAppView(grant, accessible))}
                     projects={projects.map(({ id, name }) => ({ id, name }))} credentials={credentials.map(({ id, name, projectIds, scopes, expiresAt }) => ({ id, name, projectIds, scopes, expiresAt }))} />

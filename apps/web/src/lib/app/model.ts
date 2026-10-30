@@ -42,6 +42,8 @@ export type DbSignInRequest = AppDoc & {
     codeHash?: string;
     /** App path to continue to after signing in */
     next?: string;
+    /** A Google account waiting for this email proof (`DbGoogleLink`), linked only in the browser that asked */
+    googleLinkId?: string;
     createdAt: string;
     ttl: number;
 };

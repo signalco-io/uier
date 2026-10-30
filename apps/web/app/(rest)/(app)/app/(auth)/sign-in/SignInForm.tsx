@@ -11,7 +11,7 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { confirmSignInCodeAction, requestSignInAction, type SignInLinkSent } from './actions';
 
-function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: string }) {
+export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: string }) {
     const id = useId();
     const [state, formAction, pending] = useActionState(confirmSignInCodeAction, null);
     const [code, setCode] = useState('');

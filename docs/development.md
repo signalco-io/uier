@@ -49,6 +49,14 @@ to `apps/web/.env.local` and set the variables there.
 No email is sent locally either: the sign-in page shows the link and code it would have emailed
 ("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
+"Continue with Google" shows locally only with a Google client of your own in `apps/web/.env.local`
+(`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI `http://localhost:4004/app/sign-in/google/callback`;
+see [Google sign-in](google-sign-in.md#create-the-google-oauth-client)). Without one, run the test stand-in
+(`PORT=10004 node apps/web/e2e/support/googleStub.ts`) and point `GOOGLE_OAUTH_AUTHORIZE_URL`
+(`http://127.0.0.1:10004/o/oauth2/v2/auth`), `GOOGLE_OAUTH_TOKEN_URL` (`.../token`) and `GOOGLE_OAUTH_ISSUER`
+(`http://127.0.0.1:10004`) at it, with `GOOGLE_CLIENT_ID=google-test-client` and
+`GOOGLE_CLIENT_SECRET=google-test-secret`. These overrides work only in local runtime.
+
 ### Testing MCP OAuth locally
 
 OAuth for the [MCP connector](mcp.md) is on locally too. The issuer, the protected resource and the
@@ -101,7 +109,7 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 ```
 
 The tests start their own server on port 4004 and local API stand-ins on `PORT + 1000` through
-`PORT + 5000` (Anthropic, Notion, GitHub, Linear and Slack). They use fake credentials and fail
+`PORT + 6000` (Anthropic, Notion, GitHub, Linear, Slack and Google). They use fake credentials and fail
 if a port is taken: a running server is never reused, so `pnpm dev` (maybe with a real API key) is never tested
 by mistake. To use another port, for example to run them in two worktrees at once or while `pnpm dev` holds
 4004, set `PORT`:

@@ -8,6 +8,8 @@ export const cookieNames = {
     visitor: { name: '__Host-uier_visitor', legacy: 'uier_visitor', lifetime: 365 * day },
     session: { name: '__Host-uier_session', legacy: 'uier_session', lifetime: 30 * day },
     signInRequest: { name: '__Host-uier_sign_in_request', legacy: 'uier_sign_in_request', lifetime: 15 * 60 },
+    // New after the migration: read only by its current name (`legacy` is the local HTTP name).
+    googleSignIn: { name: '__Host-uier_google_sign_in', legacy: 'uier_google_sign_in', lifetime: 15 * 60 },
     workspace: { name: '__Host-uier_workspace', legacy: 'uier_workspace', lifetime: 365 * day },
     reviewSso: { name: '__Secure-uier_review_sso', legacy: 'uier_review_sso', lifetime: 30 * day }
 } as const;

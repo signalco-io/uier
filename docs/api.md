@@ -58,7 +58,11 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | --- | --- | --- |
 | `user` | `user:<id>` | `u_<nanoid>` |
 | `user-email` (unique email -> user) | `email:<email>` | the email |
-| `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash) | `sign-in:<hash>` | SHA-256 of the link token |
+| `sign-in` (single-use link and browser-bound code, `ttl` 15 min; code stored as a request-specific keyed hash; `googleLinkId` when it confirms a waiting Google account) | `sign-in:<hash>` | SHA-256 of the link token |
+| `google-sign-in` (a [Google sign-in](google-sign-in.md) in progress, `ttl` 10 min; state and nonce as SHA-256 hashes, no PKCE verifier) | `google-sign-in:<id>` | 64 random hex characters |
+| `google-link` (a verified Google account waiting for an email code before it is linked to an existing account, `ttl` 15 min) | `google-link:<id>` | 64 random hex characters |
+| `user-identity` (unique Google account -> user) | `identity:google:<sub>` | Google's `sub` |
+| `google-account` (the user's linked Google account: `sub`, its address for display, when it was linked) | `user:<id>` | `google` |
 | `workspace`, `member`, `project` | `workspace:<id>` | `w_<userId>` (`w_<userId>_2`, ... after a removal), `member_<userId>`, the internal project id |
 | `client` (who projects are for: name, description, icon, colour; projects point to it with `clientId`), `client-name` (unique name -> client) | `workspace:<id>` | `client_<nanoid>`, `client_name_<SHA-256 of the name>` |
 | `project-ref` (internal id -> workspace) | `project:<id>` | the internal project id |

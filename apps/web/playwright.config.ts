@@ -16,6 +16,7 @@ const notionStubUrl = `http://127.0.0.1:${PORT + 2000}`;
 const githubStubUrl = `http://127.0.0.1:${PORT + 3000}`;
 const linearStubUrl = `http://127.0.0.1:${PORT + 4000}`;
 const slackStubUrl = `http://127.0.0.1:${PORT + 5000}`;
+const googleStubUrl = `http://127.0.0.1:${PORT + 6000}`;
 const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 // Generated only for this local test process; never a registered GitHub App private key.
 const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
@@ -42,6 +43,8 @@ export default defineConfig({
             env: { PORT: String(PORT + 4000) } },
         { command: 'node e2e/support/slackStub.ts', url: slackStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 5000) } },
+        { command: 'node e2e/support/googleStub.ts', url: googleStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 6000) } },
         {
             command: 'node e2e/support/anthropicStub.ts',
             url: anthropicStubUrl,
@@ -93,6 +96,10 @@ export default defineConfig({
                 LINEAR_OAUTH_TOKEN_URL: `${linearStubUrl}/oauth/token`, LINEAR_OAUTH_REVOKE_URL: `${linearStubUrl}/oauth/revoke`,
                 SLACK_CLIENT_ID: 'slack-test-client', SLACK_CLIENT_SECRET: 'slack-test-secret', SLACK_APP_ID: 'ATESTAPP', SLACK_TOKEN_KEY: testTokenKey,
                 SLACK_API_BASE_URL: `${slackStubUrl}/api/`, SLACK_OAUTH_AUTHORIZE_URL: `${slackStubUrl}/oauth/authorize`,
+                // Google sign-in goes to e2e/support/googleStub.ts (overrides apply only in local runtime)
+                GOOGLE_CLIENT_ID: 'google-test-client', GOOGLE_CLIENT_SECRET: 'google-test-secret',
+                GOOGLE_OAUTH_AUTHORIZE_URL: `${googleStubUrl}/o/oauth2/v2/auth`, GOOGLE_OAUTH_TOKEN_URL: `${googleStubUrl}/token`,
+                GOOGLE_OAUTH_ISSUER: googleStubUrl,
             },
         },
     ],

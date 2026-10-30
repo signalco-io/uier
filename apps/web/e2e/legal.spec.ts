@@ -27,6 +27,16 @@ for (const document of documents) {
     test(`${document.title} is accessible`, ({ page }) => assertAccessibility(page, document.path));
 }
 
+test('the privacy and cookie policies describe Google sign-in', async ({ page }) => {
+    await page.goto('/legal/privacy-policy');
+    await expect(page.getByText(/^If you choose Continue with Google, you sign in at Google/)).toBeVisible();
+    await expect(page.getByRole('listitem').filter({ hasText: /^A linked Google account: until you unlink it or ask us to delete your account\./ })).toBeVisible();
+    await page.goto('/legal/cookie-policy');
+    const cookie = page.getByRole('listitem').filter({ has: page.getByText('__Host-uier_google_sign_in', { exact: true }) });
+    await expect(cookie).toContainText('Holds a signed record id, with no email address or Google data.');
+    await expect(cookie).toContainText('at most 15 minutes');
+});
+
 test('legal navigation and footer links reach the documents', async ({ page, request }) => {
     await page.goto('/');
     const footerLinks = page.getByRole('contentinfo').locator('a[href^="/legal/"]');

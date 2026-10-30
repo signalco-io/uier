@@ -11,6 +11,8 @@ import { confirmSignIn, confirmSignInCode, requestSignInLink, SIGN_IN_CODE_ERROR
 import { appCookieOptions, startSession } from '@/src/lib/app/session';
 import { SIGN_IN_REQUEST_COOKIE_NAME, signInRequestToken } from '@/src/lib/app/signInCookie';
 import { emailSchema } from '@/src/lib/app/users';
+import { GOOGLE_SIGN_IN_COOKIE_NAME } from '@/src/lib/app/google/cookie';
+import { googleLinkIdFor } from '@/src/lib/app/google/link';
 
 export type SignInLinkSent = {
     email: string;
@@ -24,7 +26,9 @@ export async function requestSignInAction(_: ActionState<SignInLinkSent>, formDa
     return await actionResult(async () => {
         const email = emailSchema.parse(formData.get('email') ?? '');
         const next = formData.get('next');
-        const sent = await requestSignInLink(email, typeof next === 'string' ? next : undefined);
+        // A Google account waiting in this browser for this address rides along with the email
+        const googleLinkId = await googleLinkIdFor((await cookies()).get(GOOGLE_SIGN_IN_COOKIE_NAME)?.value, email);
+        const sent = await requestSignInLink(email, typeof next === 'string' ? next : undefined, googleLinkId);
         const remainingSeconds = Math.max(0, Math.floor((sent.expiresAt - Date.now()) / 1000));
         (await cookies()).set(SIGN_IN_REQUEST_COOKIE_NAME,
             signInRequestToken(sent.requestId, remainingSeconds), appCookieOptions(remainingSeconds));
@@ -51,7 +55,8 @@ export async function confirmSignInCodeAction(_: ActionState, formData: FormData
 }
 
 export async function confirmSignInAction(_: ActionState, formData: FormData): Promise<ActionState> {
-    const result = await actionResult(async () => await confirmSignIn(formData.get('token')));
+    const result = await actionResult(async () => await confirmSignIn(formData.get('token'),
+        readMigratingCookie(await cookies(), cookieNames.signInRequest)));
     if (!result?.ok)
         return result;
     if (!result.data)

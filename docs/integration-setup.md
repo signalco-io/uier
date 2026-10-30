@@ -34,6 +34,7 @@ The accepted provider credentials are:
 | GitHub | `UIER_GITHUB_APP_ID`, `UIER_GITHUB_APP_SLUG`, `UIER_GITHUB_CLIENT_ID`, `UIER_GITHUB_CLIENT_SECRET`, `UIER_GITHUB_PRIVATE_KEY`, `UIER_GITHUB_WEBHOOK_SECRET` | GitHub App id, slug, OAuth pair, downloaded RSA private key and the matching webhook secret |
 | Linear | `LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET` | OAuth application's client id and secret |
 | Slack | `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_APP_ID`, `SLACK_DISTRIBUTION_APPROVED` | App/client ids, client secret and the explicit release gate (`"0"` or `"1"`) |
+| Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Web application OAuth client id and secret ([Google sign-in](google-sign-in.md#create-the-google-oauth-client)) |
 
 For example, a Notion-only map has this shape; replace placeholders through the owner's secret
 manager or GitHub's repository-secret interface, not in a committed file:

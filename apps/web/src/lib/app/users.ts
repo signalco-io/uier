@@ -28,13 +28,18 @@ export async function findUserByEmail(email: string) {
 
 /** The user with this (normalized) email, created on first use */
 export async function findOrCreateUser(email: string): Promise<DbUser> {
+    return (await findOrCreateUserWithStatus(email)).user;
+}
+
+/** `findOrCreateUser`, and whether this call created the user (Google sign-in links only new accounts without an email proof) */
+export async function findOrCreateUserWithStatus(email: string): Promise<{ user: DbUser; created: boolean }> {
     const store = getAppStore();
     for (let attempt = 0; attempt < 3; attempt++) {
         const existing = await store.get<DbUserEmail>(emailPk(email), email);
         if (existing) {
             const user = await getUser(existing.doc.userId);
             if (user)
-                return enrollUser(user);
+                return { user: await enrollUser(user), created: false };
         }
 
         const now = new Date().toISOString();
@@ -57,7 +62,7 @@ export async function findOrCreateUser(email: string): Promise<DbUser> {
             await store.delete(existing.doc.pk, existing.doc.id);
         }
         if (await store.create<DbUserEmail>({ type: 'user-email', id: email, pk: emailPk(email), userId: user.id }))
-            return enrollUser(user);
+            return { user: await enrollUser(user), created: true };
 
         // Created concurrently by another request
         await store.delete(user.pk, user.id);

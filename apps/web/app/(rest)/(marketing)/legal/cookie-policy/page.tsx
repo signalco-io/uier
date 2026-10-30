@@ -49,6 +49,13 @@ const items = [
         duration: 'Until the sign-in request expires, at most 15 minutes'
     },
     {
+        name: '__Host-uier_google_sign_in',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You choose Continue with Google, or link Google on your Account page',
+        purpose: 'Ties Google’s answer to the sign-in this browser started, and a Google account waiting for an email code to this browser. Holds a signed record id, with no email address or Google data. Google’s answer or signing in removes it.',
+        duration: 'Until the Google sign-in finishes, at most 15 minutes'
+    },
+    {
         name: '__Host-uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
@@ -115,7 +122,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="29 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="30 October 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.

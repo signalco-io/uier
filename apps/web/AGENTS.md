@@ -12,7 +12,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` (Google sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
@@ -44,7 +44,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
   `text-secondary-foreground`, `border-border` (`border` alone), `bg-muted`, `bg-primary`.
   Brand-only tokens are `hsl(var(--brand-accent))`, `--brand-accent-text`, `--brand-selection`,
   `--brand-success`, `--brand-warning`. No raw hex in components (the two dark/light logo panels
-  on the brand page are the deliberate exception: they must stay black and white in both themes).
+  on the brand page are the deliberate exception: they must stay black and white in both themes;
+  so is the sign-in card's "Continue with Google", whose colours, "G" and Google Sans follow Google's rules).
 - Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
   `rounded-3xl` 24, `rounded-full`. Borders over shadows; only floating surfaces get the shadow
   from `BRAND.md`.
@@ -356,6 +357,17 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   start at the request's creation time; reserve before comparing, invalidate on the fifth wrong guess.
   Keep the email budgets (5/address, 20/IP/hour). Invitations remain link-only. All invalid codes share
   one message; a foreign binding spends none of the original request's budget.
+- **Google sign-in** (`src/lib/app/google/`, [docs/google-sign-in.md](../../docs/google-sign-in.md)) is a hand-rolled
+  OIDC code flow with PKCE. `GET /app/sign-in/google` refuses cross-site and prefetch starts and counts 30 per IP per
+  hour; its 10-minute `google-sign-in` record keeps state and nonce hashes (the PKCE verifier is a keyed hash, never
+  stored), bound by the signed HttpOnly `__Host-uier_google_sign_in` cookie, and the callback's delete winner alone
+  exchanges the code. Never copy the code or state into a URL. The ID token comes straight from the token endpoint,
+  so its claims are checked and its signature is not; check the signature first if a token ever arrives another way.
+  A linked `sub` signs in (never the email, and the uier email never follows Google); unverified addresses are
+  refused; a new address creates the user; an existing one links at once only for `@gmail.com` or a matching `hd`,
+  otherwise after a browser-bound email code (`googleLinkId` on the sign-in request, `google-link` record). Account
+  links and unlinks; a `sub` of another user is refused. The button shows only in production and local runtime;
+  endpoint overrides work only locally. `google-sign-in{,.api}.spec.ts` use `e2e/support/googleStub.ts`.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and
