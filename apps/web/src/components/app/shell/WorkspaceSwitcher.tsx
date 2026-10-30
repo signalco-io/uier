@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import Link from 'next/link';
-import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
+import { CheckIcon, ChevronsUpDownIcon, SettingsIcon } from 'lucide-react';
 import { Mark } from '@uier/brand/Mark';
 import {
     DropdownMenu,
@@ -10,6 +10,7 @@ import {
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/src/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/src/components/ui/sidebar';
@@ -36,15 +37,23 @@ function WorkspaceLabel({ workspace }: { workspace: WorkspaceOption }) {
     );
 }
 
-/** The current workspace at the top of the sidebar; a menu switches when there is more than one */
-export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: { workspaces: WorkspaceOption[]; currentWorkspaceId: string }) {
+/**
+ * The current workspace at the top of the sidebar. Its menu switches when there is more than one,
+ * and opens the workspace settings for admins (`canManage`).
+ */
+export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = false }: {
+    workspaces: WorkspaceOption[];
+    currentWorkspaceId: string;
+    canManage?: boolean;
+}) {
     const { isMobile } = useSidebar();
     const [pending, startTransition] = useTransition();
     const current = workspaces.find(workspace => workspace.id === currentWorkspaceId) ?? workspaces[0];
     if (!current)
         return null;
 
-    if (workspaces.length < 2) {
+    const canSwitch = workspaces.length > 1;
+    if (!canSwitch && !canManage) {
         return (
             <SidebarMenu>
                 <SidebarMenuItem>
@@ -76,20 +85,31 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: { workspac
                         align="start"
                         side={isMobile ? 'bottom' : 'right'}
                         sideOffset={4}>
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-                            {workspaces.map(workspace => (
-                                <DropdownMenuItem
-                                    key={workspace.id}
-                                    onSelect={() => startTransition(() => switchWorkspaceAction(workspace.id))}>
-                                    <span className="flex min-w-0 flex-1 flex-col">
-                                        <span className="truncate">{workspace.name}</span>
-                                        <span className="text-xs text-muted-foreground">{workspace.role}</span>
-                                    </span>
-                                    {workspace.id === current.id && <CheckIcon className="ml-auto" />}
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuGroup>
+                        {canSwitch && (
+                            <DropdownMenuGroup>
+                                <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
+                                {workspaces.map(workspace => (
+                                    <DropdownMenuItem
+                                        key={workspace.id}
+                                        onSelect={() => startTransition(() => switchWorkspaceAction(workspace.id))}>
+                                        <span className="flex min-w-0 flex-1 flex-col">
+                                            <span className="truncate">{workspace.name}</span>
+                                            <span className="text-xs text-muted-foreground">{workspace.role}</span>
+                                        </span>
+                                        {workspace.id === current.id && <CheckIcon className="ml-auto" />}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuGroup>
+                        )}
+                        {canSwitch && canManage && <DropdownMenuSeparator />}
+                        {canManage && (
+                            <DropdownMenuItem asChild>
+                                <Link href={KnownPages.AppSettings}>
+                                    <SettingsIcon />
+                                    Workspace settings
+                                </Link>
+                            </DropdownMenuItem>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>

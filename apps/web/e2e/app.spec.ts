@@ -369,6 +369,52 @@ test('the sidebar has the sections, the active projects and the account', async 
     await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 });
 
+test('admins rename the workspace from its menu; commenters have no workspace settings', async ({ page }) => {
+    const email = uniqueEmail('workspace-settings');
+    await signIn(page, email);
+    await createProject(page, { urls: ['workspace.example.com'], name: 'Workspace site' });
+
+    // The workspace menu at the top of the sidebar opens the settings
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
+    await expect(page).toHaveURL(/\/app\/settings$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Workspace settings' })).toBeVisible();
+    await expect(page).toHaveTitle('Workspace settings · uier');
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Workspace settings');
+
+    // A new workspace is named after its creator's email until an admin renames it
+    const name = page.getByLabel('Workspace name');
+    await expect(name).toHaveValue(email);
+    await name.fill('  Acme   studio ');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'The workspace name is saved.' })).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    // The sidebar shows the new name, and its section is the current page
+    const navigation = await appNavigation(page);
+    await expect(navigation.getByRole('link', { name: 'Workspace settings' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Acme studio');
+    await closeAppNavigation(page);
+    await page.reload();
+    await expect(page.getByLabel('Workspace name')).toHaveValue('Acme studio');
+
+    // In the uier workspace everyone joins as a commenter: no settings link, and the page is not there
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toBeVisible();
+    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await expect(page).toHaveURL(/\/app\/projects$/);
+    const commenterNavigation = await appNavigation(page);
+    await expect(commenterNavigation.getByRole('link', { name: 'Workspace settings' })).toHaveCount(0);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await expect(page.getByRole('menuitem', { name: /uier.*Commenter/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.goto('/app/settings');
+    await expect(page).toHaveURL(/\/app\/projects$/);
+});
+
 test('feedback on the app opens uier\'s toolbar and stays private', async ({ page, browser }, testInfo) => {
     // An earlier guest identity must not override the signed-in account.
     const guestWrite = await page.request.post('/api/comments', { data: {
