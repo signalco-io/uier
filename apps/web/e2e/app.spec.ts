@@ -311,7 +311,8 @@ test('project settings save the comment access, addresses and name', async ({ pa
     const projectId = await createProject(page, { urls: ['settings.example.com'] });
     await page.goto(`/app/projects/${projectId}/settings`);
     await expect(page.getByRole('heading', { level: 1, name: 'settings.example.com' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
+    // The header's Settings button is current (the breadcrumb ends at Settings too, as a disabled link)
+    await expect(page.getByRole('link', { name: 'Settings', exact: true, disabled: false })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Project settings · uier');
     await expectNoAxeViolations(page);
 
@@ -528,7 +529,8 @@ test('the account page saves the name and signs out', async ({ page }) => {
     await expect(page.getByLabel('Name')).toHaveValue(/^account-/);
     await page.getByLabel('Name').fill('Mia Reviewer');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('status')).toHaveText('Your name is saved.');
+    // The coding agents' copy buttons have their own (empty) status regions
+    await expect(page.getByRole('region', { name: 'Profile' }).getByRole('status')).toHaveText('Your name is saved.');
     await appNavigation(page);
     await expect(page.getByRole('button', { name: 'Account: Mia Reviewer' })).toBeVisible();
     await closeAppNavigation(page);
