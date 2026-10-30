@@ -52,7 +52,8 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox).toContainText('Reviewing Production');
-    await expect(inboxPages(page)).toContainText('All environments');
+    // All environments, not the reviewed one: like the app's filter, the picker names only a chosen environment
+    await expect(inboxPages(page)).toHaveAccessibleName('Environment and page: This page');
     await expect(inbox.getByRole('region', { name: 'This page', exact: true }).getByRole('article')).toHaveCount(1);
     await chooseInboxPages(page, /^All pages/);
     await expect(inbox.getByRole('article')).toHaveCount(3);
