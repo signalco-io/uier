@@ -213,13 +213,11 @@ test('other pages: the toolbar keeps its review mode (?review=true)', async ({ p
     await expect(page.locator('#uier-toolbar')).toHaveCount(0);
 
     await page.goto('/e2e-review-mode?review=true');
-    await addToolbarScript(page, { dismissHint: false });
+    await addToolbarScript(page);
     await expect(toolbar(page)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'About uier' })).toBeVisible();
-    await expect(showcaseHint(page)).toBeVisible();
-    await expect(showcaseHint(page)).toContainText('Anyone can see and reply to comments.');
-    await expect(showcaseHint(page)).toContainText('Send feedback');
-    await expect(showcaseHint(page)).toContainText('inbox');
+    // Only uier.io's landing page introduces uier
+    await expect(page.getByRole('button', { name: 'About uier' })).toHaveCount(0);
+    await expect(showcaseHint(page)).toHaveCount(0);
 });
 
 /** Creates a comment on `/` through the API from the page (visitor cookie and BotID headers) */

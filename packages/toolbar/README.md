@@ -324,8 +324,9 @@ error boundary, so one bad comment never breaks the toolbar.
   no pin; the inbox lists them under "Done".
 - The inbox (the pill's inbox button opens and closes it; Esc and the close button close it too) starts with
   the search box, which matches messages, quoted text, guest names, page paths and public ids whatever else is
-  chosen. Under it, the page picker (a select; typing the start of a path jumps to it) lists **This page** (the
-  default), **All pages** and each of the site's other pages (`?scope=site`) with their matching comments, next to the **Unread** and **Assigned to me** filters
+  chosen. Under it, the location picker (like the app's: a project's environments on the left, pages on the right,
+  with a page search) lists **This page** (the default), **All pages**, sections such as `/blog/…` (or any path typed
+  with a leading `/`) and each of the site's other pages (`?scope=site`) with their matching comments, next to the **Unread** and **Assigned to me** filters
   (Unread shows every page and status, like the pill's count). **Open**, **Done** and **All** sit right above the
   list, newest first; with nothing on this page, the list offers the other pages' matches. A thread shows its first and last message; **Show all** shows the rest.
   **Show on page** (only while the comment's pin can be placed) opens an open comment's thread on its pin; a

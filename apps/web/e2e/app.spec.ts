@@ -1,7 +1,7 @@
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, closeAppNavigation, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, closeAppNavigation, createProject, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { pngImage } from './support/images';
 import { newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -184,11 +184,11 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
     await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Add the script');
-    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
     await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');
-    await page.getByRole('button', { name: 'Pin this version', exact: true }).click();
+    await page.getByRole('button', { name: 'Advanced: pin this version', exact: true }).click();
     await expect(page.getByText('integrity="sha384-').first()).toContainText('crossorigin="anonymous"');
     await expect(page.getByText(/It gets fixes only when you update the snippet/).first()).toBeVisible();
     await expect(page.getByText(/Paste it before the closing <\/body> tag/)).toBeVisible();
@@ -196,7 +196,7 @@ test('onboarding creates a project with its addresses and shows the install guid
         await expect(page.getByRole('tab', { name: platform })).toBeVisible();
     await page.getByRole('tab', { name: 'Next.js' }).click();
     await expect(page.getByText('strategy="afterInteractive"')).toBeVisible();
-    await page.getByRole('button', { name: 'Pin the Next.js version', exact: true }).click();
+    await page.getByRole('button', { name: 'Advanced: pin the Next.js version', exact: true }).click();
     await expect(page.getByRole('tabpanel', { name: 'Next.js' }).getByText('crossOrigin="anonymous"')).toContainText('integrity="sha384-');
     await page.getByText('Advanced: security headers').click();
     await expect(page.getByText(/in proxy\.ts \(middleware\.ts before Next\.js 16\)/)).toBeVisible();
@@ -229,15 +229,20 @@ test('onboarding creates a project with its addresses and shows the install guid
     const empty = page.locator('[data-slot="empty"]');
     await expect(empty).toContainText('They sign in with their email.');
     await expect(empty.getByRole('button', { name: 'Invite', exact: true })).toBeVisible();
+    // Open review: Review or Visit site for each address, the main site first
     await page.getByRole('button', { name: 'Open review' }).click();
-    await expect(page.getByRole('menuitem', { name: /www\.example\.com\s*Main site/ })).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: /staging\.example\.com\/app/ })).toBeVisible();
+    const mainSite = page.getByRole('group', { name: 'www.example.com' });
+    await expect(mainSite).toContainText('Main site');
+    await expect(mainSite.getByRole('menuitem', { name: 'Review' })).toBeVisible();
+    await expect(mainSite.getByRole('menuitem', { name: 'Visit site' })).toHaveAttribute('href', 'https://www.example.com');
+    await expect(page.getByRole('group', { name: 'staging.example.com/app' }).getByRole('menuitem', { name: 'Review' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toBeHidden();
     await expectNoAxeViolations(page);
 
-    // The Install tab itself is the plain guide, without the onboarding progress
-    await page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install' }).click();
+    // The install guide, from Settings, is the plain guide without the onboarding progress
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Open install guide' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install$`));
     await expect(page.getByRole('heading', { name: 'Copy the script' })).toBeVisible();
     await expect(progress).toHaveCount(0);
@@ -306,7 +311,7 @@ test('project settings save the comment access, addresses and name', async ({ pa
     const projectId = await createProject(page, { urls: ['settings.example.com'] });
     await page.goto(`/app/projects/${projectId}/settings`);
     await expect(page.getByRole('heading', { level: 1, name: 'settings.example.com' })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Project settings · uier');
     await expectNoAxeViolations(page);
 
@@ -317,7 +322,6 @@ test('project settings save the comment access, addresses and name', async ({ pa
 
     // Addresses
     const addresses = page.getByRole('region', { name: 'Site addresses' });
-    await addresses.getByRole('button', { name: 'Add another address' }).click();
     await addresses.getByLabel('Address 2', { exact: true }).fill('localhost:3000/');
     await addresses.getByRole('button', { name: 'Save' }).click();
     await expect(addresses.getByRole('status')).toHaveText('The addresses are saved.');
@@ -444,13 +448,11 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await dialog.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
-    await page.getByRole('button', { name: 'About uier' }).click();
-    await expect(showcaseHint(page)).toContainText('Feedback is private to its author and the uier team.');
+    // The app has no "About uier": only the landing page introduces uier
+    await expect(page.getByRole('button', { name: 'About uier' })).toHaveCount(0);
     expect(await (await page.request.get('/api/visitor?path=%2Fapp%2Fprojects')).json()).toMatchObject({ privateAppFeedback: true });
     expect(await (await page.request.get('/api/visitor?path=%2Fapplication')).json()).toMatchObject({ privateAppFeedback: false });
-    await expect(showcaseHint(page)).not.toContainText('90 days');
-    await expect(showcaseHint(page)).not.toContainText('Anyone can see');
-    await showcaseHint(page).getByRole('button', { name: 'Got it' }).click();
+    await expect(showcaseHint(page)).toHaveCount(0);
     await toolbar(page).getByRole('button', { name: 'Profile', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText(name);
     await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText('You are signed in to uier.');
@@ -488,7 +490,7 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
         .toHaveAttribute('href', '/app/projects/uier00000001');
     await page.goto('/app/projects/uier00000001');
     // This local feedback has a loopback origin, outside the public project's production environment.
-    await expect(page.getByRole('combobox', { name: 'Environment', exact: true })).toContainText('All environments');
+    await expect(page.getByRole('button', { name: /^Environment and page:/ })).toContainText('All environments and pages');
     await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
@@ -564,7 +566,7 @@ test('only admins save and clear the plain-text review brief, with server valida
 
     const email = uniqueEmail('brief-member');
     await page.goto(`/app/projects/${project}`);
-    await page.getByRole('button', { name: 'Invite', exact: true }).first().click();
+    await openProjectInvite(page);
     const invitation = page.getByRole('dialog');
     await invitation.getByLabel('Email').fill(email);
     await invitation.getByRole('button', { name: 'Send invitation' }).click();

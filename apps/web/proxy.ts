@@ -28,7 +28,9 @@ export async function proxy(request: NextRequest) {
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
-            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: ['*'] }] : [])
+            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: ['*'] }] : []),
+            // Project tiles show favicons from the projects' own sites (`ProjectMark`)
+            ...(appPage ? [{ imgSrc: ['https:'] }] : [])
         ], nonce),
         ...(bridge ? { frameGuard: false } : {})
     });

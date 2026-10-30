@@ -5,7 +5,7 @@ import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/
 import { pngImage } from './support/images';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { chooseInboxPages, dismissFirstRunHint, newVisitor, toolbar } from './support/toolbar';
+import { chooseInboxPages, newVisitor, toolbar } from './support/toolbar';
 
 // Local regression budgets and methodology are in docs/mvp-launch-verification.md.
 // Measurements include browser event-to-next-frame timing, not Playwright round-trip time.
@@ -43,7 +43,6 @@ test('many missing and ambiguous text anchors share an index and never search ag
     });
     try {
         await guest.page.goto(`${site.origin()}/${projectId}/pricing?review=true&layout=html-scroll`);
-        await dismissFirstRunHint(guest.page);
         await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
         const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
         await expect(inbox.getByRole('article')).toHaveCount(40);

@@ -11,7 +11,7 @@ import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { commentLink } from '../../review';
 import { CommentItem } from '../@types/Comments';
 import { CommentsFilter } from './CommentsFilter';
-import { pageLabel } from './PagePicker';
+import { pageLabel } from './LocationPicker';
 import type { useInboxComments } from './useInboxComments';
 
 /** How long the search waits after the last keystroke before it announces the count */

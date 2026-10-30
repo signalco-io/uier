@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { toolbar, dismissFirstRunHint } from './support/toolbar';
+import { toolbar } from './support/toolbar';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -133,11 +133,10 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
     const guest = await newVisitor(browser, testInfo);
     await guest.page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
     await expect(guest.page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
-    await dismissFirstRunHint(guest.page);
     // Third-party sites keep toolbar/inbox controls interactive and outside point targeting.
     await toolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
-    const about = (await toolbar(guest.page).getByRole('button', { name: 'About uier' }).boundingBox())!;
-    await guest.page.mouse.move(about.x + about.width / 2, about.y + about.height / 2);
+    const profile = (await toolbar(guest.page).getByRole('button', { name: 'Profile' }).boundingBox())!;
+    await guest.page.mouse.move(profile.x + profile.width / 2, profile.y + profile.height / 2);
     await expect(guest.page.locator('[data-uier-outline]')).toHaveCount(0);
     await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
     const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
@@ -213,7 +212,6 @@ test('the pinned integrity-checked embed posts feedback despite named page eleme
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true&pinned=1&clobber=1`);
     await expect(toolbar(page)).toBeVisible();
-    await dismissFirstRunHint(page);
     await page.addScriptTag({ url: new URL(toolbarBundle.path, baseURL).href });
     await expect(toolbar(page)).toHaveCount(1);
     await expect(page.locator('div#uier-toolbar').filter({ hasText: 'Page content' })).toBeVisible();
@@ -257,7 +255,6 @@ test('a failed project comments load is visible and can be retried', async ({ pa
     await page.route(endpoint, route => route.abort());
     await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
     await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
-    await dismissFirstRunHint(page);
     await expect(page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
     await page.unroute(endpoint);
     await page.getByRole('button', { name: 'Try again', exact: true }).click();

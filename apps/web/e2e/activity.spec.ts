@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, openThread, toolbar } from './support/toolbar';
+import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -123,7 +123,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await inbox(first.page).click();
         await first.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
         // Unread lists every page, like the pill's count
-        await expect(first.page.getByRole('combobox', { name: 'Pages' })).toContainText('All pages');
+        await expect(inboxPages(first.page)).toContainText('All pages');
         const otherGroup = first.page.getByRole('region', { name: 'All pages' });
         await expect(otherGroup.getByRole('article', { name: `Comment #${otherComment.number}` })).toContainText('Feedback on another page');
         await expectNoAxeViolations(first.page);

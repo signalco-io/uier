@@ -51,8 +51,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
         <>
             <PageHeader
                 title="Projects"
-                description="Each project is one site you review, with its addresses and its comments."
-                actions={canManageProjects && (
+                // The empty active list has its own Create project
+                actions={canManageProjects && (shown.length > 0 || status === 'done') && (
                     <Button asChild>
                         <Link href={KnownPages.AppNewProject}>
                             <PlusIcon data-icon="inline-start" />
@@ -68,7 +68,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                             { href: statusHref('active'), label: 'Active', count: counts.active, current: status === 'active' },
                             { href: statusHref('done'), label: 'Done', count: counts.done, current: status === 'done' }
                         ]} />
-                    <ClientFilter clients={clients} value={client} status={status} />
+                    {/* Only when a project has a client, like the sidebar's Clients link */}
+                    {clients.length > 0 && <ClientFilter clients={clients} value={client} status={status} />}
                 </div>
             </PageHeader>
             {shown.length ? (
@@ -80,7 +81,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                             <li key={project.id} className="flex">
                                 <Card size="sm" className="relative flex-1 transition-colors hover:border-foreground/20">
                                     <CardHeader className="flex items-center gap-3">
-                                        <ProjectMark name={project.name} className="size-9 rounded-lg text-sm" />
+                                        <ProjectMark name={project.name} url={project.urls[0]} className="size-9 rounded-lg text-sm [&>img]:p-2" />
                                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                                             <CardTitle className="truncate">
                                                 {/* The whole card opens the project; the buttons sit above the link */}

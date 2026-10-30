@@ -309,23 +309,6 @@ test('a comment link in a review carries the review link', async ({ browser }, t
     await context.close();
 });
 
-test('About uier reopens a dismissed review guide and restores keyboard focus', async ({ page }) => {
-    await page.goto('/e2e-review-guide?review=true');
-    await addToolbarScript(page);
-    const about = page.getByRole('button', { name: 'About uier' });
-    const hint = page.getByRole('region', { name: 'Try uier on this page' });
-    await expect(hint).toHaveCount(0);
-    await about.click();
-    await expect(hint).toBeVisible();
-    await hint.getByRole('button', { name: 'Dismiss' }).focus();
-    await page.keyboard.press('Escape');
-    await expect(hint).toHaveCount(0);
-    await expect(about).toBeFocused();
-    await page.reload();
-    await addToolbarScript(page);
-    await expect(hint).toHaveCount(0);
-});
-
 test('blocked guide storage keeps dismissal usable and shows the guide on the next visit', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     try {

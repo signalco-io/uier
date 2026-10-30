@@ -139,7 +139,7 @@ an `ETag`). The URL is not versioned, so it is cached briefly and never `immutab
   `304` while the bundle is unchanged. A release reaches every visitor within 5 minutes of the deploy
   (other shared caches on the way may keep it for up to an hour).
 
-The default embed follows new releases. **Pin this version** in the install guide instead provides
+The default embed follows new releases. **Advanced: pin this version** in the install guide instead provides
 HTML and Next.js snippets with `/toolbar/<sha256>.js`, `integrity="sha384-..."` and
 `crossorigin="anonymous"` (`crossOrigin` in JSX). These content-addressed files use
 `Cache-Control: public, max-age=31536000, immutable` and `Access-Control-Allow-Origin: *`.

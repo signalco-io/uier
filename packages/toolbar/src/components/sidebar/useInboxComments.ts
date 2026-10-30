@@ -1,7 +1,7 @@
 import { useProjectViewer } from '../../project/ProjectGate';
 import { useActivitySummary, useComments, useSiteComments } from '../../hooks/useComments';
 import { CommentItem, commentsListMaxLength } from '../@types/Comments';
-import { CommentsFilter, CommentsPageFilter, CommentsStatusFilter, inboxPageKey, matchesSearch, matchesStatus } from './CommentsFilter';
+import { CommentsFilter, CommentsPageFilter, CommentsStatusFilter, inboxPageKey, inSection, matchesSearch, matchesStatus } from './CommentsFilter';
 
 /** Another page of the site, for the page picker: newest activity first */
 export type InboxPage = {
@@ -23,9 +23,9 @@ export type InboxListState = {
 /** Newest first (ISO 8601 times sort as text) */
 const newestFirst = (a: CommentItem, b: CommentItem) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
 
-/** The path of a `page:<environment>|<path>` key */
+/** The path of a `page:<environment>|<path>` key, or a section's base path */
 export function pageKeyPath(key: CommentsPageFilter) {
-    return key.startsWith('page:') ? key.slice(key.indexOf('|') + 1) : '';
+    return key.startsWith('page:') ? key.slice(key.indexOf('|') + 1) : key.startsWith('section:') ? key.slice('section:'.length) : '';
 }
 
 /**
@@ -53,18 +53,24 @@ export function useInboxComments(filter: CommentsFilter) {
 
     let scoped: CommentItem[] | undefined;
     let state: InboxListState;
+    const everyPage = currentSearched && othersSearched
+        ? [...currentSearched, ...othersSearched].sort(newestFirst)
+        : undefined;
+    const bothLists: InboxListState = {
+        isPending: currentQuery.isPending || siteQuery.isPending,
+        error: currentQuery.error ?? siteQuery.error,
+        refetch: () => { void currentQuery.refetch(); void siteQuery.refetch(); }
+    };
     if (scope === 'current') {
         scoped = currentSearched;
         state = currentQuery;
     } else if (scope === 'all') {
-        scoped = currentSearched && othersSearched
-            ? [...currentSearched, ...othersSearched].sort(newestFirst)
-            : undefined;
-        state = {
-            isPending: currentQuery.isPending || siteQuery.isPending,
-            error: currentQuery.error ?? siteQuery.error,
-            refetch: () => { void currentQuery.refetch(); void siteQuery.refetch(); }
-        };
+        scoped = everyPage;
+        state = bothLists;
+    } else if (scope.startsWith('section:')) {
+        const base = pageKeyPath(scope);
+        scoped = everyPage?.filter(comment => inSection(base, comment.path));
+        state = bothLists;
     } else {
         scoped = othersSearched?.filter(comment => inboxPageKey(comment) === scope);
         state = siteQuery;
@@ -107,6 +113,7 @@ export function useInboxComments(filter: CommentsFilter) {
         state,
         counts,
         pages: [...pages.values()],
+        currentPath: path,
         currentCount,
         otherCount,
         siteCapped,

@@ -22,8 +22,11 @@ export const selectionToolbar = (page: Page) => page.getByRole('toolbar', { name
 /** Comment thread popover (only one is open at a time) */
 export const openThread = (page: Page) => page.getByRole('dialog');
 
-/** The open inbox's page picker (a select: this page, all pages, then the other pages) */
-export const inboxPages = (page: Page) => page.getByRole('complementary', { name: 'Comments' }).getByRole('combobox', { name: 'Pages' });
+/** The open inbox's location picker: the environment (in a project with several), then this page, all pages, sections and the other pages */
+export const inboxPages = (page: Page) => page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: /^(Pages|Environment and page):/ });
+
+/** The open location picker's pages (each named with its count: "/about, 3 comments") */
+export const inboxPageOptions = (page: Page) => page.getByRole('dialog', { name: /^(Pages|Environment and page)$/ }).getByRole('group', { name: 'Pages' });
 
 /**
  * Chooses which pages the open inbox lists: `/^This page/`, `/^All pages/` or another page's path
@@ -31,8 +34,8 @@ export const inboxPages = (page: Page) => page.getByRole('complementary', { name
  */
 export async function chooseInboxPages(page: Page, name: RegExp) {
     await inboxPages(page).click();
-    await page.getByRole('listbox').getByRole('option', { name }).click();
-    await expect(page.getByRole('listbox')).toBeHidden();
+    await inboxPageOptions(page).getByRole('button', { name }).click();
+    await expect(inboxPageOptions(page)).toBeHidden();
 }
 
 /**
@@ -83,11 +86,11 @@ export async function openLanding(page: Page, origin: string, { dismissHint = fa
 }
 
 /**
- * Adds the toolbar script like a site would (review mode: no `data-uier-mode`). Not
- * `page.addScriptTag`: it fails on the CSP report for the Google Fonts stylesheet the toolbar
- * adds (blocked here, the toolbar then uses system-ui).
+ * Adds the toolbar script like a site would (review mode: no `data-uier-mode`, no first-run
+ * hint). Not `page.addScriptTag`: it fails on the CSP report for the Google Fonts stylesheet the
+ * toolbar adds (blocked here, the toolbar then uses system-ui).
  */
-export async function addToolbarScript(page: Page, { dismissHint = true } = {}) {
+export async function addToolbarScript(page: Page) {
     await page.evaluate(() => new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
         script.src = '/toolbar.js';
@@ -95,10 +98,6 @@ export async function addToolbarScript(page: Page, { dismissHint = true } = {}) 
         script.onerror = () => reject(new Error('The toolbar script did not load'));
         document.head.appendChild(script);
     }));
-    if (dismissHint && await page.locator('#uier-toolbar').count()) {
-        await expect.poll(async () => await showcaseHint(page).count() > 0 || await page.evaluate(() => localStorage.getItem('uier:showcase-hint-dismissed') === 'true')).toBe(true);
-        if (await showcaseHint(page).isVisible()) await dismissFirstRunHint(page);
-    }
 }
 
 /** Selects `text` in the page (inside one text node) like a reviewer would */

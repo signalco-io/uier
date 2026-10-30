@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Button } from '@/src/components/ui/button';
+import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext, type AppContext } from '@/src/lib/app/context';
 import { getVisibleProject, listVisibleProjects } from '@/src/lib/app/projects';
 import { clientNames } from '@/src/lib/app/clients';
@@ -46,6 +49,16 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
         <div className="flex max-w-3xl flex-col gap-6">
             <h2 className="sr-only">Settings</h2>
             {canConfigure && <ProjectSetup project={project} clients={clientNames(await listVisibleProjects(context))} />}
+            {/* The install guide, once the empty comments list no longer links to it */}
+            <Section
+                id="installation"
+                title="Installation"
+                description="The script for your site, steps for common platforms and the installation check."
+                actions={(
+                    <Button variant="outline" asChild>
+                        <Link href={KnownPageLinks.projectInstall(project.id)}>Open install guide</Link>
+                    </Button>
+                )} />
             <Section
                 id="emails"
                 title="Email notifications"
@@ -123,13 +136,20 @@ async function ProjectState({ context, project }: { context: AppContext; project
                     ))}
                 </dl>
             </Section>
-            <Section
-                id="status"
-                title="Status"
-                description={project.status === 'done'
-                    ? 'This project is done. Reopen it to move it back to the active projects.'
-                    : 'Mark the project as done when the review is over. It moves to the done projects; nothing is deleted.'}
-                actions={<ProjectStatusButton projectId={project.id} status={project.status} />} />
+            {/* Changes to the whole project, each a row with its button */}
+            <Section id="danger-zone" title="Danger zone" className="border-destructive/40">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <h3 className="m-0 text-sm font-medium">{project.status === 'done' ? 'Reopen project' : 'Mark as done'}</h3>
+                        <p className="m-0 text-sm text-muted-foreground">
+                            {project.status === 'done'
+                                ? 'This project is done. Reopen it to move it back to the active projects.'
+                                : 'Mark the project as done when the review is over. It moves to the done projects; nothing is deleted.'}
+                        </p>
+                    </div>
+                    <ProjectStatusButton projectId={project.id} status={project.status} />
+                </div>
+            </Section>
         </>
     );
 }

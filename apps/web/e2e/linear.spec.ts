@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
 
 test('Linear OAuth, explicit destination choices, sync controls, backfill and disconnect stay admin-only', async ({ page, browser, baseURL }, testInfo) => {
@@ -55,7 +55,7 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
 
     // The controls are absent for a project member; a forged action still checks the current admin role.
     await page.goto(`/app/projects/${projectId}`);
-    await page.getByRole('button', { name: 'Invite', exact: true }).first().click();
+    await openProjectInvite(page);
     const invitation = page.getByRole('dialog');
     await invitation.getByLabel('Email', { exact: true }).fill(uniqueEmail('linear-member'));
     await invitation.getByRole('button', { name: 'Send invitation' }).click();

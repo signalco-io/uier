@@ -15,13 +15,14 @@ import { useInkContainer } from './InkScope';
 import { avatarText } from './CommentThreadItem';
 import { floatingShadowClassName } from './@types/Comments';
 
-/** The toolbar's profile button: who the visitor comments as */
+/** The toolbar's profile button: who the visitor comments as. Signed in, it shows their avatar (the app's initial), otherwise a person icon */
 export function ToolbarProfile() {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     // Dark like the pill it opens from
     const container = useInkContainer() ?? rootElement;
     const { query } = useVisitor();
     const name = query.data?.name;
+    const signedIn = Boolean(query.data?.member && name);
 
     return (
         <Popper
@@ -34,9 +35,11 @@ export function ToolbarProfile() {
                 <IconButton
                     variant="plain"
                     className="rounded-full"
-                    title="Profile"
+                    title={signedIn ? `Signed in as ${name}` : 'Profile'}
                     aria-label="Profile">
-                    <UserCircle />
+                    {signedIn
+                        ? <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(name!)}</Avatar>
+                        : <UserCircle />}
                 </IconButton>
             )}>
             <Stack spacing={1.5}>

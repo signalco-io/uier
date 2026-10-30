@@ -2,7 +2,8 @@ import Link from 'next/link';
 import type { AppContext } from '@/src/lib/app/context';
 import type { DbProject } from '@/src/lib/app/model';
 import { projectAccessSources } from '@/src/lib/app/access';
-import { KnownPageLinks } from '@/src/knownPages';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { Button } from '@/src/components/ui/button';
 import { Section } from '../PageHeader';
 import { managementData } from './management';
 import { ProjectTeamButton, RemoveProjectAccess } from './AccessForms';
@@ -14,6 +15,13 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
             id="people-and-teams"
             title="People and teams"
             description="Managed member access is separate from Who can comment."
+            actions={(
+                // Teams and people are managed for the whole workspace on their own pages
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" asChild><Link href={KnownPages.AppTeams}>Manage teams</Link></Button>
+                    <Button variant="outline" size="sm" asChild><Link href={KnownPages.AppUsers}>Manage users</Link></Button>
+                </div>
+            )}
         >
             {project.access === 'guests' && (
                 <p className="text-sm text-muted-foreground">

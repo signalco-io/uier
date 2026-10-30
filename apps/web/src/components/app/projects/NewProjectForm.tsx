@@ -22,6 +22,7 @@ export function NewProjectForm({ clients }: { clients: string[] }) {
         <form action={formAction} className="flex flex-col gap-6">
             <CardContent>
                 <FieldGroup>
+                    <UrlListInput description="The site you want to review first, then any staging or preview addresses, so reviewers can open any of them." />
                     <Field>
                         <FieldLabel htmlFor={`${id}-name`}>Project name</FieldLabel>
                         <Input
@@ -36,7 +37,6 @@ export function NewProjectForm({ clients }: { clients: string[] }) {
                         <FieldLabel htmlFor={`${id}-client`}>Client name (optional)</FieldLabel>
                         <ClientNameInput id={`${id}-client`} value={clientName} onValueChange={setClientName} clients={clients} />
                     </Field>
-                    <UrlListInput description="The site you want to review first, then any staging or preview addresses, so reviewers can open any of them." />
                 </FieldGroup>
             </CardContent>
             <CardFooter className="justify-end gap-3 border-t">
