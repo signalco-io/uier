@@ -41,7 +41,9 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
   the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.
   Current project members get 100 new comments and 300 replies per project per hour, without the
   shared IP write limit. Public feedback project commenters keep the visitor and IP limits even
-  after signing up. Page, screenshot and rewrite limits apply to every reviewer.
+  after signing up. Page, screenshot and rewrite limits apply to every reviewer. New comments through
+  the same-origin showcase `/api/comments` (including the app's Give feedback) record the public
+  project's address as their origin too.
 - **Bot protection**: writes on uier's origin use BotID directly. On reviewed sites, the toolbar opens an
   empty frame on uier's origin so BotID can verify there, without third-party cookies. The frame checks
   its parent's browser-supplied origin against the project's addresses and returns a signed five-minute

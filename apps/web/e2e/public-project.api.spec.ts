@@ -24,6 +24,7 @@ import { createProjectComment, replyToProjectComment, listProjectComments, getPr
 import { GET as showcaseGet, POST as showcasePost } from '../app/api/comments/route';
 import { reviewApiHandler } from '../src/lib/review/http';
 import { listReviewComments } from '../src/lib/review/readRoutes';
+import { feedbackSource } from '../src/lib/app/environments';
 
 
 
@@ -139,6 +140,21 @@ test('showcase reads and writes enforce current project access for anonymous, gu
     } finally {
         const current = (await app.get<DbProject>(project.pk, project.id))!;
         await app.replace(original, current.etag);
+    }
+}));
+
+test('showcase and app feedback record the public project address as their source', async () => staffRuntime(async () => {
+    const project = await provisionPublicProject(getAppStore(), getMemoryCommentsStore());
+    for (const path of ['/', '/app/projects/uier00000001']) {
+        const response = await showcasePost(new Request('http://localhost/api/comments', { method: 'POST',
+            headers: { host: 'localhost', cookie: `uier_visitor=${randomToken()}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, position: { type: 'page' }, kind: 'feedback', text: 'Where did this come from?' })
+        }), { params: Promise.resolve({}) });
+        expect(response.status).toBe(201);
+        const { id } = await response.json() as { id: string };
+        const saved = (await getMemoryCommentsStore().get(PUBLIC_PROJECT_PARTITION, id))!.comment;
+        expect(saved.origin).toBe(new URL(brand.url).origin);
+        expect(feedbackSource(project, saved.origin)).toMatchObject({ available: true, origin: saved.origin });
     }
 }));
 
