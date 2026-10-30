@@ -267,6 +267,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         domain: context.domain,
         ...(context.domain === PUBLIC_PROJECT_PARTITION ? { projectId: PUBLIC_PROJECT_ID } : {}),
         ...(isPrivateAppFeedback({ domain: context.domain, path: input.path }) ? { private: true } : {}),
+        ...(context.origin ? { origin: context.origin } : {}),
         path: input.path,
         position: input.position,
         number: await store.nextCommentNumber(context.domain),

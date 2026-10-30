@@ -3,7 +3,7 @@ import { MAX_BODY_BYTES } from './limits';
 import { describeValidationError } from './validation';
 import { resolveVisitor, type Visitor } from './visitor';
 import { ensurePublicProject, PUBLIC_PROJECT_PARTITION, usesPublicProject } from './publicProject';
-import { getProject } from '../app/projects';
+import { getProject, projectReviewOrigin } from '../app/projects';
 import { assertCanUseComments, memberActor, type ProjectActor } from '../review/actor';
 import { requestSessionUser } from '../app/sessionIdentity';
 
@@ -150,6 +150,8 @@ export type CommentsApiContext = {
     request: Request;
     domain: string;
     visitor: Visitor;
+    /** Public project: the address of uier's site the request came from, the source of new comments */
+    origin?: string;
 };
 
 function isWrite(request: Request) {
@@ -215,7 +217,9 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
                 : resolveVisitor(request, write && createVisitor);
             const actor: ProjectActor = member ?? (visitor.authorId ? { kind: 'guest', visitorId: visitor.authorId } : { kind: 'anonymous' });
             if (project) assertCanUseComments(project, actor);
-            response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor }, await routeContext.params);
+            // Writes are same-origin, so the request's host is the reviewed page's (as in the review API)
+            const origin = project ? projectReviewOrigin(project, request) : undefined;
+            response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor, origin }, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);
         }
