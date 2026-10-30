@@ -33,10 +33,11 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await rm(directory, { recursive: true, force: true }); });
 
-async function run(integrationsOnly: boolean, retry = '') {
+async function run(integrationsOnly: boolean, retry = '', overrides: Record<string, string> = {}) {
     return execute(process.execPath, [worker], { env: { ...process.env, UIER_DEPLOYMENT_ENV: 'production',
         COSMOSDB_CONNECTION_STRING: 'isolated-test', UIER_COMMENTS_SECRET: 'isolated-test-signing-key-with-32-characters',
-        UIER_INTEGRATIONS_ONLY: integrationsOnly ? '1' : '0', UIER_NOTIFICATION_RETRY_DELIVERY: retry } });
+        ACS_CONNECTION_STRING: 'isolated-test', UIER_EMAIL_SENDER: 'donotreply@isolated.test',
+        UIER_INTEGRATIONS_ONLY: integrationsOnly ? '1' : '0', UIER_NOTIFICATION_RETRY_DELIVERY: retry, ...overrides } });
 }
 
 test('integration-only runs do not invoke email discovery, sending or retry', async () => {
@@ -55,6 +56,19 @@ test('normal scheduled runs retain email retries and integration delivery', asyn
     expect(result.stdout).toContain('CALL retry');
     expect(result.stdout).toContain('CALL email');
     expect(result.stdout).toContain('CALL integrations');
+});
+
+test('a run without email settings leaves deliveries untouched, keeps other work and fails', async () => {
+    try {
+        await run(false, 'isolated-delivery', { ACS_CONNECTION_STRING: '' });
+        throw new Error('Expected the worker to fail without email settings');
+    } catch (error) {
+        const result = error as Error & { stdout?: string; stderr?: string };
+        expect(result.stderr).toContain('Email is not configured (ACS_CONNECTION_STRING, UIER_EMAIL_SENDER); delivery skipped.');
+        expect(result.stdout).not.toMatch(/CALL email|CALL retry/);
+        expect(result.stdout).toContain('CALL cleanup');
+        expect(result.stdout).toContain('CALL integrations');
+    }
 });
 
 test('an integration-only run with an email retry fails before any work', async () => {

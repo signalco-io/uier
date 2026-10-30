@@ -38,10 +38,17 @@ if (!integrationsOnly) {
     const cleanup = await sweepCommentCleanup(comments);
     console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
     if (cleanup.failed) process.exitCode = 1;
-    if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
-    const result = await runNotificationWorker(baseUrl);
-    console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
-    if (result.blocked) process.exitCode = 1;
+    // Missing email settings are a configuration error, not a delivery failure: leave every ledger
+    // queued with its failure budget intact instead of failing each attempt.
+    if (!process.env.ACS_CONNECTION_STRING || !process.env.UIER_EMAIL_SENDER) {
+        console.error('[notifications] Email is not configured (ACS_CONNECTION_STRING, UIER_EMAIL_SENDER); delivery skipped.');
+        process.exitCode = 1;
+    } else {
+        if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
+        const result = await runNotificationWorker(baseUrl);
+        console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
+        if (result.blocked) process.exitCode = 1;
+    }
 } else console.info('[notifications] Email delivery skipped for this integration-only run.');
 const integrations = await runIntegrationWorker(baseUrl);
 console.info(`[integrations] Discovered ${integrations.discovered.checked} source changes; ${integrations.discovered.deferred} deferred.`);

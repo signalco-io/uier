@@ -42,6 +42,9 @@ The scheduled **Review notifications** GitHub Actions workflow runs every five m
 GitHub can delay scheduled jobs, so five minutes is a batching window, not a delivery guarantee.
 It can also be run manually. It uses the existing Vercel production configuration, Cosmos DB
 containers and Azure Communication Services sender; it creates no new infrastructure.
+`ACS_CONNECTION_STRING` is a retrievable production variable because the download omits Sensitive
+values. A run without both email settings skips email delivery, leaves every ledger queued with its
+failure budget and fails, while cleanup and integrations still run.
 
 During [credential-rollout preparation](ci-credential-rollout.md), the worker still pulls the
 production environment with the repository's `VERCEL_TOKEN`. The CLI is installed with
@@ -211,6 +214,13 @@ DNS validation. The published rejection policy remains mandatory.
 | Real report receipt/message-id correlation | Pending recipient-authorized production digest; matching remains disabled |
 | Received-message authentication, display name and headers | Pending recipient-authorized production digest |
 | DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
+
+Through 30 October ACS accepted no digest: every scheduled attempt since the first production
+ledger on 25 October failed, recent ones with `EmailNotConfiguredError`. `ACS_CONNECTION_STRING`
+was a Sensitive Vercel variable, so the worker's download had the sender but no key. The variable
+is now retrievable (`sensitive: false`; the key is unchanged), and a run without email settings no
+longer spends delivery attempts. After that deploy, retry each ledger that reached eight failures
+with `retry_delivery`.
 
 Local coverage includes `emailReports.api.spec.ts` (auth, expected handshake, duplicates, write
 failure and unknown/matching operations), `notificationTransport.api.spec.ts` (ACS headers and

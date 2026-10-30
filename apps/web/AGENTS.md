@@ -394,7 +394,9 @@ confirmation remain available and clear suppression only on completed mailbox pr
 matching is production-gated until live message-id correlation is proven.
 The scheduled job supplies `UIER_COMMENTS_SECRET` from its repository secret because Vercel omits
 Sensitive values from downloads. Keep that copy aligned with the existing production key; never
-replace the app key to repair a worker. `integrations_only` manual runs must skip email delivery
+replace the app key to repair a worker. The email settings come from the download, so
+`ACS_CONNECTION_STRING` stays retrievable; without both, a run skips email delivery (ledgers stay
+queued with their failure budget) and fails. `integrations_only` manual runs must skip email delivery
 and reject a simultaneous email retry. GitHub Settings can reuse installations known to the current
 workspace, but fresh PKCE user authorization and repository administration checks remain required.
 Digest unsubscribe headers are persisted in `attempt.message.headers`; retries preserve them.
