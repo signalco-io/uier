@@ -6,7 +6,9 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { FolderIcon, FoldersIcon, MailIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
+import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { cn } from '@/src/lib/utils';
 import { requireAdminContext } from '@/src/lib/app/context';
@@ -50,6 +52,9 @@ function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projec
 const centeredMedia = 'group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center';
 // A fixed column, so the role badges line up whatever their width
 const roleColumn = 'flex w-24 justify-end';
+
+/** Internal or External; nothing while unspecified */
+const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
 
 function RoleBadge({ role }: { role: 'admin' | 'commenter' }) {
     return <Badge variant={role === 'admin' ? 'default' : 'secondary'}>{role === 'admin' ? 'Admin' : 'Commenter'}</Badge>;
@@ -103,11 +108,29 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
             <PageHeader
                 title="Users"
                 description="The people who review the projects in this workspace."
-                actions={<InviteButton projectId={project} />}>
+                actions={(
+                    <>
+                        {/* Adding existing people to teams (or removing them) is occasional: a dialog, not the top of the page */}
+                        {access.teams.length > 0 && (
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline">Team membership</Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+                                    <DialogHeader>
+                                        <DialogTitle>Team membership</DialogTitle>
+                                        <DialogDescription>Add or remove existing people without another invitation. Direct grants stay.</DialogDescription>
+                                    </DialogHeader>
+                                    <BulkTeamForm data={data} />
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                        <InviteButton projectId={project} />
+                    </>
+                )}>
                 <div className="flex flex-wrap gap-3"><ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} /><UsersFilters teams={access.teams.map(({ id, name }) => ({ id, name }))} /></div>
             </PageHeader>
             <div className="flex flex-col gap-10">
-                <ListSection id="bulk-teams" title="Team membership" count={members.length} description="Add or remove existing people without another invitation. Direct grants stay."><BulkTeamForm data={data} /></ListSection>
                 <ListSection
                     id="members"
                     title="People"
@@ -124,21 +147,26 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                     </ItemMedia>
                                     <ItemContent className="min-w-48">
                                         <ItemTitle>
-                                            {name}
+                                            <Link href={KnownPageLinks.member(member.userId)} className="underline-offset-4 hover:underline">{name}</Link>
                                             {member.userId === context.user.id && <span className="font-normal text-muted-foreground">(you)</span>}
                                         </ItemTitle>
                                         <ItemDescription className="truncate font-mono text-[13px]">{member.email}</ItemDescription>
                                     </ItemContent>
-                                    <ItemContent className="min-w-0 basis-48">
-                                        <Link href={KnownPageLinks.member(member.userId)} className="text-sm">Manage access</Link>
-                                        <span className="text-xs text-muted-foreground">{member.relationship ?? 'Unspecified'}</span>
-                                        {teamChips(member.teamIds)}
+                                    {/* What they can review, their teams, and since when */}
+                                    <ItemContent className="min-w-0 basis-56">
                                         <Access role={member.role} projects={member.projects} names={projectNames} />
-                                        <ItemDescription className="text-xs"><span>Joined <RelativeTime value={member.createdAt} /></span></ItemDescription>
+                                        {teamChips(member.teamIds)}
+                                        <ItemDescription className="text-xs">
+                                            {member.relationship && relationshipLabels[member.relationship] && `${relationshipLabels[member.relationship]} · `}
+                                            Joined <RelativeTime value={member.createdAt} />
+                                        </ItemDescription>
                                     </ItemContent>
                                     <ItemActions className="ml-auto">
-                                        {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
                                         <span className={roleColumn}><RoleBadge role={member.role} /></span>
+                                        <Button variant="outline" size="sm" asChild>
+                                            <Link href={KnownPageLinks.member(member.userId)} aria-label={`Manage access for ${name}`}>Manage access</Link>
+                                        </Button>
+                                        {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
                                     </ItemActions>
                                 </Item>
                             ))}
@@ -162,15 +190,17 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                             <ItemTitle className="font-mono text-[13px] font-normal">{invitation.email}</ItemTitle>
                                             <ItemDescription className="text-xs"><span>Expires <RelativeTime value={invitation.expiresAt} /></span></ItemDescription>
                                         </ItemContent>
-                                        <ItemContent className="min-w-0 basis-48">
-                                            <span className="text-xs text-muted-foreground">{invitation.relationship ?? 'Unspecified'}</span>
-                                            {teamChips(invitation.teamIds)}
+                                        <ItemContent className="min-w-0 basis-56">
                                             <Access role={invitation.role} projects={invitation.projects} names={projectNames} />
+                                            {teamChips(invitation.teamIds)}
+                                            {invitation.relationship && relationshipLabels[invitation.relationship] && (
+                                                <ItemDescription className="text-xs">{relationshipLabels[invitation.relationship]}</ItemDescription>
+                                            )}
                                         </ItemContent>
                                         <ItemActions className="ml-auto">
+                                            <span className={roleColumn}><RoleBadge role={invitation.role} /></span>
                                             <ResendInvitationButton invitationId={invitation.id} email={invitation.email} />
                                             <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
-                                            <span className={roleColumn}><RoleBadge role={invitation.role} /></span>
                                         </ItemActions>
                                     </Item>
                                 ))}

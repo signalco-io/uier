@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
@@ -41,11 +41,6 @@ test('guest comments without email, then separately verifies and revokes reply n
             await verification.reload();
             await expect(verification.getByRole('button', { name: 'Confirm reply notifications' })).toBeVisible();
             await expect(toolbar(verification)).toBeVisible();
-            const hint = verification.getByRole('region', { name: 'Try uier on this page' });
-            if (await hint.isVisible()) {
-                await hint.getByRole('button', { name: 'Got it' }).click();
-                await expect(hint).toBeHidden();
-            }
             await expect(verification.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
             await verification.evaluate(async () => {
                 // Flush the new theme before waiting for its finite color transitions.
@@ -107,8 +102,8 @@ test('admins control excerpts in both themes; commenters see saved state and can
         await emails.screenshot({ path: testInfo.outputPath(`email-excerpts-${colorScheme}.png`) });
         // Replay this valid admin action as a commenter below. It must fail on the server.
         if (colorScheme === 'dark') {
-            // Settings has the project header invite, without the empty-feedback invite CTA.
-            await page.getByRole('button', { name: 'Invite', exact: true }).click();
+            // Settings has the project header invite (in who can comment), without the empty-feedback invite CTA.
+            await openProjectInvite(page, 'Anyone with the link');
             const dialog = page.getByRole('dialog');
             await dialog.getByLabel('Email').fill(uniqueEmail('excerpt-commenter'));
             await dialog.getByRole('button', { name: 'Send invitation' }).click();

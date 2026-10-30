@@ -147,7 +147,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.goto(`/app/projects/${alpha}/settings`);
     await expect(commenter.page.getByRole('region', { name: 'Email notifications' }).getByRole('button', { name: 'Mute project emails' })).toBeVisible();
     await expect(commenter.page.getByRole('region', { name: 'General' })).toHaveCount(0);
-    await expect(commenter.page.getByRole('region', { name: 'Status' })).toHaveCount(0);
+    await expect(commenter.page.getByRole('region', { name: 'Danger zone' })).toHaveCount(0);
     expect((await commenter.page.request.get(`/app/review/${beta}`, { maxRedirects: 0 })).status()).toBe(404);
 
     // Their own comment: edit and delete, but only admins make comments private

@@ -9,11 +9,8 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close } from '@signalco/ui-icons';
 import { floatingShadowClassName } from './@types/Comments';
-import { toolbarConfig } from '../config';
 
-const hintDismissedStorageKey = toolbarConfig.project
-    ? `uier:hint:v1:${toolbarConfig.apiUrl}:${toolbarConfig.project}`
-    : 'uier:showcase-hint-dismissed';
+const hintDismissedStorageKey = 'uier:showcase-hint-dismissed';
 
 /** Whether the first-run hint was dismissed before (storage can be unavailable) */
 export function isShowcaseHintDismissed() {
@@ -35,9 +32,6 @@ export function rememberShowcaseHintDismissed() {
 type ShowcaseHintProps = {
     /** `id` of the hint (the "About uier" button controls it) */
     id?: string;
-    access?: 'invited' | 'guests' | 'disabled';
-    privateAppFeedback?: boolean;
-    brief?: string;
     /** The button the hint's arrow points at (About uier, which opens and highlights it) */
     pointAtRef?: RefObject<HTMLElement | null>;
     /** `hadFocus` is set when the keyboard focus was inside the hint */
@@ -45,10 +39,10 @@ type ShowcaseHintProps = {
 };
 
 /**
- * First-run hint shown above the toolbar pill. Rendered after the pill, so
- * forward Tab from "About uier" reaches it.
+ * First-run hint shown above the toolbar pill on uier.io's landing page. Rendered after the
+ * pill, so forward Tab from "About uier" reaches it.
  */
-export function ShowcaseHint({ id, pointAtRef, onDismiss, access, privateAppFeedback, brief }: ShowcaseHintProps) {
+export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
     const titleId = useId();
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const hintRef = useRef<HTMLElement>(null);
@@ -118,15 +112,11 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss, access, privateAppFeed
                 </Typography>
                 <Typography level="body2" className="text-foreground">
                     {coarsePointer ? 'Tap' : 'Click'} the + button, or select text, to leave feedback.
-                    {' '}{privateAppFeedback ? 'Feedback is private to its author and the uier team.' : access === 'invited' ? 'Only invited people can see and leave comments. Some comments may be private.' : access === 'guests' ? 'Anyone with the review link can see and leave comments. Some comments may be private.' : 'Anyone can see and reply to comments. Visitor threads are deleted after 90 days. Starter threads and their replies stay.'}
+                    {' '}Anyone can see and reply to comments. Visitor threads are deleted after 90 days. Starter threads and their replies stay.
                 </Typography>
                 <Typography level="body2" className="text-foreground">
                     Pin a comment to an element, or comment on selected text. Use Send feedback for the whole page. Find threads in the inbox.
                 </Typography>
-                {brief && <div>
-                    <Typography component="h3" level="body2" semiBold>Review brief</Typography>
-                    <p className="m-0 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</p>
-                </div>}
                 <Row justifyContent="end">
                     <Button variant="solid" size="sm" onClick={handleDismiss}>
                         Got it

@@ -27,7 +27,7 @@ import { AccountMenu } from './AccountMenu';
 import { FeedbackButton } from './FeedbackButton';
 import { WorkspaceSwitcher, type WorkspaceOption } from './WorkspaceSwitcher';
 
-export type SidebarProject = { id: string; name: string };
+export type SidebarProject = { id: string; name: string; url?: string };
 
 function isCurrent(pathname: string, href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -105,10 +105,11 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                             href={KnownPages.AppProjects}
                             label="All projects"
                             current={allProjectsCurrent}
-                            className={isAdmin ? 'right-10' : undefined}>
+                            className={isAdmin && projects.length ? 'right-10' : undefined}>
                             <LayoutGridIcon />
                         </GroupLinkAction>
-                        {isAdmin && (
+                        {/* Without active projects, "Create a project" is in the list itself */}
+                        {isAdmin && projects.length > 0 && (
                             <GroupLinkAction href={KnownPages.AppNewProject} label="Create project">
                                 <PlusIcon />
                             </GroupLinkAction>
@@ -131,7 +132,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                                         <SidebarMenuItem key={project.id}>
                                             <SidebarMenuButton asChild isActive={current} tooltip={project.name}>
                                                 <Link href={href} aria-current={current ? 'page' : undefined}>
-                                                    <ProjectMark name={project.name} />
+                                                    <ProjectMark name={project.name} url={project.url} />
                                                     <span>{project.name}</span>
                                                 </Link>
                                             </SidebarMenuButton>

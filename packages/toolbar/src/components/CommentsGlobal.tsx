@@ -22,9 +22,8 @@ import { InkScope } from './InkScope';
 import { Toaster } from './Toaster';
 import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
-import { useProjectViewer } from '../project/ProjectGate';
-import { useVisitor } from '../hooks/useVisitor';
 import { toolbarConfig } from '../config';
+import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
 import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
@@ -138,9 +137,11 @@ export function CommentsGlobal({
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
     const [feedbackRequested, setFeedbackRequested] = useState(takeFeedbackRequest);
     const [collapsed, setCollapsed] = useState(() => !feedbackRequested && readCollapsed());
-    const project = useProjectViewer();
-    const { query: visitor } = useVisitor();
     const [hintOpen, setHintOpen] = useState(() => !feedbackRequested && mode !== 'feedback' && !isShowcaseHintDismissed());
+    // "About uier" and its hint introduce uier on uier.io's landing page (the showcase without a
+    // project); its other pages, its app, reviews and embeds do without them
+    const pagePath = usePagePath();
+    const showAbout = mode === 'showcase' && !toolbarConfig.project && pagePath.split(/[?#]/)[0] === '/';
     // The thread to open once its pin is on the page: a comment that was just posted, the one a
     // comment link (`?uier-comment=`) points at, or "Show on page" in the inbox (`fromInbox`)
     const [openComment, setOpenComment] = useState<{ id: string; fromInbox?: boolean }>();
@@ -207,7 +208,7 @@ export function CommentsGlobal({
 
     /** The visitor found the feature: the first-run hint is not needed anymore */
     const closeHintForUse = () => {
-        rememberShowcaseHintDismissed();
+        if (showAbout) rememberShowcaseHintDismissed();
         setHintOpen(false);
     };
 
@@ -301,10 +302,10 @@ export function CommentsGlobal({
         }
 
         // Escape on the pill closes the hint as well (the hint handles its own Escape)
-        if (hintOpen && isToolbarNode(document.activeElement, rootElement)) {
+        if (hintOpen && showAbout && isToolbarNode(document.activeElement, rootElement)) {
             handleDismissHint(false);
         }
-    }, [creatingCommentSelection, creatingCommentPoint, hintOpen, rootElement, reattaching, reattach.isPending]);
+    }, [creatingCommentSelection, creatingCommentPoint, hintOpen, showAbout, rootElement, reattaching, reattach.isPending]);
 
     // In point mode, Enter on a focused page element pins the comment to it (instead of e.g.
     // following the link). Capture phase, so the page does not handle the key first.
@@ -647,7 +648,8 @@ export function CommentsGlobal({
                 creatingPointComment={creatingCommentPoint}
                 collapsed={collapsed}
                 commentsCount={activityQuery.data?.unread ?? 0}
-                hintOpen={hintOpen}
+                hintOpen={hintOpen && showAbout}
+                showAbout={showAbout}
                 hintId={hintId}
                 projectUrl={projectUrl}
                 addButtonRef={addButtonRef}
@@ -676,8 +678,8 @@ export function CommentsGlobal({
                 onCollapsedChange={handleCollapsedChange}
                 onExitReview={onExitReview} />
             {/* After the pill, so forward Tab from "About uier" reaches it */}
-            {hintOpen && !collapsed && (toolbarConfig.project || visitor.data) && (
-                <ShowcaseHint id={hintId} pointAtRef={hintButtonRef} onDismiss={handleDismissHint} access={project.access} brief={project.brief} privateAppFeedback={visitor.data?.privateAppFeedback} />
+            {hintOpen && showAbout && !collapsed && (
+                <ShowcaseHint id={hintId} pointAtRef={hintButtonRef} onDismiss={handleDismissHint} />
             )}
             <Toaster />
         </ReattachContext.Provider>

@@ -229,7 +229,6 @@ export function ProjectPageStateForm({ projectId, policy, suggestions }: { proje
                     <Checkbox id={`${formId}-hash`} checked={hash} onCheckedChange={value => setHash(value === true)} />
                     <FieldLabel htmlFor={`${formId}-hash`}>Use hash routes (#/page or #!/page)</FieldLabel>
                 </Field>
-                <p className="m-0 text-sm text-muted-foreground">Existing comments keep their original view. Older path-only comments remain on that base page and in the site inbox.</p>
             </FieldGroup>
         </form>
     </Section>;

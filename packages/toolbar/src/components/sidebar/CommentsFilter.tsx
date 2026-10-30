@@ -3,10 +3,15 @@ import type { CommentItem } from '../@types/Comments';
 export type CommentsStatusFilter = 'unresolved' | 'resolved' | 'all';
 
 /**
- * Which pages the inbox lists: this page (the default), all of the site's pages, or one other
- * page (`page:<key>`, see `inboxPageKey`)
+ * Which pages the inbox lists: this page (the default), all of the site's pages, one other
+ * page (`page:<key>`, see `inboxPageKey`) or a section (`section:/blog`: that page and every page under it)
  */
-export type CommentsPageFilter = 'current' | 'all' | `page:${string}`;
+export type CommentsPageFilter = 'current' | 'all' | `page:${string}` | `section:${string}`;
+
+/** Whether a page (a relative URL, which can carry its saved query) is in the section `base`, as the app's `/blog/*` filter */
+export function inSection(base: string, path: string) {
+    return path === base || path.startsWith(`${base}/`) || path.startsWith(`${base}?`) || path.startsWith(`${base}#`);
+}
 
 export type CommentsFilter = {
     keywords?: string;

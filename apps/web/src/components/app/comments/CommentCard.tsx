@@ -17,7 +17,6 @@ import {
     PencilIcon,
     ReplaceIcon,
     Trash2Icon,
-    UndoIcon,
     UserIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -88,13 +87,45 @@ const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as
 const maxTextLength = 1000;
 
 /** Open: ink dot; done: green (BRAND.md, "Components": badges with a status dot). The toolbar's `CommentStatusBadge`. */
+function StateDot({ resolved }: { resolved: boolean }) {
+    return <span aria-hidden="true" className={resolved ? 'size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 shrink-0 rounded-full bg-foreground'} />;
+}
+
 function StateBadge({ resolved }: { resolved: boolean }) {
     return (
         <Badge variant="outline" className="gap-1.5">
-            <span aria-hidden="true" className={resolved ? 'size-1.5 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 rounded-full bg-foreground'} />
+            <StateDot resolved={resolved} />
             <span className="sr-only">Status: </span>
             {resolved ? 'Done' : 'Open'}
         </Badge>
+    );
+}
+
+/** The status badge as a menu, for those who can mark the comment done or reopen it */
+function StateMenu({ resolved, disabled, onChange }: { resolved: boolean; disabled: boolean; onChange: () => void }) {
+    const state = resolved ? 'Done' : 'Open';
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${state}. Change status`}
+                    className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11">
+                    <StateDot resolved={resolved} />
+                    {state}
+                    <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-36">
+                <DropdownMenuGroup>
+                    {[false, true].map(option => (
+                        <DropdownMenuItem key={String(option)} onSelect={() => option !== resolved && onChange()}>
+                            <StateDot resolved={option} />
+                            {option ? 'Done' : 'Open'}
+                            {option === resolved && <CheckIcon className="ml-auto" />}
+                        </DropdownMenuItem>
+                    ))}
+                </DropdownMenuGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 
@@ -189,7 +220,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const assigned = comment.assignee
         ? `Assigned to ${comment.assignee.id === userId ? 'you' : comment.assignee.name}`
         : 'Unassigned';
-    const sourceText = `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''}${!source.available ? ' · Original source unavailable' : ''}`;
+    // In the footer, after the page link: the environment's name; the address itself is in the link
+    const sourceText = source.available
+        ? source.label !== source.origin ? source.label : undefined
+        : `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''} · Original source unavailable`;
 
     // First and last message; "Show all" for the ones between (the toolbar's thread)
     const lastReply = comment.replies.at(-1);
@@ -300,7 +334,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     (on a line of their own in a narrow board column) */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex min-w-0 items-center gap-2">
-                        <StateBadge resolved={comment.resolved} />
+                        {permissions.resolve
+                            ? <StateMenu resolved={comment.resolved} disabled={pending} onChange={toggleResolved} />
+                            : <StateBadge resolved={comment.resolved} />}
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 <span className="sr-only">Comment </span>#{comment.number}
@@ -321,23 +357,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <MailCheckIcon />
                             </ThreadAction>
                         )}
-                        {permissions.resolve && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={pending}
-                                className="mx-1 pointer-coarse:min-h-11"
-                                onClick={toggleResolved}>
-                                {comment.resolved ? <UndoIcon data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
-                                {/* Only the icon in a narrow card, as in the toolbar; the name stays */}
-                                <span className="@max-xs/comment:sr-only">{comment.resolved ? 'Reopen' : 'Done'}</span>
-                            </Button>
-                        )}
                         <CopyIssueButton state={copyIssue} />
-                        <ThreadAction label="Copy link" tooltip={source.available ? 'Copy link' : 'Original source unavailable'}
-                            disabled={!source.available} onClick={copyLink}>
-                            <Link2Icon />
-                        </ThreadAction>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
@@ -347,6 +367,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="min-w-48">
                                 <DropdownMenuGroup>
+                                    <DropdownMenuItem disabled={!source.available} onSelect={copyLink}>
+                                        <Link2Icon />
+                                        {source.available ? 'Copy link' : 'Copy link (original source unavailable)'}
+                                    </DropdownMenuItem>
                                     {permissions.edit && (
                                         <DropdownMenuItem
                                             onSelect={() => {
@@ -389,7 +413,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 </div>
                 <CopyIssueResult state={copyIssue} />
 
-                {/* Who it is assigned to (the list of people for those who can assign) and where it came from */}
+                {/* Who it is assigned to (the list of people for those who can assign) */}
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {permissions.assign ? (
                         <DropdownMenu>
@@ -429,7 +453,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             {assigned}
                         </span>
                     )}
-                    <span className="min-w-0 break-words">{sourceText}</span>
                 </div>
 
                 {/* The messages, one under the other like a chat */}
@@ -492,8 +515,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 </div>
             </div>
 
-            {/* The page it was left on, like the toolbar inbox's card footer */}
-            <div className="flex min-w-0 items-center border-t px-2 py-1">
+            {/* The page it was left on, like the toolbar inbox's card footer, and where it came from */}
+            <div className="flex min-w-0 items-center gap-2 border-t px-2 py-1">
                 {source.available ? (
                     <a href={reviewLink} target="_blank" rel="noopener"
                         className="flex min-w-0 items-center gap-1.5 rounded-md p-2 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
@@ -508,6 +531,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <span className="truncate font-mono">{comment.path}</span>
                     </p>
                 )}
+                {sourceText && <span className="ml-auto min-w-0 shrink-0 truncate pr-2 text-xs text-muted-foreground">{sourceText}</span>}
             </div>
 
             <Dialog open={editing} onOpenChange={setEditing}>
