@@ -15,8 +15,8 @@ Verified on 29 October 2026:
 | Notion | Dedicated uier workspace, business Google account | Public uier connection, installable in any workspace. Read, insert and update content; no comments or user-information capability. Fixture authorization shares only the acceptance database. |
 | Slack | Dedicated uier workspace (T0CD752K529), business Google account | uier app A0CD684DPU3. Bot scopes `chat:write`, `channels:read`, `groups:read`; OAuth token rotation enabled. Owner approved and activated public unlisted distribution and production gate `1`. Marketplace submission/review remains separate. |
 
-Azure DevOps was added after this verification. It has no registered Microsoft Entra app, no
-production credentials and no live check yet; nothing in this record applies to it.
+Azure DevOps was added after this verification. Its registration and configuration are recorded
+separately below; the four-provider acceptance evidence does not apply to it.
 
 All callbacks use the exact production URLs in the runbook. Provider credentials were captured
 privately and stored in the repository's `UIER_INTEGRATION_ENV` secret. No token, client secret,
@@ -28,6 +28,40 @@ with 71 resources unchanged. [Deploy 40955199281](https://github.com/signalco-io
 applied those 14 creations and deployed commit `b6177d4d6a91ab1ea0ce921e6a034423f2c6d1b1`.
 The production Settings page exposed all four connection actions. An independent private comparison
 confirmed all 14 effective provider values matched the registration outputs; values were not logged.
+
+### Azure DevOps registration (31 October 2026)
+
+The production Microsoft Entra web application is **uier**, client id
+`1ec6770f-f0f3-4448-bd40-270297dfbb1b`, owned in the Signalco tenant
+`c7837eb3-77ca-413b-8653-c97b08886678`. It accepts accounts in any organizational directory,
+with the exact callback `https://uier.io/app/azure-devops/callback`. Its only configured API
+permissions are delegated Azure DevOps `vso.work_write` and `vso.profile`; the OAuth request adds
+`offline_access`. Public-client fallback and both implicit grants are disabled.
+
+`AZURE_DEVOPS_CLIENT_ID` and `AZURE_DEVOPS_CLIENT_SECRET` were added to `UIER_INTEGRATION_ENV`,
+preserving all 16 existing provider and Google sign-in entries. The secret expires at
+**30 April 2027, 23:59 UTC** and must be replaced before then. The default `organizations`
+authority remains in use; no tenant restriction or encryption-key override was added.
+
+Independent Entra readback confirmed the registration, callback, permissions and credential expiry.
+A token-endpoint check accepted the client credentials. That check accessed no Azure DevOps data
+and does not prove delegated user consent, refresh behavior or delivery.
+
+[CI 41189662678](https://github.com/signalco-io/uier/actions/runs/41189662678), attempt 2, passed
+typecheck, build, API/browser essentials and infrastructure checks. Its reviewed Pulumi preview
+contained exactly two new production variables, with all 100 existing resources unchanged.
+[Deploy 41189995464](https://github.com/signalco-io/uier/actions/runs/41189995464) applied those two
+creations, with 100 resources unchanged. Independent private readback matched all 18 effective
+credential entries and retained all 26 pre-existing credential and encryption-key values. Both new
+variables are encrypted and production-only; previews received none. Existing encryption keys were
+retained.
+
+The same workflow deployed commit `d1cd63770b3961ba9338323d3e9cb654a621a734` as
+[uier-o8w9ujeg4-signalco.vercel.app](https://uier-o8w9ujeg4-signalco.vercel.app). Independent Vercel
+readback confirmed **READY**, production and the `uier.io` alias at 09:48:18 UTC on 31 October 2026.
+An authenticated Settings check and the
+[live release gates](azure-devops-integration-plan.md#10-testing-and-release-gates) remain pending;
+registration, client authentication and deployment do not establish customer rollout acceptance.
 
 ## Controlled acceptance
 
@@ -100,6 +134,10 @@ All four production Settings sections remained enabled for both projects.
 
 ## Remaining checks
 
+- Complete Azure DevOps's authenticated Settings and dedicated-organization acceptance checks in
+  [its release gates](azure-devops-integration-plan.md#10-testing-and-release-gates), including
+  regular-user and tenant-admin consent, delegated token scopes and rotation, Contributor writes
+  and deletion, inherited processes, uncertain-create reconciliation and Bug/Task rendering.
 - Verify Slack's first expiry-driven token refresh; token rotation is enabled, but its current token
   had not expired during this session. Notion and Linear refreshes were exercised live.
 - Extend live coverage to disconnect ownership, provider/admin access removal, changed destinations,
