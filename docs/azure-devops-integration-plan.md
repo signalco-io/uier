@@ -1,9 +1,11 @@
 # Azure DevOps Boards integration
 
-Status: adapter, project settings and local simulator tests implemented. Microsoft Entra app
-registration, production credentials and hosted acceptance in a real Azure DevOps organization
-remain manual release gates. [The shared contract](integrations.md), [setup](integration-setup.md)
-and [operations](integration-operations.md) describe the delivery core this adapter plugs into.
+Status: adapter, project settings and local simulator tests implemented. The Microsoft Entra app
+and production credentials were configured on 31 October 2026; see the
+[registration receipt](integration-activation.md#azure-devops-registration-31-october-2026).
+Hosted acceptance in a real Azure DevOps organization remains a release gate.
+[The shared contract](integrations.md), [setup](integration-setup.md) and
+[operations](integration-operations.md) describe the delivery core this adapter plugs into.
 
 ## 1. Goal and scope
 
@@ -173,7 +175,7 @@ controls, backfill, disconnect and accessibility in the browser.
 
 Before customer rollout, in a dedicated organization:
 
-- Register the Entra app and grant consent as a regular user and through a tenant admin.
+- Exercise the registered Entra app's consent as a regular user and through a tenant admin.
 - Confirm the token response's scope format, refresh token rotation and lifetime.
 - Create, update, change state and delete with a Contributor; confirm that deleting needs no more
   than `vso.work_write` and the default Contributor permissions, and that 403 is reported as blocked.
