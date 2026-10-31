@@ -9,6 +9,12 @@ type CommentPointOverlayProps = {
     onPoint: (commentPoint: CommentPoint) => void;
 };
 
+/** Whether the point is inside the element's own boxes, not only inside one of its pseudo-elements */
+function ownBoxAt(element: Element, x: number, y: number) {
+    return [...element.getClientRects()].some(rect =>
+        x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+}
+
 /** Only uier's own pages can cross the toolbar's shadow boundary while choosing an anchor. */
 function pageElementAt(x: number, y: number) {
     if (canReviewToolbar()) {
@@ -17,9 +23,11 @@ function pageElementAt(x: number, y: number) {
             !element.closest('.review-overlay,[data-uier-outline]') && toolbarReviewTarget(element));
         if (target) return toolbarReviewTarget(target)!;
     }
-    return window.document.elementsFromPoint(x, y)
-        ?.filter(el => el && el !== getToolbarHost() && !el.classList.contains('review-overlay'))
-        .at(0);
+    const elements = window.document.elementsFromPoint(x, y)
+        ?.filter(el => el && el !== getToolbarHost() && !el.classList.contains('review-overlay')) ?? [];
+    // A stretched link (`::after` over its whole row or card) is hit everywhere on the row: prefer
+    // the element under it that is actually at the point (the row's picture, summary or badge).
+    return elements.find(el => ownBoxAt(el, x, y)) ?? elements.at(0);
 }
 
 export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {

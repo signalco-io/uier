@@ -228,6 +228,55 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
     await context.close();
 });
 
+test('point mode outlines and anchors what is under a stretched link', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+    // A list row as admin UIs build it: the title link's `::after` covers the row, so all of it opens the record
+    await page.evaluate(() => {
+        const sheet = new CSSStyleSheet();
+        sheet.replaceSync('[data-stretched-row] a::after { content: ""; position: absolute; inset: 0 }');
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+        const row = document.createElement('article');
+        row.dataset.stretchedRow = '';
+        row.style.cssText = 'position: fixed; z-index: 40; top: 120px; left: 24px; display: flex; gap: 12px; padding: 12px; width: 300px; background: white';
+        row.innerHTML = `<img alt="Asparagus soup" width="80" height="60" src="data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="gray"/></svg>')}">`
+            + '<div><a href="#record">Asparagus soup</a><p style="margin: 4px 0 0">Tastes like spring</p></div>';
+        document.body.append(row);
+    });
+    const row = page.locator('[data-stretched-row]');
+    const picture = row.getByRole('img', { name: 'Asparagus soup' });
+    const summary = row.getByText('Tastes like spring');
+    const title = row.getByRole('link', { name: 'Asparagus soup' });
+
+    await page.getByRole('button', { name: 'Add comment' }).click();
+    const outline = page.locator('[data-uier-outline]');
+    for (const target of [picture, summary, title]) {
+        const box = (await target.boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await expect.poll(async () => {
+            const outlined = await outline.boundingBox();
+            return outlined && Math.abs(outlined.x - box.x) <= 1 && Math.abs(outlined.y - box.y) <= 1
+                && Math.abs(outlined.width - box.width) <= 1 && Math.abs(outlined.height - box.height) <= 1
+                ? 'outlined'
+                : `off: ${JSON.stringify({ outlined, box })}`;
+        }).toBe('outlined');
+    }
+
+    // The comment is saved on the picture, not on the link above it
+    const box = (await picture.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
+    await composer.fill('A brighter picture, please.');
+    await composer.press('Enter');
+    await expect(commentBubble(page, 1)).toBeVisible();
+    const [saved] = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { id: string; position: { selector: string; xNormal: number; yNormal: number } }[]);
+    expect(await picture.evaluate((element, selector) => document.querySelector(selector) === element, saved!.position.selector)).toBe(true);
+    await expectPinAt(page, page.locator(`[data-uier-comment="${saved!.id}"]`), saved!.position);
+
+    await context.close();
+});
+
 test('text that moved is found again; text that is gone stays reachable in the inbox', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
