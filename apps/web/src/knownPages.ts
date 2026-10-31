@@ -32,6 +32,7 @@ export const KnownPages = {
     AppGitHubConnect: '/app/github/connect',
     AppGitHubSetup: '/app/github/setup',
     AppGitHubCallback: '/app/github/callback',
+    AppGitHubError: '/app/github/error',
     AppLinearConnect: '/app/linear/connect',
     AppLinearCallback: '/app/linear/callback',
     AppAzureDevOpsConnect: '/app/azure-devops/connect',

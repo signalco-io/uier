@@ -37,22 +37,25 @@ export async function startGitHubStub(publicKey: KeyObject, options: { port?: nu
             response.writeHead(status, { 'Content-Type': 'application/json', ...headers });
             response.end(value === undefined ? '' : JSON.stringify(value));
         };
-        const page = (title: string, action: string, fields: Record<string, string>, button: string) => {
+        const page = (title: string, action: string, fields: Record<string, string>, button: string,
+            alternative?: { fields: Record<string, string>; button: string }) => {
             response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-            response.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>${html(title)}</title><h1>${html(title)}</h1><form action="${html(action)}" method="get">${Object.entries(fields).map(([key, value]) => `<input type="hidden" name="${html(key)}" value="${html(value)}">`).join('')}<button type="submit">${html(button)}</button></form></html>`);
+            response.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>${html(title)}</title><h1>${html(title)}</h1>${[{ fields, button }, ...(alternative ? [alternative] : [])].map(form => `<form action="${html(action)}" method="get">${Object.entries(form.fields).map(([key, value]) => `<input type="hidden" name="${html(key)}" value="${html(value)}">`).join('')}<button type="submit">${html(form.button)}</button></form>`).join('')}</html>`);
         };
         const redirect = (target: URL) => { response.writeHead(302, { Location: target.href, 'Cache-Control': 'no-store' }); response.end(); };
         if (path === '/' && request.method === 'GET') return answer(200, { ok: true });
         if (app && path === '/apps/uier-test/installations/new') {
             const state = url.searchParams.get('state') ?? '';
             if (!/^[A-Za-z0-9_-]{43}$/.test(state)) return answer(400);
-            return page('Install the uier test app', '/simulate/install', { state }, 'Install uier test app');
+            return page('Install the uier test app', '/simulate/install', { state }, 'Install uier test app',
+                { fields: { state, setup_action: 'request' }, button: 'Request organization approval' });
         }
         if (app && path === '/simulate/install') {
             const state = url.searchParams.get('state') ?? '';
             if (!/^[A-Za-z0-9_-]{43}$/.test(state)) return answer(400);
             const target = new URL('/app/github/setup', app);
-            target.search = new URLSearchParams({ installation_id: '101', setup_action: 'install', state }).toString();
+            target.search = new URLSearchParams(url.searchParams.get('setup_action') === 'request'
+                ? { setup_action: 'request', state } : { installation_id: '101', setup_action: 'install', state }).toString();
             return redirect(target);
         }
         if (app && path === '/login/oauth/authorize') {

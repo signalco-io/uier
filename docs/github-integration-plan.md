@@ -79,6 +79,14 @@ Proposed routes under `apps/web/app/(rest)/(app)/app/github/`: `connect`, `setup
 
 Organization installation approval can be pending. Display that state and send nothing; never manufacture a successful connection from an install request. Exact permission payloads for personal, organization and SSO installations are a hosted phase-1 gate.
 
+The `setup_action=request` return needs no installation id. After consuming valid state and
+rechecking admin access, it selects the original workspace and opens the project's GitHub settings
+with an approval notice. An organization owner approves the installation in GitHub; the admin then
+connects again and saves a repository. Invalid, expired or replayed GitHub setup/authorization
+returns redirect to `/app/github/error` in the signed-in app, with approval guidance, a projects
+action and the setup guide. No callback state, code, installation hint or unverified project id is
+copied to that page. Signed-out returns still use the fixed `/app` sign-in destination.
+
 Before every external attempt the runner rebuilds uier membership; removal/demotion suppresses the binding and requires another admin to reconnect. Installation access is organization/application authority, not the discarded setup token's continuing lifetime. Recheck installation status and destination access through the worker, and consume lifecycle webhooks below. The settings copy must explain this distinction.
 
 Disconnect removes only `integrations.github`, deletes that project's connection and any setup receipts, and keeps suppressed ledgers for reconciliation if the same destination reconnects. It calls no installation deletion endpoint. Existing GitHub content stays there; cleanup must be requested while access still exists if the admin wants it. Link to the app's GitHub installation settings for broader removal.

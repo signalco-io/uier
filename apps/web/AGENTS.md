@@ -571,6 +571,12 @@ admin action. OAuth return routes bypass the signed-out proxy so transient codes
 never echoed into a sign-in return URL. Provider credentials are production-only, configured
 through the setup runbook. Off/disconnect must work even when credentials are unavailable.
 
+GitHub organization approval returns (`setup_action=request`, no installation id) consume bound
+state, recheck admin access and select the original workspace before opening `settings?github=pending#github`.
+Invalid GitHub setup/callback returns open `/app/github/error` in the app shell with recovery and
+organization approval guidance. Never carry unverified project ids, callback codes or state into
+that destination. `github.api.spec.ts` and `github.spec.ts` cover pending approval and recovery.
+
 The shared API suites are
 `integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
 Azure DevOps (`azure-devops/`) uses Microsoft Entra delegated OAuth with one grant per project

@@ -88,15 +88,47 @@ test('a second project can authorize an existing installation without reopening 
     await expectNoAxeViolations(page);
 });
 
-test('GitHub callback failures do not echo authorization credentials and signed-out links have a fixed sign-in return', async ({ page, context, baseURL }) => {
+test('organization approval returns to the original workspace and explains how to finish connecting', async ({ page, context, baseURL }) => {
+    const projectId = await projectSettings(page, baseURL!);
+    await page.getByRole('region', { name: 'GitHub', exact: true }).getByRole('link', { name: 'Connect GitHub', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Install the uier test app' })).toBeVisible();
+    // Another tab can select a different workspace while GitHub setup is open.
+    await context.addCookies([{ name: 'uier_workspace', value: 'w_uier_public', url: baseURL! }]);
+    await page.getByRole('button', { name: 'Request organization approval' }).click();
+    await expect(page).toHaveURL(`${baseURL}/app/projects/${projectId}/settings?github=pending#github`);
+    const section = page.getByRole('region', { name: 'GitHub', exact: true });
+    await expect(section).toContainText('Approval needed');
+    await expect(section.getByRole('status')).toContainText('Waiting for GitHub approval');
+    await expect(section.getByRole('status')).toContainText('An organization owner needs to approve');
+    await expect(section.getByRole('link', { name: 'Connect GitHub', exact: true })).toBeVisible();
+    await expect(section.getByRole('button', { name: 'Load repositories' })).toHaveCount(0);
+    await expect(section.getByRole('button', { name: 'Turn GitHub sync off' })).toHaveCount(0);
+    await expectNoAxeViolations(page);
+    await section.getByRole('link', { name: 'Connect GitHub', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Install the uier test app' })).toBeVisible();
+});
+
+test('GitHub callback failures show in-app recovery without echoing credentials and signed-out links have a fixed return', async ({ page, context, baseURL }) => {
     await projectSettings(page, baseURL!);
-    const invalid = await page.request.get('/app/github/setup?installation_id=101&state=private-state&setup_action=install');
-    expect(invalid.status()).toBe(400);
-    expect(await invalid.text()).not.toContain('private-state');
-    expect(invalid.headers()['cache-control']).toBe('no-store');
-    const callback = await page.request.get('/app/github/callback?code=private-code&state=private-state');
-    expect(callback.status()).toBe(400);
-    expect(await callback.text()).not.toMatch(/private-code|private-state/);
+    for (const path of ['/app/github/setup?installation_id=101&state=private-state&setup_action=install',
+        '/app/github/setup?setup_action=request&state=' + 'x'.repeat(43), '/app/github/setup',
+        '/app/github/callback?code=private-code&state=private-state']) {
+        const invalid = await page.request.get(path, { maxRedirects: 0 });
+        expect(invalid.status()).toBe(302);
+        expect(invalid.headers().location).toBe(`${baseURL}/app/github/error`);
+        expect(await invalid.text()).not.toMatch(/private-code|private-state/);
+        expect(invalid.headers()['cache-control']).toBe('no-store');
+    }
+    await page.goto('/app/github/setup?setup_action=request&state=private-state');
+    await expect(page).toHaveURL(`${baseURL}/app/github/error`);
+    await expect(page.getByRole('heading', { name: 'GitHub connection not completed' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Start a new connection' })).toContainText('expired or already been used');
+    await expect(page.getByRole('region', { name: 'Start a new connection' }).getByRole('alert')).toContainText('an organization owner needs to approve');
+    await expect(page.getByRole('link', { name: 'GitHub setup guide', exact: true })).toHaveAttribute('href', '/integrations/github');
+    expect(await page.content()).not.toMatch(/private-state|private-code/);
+    await expectNoAxeViolations(page);
+    await page.getByRole('link', { name: 'Go to projects', exact: true }).click();
+    await expect(page).toHaveURL(`${baseURL}/app/projects`);
     await context.clearCookies();
     for (const path of ['/app/github/callback?code=private-code&state=private-state', '/app/github/setup?installation_id=101&state=private-state']) {
         const response = await page.request.get(path, { maxRedirects: 0 });

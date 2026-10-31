@@ -25,20 +25,23 @@ const outcomes: Record<string, string> = {
     denied: 'The GitHub connection was canceled. You can connect again.',
     failed: 'GitHub could not complete the connection. Connect again.',
     unavailable: 'GitHub is unavailable right now. Try again later.',
-    pending: 'The installation needs approval in GitHub. Once it is approved, connect again.'
+    pending: 'An organization owner needs to approve the uier installation in GitHub. Once it is approved, connect GitHub again and choose a repository.'
 };
 
 export function GitHubSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const connection = settings.connection;
     const publicConfirmationRequired = connection?.statusCode === 'public_confirmation_required';
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
-    const status = !settings.configured ? 'Unavailable' : settings.setup ? 'Choose a repository' : !connection ? 'Not connected'
+    const status = !settings.configured ? 'Unavailable' : settings.setup ? 'Choose a repository' : !connection ? (outcome === 'pending' ? 'Approval needed' : 'Not connected')
         : connection.status === 'needs_reconnect' ? 'Reconnect needed' : connection.status === 'paused' ? 'Waiting for GitHub'
         : connection.enabled ? 'Sync on' : 'Sync off';
     return <Section id="github" title="GitHub" description="Create one GitHub issue for each shared feedback thread. uier keeps the issue and its discussion up to date."
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
-            {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
+            {notice && (outcome === 'pending' ? <Alert role="status">
+                <AlertTitle>Waiting for GitHub approval</AlertTitle>
+                <AlertDescription>{notice}</AlertDescription>
+            </Alert> : <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>)}
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">GitHub is unavailable on this deployment. A site administrator needs to configure it.</p>
                 : <>
                     {settings.setup ? <GitHubRepositoryPicker key={settings.setup.receipt} projectId={projectId} settings={settings} />

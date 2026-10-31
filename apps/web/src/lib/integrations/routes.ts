@@ -3,7 +3,7 @@ import { getAppContext, WORKSPACE_COOKIE_NAME } from '../app/context';
 import { appBaseUrl } from '../app/request';
 import { getProject, isProjectId } from '../app/projects';
 import { getMember } from '../app/workspaces';
-import { KnownPageLinks } from '../../knownPages';
+import { KnownPageLinks, KnownPages } from '../../knownPages';
 import { isLocalRuntime } from '../comments/environment';
 import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import type { IntegrationProviderId } from './model';
@@ -16,7 +16,8 @@ function redirect(location: string) {
     return new Response(null, { status: 302, headers: { Location: location, 'Cache-Control': 'no-store' } });
 }
 
-function invalidConnection() {
+export function invalidIntegrationConnection(provider: IntegrationProviderId, baseUrl: string) {
+    if (provider === 'github') return redirect(new URL(KnownPages.AppGitHubError, baseUrl).href);
     return new Response('This connection link is not valid. Start again from the project settings.', {
         status: 400, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' }
     });
@@ -56,7 +57,7 @@ export function integrationCallbackRoute(provider: IntegrationProviderId, finish
                 error: params.get('error') ?? undefined, baseUrl });
             if (!isProjectId(result.projectId) || result.projectId === PUBLIC_PROJECT_ID
                 || (await getMember(result.workspaceId, context.user.id))?.role !== 'admin'
-                || !await getProject(result.workspaceId, result.projectId)) return invalidConnection();
+                || !await getProject(result.workspaceId, result.projectId)) return invalidIntegrationConnection(provider, baseUrl);
             (await cookies()).set(WORKSPACE_COOKIE_NAME, result.workspaceId, {
                 httpOnly: true, sameSite: 'lax', path: '/', maxAge: 365 * 24 * 3600, secure: !isLocalRuntime()
             });
@@ -65,6 +66,6 @@ export function integrationCallbackRoute(provider: IntegrationProviderId, finish
             if (provider === 'github' && result.setupReceipt) settings.searchParams.set('githubSetup', result.setupReceipt);
             settings.hash = provider;
             return redirect(settings.href);
-        } catch { return invalidConnection(); }
+        } catch { return invalidIntegrationConnection(provider, baseUrl); }
     };
 }
