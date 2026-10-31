@@ -17,6 +17,7 @@ import { resolveGitHubCreate } from '../src/lib/integrations/github/recovery';
 import { githubAppPk, receiveGitHubWebhook } from '../src/lib/integrations/github/webhook';
 import { githubInstallationPk, type GitHubConnection, type GitHubInstallation, type GitHubState } from '../src/lib/integrations/github/model';
 import { startGitHubStub } from './support/githubStub';
+import { createOauthState } from '../src/lib/integrations/oauthState';
 
 const variables = ['UIER_LOCAL', 'UIER_GITHUB_APP_ID', 'UIER_GITHUB_APP_SLUG', 'UIER_GITHUB_CLIENT_ID', 'UIER_GITHUB_CLIENT_SECRET',
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_SETUP_KEY', 'UIER_GITHUB_WEBHOOK_SECRET', 'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL'];
@@ -127,6 +128,23 @@ test('installation and user authorization are separate single-use stages with PK
     expect(choices.repositories).toEqual([{ id: '201', fullName: 'acme/repo-1', private: true }, { id: '202', fullName: 'acme/repo-2', private: true }]);
     const rows = await getAppStore().query({ type: 'github-setup', pk: `user:${f.user.id}` });
     expect(JSON.stringify(rows)).not.toMatch(/user-token|never-persist-refresh/);
+});
+
+test('organization approval requests consume their bound state without installation ids, authorization or connections', async () => {
+    const f = await localProject();
+    const install = new URL(await beginGitHubConnect({ ...f.input, baseUrl }));
+    const input = { userId: f.user.id, state: install.searchParams.get('state'), installationId: null, setupAction: 'request', baseUrl };
+    const calls = stub.calls.length;
+    await expect(finishGitHubSetup({ ...input, userId: 'another-user' })).rejects.toMatchObject({ code: 'invalid_state' });
+    const result = await finishGitHubSetup(input);
+    expect(result).toMatchObject({ status: 'pending', workspaceId: f.project.workspaceId, projectId: f.project.id,
+        url: `${baseUrl}/app/projects/${f.project.id}/settings?github=pending#github` });
+    expect(stub.calls).toHaveLength(calls);
+    expect((await getAppStore().get<DbProject>(f.project.pk, f.project.id))!.doc.integrations).toBeUndefined();
+    expect(await getAppStore().query({ type: 'github-setup', pk: `user:${f.user.id}` })).toHaveLength(0);
+    await expect(finishGitHubSetup(input)).rejects.toMatchObject({ code: 'invalid_state' });
+    const expired = await createOauthState({ provider: 'github', ...f.input, intent: 'install', pkce: false }, getAppStore(), Date.now() - 11 * 60_000);
+    await expect(finishGitHubSetup({ ...input, state: expired.state })).rejects.toMatchObject({ code: 'invalid_state' });
 });
 
 test('forged installation hints and repository privileges cannot create a binding; denial consumes state', async () => {

@@ -97,7 +97,7 @@ export async function finishGitHubSetup(input: { userId: string; state: unknown;
     if (!state) throw new GitHubError('invalid_state');
     await githubAdmin(state, store);
     if (input.setupAction === 'request') return { workspaceId: state.workspaceId, projectId: state.projectId, status: 'pending' as const,
-        url: `${appOrigin(input.baseUrl)}/app/projects/${encodeURIComponent(state.projectId)}/settings?github=pending` };
+        url: `${appOrigin(input.baseUrl)}/app/projects/${encodeURIComponent(state.projectId)}/settings?github=pending#github` };
     if (input.setupAction !== undefined && !['install', 'update'].includes(input.setupAction)) throw new GitHubError('invalid_setup');
     const installationId = githubId(input.installationId);
     return { workspaceId: state.workspaceId, projectId: state.projectId,

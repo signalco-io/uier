@@ -40,6 +40,8 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
         return [{ label: 'Account', href: KnownPages.AppAccount }];
     if (section === 'settings')
         return [{ label: 'Workspace settings', href: KnownPages.AppSettings }];
+    if (section === 'github' && id === 'error')
+        return [{ label: 'GitHub connection', href: KnownPages.AppGitHubError }];
     return [];
 }
 
