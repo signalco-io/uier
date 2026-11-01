@@ -1,3 +1,4 @@
+import { runtimeAdapters } from '../adapters';
 import { toolbarConfig } from '../config';
 import { backgroundSignInDisabled, getReviewToken, setReviewToken } from './projectSession';
 
@@ -5,6 +6,7 @@ let attempted: Promise<boolean> | undefined;
 
 /** One bounded, silent attempt per page. Source, origin and request id all belong to this frame. */
 export function backgroundSignIn(): Promise<boolean> {
+    if (runtimeAdapters()) return Promise.resolve(false);
     if (!toolbarConfig.project || backgroundSignInDisabled()) return Promise.resolve(false);
     if (getReviewToken()) return Promise.resolve(true);
     return attempted ??= new Promise<boolean>(resolve => {

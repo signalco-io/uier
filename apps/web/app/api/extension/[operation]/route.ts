@@ -1,0 +1,38 @@
+import { z } from 'zod';
+import { extensionHandler, extensionApiOrigin } from '@/src/lib/extension/http';
+import { exchangeExtensionCode, extensionSession, readScope } from '@/src/lib/extension/auth';
+import { extensionReviewContext, matchingProjects, createScope } from '@/src/lib/extension/review';
+import { getAppStore } from '@/src/lib/app/store';
+import { signToken } from '@/src/lib/app/tokens';
+import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
+import { assertNotBot } from '@/src/lib/comments/botProtection';
+import { actorAuthorId } from '@/src/lib/review/actor';
+
+export const dynamic = 'force-dynamic';
+const handler = extensionHandler(async request => {
+    const operation = new URL(request.url).pathname.split('/').at(-1);
+    if (operation === 'token' && request.method === 'POST')
+        return Response.json(await exchangeExtensionCode(await parseJsonBody(request, z.unknown())));
+    if (operation === 'projects' && request.method === 'GET') return matchingProjects(request);
+    if (operation === 'scope' && request.method === 'POST') return createScope(request);
+    if (operation === 'session' && request.method === 'DELETE') {
+        const session = await extensionSession(request);
+        await getAppStore().delete(session.pk, session.id);
+        return new Response(null, { status: 204 });
+    }
+    if (operation === 'verification' && request.method === 'POST') {
+        // BotID runs in our own frame. No cookie or extension ID can substitute for it.
+        if (request.headers.get('origin') !== extensionApiOrigin(request) || request.headers.get('sec-fetch-site') === 'cross-site') throw apiErrors.forbidden();
+        const scope = readScope(request);
+        const { clientId } = await parseJsonBody(request, z.object({ clientId: z.string() }));
+        if (clientId !== scope.clientId) throw apiErrors.forbidden();
+        const { project, actor, siteOrigin } = await extensionReviewContext(request);
+        await assertNotBot();
+        return Response.json({ token: signToken('review-verification', { projectId: project.id, origin: siteOrigin, authorId: actorAuthorId(actor) }, 300), expiresAt: Date.now() + 300_000 });
+    }
+    throw apiErrors.notFound();
+});
+export const GET = handler;
+export const POST = handler;
+export const DELETE = handler;
+export const OPTIONS = handler;

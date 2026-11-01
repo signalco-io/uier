@@ -14,6 +14,7 @@ export const KnownPages = {
     NotificationUnsubscribe: '/api/notifications/unsubscribe',
 
     App: '/app',
+    AppExtension: '/app/extension',
     AppSignIn: '/app/sign-in',
     AppSignInConfirm: '/app/sign-in/confirm',
     AppSignInMicrosoft: '/app/sign-in/microsoft',

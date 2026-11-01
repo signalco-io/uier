@@ -1,0 +1,38 @@
+{
+  "name": "@uier/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "description": "Unreleased uier desktop browser extension runtime spike",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:test": "node scripts/build.mjs --test",
+    "typecheck": "tsc --noEmit",
+    "validate": "node scripts/validate.mjs",
+    "package": "node scripts/package.mjs",
+    "test": "node --test scripts/*.test.mjs",
+    "test:browser": "playwright test",
+    "build:hosted-test": "node scripts/build.mjs --hosted-test"
+  },
+  "dependencies": {
+    "@uier/brand": "workspace:*",
+    "@uier/toolbar": "workspace:*",
+    "@signalco/ui-primitives": "0.6.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/chrome": "0.1.37",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "sharp": "0.35.5"
+  }
+}

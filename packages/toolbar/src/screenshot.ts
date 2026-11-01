@@ -1,3 +1,4 @@
+import { runtimeAdapters } from './adapters';
 /**
  * Screenshots of the commented part of the page, taken in the reviewer's browser when they post a
  * comment (automatic, issue #81).
@@ -303,6 +304,7 @@ function resized(source: HTMLCanvasElement, factor: number) {
  * reviewing uier's own controls include its review surfaces, without annotations or instructions.
  */
 export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false): Promise<CapturedScreenshot> {
+    if (runtimeAdapters()) return runtimeAdapters()!.capture(region);
     // As the page is now, like the region (measured just before)
     const view = windowSize();
     const scroll = { x: window.scrollX, y: window.scrollY };
@@ -360,13 +362,13 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
 
 /** Start once from the feedback event, keep the promise with the draft, and never block text on failure. */
 export async function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined): Promise<string | undefined> {
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let timeout: number | undefined;
     try {
         const includeToolbar = Boolean(toolbarReviewTarget(resolveAnchorElement(position)));
         const capture = captureScreenshot(commentRegion(position), includeToolbar ? null : toolbarHost(rootElement), includeToolbar);
         return await Promise.race([
             capture.then(image => image.dataUrl),
-            new Promise<undefined>(resolve => { timeout = setTimeout(resolve, 15_000); })
+            new Promise<undefined>(resolve => { timeout = window.setTimeout(resolve, 15_000); })
         ]);
     } catch (error) {
         console.warn('uier: Automatic screenshot capture failed', error);

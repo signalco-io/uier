@@ -36,6 +36,14 @@
         "./feedback-context": {
             "types": "./src/feedbackContext.ts",
             "default": "./dist/feedbackContext.js"
+        },
+        "./extension": {
+            "types": "./src/extension.ts",
+            "default": "./src/extension.ts"
+        },
+        "./extension-contract": {
+            "types": "./src/extensionContract.ts",
+            "default": "./dist/extensionContract.js"
         }
     },
     "scripts": {

@@ -12,6 +12,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 ## Product and APIs
 
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.
+- [Browser extension](browser-extension.md): unreleased desktop runtime, security boundaries, local loading and hosted/publication gates.
 - [Review workflow](review-workflow.md): the app, access, assignment, screenshots, drafts, unread activity and environments.
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
 - [Project deletion](project-deletion.md): what deleting a project removes, in what order, what stays and how failed steps are retried.
