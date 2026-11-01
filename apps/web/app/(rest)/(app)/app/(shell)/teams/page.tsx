@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRightIcon, SearchIcon, UsersIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
@@ -122,9 +123,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                             </ItemGroup>
                         </Card>
                         {next && (
-                            <Button variant="outline" size="sm" asChild className="self-center">
-                                <Link href={`${KnownPages.AppTeams}?${nextQuery}`}>Next teams page</Link>
-                            </Button>
+                            <Link href={`${KnownPages.AppTeams}?${nextQuery}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>Next teams page</Link>
                         )}
                     </div>
                 ) : (

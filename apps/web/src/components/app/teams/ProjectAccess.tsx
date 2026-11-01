@@ -3,7 +3,7 @@ import type { AppContext } from '@/src/lib/app/context';
 import type { DbProject } from '@/src/lib/app/model';
 import { projectAccessSources } from '@/src/lib/app/access';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Section } from '../PageHeader';
 import { managementData } from './management';
 import { ProjectTeamButton, RemoveProjectAccess } from './AccessForms';
@@ -18,8 +18,8 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
             actions={(
                 // Teams and people are managed for the whole workspace on their own pages
                 <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" asChild><Link href={KnownPages.AppTeams}>Manage teams</Link></Button>
-                    <Button variant="outline" size="sm" asChild><Link href={KnownPages.AppUsers}>Manage users</Link></Button>
+                    <Link href={KnownPages.AppTeams} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Manage teams</Link>
+                    <Link href={KnownPages.AppUsers} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Manage users</Link>
                 </div>
             )}
         >

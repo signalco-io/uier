@@ -3,7 +3,7 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { FolderOpenIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
@@ -63,12 +63,10 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                 title="Projects"
                 // The empty active list has its own Create project
                 actions={canManageProjects && (shown.length > 0 || status === 'done') && (
-                    <Button asChild>
-                        <Link href={KnownPages.AppNewProject}>
-                            <PlusIcon data-icon="inline-start" />
-                            Create project
-                        </Link>
-                    </Button>
+                    <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
+                        <PlusIcon data-icon="inline-start" />
+                        Create project
+                    </Link>
                 )}>
                 <div className="flex flex-wrap items-center gap-3">
                     <LinkTabs
@@ -156,12 +154,10 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                     </EmptyHeader>
                     {status === 'active' && canManageProjects && (
                         <EmptyContent>
-                            <Button asChild>
-                                <Link href={KnownPages.AppNewProject}>
-                                    <PlusIcon data-icon="inline-start" />
-                                    Create project
-                                </Link>
-                            </Button>
+                            <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
+                                <PlusIcon data-icon="inline-start" />
+                                Create project
+                            </Link>
                         </EmptyContent>
                     )}
                 </Empty>

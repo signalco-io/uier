@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -42,11 +43,9 @@ export function LinearSection({ projectId, settings, outcome }: { projectId: str
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">Linear is unavailable on this deployment. A site administrator needs to configure it.</p>
                 : <>
                     {settings.organizationName && <p className="m-0 text-sm">Connected organization: {settings.organizationName}.</p>}
-                    {(!settings.connected || settings.status === 'needs_reconnect') && <Button asChild className="w-fit">
-                        <a href={`/app/linear/connect?project=${encodeURIComponent(projectId)}`}>
-                            <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? 'Reconnect Linear' : 'Connect Linear'}
-                        </a>
-                    </Button>}
+                    {(!settings.connected || settings.status === 'needs_reconnect') && <a href={`/app/linear/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}>
+                        <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? 'Reconnect Linear' : 'Connect Linear'}
+                    </a>}
                     {settings.connected && settings.status !== 'needs_reconnect' && <>
                         <LinearDestination key={`${settings.teamId}:${settings.linearProjectId}:${settings.openStateId}:${settings.doneStateId}:${settings.labelIds.join(',')}:${settings.screenshots}`}
                             projectId={projectId} settings={settings} />

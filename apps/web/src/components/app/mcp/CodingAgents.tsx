@@ -2,7 +2,8 @@
 
 import { Separator } from '@/src/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { mcpClientConfigurations } from '@/src/lib/mcp/clients';
 import type { ConnectedAppView } from '@/src/lib/mcp/oauth/connectedApps';
 import { feedbackSkill } from '@/src/lib/mcp/workflows';
@@ -38,7 +39,7 @@ export function CodingAgents({ endpoint, apps, projects, credentials }: {
                 <div className="mt-3 flex flex-col gap-3">
                     <p>Choose <code>triage-feedback</code> to group open threads, or <code>fix-feedback</code> to propose a code change in your client. Both leave uier unchanged. <code>report-back</code> drafts a reply or status change and waits for your approval before every write. It is available only with reply or status access.</p>
                     <p>Copy or download this skill and save it as <code>uier-feedback/SKILL.md</code> in your client’s skills folder. It uses the same workflow as the prompts.</p>
-                    <Button asChild variant="outline" className="self-start"><a download="SKILL.md" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(skill)}`}>Download SKILL.md</a></Button>
+                    <a download="SKILL.md" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(skill)}`} className={cn(buttonVariants({ variant: 'outline' }), 'self-start')}>Download SKILL.md</a>
                     <details>
                         <summary className="cursor-pointer font-medium">View and copy SKILL.md</summary>
                         <div className="mt-3"><CopyBlock value={skill} label="Copy SKILL.md" /></div>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { InfoIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import {
     Dialog,
@@ -236,9 +236,7 @@ export function TeamEditor({ team }: { team?: DbTeam }) {
                     </FieldGroup>
                     <FormMessage state={state} />
                     {state?.ok && (
-                        <Button asChild>
-                            <Link href={KnownPageLinks.team(state.data)}>Open team</Link>
-                        </Button>
+                        <Link href={KnownPageLinks.team(state.data)} className={buttonVariants()}>Open team</Link>
                     )}
                     <DialogFooter>
                         <Button disabled={pending} type="submit">

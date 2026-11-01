@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -46,10 +47,8 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">Notion is unavailable on this deployment. A site administrator needs to configure it.</p> : <>
                 {settings.notionWorkspaceName && <p className="m-0 text-sm">Connected workspace: {settings.notionWorkspaceName}.</p>}
-                {(!connected || settings.status === 'needs_reconnect') && <Button asChild className="w-fit">
-                    <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`}><ArrowUpRight data-icon="inline-start" />
-                        {settings.status === 'needs_reconnect' ? 'Reconnect Notion' : 'Connect Notion'}</a>
-                </Button>}
+                {(!connected || settings.status === 'needs_reconnect') && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}><ArrowUpRight data-icon="inline-start" />
+                    {settings.status === 'needs_reconnect' ? 'Reconnect Notion' : 'Connect Notion'}</a>}
                 {connected && settings.status !== 'needs_reconnect' && <>
                     {problem && <Alert><AlertTitle>Check the Notion connection</AlertTitle><AlertDescription>{problem}</AlertDescription></Alert>}
                     {settings.dataSourceId && <p className="m-0 text-sm">Destination: {settings.dataSourceName ?? 'Saved database'}.</p>}
@@ -209,7 +208,7 @@ function NotionManagement({ projectId, settings }: { projectId: string; settings
     });
     const canSync = settings.configured && Boolean(settings.dataSourceId) && settings.status === 'connected';
     return <div className="flex flex-col gap-3"><div className="flex flex-wrap gap-2">
-        {settings.configured && settings.status !== 'needs_reconnect' && <Button asChild variant="outline"><a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`}>Reconnect Notion</a></Button>}
+        {settings.configured && settings.status !== 'needs_reconnect' && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={buttonVariants({ variant: 'outline' })}>Reconnect Notion</a>}
         {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
             {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? 'Turn sync off' : 'Turn sync on'}</Button>}
         {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>Backfill existing feedback</Button>}

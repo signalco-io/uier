@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Field, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -84,7 +84,7 @@ export function InstallationCheck({ projectId, publicId, urls }: { projectId: st
             </div>
             {result && <p role="status" aria-label="Installation result" data-result={result.kind} className="m-0 text-sm">{result.message}</p>}
             {result?.kind === 'success' && <>
-                <Button variant="outline" asChild><a href={reviewLink.href} target="_blank" rel="noopener">Open checked review</a></Button>
+                <a href={reviewLink.href} target="_blank" rel="noopener" className={buttonVariants({ variant: 'outline' })}>Open checked review</a>
                 <CopyBlock value={reviewLink.href} label="Copy checked review link" />
             </>}
         </section>

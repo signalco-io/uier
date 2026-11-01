@@ -1,7 +1,8 @@
 import { Google_Sans } from 'next/font/google';
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 
@@ -54,12 +55,9 @@ export function GoogleSignInButton({ next }: { next?: string }) {
     return (
         // A plain link: a full navigation, never prefetched (the route starts a sign-in). The form's
         // field group spaces its children 28 px apart; -mt-4 stacks it 12 px under the passkey button.
-        <Button variant="outline" size="lg" asChild
-            className={`${googleSans.className} relative -mt-4 w-full gap-2.5 px-3 text-sm leading-5 font-medium border-[#747775] bg-[#FFFFFF] text-[#1F1F1F] hover:bg-[#FFFFFF] hover:text-[#1F1F1F] dark:border-[#8E918F] dark:bg-[#131314] dark:text-[#E3E3E3] dark:hover:bg-[#131314] dark:hover:text-[#E3E3E3] before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-current before:opacity-0 hover:before:opacity-[0.08] active:before:opacity-[0.12]`}>
-            <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
-                <GoogleG />
-                Continue with Google
-            </a>
-        </Button>
+        <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), `${googleSans.className} relative -mt-4 w-full gap-2.5 px-3 text-sm leading-5 font-medium border-[#747775] bg-[#FFFFFF] text-[#1F1F1F] hover:bg-[#FFFFFF] hover:text-[#1F1F1F] dark:border-[#8E918F] dark:bg-[#131314] dark:text-[#E3E3E3] dark:hover:bg-[#131314] dark:hover:text-[#E3E3E3] before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-current before:opacity-0 hover:before:opacity-[0.08] active:before:opacity-[0.12]`)}>
+            <GoogleG />
+            Continue with Google
+        </a>
     );
 }

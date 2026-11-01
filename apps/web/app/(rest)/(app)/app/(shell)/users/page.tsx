@@ -6,7 +6,7 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { FolderIcon, FoldersIcon, MailIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
@@ -163,9 +163,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                                     </ItemContent>
                                     <ItemActions className="ml-auto">
                                         <span className={roleColumn}><RoleBadge role={member.role} /></span>
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={KnownPageLinks.member(member.userId)} aria-label={`Manage access for ${name}`}>Manage access</Link>
-                                        </Button>
+                                        <Link href={KnownPageLinks.member(member.userId)} aria-label={`Manage access for ${name}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Manage access</Link>
                                         {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
                                     </ItemActions>
                                 </Item>

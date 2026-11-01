@@ -4,7 +4,8 @@ import { useActionState, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { MailCheckIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -54,10 +55,8 @@ export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: st
                         {pending && <Spinner data-icon="inline-start" />}
                         Sign in
                     </Button>
-                    <Button variant="outline" size="lg" className="w-full" asChild>
-                        {/* A fresh navigation resets the email form, even on the same route. */}
-                        <a href={signInPath}>Ask for a new email</a>
-                    </Button>
+                    {/* A fresh navigation resets the email form, even on the same route. */}
+                    <a href={signInPath} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Ask for a new email</a>
                 </FieldGroup>
             </form>
         </div>

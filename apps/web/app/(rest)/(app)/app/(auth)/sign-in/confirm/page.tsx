@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { getSignInRequest } from '@/src/lib/app/signIn';
 import { AuthCard } from '@/src/components/app/AuthCard';
@@ -17,9 +18,7 @@ export default async function ConfirmSignInPage({ searchParams }: PageProps<'/ap
     if (!request || typeof token !== 'string') {
         return (
             <AuthCard title="This link has expired" description="Sign-in links work once and expire after 15 minutes. Ask for a new one.">
-                <Button variant="outline" size="lg" className="w-full" asChild>
-                    <Link href={KnownPages.AppSignIn}>Sign in again</Link>
-                </Button>
+                <Link href={KnownPages.AppSignIn} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in again</Link>
             </AuthCard>
         );
     }

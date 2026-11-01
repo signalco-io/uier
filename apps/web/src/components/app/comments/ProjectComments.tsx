@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ProjectAccess } from '../../../lib/app/model';
@@ -77,9 +78,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
         ? 'Install the script and open a review link to leave the first comment.'
         : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.';
     const installButton = (className?: string) => (
-        <Button variant="outline" asChild className={className}>
-            <Link href={installHref}>Install the script</Link>
-        </Button>
+        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>Install the script</Link>
     );
     // Invited projects take two steps, each with its button: the script, then the people
     const steps = access === 'invited' && isAdmin;
@@ -116,9 +115,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                     {/* One column: the buttons take the width of the widest */}
                     <div className="grid gap-2">
                         {access === 'disabled' && isAdmin && (
-                            <Button variant="outline" asChild>
-                                <Link href={KnownPageLinks.projectSettings(projectId, 'review')}>Settings</Link>
-                            </Button>
+                            <Link href={KnownPageLinks.projectSettings(projectId, 'review')} className={buttonVariants({ variant: 'outline' })}>Settings</Link>
                         )}
                         {installButton()}
                     </div>

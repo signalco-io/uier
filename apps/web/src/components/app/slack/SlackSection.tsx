@@ -3,7 +3,8 @@
 import { useActionState, useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
@@ -43,9 +44,9 @@ export function SlackSection({ projectId, settings, outcome }: { projectId: stri
                 {connection.backfill && <p className="m-0 text-sm text-muted-foreground">Backfill: {connection.backfill.queued} of {connection.backfill.total} selected threads queued for delivery. {connection.backfill.done ? 'Queueing is complete.' : 'Queueing continues in the background.'}</p>}
             </>}
             {settings.configured && <>
-                <Button asChild variant="outline" className="w-fit"><a href={`${KnownPages.AppSlackConnect}?project=${encodeURIComponent(projectId)}`}>
+                <a href={`${KnownPages.AppSlackConnect}?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
                     {connection ? 'Reconnect Slack' : 'Connect Slack'}<ArrowUpRight data-icon="inline-end" />
-                </a></Button>
+                </a>
                 {connection?.status === 'connected' && <SlackDestination projectId={projectId} settings={settings} />}
             </>}
             {connection && <SlackManagement projectId={projectId} settings={settings} />}

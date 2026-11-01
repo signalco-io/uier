@@ -3,7 +3,7 @@
 import { useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LogInIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { KnownPages } from '@/src/knownPages';
@@ -49,10 +49,8 @@ export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }:
                 )
                 : configured && (recentSignIn
                     ? (
-                        <Button variant="outline" asChild>
-                            {/* A full navigation, never prefetched: the route starts the link with Google */}
-                            <a href={`${KnownPages.AppSignInGoogle}?intent=link`}>Link Google account</a>
-                        </Button>
+                        // A full navigation, never prefetched: the route starts the link with Google
+                        <a href={`${KnownPages.AppSignInGoogle}?intent=link`} className={buttonVariants({ variant: 'outline' })}>Link Google account</a>
                     )
                     : (
                         <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border p-3">

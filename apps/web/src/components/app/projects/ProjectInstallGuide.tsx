@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPageLinks } from '@/src/knownPages';
 import type { AppContext } from '@/src/lib/app/context';
 import type { PublicProject } from '@/src/lib/app/projectPublicIds';
@@ -27,9 +27,7 @@ export async function ProjectInstallGuide({ context, project, onboarding = false
             reviewStep={(
                 <div className="flex flex-wrap gap-2">
                     <ReviewLinksMenu projectId={project.id} urls={project.urls} />
-                    <Button variant="ghost" asChild>
-                        <Link href={KnownPageLinks.project(project.id)}>Go to the comments</Link>
-                    </Button>
+                    <Link href={KnownPageLinks.project(project.id)} className={buttonVariants({ variant: 'ghost' })}>Go to the comments</Link>
                 </div>
             )} />
     );

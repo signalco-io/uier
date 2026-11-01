@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from 'react';
 import { TriangleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { CardContent, CardDescription, CardFooter, CardHeader } from '@/src/components/ui/card';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
@@ -70,7 +70,7 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
                 <p className="m-0 text-sm text-muted-foreground">If nothing happens, use this link.</p>
             </CardContent>
             <CardFooter>
-                <Button asChild variant="outline"><a href={outcome.url}>Return to {clientName}</a></Button>
+                <a href={outcome.url} className={buttonVariants({ variant: 'outline' })}>Return to {clientName}</a>
             </CardFooter>
         </>;
     if (outcome || !request)

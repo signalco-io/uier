@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -45,18 +46,14 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">GitHub is unavailable on this deployment. A site administrator needs to configure it.</p>
                 : <>
                     {settings.setup ? <GitHubRepositoryPicker key={settings.setup.receipt} projectId={projectId} settings={settings} />
-                        : <Button asChild className="w-fit" variant={connection ? 'outline' : 'default'}>
-                            <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`}>
-                                <ArrowUpRight data-icon="inline-start" />{connection ? 'Reconnect GitHub' : 'Connect GitHub'}
-                            </a>
-                        </Button>}
+                        : <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: connection ? 'outline' : 'default' }), 'w-fit')}>
+                            <ArrowUpRight data-icon="inline-start" />{connection ? 'Reconnect GitHub' : 'Connect GitHub'}
+                        </a>}
                     {!settings.setup && settings.installations.length > 0 && <div className="flex flex-col gap-2">
                         <p className="m-0 text-sm text-muted-foreground">Or use an installation already connected to this workspace. GitHub verifies your account before you choose a repository.</p>
-                        {settings.installations.map(installation => <Button key={installation.id} asChild className="w-fit" variant="outline">
-                            <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`}>
-                                Use {installation.accountName} installation
-                            </a>
-                        </Button>)}
+                        {settings.installations.map(installation => <a key={installation.id} href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
+                            Use {installation.accountName} installation
+                        </a>)}
                     </div>}
                     {connection && <>
                         <p className="m-0 text-sm">Repository: {connection.repositoryName} ({publicConfirmationRequired ? 'public access needs confirmation' : connection.repositoryVisibility}).</p>
@@ -145,7 +142,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
                 </Field>
             </FieldGroup>
         </form>}
-        <Button asChild className="w-fit" variant="ghost"><a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`}>Start GitHub authorization again</a></Button>
+        <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: 'ghost' }), 'w-fit')}>Start GitHub authorization again</a>
     </FieldGroup>;
 }
 

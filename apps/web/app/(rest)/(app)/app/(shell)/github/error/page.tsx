@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 
 export const metadata: Metadata = { title: 'GitHub connection not completed' };
@@ -18,8 +18,8 @@ export default function GitHubConnectionErrorPage() {
                     <AlertDescription>If GitHub asked for approval, an organization owner needs to approve the uier installation in GitHub. Once it is approved, open your project settings and connect GitHub again.</AlertDescription>
                 </Alert>
                 <div className="flex flex-wrap gap-2">
-                    <Button asChild><Link href={KnownPages.AppProjects}>Go to projects</Link></Button>
-                    <Button asChild variant="outline"><Link href={KnownPageLinks.integration('github')}>GitHub setup guide</Link></Button>
+                    <Link href={KnownPages.AppProjects} className={buttonVariants()}>Go to projects</Link>
+                    <Link href={KnownPageLinks.integration('github')} className={buttonVariants({ variant: 'outline' })}>GitHub setup guide</Link>
                 </div>
             </div>
         </Section>

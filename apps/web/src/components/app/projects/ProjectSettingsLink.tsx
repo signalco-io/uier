@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useSelectedLayoutSegment } from 'next/navigation';
 import { SettingsIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 
 /**
@@ -16,11 +17,9 @@ export function ProjectSettingsLink({ href }: { href: string }) {
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" asChild className="aria-[current=page]:bg-muted">
-                    <Link href={href} aria-label="Settings" aria-current={current ? 'page' : undefined}>
-                        <SettingsIcon />
-                    </Link>
-                </Button>
+                <Link href={href} aria-label="Settings" aria-current={current ? 'page' : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'icon' }), 'aria-[current=page]:bg-muted')}>
+                    <SettingsIcon />
+                </Link>
             </TooltipTrigger>
             <TooltipContent>Settings</TooltipContent>
         </Tooltip>
