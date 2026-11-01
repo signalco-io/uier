@@ -31,7 +31,7 @@ export function integrationConnectRoute(provider: IntegrationProviderId, begin: 
         const projectId = new URL(request.url).searchParams.get('project');
         if (!isProjectId(projectId) || projectId === PUBLIC_PROJECT_ID || !context.isAdmin
             || !await getProject(context.workspace.id, projectId)) return new Response(null, { status: 404 });
-        const settings = new URL(KnownPageLinks.projectSettings(projectId), baseUrl);
+        const settings = new URL(KnownPageLinks.projectSettings(projectId, 'integrations'), baseUrl);
         const site = request.headers.get('sec-fetch-site');
         if ((site && site !== 'same-origin' && site !== 'none') || /prefetch/i.test(`${request.headers.get('purpose')} ${request.headers.get('sec-purpose')}`))
             return redirect(settings.href);
@@ -61,7 +61,7 @@ export function integrationCallbackRoute(provider: IntegrationProviderId, finish
             (await cookies()).set(WORKSPACE_COOKIE_NAME, result.workspaceId, {
                 httpOnly: true, sameSite: 'lax', path: '/', maxAge: 365 * 24 * 3600, secure: !isLocalRuntime()
             });
-            const settings = new URL(KnownPageLinks.projectSettings(result.projectId), baseUrl);
+            const settings = new URL(KnownPageLinks.projectSettings(result.projectId, 'integrations'), baseUrl);
             settings.searchParams.set(provider, result.status);
             if (provider === 'github' && result.setupReceipt) settings.searchParams.set('githubSetup', result.setupReceipt);
             settings.hash = provider;

@@ -26,7 +26,7 @@ export function InviteReviewerStep({ projectId, publicId, access, urls, isAdmin 
             {access === 'guests' && <GuestReviewLinks publicId={publicId} urls={urls} />}
             {access === 'disabled' && isAdmin && (
                 <Button variant="outline" asChild>
-                    <Link href={KnownPageLinks.projectSettings(projectId)}>Settings</Link>
+                    <Link href={KnownPageLinks.projectSettings(projectId, 'review')}>Settings</Link>
                 </Button>
             )}
         </Section>

@@ -8,7 +8,7 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('ado-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Azure DevOps review' });
-    const settingsUrl = `/app/projects/${projectId}/settings`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
     await page.goto(settingsUrl);
     const section = page.getByRole('region', { name: 'Azure DevOps', exact: true });
     await expect(section).toContainText('Not connected');
@@ -89,6 +89,7 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await section.getByRole('button', { name: 'Turn sync on', exact: true }).click();
     await expect(section).toContainText('Sync on');
     await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.goto(settingsUrl);
     const source = await page.request.post(`/api/review/${projectId}/comments`, { headers: {
         Origin: new URL(baseURL!).origin, 'X-Uier-Visitor': randomBytes(32).toString('base64url')
     }, data: { path: '/azure-devops-review', text: 'Feedback for an Azure DevOps backfill', authorName: 'Reviewer',

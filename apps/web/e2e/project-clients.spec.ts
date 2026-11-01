@@ -44,7 +44,7 @@ test('clients show in the sidebar and on their page, and new projects pick an ex
 
     // A client with only done projects opens the done ones
     const doneId = await createProject(page, { urls: ['northwind.example.com'], name: 'Northwind site', clientName: 'Northwind' });
-    await page.goto(`/app/projects/${doneId}/settings`);
+    await page.goto(`/app/projects/${doneId}/settings/danger-zone`);
     await page.getByRole('button', { name: 'Mark as done', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Reopen project' })).toBeVisible();
 
@@ -211,7 +211,7 @@ test('client filtering combines with status and survives reloads', async ({ page
     await signIn(page, uniqueEmail('client-filter'));
     await createProject(page, { urls: ['active.example.com'], name: 'Active north', clientName: 'North & South' });
     const doneId = await createProject(page, { urls: ['done.example.com'], name: 'Done north', clientName: 'North & South' });
-    await page.goto(`/app/projects/${doneId}/settings`);
+    await page.goto(`/app/projects/${doneId}/settings/danger-zone`);
     await page.getByRole('button', { name: 'Mark as done', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Reopen project' })).toBeVisible();
     await createProject(page, { urls: ['another.example.com'], name: 'Another client', clientName: 'none' });

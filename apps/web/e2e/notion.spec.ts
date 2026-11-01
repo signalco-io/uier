@@ -8,7 +8,7 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('notion-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Notion review' });
-    const settingsUrl = `/app/projects/${projectId}/settings`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
     await page.goto(settingsUrl);
     const notion = page.getByRole('region', { name: 'Notion', exact: true });
     await expect(notion).toContainText('Not connected');
@@ -102,6 +102,7 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await expect(notion.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
     await notion.getByRole('button', { name: 'Turn sync on', exact: true }).click(); await expect(notion).toContainText('Sync on');
     await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.goto(settingsUrl);
     const source = await page.request.post(`/api/review/${projectId}/comments`, { headers: { Origin: new URL(baseURL!).origin,
         'X-Uier-Visitor': randomBytes(32).toString('base64url') }, data: { path: '/notion-review', text: 'Feedback for Notion backfill', authorName: 'Reviewer',
         position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 } } });

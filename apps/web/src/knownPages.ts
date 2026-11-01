@@ -48,16 +48,22 @@ export const KnownPages = {
     LegalSla: '/legal/sla'
 } as const;
 
+/** The sections of a project's settings, each its own page under the settings (General is the settings page itself) */
+export type ProjectSettingsSection = 'review' | 'environments' | 'installation' | 'people' | 'integrations' | 'notifications' | 'danger-zone';
+
 /** Pages with a parameter */
 export const KnownPageLinks = {
     integration: (provider: string) => `/integrations/${encodeURIComponent(provider)}`,
     team: (id: string) => `/app/teams/${encodeURIComponent(id)}`,
     member: (id: string) => `/app/users/${encodeURIComponent(id)}`,
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
-    projectSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings`,
-    /** The install guide; `onboarding` adds the progress of a project that was just created */
-    projectInstall: (projectId: string, { onboarding = false }: { onboarding?: boolean } = {}) =>
-        `/app/projects/${encodeURIComponent(projectId)}/install${onboarding ? '?onboarding=1' : ''}`,
+    /** A project's settings: General, or one of its other sections */
+    projectSettings: (projectId: string, section?: ProjectSettingsSection) =>
+        `/app/projects/${encodeURIComponent(projectId)}/settings${section ? `/${section}` : ''}`,
+    /** The install guide (Settings → Installation); `onboarding` is the install step of a project that was just created */
+    projectInstall: (projectId: string, { onboarding = false }: { onboarding?: boolean } = {}) => onboarding
+        ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1`
+        : `/app/projects/${encodeURIComponent(projectId)}/settings/installation`,
     /** The screenshot of a project comment (an image, for the signed-in app) */
     projectCommentScreenshot: (projectId: string, commentId: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,

@@ -8,7 +8,7 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('linear-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Linear review' });
-    const settingsUrl = `/app/projects/${projectId}/settings`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
     await page.goto(settingsUrl);
     const linear = page.getByRole('region', { name: 'Linear', exact: true });
     await expect(linear).toContainText('Not connected');
@@ -84,6 +84,7 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     await linear.getByRole('button', { name: 'Turn sync on', exact: true }).click();
     await expect(linear).toContainText('Sync on');
     await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.goto(settingsUrl);
     const source = await page.request.post(`/api/review/${projectId}/comments`, { headers: {
         Origin: new URL(baseURL!).origin, 'X-Uier-Visitor': randomBytes(32).toString('base64url')
     }, data: { path: '/linear-review', text: 'Feedback for Linear backfill', authorName: 'Reviewer',

@@ -117,7 +117,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                     <div className="grid gap-2">
                         {access === 'disabled' && isAdmin && (
                             <Button variant="outline" asChild>
-                                <Link href={KnownPageLinks.projectSettings(projectId)}>Settings</Link>
+                                <Link href={KnownPageLinks.projectSettings(projectId, 'review')}>Settings</Link>
                             </Button>
                         )}
                         {installButton()}

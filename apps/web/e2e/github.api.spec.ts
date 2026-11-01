@@ -138,7 +138,7 @@ test('organization approval requests consume their bound state without installat
     await expect(finishGitHubSetup({ ...input, userId: 'another-user' })).rejects.toMatchObject({ code: 'invalid_state' });
     const result = await finishGitHubSetup(input);
     expect(result).toMatchObject({ status: 'pending', workspaceId: f.project.workspaceId, projectId: f.project.id,
-        url: `${baseUrl}/app/projects/${f.project.id}/settings?github=pending#github` });
+        url: `${baseUrl}/app/projects/${f.project.id}/settings/integrations?github=pending#github` });
     expect(stub.calls).toHaveLength(calls);
     expect((await getAppStore().get<DbProject>(f.project.pk, f.project.id))!.doc.integrations).toBeUndefined();
     expect(await getAppStore().query({ type: 'github-setup', pk: `user:${f.user.id}` })).toHaveLength(0);

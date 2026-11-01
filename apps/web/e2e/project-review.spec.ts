@@ -146,7 +146,7 @@ test('invited people only: a review link signs members in, everyone else is aske
 
 test('invited sign-in shares only approved page state and loads Geist solely from the API origin', async ({ page, browser, baseURL }, testInfo) => {
     const projectId = await ownerWithProject(page);
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     await settings.getByLabel('Meaningful query fields').fill('plan');
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
@@ -178,7 +178,7 @@ test('a schemeless localhost address opens an HTTP review and accepts feedback o
     await signIn(page, uniqueEmail('localhost'));
     const origin = `http://localhost:${sitePort}`;
     const projectId = await createProject(page, { urls: [`localhost:${sitePort}`], name: 'Local development' });
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/environments`);
     const addresses = page.getByRole('region', { name: 'Site addresses' });
     await expect(addresses.getByLabel('Main site address')).toHaveValue(origin);
 
@@ -590,7 +590,7 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
             ? page.locator('[data-slot="empty"]')
             : page.getByRole('region', { name: 'Invite a reviewer' });
         await expect(content).toContainText('Comments are off.');
-        await expect(content.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings`);
+        await expect(content.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings/review`);
         await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
         await expect(page.getByRole('list', { name: 'Guest links' })).toHaveCount(0);
         if (path.endsWith(projectId))
@@ -1026,7 +1026,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     test(`plain-text review brief follows project access (${colorScheme})`, async ({ page, browser, request }, testInfo) => {
         const first = await ownerWithProject(page);
         const brief = '<b>Review pricing</b>\n[Checkout](https://example.com)\nhttps://example.com';
-        await page.goto(`/app/projects/${first}/settings`);
+        await page.goto(`/app/projects/${first}/settings/review`);
         const settings = page.getByRole('region', { name: 'Review brief', exact: true });
         await settings.getByLabel('Review instructions').fill(brief);
         await settings.getByRole('button', { name: 'Save' }).click();

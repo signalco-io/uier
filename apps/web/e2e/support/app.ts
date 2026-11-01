@@ -72,7 +72,7 @@ export type ProjectAccessLabel = 'Invited people' | 'Anyone with the link' | 'Co
 
 /** Sets who can comment on a project, from its settings */
 export async function setProjectAccess(page: Page, projectId: string, label: ProjectAccessLabel) {
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/review`);
     const access = page.getByRole('region', { name: 'Who can comment' });
     await access.getByRole('radio', { name: label }).click();
     await access.getByRole('button', { name: 'Save' }).click();

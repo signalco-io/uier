@@ -77,7 +77,7 @@ export async function saveLinearDestinationAction(_: ActionState, form: FormData
             labelIds: form.getAll('labelId'), screenshots: form.get('screenshots') === 'true'
         });
         await saveLinearDestination(project, context.user.id, input);
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
     }, 'The Linear destination is saved. Sync is on.');
 }
 
@@ -97,7 +97,7 @@ export async function manageLinearAction(_: ActionState<{ message: string }>, fo
             await setLinearEnabled(project, context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'Linear sync is on.' : 'Linear sync is off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
         return { message };
     });
 }

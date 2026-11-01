@@ -12,7 +12,7 @@ test('authorized reviewer, project and canonical query/hash scopes survive SPA n
     await setProjectAccess(page, project, 'Anyone with the link');
     const otherProject = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, otherProject, 'Anyone with the link');
-    await page.goto(`/app/projects/${project}/settings`);
+    await page.goto(`/app/projects/${project}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     await settings.getByLabel('Meaningful query fields').fill('tab');
     await settings.getByLabel('Use hash routes (#/page or #!/page)').check();

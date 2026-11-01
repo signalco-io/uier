@@ -7,7 +7,7 @@ import { animationsFinished } from './support/toolbar';
 async function projectSettings(page: Page, baseURL: string) {
     await signIn(page, uniqueEmail('github-ui'));
     const projectId = await createProject(page, { urls: [`${baseURL}/brand`], name: 'GitHub UI project' });
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/integrations`);
     return projectId;
 }
 
@@ -17,7 +17,7 @@ async function authorize(page: Page) {
     await page.getByRole('button', { name: 'Install uier test app' }).click();
     await expect(page.getByRole('heading', { name: 'Authorize the uier test app' })).toBeVisible();
     await page.getByRole('button', { name: 'Authorize uier test app' }).click();
-    await expect(page).toHaveURL(/\/settings\?github=connected&githubSetup=[A-Za-z0-9_-]{43}#github$/);
+    await expect(page).toHaveURL(/\/settings\/integrations\?github=connected&githubSetup=[A-Za-z0-9_-]{43}#github$/);
     const section = page.getByRole('region', { name: 'GitHub', exact: true });
     await expect(section.getByRole('button', { name: 'Load repositories' })).toBeVisible();
     return section;
@@ -26,6 +26,7 @@ async function authorize(page: Page) {
 test('GitHub installation, repository confirmation and project controls work through the browser', async ({ page, baseURL }) => {
     const projectId = await projectSettings(page, baseURL!);
     await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.goto(`/app/projects/${projectId}/settings/integrations`);
     const existing = await page.request.post(`/api/review/${projectId}/comments`, { headers: { Origin: baseURL!, 'X-Uier-Visitor': randomBytes(32).toString('base64url') },
         data: { text: 'Existing feedback selected by an explicit backfill', authorName: 'Reviewer', path: '/brand', kind: 'feedback', position: { type: 'page' } } });
     expect(existing.status()).toBe(201);
@@ -77,7 +78,7 @@ test('a second project can authorize an existing installation without reopening 
     await first.getByRole('button', { name: 'Save GitHub repository' }).click();
     await expect(first).toContainText('Sync on');
     const secondId = await createProject(page, { urls: [`${baseURL}/brand`], name: 'Second GitHub project' });
-    await page.goto(`/app/projects/${secondId}/settings`);
+    await page.goto(`/app/projects/${secondId}/settings/integrations`);
     const second = page.getByRole('region', { name: 'GitHub', exact: true });
     await second.getByRole('link', { name: 'Use acme installation' }).click();
     await expect(page.getByRole('heading', { name: 'Authorize the uier test app' })).toBeVisible();
@@ -95,7 +96,7 @@ test('organization approval returns to the original workspace and explains how t
     // Another tab can select a different workspace while GitHub setup is open.
     await context.addCookies([{ name: 'uier_workspace', value: 'w_uier_public', url: baseURL! }]);
     await page.getByRole('button', { name: 'Request organization approval' }).click();
-    await expect(page).toHaveURL(`${baseURL}/app/projects/${projectId}/settings?github=pending#github`);
+    await expect(page).toHaveURL(`${baseURL}/app/projects/${projectId}/settings/integrations?github=pending#github`);
     const section = page.getByRole('region', { name: 'GitHub', exact: true });
     await expect(section).toContainText('Approval needed');
     await expect(section.getByRole('status')).toContainText('Waiting for GitHub approval');
@@ -156,7 +157,7 @@ test('commenters cannot see GitHub credentials or start a connection', async ({ 
         await commenter.goto(new URL(link!, baseURL!).href);
         await commenter.getByRole('button', { name: 'Accept invitation' }).click();
         await commenter.waitForURL(url => url.pathname === '/brand');
-        await commenter.goto(`${baseURL}/app/projects/${projectId}/settings`);
+        await commenter.goto(`${baseURL}/app/projects/${projectId}/settings/integrations`);
         await expect(commenter.getByRole('region', { name: 'GitHub', exact: true })).toHaveCount(0);
         const response = await commenter.request.get(`${baseURL}/app/github/connect?project=${projectId}`, { maxRedirects: 0 });
         expect(response.status()).toBe(404);

@@ -140,7 +140,7 @@ test.describe('dark theme and reduced motion', () => {
         await signIn(page, uniqueEmail('launch-routes'));
         const projectId = await createProject(page, { urls: [origin], name: 'Launch routes' });
         const settings = page.getByRole('region', { name: 'Page state' });
-        await page.goto(`/app/projects/${projectId}/settings`);
+        await page.goto(`/app/projects/${projectId}/settings/review`);
         await settings.getByLabel('Meaningful query fields').fill('tab');
         await settings.getByLabel('Use hash routes (#/page or #!/page)').check();
         await settings.getByRole('button', { name: 'Save', exact: true }).click();

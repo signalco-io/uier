@@ -27,7 +27,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
         path: basePath, position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Path-only feedback', authorName: 'Earlier reviewer'
     } });
     expect(old.status()).toBe(201);
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     await settings.getByLabel('Meaningful query fields').fill('category, tab');
     await settings.getByLabel('Use hash routes (#/page or #!/page)').check();
@@ -103,7 +103,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await cardA.getByRole('button', { name: /^Device:/ }).click();
     await expect(page.getByRole('dialog', { name: 'Device and browser' }).getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${viewA}`);
     // Removing routing fields does not reassign old feedback; direct links retain its saved details.
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/review`);
     await settings.getByLabel('Meaningful query fields').fill('');
     await settings.getByLabel('Use hash routes (#/page or #!/page)').uncheck();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
@@ -117,7 +117,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
 test('page-state settings reject sensitive fields and keep the attempted configuration', async ({ page }) => {
     await signIn(page, uniqueEmail('state-settings'));
     const projectId = await createProject(page, { urls: [site.origin()] });
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     await settings.getByLabel('Meaningful query fields').fill('category, session_token');
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
@@ -137,7 +137,7 @@ test('settings suggest query fields seen in recent comments', async ({ page }) =
     const response = await posted;
     expect(response.request().postDataJSON().queryKeys).toEqual(['sort']);
     expect(JSON.stringify(await response.json())).not.toContain('queryKeys');
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     const suggestions = settings.getByRole('group', { name: 'Query fields seen in recent comments' });
     await expect(suggestions.getByRole('button')).toHaveText(['sort']);
