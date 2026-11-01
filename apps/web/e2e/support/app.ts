@@ -98,7 +98,7 @@ export async function appNavigation(page: Page) {
     const navigation = page.getByRole('navigation', { name: 'App' });
     const toggle = page.getByRole('button', { name: 'Toggle sidebar' });
     // A sheet that is still closing (after a link) can't be used
-    await expect(sidebarSheet(page).and(page.locator('[data-state="closed"]'))).toHaveCount(0);
+    await expect(sidebarSheet(page).and(page.locator('[data-closed]'))).toHaveCount(0);
     if (!await navigation.isVisible() && await toggle.isVisible())
         await toggle.click();
     await expect(navigation).toBeVisible();
@@ -110,7 +110,7 @@ export async function appNavigation(page: Page) {
 export async function closeAppNavigation(page: Page) {
     const sheet = sidebarSheet(page);
     // Read atomically: a closing sheet can unmount between count() and getAttribute().
-    if (await sheet.evaluateAll(elements => elements.some(element => element.getAttribute('data-state') === 'open')))
+    if (await sheet.evaluateAll(elements => elements.some(element => element.hasAttribute('data-open'))))
         await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
 }

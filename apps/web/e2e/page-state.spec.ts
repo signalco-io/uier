@@ -30,7 +30,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await page.goto(`/app/projects/${projectId}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     await settings.getByLabel('Meaningful query fields').fill('category, tab');
-    await settings.getByLabel('Use hash routes (#/page or #!/page)').check();
+    await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status')).toContainText('Saved.');
     await expect(settings.getByRole('checkbox')).toBeChecked();
@@ -105,7 +105,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     // Removing routing fields does not reassign old feedback; direct links retain its saved details.
     await page.goto(`/app/projects/${projectId}/settings/review`);
     await settings.getByLabel('Meaningful query fields').fill('');
-    await settings.getByLabel('Use hash routes (#/page or #!/page)').uncheck();
+    await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).uncheck();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status')).toContainText('Saved.');
     await expect(settings.getByRole('checkbox')).not.toBeChecked();

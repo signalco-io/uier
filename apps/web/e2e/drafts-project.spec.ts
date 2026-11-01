@@ -15,7 +15,7 @@ test('authorized reviewer, project and canonical query/hash scopes survive SPA n
     await page.goto(`/app/projects/${project}/settings/review`);
     const settings = page.getByRole('region', { name: 'Page state' });
     await settings.getByLabel('Meaningful query fields').fill('tab');
-    await settings.getByLabel('Use hash routes (#/page or #!/page)').check();
+    await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status')).toContainText('Saved.');
     const view = `/${project}/search?tab=a#/catalog`;
