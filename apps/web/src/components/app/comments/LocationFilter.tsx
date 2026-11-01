@@ -117,21 +117,16 @@ export function LocationFilter({ environment, environments, page, pages, onEnvir
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" aria-label={`Environment and page: ${summary}`} className="max-w-80 min-w-36 justify-between font-normal">
-                    {prefix !== undefined ? <FolderIcon data-icon="inline-start" className="text-muted-foreground" />
-                        : page ? <FileIcon data-icon="inline-start" className="text-muted-foreground" />
-                            : <GlobeIcon data-icon="inline-start" className="text-muted-foreground" />}
-                    <span className={cn('min-w-0 flex-1 truncate text-left', page && 'font-mono text-[13px]')}>{summary}</span>
-                    <ChevronDownIcon data-icon="inline-end" className="text-muted-foreground" />
-                </Button>
+            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={`Environment and page: ${summary}`} className="max-w-80 min-w-36 justify-between font-normal" />}>
+                {prefix !== undefined ? <FolderIcon data-icon="inline-start" className="text-muted-foreground" />
+                    : page ? <FileIcon data-icon="inline-start" className="text-muted-foreground" />
+                        : <GlobeIcon data-icon="inline-start" className="text-muted-foreground" />}
+                <span className={cn('min-w-0 flex-1 truncate text-left', page && 'font-mono text-[13px]')}>{summary}</span>
+                <ChevronDownIcon data-icon="inline-end" className="text-muted-foreground" />
             </PopoverTrigger>
             {/* Environments left, their pages right (stacked on narrow screens); opens in the page search, so typing filters right away */}
             <PopoverContent align="start" className="grid w-[min(40rem,calc(100vw-2rem))] gap-0 p-0 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]" onKeyDown={moveFocus}
-                onOpenAutoFocus={event => {
-                    event.preventDefault();
-                    searchRef.current?.focus();
-                }}>
+                initialFocus={searchRef}>
                 <div role="group" aria-label="Environment" className="flex flex-col border-b p-1 sm:max-h-96 sm:overflow-y-auto sm:border-r sm:border-b-0">
                     <GroupLabel>Environment</GroupLabel>
                     <Option selected={!environment || environment === 'all'} icon={<GlobeIcon aria-hidden="true" />} label="All environments"
