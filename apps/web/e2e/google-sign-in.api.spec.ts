@@ -195,6 +195,8 @@ test('rule 4: a new address Google is not authoritative for creates nothing befo
     expect(result.user.email).toBe(email);
     expect(result.user.name).toBe(email.split('@')[0]);
     expect((await findUserByGoogleSubject(sub))?.id).toBe(result.user.id);
+    // Linked on the way in: the sign-in page marks Google as last used, not email
+    expect(result.method).toBe('google');
 });
 
 test('rule 4: an existing address needs one browser-bound email proof before the account is linked', async ({ google }) => {
@@ -264,7 +266,7 @@ test('rule 4: an email proof whose Google account was linked elsewhere meanwhile
     expect(await linkGoogleAccount(other.id, { sub, email })).toBe('linked');
     const request = await emailRequest(email, linkId);
     expect(await confirmSignInCode(request.requestId, request.code, request.binding)).toEqual({ user: expect.objectContaining({ id: user.id }),
-        next: '/app/account?google=taken' });
+        next: '/app/account?google=taken', method: 'email' });
     expect((await findUserByGoogleSubject(sub))?.id).toBe(other.id);
     expect(await getGoogleAccount(user.id)).toBeNull();
 });

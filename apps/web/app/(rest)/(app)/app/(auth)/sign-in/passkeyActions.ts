@@ -40,6 +40,6 @@ export async function passkeySignInAction(response: unknown, next: unknown): Pro
             unknownCredential: outcome.credentialId ? { rpId: context.rp.id, credentialId: outcome.credentialId } : undefined
         };
 
-    await startSession(outcome.value.id);
+    await startSession(outcome.value.id, 'passkey');
     redirect(safeNextPath(next) ?? KnownPages.App);
 }

@@ -8,16 +8,17 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { forgetPasskey, passkeyPromptError } from '@/src/components/app/passkeyCeremony';
 import { passkeySignInAction, passkeySignInOptionsAction } from './passkeyActions';
+import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
 
 const subscribe = () => () => undefined;
 
 /**
- * "Sign in with a passkey", the first sign-in option, and with `autofill` (once the email form is
+ * "Passkey" ("Sign in with a passkey" to assistive technologies), the first sign-in option, and with `autofill` (once the email form is
  * open) the passkeys the browser offers in the email field's autofill (conditional mediation: the
  * field has `autocomplete="email webauthn"`). Hidden in browsers without WebAuthn. Each prompt gets
  * a new challenge, which replaces the earlier one.
  */
-export function PasskeySignIn({ next, autofill }: { next?: string; autofill: boolean }) {
+export function PasskeySignIn({ next, autofill, lastUsed }: { next?: string; autofill: boolean; lastUsed?: boolean }) {
     // Rendered on the server as supported (nearly every browser is), so the card doesn't shift.
     const supported = useSyncExternalStore(subscribe, browserSupportsWebAuthn, () => true);
     const [error, setError] = useState<string>();
@@ -87,9 +88,11 @@ export function PasskeySignIn({ next, autofill }: { next?: string; autofill: boo
         return null;
     return (
         <>
-            <Button type="button" variant="outline" size="lg" className="w-full" disabled={pending} onClick={() => void signInWithButton()}>
+            <Button type="button" variant="outline" size="lg" className="relative w-full" disabled={pending} onClick={() => void signInWithButton()}
+                aria-label="Sign in with a passkey" aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
                 {pending ? <Spinner data-icon="inline-start" /> : <KeyRoundIcon data-icon="inline-start" />}
-                Sign in with a passkey
+                Passkey
+                {lastUsed && <LastUsedBadge />}
             </Button>
             <FormMessage state={error ? { ok: false, error } : null} />
         </>
