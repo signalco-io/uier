@@ -1,3 +1,4 @@
+import { ScreenshotImage } from '../screenshotImage';
 'use client';
 
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -152,14 +153,14 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                 className="z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3"
                 trigger={(
                     <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={screenshotAlt} title="Expand screenshot">
-                        <img src={data} width={size.width} height={size.height} alt={screenshotAlt}
+                        <ScreenshotImage src={data} width={size.width} height={size.height} alt={screenshotAlt}
                             className="block h-16 w-24 rounded-lg border object-contain" />
                     </Button>
                 )}>
                 <Button variant="plain" className="min-h-11 self-end" disabled={busy} onClick={() => { setOpen(false); setEditing(false); }}>Close screenshot</Button>
                 {editing ? <ScreenshotRedaction key={size.revision ?? 'original'} data={data} pending={replacement.isPending}
                     onSave={replace} onCancel={() => setEditing(false)} /> : <>
-                    <img src={data} width={size.width} height={size.height} alt="Expanded screenshot"
+                    <ScreenshotImage src={data} width={size.width} height={size.height} alt="Expanded screenshot"
                         className="block min-h-0 w-full object-contain" />
                     {canReplace && (
                         <div className="flex flex-wrap items-center gap-1">

@@ -65,3 +65,8 @@ Thumbs.db
 # Geist files copied from the pinned geist package before dev/build
 apps/web/public/toolbar-fonts/*.woff2
 apps/web/public/toolbar-fonts/LICENSE.txt
+
+# Packaged extension test and release output
+apps/extension/dist-test/
+apps/extension/dist-hosted-test/
+apps/extension/release/

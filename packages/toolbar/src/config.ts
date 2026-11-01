@@ -1,3 +1,4 @@
+import { runtimeAdapters } from './adapters';
 /**
  * Toolbar configuration, read synchronously while the toolbar script runs.
  *
@@ -125,4 +126,4 @@ export function readToolbarConfig(): ToolbarConfig {
 }
 
 /** Configuration of this toolbar instance (read once, while the script runs) */
-export const toolbarConfig = runtimeContext.config ?? readToolbarConfig();
+export const toolbarConfig = runtimeAdapters()?.config ?? runtimeContext.config ?? readToolbarConfig();

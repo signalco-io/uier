@@ -1,3 +1,5 @@
+import { runtimeAdapters } from '../adapters';
+const storage = () => runtimeAdapters()?.draftStorage ?? localStorage;
 import type { CommentAnchor, Mention } from '../components/@types/Comments';
 
 export const draftStoragePrefix = 'uier:draft:v1:';
@@ -41,14 +43,15 @@ const memory = new Map<string, Map<string, RecordValue>>();
 const listeners = new Map<string, Set<() => void>>();
 const notify = (key: string) => listeners.get(key)?.forEach(listener => listener());
 const pendingSends = new Map<string, Promise<unknown>>();
+export function clearDraftMemory() { memory.clear(); pendingSends.clear(); }
 
 /** Clear browser-local drafts on sign-out, including stores owned by unmounted composers. */
 export function clearDraftScopes(scope: string[]) {
     const prefix = `${draftStoragePrefix}${JSON.stringify(scope).slice(0, -1)},`;
     for (const [key, records] of memory) if (key.startsWith(prefix)) records.clear();
     try {
-        const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
-        for (const key of keys) if (key?.startsWith(prefix)) localStorage.removeItem(key);
+        const keys = Array.from({ length: storage().length }, (_, index) => storage().key(index));
+        for (const key of keys) if (key?.startsWith(prefix)) storage().removeItem(key);
     } catch { /* Memory is still cleared when storage is blocked. */ }
     for (const key of listeners.keys()) if (key.startsWith(prefix)) notify(key);
 }
@@ -60,10 +63,10 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
     memory.set(prefix, values);
     let available = persistent;
     const storageKeys = () => persistent
-        ? Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+        ? Array.from({ length: storage().length }, (_, index) => storage().key(index))
         : [];
     const remove = (key: string) => {
-        try { if (persistent) localStorage.removeItem(prefix + key); } catch { available = false; }
+        try { if (persistent) storage().removeItem(prefix + key); } catch { available = false; }
         values.delete(key);
         notify(prefix + key);
     };
@@ -71,7 +74,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         let value = values.get(key);
         if (!value) {
             try {
-                const raw = persistent ? localStorage.getItem(prefix + key) : null;
+                const raw = persistent ? storage().getItem(prefix + key) : null;
                 if (raw && raw.length <= maxDraftRecordLength) value = JSON.parse(raw) as RecordValue;
             } catch { available = false; }
             if (value?.sending && typeof value.text === 'string') value = recoverSending(value);
@@ -114,7 +117,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
     const write = (key: string, value: RecordValue) => {
         values.set(key, value);
         if (persistent) onWrite?.();
-        try { if (persistent) { localStorage.setItem(prefix + key, JSON.stringify(value)); available = true; } }
+        try { if (persistent) { storage().setItem(prefix + key, JSON.stringify(value)); available = true; } }
         catch { available = false; }
         notify(prefix + key);
     };
@@ -123,10 +126,10 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         for (const key of storageKeys()) {
             if (!key?.startsWith(draftStoragePrefix)) continue;
             try {
-                const raw = localStorage.getItem(key);
+                const raw = storage().getItem(key);
                 const value = raw && raw.length <= maxDraftRecordLength ? JSON.parse(raw) as RecordValue : undefined;
-                if (!value || !Number.isFinite(value.updatedAt) || value.updatedAt + draftLifetimeMs <= Date.now()) localStorage.removeItem(key);
-            } catch { localStorage.removeItem(key); }
+                if (!value || !Number.isFinite(value.updatedAt) || value.updatedAt + draftLifetimeMs <= Date.now()) storage().removeItem(key);
+            } catch { storage().removeItem(key); }
         }
     } catch { available = false; }
     return {
@@ -152,7 +155,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             for (const [key, records] of memory) if (key.startsWith(reviewerPrefix)) records.clear();
             try {
                 for (const key of storageKeys()) {
-                    if (key?.startsWith(reviewerPrefix)) localStorage.removeItem(key);
+                    if (key?.startsWith(reviewerPrefix)) storage().removeItem(key);
                 }
             } catch { available = false; }
             for (const key of listeners.keys()) if (key.startsWith(reviewerPrefix)) notify(key);

@@ -1,3 +1,4 @@
+import { runtimeAdapters } from '../adapters';
 import { toolbarConfig } from '../config';
 import { runtimeContext } from '../runtimeContext';
 
@@ -16,6 +17,7 @@ const pendingCodeKey = `uier:review-code:v1:${toolbarConfig.apiUrl}:${toolbarCon
 const signInDisabledKey = `uier:auto-sign-in-disabled:${toolbarConfig.apiUrl}:${toolbarConfig.project}`;
 
 function read(key: string) {
+    if (runtimeAdapters()) return undefined;
     try {
         return window.localStorage.getItem(key) ?? undefined;
     } catch {
@@ -24,6 +26,7 @@ function read(key: string) {
 }
 
 function write(key: string, value: string | undefined) {
+    if (runtimeAdapters()) return;
     try {
         if (value === undefined) {
             window.localStorage.removeItem(key);
@@ -37,7 +40,7 @@ function write(key: string, value: string | undefined) {
 
 const sessionState = runtimeContext.projectSession ??= {
     memory: new Map<string, string>(),
-    initialReviewCode: toolbarConfig.project ? new URL(window.location.href).searchParams.get(reviewTokenParam) : undefined
+    initialReviewCode: !runtimeAdapters() && toolbarConfig.project ? new URL(window.location.href).searchParams.get(reviewTokenParam) : undefined
 };
 const memory = sessionState.memory;
 
@@ -71,10 +74,11 @@ if (initialReviewCode && /^[A-Za-z0-9_-]{43}$/.test(initialReviewCode)) {
     // Persist before removing it: a host's own SSO redirect can unload this page during verification.
     try { window.sessionStorage.setItem(pendingCodeKey, JSON.stringify({ code: initialReviewCode, expiresAt: Date.now() + 10 * 60_000 })); } catch { /* Memory fallback below. */ }
 }
-if (toolbarConfig.project) takeUrlParam(reviewTokenParam);
+if (!runtimeAdapters() && toolbarConfig.project) takeUrlParam(reviewTokenParam);
 
 /** The single-use code of the review link this page was opened with (once) */
 export function consumeReviewCode() {
+    if (runtimeAdapters()) return undefined;
     try {
         const pending = JSON.parse(window.sessionStorage.getItem(pendingCodeKey) ?? 'null');
         if (pending && typeof pending.code === 'string' && /^[A-Za-z0-9_-]{43}$/.test(pending.code) && pending.expiresAt > Date.now()) return pending.code as string;

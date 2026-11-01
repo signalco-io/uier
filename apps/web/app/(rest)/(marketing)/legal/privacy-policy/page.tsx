@@ -21,6 +21,24 @@ export default function PrivacyPolicyPage() {
                 responsible for the data described here (&ldquo;we&rdquo;).
             </p>
 
+            <h2>Browser extension development preview</h2>
+            <p>
+                If you use the unreleased desktop extension, it sends the current site origin to find
+                projects you can access only when you open the extension. Start review activates that
+                tab. Submitted comments, selected text, anchors, reviewed page details and screenshots
+                use the same project access and retention rules described below. The extension captures
+                the visible viewport for feedback evidence and requests no browser history or cookie access.
+            </p>
+            <p>
+                Extension credentials, active tabs and unsent text drafts stay in extension session
+                storage, separate from the reviewed site. Drafts expire after seven days or when the
+                browser session ends, whichever comes first. Images are never stored in drafts.
+                Sign-out clears this storage and revokes the server session. The server keeps a
+                separate extension session for up to eight hours and one-use sign-in handoffs for
+                up to 60 seconds. Browser verification uses BotID on uier, with cookies omitted.
+                The extension has no public store listing yet.
+            </p>
+
             <h2>In short</h2>
             <ul>
                 <li>Reading the site sets no cookies and stores nothing in your browser.</li>
