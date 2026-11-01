@@ -594,6 +594,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={() => {
                             const itemId = confirmingReply;
+                            setConfirmingDelete(false);
+                            setConfirmingReply(undefined);
                             run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? 'Reply deleted.' : 'Comment deleted.');
                         }}>
                             Delete

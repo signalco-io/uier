@@ -133,7 +133,7 @@ function SlackManagement({ projectId, settings }: { projectId: string; settings:
                 <Button type="button" variant="outline" disabled={pending || Boolean(connection.backfill && !connection.backfill.done)} onClick={() => setDialog('backfill')}>Send existing feedback to Slack</Button>
             </>}
             <AlertDialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null); }}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending} onClick={() => setDialog('disconnect')}>Disconnect Slack</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} onClick={() => setDialog('disconnect')} />}>Disconnect Slack</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>{dialog === 'backfill' ? 'Send existing feedback to Slack?' : 'Disconnect Slack from this project?'}</AlertDialogTitle>
                         <AlertDialogDescription>{dialog === 'backfill'
@@ -141,7 +141,7 @@ function SlackManagement({ projectId, settings }: { projectId: string; settings:
                             : 'Stops future notifications from this project. Existing Slack messages remain. Other projects keep their connections.'}</AlertDialogDescription></AlertDialogHeader>
                     <FormMessage state={result && !result.ok ? result : null} />
                     <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction variant={dialog === 'backfill' ? 'default' : 'outline'} disabled={pending} onClick={event => { event.preventDefault(); change(dialog === 'backfill' ? 'backfill' : 'disconnect'); }}>
+                        <AlertDialogAction variant={dialog === 'backfill' ? 'default' : 'outline'} disabled={pending} onClick={() => change(dialog === 'backfill' ? 'backfill' : 'disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}{dialog === 'backfill' ? 'Send existing feedback' : 'Disconnect Slack'}
                         </AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>

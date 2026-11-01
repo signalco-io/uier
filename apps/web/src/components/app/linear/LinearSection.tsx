@@ -210,7 +210,7 @@ function LinearManagement({ projectId, settings }: { projectId: string; settings
                 Backfill existing feedback
             </Button>}
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect Linear</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect Linear</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Disconnect Linear from this project?</AlertDialogTitle>
@@ -219,7 +219,7 @@ function LinearManagement({ projectId, settings }: { projectId: string; settings
                     <FormMessage state={state && !state.ok ? state : null} />
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>
+                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}Disconnect Linear
                         </AlertDialogAction>
                     </AlertDialogFooter>

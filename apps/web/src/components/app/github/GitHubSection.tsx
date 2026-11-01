@@ -169,7 +169,7 @@ function GitHubManagement({ projectId, settings }: { projectId: string; settings
             </Button>}
             {canSync && connection.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(connection.backfill && !connection.backfill.done)} onClick={() => change('backfill')}>Backfill GitHub feedback</Button>}
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect GitHub</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect GitHub</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Disconnect GitHub from this project?</AlertDialogTitle>
@@ -178,7 +178,7 @@ function GitHubManagement({ projectId, settings }: { projectId: string; settings
                     <FormMessage state={result && !result.ok ? result : null} />
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>
+                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}Disconnect GitHub
                         </AlertDialogAction>
                     </AlertDialogFooter>

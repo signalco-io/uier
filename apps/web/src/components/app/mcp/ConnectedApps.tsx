@@ -80,9 +80,7 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
             </ItemContent>
             <ItemActions>
                 <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="outline" aria-label={`Revoke ${app.name}`}>Revoke</Button>
-                    </AlertDialogTrigger>
+                    <AlertDialogTrigger render={<Button variant="outline" aria-label={`Revoke ${app.name}`} />}>Revoke</AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle className="break-words">Revoke {app.name}?</AlertDialogTitle>
@@ -91,7 +89,7 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                         <FormMessage state={state} />
                         <AlertDialogFooter>
                             <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive" disabled={pending} onClick={event => { event.preventDefault(); revoke(); }}>
+                            <AlertDialogAction variant="destructive" disabled={pending} onClick={() => revoke()}>
                                 {pending && <Spinner data-icon="inline-start" />}
                                 Revoke
                             </AlertDialogAction>

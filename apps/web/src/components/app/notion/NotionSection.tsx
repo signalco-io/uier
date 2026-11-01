@@ -178,7 +178,7 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
         <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogContent><AlertDialogHeader>
             <AlertDialogTitle>Switch Notion database?</AlertDialogTitle><AlertDialogDescription>Future changes create pages in {options.dataSourceName}. Existing pages stay in the previous database. Backfill can queue existing shared feedback for the new destination.</AlertDialogDescription>
         </AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={pending}>Keep current database</AlertDialogCancel>
-            <AlertDialogAction disabled={pending} onClick={event => { event.preventDefault(); confirmed.current = true; setConfirming(false); form.current?.requestSubmit(); confirmed.current = false; }}>Switch database</AlertDialogAction>
+            <AlertDialogAction disabled={pending} onClick={() => { confirmed.current = true; setConfirming(false); form.current?.requestSubmit(); confirmed.current = false; }}>Switch database</AlertDialogAction>
         </AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>;
 }
@@ -212,11 +212,11 @@ function NotionManagement({ projectId, settings }: { projectId: string; settings
         {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
             {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? 'Turn sync off' : 'Turn sync on'}</Button>}
         {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>Backfill existing feedback</Button>}
-        <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect Notion</Button></AlertDialogTrigger>
+        <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect Notion</AlertDialogTrigger>
             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Disconnect Notion from this project?</AlertDialogTitle>
                 <AlertDialogDescription>Stops future sync from this project. Existing pages and files remain in Notion. Other projects keep their connections.</AlertDialogDescription>
             </AlertDialogHeader><FormMessage state={state && !state.ok ? state : null} /><AlertDialogFooter><AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>{pending && <Spinner data-icon="inline-start" />}Disconnect Notion</AlertDialogAction>
+                <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>{pending && <Spinner data-icon="inline-start" />}Disconnect Notion</AlertDialogAction>
             </AlertDialogFooter></AlertDialogContent>
         </AlertDialog>
     </div>

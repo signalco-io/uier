@@ -249,7 +249,7 @@ function AzureDevOpsManagement({ projectId, settings }: { projectId: string; set
                 Backfill existing feedback
             </Button>}
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect Azure DevOps</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect Azure DevOps</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Disconnect Azure DevOps from this project?</AlertDialogTitle>
@@ -258,7 +258,7 @@ function AzureDevOpsManagement({ projectId, settings }: { projectId: string; set
                     <FormMessage state={state && !state.ok ? state : null} />
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>
+                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}Disconnect Azure DevOps
                         </AlertDialogAction>
                     </AlertDialogFooter>

@@ -182,9 +182,7 @@ function RemovePasskey({ passkey }: { passkey: PasskeyView }) {
     });
     return (
         <AlertDialog open={confirming} onOpenChange={setConfirming}>
-            <AlertDialogTrigger asChild>
-                <Button variant="outline" aria-label={`Remove ${passkey.name}`}>Remove</Button>
-            </AlertDialogTrigger>
+            <AlertDialogTrigger render={<Button variant="outline" aria-label={`Remove ${passkey.name}`} />}>Remove</AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="break-words">Remove {passkey.name}?</AlertDialogTitle>
@@ -193,7 +191,7 @@ function RemovePasskey({ passkey }: { passkey: PasskeyView }) {
                 <FormMessage state={state} />
                 <AlertDialogFooter>
                     <AlertDialogCancel disabled={pending}>Keep passkey</AlertDialogCancel>
-                    <AlertDialogAction variant="destructive" disabled={pending} onClick={event => { event.preventDefault(); remove(); }}>
+                    <AlertDialogAction variant="destructive" disabled={pending} onClick={() => remove()}>
                         {pending && <Spinner data-icon="inline-start" />}
                         Remove
                     </AlertDialogAction>
