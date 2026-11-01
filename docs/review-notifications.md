@@ -212,7 +212,7 @@ DNS validation. The published rejection policy remains mandatory.
 | notify.uier.io prepared and verified | #193 deployed; all four supported Azure states Verified in run 40864313704 |
 | Authoritative transactional DMARC policy | Both authoritative servers serve the full rejection policy; verification workflow passed |
 | Sender identity and in-place link | #196 deployed; ACS display name `uier`, notify domain linked, Vercel production sender `donotreply@notify.uier.io` |
-| Real report receipt/message-id correlation | Confirmed against the received digest, production ledger and report receipt; separate matching-variable deployment required |
+| Real report receipt/message-id correlation | Confirmed against the received digest, production ledger and report receipt; production matching enabled by #274 and verified after deployment |
 | Received-message authentication, display name and headers | SPF/DKIM/DMARC pass, display name `uier`, and both unsubscribe headers present |
 | DKIM covers unsubscribe headers | No: ACS signs `from:to:cc:subject:date:messageid`, omitting both unsubscribe headers |
 
@@ -227,8 +227,8 @@ Local coverage includes `emailReports.api.spec.ts` (auth, expected handshake, du
 failure and unknown/matching operations), `notificationTransport.api.spec.ts` (ACS headers and
 retry preservation), `notifications.api.spec.ts` (bounce, failed reads, one-click and invalid
 capabilities), `users.spec.ts` (admin notice) and `app.spec.ts` (requested sign-in clears suppression).
-The received-message and correlation gates are resolved. Issue #132 remains open until the
-separate production matching-variable deployment and readback complete.
+The received-message, correlation and production matching gates are complete. The receipt below
+records the independently verified deployment and its limits.
 
 ### Production digest verification
 
@@ -254,8 +254,18 @@ failed, and this receipt does not claim the notification backlog is clear.
   The receipt retains its 30-day TTL. At readback the ledger was inactive with zero failures.
 
 Production configuration readback confirmed the matching flag was absent before this change.
-The follow-up Pulumi change adds only `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` for production.
-Deployment/readback are pending; no old report is replayed and no synthetic provider event is sent.
+[#274's reviewed preview](https://github.com/signalco-io/uier/pull/274#issuecomment-6565317893)
+showed exactly one environment-variable creation and 104 unchanged resources. Its
+[production deployment](https://github.com/signalco-io/uier/actions/runs/41360983038) succeeded
+with the same resource counts and a successful web deployment.
+
+Independent readback on 2 November confirmed `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1`, scoped only
+to production. Vercel's Ready production target for commit `9ac867a71e141aaaaea36a1dd041bb613da85712`
+includes the canonical `uier.io` alias. A credential-free report POST still returns 401 with
+`Cache-Control: no-store`. No old report was replayed, no synthetic provider event was sent,
+and no infrastructure was applied locally. Validation passed workspace typecheck/build and the
+default browser/API suite (535 passed, one skipped, no retries), plus infrastructure
+typecheck/build and all 21 tests.
 
 
 ### Historical rollout evidence
@@ -388,9 +398,9 @@ Independent readback on 29 October confirmed:
 - The canonical production deployment is Ready; credential-free report POST returns 401 with
   `Cache-Control: no-store`.
 
-No test message was sent. A recipient-authorized production digest is still required to prove the
-inbox display name, received-message authentication, report correlation and unsubscribe-header
-integrity/coverage. These remain separate from successful configuration and deployment.
+No test message was sent during sender activation. The later
+[production digest verification](#production-digest-verification) completed the received-message,
+report correlation and unsubscribe-header checks independently of configuration and deployment.
 
 ## Retention and deletion
 
