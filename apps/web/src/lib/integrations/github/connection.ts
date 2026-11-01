@@ -197,6 +197,7 @@ export async function saveGitHubRepository(input: GitHubSetupInput & { repositor
         && old.doc.config.botId === current.stored.doc.botId;
     const connection: GitHubConnection = { type: 'github-connection', provider: 'github', id: key, pk: workspacePk(input.workspaceId),
         workspaceId: input.workspaceId, projectId: input.projectId, connectedBy: input.userId, enabled: true, status: 'connected',
+        twoWaySync: sameTarget && old?.doc.twoWaySync === true,
         destinationRevision: sameTarget ? old!.doc.destinationRevision : (old?.doc.destinationRevision ?? 0) + 1, createdAt: old?.doc.createdAt ?? now, updatedAt: now,
         config: { installationId: current.stored.doc.installationId, repositoryId: id, repositoryNodeId: String(selected.node_id),
             owner: selected.owner.login, name: selected.name, private: selected.private === true, botId: current.stored.doc.botId,

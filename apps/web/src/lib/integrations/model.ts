@@ -19,6 +19,8 @@ export type IntegrationConnection = AppDoc & {
     projectId: string;
     connectedBy: string;
     enabled: boolean;
+    /** Opt-in provider-to-uier status updates. Outbound copying remains independently enabled. */
+    twoWaySync?: boolean;
     status: 'connected' | 'needs_reconnect' | 'paused';
     statusCode?: string;
     pausedUntil?: string;
@@ -73,6 +75,8 @@ export type IntegrationSync = AppDoc & {
     attempt?: IntegrationAttempt;
     status: 'queued' | 'waiting' | 'accepted' | 'suppressed' | 'failed' | 'ambiguous';
     lastCode?: string;
+    statusCheckedAt?: string;
+    statusSyncCode?: string;
     state: IntegrationState;
 };
 
@@ -100,6 +104,9 @@ export type IntegrationDeliveryContext = {
     readonly through: number;
     readonly deadline: number;
     readonly baseUrl: string;
+    /** Read the existing managed copy only. Never create, update or clean up provider content. */
+    readonly statusOnly?: boolean;
+    receiveStatus?(resolved: boolean): Promise<void>;
     /** A safe read still checks authority and the provider's remaining budget. */
     read<T>(send: (signal: AbortSignal) => Promise<T>): Promise<T>;
     /** Persist-before-send. An uncertain non-repeatable operation cannot be blindly replayed. */
@@ -114,6 +121,7 @@ export type IntegrationAdapter = {
     /** A maximum; the fair worker allowance can be smaller. */
     maxRunMs?: number;
     maxCalls?: number;
+    supportsStatusSync?: boolean;
     /** Provider access/schema maintenance, without any feedback projection. */
     maintenance?(options: { deadline: number; maxCalls: number }): Promise<{ calls: number; deferred?: number }>;
     /** Must reconcile ledger.attempt before planning another create, even during cleanup. */

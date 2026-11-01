@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { pathToFileURL } from 'node:url';
 
 export type StubLinearIssue = { id: string; identifier: string; url: string; title: string; description: string; creator: { id: string };
-    team: { id: string }; project: { id: string } | null; state: { id: string }; labels: { nodes: { id: string }[] }; trashed: boolean; archivedAt: string | null };
+    team: { id: string }; project: { id: string } | null; state: { id: string; type?: string }; labels: { nodes: { id: string }[] }; trashed: boolean; archivedAt: string | null };
 export type StubLinearComment = { id: string; body: string; user: { id: string }; issue: { id: string } };
 export type LinearFault = 'rate_limit' | 'partial' | 'lost' | 'forbidden' | 'invalid_success' | 'unauthenticated' | 'invalid_input';
 export type LinearStub = Awaited<ReturnType<typeof startLinearStub>>;

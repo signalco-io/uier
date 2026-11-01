@@ -72,6 +72,19 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             if (current !== remote.projectName) throw new AzureDevOpsSetupError('external_work_item_changed');
             copy.projectName = current;
         };
+        const remoteResolved = async (remote: RemoteWorkItem, copy: AzureDevOpsWorkItem, config: AzureDevOpsDestination) => {
+            if (remote.state === config.doneState) return true;
+            if (remote.state === config.openState) return false;
+            const category = await read(azureDevOpsUrl(copy.organization, `${copy.projectId}/_apis/wit/workitemtypes`), ({ body }) => {
+                if (!object(body) || !Array.isArray(body.value)) throw new AzureDevOpsApiError('invalid_response');
+                const type = body.value.find(value => object(value) && value.name === copy.workItemType);
+                if (!object(type) || !Array.isArray(type.states)) throw new AzureDevOpsApiError('invalid_response');
+                const state = type.states.find(value => object(value) && value.name === remote.state);
+                return object(state) ? state.category : undefined;
+            });
+            return category === 'Resolved' || category === 'Completed' ? true
+                : category === 'Proposed' || category === 'InProgress' ? false : undefined;
+        };
         /** Finds a create whose response was lost by its marker, among the work items created around that time. */
         const reconcile = async (copy: AzureDevOpsWorkItem): Promise<number | 'absent' | 'pending'> => {
             const started = Date.parse(copy.createStartedAt ?? '');
@@ -102,6 +115,21 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             return Date.now() - started < CREATE_SETTLE_MS ? 'pending' : 'absent';
         };
         const settleAt = (copy: AzureDevOpsWorkItem) => new Date(Date.parse(copy.createStartedAt ?? '') + CREATE_SETTLE_MS).toISOString();
+
+        if (context.statusOnly) {
+            const config = destination(connection);
+            const copy = state.item;
+            if (!copy?.id || copy.cleaned || copy.scrubbed || copy.deleted || copy.cleanupStarted
+                || copy.destinationRevision !== connection.destinationRevision || copy.organization !== config.organization
+                || copy.projectId !== config.projectId || copy.workItemType !== config.workItemType) return { status: 'accepted' };
+            const remote = await maybeWorkItem(copy);
+            if (!remote) return { status: 'accepted' };
+            await owned(remote, copy);
+            if (!remote.body.includes(copy.marker)) throw new AzureDevOpsSetupError('external_work_item_changed');
+            const resolved = await remoteResolved(remote, copy, config);
+            if (resolved !== undefined) await context.receiveStatus?.(resolved);
+            return { status: 'accepted' };
+        }
 
         // Reconcile a previous run's operation before planning anything else, including cleanup.
         const attempt = context.ledger.attempt;
@@ -200,7 +228,9 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         if (copy.bodyHash !== bodyHash) changes.push({ op: 'add', path: '/fields/System.Title', value: projection.title },
             { op: 'add', path: `/fields/${copy.bodyField}`, value: projection.html });
         // The mapped state follows uier's status changes only, so a team's own board moves are kept.
-        if (copy.status !== status && remote.state !== desiredState) changes.push({ op: 'add', path: '/fields/System.State', value: desiredState });
+        if (copy.status !== status && remote.state !== desiredState
+            && (!connection.twoWaySync || await remoteResolved(remote, copy, config) !== (status === 'done')))
+            changes.push({ op: 'add', path: '/fields/System.State', value: desiredState });
         if (changes.length) {
             await write('update_work_item', 'PATCH', azureDevOpsUrl(copy.organization, `_apis/wit/workitems/${copy.id}`), changes,
                 workItemDecoder(copy.bodyField), { workItemId: copy.id });
@@ -246,7 +276,7 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
     }
 }
 
-export const azureDevOpsAdapter: IntegrationAdapter = { provider: 'azure-devops', isConfigured: isAzureDevOpsConfigured, maxRunMs: 4 * 60_000, maxCalls: 100,
+export const azureDevOpsAdapter: IntegrationAdapter = { provider: 'azure-devops', isConfigured: isAzureDevOpsConfigured, maxRunMs: 4 * 60_000, maxCalls: 100, supportsStatusSync: true,
     deliver, externalLink(connection, ledger) {
         const copy = stateFrom(ledger.state).item;
         const config = (connection as AzureDevOpsConnection).config;

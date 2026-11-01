@@ -270,6 +270,12 @@ export default function PrivacyPolicyPage() {
                 under the service&rsquo;s own permissions.
             </p>
             <p>
+                Admins can optionally enable two-way status sync for Notion, GitHub, Linear and Azure DevOps.
+                We then read the status of known linked items and update Open or Done in uier. For Notion,
+                the admin chooses the status field and values. The option starts off and can be disabled
+                independently of sending feedback. We do not import provider discussions or other edits.
+            </p>
+            <p>
                 We store destination identifiers, connection settings, encrypted authorization grants
                 and delivery metadata in Cosmos DB. A shared installation grant may serve several
                 projects in the same uier workspace. Delivery records retain identifiers, hashes,

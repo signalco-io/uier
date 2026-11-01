@@ -18,6 +18,10 @@ import { LinearSection } from '@/src/components/app/linear/LinearSection';
 import { NotionSection } from '@/src/components/app/notion/NotionSection';
 import { SlackSection } from '@/src/components/app/slack/SlackSection';
 import { configurableProject } from '../../settingsContext';
+import { getIntegrationConnection } from '@/src/lib/integrations/connection';
+import { configuredIntegrationAdapters } from '@/src/lib/integrations/registry';
+import { TwoWaySync } from '@/src/components/app/integrations/TwoWaySync';
+import type { NotionConnection } from '@/src/lib/integrations/notion/model';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>): Promise<Metadata> {
     const { provider } = await params;
@@ -36,6 +40,9 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
     if (project.id === PUBLIC_PROJECT_ID)
         notFound();
     const query = await searchParams;
+    const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);
+    const connection = adapter?.supportsStatusSync ? await getIntegrationConnection(project, provider) : null;
+    const needsMapping = provider === 'notion' && !(connection as NotionConnection | null)?.config.mapping?.status;
     const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
 
     return (
@@ -44,6 +51,9 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
                 <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')}><ArrowLeft data-icon="inline-start" />All integrations</Link>
             </Button>
             <IntegrationSection provider={provider} project={project} userId={context.user.id} outcome={value(provider)} githubSetup={value('githubSetup')} />
+            {connection && <TwoWaySync key={connection.id} projectId={project.id} provider={provider}
+                enabled={connection.twoWaySync === true} canEnable={adapter!.isConfigured() && connection.status === 'connected' && !needsMapping}
+                needsMapping={needsMapping} />}
         </>
     );
 }

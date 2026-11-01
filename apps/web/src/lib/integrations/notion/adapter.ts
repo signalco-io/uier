@@ -19,7 +19,7 @@ const pathId = (id: string) => encodeURIComponent(notionId(id));
 
 /** All network calls go through the shared lease/authority/budget boundary. */
 export function createNotionAdapter(services: NotionServices = {}): IntegrationAdapter {
-    return { provider: 'notion', isConfigured: isNotionConfigured, maxRunMs: 8 * 60_000, maxCalls: 150,
+    return { provider: 'notion', isConfigured: isNotionConfigured, maxRunMs: 8 * 60_000, maxCalls: 150, supportsStatusSync: true,
         maintenance: input => probeNotionConnections(input, services),
         revokeAdmin: (workspaceId, userId) => revokeNotionAdmin(workspaceId, userId, services.store),
         externalLink(connection, ledger) {
@@ -300,6 +300,20 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                 return { status: ctx.ledger.deletion ? 'accepted' : 'suppressed', code: 'content_removed' };
             };
             try {
+                if (ctx.statusOnly) {
+                    const page = state.page; const mapping = connection.config.mapping?.status;
+                    if (!page || !mapping || page.trashed || page.scrubbed || page.scrubPending
+                        || !sameId(page.dataSourceId, connection.config.dataSourceId)
+                        || !sameId(page.notionWorkspaceId, connection.config.notionWorkspaceId)
+                        || JSON.stringify(page.mapping.status) !== JSON.stringify(mapping)) return { status: 'accepted' };
+                    const current = await verifyPage(page);
+                    if (current.in_trash || current.archived) return { status: 'accepted' };
+                    const property = pageProperty(current, mapping.property);
+                    if (property.type !== mapping.type) return { status: 'paused', code: 'mapping_invalid' };
+                    const name = object(property[mapping.type]).name;
+                    if (name === mapping.open || name === mapping.done) await ctx.receiveStatus?.(name === mapping.done);
+                    return { status: 'accepted' };
+                }
                 if (ctx.mode === 'cleanup') return await cleanupAllPages();
                 try {
                     const reconciliation = await reconcileAttempt(); if (reconciliation) return reconciliation;

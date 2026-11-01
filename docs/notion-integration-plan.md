@@ -1,5 +1,9 @@
 # Notion integration: implementation plan
 
+> Update, 1 November 2026: optional, default-off two-way **status** sync is implemented.
+> The [current status contract](integrations.md#two-way-status-sync) supersedes the original
+> one-way/status non-goals below. Other provider edits remain outside the import contract.
+
 Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 
 Architecture revised on 2026-10-28: Notion is the first provider on a shared integration layer. Separate plans cover [GitHub](github-integration-plan.md), [Linear](linear-integration-plan.md) and [Slack notifications](slack-integration-plan.md), including their verified API/authentication facts and remaining launch gates. All four adapters now share the implemented foundation; availability depends on each provider's configuration and acceptance gates.

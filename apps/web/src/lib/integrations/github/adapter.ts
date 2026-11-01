@@ -39,7 +39,7 @@ function canonicalUrl(destination: GitHubDestination, number: number) {
 
 export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs?: number } = {}): IntegrationAdapter {
     return {
-        provider: 'github', isConfigured: isGitHubConfigured, maxRunMs: 4 * 60_000, maxCalls: 60,
+        provider: 'github', isConfigured: isGitHubConfigured, maxRunMs: 4 * 60_000, maxCalls: 60, supportsStatusSync: true,
         async maintenance(budget) {
             if (!isGitHubConfigured()) return { calls: 0 };
             const result = await processGitHubWebhookEvents(budget, options.store ?? getAppStore());
@@ -262,6 +262,16 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                 await checkpoint();
             }
             try {
+                if (ctx.statusOnly) {
+                    const destination = state.active;
+                    if (!destination?.issue || destination.cleaned || destination.revision !== connection.destinationRevision
+                        || destination.installationId !== connection.config.installationId || destination.repositoryId !== connection.config.repositoryId)
+                        return { status: 'accepted' };
+                    await refreshRepository(destination);
+                    const current = await issue(destination);
+                    if (current.state === 'open' || current.state === 'closed') await ctx.receiveStatus?.(current.state === 'closed');
+                    return { status: 'accepted' };
+                }
                 if (state.active && state.active.installationId === connection.config.installationId && state.active.repositoryId === connection.config.repositoryId
                     && state.active.botId === connection.config.botId && (state.active.authorizedGitHubUserId !== connection.config.authorizedGitHubUserId
                         || state.active.authorizedAt !== connection.config.authorizedAt)) {

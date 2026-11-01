@@ -16,6 +16,7 @@ test('Integrations lists services to connect, then connected ones that open thei
     await available.getByRole('link', { name: 'Details about Slack', exact: true }).click();
     await expect(page).toHaveURL(`${baseURL}${overviewUrl}/slack`);
     await expect(page.getByRole('region', { name: 'Slack', exact: true })).toContainText('Not connected');
+    await expect(page.getByRole('region', { name: 'Two-way status sync', exact: true })).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Project settings' }).getByRole('link', { name: 'Integrations' })).toHaveAttribute('aria-current', 'page');
     await page.getByRole('link', { name: 'All integrations', exact: true }).click();
     await expect(page).toHaveURL(`${baseURL}${overviewUrl}`);
