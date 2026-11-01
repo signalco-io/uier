@@ -130,7 +130,7 @@ export function SignInForm({ next, alternatives, withEmail = false, lastUsed }: 
             ) : (
                 // A link, so it opens the form before hydration too (a full navigation to ?with=email)
                 <a href={signInHref(next, true)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
-                    aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+                    aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
                     <MailIcon data-icon="inline-start" />
                     Email
                     {lastUsed === 'email' && <LastUsedBadge />}

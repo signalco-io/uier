@@ -27,7 +27,7 @@ export function MicrosoftSignInButton({ next, lastUsed }: { next?: string; lastU
     return (
         // Full navigation: this route starts a sign-in and must never be prefetched.
         <a href={`${KnownPages.AppSignInMicrosoft}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
-            aria-label="Sign in with Microsoft" aria-describedby={lastUsed ? LAST_USED_ID : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+            aria-label="Sign in with Microsoft" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             {/* Official Microsoft asset, kept in its original colours. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/microsoft.svg" width={16} height={16} alt="" data-icon="inline-start" className="size-4 shrink-0" />

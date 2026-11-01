@@ -50,7 +50,7 @@ export function GoogleSignInButton({ next, lastUsed }: { next?: string; lastUsed
     return (
         // A plain link: a full navigation, never prefetched (the route starts a sign-in).
         <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
-            aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+            aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             <GoogleG />
             Google
             {lastUsed && <LastUsedBadge />}

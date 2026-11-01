@@ -233,8 +233,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   render them; `buttonVariants` returns `cn()`-merged classes; dialog and alert-dialog backdrops have
   `forceRender` (a dialog opened from the mobile sidebar sheet is nested). In tests, single-choice toggle
   groups are `button`s with `aria-pressed` in a `group` (not radios), Base UI checkboxes are found by role
-  (`getByLabel` also matches their hidden input), and a tab panel is found by its tab's name (the outgoing
-  panel stays mounted while it exits).
+  (`getByLabel` also matches their hidden input), a tab panel is found by its tab's name (the outgoing
+  panel stays mounted while it exits), and a test waits for a menu to finish opening
+  (`animationsFinished`) before pressing Escape or opening a submenu in it.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings, which has no sidebar entry of its own), active projects with

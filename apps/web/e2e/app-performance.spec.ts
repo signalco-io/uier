@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { toolbar } from './support/toolbar';
+import { animationsFinished, toolbar } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -97,6 +97,8 @@ test('status, assignment, follow and read changes render before the server confi
         await expect(card.getByRole('button', { name: /^More actions/ })).toBeEnabled();
         await card.getByRole('button', { name: /^More actions/ }).click();
         await expect(page.getByRole('menuitem', { name: 'Unfollow thread', exact: true })).toBeVisible();
+        // Base UI dismisses on Escape once the menu has opened
+        await animationsFinished(page.getByRole('menu'));
         await page.keyboard.press('Escape');
         pending = gate();
         await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
