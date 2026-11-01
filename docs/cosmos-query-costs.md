@@ -78,7 +78,9 @@ worker functions three times per version, loading the pre-change functions from 
 empty discovery and disabled external adapters. Both versions used **78.24 RU**, 25 queries,
 25 SDK pages and two point operations; mean elapsed time was 2,776 → 2,522 ms. Returned rows
 were 1 → 13 because twelve empty-list responses became scalar zero counts. The discovery
-cursor was persisted in Cosmos and deleted afterwards. These app-worker turns exclude comments
+cursor was persisted in Cosmos and deleted afterwards. Before the change, blocked-status lists
+contributed 33.60 RU (43% of this idle turn); the other thirteen queries contributed 36.40 RU,
+and cursor read/create contributed 8.24 RU. These app-worker turns exclude comments
 queries (measured by the production read-only probe), provider maintenance and the full scheduler's
 screenshot/erasure phases; they demonstrate no idle RU regression, not total scheduler savings.
 
@@ -212,6 +214,12 @@ pnpm build
 PORT=4304 PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test e2e/cosmos-queries.api.spec.ts e2e/notifications.api.spec.ts e2e/integrations.api.spec.ts e2e/integrationSignals.api.spec.ts e2e/blob-screenshots.api.spec.ts --project=API --retries=0
 pnpm test
 ```
+
+Validation on 2 November 2026: `pnpm typecheck`, `pnpm build` and the default `pnpm test`
+passed after integrating current main (547 web tests passed, one gated live test skipped;
+workspace extension/toolbar checks also passed). The focused affected API run passed 99 tests;
+the expanded boundary test passed separately. The three live measurement modes above provide
+the Cosmos RU evidence independently of those in-memory checks.
 
 ## Cost forecast, with unchanged frequency
 

@@ -11,7 +11,10 @@ const mode = process.argv[2];
 const [resourceGroup, account] = process.argv.slice(3);
 if (!['production-read-only', 'preview-synthetic', 'preview-idle'].includes(mode) || !resourceGroup || !account)
     throw new Error('Usage: node scripts/cosmos-query-profile.mjs production-read-only|preview-synthetic|preview-idle <resource-group> <account>');
-const az = (...args) => JSON.parse(execFileSync('az', [...args, '-o', 'json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+const az = (...args) => {
+    try { return JSON.parse(execFileSync('az', [...args, '-o', 'json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })); }
+    catch { throw new Error('Azure CLI access failed; raw output suppressed.'); }
+};
 const { documentEndpoint: endpoint } = az('cosmosdb', 'show', '-g', resourceGroup, '-n', account);
 // Keep keys in process memory. Production mode can only read, even if this script has a bug.
 const keys = az('cosmosdb', 'keys', 'list', '-g', resourceGroup, '-n', account,
