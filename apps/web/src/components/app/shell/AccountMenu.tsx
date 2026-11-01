@@ -62,9 +62,12 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
                         side={isMobile ? 'bottom' : 'right'}
                         align="end"
                         sideOffset={4}>
-                        <DropdownMenuLabel className="p-0 font-normal">
-                            <span className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">{person}</span>
-                        </DropdownMenuLabel>
+                        {/* Base UI's group label needs a group */}
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel className="p-0 font-normal">
+                                <span className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">{person}</span>
+                            </DropdownMenuLabel>
+                        </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
                             <DropdownMenuItem render={<Link href={KnownPages.AppAccount} />}>
