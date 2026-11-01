@@ -56,7 +56,7 @@ button/input, and deliberately styles host buttons to detect style leakage. The 
 downloaded and parsed when a review is inactive. The separate review script,
 styles and fonts load only when the review UI is needed; the loader still has a cost.
 
-- Current loader limits are **12,000 raw bytes / 5,000 gzip bytes**. Historical measurements below
+- Current loader limits are **7,500 raw bytes / 3,100 gzip bytes**. Historical measurements below
   describe the former single bundle. The review UI now loads separately; the request timing
   attachment includes that script. Compression is calculated from the built bytes, not a claim
   about CDN transfer encoding, cache hits or wire size.

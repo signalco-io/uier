@@ -1,7 +1,16 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { createHash } from 'node:crypto';
 import { Script } from 'node:vm';
+import { fileURLToPath } from 'node:url';
+import browserslist from 'browserslist';
 import { defineConfig } from 'tsup';
+
+// Share the rolling browser policy with Next.js. A Safari/iOS version can be a range;
+// esbuild needs its earliest version, and calls Browserslist's ios_saf engine "ios".
+const browserTargets = [...new Set(browserslist(undefined, { path: fileURLToPath(new URL('../../', import.meta.url)) }).map(browser => {
+    const [engine, versions] = browser.split(' ');
+    return `${engine === 'ios_saf' ? 'ios' : engine}${versions!.split('-')[0]}`;
+}))];
 
 export default defineConfig(({ env }) => [{
     entry: { index: './src/index.ts', review: './src/runtime.tsx' },
@@ -12,6 +21,7 @@ export default defineConfig(({ env }) => [{
     outExtension: () => ({ js: '.js' }),
     // The bundle runs in the reviewed page, not in Node
     platform: 'browser',
+    target: browserTargets,
     esbuildOptions(options) {
         // UI-kit button links need native navigation on arbitrary reviewed sites. Keep the
         // framework router out of the embed and retain room for actionable notices in its budget.
@@ -62,6 +72,7 @@ export default defineConfig(({ env }) => [{
     format: ['esm'],
     outExtension: () => ({ js: '.js' }),
     platform: 'browser',
+    target: browserTargets,
     external: ['react'],
     // A client component in React Server Components apps (Next.js App Router)
     banner: { js: '\'use client\';' }

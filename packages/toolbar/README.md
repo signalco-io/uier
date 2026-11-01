@@ -5,10 +5,16 @@ feedback pinned to an element (point comments) or to selected text.
 
 ## Embedding
 
+Browser support follows the latest two stable major releases of Chrome, Edge, Firefox and Safari,
+including Safari on iOS. The shared policy is [`.browserslistrc`](../../.browserslistrc); the toolbar
+and website build from it. Run `pnpm -C packages/toolbar exec browserslist` at the repository root
+to see the versions resolved by the locked browser data. Older browsers receive no polyfills.
+
 The loader (`dist/index.js`) is a small classic script. It downloads the separate review script only
 when a review starts, a signed-in project member is confirmed, showcase mode is enabled, or feedback
 is requested. React, styles, screenshots and fonts load with the review UI. Ordinary visitors receive
 only the loader and the bounded background account check.
+The account check uses only the member token; guest identity is created by the review UI.
 The web app serves it at `/toolbar.js`; the production URL is `https://uier.io/toolbar.js`, served from
 Vercel's CDN (caching and updates: [`/toolbar.js`](../../docs/api.md#toolbarjs)). A reviewed
 site embeds it with its project's script tag from the uier app's install guide:

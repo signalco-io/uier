@@ -3,7 +3,7 @@ import { getToolbarHost } from './mount';
 import { openFeedbackEvent } from './openFeedback';
 import { backgroundSignIn } from './project/backgroundSession';
 import { startInstallationCheck } from './project/installationCheck';
-import { getReviewToken, projectHeaders, setReviewToken } from './project/projectSession';
+import { getReviewToken, setReviewToken } from './project/projectSession';
 import { backgroundReviewExited, resolveReviewSession, startBackgroundReview } from './review';
 import { runtimeContext, runtimeContextKey, type MountToolbar, type RuntimeScript } from './runtimeContext';
 
@@ -76,7 +76,9 @@ if (toolbarConfig.mode === 'showcase') {
                 if (!signedIn) return;
                 const readInfo = async () => {
                     const response = await fetch(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`, {
-                        credentials: 'omit', headers: projectHeaders()
+                        // This check only asks whether a saved/bridged token is still a member.
+                        // Guest identity belongs to the review UI and is not needed here.
+                        credentials: 'omit', headers: { Authorization: `Bearer ${getReviewToken()}` }
                     });
                     return response.ok ? response.json() : undefined;
                 };

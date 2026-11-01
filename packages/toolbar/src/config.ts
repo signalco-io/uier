@@ -47,15 +47,13 @@ declare global {
 function getToolbarScript(): HTMLScriptElement | null {
     // Only set while a classic script runs (including deferred and dynamically inserted ones),
     // so this has to be read synchronously at module start.
-    const current = typeof document !== 'undefined' ? document.currentScript : null;
-    if (typeof HTMLScriptElement !== 'undefined' && current instanceof HTMLScriptElement) {
+    const current = document.currentScript;
+    if (current instanceof HTMLScriptElement) {
         return current;
     }
 
     // Module scripts have no `currentScript`; fall back to the tag that configures the toolbar
-    return typeof document !== 'undefined'
-        ? document.querySelector<HTMLScriptElement>('script[data-uier-project], script[data-uier-mode]')
-        : null;
+    return document.querySelector<HTMLScriptElement>('script[data-uier-project], script[data-uier-mode]');
 }
 
 function readMode(value: string | undefined): ToolbarMode | undefined {
@@ -89,7 +87,7 @@ function getScriptOrigin(script: HTMLScriptElement | null) {
 /** Ignore named elements, inherited fields, accessors and malformed values on the host page. */
 function readWindowConfig(): ToolbarWindowConfig {
     try {
-        const value: unknown = typeof window !== 'undefined' ? window.uierConfig : undefined;
+        const value: unknown = window.uierConfig;
         if (!value || typeof value !== 'object') return {};
         const prototype = Object.getPrototypeOf(value);
         if (prototype !== Object.prototype && prototype !== null) return {};

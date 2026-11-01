@@ -40,6 +40,10 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 
 ## Styling rules
 
+- Browser support is the latest two stable major releases of Chrome, Edge, Firefox, Safari and
+  iOS Safari, declared in the root `.browserslistrc`. Next.js and the toolbar share that policy.
+  Turborepo tracks it as a global dependency. UI-kit Tailwind compatibility and shadow-root fixes
+  remain necessary within this browser range; they are not legacy-browser polyfills.
 - Use the UI kit's semantic utilities: `bg-background`, `text-foreground`, `text-muted-foreground`,
   `text-secondary-foreground`, `border-border` (`border` alone), `bg-muted`, `bg-primary`.
   Brand-only tokens are `hsl(var(--brand-accent))`, `--brand-accent-text`, `--brand-selection`,

@@ -11,8 +11,8 @@ import { publishToolbar } from '../scripts/toolbar-assets.mjs';
 test('the bootstrap stays small and pins the exact integrity-checked review script', async () => {
     const loader = await readFile(new URL('../../../packages/toolbar/dist/index.js', import.meta.url));
     const review = await readFile(new URL('../../../packages/toolbar/dist/review.js', import.meta.url));
-    expect(loader.length).toBeLessThan(12_000);
-    expect(gzipSync(loader).length).toBeLessThan(5_000);
+    expect(loader.length).toBeLessThan(7_500);
+    expect(gzipSync(loader).length).toBeLessThan(3_100);
     expect(loader.toString()).toContain(`/toolbar/${createHash('sha256').update(review).digest('hex')}.js`);
     expect(loader.toString()).toContain(`sha384-${createHash('sha384').update(review).digest('base64')}`);
 });

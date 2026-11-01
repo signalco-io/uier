@@ -16,6 +16,29 @@ start with the [README](../README.md#run-locally).
   the version used in [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml), the same as `@pulumi/pulumi`
   in `infra/package.json`) and the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli).
 
+## Browser support
+
+The website and toolbar support the latest two stable major releases of Chrome, Edge, Firefox,
+Safari and iOS Safari. The shared [`.browserslistrc`](../.browserslistrc) is consumed by Next.js
+and the toolbar's esbuild targets; Turborepo invalidates builds when it changes. Exact versions
+come from the locked browser data and advance with dependency updates. To inspect them:
+
+```sh
+pnpm -C packages/toolbar exec browserslist
+```
+
+The toolbar bootstrap contains no legacy-browser polyfills. Its member check uses only the review
+token, so guest-id generation stays in the review UI. Storage/CSP failure handling still applies
+to supported browsers. The Tailwind v3 compatibility sheet maps UI-kit class names to Tailwind v4;
+shadow-root property initialization is also required in current browsers. Neither is an old-browser
+shim, and both stay in the deferred review bundle.
+
+Browser build targets define the supported range; Playwright normally tests its bundled Chromium
+on desktop and mobile. Optional Firefox/WebKit coverage is described [below](#full-regression-coverage).
+The loader spec also supports those projects with `PLAYWRIGHT_CROSS_BROWSER=1`. It checks the
+authenticated review-link fallback when WebKit rejects the Secure SSO cookie on the HTTP fixture;
+this does not establish third-party-cookie acceptance or hosted HTTPS SSO.
+
 ## Local development
 
 ```bash
@@ -203,7 +226,7 @@ without the three-minute budget. Turbo caches the two modes separately.
 For specific browser regressions outside the required set, use the
 [focused implementation commands](#while-implementing).
 
-The toolbar loader has a 12 KB raw / 5 KB gzip build budget in `toolbar-assets.api.spec.ts`.
+The toolbar loader has a 7.5 KB raw / 3.1 KB gzip build budget in `toolbar-assets.api.spec.ts`.
 `toolbar-bootstrap.spec.ts` verifies that ordinary visitors never fetch the review script or fonts,
 and covers concurrent loads, captured configuration, nonce/SRI, blocked storage, download retry and
 feedback reopening. The review UI stays in a separate content-addressed script.
