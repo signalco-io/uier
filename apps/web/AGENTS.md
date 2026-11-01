@@ -235,7 +235,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
   (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)
-  and words: state, `#number`, unread dot and "Unassigned" / "Assigned to ..." with the actions on one row
+  and words: state, `#number`, unread dot and the assignee (their avatar, or the user icon while unassigned; the tooltip
+  says "Unassigned" / "Assigned to ...") with the actions on one row
   (`ThreadAction`: icon-only with a tooltip and accessible name). For those who can resolve, the state badge
   is the Open/Done menu ("Status: Open. Change status"); Copy link and Follow thread / Unfollow thread are in
   the More actions menu. Then the first and last message with Show all, the quiet Open in ...,

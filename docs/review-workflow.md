@@ -70,7 +70,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
     (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
     counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot and
-    assignee ("Unassigned", or a menu of people for those who can assign) with the actions (Mark as read,
+    assignee (their avatar or, while unassigned, the user icon, named by its tooltip; a menu of people for those who can assign) with the actions (Mark as read,
     Done or Reopen, Copy issue, and More with Copy link and Follow thread) on one row, then the first and last
     message with Show all for the rest, the quiet Open in a connected service, and its page URL and source at
     the bottom. Two icons after the first message's time show the screen size and browser it was left from;
@@ -135,9 +135,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
-The app and toolbar use the same assignment service. Assigned to me combines with page,
-status and search filters. Guests see the assignee's name but cannot change assignment or
-look up the participant directory. Removed members appear as Former member (no access);
+The assignee shows in the thread's header as their avatar (the user icon while unassigned),
+with a tooltip that names them. The app and toolbar use the same assignment service. Assigned
+to me combines with page, status and search filters. Guests see the assignee's avatar and name
+but cannot change assignment or look up the participant directory. Removed members appear as Former member (no access);
 the assignment can be cleared or changed.
 
 In a member's composer, type @ to search eligible participants. Arrow keys move through
