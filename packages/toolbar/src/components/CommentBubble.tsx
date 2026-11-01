@@ -11,13 +11,14 @@ import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useD
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
+import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentIcon } from './CommentIcon';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { toolbarAnchorPrefix } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
-import { CommentDraft, CommentItem, commentTextMaxLength, floatingShadowClassName } from './@types/Comments';
+import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (CommentIcon) half size and its minimal distance from the left and right window edges
 const bubbleHalfSize = 16;
@@ -40,6 +41,19 @@ function bubbleLeft(rect: DOMRect | undefined) {
 
 function prefersReducedMotion() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Scrolls a comment's place into the middle of the window: its element, or an area itself (its
+ * element can be much larger). An area taller than half the window brings its pin, at the bottom.
+ */
+function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | undefined, behavior: ScrollBehavior) {
+    if (isCommentArea(position) && rect) {
+        const target = rect.height <= window.innerHeight / 2 ? rect.top + rect.height / 2 : rect.bottom;
+        window.scrollBy({ top: target - window.innerHeight / 2, behavior });
+        return;
+    }
+    resolveAnchorElement(position)?.scrollIntoView({ block: 'center', behavior });
 }
 
 type CommentBubbleProps = {
@@ -170,7 +184,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (autoOpen && hasRect) {
             const rect = triggerRef.current?.getBoundingClientRect();
             if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
-                resolveAnchorElement(position)?.scrollIntoView({ block: 'center', behavior: 'auto' });
+                scrollAnchorIntoView(position, lastRect, 'auto');
             }
             setOpen(true);
             onAutoOpened?.();
@@ -183,10 +197,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (!rect || (rect.top >= 0 && rect.bottom <= window.innerHeight)) {
             return;
         }
-        resolveAnchorElement(position)?.scrollIntoView({
-            block: 'center',
-            behavior: prefersReducedMotion() ? 'auto' : 'smooth'
-        });
+        scrollAnchorIntoView(position, lastRect, prefersReducedMotion() ? 'auto' : 'smooth');
     };
 
     // The commented element is not on the page (anymore), e.g. a different layout on this device
@@ -201,6 +212,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                     commentSelection={position}
                     commentId={commentItem?.id}
                     onClick={commentItem ? () => setOpen(true) : undefined} />
+            )}
+            {isCommentArea(position) && lastRect && (
+                <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open} />
             )}
             <Popper
                 container={rootElement}

@@ -75,7 +75,11 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
             type: 'point',
             selector: optionalString(value.selector) ?? '',
             xNormal: typeof value.xNormal === 'number' ? value.xNormal : 0,
-            yNormal: typeof value.yNormal === 'number' ? value.yNormal : 0
+            yNormal: typeof value.yNormal === 'number' ? value.yNormal : 0,
+            // An area has both sizes; a partial one is a plain point
+            ...(typeof value.widthNormal === 'number' && typeof value.heightNormal === 'number'
+                ? { widthNormal: value.widthNormal, heightNormal: value.heightNormal }
+                : {})
         };
     }
 

@@ -16,7 +16,8 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
         { type: 'point', selector: '#hero', xNormal: 0.5, yNormal: 0.3 },
         { type: 'text', text: 'Original\nselected copy', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 12, endType: 'text' },
         { type: 'page' },
-        { type: 'text', text: 'Old headline', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 12, endType: 'text' }
+        { type: 'text', text: 'Old headline', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 12, endType: 'text' },
+        { type: 'point', selector: '#hero', xNormal: 0.1, yNormal: 0.2, widthNormal: 0.5, heightNormal: 0.25 }
     ];
     for (const [index, position] of positions.entries()) {
         const response = await request.post('/api/comments', { data: {
@@ -45,6 +46,11 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
             expect(packet.context.feedback.quotedText).toBe('Old headline');
             expect(packet.markdown).toContain('Suggested rewrite (not original page copy)');
             expect(packet.markdown).toContain('Quoted original text:');
+        }
+        if (index === 4) {
+            expect(packet.context.anchor).toEqual({ type: 'point', selector: '#hero', area: { x: 0.1, y: 0.2, width: 0.5, height: 0.25 } });
+            expect(packet.markdown).toContain('Anchor: Area of an element');
+            expect(packet.markdown).toContain('Area within the element: 10% from the left, 20% from the top, 50% wide, 25% tall');
         }
         if (index === 0) {
             expect(packet.context.screenshot.state).toBe('protected');

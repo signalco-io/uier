@@ -26,7 +26,12 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         kind: dto.kind, status: dto.resolved ? 'done' : 'open', feedback: first,
         ...(options.assigneeName ? { assignee: { name: options.assigneeName } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }
-            : position.type === 'point' ? { type: 'point', selector: position.selector }
+            : position.type === 'point' ? {
+                type: 'point', selector: position.selector,
+                ...(position.widthNormal !== undefined && position.heightNormal !== undefined
+                    ? { area: { x: position.xNormal, y: position.yNormal, width: position.widthNormal, height: position.heightNormal } }
+                    : {})
+            }
             : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector },
         source: { path: dto.path, ...(options.environment ? { environment: options.environment } : {}), ...(options.pageUrl ? { origin: new URL(options.pageUrl).origin } : {}) },
         links: { page: options.pageUrl, comment: options.commentUrl },

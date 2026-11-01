@@ -155,7 +155,7 @@ export default function BrandPage() {
                     <TokenSwatch token="--brand-success" name="Green" role="resolved" />
                     <TokenSwatch token="--brand-warning" name="Amber" role="warning" />
                     <TokenSwatch token="--destructive" name="Red" role="destructive" />
-                    <TokenSwatch token="--brand-selection" name="Selection" role="commented text range" bordered />
+                    <TokenSwatch token="--brand-selection" name="Selection" role="commented text or area" bordered />
                     <TokenSwatch token="--sidebar" name="Sidebar" role="the app's sidebar" bordered />
                     <TokenSwatch token="--sidebar-accent" name="Sidebar accent" role="sidebar hover, current item" />
                 </div>

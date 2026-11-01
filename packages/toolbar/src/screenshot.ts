@@ -17,7 +17,7 @@ import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
 import { GEIST_FONTS_PATH } from '@uier/brand';
 import { toolbarConfig } from './config';
 import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentItemRects';
-import type { CommentItemPosition } from './components/@types/Comments';
+import { isCommentArea, type CommentItemPosition } from './components/@types/Comments';
 import { toolbarReviewTarget, toolbarReviewSurfaces } from './toolbarReview';
 import { getToolbarHost } from './mount';
 
@@ -90,14 +90,14 @@ export function regionAround(rects: Pick<DOMRect, 'left' | 'top' | 'right' | 'bo
         : windowRegion();
 }
 
-/** The part of the window a comment is about: its element or text, or the window for the page */
+/** The part of the window a comment is about: its element, area or text, or the window for the page */
 export function commentRegion(position: CommentItemPosition): ScreenshotRegion {
     if (position.type === 'page') {
         return windowRegion();
     }
     const rects: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'>[] = getCommentItemRects(position);
-    // A point comment: its whole element, around the point
-    const element = position.type === 'point' ? resolveAnchorElement(position) : null;
+    // A point comment: its whole element, around the point (an area is the region itself)
+    const element = position.type === 'point' && !isCommentArea(position) ? resolveAnchorElement(position) : null;
     if (element) {
         rects.push(element.getBoundingClientRect());
     }

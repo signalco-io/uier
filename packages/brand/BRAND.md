@@ -217,7 +217,8 @@ The toolbar, pins and inbox sidebar are what the product *is*, and they follow t
    black in dark mode, because people read and type in it.
 
 A pin is the mark on a 32 grid, ink fill, 2 px white ring, the thread count in white 600 inside.
-A commented text range gets the blue 20 % tint. The inbox shows the unread count as a blue pill.
+A commented text range gets the blue 20 % tint. A commented area gets a dashed blue outline, with
+the same tint while its thread is open. The inbox shows the unread count as a blue pill.
 
 ## Components
 

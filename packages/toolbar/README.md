@@ -263,6 +263,14 @@ error boundary, so one bad comment never breaks the toolbar.
   cancels). The element under the pointer gets a dashed accent outline, drawn by the toolbar over it (the
   page's own styles are not touched, and the toolbar's controls are never outlined); a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).
+- Area comments: in point mode, drag with a mouse or pen to draw a rectangle over the part of the page
+  the comment is about (a finger keeps scrolling the page; tap to pin instead). The area is saved on the
+  innermost element that holds all of it, as a point (its top-left corner) with `widthNormal` and
+  `heightNormal`, fractions of that element's box, so it follows the element when the page scrolls,
+  resizes or reloads. The area has a dashed accent outline, tinted while its thread is open; its pin is
+  at its bottom-right corner and the automatic screenshot shows the area. A drag shorter than 8 px on
+  either side pins a point where it started. Toolbars without area support show the pin at the area's
+  top-left corner.
 - Rewrite suggestions: select text, then **Rewrite**. The text box starts as the selected text, to edit into
   your version; **Suggest** (optionally with an instruction such as "shorter") asks `POST /api/rewrite` for AI
   suggestions, and picking one replaces the text as if it was typed (Ctrl/Cmd+Z brings yours back; a guest's
@@ -283,7 +291,7 @@ error boundary, so one bad comment never breaks the toolbar.
   anchors. Missing/ambiguous anchors have no fallback pin; every thread remains searchable in the inbox.
   Hidden targets (e.g. a closed `<details>` or a responsive layout) get no pin until shown.
 - Reattach comment: the author or a workspace admin can choose a new element (pointer/touch or focus
-  and Enter) or selected text on the same reviewed page. Review the candidate and Confirm anchor, or
+  and Enter), a dragged area or selected text on the same reviewed page. Review the candidate and Confirm anchor, or
   Cancel/Escape to keep the saved anchor. Collapse cancels choosing and hides annotations. The shared
   dockable panel keeps the inbox side; toolbar movement stays available. A successful change keeps the
   thread, quotes, screenshot, author and status. Anchor details retain the original and immediately

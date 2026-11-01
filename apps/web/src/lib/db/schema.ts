@@ -1,8 +1,14 @@
+/**
+ * A point on an element (fractions of its box). With `widthNormal` and `heightNormal` it is an
+ * area dragged over the page, the point its top-left corner.
+ */
 export type DbCommentPoint = {
     type: 'point';
     selector: string;
     xNormal: number;
     yNormal: number;
+    widthNormal?: number;
+    heightNormal?: number;
 };
 
 export type DbCommentSelection = {

@@ -730,6 +730,16 @@ test('writes must be same-origin JSON', async ({ newVisitor }) => {
     expect(await listComments(visitor, path)).toHaveLength(2);
 });
 
+test('an area comment keeps its area', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+    // The point is the area's top-left corner; sizes are fractions of the element's box
+    const area = { ...pointPosition, xNormal: 0.25, yNormal: 0, widthNormal: 0.75, heightNormal: 1 };
+    const comment = await created(await createComment(visitor, path, { position: area }));
+    expect(comment.position).toEqual(area);
+    expect((await listComments(visitor, path))[0]?.position).toEqual(area);
+});
+
 test('requests are validated', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();
@@ -761,6 +771,11 @@ test('requests are validated', async ({ newVisitor }) => {
         { position: { ...selectionPosition, startOffset: 1.5 } },
         { position: { ...selectionPosition, text: 'x'.repeat(2001) } },
         { position: { type: 'area' } },
+        // An area needs both sizes, more than nothing, within its element
+        { position: { ...pointPosition, widthNormal: 0.5 } },
+        { position: { ...pointPosition, widthNormal: 0, heightNormal: 0.5 } },
+        { position: { ...pointPosition, xNormal: 0.75, widthNormal: 0.5, heightNormal: 0.25 } },
+        { position: { ...pointPosition, yNormal: 0.25, widthNormal: 0.25, heightNormal: 1 } },
         { device: { windowSize: [390] } },
         { device: { pixelRatio: 11 } },
         { device: { browser: 'x'.repeat(65) } }

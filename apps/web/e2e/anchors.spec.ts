@@ -277,6 +277,64 @@ test('point mode outlines and anchors what is under a stretched link', async ({ 
     await context.close();
 });
 
+test('dragging in point mode comments on the area', async ({ browser }, testInfo) => {
+    test.skip(Boolean(testInfo.project.use.hasTouch), 'A finger scrolls the page; areas are drawn with a mouse or pen');
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    /** The box of the locator is the area (within a pixel) */
+    const expectBox = async (locator: Locator, expected: Box) => await expect.poll(async () => {
+        const box = await locator.boundingBox();
+        return box && (['x', 'y', 'width', 'height'] as const).every(key => Math.abs(box[key] - expected[key]) <= 1)
+            ? 'on the area'
+            : `off: ${JSON.stringify({ box, expected })}`;
+    }).toBe('on the area');
+
+    // An area inside the headline, drawn from its bottom-right corner to its top-left one
+    const headline = (await page.getByRole('main').getByRole('heading', { level: 1 }).boundingBox())!;
+    const area = { x: Math.round(headline.x + 20), y: Math.round(headline.y + 4), width: 120, height: Math.round(headline.height - 8) };
+    await page.getByRole('button', { name: 'Add comment' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' }))
+        .toHaveText('Click anywhere to pin a comment, or drag over an area. Esc to cancel.Cancel');
+    await page.mouse.move(area.x + area.width, area.y + area.height);
+    await page.mouse.down();
+    await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2, { steps: 4 });
+    await page.mouse.move(area.x, area.y, { steps: 4 });
+    await expectBox(page.locator('[data-uier-drawing]'), area);
+    await page.mouse.up();
+    await expect(page.locator('[data-uier-drawing]')).toHaveCount(0);
+
+    // The new comment is on the area (one draft, not a second pin from the click that ended the drag)
+    const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
+    await expect(composer).toBeFocused();
+    await expect(page.getByRole('button', { name: 'New comment' })).toHaveCount(1);
+    await expectBox(page.locator('[data-uier-area=""]'), area);
+    await composer.fill('Tighter spacing in this part.');
+    await composer.press('Enter');
+    await expect(commentBubble(page, 1)).toBeVisible();
+
+    // Saved as a point (the area's top-left corner) with the area's size, on an element that holds it
+    const [saved] = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { id: string; position: { selector: string; xNormal: number; yNormal: number; widthNormal: number; heightNormal: number } }[]);
+    expect(saved?.position).toMatchObject({ type: 'point', widthNormal: expect.any(Number), heightNormal: expect.any(Number) });
+    const anchor = (await page.locator(saved!.position.selector).boundingBox())!;
+    expect(Math.abs(anchor.x + anchor.width * saved!.position.xNormal - area.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(anchor.y + anchor.height * saved!.position.yNormal - area.y)).toBeLessThanOrEqual(1);
+    const outline = page.locator(`[data-uier-area="${saved!.id}"]`);
+    await expectBox(outline, area);
+    // Its pin is centred 16px below and right of the area's bottom-right corner (CommentBubble.tsx)
+    const pin = (await page.locator(`[data-uier-comment="${saved!.id}"]`).boundingBox())!;
+    expect(Math.abs(pin.x + pin.width / 2 - (area.x + area.width + 16))).toBeLessThanOrEqual(2);
+    expect(Math.abs(pin.y + pin.height / 2 - (area.y + area.height + 16))).toBeLessThanOrEqual(2);
+
+    // Back on the same area after a reload
+    await page.reload();
+    await expectBox(outline, area);
+    await expectNoAxeViolations(page);
+
+    await context.close();
+});
+
 test('text that moved is found again; text that is gone stays reachable in the inbox', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
