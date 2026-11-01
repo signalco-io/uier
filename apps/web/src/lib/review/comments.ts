@@ -278,6 +278,7 @@ export async function enforceProjectRewriteLimits(request: Request, project: DbP
 }
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
+    await refreshMutationActor(project, actor, true);
     const authorId = actorAuthorId(actor);
     if (!authorId)
         throw apiErrors.invalidRequest('Comments need a visitor id.');
@@ -303,11 +304,12 @@ export async function replyToProjectComment(request: Request, project: DbProject
         ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
         mentions: input.mentions, createdAt: now
-    }, async comment => { await refreshMutationActor(project, actor); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
+    }, async comment => { await refreshMutationActor(project, actor, true); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
         return withSyncMark(project, previous, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
     });
     return await updateComment(store, project, actor, id, async comment => {
+        await refreshMutationActor(project, actor, true);
         visibleOrThrow(comment, actor);
         const items = threadItems(comment);
         if (items.length >= MAX_THREAD_ITEMS)

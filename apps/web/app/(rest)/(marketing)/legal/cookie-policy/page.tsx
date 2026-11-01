@@ -24,8 +24,8 @@ const items = [
         name: 'uier:draft:v1:<scope>:<item>',
         type: 'Local storage',
         when: 'You start or change a feedback draft',
-        purpose: 'Restores unsent text, its anchor, the original text of an edit and a submission identity, scoped to the project, reviewer and page. Images are never stored here. Discard, posting and toolbar sign-out clear relevant drafts.',
-        duration: 'Seven days after the last change; expired data is removed when the toolbar next opens'
+        purpose: 'Restores unsent text, its anchor, the original text of an edit and a submission identity, scoped to the project, reviewer and page. App reply drafts are scoped to deployment, project, account and thread. Images are never stored here. Discard, posting and the corresponding app or toolbar sign-out clear relevant drafts on this origin.',
+        duration: 'Seven days after the last change; expired data is removed on next use'
     },
     {
         name: 'uier:visitor',
@@ -143,7 +143,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="1 November 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="2 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.

@@ -751,3 +751,155 @@ test('staff moderate public feedback with opaque author filters, single-reply de
         expect((await commenter.context.request.get(new URL(`/app/projects/uier00000001?author=${authorQuery}`, page.url()).href)).status()).toBe(404);
     } finally { await commenter.context.close(); await guest.context.close(); await other.context.close(); }
 });
+
+test('reply from list and board with mentions, keyboard input and local drafts', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page, request, baseURL }, testInfo) => {
+    const { startReviewedSite } = await import('./support/reviewedSite');
+    const { verifiedReviewHeaders } = await import('./support/reviewVerification');
+    const site = await startReviewedSite(baseURL!);
+    try {
+        const email = uniqueEmail('app-reply');
+        await signIn(page, email);
+        const project = await createProject(page, { urls: [site.origin()] });
+        await setProjectAccess(page, project, 'Anyone with the link');
+        const headers = await verifiedReviewHeaders(request, project, site.origin());
+        const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+            path: '/removed-page', position: { type: 'point', selector: '#missing-anchor', xNormal: 0.5, yNormal: 0.5 }, text: 'Reply without finding a pin', authorName: 'Guest reviewer'
+        } });
+        expect(response.status()).toBe(201);
+        const saved = await response.json();
+        await page.goto(`/app/projects/${project}`);
+        const card = page.getByRole('article').filter({ hasText: 'Reply without finding a pin' });
+        await expect(page.getByRole('textbox', { name: 'Reply', exact: true })).toHaveCount(0);
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        const input = card.getByRole('textbox', { name: 'Reply', exact: true });
+        await expect(input).toBeFocused();
+        await input.fill('Keep this draft');
+        await card.getByRole('button', { name: 'Close reply' }).click();
+        await page.getByRole('button', { name: 'Board', exact: true }).click();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        await expect(input).toHaveValue('Keep this draft');
+        await page.reload();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        await expect(input).toHaveValue('Keep this draft');
+        await card.getByRole('button', { name: 'Discard', exact: true }).click();
+        await expect(input).toHaveValue('');
+        await input.fill('Please check @');
+        const people = card.getByRole('listbox', { name: 'Mention people' });
+        await expect(people.getByRole('option')).toHaveCount(1);
+        await input.press('Tab');
+        await expect(input).toHaveValue(`Please check @${email.split('@')[0]} `);
+        await input.press('Shift+Enter');
+        await input.pressSequentially('Second line');
+        const text = await input.inputValue();
+        await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
+        await expect(input).toHaveValue(text);
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        let posts = 0;
+        await page.route(`**/app/projects/${project}*`, async route => {
+            if (route.request().method() === 'POST' && route.request().headers()['next-action']) { posts++; await held; }
+            await route.continue();
+        });
+        try {
+            await input.press('Enter');
+            await expect.poll(() => posts).toBe(1);
+            await expect(card.getByText(text.trim(), { exact: true })).toBeVisible();
+            await expect(input).toHaveValue('');
+            await input.fill('New text while sending');
+            await expect(card.getByRole('button', { name: 'Post reply' })).toBeDisabled();
+            release();
+            await expect(card.getByRole('button', { name: 'Post reply' })).toBeEnabled();
+            await expect(input).toHaveValue('New text while sending');
+            await expect(card.getByText(text.trim(), { exact: true })).toHaveCount(1);
+        } finally { release(); }
+        await page.unroute(`**/app/projects/${project}*`);
+        const threads = await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json();
+        const thread = threads.find((item: { id: string }) => item.id === saved.id);
+        expect(thread.thread.items).toHaveLength(2);
+        // Replying is independent of status and read acknowledgement.
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read' })).toBeVisible();
+        await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+        await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeEnabled();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        await expect(input).toHaveValue('New text while sending');
+        await input.fill('Reply on a done thread');
+        await input.press('Enter');
+        await expect(card.getByText('Reply on a done thread', { exact: true })).toBeVisible();
+        await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeVisible();
+        await expect(input).toHaveValue('');
+        for (const colorScheme of ['light', 'dark'] as const) {
+            await page.emulateMedia({ colorScheme });
+            await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
+            await animationsFinished(page.locator('body'));
+            await expectNoAxeViolations(page);
+            await page.screenshot({ path: testInfo.outputPath(`app-reply-${colorScheme}.png`) });
+        }
+        await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); }; });
+        await input.fill('Clear on sign-out');
+        await expect(card.getByText('Browser storage is unavailable. Keep this page open to keep your draft.')).toBeVisible();
+        await page.goto('/app/account');
+        await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
+        await expect(page).toHaveURL(/\/app\/sign-in$/);
+        expect(await page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('uier:draft:') && key.includes('"app"')))).toEqual([]);
+    } finally { await site.close(); }
+});
+
+test('app replies retry a lost response once and reject forged or unauthorized action arguments', async ({ page, request, browser, baseURL }) => {
+    const { startReviewedSite } = await import('./support/reviewedSite');
+    const { verifiedReviewHeaders } = await import('./support/reviewVerification');
+    const site = await startReviewedSite(baseURL!);
+    try {
+        await signIn(page, uniqueEmail('app-retry'));
+        const project = await createProject(page, { urls: [site.origin()] });
+        await setProjectAccess(page, project, 'Anyone with the link');
+        const headers = await verifiedReviewHeaders(request, project, site.origin());
+        const saved = await (await request.post(`/api/review/${project}/comments`, { headers, data: {
+            path: '/old-page', position: { type: 'page' }, kind: 'feedback', text: 'Retry thread', authorName: 'Guest'
+        } })).json();
+        await page.goto(`/app/projects/${project}`);
+        const card = page.getByRole('article');
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        const input = card.getByRole('textbox', { name: 'Reply', exact: true });
+        await input.fill('Save once after response loss');
+        let captured: import('@playwright/test').Request | undefined;
+        let first = true;
+        await page.route(`**/app/projects/${project}*`, async route => {
+            if (first && route.request().method() === 'POST') {
+                first = false; captured = route.request();
+                expect((await route.fetch()).ok()).toBe(true);
+                await route.abort('failed');
+            } else await route.continue();
+        });
+        await input.press('Enter');
+        await expect(card.getByRole('alert')).toBeVisible();
+        await expect(input).toHaveValue('Save once after response loss');
+        await page.reload();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        await expect(input).toHaveValue('Save once after response loss');
+        await input.press('Enter');
+        await expect(input).toHaveValue('');
+        await expect(card.getByText('Save once after response loss', { exact: true })).toHaveCount(1);
+        await page.unroute(`**/app/projects/${project}*`);
+        expect((await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json()).find((item: { id: string }) => item.id === saved.id).thread.items).toHaveLength(2);
+        const action = captured!;
+        const post = (client: import('@playwright/test').APIRequestContext, input: unknown) => client.post(action.url(), {
+            headers: { 'Next-Action': action.headers()['next-action']!, 'Content-Type': 'text/plain;charset=UTF-8', Origin: new URL(action.url()).origin }, maxRedirects: 0, data: JSON.stringify([input])
+        });
+        const valid = { projectId: project, commentId: saved.id, text: 'Forged reply', idempotencyKey: '0123456789abcdef' };
+        const signedOut = await post(request, valid);
+        expect(signedOut.status()).toBe(307);
+        expect(signedOut.headers().location).toContain('/app/sign-in?next=');
+        expect(await (await post(page.request, { ...valid, text: '' })).text()).toContain('Check the request and try again.');
+        expect(await (await post(page.request, { ...valid, idempotencyKey: 'short' })).text()).toContain('Check the request and try again.');
+        expect(await (await post(page.request, { ...valid, text: '@Missing', mentions: [{ userId: 'u_missing', start: 0, end: 8 }] })).text()).toContain('Choose someone who still has access');
+        const other = await browser.newPage();
+        try {
+            await signIn(other, uniqueEmail('foreign-reply'));
+            expect(await (await post(other.request, valid)).text()).toContain('This project no longer exists.');
+        } finally { await other.close(); }
+        await setProjectAccess(page, project, 'Comments off');
+        expect(await (await post(page.request, valid)).text()).toContain('Comments are turned off');
+        expect((await request.post(`/api/review/${project}/comments/${saved.id}/replies`, { headers, data: valid })).status()).toBe(403);
+    } finally { await site.close(); }
+});

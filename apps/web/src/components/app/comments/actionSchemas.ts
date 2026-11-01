@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
-import { isValidId, textSchema } from '../../../lib/comments/validation';
+import { idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
+import { mentionsSchema } from '../../../lib/review/participants';
 import { bulkReadSchema } from '../../../lib/comments/bulkRead';
 
 export const commentIdSchema = z.string().refine(isValidId);
@@ -9,6 +10,7 @@ export const resolveCommentActionSchema = commentActionSchema.extend({ resolved:
 export const privateCommentActionSchema = commentActionSchema.extend({ isPrivate: z.boolean() });
 export const assignCommentActionSchema = commentActionSchema.extend({ assigneeId: userIdSchema.nullable() });
 export const editCommentActionSchema = commentActionSchema.extend({ text: textSchema });
+export const replyCommentActionSchema = commentActionSchema.extend({ text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
 export const filterAuthorActionSchema = commentActionSchema.extend({ itemId: commentIdSchema.optional() });
 export const readCommentActionSchema = commentActionSchema.extend({ sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) });

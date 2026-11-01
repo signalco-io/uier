@@ -61,6 +61,11 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(foreign.getByRole('button', { name: 'Show on page' })).toHaveCount(0);
     await expect(foreign.locator('[data-uier-anchor-state]')).toHaveCount(0);
     await expect(foreign.getByRole('button', { name: 'Reattach comment' })).toHaveCount(0);
+    await foreign.getByRole('button', { name: 'Reply', exact: true }).click();
+    await foreign.getByRole('textbox', { name: 'Reply', exact: true }).fill('Reply across environments');
+    await foreign.getByRole('button', { name: 'Post reply', exact: true }).click();
+    await expect(foreign.getByText('Reply across environments', { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp('production\\.localhost'));
     const href = await foreign.getByRole('link').getAttribute('href');
     expect(new URL(href!).origin).toBe(staging);
     for (const colorScheme of ['light', 'dark'] as const) {
@@ -108,6 +113,25 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(history).toHaveCount(1); await expect(history).toContainText('Staging feedback');
     await expect(history).toContainText('Removed address');
     await expect(history.getByRole('link')).toHaveCount(0);
+    await history.getByRole('button', { name: 'Reply', exact: true }).click();
+    await history.getByRole('textbox', { name: 'Reply', exact: true }).fill('Reply after the source was removed');
+    await history.getByRole('button', { name: 'Post reply', exact: true }).click();
+    await expect(history.getByText('Reply after the source was removed', { exact: true })).toBeVisible();
+    await expect(history.getByRole('link')).toHaveCount(0);
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    await inboxPages(page).click();
+    const location = page.getByRole('dialog', { name: 'Environment and page' });
+    await location.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'All environments', exact: true }).click();
+    await location.getByRole('group', { name: 'Pages' }).getByRole('button', { name: /^All pages/ }).click();
+    const removed = inbox.getByRole('article').filter({ hasText: 'Staging feedback' });
+    await expect(removed).toContainText('Original source unavailable');
+    await expect(removed.getByRole('link')).toHaveCount(0);
+    await removed.getByRole('button', { name: 'Reply', exact: true }).click();
+    await removed.getByRole('textbox', { name: 'Reply', exact: true }).fill('Inbox reply without a source');
+    await removed.getByRole('button', { name: 'Post reply', exact: true }).click();
+    await expect(removed.getByText('Inbox reply without a source', { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp('production\\.localhost'));
     const gone = await page.goto(`/app/review/${projectId}?comment=${ids[1]}`);
     expect(gone!.status()).toBe(404); await expect(page.locator('body')).toContainText('original site address may have been removed');
     const deniedOrigin = await request.get(`/api/review/${projectId}/comments?scope=site&environment=all`, { headers: { origin: staging } });

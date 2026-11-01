@@ -6,7 +6,9 @@ import { CommentThread } from '../CommentThread';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
-import { commentKey } from '../../hooks/useComments';
+import { commentKey, useComments } from '../../hooks/useComments';
+import { CommentComposer } from '../CommentComposer';
+import { useAnnounce } from '../Announcer';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { commentLink } from '../../review';
 import { CommentItem } from '../@types/Comments';
@@ -66,6 +68,31 @@ function ShowOnPage({ comment, onShowOnPage }: { comment: CommentItem; onShowOnP
 
 function CardFooter({ children }: { children: ReactNode }) {
     return <div className="flex min-w-0 items-center border-t px-2 py-1">{children}</div>;
+}
+
+/** Share the target page's draft and send lock with its pin, even from another page. */
+function InboxReply({ comment, onClose }: { comment: CommentItem; onClose: () => void }) {
+    const { reply } = useComments();
+    const announce = useAnnounce();
+    if (comment.pending) return null;
+    return <div className="border-t">
+        <CommentComposer commentId={comment.id} label="Reply" placeholder="Reply..." submitLabel="Post reply" draftKey={comment.id}
+            autoFocus error={reply.error} onSubmit={async (text, mentions) => {
+                await reply.mutateAsync({ commentId: comment.id, text, mentions });
+                announce('Reply posted');
+            }} />
+        <Button variant="plain" size="xs" className="mb-2 ml-3" onClick={onClose}>Close reply</Button>
+    </div>;
+}
+
+function InboxThread({ comment }: { comment: CommentItem }) {
+    // Mount the mutation/query hooks only after Reply is opened, keeping long lists light.
+    const [replying, setReplying] = useState(false);
+    return <CommentThread commentItem={comment}>
+        {replying ? <InboxReply comment={comment} onClose={() => setReplying(false)} /> : <div className="px-3 pb-2">
+            <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => setReplying(true)}>Reply</Button>
+        </div>}
+    </CommentThread>;
 }
 
 /** Where another page's comment is: a link that opens its thread there, in the review */
@@ -147,7 +174,7 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
                 {comments.slice(0, shownCount).map((comment) => (
                     <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
                         <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="overflow-hidden rounded-xl border bg-card">
-                            <CommentThread commentItem={comment} />
+                            <InboxThread comment={comment} />
                             {isCurrentPage(comment)
                                 ? !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
                                 : <OtherPage comment={comment} />}

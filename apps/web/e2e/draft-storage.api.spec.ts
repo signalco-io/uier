@@ -1,7 +1,7 @@
 /// <reference path="../../../packages/toolbar/src/globals.d.ts" />
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { createDraftStore, draftLifetimeMs, draftStoragePrefix } from '../../../packages/toolbar/src/hooks/draftStorage';
+import { clearDraftScopes, createDraftStore, draftLifetimeMs, draftStoragePrefix } from '../../../packages/toolbar/src/hooks/draftStorage';
 
 test('draft scopes, expiry, clear, corrupt data and blocked/quota-limited storage', async () => {
     const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -57,7 +57,7 @@ test('draft scopes, expiry, clear, corrupt data and blocked/quota-limited storag
         let finish!: () => void;
         const send = () => { sends++; return new Promise<void>(resolve => { finish = resolve; }); };
         const first = a.run('new', send);
-        const second = a.run('new', send);
+        const second = createDraftStore(pageScope).run('new', send);
         expect(createDraftStore(pageScope).pending('new')).toBe(true);
         finish();
         await Promise.all([first, second]);
@@ -65,6 +65,39 @@ test('draft scopes, expiry, clear, corrupt data and blocked/quota-limited storag
         expect(a.pending('new')).toBe(false);
         a.clear();
         expect(a.get('new')).toBeUndefined();
+        const sentText = '@Alex ' + 'a'.repeat(894);
+        const sentMentions = [{ userId: 'u_alex', start: 0, end: 5 }];
+        a.set('reply', sentText);
+        a.setDetails('reply', { mentions: sentMentions });
+        const replyAttempt = a.attempt('reply', 'unchanged payload');
+        const sending = a.startSend('reply', sentText, sentMentions);
+        a.set('reply', 'b'.repeat(900));
+        a.settleSend('reply', sending, false);
+        expect(a.get('reply')).toBe('b'.repeat(900));
+        expect(a.recoveries('reply')).toBe(1);
+        a.restore('reply');
+        expect(a.get('reply')).toBe(sentText);
+        expect(a.details('reply')?.mentions).toEqual(sentMentions);
+        expect(a.attempt('reply', 'unchanged payload')).toBe(replyAttempt);
+        const success = a.startSend('reply', sentText, sentMentions);
+        a.settleSend('reply', success, true);
+        expect(a.recoveries('reply')).toBe(1);
+        a.restore('reply');
+        expect(a.get('reply')).toBe('b'.repeat(900));
+        a.set('repeat', 'Same reply');
+        const firstKey = a.attempt('repeat', 'Same reply');
+        const repeatedSend = a.startSend('repeat', 'Same reply', []);
+        a.set('repeat', 'Same reply');
+        a.settleSend('repeat', repeatedSend, true);
+        expect(a.get('repeat')).toBe('Same reply');
+        expect(a.attempt('repeat', 'Same reply')).not.toBe(firstKey);
+        const appScope = ['https://api.test', 'app', randomUUID(), 'u_alex', 'comment_a'];
+        const app = createDraftStore(appScope);
+        app.set('reply', 'Account draft');
+        const late = app.startSend('reply', 'Account draft', []);
+        clearDraftScopes(appScope.slice(0, 2));
+        app.settleSend('reply', late, false);
+        expect(app.get('reply')).toBeUndefined();
     } finally {
         if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
         else Reflect.deleteProperty(globalThis, 'localStorage');

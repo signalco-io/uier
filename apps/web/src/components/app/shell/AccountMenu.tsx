@@ -23,6 +23,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/s
 import { KnownPages } from '@/src/knownPages';
 import { initials } from '../initials';
 import { signOutAction } from './actions';
+import { clearAppReplyDrafts } from '../comments/replyDrafts';
 
 export const themeOptions = [
     { value: 'light', label: 'Light', icon: SunIcon },
@@ -91,7 +92,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
                             </DropdownMenuSub>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => startTransition(() => signOutAction())}>
+                        <DropdownMenuItem onClick={() => { clearAppReplyDrafts(); startTransition(() => signOutAction()); }}>
                             <LogOutIcon />
                             Sign out
                         </DropdownMenuItem>

@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { z } from 'zod';
 import { parseActionInput, userIdSchema } from '../src/lib/app/validation';
 import { UserFacingError } from '../src/lib/app/actionErrors';
 import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
     filterAuthorActionSchema, notificationActionSchema, privateCommentActionSchema, readCommentActionSchema,
-    readCommentsActionSchema, resolveCommentActionSchema } from '../src/components/app/comments/actionSchemas';
+    readCommentsActionSchema, replyCommentActionSchema, resolveCommentActionSchema } from '../src/components/app/comments/actionSchemas';
 import { removeMemberActionSchema, revokeInvitationActionSchema } from '../src/components/app/users/actionSchemas';
 import { deleteProjectActionSchema, projectStatusActionSchema } from '../src/components/app/projects/actionSchemas';
 import { switchWorkspaceActionSchema } from '../src/components/app/shell/actionSchemas';
@@ -24,6 +25,7 @@ test('positional action schemas validate every argument before it is used', () =
         [privateCommentActionSchema, { ...thread, isPrivate: true }],
         [assignCommentActionSchema, { ...thread, assigneeId: 'u_alex' }],
         [editCommentActionSchema, { ...thread, text: 'Valid feedback' }],
+        [replyCommentActionSchema, { ...thread, text: 'Reply', mentions: [{ userId: 'u_alex', start: 0, end: 5 }], idempotencyKey: '0123456789abcdef' }],
         [deleteReplyActionSchema, { ...thread, itemId: 'item_valid' }],
         [filterAuthorActionSchema, { ...thread, itemId: 'item_valid' }],
         [readCommentActionSchema, { ...thread, sequence: 1 }],
@@ -40,7 +42,7 @@ test('positional action schemas validate every argument before it is used', () =
         expect(parseActionInput(schema, valid)).toEqual(valid);
         for (const field of Object.keys(valid)) {
             for (const value of [{}, []]) {
-                const input = { ...valid, [field]: value };
+                const input = { ...valid, [field]: field === 'mentions' && Array.isArray(value) ? [{ userId: 'bad', start: 0, end: 1 }] : value };
                 expect(() => parseActionInput(schema, input), `${field}: ${JSON.stringify(value)}`).toThrow(UserFacingError);
                 expect(() => parseActionInput(schema, input)).toThrow('Check the request and try again.');
             }
@@ -61,6 +63,10 @@ test('positional action schemas validate every argument before it is used', () =
     for (const value of ['', 'u_', 'u_bad/id', 'u_bad#id', 'u_bad?id', 'u_' + 'a'.repeat(65), new String('u_alex')])
         expect(userIdSchema.safeParse(value).success).toBe(false);
     expect(userIdSchema.safeParse('u_' + 'a'.repeat(64)).success).toBe(true);
+    for (const idempotencyKey of ['', 'short', 'a'.repeat(129), undefined])
+        expect(replyCommentActionSchema.safeParse({ ...thread, text: 'Reply', idempotencyKey }).success).toBe(false);
+    for (const text of ['', ' ', 'a'.repeat(1001)])
+        expect(replyCommentActionSchema.safeParse({ ...thread, text, idempotencyKey: '0123456789abcdef' }).success).toBe(false);
     for (const sequence of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, Infinity])
         expect(readCommentActionSchema.safeParse({ ...thread, sequence }).success).toBe(false);
 });
@@ -88,4 +94,27 @@ test('services reject non-booleans without storing comments, notification prefer
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
     }
+});
+
+
+test('app reply and participant actions validate requests and reject an expired app session', async ({ request, baseURL }) => {
+    const manifest = JSON.parse(readFileSync(new URL('../.next/server/server-reference-manifest.json', import.meta.url), 'utf8')) as {
+        node: Record<string, { exportedName?: string }>;
+    };
+    const call = async (name: string, args: unknown[]) => {
+        const action = Object.entries(manifest.node).find(([, entry]) => entry.exportedName === name)?.[0];
+        expect(action).toBeTruthy();
+        const response = await request.post('/app/projects/abc123def456', {
+            headers: { 'Next-Action': action!, 'Content-Type': 'text/plain;charset=UTF-8', Origin: baseURL!, Cookie: 'uier_session=invalid' },
+            data: JSON.stringify(args), maxRedirects: 0
+        });
+        return response.text();
+    };
+    const input = { projectId: 'abc123def456', commentId: 'comment_valid', text: 'Reply', idempotencyKey: '0123456789abcdef' };
+    expect(await call('replyCommentAction', [input])).toContain('Your session has ended. Sign in again.');
+    expect(await call('replyCommentAction', [{ ...input, text: ' ' }])).toContain('Check the request and try again.');
+    expect(await call('replyCommentAction', [{ ...input, idempotencyKey: 'short' }])).toContain('Check the request and try again.');
+    expect(await call('replyCommentAction', [{ ...input, mentions: [{ userId: 'bad/id', start: 0, end: 5 }] }])).toContain('Check the request and try again.');
+    expect(await call('commentParticipantsAction', [input.projectId, input.commentId])).toContain('Your session has ended. Sign in again.');
+    expect(await call('commentParticipantsAction', [input.projectId, {}])).toContain('Check the request and try again.');
 });

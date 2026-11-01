@@ -101,7 +101,7 @@ const sidebarSheet = (page: Page) => page.locator('[data-slot="sidebar"][data-mo
 
 /** Waits for running animations (the sheet sliding in), so axe sees the final colours */
 async function animationsDone(page: Page) {
-    await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+    await page.waitForFunction(() => document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).every(animation => animation.playState !== 'running'));
 }
 
 /** The app's sidebar navigation; on small screens the sidebar is a sheet, opened first */

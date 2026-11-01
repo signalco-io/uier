@@ -86,6 +86,16 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 | `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | shared pointer/touch handles, visible viewport bounds, toolbar position and reusable panel docking; versioned browser-local preferences and keyboard alternatives |
 | `hooks/useDrafts.tsx` | seven-day browser-local text/anchor/edit snapshots scoped to API/project/authorized reviewer/canonical page/item; `draftStorage.ts` handles expiry, discard, sign-out clearing, blocked storage and stable submission identities; captures stay in memory and refresh on reopen |
 
+The inbox's Reply action mounts `CommentComposer` only for the opened card, inside a
+`DraftsProvider` for the target thread's canonical saved page. It reuses `useComments().reply`,
+sharing drafts, submission keys and pending locks with the pin on that origin. Cross-page,
+foreign-environment and unavailable-source threads remain answerable. Previews/composing stay
+unread; replies preserve Open/Done. Reply response handlers use reviewer revisions so sign-out
+cannot repopulate another reviewer's caches. The pure `@uier/toolbar/drafts` subpath exports draft
+storage without runtime, React providers, fonts or styles; the app uses it independently.
+Failed sends retain newer text, and overflowing earlier text is recoverable through Restore unsent
+text. Drafts are local to each browser origin and expire after seven days.
+
 ## Rules
 
 - Pending review codes are saved before URL removal in API/project-scoped session storage for ten

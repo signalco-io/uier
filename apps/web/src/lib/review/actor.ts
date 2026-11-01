@@ -139,7 +139,7 @@ export function assertWriter(actor: ProjectActor) {
 }
 
 /** Recheck the current project and member on each optimistic write attempt. */
-export async function refreshMutationActor(project: DbProject, actor: ProjectActor) {
+export async function refreshMutationActor(project: DbProject, actor: ProjectActor, requireComments = false) {
     const current = (await getAppStore().get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId) throw apiErrors.notFound();
     if (actor.kind === 'member') {
@@ -150,4 +150,5 @@ export async function refreshMutationActor(project: DbProject, actor: ProjectAct
     } else {
         assertCanUseComments(current, actor);
     }
+    if (requireComments) assertCanUseComments(current, actor);
 }

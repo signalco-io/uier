@@ -17,7 +17,7 @@ export const mentionsSchema = z.array(z.object({
 export async function eligibleParticipants(project: DbProject, actor: ProjectActor, comment?: DbComment) {
     await assertParticipantEditor(project, actor, comment);
     return (await listProjectMembers(project.workspaceId, project.id))
-        .filter(({ member, user }) => user && (!comment?.private || member.role === 'admin' || comment.authorId === `user:${member.userId}`))
+        .filter(({ member, user }) => user && (!comment || canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })))
         .map(({ member, name }) => ({ id: member.userId, name }));
 }
 

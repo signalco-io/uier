@@ -56,6 +56,10 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const [comments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
         if (comment.id !== update.id) return comment;
         if ('patch' in update) return { ...comment, ...update.patch };
+        if ('reply' in update) {
+            const saved = comment.replies.some(item => !update.previousReplyIds.includes(item.id) && item.author.isMe && item.text === update.reply.text);
+            return saved ? comment : { ...comment, replies: [...comment.replies, update.reply] };
+        }
         if (!comment.activity) return comment;
         const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };

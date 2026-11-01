@@ -69,6 +69,7 @@ import { updateNotificationAction } from './notificationActions';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 import { integrationLabels, kindLabels } from './commentLabels';
 import { useCommentUpdate } from './CommentUpdates';
+import { ReplyComposer } from './ReplyComposer';
 import {
     markCommentReadAction,
     markCommentUnreadAction,
@@ -223,6 +224,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 }) {
     const router = useRouter();
     const updateComment = useCommentUpdate();
+    const [replying, setReplying] = useState(false);
     const searchParams = useSearchParams();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
@@ -351,7 +353,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 )}>
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">Reply deleted</p>
-                    : <MessageText text={item.text} edited={item.edited} />}
+                    : <><MessageText text={item.text} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
             </Message>
         );
     };
@@ -538,6 +540,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     )}
                     {lastReply && <li>{reply(lastReply)}</li>}
                 </ol>
+
+                {permissions.reply && (replying
+                    ? <ReplyComposer projectId={projectId} userId={userId} comment={comment} onClose={() => setReplying(false)} />
+                    : <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => setReplying(true)}>Reply</Button>)}
 
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (
