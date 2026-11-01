@@ -61,7 +61,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     reviewer). The install page starts at step 2 of 3 and adds the reviewer step below the guide: admins
     invite people by email for invited-only projects; guest projects show a plain, copyable review link for
     every address, main site first. Comments-off projects say so and link admins to Settings. The install
-    guide on its own (from the empty comments list or Settings → Installation) has no progress or reviewer step.
+    guide on its own (from the empty comments list or Settings → Installation; the old `/install` address without
+    `?onboarding=1` redirects there) has no progress or reviewer step.
   - A project has a header (name, client, who can comment, Open review and a Settings button) above
     its comments. Open review lists every address (main site first) to review or visit. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
@@ -83,11 +84,16 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence
     exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
     Reports check the window, origin and a temporary nonce; no tokens, reviewer identity or page content are reported.
-  - Settings `/app/projects/<code>/settings`: everyone mutes or unmutes their own project emails there. Admins
-    also set the name, optional client name, who can comment (invited people, anyone with the link, or comments
-    off), addresses, meaningful page-state fields, and see usage (comments, open, done, replies, pages, people
-    with access). The Danger zone marks the project as done or reopens it, and deletes it after the admin types
-    its name ([project deletion](project-deletion.md)).
+  - Settings `/app/projects/<code>/settings`: one page per section, listed beside it (above it on small
+    screens). Everyone sees **Installation** (`/settings/installation`, the install guide) and **Notifications**
+    (`/settings/notifications`), where they mute or unmute their own project emails; for them the settings open
+    at Notifications. Admins also have **General** (the settings page itself: name, optional client name and
+    usage: comments, open, done, replies, pages, people with access), **Review** (who can comment: invited
+    people, anyone with the link, or comments off; the review brief; meaningful page-state fields),
+    **Environments** (addresses and environment labels), **People and teams**, **Integrations** (each
+    provider's connection; connect and callback routes return to `/settings/integrations`) and **Danger zone**,
+    which marks the project as done or reopens it, and deletes it after the admin types its name
+    ([project deletion](project-deletion.md)). Admin-only sections answer 404 for everyone else.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<publicId>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect

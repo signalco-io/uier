@@ -144,10 +144,14 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.goto('/app/projects');
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
     await expect(commenter.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Users' })).toHaveCount(0);
+    // Commenters' settings open at their own project emails; the sections that set up the project are not theirs
     await commenter.page.goto(`/app/projects/${alpha}/settings`);
+    await expect(commenter.page).toHaveURL(new RegExp(`/app/projects/${alpha}/settings/notifications$`));
     await expect(commenter.page.getByRole('region', { name: 'Email notifications' }).getByRole('button', { name: 'Mute project emails' })).toBeVisible();
+    await expect(commenter.page.getByRole('navigation', { name: 'Project settings' }).getByRole('link')).toHaveText(['Installation', 'Notifications']);
     await expect(commenter.page.getByRole('region', { name: 'General' })).toHaveCount(0);
-    await expect(commenter.page.getByRole('region', { name: 'Danger zone' })).toHaveCount(0);
+    for (const section of ['review', 'environments', 'people', 'integrations', 'danger-zone'])
+        expect((await commenter.page.request.get(`/app/projects/${alpha}/settings/${section}`)).status()).toBe(404);
     expect((await commenter.page.request.get(`/app/review/${beta}`, { maxRedirects: 0 })).status()).toBe(404);
 
     // Their own comment: edit and delete, but only admins make comments private
@@ -205,7 +209,7 @@ test('an invited admin gets every project, the users and the settings', async ({
     await expect(personProjects.getByRole('link', { name: 'Alpha' })).toBeVisible();
     await expect(personProjects.getByRole('link', { name: 'Beta' })).toBeVisible();
     await expect((await appNavigation(person.page)).getByRole('link', { name: 'Users' })).toBeVisible();
-    await person.page.goto(`/app/projects/${beta}/settings`);
+    await person.page.goto(`/app/projects/${beta}/settings/review`);
     await expect(person.page.getByRole('region', { name: 'Who can comment' })).toBeVisible();
     expect((await person.page.request.get(`/app/review/${alpha}`, { maxRedirects: 0 })).status()).toBe(307);
 

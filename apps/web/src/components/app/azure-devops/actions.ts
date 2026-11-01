@@ -85,7 +85,7 @@ export async function saveAzureDevOpsDestinationAction(_: ActionState, form: For
             openState: form.get('openState'), doneState: form.get('doneState'), areaPath: form.get('areaPath') || undefined
         });
         await saveAzureDevOpsDestination(project, context.user.id, input);
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
     }, 'The Azure DevOps destination is saved. Sync is on.');
 }
 
@@ -105,7 +105,7 @@ export async function manageAzureDevOpsAction(_: ActionState<{ message: string }
             await setAzureDevOpsEnabled(project, context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'Azure DevOps sync is on.' : 'Azure DevOps sync is off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
         return { message };
     });
 }

@@ -47,7 +47,7 @@ export async function saveNotionMappingAction(_: ActionState, form: FormData): P
         let mapping: unknown;
         try { mapping = JSON.parse(encoded); } catch { throw new UserFacingError('Load the Notion fields again.'); }
         await saveNotionMapping(project, context.user.id, { dataSourceId, mapping });
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
     }, 'The Notion mapping is saved. Sync is on.');
 }
 export async function manageNotionAction(_: ActionState<{ message: string }>, form: FormData) {
@@ -60,7 +60,7 @@ export async function manageNotionAction(_: ActionState<{ message: string }>, fo
             const backfill = await startIntegrationBackfill(project, 'notion', context.user.id);
             message = backfill.total ? `A backfill of ${backfill.total} selected threads is queued. Delivery continues in the background.` : 'There are no eligible threads to backfill.';
         } else { await setIntegrationEnabled(project, 'notion', context.user.id, operation === 'enable'); message = operation === 'enable' ? 'Notion sync is on.' : 'Notion sync is off.'; }
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
         return { message };
     });
 }

@@ -191,7 +191,7 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
                     throw new SlackConnectionError('needs_reconnect');
                 await attachSlackGrant(project, input.userId, retained);
             } finally { await releaseOwner(held); }
-            return new URL(`/app/projects/${project.id}/settings?slack=connected#slack`, input.baseUrl).href;
+            return new URL(`/app/projects/${project.id}/settings/integrations?slack=connected#slack`, input.baseUrl).href;
         }
     }
     const state = await createOauthState({ provider: 'slack', ...input, pkce: false, key: slackSecretKey(),

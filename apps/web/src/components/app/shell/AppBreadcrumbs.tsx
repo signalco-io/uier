@@ -12,14 +12,18 @@ import {
     BreadcrumbSeparator
 } from '@/src/components/ui/breadcrumb';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { projectSettingsSections } from '../projects/projectSettingsSections';
 
 type Crumb = { label: string; href: string };
 
 const projectPages: Record<string, string> = { install: 'Install', settings: 'Settings' };
 
-/** Where the current page sits: `/app/projects/<id>/settings` -> Projects / <project> / Settings */
+/**
+ * Where the current page sits: `/app/projects/<id>/settings` -> Projects / <project> / Settings, and a
+ * settings section after that (`/settings/integrations` -> ... / Settings / Integrations)
+ */
 function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[] {
-    const [, , section, id, page] = pathname.split('/');
+    const [, , section, id, page, subpage] = pathname.split('/');
     if (section === 'projects') {
         const root = { label: 'Projects', href: KnownPages.AppProjects };
         if (!id)
@@ -28,7 +32,12 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
             return [root, { label: 'Create project', href: KnownPages.AppNewProject }];
         const project = { label: projectNames[id] ?? 'Project', href: KnownPageLinks.project(id) };
         const pageLabel = page ? projectPages[page] : undefined;
-        return pageLabel ? [root, project, { label: pageLabel, href: pathname }] : [root, project];
+        if (!pageLabel)
+            return [root, project];
+        const settingsSection = page === 'settings' && subpage ? projectSettingsSections.find(item => item.section === subpage) : undefined;
+        return settingsSection
+            ? [root, project, { label: pageLabel, href: KnownPageLinks.projectSettings(id) }, { label: settingsSection.label, href: pathname }]
+            : [root, project, { label: pageLabel, href: pathname }];
     }
     if (section === 'teams')
         return [{ label: 'Teams', href: KnownPages.AppTeams }, ...(id ? [{ label: 'Team', href: pathname }] : [])];

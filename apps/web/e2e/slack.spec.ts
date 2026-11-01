@@ -8,7 +8,7 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('slack-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Slack review' });
-    const settingsUrl = `/app/projects/${projectId}/settings`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
     await page.goto(settingsUrl);
     const slack = page.getByRole('region', { name: 'Slack', exact: true });
     await expect(slack).toContainText('Not connected');
@@ -70,6 +70,7 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
 
     await page.goto(settingsUrl);
     await setProjectAccess(page, projectId, 'Anyone with the link');
+    await page.goto(settingsUrl);
     const created = await page.request.post(`/api/review/${projectId}/comments`, { headers: {
         Origin: new URL(baseURL!).origin, 'X-Uier-Visitor': randomBytes(32).toString('base64url')
     }, data: { path: '/slack-review', text: 'Feedback for an explicit historical Slack send', authorName: 'Reviewer',

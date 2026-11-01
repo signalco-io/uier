@@ -59,7 +59,7 @@ test('guest comments without email, then separately verifies and revokes reply n
         await verification.close();
     } finally { await guest.context.close(); }
 
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/notifications`);
     await page.getByRole('button', { name: 'Mute project emails', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
     await page.reload();
@@ -80,7 +80,7 @@ test('guest comments without email, then separately verifies and revokes reply n
 test('admins control excerpts in both themes; commenters see saved state and cannot change it', async ({ page, browser }, testInfo) => {
     await signIn(page, uniqueEmail('excerpt-admin'));
     const projectId = await createProject(page, { urls: [site.origin()], name: 'Excerpt policy' });
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/notifications`);
     const emails = page.getByRole('region', { name: 'Email notifications' });
     const checkbox = emails.getByRole('checkbox', { name: 'Include comment excerpts' });
     await expect(checkbox).not.toBeChecked();
@@ -107,7 +107,7 @@ test('admins control excerpts in both themes; commenters see saved state and can
         // Replay this valid admin action as a commenter below. It must fail on the server.
         if (colorScheme === 'dark') {
             // Settings has the project header invite (in who can comment), without the empty-feedback invite CTA.
-            await openProjectInvite(page, 'Anyone with the link');
+            await openProjectInvite(page);
             const dialog = page.getByRole('dialog');
             await dialog.getByLabel('Email').fill(uniqueEmail('excerpt-commenter'));
             await dialog.getByRole('button', { name: 'Send invitation' }).click();
@@ -117,7 +117,7 @@ test('admins control excerpts in both themes; commenters see saved state and can
                 await person.page.goto(invitation!);
                 await person.page.getByRole('button', { name: 'Accept invitation' }).click();
                 await expect(person.page).toHaveURL(new RegExp(`toolbar-code=${await projectPublicId(page, projectId)}`));
-                await person.page.goto(`/app/projects/${projectId}/settings`);
+                await person.page.goto(`/app/projects/${projectId}/settings/notifications`);
                 const personEmails = person.page.getByRole('region', { name: 'Email notifications' });
                 await expect(personEmails).toContainText('Comment excerpts are on.');
                 await expect(personEmails.getByRole('checkbox')).toHaveCount(0);

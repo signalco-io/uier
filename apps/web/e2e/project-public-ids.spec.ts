@@ -49,6 +49,8 @@ test('the predictable showcase id cannot be used as a public review code', async
     await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' })).toBeVisible();
     await page.goto('/app/projects/uier00000001/install');
+    // The showcase's site already sends comments: the guide is behind its connected status
+    await page.getByRole('button', { name: 'Show install guide' }).click();
     const script = await page.getByText('/toolbar.js" data-uier-project=').first().textContent();
     const publicId = /data-uier-project="([A-Za-z0-9_-]{21})"/.exec(script ?? '')?.[1];
     expect(publicId).toBeTruthy();
@@ -58,5 +60,6 @@ test('the predictable showcase id cannot be used as a public review code', async
     expect(info.status()).toBe(200);
     expect((await info.json()).project.id).toBe(publicId);
     await page.reload();
+    await page.getByRole('button', { name: 'Show install guide' }).click();
     await expect(page.getByText(`data-uier-project="${publicId}"`).first()).toBeVisible();
 });

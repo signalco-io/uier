@@ -162,7 +162,7 @@ export async function beginLinearConnect(input: { userId: string; workspaceId: s
         }
         if (usable.length === 1) {
             await attachGrant(project, input.userId, usable[0]!);
-            return new URL(`/app/projects/${project.id}/settings?linear=connected#linear`, input.baseUrl).href;
+            return new URL(`/app/projects/${project.id}/settings/integrations?linear=connected#linear`, input.baseUrl).href;
         }
     }
     const state = await createOauthState({ provider: 'linear', userId: input.userId, workspaceId: project.workspaceId,

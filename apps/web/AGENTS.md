@@ -223,7 +223,16 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header is
   `projects/[projectId]/layout.tsx` (client, then who can comment, whose popover has Invite for admins; no tabs:
   Settings is an icon button after Open review); its pages
-  render the comments, settings or install guide under it.
+  render the comments, settings or onboarding install step under it.
+- **Project settings** are sections, each its own page under `settings/` (`settings/layout.tsx`): General (the
+  settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
+  Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
+  The layout shows them as `LinkTabs` `side` (a column beside the section, a row above it on small screens) and
+  the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
+  admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
+  Installation and Notifications, and the settings page redirects them to Notifications. Integration
+  connect/callback routes and actions return to and revalidate `settings/integrations`. `install` without
+  `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
   (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)
   and words: state, `#number`, unread dot and "Unassigned" / "Assigned to ..." with the actions on one row
@@ -262,7 +271,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   the same. Guest projects reuse `GuestReviewLinks` for every configured address in order (main site first),
   in onboarding or the header's access popover (`ProjectAccessInfo`), never again in its empty state. Copy fields use
   plain `reviewUrl` links, never `/app/review`, `uier-token` or `uier-check`. Comments-off states explain that
-  comments are off and link admins to Settings; their header popover has no Invite. `inviteAction` still checks the
+  comments are off and link admins to Settings → Review; their header popover has no Invite. `inviteAction` still checks the
   admin role on the server. `e2e/app.spec.ts`, `project-review.spec.ts` and `users.spec.ts` cover these paths.
 - `app/projectPublicIds.ts` assigns stable 21-character public Nano IDs lazily with claimed references
   and optimistic concurrency. Generated review URLs, embeds and guest email links use `publicId`;
@@ -572,7 +581,7 @@ never echoed into a sign-in return URL. Provider credentials are production-only
 through the setup runbook. Off/disconnect must work even when credentials are unavailable.
 
 GitHub organization approval returns (`setup_action=request`, no installation id) consume bound
-state, recheck admin access and select the original workspace before opening `settings?github=pending#github`.
+state, recheck admin access and select the original workspace before opening `settings/integrations?github=pending#github`.
 Invalid GitHub setup/callback returns open `/app/github/error` in the app shell with recovery and
 organization approval guidance. Never carry unverified project ids, callback codes or state into
 that destination. `github.api.spec.ts` and `github.spec.ts` cover pending approval and recovery.

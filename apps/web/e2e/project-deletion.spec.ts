@@ -7,7 +7,7 @@ test('an admin deletes a project from the danger zone after typing its name', as
     const keptId = await createProject(page, { urls: ['kept.example.com'], name: 'Kept site' });
     const projectId = await createProject(page, { urls: ['old.example.com'], name: 'Old site' });
     const publicId = await projectPublicId(page, projectId);
-    await page.goto(`/app/projects/${projectId}/settings`);
+    await page.goto(`/app/projects/${projectId}/settings/danger-zone`);
 
     const danger = page.getByRole('region', { name: 'Danger zone' });
     await expect(danger.getByRole('heading', { level: 3 })).toHaveText(['Mark as done', 'Delete project']);

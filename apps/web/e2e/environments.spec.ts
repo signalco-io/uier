@@ -25,7 +25,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
         } });
         expect(response.status()).toBe(201); ids.push((await response.json()).id);
     }
-    const settingsUrl = `/app/projects/${projectId}/settings`;
+    const settingsUrl = `/app/projects/${projectId}/settings/environments`;
     await page.goto(settingsUrl);
     const settings = page.getByRole('region', { name: 'Environments', exact: true });
     await settings.getByLabel(`Environment label for ${production}`, { exact: true }).fill('Production');

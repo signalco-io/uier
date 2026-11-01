@@ -56,7 +56,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                     <>
                         <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />
                         {/* Settings (and the install guide from there) instead of tabs: the comments are the project's page */}
-                        <ProjectSettingsLink href={KnownPageLinks.projectSettings(project.id)} installHref={KnownPageLinks.projectInstall(project.id)} />
+                        <ProjectSettingsLink href={KnownPageLinks.projectSettings(project.id)} />
                     </>
                 )} />
             <div className="flex flex-col gap-6">

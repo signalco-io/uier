@@ -240,13 +240,16 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByRole('menu')).toBeHidden();
     await expectNoAxeViolations(page);
 
-    // The install guide, from Settings, is the plain guide without the onboarding progress
+    // The install guide, in Settings → Installation, is the plain guide without the onboarding progress
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
-    await page.getByRole('link', { name: 'Open install guide' }).click();
-    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install$`));
+    await page.getByRole('navigation', { name: 'Project settings' }).getByRole('link', { name: 'Installation' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/installation$`));
     await expect(page.getByRole('heading', { name: 'Copy the script' })).toBeVisible();
     await expect(progress).toHaveCount(0);
     await expect(reviewerStep).toHaveCount(0);
+    // The guide's old address (the toolbar links there) opens it too
+    await page.goto(`/app/projects/${projectId}/install`);
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/installation$`));
 });
 
 test('review links open the project\'s own sites with the toolbar turned on', async ({ page }) => {
@@ -306,7 +309,7 @@ test('projects can be marked as done and reopened', async ({ page }) => {
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Launch site' })).toBeVisible();
 });
 
-test('project settings save the comment access, addresses and name', async ({ page }) => {
+test('project settings sections save the name, comment access and addresses', async ({ page }) => {
     await signIn(page, uniqueEmail());
     const projectId = await createProject(page, { urls: ['settings.example.com'] });
     await page.goto(`/app/projects/${projectId}/settings`);
@@ -314,14 +317,31 @@ test('project settings save the comment access, addresses and name', async ({ pa
     // The header's Settings button is current (the breadcrumb ends at Settings too, as a disabled link)
     await expect(page.getByRole('link', { name: 'Settings', exact: true, disabled: false })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Project settings · uier');
+    // Every section has its own page; General is the settings page itself
+    const sections = page.getByRole('navigation', { name: 'Project settings' });
+    await expect(sections.getByRole('link')).toHaveText(['General', 'Review', 'Environments', 'Installation', 'People and teams', 'Integrations', 'Notifications', 'Danger zone']);
+    await expect(sections.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
     await expectNoAxeViolations(page);
 
-    // Who can comment
+    // Name
+    const general = page.getByRole('region', { name: 'General' });
+    await general.getByLabel('Project name').fill('Marketing site');
+    await general.getByRole('button', { name: 'Save' }).click();
+    await expect(general.getByRole('status')).toHaveText('The name is saved.');
+
+    // Who can comment, under Review
+    await sections.getByRole('link', { name: 'Review' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/review$`));
+    await expect(page).toHaveTitle('Review · Project settings · uier');
+    await expect(sections.getByRole('link', { name: 'Review' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Review');
     const access = page.getByRole('region', { name: 'Who can comment' });
     await expect(access.getByRole('radio', { name: 'Invited people' })).toBeChecked();
     await setProjectAccess(page, projectId, 'Anyone with the link');
 
-    // Addresses
+    // Addresses, under Environments
+    await sections.getByRole('link', { name: 'Environments' }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/environments$`));
     const addresses = page.getByRole('region', { name: 'Site addresses' });
     await addresses.getByLabel('Address 2', { exact: true }).fill('localhost:3000/');
     await addresses.getByRole('button', { name: 'Save' }).click();
@@ -330,16 +350,11 @@ test('project settings save the comment access, addresses and name', async ({ pa
     await addresses.getByRole('button', { name: 'Save' }).click();
     await expect(addresses.getByRole('alert')).toContainText('"not a site" is not a website address.');
 
-    // Name
-    const general = page.getByRole('region', { name: 'General' });
-    await general.getByLabel('Project name').fill('Marketing site');
-    await general.getByRole('button', { name: 'Save' }).click();
-    await expect(general.getByRole('status')).toHaveText('The name is saved.');
-
     await page.reload();
-    await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     await expect(addresses.getByLabel('Main site address')).toHaveValue('https://settings.example.com');
     await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('http://localhost:3000');
+    await sections.getByRole('link', { name: 'Review' }).click();
+    await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     // The new name in the header and the breadcrumbs, and on the projects page
     await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');
@@ -575,7 +590,7 @@ test('the account page saves the name and signs out', async ({ page }) => {
 test('only admins save and clear the plain-text review brief, with server validation', async ({ page, browser }, testInfo) => {
     await signIn(page, uniqueEmail('brief-admin'));
     const project = await createProject(page, { urls: [new URL(page.url()).origin], name: 'Brief review' });
-    await page.goto(`/app/projects/${project}/settings`);
+    await page.goto(`/app/projects/${project}/settings/review`);
     const section = page.getByRole('region', { name: 'Review brief', exact: true });
     const input = section.getByLabel('Review instructions');
     await expect(section).toContainText('Only invited people who can comment can read this brief.');
@@ -617,7 +632,7 @@ test('only admins save and clear the plain-text review brief, with server valida
         });
         expect(await response.text()).toContain('Only admins can do this.');
     } finally { await member.context.close(); }
-    await page.goto(`/app/projects/${project}/settings`);
+    await page.goto(`/app/projects/${project}/settings/review`);
     await expect(input).toHaveValue('Review pricing.\nThen checkout.');
     // Clear the existing brief explicitly before exercising a whitespace-only submission.
     await input.clear();

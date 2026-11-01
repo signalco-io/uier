@@ -58,7 +58,7 @@ export async function saveSlackDestinationAction(_: ActionState, form: FormData)
         const channelId = z.string().regex(/^[A-Z][A-Z0-9]{2,79}$/, 'Choose an available channel.').parse(form.get('channelId'));
         await saveSlackDestination(project, context.user.id, { channelId, replySummaries: form.get('replySummaries') === 'true',
             statusSummaries: form.get('statusSummaries') === 'true' });
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
     }, 'The Slack channel is saved. Notifications are on for new shared feedback.');
 }
 
@@ -82,7 +82,7 @@ export async function manageSlackAction(_: ActionState<{ message: string }>, for
             await setSlackEnabled(project, context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'Slack notifications are on.' : 'Slack notifications are off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id));
+        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
         return { message };
     });
 }
