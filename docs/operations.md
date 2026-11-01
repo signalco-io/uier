@@ -170,9 +170,14 @@ to a pull request cancels its previous CI run.
 
 ### Required GitHub configuration
 
-These are the current credentials. The [credential rollout](ci-credential-rollout.md) describes the
-target environments, subjects, role scopes and secret migration. Prepare and verify them before
-changing workflow authentication; repository secrets cannot be read back through GitHub's API.
+The current workflows still use the repository credentials below. On 2 November 2026 the
+`production` and `preview` environments and separate Azure/provider credentials were provisioned;
+the [provisioning receipt](ci-credential-rollout.md#stage-2-provisioning-receipt--2-november-2026)
+records their subjects, exact role scopes, expiry dates and outstanding activation checks.
+Production allows only `main`; preview allows `main` and pull-request merge refs. Neither has
+required reviewers or a wait timer, following the owner's unattended deployment policy.
+`AleksandarDev` remains administrator. Prepare and verify the replacement callers before removing
+repository secrets; GitHub cannot return their existing values.
 
 Repository secrets:
 
@@ -213,8 +218,13 @@ The [screenshot Blob rollout](screenshot-storage.md) requires two new Azure RBAC
 an owner must arrange narrowly scoped assignment permission or create/import those assignments
 before merging. This is separate from the existing Cosmos data-plane roles.
 
-The workflows do not use GitHub deployment environments; adding `environment:` to a job that logs into Azure
-changes its OIDC subject to `repo:signalco-io@89613566/uier@1432139886:environment:<name>`.
+The workflows do not yet reference the provisioned GitHub deployment environments. Adding
+`environment:` to an Azure job changes its OIDC subject to
+`repo:signalco-io@89613566/uier@1432139886:environment:<name>`. The deployment app already trusts
+`:environment:production`; the separate **uier GitHub Preview** app trusts only
+`:environment:preview`. Its scoped role assignments grant reads, state decryption and existing
+provider-key reads, with no Azure resource-management write role. Those key reads and decrypted
+state still expose production credentials; they do not establish production-data isolation.
 
 Actions settings (Settings -> Actions -> General -> Workflow permissions): the default `GITHUB_TOKEN` should be
 **read-only** and must **not** be allowed to create or approve pull requests. Every workflow here declares its

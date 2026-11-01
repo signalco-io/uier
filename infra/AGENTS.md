@@ -44,6 +44,16 @@ worker, moderation operators and the restore procedure all work with Entra ID. D
 stage through CI and record readback before removing a credential, subject or key. Pulumi
 protection is not an Azure management lock; the rollout records the separate owner prerequisite.
 
+GitHub `production`/`preview` environments and a separate **uier GitHub Preview** CI app were
+provisioned on 2 November 2026; current workflows still use their repository credentials.
+The owner chose unattended deployments, so neither environment requires reviewers or a wait timer;
+production allows only `main`, preview allows `main` and PR merge refs. `AleksandarDev` remains
+administrator. The [provisioning receipt](../docs/ci-credential-rollout.md#stage-2-provisioning-receipt--2-november-2026)
+records exact identities, read/decrypt/key-read permissions, provider scopes and pending OIDC/preview
+verification. Do not assume resource-read roles isolate production data when they can retrieve keys
+or decrypt state. Preserve optional production variable registration before removing their credentials
+from previews; never activate a placeholder value in `pulumi up`.
+
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.
 
