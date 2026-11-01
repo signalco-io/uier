@@ -49,7 +49,7 @@ to `apps/web/.env.local` and set the variables there.
 No email is sent locally either: the sign-in page shows the link and code it would have emailed
 ("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
-"Continue with Google" shows locally only with a Google client of your own in `apps/web/.env.local`
+"Sign in with Google" shows locally only with a Google client of your own in `apps/web/.env.local`
 (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI `http://localhost:4004/app/sign-in/google/callback`;
 see [Google sign-in](google-sign-in.md#create-the-google-oauth-client)). Without one, run the test stand-in
 (`PORT=11004 node apps/web/e2e/support/googleStub.ts`) and point `GOOGLE_OAUTH_AUTHORIZE_URL`

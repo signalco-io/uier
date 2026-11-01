@@ -45,7 +45,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
   Brand-only tokens are `hsl(var(--brand-accent))`, `--brand-accent-text`, `--brand-selection`,
   `--brand-success`, `--brand-warning`. No raw hex in components (the two dark/light logo panels
   on the brand page are the deliberate exception: they must stay black and white in both themes;
-  so is the sign-in card's "Continue with Google", whose colours, "G" and Google Sans follow Google's rules, and
+  so are the sign-in card's Google "G" and Microsoft logo, in their own colours on the shared outline button, and
   `IntegrationLogo`, the provider logos on the Integrations pages: GitHub, Linear and Notion draw in the text colour,
   Slack and Azure DevOps keep their own colours, as each provider's guidelines ask).
 - Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
@@ -409,9 +409,14 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   signed in within 10 minutes (`iat` in the session token): a stolen older cookie cannot add one.
   The `passkey` document in `user:<id>` is the source of truth; its `passkey:<hash>` lookup is written
   first and deleted last. Keep counter checks, user verification, Ed25519/P-256/RSA only (not ML-DSA)
-  and the per-IP limits. The email field has `autocomplete="email webauthn"` for passkey autofill.
+  and the per-IP limits. The email field has `autocomplete="email webauthn"` for passkey autofill, which
+  `PasskeySignIn` starts only once the field shows (`autofill`).
   `e2e/passkeys.api.spec.ts` covers the rules; `passkeys.spec.ts` uses Chromium's virtual authenticator on
   `localhost`, with the autofill stubbed off where a test clicks the button.
+- The sign-in card (`sign-in/SignInForm.tsx`) lists every option as the same outline `Button size="lg"`, worded
+  "Sign in with ...": a passkey, Google, Microsoft, then email, the last resort. "Sign in with email" is a link
+  to `?with=email` that opens the email form in place (before hydration it navigates there); "Ask for a new
+  email" uses the same URL. `app.spec.ts` checks the order and `e2e/support/app.ts` `openEmailSignIn` opens it.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and

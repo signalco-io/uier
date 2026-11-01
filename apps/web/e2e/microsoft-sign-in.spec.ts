@@ -7,7 +7,7 @@ test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks
     await page.goto('/app/sign-in?next=/app/account');
     const button = page.getByRole('link', { name: 'Sign in with Microsoft' });
     await expect(button).toHaveAttribute('href', '/app/sign-in/microsoft?next=%2Fapp%2Faccount');
-    await expect(page.getByRole('link', { name: 'Continue with Google' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with Google' })).toBeVisible();
     expect((await new AxeBuilder({ page }).include('main').analyze()).violations).toEqual([]);
     await button.click();
     await expect(page.getByRole('heading', { name: 'Choose a Microsoft test account' })).toBeVisible();

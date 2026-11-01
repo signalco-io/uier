@@ -96,10 +96,11 @@ test('passkeys can be renamed, and the email field offers them as autofill', asy
     await expect(section.getByRole('listitem')).toContainText('Work laptop');
     await expectNoAxeViolations(page);
 
-    // Signed out, the email field (autocomplete="email webauthn") offers the passkey; the virtual
-    // authenticator picks it as a person would, which signs in without a click.
+    // Signed out, the email field (autocomplete="email webauthn") offers the passkey once it is open;
+    // the virtual authenticator picks it as a person would, which signs in without another click.
     await signOut(page);
-    await page.waitForURL(url => url.pathname !== '/app/account');
+    await page.waitForURL(url => url.pathname === '/app/sign-in');
+    await page.getByRole('link', { name: 'Sign in with email' }).click();
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
     await page.goto(`${base}/app/account`);
     await expect(section.getByRole('listitem')).toContainText('Last used');
@@ -134,7 +135,7 @@ test('browsers without WebAuthn get no passkey button, and Account says why', as
         Object.defineProperty(window, 'PublicKeyCredential', { value: undefined, configurable: true });
     });
     await page.goto(`${base}/app/sign-in`);
-    await expect(page.getByRole('button', { name: 'Email me a sign-in code' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toHaveCount(0);
     await signIn(page, uniqueEmail('no-webauthn'), { from: page.url() });
     await page.goto(`${base}/app/account`);

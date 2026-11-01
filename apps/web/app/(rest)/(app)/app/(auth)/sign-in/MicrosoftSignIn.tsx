@@ -23,12 +23,12 @@ export function MicrosoftSignInProblem({ outcome }: { outcome?: string | string[
 export function MicrosoftSignInButton({ next }: { next?: string }) {
     if (!isMicrosoftSignInConfigured()) return null;
     return (
-        <Button variant="outline" size="lg" className="-mt-4 w-full" asChild>
+        <Button variant="outline" size="lg" className="w-full" asChild>
             {/* Full navigation: this route starts a sign-in and must never be prefetched. */}
             <a href={`${KnownPages.AppSignInMicrosoft}${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
                 {/* Official Microsoft asset, kept in its original colours. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/microsoft.svg" width={20} height={20} alt="" data-icon="inline-start" />
+                <img src="/microsoft.svg" width={16} height={16} alt="" data-icon="inline-start" className="size-4 shrink-0" />
                 Sign in with Microsoft
             </a>
         </Button>
