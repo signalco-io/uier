@@ -71,7 +71,7 @@ export function AppBreadcrumbs({ projectNames }: { projectNames: Record<string, 
                             <BreadcrumbItem className={last ? 'min-w-0' : 'hidden md:inline-flex'}>
                                 {last
                                     ? <BreadcrumbPage className="truncate">{item.label}</BreadcrumbPage>
-                                    : <BreadcrumbLink asChild><Link href={item.href}>{item.label}</Link></BreadcrumbLink>}
+                                    : <BreadcrumbLink render={<Link href={item.href} />}>{item.label}</BreadcrumbLink>}
                             </BreadcrumbItem>
                         </Fragment>
                     );
