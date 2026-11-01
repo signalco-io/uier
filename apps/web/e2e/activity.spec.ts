@@ -264,29 +264,41 @@ test('opened short threads become read in light/dark without moving composer foc
     } finally { await author.context.close(); await reader.context.close(); }
 });
 
-test('a review losing access removes cached comments and annotations immediately on foreground refresh', async ({ page, browser, baseURL }, testInfo) => {
-    const site = await startReviewedSite(new URL(baseURL!).origin);
-    const guest = await newVisitor(browser, testInfo);
-    try {
-        await signIn(page, uniqueEmail('activity-owner'));
-        const projectId = await createProject(page, { urls: [site.origin()] });
-        await setProjectAccess(page, projectId, 'Anyone with the link');
-        const headers = await verifiedReviewHeaders(page.request, projectId, site.origin());
-        await page.request.post(`/api/review/${projectId}/comments`, { headers, data: {
-            path: `/${projectId}/pricing`, position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 },
-            text: 'Visible only while access remains', authorName: 'Reporter'
-        } });
-        await guest.page.goto(`${site.origin()}/${projectId}/pricing?toolbar-code=${projectId}`);
-        await expect(commentBubbles(guest.page)).toHaveCount(1);
-        await inbox(guest.page).click();
-        await expect(guest.page.getByText('Visible only while access remains')).toBeVisible();
-        await setProjectAccess(page, projectId, 'Invited people');
-        await foreground(guest.page);
-        await expect(toolbar(guest.page)).toContainText('Sign in to see and leave comments.');
-        await expect(commentBubbles(guest.page)).toHaveCount(0);
-        await expect(guest.page.getByText('Visible only while access remains')).toHaveCount(0);
-    } finally { await guest.context.close(); await site.close(); }
-});
+for (const refresh of ['foreground', 'idle'] as const) {
+    test(`a review losing access removes cached comments and annotations on ${refresh} refresh`, async ({ page, browser, baseURL }, testInfo) => {
+        test.setTimeout(60_000);
+        const site = await startReviewedSite(new URL(baseURL!).origin);
+        const guest = await newVisitor(browser, testInfo);
+        try {
+            await signIn(page, uniqueEmail('activity-owner'));
+            const projectId = await createProject(page, { urls: [site.origin()] });
+            await setProjectAccess(page, projectId, 'Anyone with the link');
+            const headers = await verifiedReviewHeaders(page.request, projectId, site.origin());
+            await page.request.post(`/api/review/${projectId}/comments`, { headers, data: {
+                path: `/${projectId}/pricing`, position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 },
+                text: 'Visible only while access remains', authorName: 'Reporter'
+            } });
+            if (refresh === 'idle') await guest.page.clock.install();
+            await guest.page.goto(`${site.origin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+            await expect(commentBubbles(guest.page)).toHaveCount(1);
+            await inbox(guest.page).click();
+            await expect(guest.page.getByText('Visible only while access remains')).toBeVisible();
+            if (refresh === 'idle') {
+                const counter = refreshCounter(guest.page, `/api/review/${projectId}`, `/api/review/${projectId}/comments`);
+                for (let i = 0; i < 12; i++) {
+                    await guest.page.clock.runFor(15_100);
+                    await counter.settle();
+                }
+            }
+            await setProjectAccess(page, projectId, 'Invited people');
+            if (refresh === 'foreground') await foreground(guest.page);
+            else await guest.page.clock.runFor(60_100);
+            await expect(toolbar(guest.page)).toContainText('Sign in to see and leave comments.');
+            await expect(commentBubbles(guest.page)).toHaveCount(0);
+            await expect(guest.page.getByText('Visible only while access remains')).toHaveCount(0);
+        } finally { await guest.context.close(); await site.close(); }
+    });
+}
 
 test('a member shares read state between the app and reviews on different configured sites', async ({ page, baseURL }) => {
     const site = await startReviewedSite(new URL(baseURL!).origin);
@@ -400,3 +412,248 @@ test('app bulk read follows environment, page and people filters in list and boa
         await expect(page.getByRole('article', { name: 'Comment by Other environment', exact: true })).toBeVisible();
     } finally { await site.close(); }
 });
+
+
+type RefreshCounts = { identity: number; comments: number; activity: number };
+
+// Count only background rounds: attach after initial loads and keep mutations/explicit returns
+// outside the measured windows. The open inbox mounts both page and site-list queries.
+function refreshCounter(page: Page, identityPath: string, commentsPath: string) {
+    const counts: RefreshCounts = { identity: 0, comments: 0, activity: 0 };
+    const pending = new Set<import('@playwright/test').Request>();
+    page.on('request', request => {
+        if (request.method() !== 'GET') return;
+        const path = new URL(request.url()).pathname;
+        const key = path === identityPath ? 'identity' : path === commentsPath ? 'comments'
+            : path === `${commentsPath}/activity` ? 'activity' : undefined;
+        if (key) { counts[key]++; pending.add(request); }
+    });
+    page.on('requestfinished', request => pending.delete(request));
+    page.on('requestfailed', request => pending.delete(request));
+    return { counts, async settle() {
+        // Identity/content phases and observer notifications can start another request. Flush
+        // their zero-delay tasks without advancing the observation window or sleeping in real time.
+        for (let i = 0; i < 3; i++) {
+            await expect.poll(() => pending.size).toBe(0);
+            await page.clock.runFor(0);
+        }
+    } };
+}
+
+for (const mode of ['showcase', 'project'] as const) {
+    test(`${mode} idle lifecycle coalesces held reads and preserves the open draft`, async ({ page, browser, baseURL }, testInfo) => {
+        test.setTimeout(90_000);
+        const reviewer = await newVisitor(browser, testInfo);
+        const site = mode === 'project' ? await startReviewedSite(new URL(baseURL!).origin) : undefined;
+        let release: (() => void) | undefined;
+        try {
+            const origin = isolatedOrigin(testInfo);
+            let identityPath = '/api/visitor', commentsPath = '/api/comments', path = '/brand';
+            let url = `${origin}/brand`, api = origin;
+            let headers: Record<string, string> | undefined;
+            if (site) {
+                await signIn(page, uniqueEmail('poll-lifecycle'));
+                const id = await createProject(page, { urls: [site.origin()] });
+                await setProjectAccess(page, id, 'Anyone with the link');
+                identityPath = `/api/review/${id}`;
+                commentsPath = `${identityPath}/comments`;
+                path = `/${id}/pricing`; api = baseURL!;
+                url = `${site.origin()}${path}?toolbar-code=${id}`;
+                headers = await verifiedReviewHeaders(page.request, id, site.origin());
+            }
+            const posted = await page.request.post(`${api}${commentsPath}`, { headers, data: {
+                path, position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Idle thread', authorName: 'Author'
+            } });
+            expect(posted.status()).toBe(201);
+            const comment = await posted.json();
+            await reviewer.page.clock.install();
+            await reviewer.page.goto(url);
+            await expect(commentBubbles(reviewer.page)).toHaveCount(1);
+            await commentBubbles(reviewer.page).click();
+            const reply = openThread(reviewer.page).getByRole('textbox', { name: 'Reply', exact: true });
+            await reply.fill('Keep my idle draft');
+            await reply.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(2, 7));
+            await reviewer.page.clock.pauseAt(new Date(Date.now() + 1000));
+            const counter = refreshCounter(reviewer.page, identityPath, commentsPath);
+            const { counts } = counter;
+            const advance = async (ms: number) => { await reviewer.page.clock.runFor(ms); await counter.settle(); };
+            // Reach 30 seconds, then 60 seconds without dismissing or acknowledging this thread.
+            for (let i = 0; i < 8; i++) await advance(15_000);
+            let heldReads = 0;
+            const gate = new Promise<void>(resolve => { release = resolve; });
+            await reviewer.page.route(`**${commentsPath}?*`, async route => {
+                heldReads++;
+                if (heldReads > 1) { await route.continue(); return; }
+                const response = await route.fetch();
+                await gate;
+                await route.fulfill({ response });
+            });
+            await reviewer.page.clock.runFor(60_000);
+            await expect.poll(() => heldReads).toBe(1);
+            const held = { ...counts };
+            // No timer ticks accumulate while the first response is held for three minutes.
+            await reviewer.page.clock.runFor(180_000);
+            expect(counts).toEqual(held);
+            const replied = await page.request.post(`${api}${commentsPath}/${comment.id}/replies`, { headers, data: { text: 'After the held snapshot', authorName: 'Author' } });
+            expect(replied.status()).toBe(201);
+            for (let i = 0; i < 3; i++) await foreground(reviewer.page);
+            release!();
+            await expect.poll(() => heldReads).toBe(2);
+            await counter.settle();
+            await advance(100);
+            await expect(openThread(reviewer.page).getByText('After the held snapshot')).toBeVisible();
+            expect(heldReads).toBe(2);
+            await expect(reply).toHaveValue('Keep my idle draft');
+            await expect(reply).toBeFocused();
+            expect(await reply.evaluate((element: HTMLTextAreaElement) => [element.selectionStart, element.selectionEnd])).toEqual([2, 7]);
+            await expect(inbox(reviewer.page)).toHaveAccessibleName('Inbox, 1 unread thread');
+            await advance(14_000);
+            expect(heldReads).toBe(2);
+            await advance(1000);
+            expect(heldReads).toBe(3);
+            await reviewer.page.unroute(`**${commentsPath}?*`);
+            for (const pause of ['hidden', 'offline', 'collapsed'] as const) {
+                if (pause === 'hidden') await reviewer.page.evaluate(() => {
+                    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+                else if (pause === 'offline') await reviewer.context.setOffline(true);
+                else {
+                    await reviewer.page.keyboard.press('Escape');
+                    await toolbar(reviewer.page).getByRole('button', { name: 'Collapse toolbar' }).click();
+                }
+                await counter.settle();
+                const paused = { ...counts };
+                await advance(180_000);
+                expect(counts).toEqual(paused);
+                if (pause === 'hidden') await reviewer.page.evaluate(() => {
+                    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+                else if (pause === 'offline') await reviewer.context.setOffline(false);
+                else await reviewer.page.getByRole('button', { name: /^Expand toolbar/ }).click();
+                await expect.poll(() => counts.activity).toBe(paused.activity + 1);
+                await counter.settle();
+                await advance(15_000);
+                expect(counts.activity).toBe(paused.activity + 2);
+            }
+            await commentBubbles(reviewer.page).click();
+            await reviewer.page.clock.runFor(200);
+            await expect(reply).toHaveValue('Keep my idle draft');
+            await expect(reply).toBeFocused();
+        } finally { release?.(); await reviewer.context.close(); await site?.close(); }
+    });
+
+    test(`${mode} scheduled refresh request budget and bounded idle freshness`, async ({ page, browser, baseURL }, testInfo) => {
+        test.setTimeout(90_000);
+        const reviewer = await newVisitor(browser, testInfo);
+        const site = mode === 'project' ? await startReviewedSite(new URL(baseURL!).origin) : undefined;
+        try {
+            const origin = isolatedOrigin(testInfo);
+            let url = `${origin}/brand`;
+            let identityPath = '/api/visitor', commentsPath = '/api/comments';
+            let headers: Record<string, string> | undefined;
+            let path = '/brand';
+            if (site) {
+                await signIn(page, uniqueEmail('poll-budget'));
+                const id = await createProject(page, { urls: [site.origin()] });
+                await setProjectAccess(page, id, 'Anyone with the link');
+                path = `/${id}/pricing`;
+                url = `${site.origin()}${path}?toolbar-code=${id}`;
+                identityPath = `/api/review/${id}`;
+                commentsPath = `${identityPath}/comments`;
+                headers = await verifiedReviewHeaders(page.request, id, site.origin());
+            }
+            const counter = refreshCounter(reviewer.page, identityPath, commentsPath);
+            await reviewer.page.clock.install();
+            await reviewer.page.goto(url);
+            await expect(toolbar(reviewer.page)).toBeVisible();
+            await inbox(reviewer.page).click();
+            await expect(reviewer.page.getByRole('complementary', { name: 'Comments' })).toBeVisible();
+            await reviewer.page.clock.pauseAt(new Date(Date.now() + 1000));
+            await counter.settle();
+            const { counts } = counter;
+            // Align the cadence after all initial loads; this explicit read is outside sampling.
+            const initial = counts.activity;
+            await foreground(reviewer.page);
+            await expect.poll(() => counts.activity).toBe(initial + 1);
+            await counter.settle();
+            const search = reviewer.page.getByRole('searchbox', { name: 'Search comments' });
+            const sample = async (interact = false) => {
+                const start = { ...counts };
+                for (let i = 0; i < 8; i++) {
+                    if (interact) await search.press('ArrowLeft');
+                    await reviewer.page.clock.runFor(15_000);
+                    await counter.settle();
+                }
+                return { identity: counts.identity - start.identity, comments: counts.comments - start.comments, activity: counts.activity - start.activity };
+            };
+            const active = await sample(true);
+            expect(active).toEqual({ identity: 8, comments: 16, activity: 8 });
+            await sample(); // Reach the healthy idle cap, outside the observation window.
+            const idle = await sample();
+            expect(idle).toEqual({ identity: 2, comments: 4, activity: 2 });
+            await testInfo.attach(`${mode}-polling-counts`, { body: JSON.stringify({ windowSeconds: 120, active, idle,
+                baseline: { identity: 8, comments: 16, activity: 8 }, reduction: '75%' }), contentType: 'application/json' });
+            console.log(mode, 'scheduled refresh counts (120 seconds)', { active, idle });
+            // Align with a completed idle round so the update exercises the full idle bound.
+            const beforeAlignment = counts.activity;
+            for (let i = 0; i < 4 && counts.activity === beforeAlignment; i++) {
+                await reviewer.page.clock.runFor(15_000);
+                await counter.settle();
+            }
+            expect(counts.activity).toBe(beforeAlignment + 1);
+            // A change just after an idle read is discovered at the next 60-second deadline.
+            const beforeRemote = counts.activity;
+            const posted = await page.request.post(`${site ? baseURL : origin}${commentsPath}`, { headers, data: {
+                path, position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Arrived during idle', authorName: 'Other reviewer'
+            } });
+            expect(posted.status()).toBe(201);
+            await reviewer.page.clock.runFor(58_000);
+            expect(counts.activity).toBe(beforeRemote);
+            await expect(commentBubbles(reviewer.page)).toHaveCount(0);
+            await reviewer.page.clock.runFor(2000);
+            await counter.settle();
+            await reviewer.page.clock.runFor(100);
+            await expect(commentBubbles(reviewer.page)).toHaveCount(1);
+            await expect(inbox(reviewer.page)).toHaveAccessibleName('Inbox, 1 unread thread');
+            await counter.settle();
+            const changed = counts.activity;
+            await reviewer.page.clock.runFor(15_000);
+            await expect.poll(() => counts.activity).toBe(changed + 1);
+            await counter.settle();
+            // An idle review interaction refreshes immediately; host-page movement does not.
+            await sample();
+            await reviewer.page.evaluate(() => document.body.dispatchEvent(new PointerEvent('pointermove', { bubbles: true })));
+            const beforeReturn = counts.activity;
+            await search.press('ArrowLeft');
+            await expect.poll(() => counts.activity).toBe(beforeReturn + 1);
+            await counter.settle();
+            await reviewer.page.clock.runFor(15_000);
+            await expect.poll(() => counts.activity).toBe(beforeReturn + 2);
+            await counter.settle();
+            // Navigation disposes the old scheduler; one new context owns the next deadline.
+            await reviewer.page.evaluate(() => history.pushState({}, '', `${location.pathname}/other-view`));
+            await counter.settle();
+            await reviewer.page.clock.runFor(1000);
+            await expect(toolbar(reviewer.page)).toBeVisible();
+            await counter.settle();
+            await expect(commentBubbles(reviewer.page)).toHaveCount(0);
+            const navigated = counts.identity;
+            await reviewer.page.clock.runFor(15_000);
+            await expect.poll(() => counts.identity).toBe(navigated + 1);
+            await counter.settle();
+            // Project exit unmounts the layer; showcase navigation above replaces its timers.
+            if (!site) return;
+            await toolbar(reviewer.page).getByRole('button', { name: 'Options', exact: true }).click();
+            await reviewer.page.getByRole('button', { name: 'Exit review', exact: true }).click();
+            await reviewer.page.clock.runFor(100);
+            await expect(toolbar(reviewer.page)).toHaveCount(0);
+            await counter.settle();
+            const exited = { ...counts };
+            await foreground(reviewer.page);
+            await reviewer.page.clock.runFor(180_000);
+            expect(counts).toEqual(exited);
+        } finally { await reviewer.context.close(); await site?.close(); }
+    });
+}

@@ -11,6 +11,7 @@ import { getGuestName } from '../project/projectSession';
 import { getCommentsErrorMessage } from '../components/CommentsErrorMessage';
 import { showErrorToast } from '../components/Toaster';
 import { pageQueryKeys, pagePath } from '../pageState';
+import { getToolbarHost } from '../mount';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -517,23 +518,45 @@ export function useUnreadComment() {
     });
 }
 
-/** One scheduler per review layer. Hidden, offline and collapsed reviews do not poll. */
+/** One scheduler per review layer. See docs/review-workflow.md for the active/idle contract. */
 export function useCommentsRefresh(expanded: boolean) {
     const client = useQueryClient();
+    const { path } = useContext(CommentsBootstrapperContext);
+    const { environment, currentEnvironment, draftScope } = useProjectViewer();
     useEffect(() => {
         let refreshing = false;
         let requested = false;
         let disposed = false;
+        let timer: number | undefined;
+        let lastActivity = performance.now();
+        let lastStarted = lastActivity;
         const active = () => !disposed && expanded && document.visibilityState === 'visible' && navigator.onLine;
-        const refresh = async (queueIfBusy = true) => {
+        const interval = () => {
+            const idle = performance.now() - lastActivity;
+            return idle >= 120_000 ? 60_000 : idle >= 60_000 ? 30_000 : 15_000;
+        };
+        const clearTimer = () => { window.clearTimeout(timer); timer = undefined; };
+        const schedule = () => {
+            clearTimer();
+            if (!active() || refreshing) return;
+            const cadence = interval();
+            const remaining = lastStarted + cadence - performance.now();
+            // A slow round never accumulates ticks or immediately starts a catch-up burst.
+            timer = window.setTimeout(() => { void refresh(); }, remaining > 0 ? remaining : cadence);
+        };
+        const refresh = async () => {
             if (!active()) return;
-            // A foreground signal can arrive after an in-flight response took its snapshot.
-            // Coalesce it into one fresh round rather than waiting for the next polling interval.
-            if (refreshing) { if (queueIfBusy) requested = true; return; }
+            // Foreground signals received after a response took its snapshot need one fresh round.
+            if (refreshing) { requested = true; return; }
+            clearTimer();
             refreshing = true;
             try {
                 do {
                     requested = false;
+                    lastStarted = performance.now();
+                    const queries = [toolbarConfig.project ? projectViewerQueryKey : visitorQueryKey, commentsQueryKeyPrefix, activityQueryKey]
+                        .flatMap(queryKey => client.getQueryCache().findAll({ queryKey, type: 'active' }));
+                    const before = queries.map(query => query.state.data);
                     if (toolbarConfig.project) await client.invalidateQueries({ queryKey: projectViewerQueryKey }, { cancelRefetch: false });
                     else await client.invalidateQueries({ queryKey: visitorQueryKey }, { cancelRefetch: false });
                     if (!active()) break;
@@ -541,23 +564,47 @@ export function useCommentsRefresh(expanded: boolean) {
                         client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active' }, { cancelRefetch: false }),
                         client.invalidateQueries({ queryKey: activityQueryKey }, { cancelRefetch: false })
                     ]);
+                    // React Query structurally shares unchanged JSON data. Ignore initial loads and
+                    // errors; a changed successful response (including edits) restores fast polling.
+                    if (queries.some((query, index) => before[index] !== undefined && query.state.status === 'success'
+                        && query.state.data !== before[index])) lastActivity = performance.now();
                 } while (requested && active());
-            } finally { refreshing = false; }
+            } finally { refreshing = false; schedule(); }
         };
-        const interval = window.setInterval(() => { void refresh(false); }, 15_000);
-        const foreground = () => { void refresh(); };
+        const foreground = () => {
+            clearTimer();
+            if (!active()) { requested = false; return; }
+            lastActivity = performance.now();
+            void refresh();
+        };
+        const interaction = (event: Event) => {
+            // Only uier surfaces, including inline thread shadow roots. Host-page movement and
+            // scrolling do not keep an otherwise inactive review awake.
+            if (!active() || !event.composedPath().some(node => node === getToolbarHost()
+                || (node instanceof ShadowRoot && node.host.hasAttribute('data-uier-thread')))) return;
+            const wasIdle = interval() > 15_000;
+            lastActivity = performance.now();
+            if (wasIdle) void refresh();
+        };
         window.addEventListener('focus', foreground);
         window.addEventListener('online', foreground);
+        window.addEventListener('offline', foreground);
         document.addEventListener('visibilitychange', foreground);
-        if (expanded) void refresh();
+        const interactionEvents = ['pointerdown', 'keydown', 'input', 'wheel'] as const;
+        if (expanded) {
+            for (const name of interactionEvents) document.addEventListener(name, interaction, { capture: true, passive: true });
+            void refresh();
+        }
         return () => {
             disposed = true;
-            window.clearInterval(interval);
+            clearTimer();
             window.removeEventListener('focus', foreground);
             window.removeEventListener('online', foreground);
+            window.removeEventListener('offline', foreground);
             document.removeEventListener('visibilitychange', foreground);
+            for (const name of interactionEvents) document.removeEventListener(name, interaction, true);
         };
-    }, [client, expanded]);
+    }, [client, expanded, path, environment, currentEnvironment, draftScope]);
 }
 
 export { activityQueryKey };

@@ -176,8 +176,12 @@ Assignment uses `CommentAssignment` and the shared review service. `useParticipa
 a member-only, thread-filtered directory; composer mention ranges are maintained by `mentions.ts`.
 Never infer recipients from display names or reveal account ids in guest DTOs.
 
-- The badge is unread activity, not unresolved feedback. `useCommentsRefresh` is the sole 15-second
-  foreground scheduler (focus/online/visibility/expansion refresh immediately). Read receipts merge
+- The badge is unread activity, not unresolved feedback. `useCommentsRefresh` is the sole adaptive
+  scheduler: 15 seconds, then 30 after one minute without review activity, then 60 after two.
+  Uier interactions after idle, changed successful responses and focus/online/visibility/expansion
+  restore the fast cadence; returns refresh immediately. No hidden/offline/collapsed ticks or overlapping
+  rounds. Keep its lifecycle and request-budget checks in `e2e/activity.spec.ts`; the full contract and
+  measurements are in [review freshness](../../docs/review-workflow.md#polling-request-measurement). Read receipts merge
   monotonically across page/site caches. Inbox previews do not mark every listed thread read;
   short opened threads acknowledge after 800 ms only when `useVisitor` has a name or member session;
   unidentified visitors use Mark as read (the unread dot). `useUnreadComment` (Mark as unread, `DELETE comments/<id>/read`)

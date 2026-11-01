@@ -625,6 +625,12 @@ expose identity metadata only to members. App and toolbar must share these check
   App list/board actions snapshot the shown unread threads and send sequential batches, retaining
   failed cursors for toast retry. Neither bulk nor single reads acknowledge newer activity.
 
+- `e2e/activity.spec.ts` exercises project/showcase adaptive refresh with the Playwright clock:
+  15-second active cadence, 30 after one minute idle, 60 after two, immediate return, held-response
+  coalescing, pause/resume, drafts/focus, unread and revoked-access cleanup. Count identity/viewer,
+  comments and activity endpoints separately; do not equate cycles with HTTP requests or invoice savings.
+  See [refresh contract and measurements](../../docs/review-workflow.md#polling-request-measurement).
+
 - Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
   threads, so badge counts do not inherit text-list limits. Unread content is selected before
   applying response limits. Preserve legacy author-only projections and private-thread filtering.

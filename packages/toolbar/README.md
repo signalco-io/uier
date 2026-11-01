@@ -353,6 +353,17 @@ error boundary, so one bad comment never breaks the toolbar.
   comment on another page links to its thread there (`?uier-comment=`, always on this site). The pages, status
   and search are kept while the inbox is closed; Escape clears a search first. The showcase includes other public pages too.
 
+
+### Review freshness
+
+Expanded, visible, online reviews refresh every 15 seconds while active, every 30 seconds after
+one minute without review interaction and every 60 seconds after two minutes. Interacting with an
+idle review refreshes immediately. Focus, visibility return, reconnect and expansion also refresh
+immediately; changed responses restore the fast cadence. Hidden, offline and collapsed reviews do
+not poll. Refreshes preserve drafts, focus, open threads and unread state, and still recheck access.
+See the [full freshness contract and request measurements](../../docs/review-workflow.md#polling-request-measurement).
+
+
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.

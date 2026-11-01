@@ -358,12 +358,62 @@ unread threads shown by the current filters. Replies arriving after that list wa
 unread. Large lists are sent in batches of up to 200; failed writes offer Retry. Read activity
 also suppresses pending email digests through the same per-reviewer cursor.
 
-One scheduler refreshes active page/site queries every 15 seconds while expanded, online and visible,
-and immediately on focus, reconnect, foreground return and expansion. Hidden and collapsed reviews
-do not poll. Content lists retain their size limits; a separate activity projection supplies full badge/status
-counts. The Unread filter fetches unread content before applying those limits, so older unread threads
-remain findable. Marking a batch read reveals the next batch. The inbox warns when content is omitted. Fresh requests enforce project/private permissions and access failures purge cached
-comments and screenshots. Drafts, stable thread keys and focus survive ordinary refreshes.
+One lifecycle-managed scheduler revalidates identity/access, then active page/site lists and activity,
+while the review is expanded, online and visible:
+
+| Time since review activity | Scheduled cadence |
+| --- | --- |
+| Less than 1 minute | 15 seconds |
+| 1 to less than 2 minutes | 30 seconds |
+| 2 minutes or longer | 60 seconds (healthy idle cap) |
+
+Review activity means a pointer press, key press, text input or wheel scroll inside uier's toolbar,
+pins, popovers, inbox or inline threads. Host-page movement and scrolling do not reset it. An
+interaction after entering idle refreshes immediately and restores the fast cadence; continued
+interaction keeps the 15-second cadence without a request for every keystroke. A successful changed
+identity, comment list or activity response also restores it (including edits that do not change
+unread counts). Mutation invalidations stay immediate and separate from scheduled rounds.
+
+Focus, reconnect, becoming visible and expansion refresh immediately and reset to 15 seconds.
+Hidden, offline and collapsed reviews have no scheduled work. No timer runs during a refresh;
+foreground events during a held response coalesce into one subsequent round. Ordinary deadlines
+are measured from the start of a round. A round that outlasts its cadence waits one full interval
+after completion, with no catch-up ticks. Query retry, deduplication and cancellation behavior is
+unchanged. Timers/listeners are disposed on exit, page, environment or reviewer changes.
+
+Healthy idle updates are discovered within 60 seconds plus the identity/content round-trip time;
+active updates within 15 seconds plus that time. Network failures, suspended browsers and slow
+responses can extend this bound. Every round still rechecks viewer/access; no authorization cache
+is added. Observed access failures purge cached comments, activity and screenshots through the
+existing access paths. Drafts, composer selection/focus, stable thread keys and open threads survive
+ordinary refreshes. Refreshing never acknowledges unread activity.
+
+Content lists retain their size limits; a separate activity projection supplies full badge/status
+counts. The Unread filter fetches unread content before applying those limits, so older unread
+threads remain findable. Marking a batch read reveals the next batch. The inbox warns when content
+is omitted.
+
+### Polling request measurement
+
+On 2 November 2026, `activity.spec.ts` measured fixed 120-second windows with Playwright's clock,
+with the inbox open (one page list, one site list and one activity query). Initial loads, mutations
+and explicit foreground refreshes were outside the windows. Active windows used a review key press
+every 15 seconds; idle windows followed two minutes without interaction. The previous fixed
+15-second scheduler was measured from `b1a89f6` before implementation. Both project and same-origin
+showcase contexts produced these endpoint counts:
+
+| Scenario (each mode) | Cycles | Identity/viewer GET | Comments GET (page + site) | Activity GET | Total GET |
+| --- | --- | --- | --- | --- | --- |
+| Previous active or idle | 8 | 8 | 16 | 8 | 32 |
+| Adaptive active | 8 | 8 | 16 | 8 | 32 |
+| Adaptive settled idle | 2 | 2 | 4 | 2 | 8 |
+
+Settled idle cycles and endpoint reads fall **75%**; the healthy maximum discovery delay rises from
+15 to 60 seconds, plus round-trip time. The clock test introduces a remote update immediately
+after an idle read and checks discovery at the next idle deadline, unread preservation and return
+to the fast cadence. Closed inboxes have fewer active list queries, so a cycle is not a fixed
+number of HTTP requests. These are local request-volume measurements, with no database/compute
+cost or invoice-saving measurement. Server-side query optimization (#279) is separate.
 
 `apps/web/src/lib/comments/activity.ts` defines the monotonic thread activity sequence. Creation,
 replies, resolve/reopen, assignment changes and newly selected mention recipients advance it
