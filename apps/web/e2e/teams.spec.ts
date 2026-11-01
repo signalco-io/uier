@@ -118,8 +118,10 @@ test('project people and teams show access as badges, with unavailable removals 
     await expect(people).toContainText('All projects');
     const remove = people.getByRole('button', { name: /Remove .*'s access/ });
     await expect(remove).toHaveAttribute('aria-disabled', 'true');
-    await remove.focus();
-    await expect(page.getByRole('tooltip')).toHaveText('Workspace admins can review every project.');
+    // Base UI tooltips are visual only: the reason is also the button's description
+    await expect(remove).toHaveAccessibleDescription('Workspace admins can review every project.');
+    await remove.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Workspace admins can review every project.');
 
     await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
     await expectNoAxeViolations(page);

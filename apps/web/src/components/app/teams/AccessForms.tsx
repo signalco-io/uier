@@ -123,21 +123,29 @@ export function Choice({
     );
 }
 
-/** A button that does not apply here: dimmed but still focusable, with why in its tooltip (a disabled button gets no hover or focus) */
+/**
+ * A button that does not apply here: dimmed but still focusable, with why in its tooltip (a disabled button gets no
+ * hover or focus). Base UI tooltips are visual only, so the reason is also the button's description.
+ */
 export function UnavailableButton({ label, accessibleName, reason }: { label: string; accessibleName?: string; reason: string }) {
+    const reasonId = useId();
     return (
-        <Tooltip>
-            <TooltipTrigger render={<Button
+        <>
+            <Tooltip>
+                <TooltipTrigger render={<Button
                     type="button"
                     variant="outline"
                     size="sm"
                     aria-disabled="true"
                     aria-label={accessibleName}
+                    aria-describedby={reasonId}
                     className="cursor-not-allowed opacity-50 hover:bg-background active:not-aria-[haspopup]:translate-y-0 dark:hover:bg-input/30" />}>
-                {label}
-            </TooltipTrigger>
-            <TooltipContent>{reason}</TooltipContent>
-        </Tooltip>
+                    {label}
+                </TooltipTrigger>
+                <TooltipContent>{reason}</TooltipContent>
+            </Tooltip>
+            <span id={reasonId} className="sr-only">{reason}</span>
+        </>
     );
 }
 
