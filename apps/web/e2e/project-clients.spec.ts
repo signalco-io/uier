@@ -98,8 +98,8 @@ test('admins rename a client and set its description, icon and colour; every pro
     await clients.nth(0).getByRole('button', { name: 'Edit Acme', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Edit client' });
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
-    await expect(dialog.getByRole('radio', { name: 'First letter' })).toBeChecked();
-    await expect(dialog.getByRole('radio', { name: 'Ink' })).toBeChecked();
+    await expect(dialog.getByRole('button', { name: 'First letter' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByRole('button', { name: 'Ink' })).toHaveAttribute('aria-pressed', 'true');
     await animationsFinished(page.locator('body')); // Scan the opened dialog, not its fade-in
     await expectNoAxeViolations(page);
 
@@ -115,9 +115,9 @@ test('admins rename a client and set its description, icon and colour; every pro
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
     await dialog.getByLabel('Client name').fill('  Acme   Studio ');
     await dialog.getByLabel('Description (optional)').fill('Retail sites for the spring launch.');
-    await dialog.getByRole('radio', { name: 'Rocket' }).click();
-    await dialog.getByRole('radio', { name: 'Blue' }).click();
-    await expect(dialog.getByRole('radio', { name: 'Rocket' })).toBeChecked();
+    await dialog.getByRole('button', { name: 'Rocket' }).click();
+    await dialog.getByRole('button', { name: 'Blue' }).click();
+    await expect(dialog.getByRole('button', { name: 'Rocket' })).toHaveAttribute('aria-pressed', 'true');
     await page.screenshot({ path: testInfo.outputPath('client-edit-light.png') });
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(dialog).toBeHidden();
@@ -129,8 +129,8 @@ test('admins rename a client and set its description, icon and colour; every pro
     await page.reload();
     await clients.nth(0).getByRole('button', { name: 'Edit Acme Studio', exact: true }).click();
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme Studio');
-    await expect(dialog.getByRole('radio', { name: 'Rocket' })).toBeChecked();
-    await expect(dialog.getByRole('radio', { name: 'Blue' })).toBeChecked();
+    await expect(dialog.getByRole('button', { name: 'Rocket' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByRole('button', { name: 'Blue' })).toHaveAttribute('aria-pressed', 'true');
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.reload(); // Scan settled dark colors, outside the theme's color transition.
     await expect(page.locator('html')).toHaveClass(/\bdark\b/);

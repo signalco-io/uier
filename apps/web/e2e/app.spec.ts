@@ -384,6 +384,8 @@ test('the sidebar has the sections, the active projects and the account', async 
 
     // The account menu: account page and theme
     await page.getByRole('button', { name: /^Account: / }).click();
+    // A submenu opened while its menu is still zooming in closes again (Base UI); people are slower than that
+    await animationsFinished(page.getByRole('menu'));
     await page.getByRole('menuitem', { name: 'Theme' }).click();
     await page.getByRole('menuitemradio', { name: 'Dark' }).click();
     await expect(page.locator('html')).toHaveClass(/\bdark\b/);
