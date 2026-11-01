@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { KeyRoundIcon } from 'lucide-react';
 import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, startAuthentication, WebAuthnAbortService } from '@simplewebauthn/browser';
 import { Button } from '@/src/components/ui/button';
-import { FieldSeparator } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { forgetPasskey, passkeyPromptError } from '@/src/components/app/passkeyCeremony';
@@ -13,11 +12,12 @@ import { passkeySignInAction, passkeySignInOptionsAction } from './passkeyAction
 const subscribe = () => () => undefined;
 
 /**
- * "Sign in with a passkey" under the email form, and the passkeys the browser offers in the email
- * field's autofill (conditional mediation: the field has `autocomplete="email webauthn"`). Hidden
- * in browsers without WebAuthn. Each prompt gets a new challenge, which replaces the earlier one.
+ * "Sign in with a passkey", the first sign-in option, and with `autofill` (once the email form is
+ * open) the passkeys the browser offers in the email field's autofill (conditional mediation: the
+ * field has `autocomplete="email webauthn"`). Hidden in browsers without WebAuthn. Each prompt gets
+ * a new challenge, which replaces the earlier one.
  */
-export function PasskeySignIn({ next }: { next?: string }) {
+export function PasskeySignIn({ next, autofill }: { next?: string; autofill: boolean }) {
     // Rendered on the server as supported (nearly every browser is), so the card doesn't shift.
     const supported = useSyncExternalStore(subscribe, browserSupportsWebAuthn, () => true);
     const [error, setError] = useState<string>();
@@ -74,21 +74,19 @@ export function PasskeySignIn({ next }: { next?: string }) {
     }
 
     useEffect(() => {
-        if (!browserSupportsWebAuthn())
-            return;
-        void offerInAutofill();
+        if (autofill && browserSupportsWebAuthn())
+            void offerInAutofill();
         return () => {
             generation.current++;
             WebAuthnAbortService.cancelCeremony();
         };
-        // Once per mount: each prompt restarts the autofill itself.
-    }, []);
+        // Once the email field shows: each prompt restarts the autofill itself.
+    }, [autofill]);
 
     if (!supported)
         return null;
     return (
         <>
-            <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">or</FieldSeparator>
             <Button type="button" variant="outline" size="lg" className="w-full" disabled={pending} onClick={() => void signInWithButton()}>
                 {pending ? <Spinner data-icon="inline-start" /> : <KeyRoundIcon data-icon="inline-start" />}
                 Sign in with a passkey

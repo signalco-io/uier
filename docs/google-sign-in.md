@@ -1,8 +1,8 @@
 # Google sign-in
 
-"Continue with Google" on the app's sign-in card signs people in with their Google account, next to
-the email code and link and passkeys (under the email form's "or", after "Sign in with a passkey").
-Email sign-in always stays available. A signed-in person can link or unlink
+"Sign in with Google" on the app's sign-in card signs people in with their Google account. It is the
+second option, after "Sign in with a passkey" and before "Sign in with Microsoft" and "Sign in with
+email" (the email code and link). Email sign-in always stays available. A signed-in person can link or unlink
 Google under Account → Google account.
 
 The flow is OpenID Connect's authorization code flow with PKCE, written in `apps/web/src/lib/app/google/`
@@ -114,9 +114,9 @@ Previews never show it: Google accepts only registered redirect URIs, and every 
 address. The redirect URI is `appBaseUrl()` + `/app/sign-in/google/callback`, HTTPS outside local
 runtime. Account keeps showing a linked Google account (with Unlink) wherever the button is off.
 
-The button follows [Google's branding guidelines](https://developers.google.com/identity/branding-guidelines):
-"Continue with Google", the standard "G", Google Sans Medium 14/20 (self-hosted by `next/font`) and
-Google's light and dark theme colours. It is the one place the app leaves Geist and the brand tokens.
+The button is the same outline button as every other sign-in option, in Geist and the brand
+tokens, so the card reads as one list. From [Google's branding guidelines](https://developers.google.com/identity/branding-guidelines)
+it keeps the standard "G" in Google's colours and one of the approved labels, "Sign in with Google".
 
 ## Create the Google OAuth client
 

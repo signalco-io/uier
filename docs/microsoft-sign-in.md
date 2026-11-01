@@ -1,6 +1,7 @@
 # Microsoft sign-in
 
-The sign-in card offers **Sign in with Microsoft** alongside email, Google and passkeys.
+The sign-in card offers **Sign in with Microsoft** alongside passkeys, Google and email, as the same
+outline button with the Microsoft logo in its own colours.
 Work and school accounts and personal Microsoft accounts are supported. Email sign-in stays
 available. Account → Microsoft account lets people link or unlink their Microsoft identity.
 

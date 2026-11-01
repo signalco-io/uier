@@ -3,10 +3,10 @@ import { uniqueEmail } from './support/app';
 
 // The browser journey through the local Google stand-in (e2e/support/googleStub.ts). Linking rules,
 // replays and bindings are covered by google-sign-in.api.spec.ts.
-test('Continue with Google confirms a non-Gmail address by email, links the account and can be unlinked', async ({ page }) => {
+test('Sign in with Google confirms a non-Gmail address by email, links the account and can be unlinked', async ({ page }) => {
     const email = uniqueEmail('google-browser');
     await page.goto('/app/sign-in?next=/app/account');
-    const google = page.getByRole('link', { name: 'Continue with Google' });
+    const google = page.getByRole('link', { name: 'Sign in with Google' });
     await expect(google).toHaveAttribute('href', '/app/sign-in/google?next=%2Fapp%2Faccount');
     await google.click();
 
@@ -35,7 +35,7 @@ test('Continue with Google confirms a non-Gmail address by email, links the acco
     // A cancelled consent comes back to sign in with the reason
     await page.context().clearCookies();
     await page.goto('/app/sign-in');
-    await page.getByRole('link', { name: 'Continue with Google' }).click();
+    await page.getByRole('link', { name: 'Sign in with Google' }).click();
     await page.getByRole('button', { name: 'Cancel' }).click();
     await page.waitForURL(url => url.pathname === '/app/sign-in' && url.searchParams.get('google') === 'cancelled');
     await expect(page.getByRole('main').getByRole('alert')).toHaveText('Google sign-in was cancelled.');

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SignInPage({ searchParams }: PageProps<'/app/sign-in'>) {
-    const { next, google, microsoft } = await searchParams;
+    const { next, google, microsoft, with: method } = await searchParams;
     const nextPath = safeNextPath(next);
     if (await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
@@ -21,10 +21,11 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/sign-
     return (
         <AuthCard
             title="Sign in"
-            description="Enter your email and we will send you a code and a link. New here? Signing in creates your account.">
+            description="Choose how to sign in. New here? Signing in creates your account.">
             <GoogleSignInProblem outcome={google} />
             <MicrosoftSignInProblem outcome={microsoft} />
-            <SignInForm next={nextPath} alternatives={<><GoogleSignInButton next={nextPath} /><MicrosoftSignInButton next={nextPath} /></>} />
+            <SignInForm next={nextPath} withEmail={method === 'email'}
+                alternatives={<><GoogleSignInButton next={nextPath} /><MicrosoftSignInButton next={nextPath} /></>} />
         </AuthCard>
     );
 }

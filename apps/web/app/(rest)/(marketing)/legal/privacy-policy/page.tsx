@@ -154,7 +154,7 @@ export default function PrivacyPolicyPage() {
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>
             <p>
-                If you choose Continue with Google, you sign in at Google, which tells us your Google account id, your
+                If you choose Sign in with Google, you sign in at Google, which tells us your Google account id, your
                 email address and whether Google verified it, your Google Workspace domain if you have one, your name and
                 your profile picture. We store the account id, that address (shown on your Account page) and when you
                 linked the account. An account created for a Gmail or Google Workspace address takes your Google name

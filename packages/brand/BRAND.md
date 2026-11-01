@@ -135,8 +135,9 @@ Blue is never a background for a section, a card or a button.
 and the current item). Components use the semantic classes (`text-muted-foreground`,
 `border-border`, `bg-primary`, `bg-sidebar`) or these variables.
 A raw hex belongs only in `src/brand.ts`, for metadata and generated images. The exceptions in
-the product are the "Continue with Google" button, whose colours, "G" and font (Google Sans Medium)
-are fixed by Google's branding rules ([Google sign-in](../../docs/google-sign-in.md)), and the
+the product are the provider marks on the sign-in card, Google's "G" and Microsoft's logo in their
+own colours ([Google sign-in](../../docs/google-sign-in.md)); the buttons around them are the same
+outline button as every other sign-in option. The others are the
 logos of connected services in a project's Integrations settings: each is the provider's own filled
 mark on a bordered tile, in ink and paper where the provider allows a one-colour logo (GitHub,
 Linear, Notion) and in its own colours where it does not (Slack, Azure DevOps).
