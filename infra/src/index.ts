@@ -230,6 +230,8 @@ const up = async () => {
         ['secret', 'UIER_EMAIL_REPORT_SECRET', emailReportSecret, true],
         ['subscription', 'UIER_EMAIL_REPORT_SUBSCRIPTION', 'uier-email-delivery', false],
         ['topic', 'UIER_EMAIL_REPORT_TOPIC', email.communicationServiceId, false],
+        // Real digest/receipt correlation verified on 2 November; see docs/review-notifications.md.
+        ['match-operations', 'UIER_EMAIL_REPORT_MATCH_OPERATIONS', '1', false],
     ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
         projectId: app.projectId, key, value, sensitive, targets: ['production'],
     }, envVarOptions);

@@ -97,10 +97,17 @@ link and production `UIER_EMAIL_SENDER=donotreply@notify.uier.io`. The completed
 option is removed from source; the sender remains protected and managed by Pulumi. See the
 [activation evidence](review-notifications.md#transactional-sender-activation).
 
-A recipient-authorized production digest remains necessary to prove report message-id correlation,
-received-message SPF/DKIM/DMARC, intact unsubscribe headers and DKIM coverage. Keep
-`UIER_EMAIL_REPORT_MATCH_OPERATIONS` unset until correlation is proven. Subscription provisioning
-alone does not satisfy those acceptance gates.
+On 2 November 2026, inspection of an existing production digest confirmed SPF/DKIM/DMARC pass,
+display name `uier`, both unsubscribe headers and report message-id correlation with its delivery
+ledger. The [production digest receipt](review-notifications.md#production-digest-verification)
+records the bounded evidence. ACS's DKIM signature does not cover either unsubscribe header;
+mailbox providers may therefore omit one-click UI even though the POST endpoint works.
+
+The separate matching change adds only production `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` through
+Pulumi. Require its CI preview to show exactly one environment-variable creation and existing
+resources unchanged, then confirm the production deployment and variable readback. Earlier
+acknowledged reports are not replayed. Subscription provisioning alone is insufficient evidence
+for any future sender or transport change.
 
 ### Infrastructure state and credentials
 
