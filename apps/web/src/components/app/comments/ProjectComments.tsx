@@ -1,3 +1,7 @@
+'use client';
+
+import { useOptimistic } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
 import { cn } from 'cn';
@@ -12,40 +16,11 @@ import type { AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
 import { pageMatches } from './pageFilter';
 import { CommentList } from './CommentList';
-import type { AuthorFilter, CommentsView, PeopleFilter, StatusFilter } from './commentLabels';
+import type { AuthorFilter, StatusFilter } from './commentLabels';
+import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
+import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { MarkAllRead } from './MarkAllRead';
 
-export type CommentsQuery = {
-    environment?: string;
-    author?: string;
-    unread?: boolean;
-    view: CommentsView;
-    /** Open, Done or All in the list (the board shows Open and Done side by side) */
-    status: StatusFilter;
-    people: PeopleFilter;
-    /** A page (relative URL), a section (`/blog/*`) or every page */
-    page?: string;
-};
-
-/** The comments query from the page's search params (unknown values fall back to the defaults) */
-export function parseCommentsQuery(params: Record<string, string | string[] | undefined>): CommentsQuery {
-    const value = (name: string) => {
-        const raw = params[name];
-        return typeof raw === 'string' ? raw : undefined;
-    };
-    const people = value('people');
-    const status = value('status');
-    const page = value('page');
-    return {
-        environment: value('environment'),
-        author: value('author'),
-        unread: value('unread') === 'true',
-        view: value('view') === 'board' ? 'board' : 'list',
-        status: status === 'done' || status === 'all' ? status : 'open',
-        people: people === 'assigned' || people === 'mine' ? people : 'all',
-        page: page?.startsWith('/') ? page : undefined
-    };
-}
 
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string) {
     return comments.filter(comment => {
@@ -61,7 +36,7 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
 }
 
 /** The project's comments in a list (Open, Done or All) or on a board (Open / Done), filtered by people and page */
-export function ProjectComments({ projectId, access, isAdmin, comments, query, userId, assignees, installHref, environments, authorFilter }: {
+export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter }: {
     authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
     projectId: string;
@@ -74,6 +49,17 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
     /** The install guide, offered while there are no comments */
     installHref: string;
 }) {
+    const searchParams = useSearchParams();
+    // Environment and author are authorized server scopes. Presentation filters only use
+    // the already authorized snapshot and never need another database round trip.
+    const query = { ...parseCommentsQuery(Object.fromEntries(searchParams)), environment: serverQuery.environment, author: serverQuery.author };
+    const [comments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
+        if (comment.id !== update.id) return comment;
+        if ('patch' in update) return { ...comment, ...update.patch };
+        if (!comment.activity) return comment;
+        const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
+        return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
+    }));
     const installText = query.environment === 'all'
         ? 'Install the script and open a review link to leave the first comment.'
         : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.';
@@ -143,6 +129,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
     const listKey = [query.environment, query.author, query.unread, query.people, query.page, query.status].join('|');
 
     return (
+        <CommentUpdatesProvider value={updateComment}>
         <div className="flex flex-col gap-4">
             <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
                 readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}
@@ -197,5 +184,6 @@ export function ProjectComments({ projectId, access, isAdmin, comments, query, u
                     keepsResolved={query.status === 'all'} />
             )}
         </div>
+        </CommentUpdatesProvider>
     );
 }

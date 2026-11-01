@@ -1,8 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { KnownPageLinks } from '@/src/knownPages';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import { IntegrationAccessError, requireIntegrationAdmin } from '@/src/lib/integrations/connection';
@@ -10,6 +8,7 @@ import { startIntegrationBackfill } from '@/src/lib/integrations/backfill';
 import { disconnectLinear, LinearSetupError, loadLinearLabels, loadLinearProjects, loadLinearStates, loadLinearTeams,
     saveLinearDestination, setLinearEnabled } from '@/src/lib/integrations/linear';
 import { LinearApiError } from '@/src/lib/integrations/linear/client';
+import { revalidateIntegration } from '../integrations/revalidate';
 
 const id = z.string().uuid('Choose an available Linear destination.');
 
@@ -77,7 +76,7 @@ export async function saveLinearDestinationAction(_: ActionState, form: FormData
             labelIds: form.getAll('labelId'), screenshots: form.get('screenshots') === 'true'
         });
         await saveLinearDestination(project, context.user.id, input);
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'linear');
     }, 'The Linear destination is saved. Sync is on.');
 }
 
@@ -97,7 +96,7 @@ export async function manageLinearAction(_: ActionState<{ message: string }>, fo
             await setLinearEnabled(project, context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'Linear sync is on.' : 'Linear sync is off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'linear');
         return { message };
     });
 }

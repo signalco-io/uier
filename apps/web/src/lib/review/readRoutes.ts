@@ -3,7 +3,7 @@ import { matchesOrigin } from '../repo/originFilter';
 import { z } from 'zod';
 import { pagePath } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
-import { loadReadSequences, markThreadRead, projectActivity, unreadComments } from '../comments/readState';
+import { loadReadSequences, markThreadRead, markThreadUnread, projectActivity, unreadComments } from '../comments/readState';
 import { withinListResponseSize } from '../comments/dto';
 import { MAX_LIST_COMMENTS } from '../comments/limits';
 import { isValidId, reviewPathSchema } from '../comments/validation';
@@ -64,6 +64,15 @@ export async function readReviewComment({ request, project, actor }: ReviewApiCo
     const comment = await getProjectComment(project, actor, id);
     if (!comment) throw apiErrors.notFound();
     return Response.json(await markThreadRead(comment, actorAuthorId(actor)!, sequence));
+}
+
+/** Mark as unread, after the same project/private checks as reads */
+export async function unreadReviewComment({ project, actor }: ReviewApiContext, { id }: { id: string }) {
+    assertWriter(actor);
+    if (!isValidId(id)) throw apiErrors.notFound();
+    const comment = await getProjectComment(project, actor, id);
+    if (!comment) throw apiErrors.notFound();
+    return Response.json(await markThreadUnread(comment, actorAuthorId(actor)!));
 }
 
 export async function reviewActivitySummary({ project, actor, request, siteOrigin }: ReviewApiContext) {

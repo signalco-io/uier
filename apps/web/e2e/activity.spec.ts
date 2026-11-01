@@ -43,10 +43,19 @@ test('anonymous direct thread opening sends no read and sets no cookie; explicit
         expect((await reader.context.cookies()).filter(cookie => cookie.name === 'uier_visitor')).toEqual([]);
         await inbox(reader.page).click();
         const card = reader.page.getByRole('article', { name: `Comment #${comment.number}` });
-        await card.getByRole('button', { name: 'Mark as read', exact: true }).click();
+        // The unread dot is the Mark as read button
+        await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
         await expect.poll(() => reads.length).toBe(1);
         await expect.poll(async () => (await reader.context.cookies()).some(cookie => cookie.name === 'uier_visitor')).toBe(true);
-        await expect(card.getByRole('button', { name: 'Mark as read', exact: true })).toHaveCount(0);
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
+        await expect(inbox(reader.page)).toHaveAccessibleName('Inbox');
+        // Mark as unread is in the thread's options once it is read
+        await card.getByRole('button', { name: 'Thread options', exact: true }).click();
+        await expect(reader.page.getByRole('button', { name: 'Mark as unread', exact: true })).toBeFocused();
+        await reader.page.getByRole('button', { name: 'Mark as unread', exact: true }).click();
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
+        await expect(card.getByRole('button', { name: 'Thread options', exact: true })).toHaveCount(0);
+        await expect(inbox(reader.page)).toHaveAccessibleName('Inbox, 1 unread thread');
     } finally { await author.context.close(); await reader.context.close(); }
 });
 
@@ -238,6 +247,15 @@ test('opened short threads become read in light/dark without moving composer foc
         }
         await reader.page.reload();
         await expect(inbox(reader.page)).toHaveAccessibleName('Inbox');
+        // Mark as unread in the open thread keeps it unread: no automatic read while it stays open
+        await foreground(reader.page);
+        await commentBubbles(reader.page).click();
+        await openThread(reader.page).getByRole('button', { name: 'Thread options', exact: true }).click();
+        await reader.page.getByRole('button', { name: 'Mark as unread', exact: true }).click();
+        await expect(inbox(reader.page)).toHaveAccessibleName('Inbox, 1 unread thread');
+        await reader.page.waitForTimeout(1500); // Longer than the automatic read's 800 ms dwell.
+        await expect(inbox(reader.page)).toHaveAccessibleName('Inbox, 1 unread thread');
+        await expect(openThread(reader.page).getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
         await reader.page.route('**/api/comments/activity', route => route.fulfill({ json: { unread: 205, open: 205, done: 0, total: 205 } }));
         await reader.page.reload();
         await expect(inbox(reader.page)).toHaveAccessibleName('Inbox, 99+ unread threads, 205 in total');
@@ -284,9 +302,18 @@ test('a member shares read state between the app and reviews on different config
         const comment = await posted.json();
         await page.goto(`/app/projects/${projectId}`);
         const card = page.getByRole('article', { name: 'Comment by Guest' });
-        await expect(card.getByRole('button', { name: 'Mark as read' })).toBeVisible();
-        await card.getByRole('button', { name: 'Mark as read' }).click();
-        await expect(card.getByRole('button', { name: 'Mark as read' })).toHaveCount(0);
+        // The unread dot is the Mark as read button; Mark as unread is in More actions
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
+        await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
+        await card.getByRole('button', { name: 'More actions for the comment by guest', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Mark as unread', exact: true }).click();
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
+        await card.getByRole('button', { name: 'More actions for the comment by guest', exact: true }).click();
+        await expect(page.getByRole('menuitem', { name: 'Mark as unread', exact: true })).toHaveCount(0);
+        await page.keyboard.press('Escape');
+        await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
+        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
         const reviewUrl = `${site.origin()}/${projectId}/pricing`;
         await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(reviewUrl)}`);
         await expect(inbox(page)).toHaveAccessibleName('Inbox');

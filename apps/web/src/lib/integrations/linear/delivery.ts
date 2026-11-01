@@ -12,9 +12,9 @@ import { linearCommentMarker, linearCommentProjection, linearIssueProjection, li
 import type { LinearConnection, LinearDestination, LinearGrant, LinearIssueGeneration, LinearState } from './model';
 
 type RemoteIssue = { id: string; identifier: string; url: string; description: string; creatorId: string; teamId: string;
-    projectId?: string; trashed: boolean; archived: boolean; stateId: string; labelIds: string[] };
+    projectId?: string; trashed: boolean; archived: boolean; stateId: string; stateType?: string; labelIds: string[] };
 type RemoteComment = { id: string; body: string; userId: string; issueId: string };
-const issueFields = 'id identifier url description creator { id } team { id } project { id } trashed archivedAt state { id } labels(first: 100) { nodes { id } }';
+const issueFields = 'id identifier url description creator { id } team { id } project { id } trashed archivedAt state { id type } labels(first: 100) { nodes { id } }';
 const commentFields = 'id body user { id } issue { id }';
 
 function destination(connection: LinearConnection): LinearDestination {
@@ -32,6 +32,7 @@ function issueDecoder(value: unknown): RemoteIssue {
         description: typeof value.description === 'string' ? value.description : '', creatorId: value.creator.id,
         teamId: value.team.id, ...(object(value.project) && uuid(value.project.id) ? { projectId: value.project.id } : {}),
         trashed: value.trashed === true, archived: Boolean(value.archivedAt), stateId: value.state.id,
+        stateType: typeof value.state.type === 'string' ? value.state.type : undefined,
         labelIds: value.labels.nodes.map(node => { if (!object(node) || !uuid(node.id)) throw new LinearApiError('invalid_issue'); return node.id; }) };
 }
 function commentDecoder(value: unknown): RemoteComment {
@@ -48,6 +49,11 @@ function stateFrom(value: IntegrationState): LinearState {
 function issueOwned(issue: RemoteIssue, saved: LinearIssueGeneration, grant: LinearGrant) {
     if (issue.id !== saved.issueId || issue.creatorId !== (saved.appUserId ?? grant.appUserId) || issue.teamId !== saved.teamId
         || issue.projectId !== saved.projectId || (!issue.description.includes(saved.marker) && !saved.scrubbed)) throw new LinearSetupError('external_issue_changed');
+}
+function remoteResolved(issue: RemoteIssue, config: LinearDestination) {
+    if (issue.stateId === config.doneStateId || ['completed', 'canceled'].includes(issue.stateType ?? '')) return true;
+    if (issue.stateId === config.openStateId || ['triage', 'backlog', 'unstarted', 'started'].includes(issue.stateType ?? '')) return false;
+    return undefined;
 }
 function commentOwned(comment: RemoteComment, issue: LinearIssueGeneration, itemId: string, grant: LinearGrant) {
     if (comment.issueId !== issue.issueId || comment.userId !== (issue.appUserId ?? grant.appUserId) || !comment.body.includes(linearCommentMarker(issue, itemId)))
@@ -107,6 +113,19 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
                 }
                 return true;
             });
+
+        if (context.statusOnly) {
+            const saved = state.issue;
+            if (!saved || saved.cleaned || saved.scrubbed || saved.trashed || saved.cleanupStarted
+                || saved.destinationRevision !== connection.destinationRevision || saved.teamId !== config.teamId
+                || saved.projectId !== config.projectId) return { status: 'accepted' };
+            const remote = await maybeIssue(saved.issueId);
+            if (!remote || remote.trashed || remote.archived) return { status: 'accepted' };
+            issueOwned(remote, saved, grant);
+            const resolved = remoteResolved(remote, config);
+            if (resolved !== undefined) await context.receiveStatus?.(resolved);
+            return { status: 'accepted' };
+        }
 
         // Reconcile a previous process's operation before planning any new create, including cleanup.
         const attempt = context.ledger.attempt;
@@ -241,7 +260,10 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             await uploadScreenshot(saved, context, connection, token, write, checkpoint);
         } else if (saved.screenshot) { saved.screenshot = undefined; await checkpoint(); }
         const projection = linearIssueProjection(context.feedback.context, saved);
-        const stateId = context.feedback.context.status === 'done' ? config.doneStateId : config.openStateId;
+        const resolved = context.feedback.context.status === 'done';
+        // Preserve the team's equivalent workflow state when acknowledging an imported status.
+        const stateId = connection.twoWaySync && remote && remoteResolved(remote, config) === resolved ? remote.stateId
+            : resolved ? config.doneStateId : config.openStateId;
         const payload = { title: projection.title, description: projection.description, stateId };
         const bodyHash = sha256Hex(JSON.stringify(payload));
         if (!remote) {
@@ -366,7 +388,7 @@ async function uploadScreenshot(saved: LinearIssueGeneration, context: Integrati
     await checkpoint(true);
 }
 
-export const linearAdapter: IntegrationAdapter = { provider: 'linear', isConfigured: isLinearConfigured, maxRunMs: 5 * 60_000, maxCalls: 100,
+export const linearAdapter: IntegrationAdapter = { provider: 'linear', isConfigured: isLinearConfigured, maxRunMs: 5 * 60_000, maxCalls: 100, supportsStatusSync: true,
     deliver, externalLink(connection, ledger) {
         const state = stateFrom(ledger.state); const issue = state.issue;
         if (!issue?.url || issue.trashed || issue.cleaned || !issue.identifier) return null;

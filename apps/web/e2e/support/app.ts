@@ -10,9 +10,20 @@ export function uniqueEmail(label = 'e2e') {
     return `${label}-${randomUUID().slice(0, 8)}@example.com`;
 }
 
+/** Opens the email form, the sign-in page's last option, unless it is already open (`?with=email`). */
+export async function openEmailSignIn(page: Page) {
+    const field = page.getByLabel('Email', { exact: true });
+    const option = page.getByRole('link', { name: 'Sign in with email' });
+    await expect(field.or(option)).toBeVisible();
+    // Before hydration the link navigates to ?with=email, after it the form opens in place.
+    if (await option.isVisible())
+        await option.click();
+    return field;
+}
+
 /** Requests an email from the current sign-in page; local deployments show both credentials. */
 export async function requestSignInEmail(page: Page, email: string) {
-    await page.getByLabel('Email', { exact: true }).fill(email);
+    await (await openEmailSignIn(page)).fill(email);
     await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
     await expect(page.getByRole('status')).toContainText(`We sent a code and a sign-in link to ${email}`);
     const code = await page.locator('[data-sign-in-code]').textContent();

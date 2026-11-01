@@ -1,12 +1,13 @@
 import type { DbTeam } from './model';
+import { cache } from 'react';
 import { workspacePk } from './model';
 import { getAppStore, type AppStore } from './store';
 import { MAX_ACTIVE_TEAMS } from './limits';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
 
 import type { AccessSnapshot } from './accessRules';
-export { hasProjectAccess, projectAccessSources } from './accessRules';
-export type { AccessSnapshot, AccessSubject } from './accessRules';
+export { hasProjectAccess, projectAccessGrants, projectAccessSources } from './accessRules';
+export type { AccessSnapshot, AccessSubject, ProjectAccessGrant } from './accessRules';
 
 /** One bounded, partition-scoped query per list operation, never a process-wide positive cache. */
 export async function loadWorkspaceAccess(
@@ -27,3 +28,6 @@ export async function loadWorkspaceAccess(
         teams: teams.filter((team) => team.workspaceId === workspaceId && team.pk === workspacePk(workspaceId))
     };
 }
+
+/** Share only render reads; mutation retries must use the uncached loader above. */
+export const loadWorkspaceAccessForRender = cache((workspaceId: string) => loadWorkspaceAccess(workspaceId));

@@ -51,9 +51,16 @@ const items = [
     {
         name: '__Host-uier_google_sign_in',
         type: 'Cookie (first party, HttpOnly)',
-        when: 'You choose Continue with Google, or link Google on your Account page',
+        when: 'You choose Sign in with Google, or link Google on your Account page',
         purpose: 'Ties Google’s answer to the sign-in this browser started, and a Google account waiting for an email code to this browser. Holds a signed record id, with no email address or Google data. Google’s answer or signing in removes it.',
         duration: 'Until the Google sign-in finishes, at most 15 minutes'
+    },
+    {
+        name: '__Host-uier_microsoft_sign_in',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You choose Sign in with Microsoft, or link Microsoft on your Account page',
+        purpose: 'Ties Microsoft’s answer and a Microsoft account waiting for an email code to this browser. Holds a signed record id, with no email address or Microsoft data. The callback or signing in removes it.',
+        duration: 'Until the Microsoft sign-in finishes, at most 15 minutes'
     },
     {
         name: '__Host-uier_passkey_challenge',
@@ -68,6 +75,13 @@ const items = [
         when: 'You sign in to the app',
         purpose: 'Keeps you signed in and identifies your feedback on uier.io by your account name, taking precedence over a guest identity. Holds a signed token with your account id; signing out in the app removes it.',
         duration: '30 days'
+    },
+    {
+        name: '__Host-uier_last_sign_in',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You sign in to the app',
+        purpose: 'Marks the option you signed in with (passkey, Google, Microsoft or email) as “Last used” on the sign-in page. Holds only that option’s name, with nothing about you; signing out keeps it.',
+        duration: 'One year'
     },
     {
         name: '__Secure-uier_review_sso',
@@ -129,7 +143,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="30 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="1 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.

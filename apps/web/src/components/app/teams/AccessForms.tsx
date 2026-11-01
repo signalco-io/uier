@@ -21,6 +21,7 @@ import { Input } from '@/src/components/ui/input';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { FormMessage } from '../FormMessage';
 import { Section } from '../PageHeader';
 import { hasProjectAccess, projectAccessSources, type AccessSnapshot } from '@/src/lib/app/accessRules';
@@ -122,8 +123,28 @@ export function Choice({
     );
 }
 
+/** A button that does not apply here: dimmed but still focusable, with why in its tooltip (a disabled button gets no hover or focus) */
+export function UnavailableButton({ label, accessibleName, reason }: { label: string; accessibleName?: string; reason: string }) {
+    return (
+        <Tooltip>
+            <TooltipTrigger render={<Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-disabled="true"
+                    aria-label={accessibleName}
+                    className="cursor-not-allowed opacity-50 hover:bg-background active:not-aria-[haspopup]:translate-y-0 dark:hover:bg-input/30" />}>
+                {label}
+            </TooltipTrigger>
+            <TooltipContent>{reason}</TooltipContent>
+        </Tooltip>
+    );
+}
+
 export function ConfirmAccess({
     label,
+    accessibleName,
+    size,
     title,
     description,
     children,
@@ -132,6 +153,9 @@ export function ConfirmAccess({
     disabled
 }: {
     label: string;
+    /** When the label alone is ambiguous, such as one Remove per row */
+    accessibleName?: string;
+    size?: 'sm';
     title: string;
     description: string;
     children?: ReactNode;
@@ -153,7 +177,7 @@ export function ConfirmAccess({
                 }
             }}
         >
-            <DialogTrigger render={<Button type="button" variant="outline" disabled={disabled || pending} />}>
+            <DialogTrigger render={<Button type="button" variant="outline" size={size} aria-label={accessibleName} disabled={disabled || pending} />}>
                 {label}
             </DialogTrigger>
             <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -632,7 +656,9 @@ export function ProjectTeamButton({ team, project, data }: { team: DbTeam; proje
     };
     return (
         <ConfirmAccess
-            label={add ? 'Share with team' : 'Remove team grant'}
+            label={add ? 'Share' : 'Remove'}
+            accessibleName={add ? `Share with ${team.name}` : `Remove ${team.name}`}
+            size="sm"
             title={`${add ? 'Share' : 'Remove'} ${project.name} ${add ? 'with' : 'from'} ${team.name}?`}
             description="Team members follow the current team grant. Other sources can preserve member access. Guest links remain allowed where enabled."
             action={() => projectTeamAction(team.id, project.id, add, data.revision)}
@@ -661,15 +687,22 @@ export function RemoveProjectAccess({
     project: DbProject;
     data: AccessData;
 }) {
+    const accessibleName = `Remove ${person.name}'s access`;
     if (person.member.role === 'admin')
         return (
-            <p className="m-0 text-sm text-muted-foreground">Workspace admins cannot be excluded from one project.</p>
+            <UnavailableButton
+                label="Remove"
+                accessibleName={accessibleName}
+                reason="Workspace admins can review every project."
+            />
         );
     if (person.member.projects === 'all')
         return (
-            <p className="m-0 text-sm text-muted-foreground">
-                Change the all-project grant in their person detail before removing one project.
-            </p>
+            <UnavailableButton
+                label="Remove"
+                accessibleName={accessibleName}
+                reason="They have access to all projects. Change that on their page first."
+            />
         );
     const removed = data.access.teams.filter((team) => team.projectIds.includes(project.id)).map((team) => team.id);
     const next = {
@@ -679,7 +712,9 @@ export function RemoveProjectAccess({
     };
     return (
         <ConfirmAccess
-            label="Remove all member access"
+            label="Remove"
+            accessibleName={accessibleName}
+            size="sm"
             title={`Remove ${person.name}'s member access to ${project.name}?`}
             description="This removes this direct grant and every team membership granting this project. Removing those memberships can also remove other projects listed below. Guest links remain allowed where enabled."
             action={() => removeProjectAccessAction(person.member.userId, project.id, data.revision)}

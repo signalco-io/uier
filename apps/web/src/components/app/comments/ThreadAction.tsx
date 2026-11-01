@@ -5,7 +5,7 @@ import { Button } from '@/src/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 
 /**
- * A quiet icon action in a comment's header (Mark as read, Copy issue, Copy link): the same
+ * A quiet icon action in a comment's header (Copy issue): the same
  * actions, icons and order as the toolbar's thread header. The tooltip names it; a notice
  * (Issue copied.) opens it under the button while set.
  */

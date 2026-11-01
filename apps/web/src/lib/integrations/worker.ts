@@ -5,6 +5,7 @@ import { processIntegrationDelivery, type DeliveryOptions } from './delivery';
 import { isIntegrationProvider, type IntegrationProviderId, type IntegrationSync } from './model';
 import { configuredIntegrationAdapters, integrationRegistry } from './registry';
 import { queueIntegrationBackfills } from './backfill';
+import { pollIntegrationStatuses } from './statusSync';
 
 export const INTEGRATION_RUN_BUDGET_MS = 8 * 60_000;
 export type IntegrationWorkerOptions = DiscoveryOptions & Pick<DeliveryOptions, 'now' | 'exportFeedback'> & { budgetMs?: number };
@@ -45,6 +46,12 @@ export async function runIntegrationWorker(baseUrl: string, options: Integration
                     deadline: Math.min(providerDeadline, now() + Math.min(15_000, allowance / 4)) });
                 deferred += backfill.deferred;
             }
+        } catch { deferred++; }
+        try {
+            const polled = await pollIntegrationStatuses(baseUrl, adapter, { ...options, store, comments,
+                deadline: Math.min(providerDeadline, now() + Math.min(30_000, allowance / 4)),
+                maxCalls: Math.max(0, Math.min(20, Math.floor((adapter.maxCalls ?? 100) / 4), (adapter.maxCalls ?? 100) - calls)) });
+            calls += polled.calls;
         } catch { deferred++; }
         let pending: IntegrationSync[];
         try {

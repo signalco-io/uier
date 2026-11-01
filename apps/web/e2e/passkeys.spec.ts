@@ -59,7 +59,9 @@ test('a passkey added on Account signs in, and stops working once removed', { ta
     const [credential] = await authenticator.credentials();
     expect(credential).toMatchObject({ isResidentCredential: true, rpId: 'localhost' });
 
+    // The sign-in page marks how this browser signed in last, after sign-out too
     await signOut(page);
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toHaveAccessibleDescription('Last used');
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
     await page.goto(`${base}/app/account`);
@@ -74,6 +76,8 @@ test('a passkey added on Account signs in, and stops working once removed', { ta
     if (!(await authenticator.credentials()).length)
         await authenticator.cdp.send('WebAuthn.addCredential', { authenticatorId: authenticator.authenticatorId, credential: credential! });
     await signOut(page);
+    await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toHaveAccessibleDescription('Last used');
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toHaveAccessibleDescription('');
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
     await expect(page.getByRole('main').getByRole('alert')).toHaveText('uier doesn’t know this passkey. It may have been removed. Sign in with your email instead.');
     await expect(page).toHaveURL(`${base}/app/sign-in`);
@@ -96,10 +100,11 @@ test('passkeys can be renamed, and the email field offers them as autofill', asy
     await expect(section.getByRole('listitem')).toContainText('Work laptop');
     await expectNoAxeViolations(page);
 
-    // Signed out, the email field (autocomplete="email webauthn") offers the passkey; the virtual
-    // authenticator picks it as a person would, which signs in without a click.
+    // Signed out, the email field (autocomplete="email webauthn") offers the passkey once it is open;
+    // the virtual authenticator picks it as a person would, which signs in without another click.
     await signOut(page);
-    await page.waitForURL(url => url.pathname !== '/app/account');
+    await page.waitForURL(url => url.pathname === '/app/sign-in');
+    await page.getByRole('link', { name: 'Sign in with email' }).click();
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
     await page.goto(`${base}/app/account`);
     await expect(section.getByRole('listitem')).toContainText('Last used');
@@ -134,7 +139,7 @@ test('browsers without WebAuthn get no passkey button, and Account says why', as
         Object.defineProperty(window, 'PublicKeyCredential', { value: undefined, configurable: true });
     });
     await page.goto(`${base}/app/sign-in`);
-    await expect(page.getByRole('button', { name: 'Email me a sign-in code' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toHaveCount(0);
     await signIn(page, uniqueEmail('no-webauthn'), { from: page.url() });
     await page.goto(`${base}/app/account`);

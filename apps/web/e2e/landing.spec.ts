@@ -43,7 +43,7 @@ test('app scripts use a fresh nonce, including the theme script, and reject inje
     expect(scriptPolicy).not.toContain("'unsafe-inline'");
     expect(response!.headers()['cache-control']).toContain('no-store');
     expect(response!.headers()['cross-origin-opener-policy']).toBe('same-origin-allow-popups');
-    await expect(page.getByRole('button', { name: 'Email me a sign-in code' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toBeVisible();
     const scripts = await page.locator('script').evaluateAll(nodes => nodes.map(script => ({ nonce: script.nonce, text: script.textContent })));
     expect(scripts.length).toBeGreaterThan(1);
     expect(scripts.filter(script => script.text).every(script => script.nonce === nonce)).toBe(true);

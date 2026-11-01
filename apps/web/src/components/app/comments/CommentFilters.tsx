@@ -47,7 +47,9 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
         else
             params.set(name, value);
         const query = params.toString();
-        router.push(`${pathname}${query ? `?${query}` : ''}#comments`);
+        const href = `${pathname}${query ? `?${query}` : ''}#comments`;
+        if (name === 'environment' || name === 'author') router.push(href, { scroll: false });
+        else window.history.pushState(null, '', href);
     };
 
     return (

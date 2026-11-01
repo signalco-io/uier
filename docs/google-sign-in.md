@@ -1,8 +1,8 @@
 # Google sign-in
 
-"Continue with Google" on the app's sign-in card signs people in with their Google account, next to
-the email code and link and passkeys (under the email form's "or", after "Sign in with a passkey").
-Email sign-in always stays available. A signed-in person can link or unlink
+The Google option on the app's sign-in card ("Sign in with Google") signs people in with their Google
+account. It is the second option, after Passkey and before Microsoft and Email (the email code and
+link). Email sign-in always stays available. A signed-in person can link or unlink
 Google under Account → Google account.
 
 The flow is OpenID Connect's authorization code flow with PKCE, written in `apps/web/src/lib/app/google/`
@@ -39,7 +39,8 @@ like the integrations' OAuth (no auth framework):
    `accounts.google.com`), `aud` and `azp` (the client id), `exp`, `iat` (issued during the flow, with
    five minutes of clock skew) and `nonce` (its hash) are checked. Nothing from the token response is
    stored or logged; the access token is discarded.
-5. Signing in ends with `startSession(user.id)`, which also clears the Google binding. Staff and
+5. Signing in ends with `startSession(user.id, 'google')`, which also clears the Google binding and marks Google
+   as last used on the sign-in page (also after the email proof that links it). Staff and
    memberships keep working from `user.email`, as for email sign-in.
 
 ### Why the ID token signature is not checked
@@ -114,9 +115,11 @@ Previews never show it: Google accepts only registered redirect URIs, and every 
 address. The redirect URI is `appBaseUrl()` + `/app/sign-in/google/callback`, HTTPS outside local
 runtime. Account keeps showing a linked Google account (with Unlink) wherever the button is off.
 
-The button follows [Google's branding guidelines](https://developers.google.com/identity/branding-guidelines):
-"Continue with Google", the standard "G", Google Sans Medium 14/20 (self-hosted by `next/font`) and
-Google's light and dark theme colours. It is the one place the app leaves Geist and the brand tokens.
+The button is the same outline button as every other sign-in option, in Geist and the brand
+tokens, so the card reads as one list. From [Google's branding guidelines](https://developers.google.com/identity/branding-guidelines)
+it keeps the standard "G" in Google's colours. Its visible label is only "Google", like the other
+options' method names under "Choose how to sign in.", which is not one of Google's approved labels
+(a deliberate choice for a shorter card); its accessible name is "Sign in with Google".
 
 ## Create the Google OAuth client
 

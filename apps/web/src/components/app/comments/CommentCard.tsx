@@ -14,7 +14,7 @@ import {
     Link2Icon,
     LockIcon,
     LockOpenIcon,
-    MailCheckIcon,
+    MailIcon,
     MoreHorizontalIcon,
     PencilIcon,
     ReplaceIcon,
@@ -58,6 +58,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
@@ -66,10 +67,11 @@ import { RelativeTime } from './DateTime';
 import { CommentDevice } from './CommentDevice';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
-import { ThreadAction } from './ThreadAction';
 import { integrationLabels, kindLabels } from './commentLabels';
+import { useCommentUpdate } from './CommentUpdates';
 import {
     markCommentReadAction,
+    markCommentUnreadAction,
     deleteCommentAction,
     deleteCommentReplyAction,
     filterCommentAuthorAction,
@@ -129,13 +131,30 @@ function StateMenu({ resolved, disabled, onChange }: { resolved: boolean; disabl
     );
 }
 
-/** The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`) */
-function UnreadDot() {
+/**
+ * The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`).
+ * It is the Mark as read button; Mark as unread is in the More actions menu.
+ */
+function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void }) {
     return (
-        <span title="Unread" className="inline-flex shrink-0 items-center">
-            <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
-            <span className="sr-only">Unread</span>
-        </span>
+        <Tooltip>
+            <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Unread. Mark as read" disabled={disabled} onClick={onRead}
+                    className="-mx-1.5 shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>
+                <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
+            </TooltipTrigger>
+            <TooltipContent>Mark as read</TooltipContent>
+        </Tooltip>
+    );
+}
+
+/** Who the comment is assigned to: their avatar, as in the thread, or the user icon while unassigned (the toolbar's `CommentAssignee`) */
+function AssigneeAvatar({ assignee }: { assignee?: { name: string } }) {
+    if (!assignee)
+        return <UserIcon aria-hidden="true" />;
+    return (
+        <Avatar size="sm" aria-hidden="true">
+            <AvatarFallback className="font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
+        </Avatar>
     );
 }
 
@@ -197,12 +216,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     /** Review link that opens the page at this comment */
     reviewLink: string;
     assignees: AssigneeOption[];
-    /** The signed-in user: "Assigned to you" */
+    /** The signed-in user: "Assigned to you" in the assignee's tooltip */
     userId: string;
     /** Done or Reopen takes the comment out of its list: starts its exit right away */
     onResolve?: (resolved: boolean) => ResolveExit;
 }) {
     const router = useRouter();
+    const updateComment = useCommentUpdate();
     const searchParams = useSearchParams();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
@@ -217,6 +237,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const author = comment.author.isMe ? 'You' : comment.author.name;
     const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
     const unread = Boolean(comment.activity?.unread);
+    // Only someone else's activity can be unread
+    const canMarkUnread = !unread && Boolean(comment.activity?.lastOtherSequence);
     const assigned = comment.assignee
         ? `Assigned to ${comment.assignee.id === userId ? 'you' : comment.assignee.name}`
         : 'Unassigned';
@@ -234,28 +256,38 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             firstRevealedRef.current?.focus();
     }, [expanded]);
 
-    const run = (action: () => Promise<ActionState>, success?: string) => startTransition(async () => {
-        const result = await action();
+    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>) => startTransition(async () => {
+        if (patch) updateComment({ id: comment.id, patch });
+        let result: ActionState;
+        try { result = await action(); }
+        catch { toast.error('Could not save the change. Try again.'); return; }
         if (result && !result.ok) {
             toast.error(result.error);
             return;
         }
         if (success)
             toast.success(success);
-        router.refresh();
+        // The server action already revalidates this page and returns its fresh snapshot.
     });
 
     const toggleResolved = () => startTransition(async () => {
         const resolved = !comment.resolved;
         const exit = onResolve?.(resolved);
-        // The refresh removes the card only once its exit has played
-        const [result] = await Promise.all([setCommentResolvedAction(projectId, comment.id, resolved), exit?.finished]);
-        if (result && !result.ok) {
+        // Start saving immediately, then move the card once its exit has played.
+        try {
+            const request = setCommentResolvedAction(projectId, comment.id, resolved)
+                .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
+            if (exit) await exit.finished;
+            startTransition(() => updateComment({ id: comment.id, patch: { resolved } }));
+            const result = await request;
+            if (result && !result.ok) {
+                exit?.cancel();
+                toast.error(result.error);
+            }
+        } catch {
             exit?.cancel();
-            toast.error(result.error);
-            return;
+            toast.error('Could not save the change. Try again.');
         }
-        router.refresh();
     });
 
     const filterAuthor = (itemId?: string) => startTransition(async () => {
@@ -287,7 +319,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             return;
         }
         setEditing(false);
-        router.refresh();
     });
 
     const reply = (item: ProjectCommentMessage) => {
@@ -328,8 +359,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     return (
         <Card role="article" aria-label={label} className="@container/comment gap-0 py-0">
             <div className="flex flex-col gap-3 px-4 py-3">
-                {/* The toolbar's thread header: status, public id, unread dot and who it is assigned to,
-                    then the actions (on a line of their own in a narrow board column) */}
+                {/* The toolbar's thread header: status, public id, unread dot (Mark as read) and who it is assigned to
+                    (an avatar; the tooltip names them), then the actions (on a line of their own in a narrow board column) */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex min-w-0 items-center gap-2">
                         {permissions.resolve
@@ -340,7 +371,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <span className="sr-only">Comment </span>#{comment.number}
                             </span>
                         )}
-                        {unread && <UnreadDot />}
+                        {unread && (
+                            <UnreadDot disabled={pending}
+                                onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence), undefined,
+                                    { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
+                        )}
                         {comment.private && (
                             <Badge variant="secondary">
                                 <LockIcon aria-hidden="true" data-icon="inline-start" />
@@ -350,19 +385,21 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         {/* The list of people for those who can assign */}
                         {permissions.assign ? (
                             <DropdownMenu>
-                                <DropdownMenuTrigger render={<Button variant="ghost" size="xs" disabled={pending} aria-label={`${assigned}. Change assignee`}
-                                        className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" />}>
-                                    <UserIcon aria-hidden="true" data-icon="inline-start" />
-                                    <span className="truncate">{assigned}</span>
-                                    <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
-                                </DropdownMenuTrigger>
+                                <Tooltip>
+                                    <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`${assigned}. Change assignee`}
+                                        className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />} />}>
+                                        <AssigneeAvatar assignee={comment.assignee} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>{assigned}</TooltipContent>
+                                </Tooltip>
                                 <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
                                     <DropdownMenuGroup>
                                         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
                                         {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
                                             <DropdownMenuItem
                                                 key={option.userId}
-                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
+                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
+                                                    { assignee: { id: option.userId, name: option.name } })}>
                                                 {option.name}
                                                 {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
                                             </DropdownMenuItem>
@@ -371,7 +408,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     {comment.assignee && (
                                         <>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, null))}>
+                                            <DropdownMenuItem onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, null), undefined, { assignee: undefined })}>
                                                 Unassign
                                             </DropdownMenuItem>
                                         </>
@@ -379,19 +416,15 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <span className="inline-flex min-h-6 min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                                <UserIcon aria-hidden="true" className="size-3 shrink-0" />
-                                <span className="truncate">{assigned}</span>
-                            </span>
+                            <Tooltip>
+                                <TooltipTrigger render={<span role="img" aria-label={assigned} className="inline-flex size-8 items-center justify-center text-muted-foreground" />}>
+                                    <AssigneeAvatar assignee={comment.assignee} />
+                                </TooltipTrigger>
+                                <TooltipContent>{assigned}</TooltipContent>
+                            </Tooltip>
                         )}
                     </div>
                     <div className="-mr-1.5 ml-auto flex shrink-0 items-center gap-0.5">
-                        {unread && (
-                            <ThreadAction label="Mark as read" disabled={pending}
-                                onClick={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence))}>
-                                <MailCheckIcon />
-                            </ThreadAction>
-                        )}
                         <CopyIssueButton state={copyIssue} />
                         <DropdownMenu>
                             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
@@ -407,10 +440,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     <DropdownMenuItem
                                         onClick={() => run(
                                             () => updateNotificationAction(projectId, comment.id, !comment.following),
-                                            comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.')}>
+                                            comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.', { following: !comment.following })}>
                                         {comment.following ? <BellOffIcon /> : <BellIcon />}
                                         {comment.following ? 'Unfollow thread' : 'Follow thread'}
                                     </DropdownMenuItem>
+                                    {canMarkUnread && (
+                                        <DropdownMenuItem onClick={() => run(() => markCommentUnreadAction(projectId, comment.id), undefined,
+                                            { activity: { ...comment.activity!, readSequence: Math.max(0, comment.activity!.lastOtherSequence - 1), unread: true } })}>
+                                            <MailIcon />
+                                            Mark as unread
+                                        </DropdownMenuItem>
+                                    )}
                                     {permissions.edit && (
                                         <DropdownMenuItem
                                             onClick={() => {

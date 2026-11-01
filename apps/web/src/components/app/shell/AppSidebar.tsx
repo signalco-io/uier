@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseIcon, LayoutGridIcon, PlusIcon, UsersIcon } from 'lucide-react';
+import { BriefcaseIcon, LayoutGridIcon, PlusIcon, UserIcon, UsersIcon } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -83,7 +83,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
         ...hasClients ? [{ href: KnownPages.AppClients, label: 'Clients', icon: BriefcaseIcon }] : [],
         ...isAdmin ? [
             { href: KnownPages.AppTeams, label: 'Teams', icon: UsersIcon },
-            { href: KnownPages.AppUsers, label: 'Users', icon: UsersIcon }
+            { href: KnownPages.AppUsers, label: 'Users', icon: UserIcon }
         ] : []
     ].map(section => ({ ...section, current: isCurrent(pathname, section.href) }));
 

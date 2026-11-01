@@ -9,11 +9,13 @@ export const cookieNames = {
     session: { name: '__Host-uier_session', legacy: 'uier_session', lifetime: 30 * day },
     signInRequest: { name: '__Host-uier_sign_in_request', legacy: 'uier_sign_in_request', lifetime: 15 * 60 },
     // New after the migration: read only by its current name (`legacy` is the local HTTP name).
+    microsoftSignIn: { name: '__Host-uier_microsoft_sign_in', legacy: 'uier_microsoft_sign_in', lifetime: 15 * 60 },
     googleSignIn: { name: '__Host-uier_google_sign_in', legacy: 'uier_google_sign_in', lifetime: 15 * 60 },
     workspace: { name: '__Host-uier_workspace', legacy: 'uier_workspace', lifetime: 365 * day },
     reviewSso: { name: '__Secure-uier_review_sso', legacy: 'uier_review_sso', lifetime: 30 * day },
     // New after the cutoff: `legacy` is only the local HTTP name, never read on HTTPS (see passkeys.ts).
-    passkeyChallenge: { name: '__Host-uier_passkey_challenge', legacy: 'uier_passkey_challenge', lifetime: 5 * 60 }
+    passkeyChallenge: { name: '__Host-uier_passkey_challenge', legacy: 'uier_passkey_challenge', lifetime: 5 * 60 },
+    lastSignIn: { name: '__Host-uier_last_sign_in', legacy: 'uier_last_sign_in', lifetime: 365 * day }
 } as const;
 type CookieName = typeof cookieNames[keyof typeof cookieNames];
 type CookieReader = { get(name: string): { value: string } | undefined };

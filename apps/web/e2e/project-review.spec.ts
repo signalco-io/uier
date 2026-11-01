@@ -907,7 +907,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
 
     // Filter by page (relative URLs)
     await page.getByRole('button', { name: /^Environment and page:/ }).click();
-    await page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${about},`) }).click();
+    await page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${about}\\s*,`) }).click();
     await expect(page).toHaveURL(new RegExp(`page=${encodeURIComponent(about)}`));
     await expect(page.getByRole('article')).toHaveCount(1);
     await expect(benCard).toBeVisible();
@@ -922,7 +922,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     // Assign to me, then the "Assigned to me" filter
     await benCard.getByRole('button', { name: /Change assignee$/ }).click();
     await page.getByRole('menuitem', { name: /^owner-/ }).click();
-    await expect(benCard).toContainText('Assigned to you');
+    await expect(benCard.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
     await page.goto(`/app/projects/${projectId}`);
     await page.getByRole('combobox', { name: 'People' }).click();
     await page.getByRole('option', { name: 'Assigned to me' }).click();

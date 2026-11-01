@@ -69,9 +69,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   - Comments `/app/projects/<code>`: the project's **comments**, as a
     list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
     (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
-    counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot and
-    assignee ("Unassigned", or a menu of people for those who can assign) with the actions (Mark as read,
-    Done or Reopen, Copy issue, and More with Copy link and Follow thread) on one row, then the first and last
+    counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot
+    (clicking it marks the comment read) and assignee (their avatar or, while unassigned, the user icon, named by its tooltip; a menu of people for those who can assign) with the actions
+    (Done or Reopen, Copy issue, and More with Copy link, Follow thread and, once read, Mark as unread) on one row, then the first and last
     message with Show all for the rest, the quiet Open in a connected service, and its page URL and source at
     the bottom. Two icons after the first message's time show the screen size and browser it was left from;
     hovering or clicking them shows the viewport, pixel ratio, browser, OS, capture time and reviewed page,
@@ -132,12 +132,27 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 - **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
   sign out.
 
+### Page and comment responsiveness
+
+The app filters loaded comments immediately when switching Open/Done/All, List/Board, people,
+pages or unread. These choices stay in the URL and work with Back, Forward and reload. Changing
+environment or author still loads a fresh authorized list from the server. Settings links show
+navigation feedback, and General renders its forms before usage totals finish loading.
+
+Status, assignment, follow and read changes update the app's cards and counts while saving.
+A failed save restores the confirmed state and shows an error. Mark all as read uses only the
+rendered activity snapshot, keeps newer activity unread, and offers Retry for failed writes.
+The toolbar likewise reflects Done/Reopen immediately; comments and replies appear while sending,
+with failed text kept in drafts. Destructive actions and access-setting changes wait for server
+confirmation.
+
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
-The app and toolbar use the same assignment service. Assigned to me combines with page,
-status and search filters. Guests see the assignee's name but cannot change assignment or
-look up the participant directory. Removed members appear as Former member (no access);
+The assignee shows in the thread's header as their avatar (the user icon while unassigned),
+with a tooltip that names them. The app and toolbar use the same assignment service. Assigned
+to me combines with page, status and search filters. Guests see the assignee's avatar and name
+but cannot change assignment or look up the participant directory. Removed members appear as Former member (no access);
 the assignment can be cleared or changed.
 
 In a member's composer, type @ to search eligible participants. Arrow keys move through
@@ -309,8 +324,11 @@ an existing cookie always takes precedence. Toolbar sign-out removes both identi
 The toolbar's blue badge counts unread threads across all of the site's authorized comments. Open/Done
 counts remain separate. The Unread filter includes all statuses and pages. Opening a visible short
 thread acknowledges it after 800 ms in a focused foreground window; inbox previews and longer
-collapsed threads require **Mark as read**. Reading never resolves feedback, and resolving never
-acknowledges it. The app shares the same member cursor and offers Unread / Mark as read.
+collapsed threads require **Mark as read**: clicking the thread's blue unread dot. Reading never resolves
+feedback, and resolving never acknowledges it. The app shares the same member cursor and offers Unread
+and the same clickable dot. **Mark as unread** (the toolbar's Thread options, the app's More actions,
+offered once a thread with someone else's activity is read) makes the thread unread again; an open toolbar
+thread then stays unread until it is opened again.
 
 **Mark all as read** in the app comments list/board or toolbar inbox acknowledges only the
 unread threads shown by the current filters. Replies arriving after that list was rendered stay
@@ -334,7 +352,12 @@ person's unread activity. Legacy threads derive a stable initial sequence from s
 `POST /api/review/:projectId/comments/:id/read` accepts `{ sequence }` and returns the activity DTO.
 It uses the existing project and private-thread access checks and authenticated actor; callers cannot
 choose another reviewer. It acknowledges only the rendered sequence, rejects a future sequence, and
-uses etags and `max()` across concurrent tabs. The public showcase uses `/api/comments/:id/read`.
+uses etags and `max()` across concurrent tabs. `DELETE` on the same route is Mark as unread: it moves
+the reviewer's cursor back to just before the latest activity by someone else (earlier activity stays
+read) and returns the activity DTO; a thread with only the reviewer's own activity, or one already
+unread, is left as it is. Email digests already sent are not repeated, but a queued one for that
+activity is no longer suppressed. The public showcase uses `/api/comments/:id/read` for both; its
+Mark as unread creates no visitor identity.
 Receipts are `review-read` documents in the existing app container, partitioned by domain/reviewer;
 members use `user:<id>` across sites/devices, guests the existing hashed browser/site visitor id.
 Guest receipts expire one year after the last advancing acknowledgement; member receipts persist.

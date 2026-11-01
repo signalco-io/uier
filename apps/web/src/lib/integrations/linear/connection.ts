@@ -3,6 +3,7 @@ import { memberId, workspacePk, type DbMember, type DbProject } from '../../app/
 import { getAppStore, updateDoc } from '../../app/store';
 import { sha256Hex } from '../../app/tokens';
 import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { KnownPageLinks } from '../../../knownPages';
 import { disconnectIntegration, setIntegrationBinding } from '../connection';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease, GrantLeaseError } from '../grants';
 import { createOauthState, consumeOauthState } from '../oauthState';
@@ -162,7 +163,7 @@ export async function beginLinearConnect(input: { userId: string; workspaceId: s
         }
         if (usable.length === 1) {
             await attachGrant(project, input.userId, usable[0]!);
-            return new URL(`/app/projects/${project.id}/settings/integrations?linear=connected#linear`, input.baseUrl).href;
+            return new URL(`${KnownPageLinks.projectIntegration(project.id, 'linear')}?linear=connected`, input.baseUrl).href;
         }
     }
     const state = await createOauthState({ provider: 'linear', userId: input.userId, workspaceId: project.workspaceId,

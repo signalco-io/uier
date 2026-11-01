@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { AppPageLoading } from '@/src/components/app/AppPageLoading';
+import type { AppContext } from '@/src/lib/app/context';
+import type { DbProject } from '@/src/lib/app/model';
 import { redirect } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { clientNames, loadClients, projectClient } from '@/src/lib/app/clients';
-import { loadProjectComments, projectUsage } from '@/src/lib/app/projectComments';
+import { loadProjectUsage } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
@@ -20,13 +24,24 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
     const { context, project, canConfigure } = await projectSettingsContext(projectId);
     if (!canConfigure)
         redirect(KnownPageLinks.projectSettings(project.id, 'notifications'));
-    const [projects, clients, comments, members] = await Promise.all([
+    const [projects, clients] = await Promise.all([
         listVisibleProjects(context),
-        loadClients(context.workspace.id),
-        loadProjectComments(context, project),
-        listProjectMembers(context.workspace.id, project.id)
+        loadClients(context.workspace.id)
     ]);
-    const usage = projectUsage(comments);
+
+    return (
+        <>
+            <ProjectNameForm projectId={project.id} name={project.name} />
+            <ProjectClientNameForm projectId={project.id} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)} />
+            <Suspense fallback={<AppPageLoading />}>
+                <ProjectUsageSection context={context} project={project} />
+            </Suspense>
+        </>
+    );
+}
+
+async function ProjectUsageSection({ context, project }: { context: AppContext; project: DbProject }) {
+    const [usage, members] = await Promise.all([loadProjectUsage(context, project), listProjectMembers(project.workspaceId, project.id)]);
     const usageRows = [
         { label: 'Comments', value: usage.comments },
         { label: 'Open', value: usage.open },
@@ -37,9 +52,6 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
     ];
 
     return (
-        <>
-            <ProjectNameForm projectId={project.id} name={project.name} />
-            <ProjectClientNameForm projectId={project.id} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)} />
             <Section
                 id="usage"
                 title="Usage"
@@ -55,6 +67,5 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
                     ))}
                 </dl>
             </Section>
-        </>
     );
 }

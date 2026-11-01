@@ -1,7 +1,7 @@
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, closeAppNavigation, createProject, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, closeAppNavigation, createProject, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { pngImage } from './support/images';
 import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -12,6 +12,13 @@ test('signed-out visitors are sent to sign in and come back afterwards', { tag: 
     await expect(page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Faccount$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
     await expect(page).toHaveTitle('Sign in · uier');
+    // Every option is the same outline button with the method's name; email comes last and opens its form in place
+    const options = page.getByRole('main').locator('[data-slot=button]');
+    await expect(options).toHaveText(['Passkey', 'Google', 'Microsoft', 'Email']);
+    await expect(options.first()).toHaveAccessibleName('Sign in with a passkey');
+    // A browser that never signed in has no "Last used" option
+    await expect(page.getByText('Last used')).toHaveCount(0);
+    await expect(page.getByLabel('Email', { exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
 
     await signIn(page, uniqueEmail(), { from: page.url() });
@@ -21,7 +28,9 @@ test('signed-out visitors are sent to sign in and come back afterwards', { tag: 
 test('a sign-in link works once', { tag: '@smoke' }, async ({ page, browser }) => {
     const email = uniqueEmail();
     await page.goto('/app/sign-in');
-    await page.getByLabel('Email').fill(email);
+    const field = await openEmailSignIn(page);
+    await expect(field).toBeFocused();
+    await field.fill(email);
     await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
     const link = await page.getByRole('link', { name: 'Open the sign-in link' }).getAttribute('href');
     expect(link).toMatch(/^\/app\/sign-in\/confirm\?token=/);
@@ -156,7 +165,7 @@ test('a newer request replaces the browser binding, including in an older tab', 
 
 test('the sign-in form validates the address', async ({ page }) => {
     await page.goto('/app/sign-in');
-    await page.getByLabel('Email').fill('not an email');
+    await (await openEmailSignIn(page)).fill('not an email');
     // Bypass the browser's own type="email" check to reach the server validation
     await page.locator('form').evaluate(form => form.setAttribute('novalidate', ''));
     await page.getByRole('button', { name: 'Email me a sign-in code' }).click();

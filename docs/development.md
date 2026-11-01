@@ -49,13 +49,19 @@ to `apps/web/.env.local` and set the variables there.
 No email is sent locally either: the sign-in page shows the link and code it would have emailed
 ("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
-"Continue with Google" shows locally only with a Google client of your own in `apps/web/.env.local`
+The Google sign-in option shows locally only with a Google client of your own in `apps/web/.env.local`
 (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI `http://localhost:4004/app/sign-in/google/callback`;
 see [Google sign-in](google-sign-in.md#create-the-google-oauth-client)). Without one, run the test stand-in
 (`PORT=11004 node apps/web/e2e/support/googleStub.ts`) and point `GOOGLE_OAUTH_AUTHORIZE_URL`
 (`http://127.0.0.1:11004/o/oauth2/v2/auth`), `GOOGLE_OAUTH_TOKEN_URL` (`.../token`) and `GOOGLE_OAUTH_ISSUER`
 (`http://127.0.0.1:11004`) at it, with `GOOGLE_CLIENT_ID=google-test-client` and
 `GOOGLE_CLIENT_SECRET=google-test-secret`. These overrides work only in local runtime.
+
+The Microsoft sign-in option needs a separate Entra Web application client in `apps/web/.env.local`
+(`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, redirect URI
+`http://localhost:4004/app/sign-in/microsoft/callback`). See
+[Microsoft sign-in](microsoft-sign-in.md) for registration and the local stand-in. First sign-in
+confirms a chosen email once; a linked identity can then sign in directly.
 
 Passkeys work locally on http://localhost:4004: browsers allow WebAuthn on `localhost` over plain
 HTTP, and the relying party (RP ID `localhost`, origin `http://localhost:4004`) comes from the request's
@@ -244,3 +250,15 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
 
 Browser verification and rewrite requests use the local Anthropic stand-in configured by Playwright;
 the suite uses fake credentials and does not require live provider calls.
+
+### Responsiveness regressions
+
+After building, run the delayed-response and request-budget checks on desktop and mobile:
+
+```bash
+PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test e2e/app-performance.spec.ts --project="Desktop Chrome" --project="Mobile Chrome" --retries=0
+```
+
+The tests reject server requests for presentation filters, hold mutation responses to prove the
+UI updates before confirmation, and check rollback and reload persistence. These are local
+behavior checks with in-memory storage, not a production Cosmos DB latency benchmark.

@@ -1,5 +1,9 @@
 # Azure DevOps Boards integration
 
+> Update, 1 November 2026: optional, default-off two-way **status** sync is implemented.
+> The [current status contract](integrations.md#two-way-status-sync) supersedes the original
+> one-way/status non-goals below. Other provider edits remain outside the import contract.
+
 Status: adapter, project settings and local simulator tests implemented. The Microsoft Entra app
 and production credentials were configured on 31 October 2026; see the
 [registration receipt](integration-activation.md#azure-devops-registration-31-october-2026).

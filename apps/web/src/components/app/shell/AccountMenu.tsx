@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import { ChevronsUpDownIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UserIcon } from 'lucide-react';
+import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import {
     DropdownMenu,
@@ -71,7 +71,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
                             <DropdownMenuItem render={<Link href={KnownPages.AppAccount} />}>
-                                <UserIcon />
+                                <CircleUserIcon />
                                 Account
                             </DropdownMenuItem>
                             <DropdownMenuSub>

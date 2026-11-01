@@ -15,6 +15,8 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { KnownPages } from '@/src/knownPages';
 import type { ActionState } from '@/src/lib/app/actionResult';
 import type { getSlackSettings } from '@/src/lib/integrations/slack/settings';
+import { IntegrationTitle } from '../integrations/IntegrationLogo';
+import { slackStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { FormMessage } from '../FormMessage';
 import { DateTime } from '../comments/DateTime';
@@ -27,10 +29,8 @@ const outcomes: Record<string, string> = { connected: 'Slack is connected. Invit
 
 export function SlackSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const connection = settings.connection;
-    const status = !settings.configured ? 'Unavailable' : !connection ? 'Not connected'
-        : connection.status === 'needs_reconnect' ? 'Reconnect needed' : connection.status === 'paused' ? 'Waiting for Slack'
-        : !connection.channelName ? 'Choose a channel' : connection.enabled ? 'Notifications on' : 'Notifications off';
-    return <Section id="slack" title="Slack" description="Send shared feedback to one Slack channel. Existing messages stay current. Optional summaries cover new replies and status changes."
+    const status = slackStatus(settings);
+    return <Section id="slack" title={<IntegrationTitle provider="slack" name="Slack" />} description="Send shared feedback to one Slack channel. Existing messages stay current. Optional summaries cover new replies and status changes."
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
             {outcome && Object.hasOwn(outcomes, outcome) && <p role="status" className="m-0 text-sm text-muted-foreground">{outcomes[outcome]}</p>}

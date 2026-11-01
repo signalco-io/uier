@@ -44,11 +44,11 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     if (!user)
         return null;
 
-    let members = await listUserMemberships(user.id);
+    const [existingMembers] = await Promise.all([listUserMemberships(user.id), ensurePublicProject()]);
+    let members = existingMembers;
     // Automatic feedback membership must not replace a new user's own workspace/onboarding.
     if (!members.some(member => member.workspaceId !== PUBLIC_WORKSPACE_ID))
         members.push(await ensureOwnWorkspace(user));
-    await ensurePublicProject();
     const feedbackMember = publicProjectMember(await joinPublicProject(user), user.email);
     members = [...members.filter(member => member.workspaceId !== PUBLIC_WORKSPACE_ID), feedbackMember];
 

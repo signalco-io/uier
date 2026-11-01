@@ -189,8 +189,8 @@ export type CommentsApiHandlerOptions = {
 /**
  * Wraps a comments API route handler: resolves the domain and the account or guest, maps errors to
  * `{ error, message }` responses and disables caching. The visitor cookie is created only by a
- * successful write, including an explicit Mark as read action. GETs and anonymous thread
- * opening do not create one; automatic read acknowledgements require an existing identity.
+ * successful write, including an explicit Mark as read action. GETs, anonymous thread opening
+ * and Mark as unread do not create one; automatic read acknowledgements require an existing identity.
  */
 export function commentsApiHandler<TParams extends Record<string, string> = Record<string, never>>(
     handler: (context: CommentsApiContext, params: TParams) => Promise<Response>,

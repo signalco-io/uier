@@ -89,3 +89,38 @@ test('admins manage team-only external access, preview overlapping grants and ar
         await reviewer.context.close();
     }
 });
+
+test('project people and teams show access as badges, with unavailable removals explained', async ({ page }) => {
+    await signIn(page, uniqueEmail('project-access-admin'));
+    const project = await createProject(page, { name: 'Badge access project', urls: ['https://badges.example'] });
+    await page.goto('/app/teams');
+    await page.getByRole('button', { name: 'Create team', exact: true }).first().click();
+    await page.getByRole('dialog').getByLabel('Team name').fill('Design review');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save team' }).click();
+    await expect(page.getByRole('list', { name: 'Active teams' })).toContainText('Design review');
+    await page.goto(`/app/projects/${project}/settings/people`);
+    const section = page.getByRole('region', { name: 'People and teams' });
+
+    const teams = section.getByRole('list', { name: /Teams/ });
+    await expect(teams.getByRole('listitem')).toHaveCount(1);
+    await expect(teams).not.toContainText('Shared');
+    await teams.getByRole('button', { name: 'Share with Design review' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Confirm changes' }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(teams).toContainText('Shared');
+    await expect(teams.getByRole('button', { name: 'Remove Design review' })).toBeVisible();
+
+    // The admin has workspace-wide access: Remove stays in place, disabled, and says why
+    const people = section.getByRole('list', { name: /People with access/ });
+    await expect(people.getByRole('listitem')).toHaveCount(1);
+    await expect(people).toContainText('Admin');
+    await expect(people).toContainText('All projects');
+    const remove = people.getByRole('button', { name: /Remove .*'s access/ });
+    await expect(remove).toHaveAttribute('aria-disabled', 'true');
+    await remove.focus();
+    await expect(page.getByRole('tooltip')).toHaveText('Workspace admins can review every project.');
+
+    await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+    await expectNoAxeViolations(page);
+});

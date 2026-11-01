@@ -3,15 +3,18 @@
 ## Implementation status
 
 The shared synchronization foundation, five adapters, OAuth routes and admin-only project settings
-are implemented. Each provider stays unavailable until its deployment configuration is valid:
+are implemented. A project's Settings → Integrations shows the services to connect as a grid and the
+connected ones below it; each service's destination and controls are on its own page
+(`settings/integrations/<provider>`), where OAuth returns. Each provider stays unavailable until its
+deployment configuration is valid:
 
 | Provider | Contract | Status |
 | --- | --- | --- |
 | [Notion](notion-integration-plan.md) | One page per thread, kept current | Implemented; registration and hosted acceptance required |
-| [GitHub](github-integration-plan.md) | One-way issue mirror | Implemented; GitHub App registration and hosted acceptance required |
-| [Linear](linear-integration-plan.md) | One-way issue mirror | Implemented; app registration and hosted acceptance required |
+| [GitHub](github-integration-plan.md) | Issue mirror with optional two-way status | Implemented; GitHub App registration and hosted acceptance required |
+| [Linear](linear-integration-plan.md) | Issue mirror with optional two-way status | Implemented; app registration and hosted acceptance required |
 | [Slack](slack-integration-plan.md) | Bounded channel notifications | Implemented; rotating bot credentials, distribution approval and hosted acceptance required |
-| [Azure DevOps](azure-devops-integration-plan.md) | One-way work item mirror | Implemented; Microsoft Entra app registration and hosted acceptance required |
+| [Azure DevOps](azure-devops-integration-plan.md) | Work item mirror with optional two-way status | Implemented; Microsoft Entra app registration and hosted acceptance required |
 
 An admin must connect a provider and explicitly save its destination before delivery starts.
 Connections are independent: a project can use all five services. The provider's own permissions
@@ -65,6 +68,46 @@ Backfill selects at most the latest 1,000 threads (Slack: 100), excludes private
 a durable selection. Queueing progress counts local delivery requests, not completed external sends.
 The worker queues bounded batches; a changed destination cancels an old selection. Forced backfill
 is separate from ordinary source intent and never replays an old selection into a new destination.
+
+## Two-way status sync
+
+GitHub, Linear, Azure DevOps and Notion each have an independent **Enable two-way status sync**
+option on their integration settings page. It is off by default, including for existing connections.
+Saving it off stops provider-to-uier status updates; ordinary uier-to-provider copying continues.
+Turning the integration itself off or disconnecting stops both directions. Slack remains a notification
+integration and has no task-status toggle.
+
+- GitHub closed issues become Done; reopening becomes Open.
+- Linear completed/canceled workflow states become Done; triage, backlog, unstarted and started
+  states become Open. Outbound changes use the chosen open/done workflow states.
+- Azure DevOps Resolved/Completed categories become Done; Proposed/InProgress become Open.
+  The explicitly selected open/done states are recognized directly. Removed and unknown states
+  do not change uier. Outbound changes use the saved state mapping.
+- Notion uses the selected Status or Select property, identified by its stable property id, and
+  the selected open/done values. Other values, blank fields and trashed pages do not change uier.
+  Save a status mapping before enabling the option; disable the option before unmapping status.
+
+The existing five-minute scheduled worker polls only known managed copies. It does not subscribe
+to issue/page webhooks or request extra permissions. Current read/write scopes already cover these
+reads; no provider app registration or customer reauthorization is needed. Titles, descriptions,
+provider comments and other fields are not imported. Enabling the option allows the current remote
+status to be adopted on the next eligible poll, including on copies sent before enablement.
+
+Polling shares the outbound ledger lease, authority checks, provider budgets and timeouts. A durable
+per-provider id cursor rotates through at most 100 accepted ledgers per turn; reads receive at most
+one quarter of the provider's call/time allowance (20 calls and 30 seconds maximum). Large queues,
+provider limits and cron delays can take multiple runs. Missing, retired, scrubbed and uncertain
+copies are never recreated by polling. Poll failures retain outbound progress and bounded diagnostic
+codes in `statusSyncCode`/`statusCheckedAt`; they retry on a later cursor cycle.
+
+Before applying a result, recheck the current binding, toggle, enabled state, connecting admin,
+destination and shared source. Apply through a conditional comment write with activity, notification
+and source-sync markers together. No-op reads create no activity or notifications. Pending uier
+mutations take precedence over remote status; a concurrent source write defers the import rather
+than overwriting it. An imported change fans out to the other connected services on subsequent
+worker runs. With two-way sync on, equivalent Linear and Azure DevOps workflow states are kept
+when acknowledging imported changes (for example, Closed stays Closed rather than moving back to
+the mapped Resolved state). Cross-system changes are eventually consistent, not atomic.
 
 ## Source outbox
 
@@ -148,7 +191,8 @@ provider fairness and link safety with instrumented adapters and the real author
 
 `notion.api.spec.ts`, `github.api.spec.ts`, `linear.api.spec.ts`, `slack.api.spec.ts` and `azure-devops.api.spec.ts` use actual
 HTTP requests to local provider simulators. The matching browser specs cover OAuth returns,
-explicit destination controls, permission checks, persistent settings and disconnect. Playwright
+explicit destination controls, permission checks, persistent settings and disconnect;
+`integration-settings.spec.ts` covers the overview's grid and connected list. Playwright
 uses generated fixture credentials and loopback simulators; it never needs real provider tokens.
 
 Local and CI checks prove the code paths exercised. Provider-specific hosted acceptance,

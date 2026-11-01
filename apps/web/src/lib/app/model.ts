@@ -44,6 +44,8 @@ export type DbSignInRequest = AppDoc & {
     next?: string;
     /** A Google account waiting for this email proof (`DbGoogleLink`), linked only in the browser that asked */
     googleLinkId?: string;
+    /** Microsoft identity waiting for browser-bound email proof. */
+    microsoftLinkId?: string;
     createdAt: string;
     ttl: number;
 };

@@ -27,6 +27,15 @@ export async function getReadSequence(domain: string, reviewerId: string, commen
     return (await getAppStore().get<DbReviewRead>(readPartition(domain, reviewerId), commentId))?.doc.readSequence ?? 0;
 }
 
+function readReceipt(comment: DbComment, reviewerId: string, readSequence: number): DbReviewRead {
+    return {
+        type: 'review-read', pk: readPartition(comment.domain, reviewerId), id: comment.id, domain: comment.domain, reviewerId,
+        readSequence, readAt: new Date().toISOString(),
+        // Members retain their cursor; guest identity is browser/site-local and expires with inactivity.
+        ttl: threadRecordTtl(comment, reviewerId.startsWith('user:') ? -1 : 365 * 24 * 60 * 60)
+    };
+}
+
 /**
  * Caller supplies an authorized, visible thread. Never acknowledges activity newer than the
  * rendered sequence; parallel tabs advance with max(), and stale writes cannot move it back.
@@ -40,13 +49,28 @@ export async function markThreadRead(comment: DbComment, reviewerId: string, seq
         const stored = await store.get<DbReviewRead>(pk, comment.id);
         const readSequence = Math.max(stored?.doc.readSequence ?? 0, sequence);
         if (stored && readSequence === stored.doc.readSequence) return readActivity(comment, reviewerId, readSequence);
-        const receipt: DbReviewRead = {
-            type: 'review-read', pk, id: comment.id, domain: comment.domain, reviewerId,
-            readSequence, readAt: new Date().toISOString(),
-            // Members retain their cursor; guest identity is browser/site-local and expires with inactivity.
-            ttl: threadRecordTtl(comment, reviewerId.startsWith('user:') ? -1 : 365 * 24 * 60 * 60)
-        };
+        const receipt = readReceipt(comment, reviewerId, readSequence);
         if (stored ? await store.replace(receipt, stored.etag) === 'ok' : await store.create(receipt))
+            return readActivity(comment, reviewerId, readSequence);
+    }
+    throw apiErrors.conflict();
+}
+
+/**
+ * Caller supplies an authorized, visible thread. An explicit Mark as unread: the cursor moves back to
+ * just before the latest activity by someone else, so the thread is unread again and earlier activity
+ * stays read. A thread with only the reviewer's own activity cannot be unread; it is left as it is.
+ */
+export async function markThreadUnread(comment: DbComment, reviewerId: string) {
+    const { lastOtherSequence } = readActivity(comment, reviewerId);
+    const store = getAppStore();
+    const pk = readPartition(comment.domain, reviewerId);
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const stored = await store.get<DbReviewRead>(pk, comment.id);
+        const current = stored?.doc.readSequence ?? 0;
+        if (!stored || lastOtherSequence === 0 || current < lastOtherSequence) return readActivity(comment, reviewerId, current);
+        const readSequence = lastOtherSequence - 1;
+        if (await store.replace(readReceipt(comment, reviewerId, readSequence), stored.etag) === 'ok')
             return readActivity(comment, reviewerId, readSequence);
     }
     throw apiErrors.conflict();

@@ -12,6 +12,7 @@ import {
     BreadcrumbSeparator
 } from '@/src/components/ui/breadcrumb';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { integrationLabels, isIntegrationProvider } from '@/src/lib/integrations/model';
 import { projectSettingsSections } from '../projects/projectSettingsSections';
 
 type Crumb = { label: string; href: string };
@@ -20,10 +21,11 @@ const projectPages: Record<string, string> = { install: 'Install', settings: 'Se
 
 /**
  * Where the current page sits: `/app/projects/<id>/settings` -> Projects / <project> / Settings, and a
- * settings section after that (`/settings/integrations` -> ... / Settings / Integrations)
+ * settings section after that (`/settings/integrations` -> ... / Settings / Integrations) and a connected
+ * service's page under Integrations (`/settings/integrations/github` -> ... / Integrations / GitHub)
  */
 function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[] {
-    const [, , section, id, page, subpage] = pathname.split('/');
+    const [, , section, id, page, subpage, detail] = pathname.split('/');
     if (section === 'projects') {
         const root = { label: 'Projects', href: KnownPages.AppProjects };
         if (!id)
@@ -35,9 +37,12 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
         if (!pageLabel)
             return [root, project];
         const settingsSection = page === 'settings' && subpage ? projectSettingsSections.find(item => item.section === subpage) : undefined;
-        return settingsSection
-            ? [root, project, { label: pageLabel, href: KnownPageLinks.projectSettings(id) }, { label: settingsSection.label, href: pathname }]
-            : [root, project, { label: pageLabel, href: pathname }];
+        if (!settingsSection)
+            return [root, project, { label: pageLabel, href: pathname }];
+        const settings = { label: pageLabel, href: KnownPageLinks.projectSettings(id) };
+        return settingsSection.section === 'integrations' && isIntegrationProvider(detail)
+            ? [root, project, settings, { label: settingsSection.label, href: KnownPageLinks.projectSettings(id, 'integrations') }, { label: integrationLabels[detail], href: pathname }]
+            : [root, project, settings, { label: settingsSection.label, href: pathname }];
     }
     if (section === 'teams')
         return [{ label: 'Teams', href: KnownPages.AppTeams }, ...(id ? [{ label: 'Team', href: pathname }] : [])];

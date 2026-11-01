@@ -3,6 +3,7 @@ import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject } from '../../app/model';
 import { isLocalRuntime } from '../../comments/environment';
 import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { KnownPageLinks } from '../../../knownPages';
 import { disconnectIntegration, getIntegrationConnection, setIntegrationBinding } from '../connection';
 import { consumeOauthState, createOauthState } from '../oauthState';
 import { decryptSecret, encryptSecret } from '../secrets';
@@ -97,7 +98,7 @@ export async function finishGitHubSetup(input: { userId: string; state: unknown;
     if (!state) throw new GitHubError('invalid_state');
     await githubAdmin(state, store);
     if (input.setupAction === 'request') return { workspaceId: state.workspaceId, projectId: state.projectId, status: 'pending' as const,
-        url: `${appOrigin(input.baseUrl)}/app/projects/${encodeURIComponent(state.projectId)}/settings/integrations?github=pending#github` };
+        url: `${appOrigin(input.baseUrl)}${KnownPageLinks.projectIntegration(state.projectId, 'github')}?github=pending` };
     if (input.setupAction !== undefined && !['install', 'update'].includes(input.setupAction)) throw new GitHubError('invalid_setup');
     const installationId = githubId(input.installationId);
     return { workspaceId: state.workspaceId, projectId: state.projectId,
@@ -196,6 +197,7 @@ export async function saveGitHubRepository(input: GitHubSetupInput & { repositor
         && old.doc.config.botId === current.stored.doc.botId;
     const connection: GitHubConnection = { type: 'github-connection', provider: 'github', id: key, pk: workspacePk(input.workspaceId),
         workspaceId: input.workspaceId, projectId: input.projectId, connectedBy: input.userId, enabled: true, status: 'connected',
+        twoWaySync: sameTarget && old?.doc.twoWaySync === true,
         destinationRevision: sameTarget ? old!.doc.destinationRevision : (old?.doc.destinationRevision ?? 0) + 1, createdAt: old?.doc.createdAt ?? now, updatedAt: now,
         config: { installationId: current.stored.doc.installationId, repositoryId: id, repositoryNodeId: String(selected.node_id),
             owner: selected.owner.login, name: selected.name, private: selected.private === true, botId: current.stored.doc.botId,

@@ -1,15 +1,10 @@
-import { Google_Sans } from 'next/font/google';
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { cn } from 'cn';
 import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
-
-// Google's branding rules fix this button's font (Google Sans Medium 14/20), its colours and the
-// standard "G": the one place the app leaves Geist and the brand tokens. Self-hosted by next/font.
-// next/font has no fallback metrics for it, so the fallback is Google's previous button font.
-const googleSans = Google_Sans({ weight: '500', subsets: ['latin'], display: 'swap', adjustFontFallback: false, fallback: ['Roboto', 'Arial', 'sans-serif'] });
+import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
 
 const problems: Record<string, string> = {
     cancelled: 'Google sign-in was cancelled.',
@@ -25,7 +20,7 @@ const problems: Record<string, string> = {
 /** The standard Google "G" in Google's colours, which the branding rules do not allow to change */
 function GoogleG() {
     return (
-        <svg viewBox="0 0 48 48" aria-hidden="true" className="size-5">
+        <svg viewBox="0 0 48 48" aria-hidden="true" data-icon="inline-start">
             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
@@ -48,16 +43,17 @@ export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }
     );
 }
 
-/** "Continue with Google", under the email form's "or" with the passkey button (`SignInForm`'s `alternatives`) */
-export function GoogleSignInButton({ next }: { next?: string }) {
+/** "Google" ("Sign in with Google" to assistive technologies), the same outline button as the other options (`SignInForm`'s `alternatives`) */
+export function GoogleSignInButton({ next, lastUsed }: { next?: string; lastUsed?: boolean }) {
     if (!isGoogleSignInConfigured())
         return null;
     return (
-        // A plain link: a full navigation, never prefetched (the route starts a sign-in). The form's
-        // field group spaces its children 28 px apart; -mt-4 stacks it 12 px under the passkey button.
-        <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), `${googleSans.className} relative -mt-4 w-full gap-2.5 px-3 text-sm leading-5 font-medium border-[#747775] bg-[#FFFFFF] text-[#1F1F1F] hover:bg-[#FFFFFF] hover:text-[#1F1F1F] dark:border-[#8E918F] dark:bg-[#131314] dark:text-[#E3E3E3] dark:hover:bg-[#131314] dark:hover:text-[#E3E3E3] before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-current before:opacity-0 hover:before:opacity-[0.08] active:before:opacity-[0.12]`)}>
+        // A plain link: a full navigation, never prefetched (the route starts a sign-in).
+        <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
+            aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             <GoogleG />
-            Continue with Google
+            Google
+            {lastUsed && <LastUsedBadge />}
         </a>
     );
 }

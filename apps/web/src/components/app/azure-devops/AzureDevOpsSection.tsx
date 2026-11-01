@@ -17,6 +17,8 @@ import type { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops
 import { doneCategories, openCategories, type AzureDevOpsProjectOptions } from '@/src/lib/integrations/azure-devops/model';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { IntegrationTitle } from '../integrations/IntegrationLogo';
+import { azureDevOpsStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { loadAzureDevOpsOrganizationsAction, loadAzureDevOpsProjectOptionsAction, loadAzureDevOpsProjectsAction,
     manageAzureDevOpsAction, saveAzureDevOpsDestinationAction } from './actions';
@@ -35,10 +37,8 @@ const outcomes: Record<string, string> = {
 
 export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
-    const status = !settings.configured ? 'Unavailable' : !settings.connected ? 'Not connected'
-        : settings.status === 'needs_reconnect' ? 'Reconnect needed' : settings.status === 'paused' || settings.pausedUntil ? 'Waiting for Azure DevOps'
-        : !settings.azureProjectId ? 'Choose a destination' : settings.enabled ? 'Sync on' : 'Sync off';
-    return <Section id="azure-devops" title="Azure DevOps" description="Create one Azure Boards work item for each shared feedback thread. uier keeps its description, discussion and state up to date."
+    const status = azureDevOpsStatus(settings);
+    return <Section id="azure-devops" title={<IntegrationTitle provider="azure-devops" name="Azure DevOps" />} description="Create one Azure Boards work item for each shared feedback thread. uier keeps its description, discussion and state up to date."
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
