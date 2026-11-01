@@ -8,7 +8,7 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('ado-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Azure DevOps review' });
-    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations/azure-devops`;
     await page.goto(settingsUrl);
     const section = page.getByRole('region', { name: 'Azure DevOps', exact: true });
     await expect(section).toContainText('Not connected');
@@ -21,12 +21,12 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await connect.click();
     await expect(page.getByRole('heading', { name: 'Sign in to the Azure DevOps test organization' })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel Azure DevOps access' }).click();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?azure-devops=denied#azure-devops$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?azure-devops=denied$`));
     await expect(section).toContainText('The Azure DevOps connection was canceled.');
     await expect(page.getByText('Stub provider error')).toHaveCount(0);
     await section.getByRole('link', { name: 'Connect Azure DevOps', exact: true }).click();
     await page.getByRole('button', { name: 'Accept Azure DevOps access' }).click();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?azure-devops=connected#azure-devops$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?azure-devops=connected$`));
     await expect(section).toContainText('Choose a destination');
     await expect(section).toContainText('Connected as Test Microsoft user.');
     await expect(section.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);

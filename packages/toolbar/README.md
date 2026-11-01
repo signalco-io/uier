@@ -345,9 +345,10 @@ error boundary, so one bad comment never breaks the toolbar.
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
-The app and toolbar use the same assignment service. Assigned to me combines with page,
-status and search filters. Guests see the assignee's name but cannot change assignment or
-look up the participant directory. Removed members appear as Former member (no access);
+The assignee shows in the thread's header as their avatar (the user icon while unassigned),
+with a tooltip that names them. The app and toolbar use the same assignment service. Assigned
+to me combines with page, status and search filters. Guests see the assignee's avatar and name
+but cannot change assignment or look up the participant directory. Removed members appear as Former member (no access);
 the assignment can be cleared or changed.
 
 In a member's composer, type @ to search eligible participants. Arrow keys move through

@@ -1,8 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { KnownPageLinks } from '@/src/knownPages';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { requireIntegrationAdmin, IntegrationAccessError } from '@/src/lib/integrations/connection';
@@ -11,6 +9,7 @@ import { disconnectSlack, SlackConnectionError } from '@/src/lib/integrations/sl
 import { SlackApiError } from '@/src/lib/integrations/slack/client';
 import { SlackRateWait } from '@/src/lib/integrations/slack/rate';
 import { loadSlackChannels, saveSlackDestination, sendSlackTestNotification, setSlackEnabled } from '@/src/lib/integrations/slack/settings';
+import { revalidateIntegration } from '../integrations/revalidate';
 
 async function slackResult<T>(run: () => Promise<T>, message?: string) {
     return actionResult(async () => {
@@ -58,7 +57,7 @@ export async function saveSlackDestinationAction(_: ActionState, form: FormData)
         const channelId = z.string().regex(/^[A-Z][A-Z0-9]{2,79}$/, 'Choose an available channel.').parse(form.get('channelId'));
         await saveSlackDestination(project, context.user.id, { channelId, replySummaries: form.get('replySummaries') === 'true',
             statusSummaries: form.get('statusSummaries') === 'true' });
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'slack');
     }, 'The Slack channel is saved. Notifications are on for new shared feedback.');
 }
 
@@ -82,7 +81,7 @@ export async function manageSlackAction(_: ActionState<{ message: string }>, for
             await setSlackEnabled(project, context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'Slack notifications are on.' : 'Slack notifications are off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'slack');
         return { message };
     });
 }

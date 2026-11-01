@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -13,6 +13,7 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
+import { CommentAssignee, CommentAssigneeOptions } from './CommentAssignment';
 import { CommentThreadMenu } from './CommentThreadMenu';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
@@ -56,9 +57,10 @@ export function sourceText(source: NonNullable<CommentItem['source']>) {
 export const threadActionClassName = 'size-7 text-muted-foreground hover:text-foreground';
 
 /**
- * The top of a thread (popover and inbox), in one row: its status, public id (`#12`) and unread
- * dot (it marks the thread read), then icon actions: "Mark as done" / "Reopen" for the author,
- * "Copy issue" and "Copy link" for everyone, and Thread options with "Mark as unread" once read.
+ * The top of a thread (popover and inbox), in one row: its status, public id (`#12`), unread
+ * dot (it marks the thread read) and assignee (the people to assign it to open under the row), then
+ * icon actions: "Mark as done" / "Reopen" for the author, "Copy issue" and "Copy link" for everyone,
+ * and Thread options with "Mark as unread" once read.
  * `onMarkedUnread`: the reviewer asked for the thread to stay unread (no automatic read while open).
  */
 export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: CommentItem; onMarkedUnread?: () => void }) {
@@ -73,6 +75,8 @@ export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: Comm
     // Only someone else's activity can be unread
     const canMarkUnread = !unread && !comment.pending && Boolean(comment.activity?.lastOtherSequence);
     const issue = useCopyIssue(comment.id);
+    const [assigning, setAssigning] = useState(false);
+    const assigneeRef = useRef<HTMLButtonElement>(null);
 
     const handleStatus = async () => {
         try {
@@ -118,6 +122,8 @@ export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: Comm
                         </span>
                     )}
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
+                    <CommentAssignee comment={comment} open={assigning} onToggle={() => setAssigning(!assigning)}
+                        triggerRef={assigneeRef} className={threadActionClassName} />
                 </Row>
                 <Row className="-mr-1.5 shrink-0">
                     {/* Only the author changes the status (the API enforces it too); in a project,
@@ -151,6 +157,9 @@ export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: Comm
                     {canMarkUnread && <CommentThreadMenu className={threadActionClassName} disabled={unreadMutation.isPending} onMarkUnread={handleMarkUnread} />}
                 </Row>
             </Row>
+            {assigning && comment.permissions?.assign && (
+                <CommentAssigneeOptions comment={comment} onAssigned={() => { setAssigning(false); assigneeRef.current?.focus(); }} />
+            )}
             <CopyIssueResult state={issue} />
             <CommentsErrorMessage error={resolve.error ?? read.error ?? unreadMutation.error} />
             {uncopiedLink && (

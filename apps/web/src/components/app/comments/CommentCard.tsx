@@ -150,6 +150,17 @@ function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void
     );
 }
 
+/** Who the comment is assigned to: their avatar, as in the thread, or the user icon while unassigned (the toolbar's `CommentAssignee`) */
+function AssigneeAvatar({ assignee }: { assignee?: { name: string } }) {
+    if (!assignee)
+        return <UserIcon aria-hidden="true" />;
+    return (
+        <Avatar size="sm" aria-hidden="true">
+            <AvatarFallback className="font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
+        </Avatar>
+    );
+}
+
 /** "Feedback", "Bug report" or "Suggested rewrite" above the first message, as in the toolbar */
 function KindLabel({ kind }: { kind: DbCommentKind }) {
     if (kind === 'comment')
@@ -208,7 +219,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     /** Review link that opens the page at this comment */
     reviewLink: string;
     assignees: AssigneeOption[];
-    /** The signed-in user: "Assigned to you" */
+    /** The signed-in user: "Assigned to you" in the assignee's tooltip */
     userId: string;
     /** Done or Reopen takes the comment out of its list: starts its exit right away */
     onResolve?: (resolved: boolean) => ResolveExit;
@@ -343,8 +354,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     return (
         <Card role="article" aria-label={label} className="@container/comment gap-0 py-0">
             <div className="flex flex-col gap-3 px-4 py-3">
-                {/* The toolbar's thread header: status, public id, unread dot (Mark as read) and who it is assigned to,
-                    then the actions (on a line of their own in a narrow board column) */}
+                {/* The toolbar's thread header: status, public id, unread dot (Mark as read) and who it is assigned to
+                    (an avatar; the tooltip names them), then the actions (on a line of their own in a narrow board column) */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex min-w-0 items-center gap-2">
                         {permissions.resolve
@@ -368,14 +379,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         {/* The list of people for those who can assign */}
                         {permissions.assign ? (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="xs" disabled={pending} aria-label={`${assigned}. Change assignee`}
-                                        className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
-                                        <UserIcon aria-hidden="true" data-icon="inline-start" />
-                                        <span className="truncate">{assigned}</span>
-                                        <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
-                                    </Button>
-                                </DropdownMenuTrigger>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`${assigned}. Change assignee`}
+                                                className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                                                <AssigneeAvatar assignee={comment.assignee} />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{assigned}</TooltipContent>
+                                </Tooltip>
                                 <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
                                     <DropdownMenuGroup>
                                         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
@@ -399,10 +413,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <span className="inline-flex min-h-6 min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                                <UserIcon aria-hidden="true" className="size-3 shrink-0" />
-                                <span className="truncate">{assigned}</span>
-                            </span>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span role="img" aria-label={assigned} className="inline-flex size-8 items-center justify-center text-muted-foreground">
+                                        <AssigneeAvatar assignee={comment.assignee} />
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{assigned}</TooltipContent>
+                            </Tooltip>
                         )}
                     </div>
                     <div className="-mr-1.5 ml-auto flex shrink-0 items-center gap-0.5">

@@ -8,7 +8,7 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('notion-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Notion review' });
-    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations/notion`;
     await page.goto(settingsUrl);
     const notion = page.getByRole('region', { name: 'Notion', exact: true });
     await expect(notion).toContainText('Not connected');
@@ -21,13 +21,13 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     const deniedCallback = page.waitForRequest(request => new URL(request.url()).pathname === '/app/notion/callback');
     await page.getByRole('button', { name: 'Cancel Notion connection' }).click();
     const deniedUrl = (await deniedCallback).url();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?notion=denied#notion$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?notion=denied$`));
     await expect(notion).toContainText('The Notion connection was canceled.');
     const replay = await page.request.get(deniedUrl, { maxRedirects: 0 });
     expect(replay.status()).toBe(400); expect(await replay.text()).toContain('This connection link is not valid.');
     await notion.getByRole('link', { name: 'Connect Notion', exact: true }).click();
     await page.getByRole('button', { name: 'Allow Notion connection' }).click();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?notion=connected#notion$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?notion=connected$`));
     await expect(notion).toContainText('Connected workspace: Test workspace.');
     await expect(notion.getByRole('combobox')).toHaveCount(0);
     const action = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));

@@ -22,10 +22,12 @@ email-domain inference is made. The relationship is per workspace and grants no 
 
 Project settings keep **Who can comment** separate from **People and teams**. Share with or
 remove a team without copying people into direct access. A person with several grants appears
-once, with every current source. **Remove all member access** previews both the direct grant
-and every granting team membership, including consequences for other projects. Admins cannot
-be excluded from one project. All-project members must first explicitly change their blanket
-grant; it is never expanded into a snapshot of today's projects.
+once, with a badge for every current source: the workspace (Admin, All projects), the project
+(Direct) or a team. **Remove** previews both the direct grant and every granting team
+membership, including consequences for other projects. For admins and all-project members it
+stays disabled, with the reason in its tooltip: admins cannot be excluded from one project, and
+all-project members must first explicitly change their blanket grant; it is never expanded into
+a snapshot of today's projects.
 
 Confirmations list lost, gained and retained access and the sources that remain. A workspace
 access revision rejects a stale confirmation and asks the admin to refresh. A new project is
