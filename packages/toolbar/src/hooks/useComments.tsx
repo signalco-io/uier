@@ -454,6 +454,35 @@ export function useReadComment() {
     });
 }
 
+/**
+ * Mark as unread: the API moves the reviewer's cursor back to before the latest activity by someone
+ * else. Cached copies follow it; lists never roll a cursor back on their own (`reconcileReads`).
+ */
+export function useUnreadComment() {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn: async (comment: CommentItem) => {
+            const revision = currentReviewerRevision();
+            const activity = required(await apiRequest<CommentActivity>(`${commentUrl(comment.id)}/read`, { method: 'DELETE' }));
+            return { activity, revision };
+        },
+        onSuccess: async ({ activity, revision }, input) => {
+            // A list fetched before the change would merge the earlier cursor back
+            await Promise.all([client.cancelQueries({ queryKey: commentsQueryKeyPrefix }), client.cancelQueries({ queryKey: activityQueryKey })]);
+            if (revision !== currentReviewerRevision()) return;
+            updateAllCachedComments(client, comments => comments.map(comment => {
+                if (comment.id !== input.id || !comment.activity) return comment;
+                const current = activity.sequence >= comment.activity.sequence ? activity : comment.activity;
+                return { ...comment, activity: { ...current, readSequence: activity.readSequence, unread: current.lastOtherSequence > activity.readSequence } };
+            }));
+            await Promise.all([
+                client.invalidateQueries({ queryKey: activityQueryKey }),
+                client.invalidateQueries({ queryKey: commentsQueryKeyPrefix })
+            ]);
+        }
+    });
+}
+
 /** One scheduler per review layer. Hidden, offline and collapsed reviews do not poll. */
 export function useCommentsRefresh(expanded: boolean) {
     const client = useQueryClient();

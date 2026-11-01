@@ -14,7 +14,7 @@ import {
     Link2Icon,
     LockIcon,
     LockOpenIcon,
-    MailCheckIcon,
+    MailIcon,
     MoreHorizontalIcon,
     PencilIcon,
     ReplaceIcon,
@@ -58,6 +58,7 @@ import {
 import { Field, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
@@ -66,10 +67,10 @@ import { RelativeTime } from './DateTime';
 import { CommentDevice } from './CommentDevice';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
-import { ThreadAction } from './ThreadAction';
 import { integrationLabels, kindLabels } from './commentLabels';
 import {
     markCommentReadAction,
+    markCommentUnreadAction,
     deleteCommentAction,
     deleteCommentReplyAction,
     filterCommentAuthorAction,
@@ -131,13 +132,21 @@ function StateMenu({ resolved, disabled, onChange }: { resolved: boolean; disabl
     );
 }
 
-/** The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`) */
-function UnreadDot() {
+/**
+ * The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`).
+ * It is the Mark as read button; Mark as unread is in the More actions menu.
+ */
+function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void }) {
     return (
-        <span title="Unread" className="inline-flex shrink-0 items-center">
-            <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
-            <span className="sr-only">Unread</span>
-        </span>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-xs" aria-label="Unread. Mark as read" disabled={disabled} onClick={onRead}
+                    className="-mx-1.5 shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                    <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>Mark as read</TooltipContent>
+        </Tooltip>
     );
 }
 
@@ -219,6 +228,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const author = comment.author.isMe ? 'You' : comment.author.name;
     const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
     const unread = Boolean(comment.activity?.unread);
+    // Only someone else's activity can be unread
+    const canMarkUnread = !unread && Boolean(comment.activity?.lastOtherSequence);
     const assigned = comment.assignee
         ? `Assigned to ${comment.assignee.id === userId ? 'you' : comment.assignee.name}`
         : 'Unassigned';
@@ -332,7 +343,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     return (
         <Card role="article" aria-label={label} className="@container/comment gap-0 py-0">
             <div className="flex flex-col gap-3 px-4 py-3">
-                {/* The toolbar's thread header: status, public id, unread dot and who it is assigned to,
+                {/* The toolbar's thread header: status, public id, unread dot (Mark as read) and who it is assigned to,
                     then the actions (on a line of their own in a narrow board column) */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex min-w-0 items-center gap-2">
@@ -344,7 +355,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <span className="sr-only">Comment </span>#{comment.number}
                             </span>
                         )}
-                        {unread && <UnreadDot />}
+                        {unread && (
+                            <UnreadDot disabled={pending}
+                                onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence))} />
+                        )}
                         {comment.private && (
                             <Badge variant="secondary">
                                 <LockIcon aria-hidden="true" data-icon="inline-start" />
@@ -392,12 +406,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                     </div>
                     <div className="-mr-1.5 ml-auto flex shrink-0 items-center gap-0.5">
-                        {unread && (
-                            <ThreadAction label="Mark as read" disabled={pending}
-                                onClick={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence))}>
-                                <MailCheckIcon />
-                            </ThreadAction>
-                        )}
                         <CopyIssueButton state={copyIssue} />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -419,6 +427,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         {comment.following ? <BellOffIcon /> : <BellIcon />}
                                         {comment.following ? 'Unfollow thread' : 'Follow thread'}
                                     </DropdownMenuItem>
+                                    {canMarkUnread && (
+                                        <DropdownMenuItem onSelect={() => run(() => markCommentUnreadAction(projectId, comment.id))}>
+                                            <MailIcon />
+                                            Mark as unread
+                                        </DropdownMenuItem>
+                                    )}
                                     {permissions.edit && (
                                         <DropdownMenuItem
                                             onSelect={() => {

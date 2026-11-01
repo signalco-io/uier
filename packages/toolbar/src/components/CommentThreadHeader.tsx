@@ -5,14 +5,15 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Link, MailCheck, Undo } from '@signalco/ui-icons';
-import { useComments, useReadComment } from '../hooks/useComments';
+import { Check, Link, Undo } from '@signalco/ui-icons';
+import { useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
 import { commentLink } from '../review';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
+import { CommentThreadMenu } from './CommentThreadMenu';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
 export function CommentStatusBadge({ done }: { done: boolean }) {
@@ -27,13 +28,22 @@ export function CommentStatusBadge({ done }: { done: boolean }) {
     );
 }
 
-/** The blue dot of a thread with activity the reviewer has not read (blue: the unread count's colour) */
-export function UnreadDot({ className }: { className?: string }) {
+/**
+ * The blue dot of a thread with activity the reviewer has not read (blue: the unread count's colour).
+ * It is the Mark as read button; Mark as unread is in the thread's options.
+ */
+export function UnreadDot({ className, disabled, onRead }: { className?: string; disabled?: boolean; onRead: () => void }) {
     return (
-        <span title="Unread" className={cx('inline-flex shrink-0 items-center', className)}>
+        <IconButton
+            size="xs"
+            variant="plain"
+            className={cx('-mx-1.5 size-6 shrink-0', className)}
+            title="Mark as read"
+            aria-label="Unread. Mark as read"
+            disabled={disabled}
+            onClick={onRead}>
             <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
-            <span className="sr-only">Unread</span>
-        </span>
+        </IconButton>
     );
 }
 
@@ -47,23 +57,37 @@ export const threadActionClassName = 'size-7 text-muted-foreground hover:text-fo
 
 /**
  * The top of a thread (popover and inbox), in one row: its status, public id (`#12`) and unread
- * dot, then icon actions: "Mark as read" while unread, "Mark as done" / "Reopen" for the author,
- * "Copy issue" and "Copy link" for everyone.
+ * dot (it marks the thread read), then icon actions: "Mark as done" / "Reopen" for the author,
+ * "Copy issue" and "Copy link" for everyone, and Thread options with "Mark as unread" once read.
+ * `onMarkedUnread`: the reviewer asked for the thread to stay unread (no automatic read while open).
  */
-export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
+export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: CommentItem; onMarkedUnread?: () => void }) {
     const { review } = useContext(CommentsBootstrapperContext);
     const { resolve } = useComments();
     const read = useReadComment();
+    const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const done = comment.resolved;
     const unread = Boolean(comment.activity?.unread);
+    // Only someone else's activity can be unread
+    const canMarkUnread = !unread && !comment.pending && Boolean(comment.activity?.lastOtherSequence);
     const issue = useCopyIssue(comment.id);
 
     const handleStatus = async () => {
         try {
             await resolve.mutateAsync({ commentId: comment.id, resolved: !done });
             announce(done ? 'Reopened' : 'Marked as done');
+        } catch {
+            // Shown below
+        }
+    };
+
+    const handleMarkUnread = async () => {
+        onMarkedUnread?.();
+        try {
+            await unreadMutation.mutateAsync(comment);
+            announce('Marked as unread');
         } catch {
             // Shown below
         }
@@ -93,21 +117,9 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                             <span className="sr-only">Comment </span>#{comment.number}
                         </span>
                     )}
-                    {unread && <UnreadDot />}
+                    {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
                 </Row>
                 <Row className="-mr-1.5 shrink-0">
-                    {unread && (
-                        <IconButton
-                            size="xs"
-                            variant="plain"
-                            className={threadActionClassName}
-                            title="Mark as read"
-                            aria-label="Mark as read"
-                            disabled={read.isPending}
-                            onClick={() => read.mutate(comment)}>
-                            <MailCheck size={16} />
-                        </IconButton>
-                    )}
                     {/* Only the author changes the status (the API enforces it too); in a project,
                         every member can (the API's `permissions`) */}
                     {(comment.permissions?.resolve ?? comment.isMine) && (
@@ -136,10 +148,11 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                             <Link size={16} />
                         </IconButton>
                     </>}
+                    {canMarkUnread && <CommentThreadMenu className={threadActionClassName} disabled={unreadMutation.isPending} onMarkUnread={handleMarkUnread} />}
                 </Row>
             </Row>
             <CopyIssueResult state={issue} />
-            <CommentsErrorMessage error={resolve.error ?? read.error} />
+            <CommentsErrorMessage error={resolve.error ?? read.error ?? unreadMutation.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
                     <span className={destructiveTextClassName}>The link could not be copied. Copy it from here:</span>
