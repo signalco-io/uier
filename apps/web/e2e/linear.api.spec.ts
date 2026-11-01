@@ -16,6 +16,7 @@ import { claimPk, grantId, currentLinearGrant, invalidateLinearGrant, linearAcce
 import { linearGraphql, LinearApiError, validLinearAsset, withLinearRequest } from '../src/lib/integrations/linear/client';
 import type { LinearConnection, LinearGrant, LinearState } from '../src/lib/integrations/linear/model';
 import { startLinearStub, type LinearStub } from './support/linearStub';
+import { setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
 
 const test = base.extend<{ linear: LinearStub }>({ linear: async ({}, use) => {
     process.env.UIER_LOCAL = '1';
@@ -93,6 +94,26 @@ async function retry(f: Fixture) {
     await updateDoc<IntegrationSync>(current.pk, current.id, value => ({ ...value, active: true, status: 'queued', nextAttemptAt: old }));
     await processIntegrationDelivery(current, baseUrl, linearAdapter); return ledger(f);
 }
+
+test('two-way status sync follows completion and reopening without writing during polling and respects off', async ({ linear }) => {
+    const f = await fixture(); const connection = await connect(f, linear); let current = await dispatch(f);
+    const remote = linear.issues.get((current.state as LinearState).issue!.issueId)!;
+    const poll = () => processIntegrationDelivery(current, baseUrl, linearAdapter, { statusOnly: true });
+    const canceledState = randomUUID();
+    remote.state = { id: canceledState, type: 'canceled' };
+    await poll(); expect((await source(f)).resolved).toBeFalsy();
+    await setIntegrationTwoWaySync(f.project, 'linear', f.owner.id, true);
+    const before = linear.calls.length; await poll();
+    expect(await source(f)).toMatchObject({ resolved: true, syncPending: true });
+    expect(linear.calls.slice(before).some(call => /Create|Update|Delete/.test(call.operation))).toBe(false);
+    current = await dispatch(f); expect(remote.state.id).toBe(canceledState);
+    remote.state = { id: linear.openStateId };
+    await poll(); expect((await source(f)).resolved).toBe(false);
+    current = await dispatch(f);
+    await setIntegrationTwoWaySync(f.project, 'linear', f.owner.id, false);
+    remote.state = { id: linear.doneStateId }; await poll(); expect((await source(f)).resolved).toBe(false);
+    expect((await f.store.get<LinearConnection>(connection.pk, connection.id))!.doc.enabled).toBe(true);
+});
 
 test('missing deployment configuration retains off/disconnect controls and cannot erase a sibling project’s grant', async ({ linear }) => {
     const first = await fixture();

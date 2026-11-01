@@ -10,6 +10,7 @@ import { azureDevOpsAdapter } from './azure-devops';
 function deferredAdapter(provider: IntegrationProviderId, resolve: () => IntegrationAdapter): IntegrationAdapter {
     return { provider, isConfigured: () => resolve().isConfigured(),
         get maxRunMs() { return resolve().maxRunMs; }, get maxCalls() { return resolve().maxCalls; },
+        get supportsStatusSync() { return resolve().supportsStatusSync; },
         deliver: context => resolve().deliver(context),
         maintenance: options => resolve().maintenance?.(options) ?? Promise.resolve({ calls: 0 }),
         externalLink: (connection, ledger) => resolve().externalLink?.(connection, ledger) ?? null,

@@ -13,7 +13,7 @@ export const integrationCatalog = {
             'Choose the database, map those properties and save. New shared feedback will sync in the background. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Read, insert and update content in the pages and databases you share with the connection. uier does not request Notion comments or user information.',
-        limits: 'This is a one-way copy from uier. Changes in Notion do not update the original feedback. Optional database properties are copied only when their mapping is compatible.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with Notion. It is off by default; other edits in Notion stay there. Choose a Status or Select field and its Open and Done values before enabling two-way status sync. Other optional properties need compatible mappings.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed copies. Notion history and retained files can remain. Disconnect stops future sync and keeps existing copies; remove the connection in Notion to revoke its access.'
     },
     github: {
@@ -29,7 +29,7 @@ export const integrationCatalog = {
             'Load repositories, choose one and save. Public repositories require an explicit confirmation. Use Backfill GitHub feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Issues read and write, and repository metadata read. Customers choose which repositories the app can access. uier does not request source code, pull requests or Actions access.',
-        limits: 'This is a one-way copy from uier. GitHub changes do not update the original feedback. Screenshots stay behind protected links to uier rather than being uploaded to GitHub.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with GitHub. It is off by default; other GitHub edits stay there. Screenshots stay behind protected links to uier rather than being uploaded to GitHub.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed issues and comments. GitHub history and notifications can remain. Disconnect keeps existing copies; uninstall the app in GitHub to revoke its wider access.'
     },
     linear: {
@@ -45,7 +45,7 @@ export const integrationCatalog = {
             'Choose whether screenshots may be uploaded and save. New shared feedback will sync in the background. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Read and write access as the uier app actor. uier does not request administration, agent, assignable or mentionable capabilities.',
-        limits: 'This is a one-way copy from uier. Linear changes do not update the original feedback. Screenshot uploads are optional; when off, the issue keeps a protected link to the screenshot in uier.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with Linear. It is off by default; other Linear edits stay there. Screenshot uploads are optional; when off, the issue keeps a protected link to the screenshot in uier.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed issues and comments. Linear history and retained files can remain. Disconnect keeps existing copies; remove the app in Linear to revoke its access.'
     },
     'azure-devops': {
@@ -61,7 +61,7 @@ export const integrationCatalog = {
             'Load your organizations and projects, choose a work item type, its open and done states and an optional area path, then save. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Work items (read and write) and user profile (read), delegated through Microsoft Entra ID. uier acts as the account that connects and can reach only what that account can. It does not request code, pipelines or administration access.',
-        limits: 'This is a one-way copy from uier. Changes in Azure DevOps do not update the original feedback. Screenshots stay behind protected links to uier. Personal Microsoft accounts are not supported.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with Azure DevOps. It is off by default; other edits in Azure DevOps stay there. Screenshots stay behind protected links to uier. Personal Microsoft accounts are not supported.',
         removal: 'Making a thread private or deleting it replaces the work item’s text and moves it to the project’s recycle bin. Azure DevOps keeps earlier revisions in the work item history. Disconnect keeps existing work items; remove uier from your Microsoft account’s apps to revoke its access.'
     },
     slack: {

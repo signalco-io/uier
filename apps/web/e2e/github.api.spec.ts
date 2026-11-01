@@ -18,6 +18,7 @@ import { githubAppPk, receiveGitHubWebhook } from '../src/lib/integrations/githu
 import { githubInstallationPk, type GitHubConnection, type GitHubInstallation, type GitHubState } from '../src/lib/integrations/github/model';
 import { startGitHubStub } from './support/githubStub';
 import { createOauthState } from '../src/lib/integrations/oauthState';
+import { setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
 
 const variables = ['UIER_LOCAL', 'UIER_GITHUB_APP_ID', 'UIER_GITHUB_APP_SLUG', 'UIER_GITHUB_CLIENT_ID', 'UIER_GITHUB_CLIENT_SECRET',
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_SETUP_KEY', 'UIER_GITHUB_WEBHOOK_SECRET', 'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL'];
@@ -91,6 +92,27 @@ const external = (ledger: IntegrationSync) => {
     const destination = state(ledger).active!;
     return stub.issues.get(Number(destination.repositoryId))!.find(issue => issue.id === Number(destination.issue!.id))!;
 };
+
+test('two-way status sync is opt-in, imports close and reopen once, and can be disabled independently', async () => {
+    const f = await fixture(); let current = await sync(f, { realTime: true });
+    const remote = external(current); remote.state = 'closed';
+    const poll = () => processIntegrationDelivery(current, baseUrl, f.adapter, { statusOnly: true });
+    const source = async () => (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+    await poll(); expect((await source()).resolved).toBeFalsy();
+    await setIntegrationTwoWaySync(f.project, 'github', f.user.id, true);
+    const writes = () => stub.calls.filter(call => ['POST', 'PATCH', 'DELETE'].includes(call.method) && call.path.includes('/repos/')).length;
+    const before = writes();
+    await poll(); expect(await source()).toMatchObject({ resolved: true, syncPending: true });
+    expect((await source()).notificationEvents?.at(-1)?.kind).toBe('resolved');
+    const version = (await source()).syncVersion;
+    await poll(); expect((await source()).syncVersion).toBe(version); expect(writes()).toBe(before);
+    current = await sync(f, { realTime: true }); remote.state = 'open';
+    await poll(); expect((await source()).resolved).toBe(false);
+    current = await sync(f, { realTime: true });
+    await setIntegrationTwoWaySync(f.project, 'github', f.user.id, false);
+    remote.state = 'closed'; await poll(); expect((await source()).resolved).toBe(false);
+    expect((await getAppStore().get<GitHubConnection>(f.connection.pk, f.connection.id))!.doc.enabled).toBe(true);
+});
 async function switchRepository(f: Awaited<ReturnType<typeof fixture>>) {
     const setup = await authorized(f);
     f.connection = await saveGitHubRepository({ ...f.input, setupReceipt: setup.result.setupReceipt!, repositoryId: '202', confirmPublic: false });

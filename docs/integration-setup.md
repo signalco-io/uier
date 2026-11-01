@@ -271,3 +271,18 @@ and handle provider-side revocation/retention separately.
 Ongoing unknown-send and malformed rate-limit holds deliberately require an operator's verified
 decision. Use [integration operations](integration-operations.md); an empty search or a successful
 local retry is not proof that an earlier external copy never existed.
+
+## Optional two-way status sync
+
+After saving a destination, a project admin can enable **Two-way status sync** on the provider's
+settings page. GitHub, Linear, Azure DevOps and Notion support it; existing connections start off.
+Notion first needs a Status or Select field with distinct mapped Open and Done values. The existing
+read/write permissions cover polling, so provider registrations, secrets and OAuth scopes stay the
+same. See [the status contract](integrations.md#two-way-status-sync) for mappings, scheduling and
+conflict handling. Disabling this option leaves ordinary outbound sync enabled.
+
+For hosted acceptance, use a dedicated shared thread: close and reopen its managed provider item,
+observe uier after scheduled runs, then change uier and read back the same external item. Disable
+two-way status sync, change the provider status again and verify uier stays unchanged. Repeat with
+the configured Notion property and confirm another unmapped property has no effect. Local simulator
+tests do not establish hosted acceptance for this new path.

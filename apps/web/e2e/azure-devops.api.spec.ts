@@ -5,7 +5,7 @@ import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import type { DbComment } from '../src/lib/db/schema';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { revokeIntegrationGrantsOf } from '../src/lib/integrations/connection';
+import { revokeIntegrationGrantsOf, setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverThreadIntegrationSync, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
 import { loadIntegrationLinks } from '../src/lib/integrations/links';
@@ -84,6 +84,25 @@ async function retry(f: Fixture) {
     await processIntegrationDelivery(current, baseUrl, azureDevOpsAdapter); return ledger(f);
 }
 const workItem = async (f: Fixture, ado: AzureDevOpsStub) => ado.workItems.get(((await ledger(f)).state as AzureDevOpsState).item!.id!)!;
+
+test('two-way status sync reads mapped and category states, reopens, and can be turned off', async ({ ado }) => {
+    const f = await fixture(); const connection = await connect(f, ado); let current = await dispatch(f);
+    const remote = await workItem(f, ado);
+    const poll = () => processIntegrationDelivery(current, baseUrl, azureDevOpsAdapter, { statusOnly: true });
+    remote.fields['System.State'] = 'Closed';
+    await poll(); expect((await source(f)).resolved).toBeFalsy();
+    await setIntegrationTwoWaySync(f.project, 'azure-devops', f.owner.id, true);
+    const before = ado.calls.length; await poll();
+    expect(await source(f)).toMatchObject({ resolved: true, syncPending: true });
+    expect(ado.calls.slice(before).filter(call => /workitems/.test(call.path)).every(call => call.method === 'GET')).toBe(true);
+    current = await dispatch(f); expect(remote.fields['System.State']).toBe('Closed');
+    remote.fields['System.State'] = 'Active';
+    await poll(); expect((await source(f)).resolved).toBe(false);
+    current = await dispatch(f); expect(remote.fields['System.State']).toBe('Active');
+    await setIntegrationTwoWaySync(f.project, 'azure-devops', f.owner.id, false);
+    remote.fields['System.State'] = 'Resolved'; await poll(); expect((await source(f)).resolved).toBe(false);
+    expect((await f.store.get<AzureDevOpsConnection>(connection.pk, connection.id))!.doc.enabled).toBe(true);
+});
 
 test('Entra sign-in uses PKCE and delegated work item scopes, binds nothing before a destination and consumes state once', async ({ ado }) => {
     const f = await fixture();

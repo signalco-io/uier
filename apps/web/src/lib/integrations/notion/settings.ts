@@ -70,6 +70,7 @@ export async function saveNotionMapping(project: DbProject, userId: string, inpu
     if (source.object !== 'data_source' || source.in_trash) throw new NotionApiError(404, 'data_source_missing');
     const schema = parseNotionSchema(source);
     const mapping = validateNotionMapping(input.mapping, schema);
+    if (connection.twoWaySync && !mapping.status) throw new NotionApiError(400, 'mapping_invalid');
     await notionAdmin(currentProject, userId, store);
     const saved = await updateDoc<NotionConnection>(connection.pk, connection.id, value => {
         if (value.connectedBy !== connection.connectedBy || value.grantId !== connection.grantId || value.destinationRevision !== connection.destinationRevision)

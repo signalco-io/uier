@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="30 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="1 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -255,6 +255,12 @@ export default function PrivacyPolicyPage() {
                 project and page context, links and optional reply-count or status summaries, without
                 screenshot files. People with access to the chosen destination can read these copies
                 under the service&rsquo;s own permissions.
+            </p>
+            <p>
+                Admins can optionally enable two-way status sync for Notion, GitHub, Linear and Azure DevOps.
+                We then read the status of known linked items and update Open or Done in uier. For Notion,
+                the admin chooses the status field and values. The option starts off and can be disabled
+                independently of sending feedback. We do not import provider discussions or other edits.
             </p>
             <p>
                 We store destination identifiers, connection settings, encrypted authorization grants

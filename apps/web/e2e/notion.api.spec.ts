@@ -20,6 +20,7 @@ import { probeNotionConnections } from '../src/lib/integrations/notion/probe';
 import type { NotionConnection, NotionGrant, NotionState } from '../src/lib/integrations/notion/model';
 import { pngImage, jpegImage } from './support/images';
 import { startNotionStub } from './support/notionStub';
+import { setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
 
 let stub: Awaited<ReturnType<typeof startNotionStub>>;
 const client = new NotionClient();
@@ -76,6 +77,52 @@ function page(ledger: IntegrationSync) { return stub.pages.get((ledger.state as 
 function texts(ledger: IntegrationSync) {
     const p = page(ledger); return p.children.map((id: string) => stub.blocks.get(id)!).filter((block: Record<string, any>) => !block.in_trash).map((block: Record<string, any>) => richText(block[block.type]?.rich_text)).join('\n');
 }
+
+test('two-way status sync uses the selected Notion property and mappings, requires a mapping and respects off', async () => {
+    const f = await fixture(); const comment = await source(f); let current = await sync(f, comment);
+    const remote = page(current); const connectionId = notionConnectionId(f.project.id);
+    const connection = (await f.store.get<NotionConnection>(f.project.pk, connectionId))!.doc;
+    const mapping = connection.config.mapping!;
+    const project = (await f.store.get<DbProject>(f.project.pk, f.project.id))!.doc;
+    const poll = () => processIntegrationDelivery(current, baseUrl, adapter, { statusOnly: true });
+    const original = async () => (await getCommentsStore().get(comment.domain, comment.id))!.comment;
+    const status = pageProperty(remote, mapping.status!.property);
+    status[mapping.status!.type] = { name: mapping.status!.done };
+    await poll(); expect((await original()).resolved).toBeFalsy();
+    await setIntegrationTwoWaySync(project, 'notion', f.owner.id, true);
+    const before = stub.calls.length; await poll();
+    expect(await original()).toMatchObject({ resolved: true, syncPending: true });
+    expect(stub.calls.slice(before).every(call => call.method === 'GET')).toBe(true);
+    current = await sync(f, comment); pageProperty(remote, mapping.status!.property)[mapping.status!.type] = { name: mapping.status!.open };
+    await poll(); expect((await original()).resolved).toBe(false);
+    const { status: _status, ...unmapped } = mapping;
+    await expect(saveNotionMapping(project, f.owner.id, { dataSourceId: f.dataSource.id, mapping: unmapped })).rejects.toMatchObject({ code: 'mapping_invalid' });
+    current = await sync(f, comment);
+    await setIntegrationTwoWaySync(project, 'notion', f.owner.id, false);
+    pageProperty(remote, mapping.status!.property)[mapping.status!.type] = { name: mapping.status!.done };
+    await poll(); expect((await original()).resolved).toBe(false);
+    await saveNotionMapping(project, f.owner.id, { dataSourceId: f.dataSource.id, mapping: unmapped });
+    await expect(setIntegrationTwoWaySync(project, 'notion', f.owner.id, true)).rejects.toThrow('Map a Notion status field');
+});
+
+test('two-way Notion sync reads the selected Select property and ignores other fields and unmapped values', async () => {
+    const f = await fixture();
+    const connection = (await f.store.get<NotionConnection>(f.project.pk, notionConnectionId(f.project.id)))!.doc;
+    const { kind: _kind, ...mapping } = connection.config.mapping!;
+    const selected = { property: 'kind', type: 'select' as const, open: 'Queued', done: 'Shipped' };
+    await saveNotionMapping(f.project, f.owner.id, { dataSourceId: f.dataSource.id, mapping: { ...mapping, status: selected } });
+    const comment = await source(f); const current = await sync(f, comment); const remote = page(current);
+    const project = (await f.store.get<DbProject>(f.project.pk, f.project.id))!.doc;
+    await setIntegrationTwoWaySync(project, 'notion', f.owner.id, true);
+    const original = async () => (await getCommentsStore().get(comment.domain, comment.id))!.comment;
+    remote.properties.status = { id: 'status', type: 'status', status: { name: 'Done' } };
+    pageProperty(remote, selected.property).select = { name: 'In progress' };
+    await processIntegrationDelivery(current, baseUrl, adapter, { statusOnly: true });
+    expect((await original()).resolved).toBeFalsy();
+    pageProperty(remote, selected.property).select = { name: 'Shipped' };
+    await processIntegrationDelivery(current, baseUrl, adapter, { statusOnly: true });
+    expect((await original()).resolved).toBe(true);
+});
 
 test('Notion OAuth is user bound, single use and denial does not replace a working grant', async () => {
     const f = await fixture({ connect: false });

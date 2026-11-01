@@ -13,7 +13,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` (Google sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
-| `src/lib/integrations/` | shared outbound synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
+| `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
@@ -569,7 +569,15 @@ message is replaced. Keep the privacy policy and toolbar guide aligned with this
   removed sources. App direct-comment redirects load the authorized stored thread and retain its
   permitted original source plus canonical saved page state. Environment filters never grant access.
 
-## Outbound integration foundation
+## Integration foundation
+
+`TwoWaySync` and its admin-only action save the independent, default-off `twoWaySync` connection
+setting for GitHub, Linear, Azure DevOps and Notion. Notion requires a mapped Status/Select property.
+`statusSync.ts` rotates a bounded accepted-ledger scan in the scheduled worker. Status-only delivery
+shares the outbound lease and authority boundary; provider writes are prohibited. Recheck current
+source/version, visibility, destination, toggle and admin before conditionally updating activity,
+notifications and the source marker together. Pending uier edits win; polling never acknowledges
+outbound progress or recreates external objects. Slack has no task-status sync.
 
 `src/lib/integrations/` owns the shared outbox and delivery protocol described in
 [`docs/integrations.md`](../../docs/integrations.md). Every eligible non-public project mutation

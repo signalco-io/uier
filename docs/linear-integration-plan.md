@@ -1,5 +1,9 @@
 # Linear integration: implementation plan
 
+> Update, 1 November 2026: optional, default-off two-way **status** sync is implemented.
+> The [current status contract](integrations.md#two-way-status-sync) supersedes the original
+> one-way/status non-goals below. Other provider edits remain outside the import contract.
+
 Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 
 Depends on the shared integration foundation in [the Notion plan, section 2.1](notion-integration-plan.md#21-expansion-to-other-services). The shared foundation is implemented. The [GitHub](github-integration-plan.md) and [Slack notifications](slack-integration-plan.md) plans are separate adapters.

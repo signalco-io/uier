@@ -3,6 +3,9 @@ import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUs
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { withThreadActivity } from '../comments/activity';
+import { withNotificationEvent } from '../notifications/events';
+import { withSyncMark } from './syncSignal';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
 import { projectFeedbackExport } from '../review/feedbackContext';
@@ -27,6 +30,7 @@ export type DeliveryOptions = {
     deadline?: number;
     maxCalls?: number;
     onRequest?: () => void;
+    statusOnly?: boolean;
     exportFeedback?: typeof projectFeedbackExport;
 };
 
@@ -55,7 +59,7 @@ function projectHash(project: DbProject) {
 function connectionHash(connection: IntegrationConnection) {
     return sha256Hex(JSON.stringify({ id: connection.id, provider: connection.provider, workspaceId: connection.workspaceId,
         projectId: connection.projectId, connectedBy: connection.connectedBy, destinationRevision: connection.destinationRevision,
-        grantId: connection.grantId, config: connection.config, createdAt: connection.createdAt, updatedAt: connection.updatedAt }));
+        grantId: connection.grantId, twoWaySync: connection.twoWaySync, config: connection.config, createdAt: connection.createdAt, updatedAt: connection.updatedAt }));
 }
 
 function allowsMode(connection: IntegrationConnection, mode: IntegrationDeliveryContext['mode']) {
@@ -70,9 +74,12 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
     const comments = options.comments ?? getCommentsStore();
     const clock = options.now ?? Date.now;
     const now = clock();
-    const deadline = options.deadline ?? now + Math.min(adapter.maxRunMs ?? 60_000, 4 * 60_000);
+    const deadline = Math.floor(options.deadline ?? now + Math.min(adapter.maxRunMs ?? 60_000, 4 * 60_000));
     const stored = await store.get<IntegrationSync>(candidate.pk, candidate.id);
-    if (!stored || !stored.doc.active || stored.doc.provider !== adapter.provider || Date.parse(stored.doc.nextAttemptAt) > now
+    const statusOnly = options.statusOnly === true;
+    if (!stored || (statusOnly ? !adapter.supportsStatusSync || stored.doc.status !== 'accepted' || stored.doc.active
+        || stored.doc.attempt || stored.doc.deletion || stored.doc.tombstoned : !stored.doc.active || Date.parse(stored.doc.nextAttemptAt) > now)
+        || stored.doc.provider !== adapter.provider
         || (stored.doc.lease && Date.parse(stored.doc.lease.until) > now) || deadline <= now) return;
     const lease = { id: randomUUID(), until: new Date(Math.min(deadline + 30_000, now + 5 * 60_000)).toISOString() };
     let ledger: IntegrationSync = { ...stored.doc, lease };
@@ -89,7 +96,8 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
     };
     const finish = async (patch: Partial<IntegrationSync>) => update(current => {
         const { lease: _lease, ...next } = current;
-        return { ...next, ...patch };
+        // A failed poll must not mark outbound delivery complete, failed or suppressed.
+        return statusOnly ? { ...next, statusCheckedAt: new Date(clock()).toISOString(), statusSyncCode: patch.lastCode } : { ...next, ...patch };
     });
     let snapshot: Awaited<ReturnType<typeof authority>>;
     let through = ledger.requestedVersion;
@@ -103,6 +111,12 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         }
         const { connection, project, source, actor } = snapshot;
         const mode = ledger.deletion || !source || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
+        if (statusOnly && (connection.twoWaySync !== true || mode !== 'sync' || !source
+            || (source.syncVersion ?? 0) > ledger.processedVersion || ledger.requestedVersion > ledger.processedVersion
+            || ledger.requestRevision > ledger.processedRequestRevision)) {
+            await finish({});
+            return;
+        }
         if (ledger.reconcileDestinationRevision !== undefined && ledger.reconcileDestinationRevision !== connection.destinationRevision
             && !ledger.attempt && mode === 'sync' && (ledger.sourceRequestedVersion ?? -1) <= ledger.processedVersion) {
             await finish({ status: 'suppressed', active: false, processedRequestRevision: ledger.requestRevision,
@@ -120,11 +134,11 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             return;
         }
         through = ledger.deletion?.version ?? source?.syncVersion ?? ledger.requestedVersion;
-        const feedback = mode === 'cleanup' ? null : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
+        const feedback = mode === 'cleanup' || statusOnly ? null : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
         const initialProjectHash = projectHash(project);
         const sourceVersion = source?.syncVersion ?? 0;
-        const boundary = async (write: boolean) => {
-            if (clock() >= deadline || calls >= (options.maxCalls ?? adapter.maxCalls ?? 100)) throw new IntegrationControlError('budget_exhausted');
+        const boundary = async (write: boolean, providerRequest = true) => {
+            if (clock() >= deadline || (providerRequest && calls >= (options.maxCalls ?? adapter.maxCalls ?? 100))) throw new IntegrationControlError('budget_exhausted');
             const retained = await store.get<IntegrationSync>(ledger.pk, ledger.id);
             if (!retained || !ownsLease(retained.doc)) throw new IntegrationControlError('lease_lost');
             ledger = retained.doc;
@@ -141,7 +155,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
                 && ledger.reconcileDestinationRevision !== latest.connection.destinationRevision
                 && (ledger.sourceRequestedVersion ?? -1) <= ledger.processedVersion)
                 throw new IntegrationControlError('backfill_destination_changed');
-            if (latestMode !== mode || (write && mode === 'sync' && ((latest.source?.syncVersion ?? 0) !== sourceVersion
+            if (latestMode !== mode || ((write || statusOnly) && mode === 'sync' && ((latest.source?.syncVersion ?? 0) !== sourceVersion
                 || projectHash(latest.project) !== initialProjectHash))) throw new IntegrationControlError('projection_changed');
             // The asynchronous authority reads can themselves outlast the remaining lease/budget.
             if (clock() >= deadline || !ownsLease(ledger)) throw new IntegrationControlError('budget_exhausted');
@@ -149,7 +163,23 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         const signal = () => AbortSignal.timeout(Math.max(1, Math.min(20_000, deadline - clock())));
         const context: IntegrationDeliveryContext = {
             connection, project, feedback, mode, through, deadline, baseUrl,
+            statusOnly,
             get ledger() { return ledger; },
+            async receiveStatus(resolved: boolean) {
+                if (!statusOnly || typeof resolved !== 'boolean') throw new Error('Invalid inbound status');
+                await boundary(true, false);
+                const current = await comments.get(`project:${project.id}`, ledger.threadId);
+                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.private
+                    || isPrivateAppFeedback(current.comment)) throw new IntegrationControlError('projection_changed');
+                if (Boolean(current.comment.resolved) === resolved) return;
+                const actorId = `user:${connection.connectedBy}`;
+                const at = new Date(clock()).toISOString();
+                const changed = withSyncMark(project, current.comment, withNotificationEvent(
+                    { ...withThreadActivity(current.comment, actorId), resolved, updatedAt: at }, actorId, resolved ? 'resolved' : 'reopened', at));
+                // Recheck the toggle, binding and admin after all reads, then conditionally write.
+                await boundary(true, false);
+                if (await comments.replace(changed, current.etag) !== 'ok') throw new IntegrationControlError('projection_changed');
+            },
             async read<T>(send: (signal: AbortSignal) => Promise<T>) {
                 await boundary(false);
                 calls++;
@@ -157,6 +187,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
                 return send(signal());
             },
             async operation<T>(operation: IntegrationOperation, send: (signal: AbortSignal) => Promise<T>) {
+                if (statusOnly) throw new Error('Status polling cannot write to a provider');
                 await boundary(true);
                 if (!/^[a-z][a-z0-9_-]{0,63}$/.test(operation.step) || !/^[a-f0-9]{64}$/.test(operation.planHash))
                     throw new Error('Invalid integration operation metadata');
@@ -185,6 +216,10 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             }
         };
         const result = await adapter.deliver(context);
+        if (statusOnly) {
+            await finish({ lastCode: result.code });
+            return;
+        }
         await applyResult(result, connection);
     } catch (error) {
         if (error instanceof IntegrationControlError && error.code === 'lease_lost') return;

@@ -5,7 +5,8 @@ import { getAppStore, updateDoc, type AppStore, type DocQuery } from '../src/lib
 import { sha256Hex } from '../src/lib/app/tokens';
 import { findOrCreateUser } from '../src/lib/app/users';
 import type { DbComment, DbSyncTombstone } from '../src/lib/db/schema';
-import { disconnectIntegration } from '../src/lib/integrations/connection';
+import { disconnectIntegration, setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
+import { pollIntegrationStatuses } from '../src/lib/integrations/statusSync';
 import { queueIntegrationBackfills, startIntegrationBackfill } from '../src/lib/integrations/backfill';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverIntegrationSync, discoverThreadIntegrationSync, enqueueIntegrationBackfill, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
@@ -115,6 +116,89 @@ function deferred() {
     const promise = new Promise<void>(done => { resolve = done; });
     return { promise, resolve };
 }
+
+test('two-way toggle rejects members, foreign workspaces, unsupported providers and invalid booleans', async () => {
+    const f = await fixture();
+    await updateDoc<DbMember>(f.project.pk, memberId(f.owner.id), row => ({ ...row, role: 'commenter' }));
+    await expect(setIntegrationTwoWaySync(f.project, 'github', f.owner.id, false)).rejects.toThrow('Only a current workspace admin');
+    await expect(setIntegrationTwoWaySync({ ...f.project, workspaceId: 'other' }, 'github', f.otherOwner.id, false)).rejects.toThrow();
+    await expect(setIntegrationTwoWaySync(f.project, 'slack', f.otherOwner.id, true)).rejects.toThrow('does not support');
+    await expect(setIntegrationTwoWaySync(f.project, 'github', f.otherOwner.id, 'false' as unknown as boolean)).rejects.toThrow('Choose whether');
+});
+
+for (const race of ['toggle', 'disabled', 'disconnect', 'destination', 'private', 'local edit', 'admin removal'] as const) {
+    test(`status polling rechecks ${race} after the provider read and preserves outbound state`, async () => {
+        const f = await fixture(); const target = accepting('github');
+        await processIntegrationDelivery(await queue(f, 'github'), baseUrl, target);
+        await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, twoWaySync: true }));
+        const before = await currentLedger(f, 'github');
+        const polling: IntegrationAdapter = { provider: 'github', isConfigured: () => true, supportsStatusSync: true, async deliver(context) {
+            expect(context.statusOnly).toBe(true); expect(context.feedback).toBeNull();
+            await context.read(async () => {
+                if (race === 'toggle') await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, twoWaySync: false }));
+                if (race === 'disabled') await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, enabled: false }));
+                if (race === 'disconnect') await disconnectIntegration(f.project, 'github');
+                if (race === 'destination') await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, destinationRevision: row.destinationRevision + 1 }));
+                if (race === 'private') await replaceSource(f, { private: true, syncVersion: 2 });
+                if (race === 'local edit') await replaceSource(f, { resolved: false, syncVersion: 2 });
+                if (race === 'admin removal') await f.store.delete(f.project.pk, memberId(f.otherOwner.id));
+            });
+            await context.receiveStatus!(true);
+            return { status: 'accepted' };
+        } };
+        await processIntegrationDelivery(before, baseUrl, polling, { statusOnly: true });
+        expect((await f.comments.get(f.source.domain, f.source.id))!.comment.resolved).toBeFalsy();
+        const after = await currentLedger(f, 'github');
+        expect(after.processedVersion).toBe(before.processedVersion);
+        expect(after.state).toEqual(before.state); expect(after.lease).toBeUndefined();
+        expect(after.active).toBe(false);
+    });
+}
+
+test('status polls cannot write external content and a broken provider cannot stop sibling turns', async () => {
+    const f = await fixture();
+    for (const provider of providers) {
+        await processIntegrationDelivery(await queue(f, provider), baseUrl, accepting(provider));
+        await updateDoc<IntegrationConnection>(f.connections[provider].pk, f.connections[provider].id, row => ({ ...row, twoWaySync: true }));
+    }
+    let written = false;
+    const blocked: IntegrationAdapter = { provider: 'github', isConfigured: () => true, supportsStatusSync: true, async deliver(ctx) {
+        await ctx.operation({ step: 'update', planHash: hash }, async () => { written = true; });
+        return { status: 'accepted' };
+    } };
+    await pollIntegrationStatuses(baseUrl, blocked);
+    expect(written).toBe(false);
+    expect((await currentLedger(f, 'github')).status).toBe('accepted');
+    const target: IntegrationAdapter = { provider: 'notion', isConfigured: () => true, supportsStatusSync: true, async deliver(ctx) {
+        await ctx.read(async () => {}); await ctx.receiveStatus!(true); return { status: 'accepted' };
+    } };
+    await runIntegrationWorker(baseUrl, { adapters: [blocked, target], budgetMs: 10_003 });
+    expect((await f.comments.get(f.source.domain, f.source.id))!.comment.resolved).toBe(true);
+});
+
+test('status scan rotates beyond 100 rows and can apply the result of its last budgeted read', async () => {
+    const f = await fixture(); const initial = await queue(f, 'github');
+    await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, twoWaySync: true }));
+    for (let index = 0; index < 105; index++) await f.store.create<IntegrationSync>({ ...initial,
+        id: `github_${index.toString(16).padStart(64, '0')}`, active: false, status: 'accepted', processedVersion: 1, processedRequestRevision: 1 });
+    const isolated: AppStore = { ...f.store, query<T extends AppDoc>(query: DocQuery<T['type']>) {
+        return f.store.query<T>(query.type === 'github-sync' ? { ...query, pk: initial.pk } : query);
+    } };
+    const visited: string[] = [];
+    const target: IntegrationAdapter = { provider: 'github', isConfigured: () => true, supportsStatusSync: true, async deliver(ctx) {
+        visited.push(ctx.ledger.id); return { status: 'accepted' };
+    } };
+    expect((await pollIntegrationStatuses(baseUrl, target, { store: isolated })).checked).toBe(100);
+    expect((await pollIntegrationStatuses(baseUrl, target, { store: isolated })).checked).toBe(5);
+    expect(new Set(visited).size).toBe(105);
+    expect((await pollIntegrationStatuses(baseUrl, target, { store: isolated })).checked).toBe(100);
+    const lastRead: IntegrationAdapter = { ...target, async deliver(ctx) {
+        await ctx.read(async () => {}); await ctx.receiveStatus!(true); return { status: 'accepted' };
+    } };
+    const candidate = (await isolated.query<IntegrationSync>({ type: 'github-sync', pk: initial.pk, where: { status: 'accepted' }, limit: 1 }))[0]!;
+    await processIntegrationDelivery(candidate, baseUrl, lastRead, { statusOnly: true, maxCalls: 1 });
+    expect((await f.comments.get(f.source.domain, f.source.id))!.comment.resolved).toBe(true);
+});
 
 test('partial provider fan-out survives failure and replay without acknowledging early or duplicating work', async () => {
     const f = await fixture();
