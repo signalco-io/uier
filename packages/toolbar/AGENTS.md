@@ -15,6 +15,11 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 
 ## How it is built
 
+- Browser builds resolve the latest two stable major releases of Chrome, Edge, Firefox, Safari and
+  iOS Safari from the root `.browserslistrc`, shared with Next.js. `browserslist` is build-only;
+  tsup maps its versions to esbuild targets. Pure browser/server exports retain ES2022 for Node 24.
+  Do not add runtime polyfills or old-browser branches. Keep blocked-storage/CSP handling, shadow-root
+  property initialization and the UI kit's Tailwind v3 class mapping: modern browsers still need them.
 - `src/index.ts` captures configuration and review state, runs installation diagnostics and the bounded
   background member check, and loads the content-addressed, integrity-checked review script only when
   needed. Concurrent embeds share the download; failures allow a later request to retry. `runtimeContext.ts`
@@ -132,8 +137,9 @@ text. Drafts are local to each browser origin and expire after seven days.
   notices send only `location.origin` plus `pagePath` with that policy, never the raw page URL.
 - UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
-- Keep the loader below 12 KB raw / 5 KB gzip (`e2e/toolbar-assets.api.spec.ts`). React, styles,
+- Keep the loader below 7.5 KB raw / 3.1 KB gzip (`e2e/toolbar-assets.api.spec.ts`). React, styles,
   fonts and screenshots belong to the review bundle and must not load for ordinary visitors.
+  Background member checks need only Authorization; keep guest-id generation out of the loader.
   `e2e/toolbar-bootstrap.spec.ts` covers deferred loading, configuration/identity handoff, concurrent
   requests, nonce/SRI, failure retries and feedback reopening. Keep the review bundle small: no new large dependencies without a reason (`modern-screenshot`, about
   25 KB, draws screenshots; there is no lighter way that keeps the page's own CSS).

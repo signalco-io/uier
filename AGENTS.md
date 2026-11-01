@@ -37,6 +37,8 @@ When moving documentation, update relative links and links to section anchors ac
   claims the product can back.
 - **Node 24, pnpm via Corepack** (`corepack enable`), exact dependency versions (Renovate keeps
   them current; it waits a day after an npm release, and so does `pnpm install`).
+- **Browsers:** latest two stable major versions of Chrome, Edge, Firefox, Safari and iOS Safari,
+  shared in [`.browserslistrc`](.browserslistrc). Next.js and the toolbar use it; do not add old-browser polyfills.
 - **Conventional Commits** (`feat:`, `fix:`, `chore(deps):` ...) and pull requests against
   `main`. `main` is production: pushes deploy (`pulumi up`, then Vercel) unless all changed
   paths are excluded by `.github/workflows/deploy.yml`.

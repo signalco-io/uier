@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test, type TestInfo } from '@playwright/test';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { newVisitor, toolbar } from './support/toolbar';
@@ -11,9 +11,13 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(baseURL!); });
 test.afterAll(async () => { await site.close(); });
 
+// Chromium checks cross-site embeds; the other engines use another loopback port.
+const reviewOrigin = (testInfo: TestInfo) => testInfo.project.name.includes('Chrome') ? site.origin() : site.loopbackOrigin;
+
 test('ordinary visitors download only the bootstrap; a review link loads the review script @smoke', async ({ page, browser, baseURL }, testInfo) => {
+    const origin = reviewOrigin(testInfo);
     await signIn(page, uniqueEmail('lazy-toolbar'));
-    const project = await createProject(page, { urls: [site.origin()] });
+    const project = await createProject(page, { urls: [origin] });
     const guest = await newVisitor(browser, testInfo);
     const assets: string[] = [];
     guest.page.on('request', request => {
@@ -22,12 +26,12 @@ test('ordinary visitors download only the bootstrap; a review link loads the rev
     });
     try {
         const checked = guest.page.waitForResponse(response => response.url().endsWith(`/api/review/${project}/sso`));
-        await guest.page.goto(`${site.origin()}/${project}/pricing`);
+        await guest.page.goto(`${origin}/${project}/pricing`);
         expect((await checked).status()).toBe(204);
         await expect(guest.page.locator('iframe[title="uier background sign-in"]')).toHaveCount(0);
         await expect(toolbar(guest.page)).toHaveCount(0);
         expect(assets).toEqual([]);
-        await guest.page.goto(`${site.origin()}/${project}/pricing?review=true`);
+        await guest.page.goto(`${origin}/${project}/pricing?review=true`);
         await expect(toolbar(guest.page)).toBeVisible();
         expect(assets.filter(path => path.startsWith('/toolbar/'))).toEqual([reviewPath]);
         // The default invited-only project still shows the same sign-in notice.
@@ -105,18 +109,38 @@ test('feedback retries a failed review download and reopens without downloading 
     expect(requests).toBe(2);
 });
 
-test('background sign-in preserves in-memory identity when host storage is blocked', async ({ page }) => {
+test('review activation preserves in-memory identity when host storage is blocked', async ({ page, baseURL }, testInfo) => {
+    const origin = reviewOrigin(testInfo);
     await signIn(page, uniqueEmail('lazy-storage'));
-    const project = await createProject(page, { urls: [site.origin()] });
-    await page.addInitScript(() => {
-        if (location.hostname !== 'reviewed.localhost') return;
+    const project = await createProject(page, { urls: [origin] });
+    await page.addInitScript(origin => {
+        if (location.origin !== origin) return;
         for (const method of ['getItem', 'setItem', 'removeItem']) {
             Object.defineProperty(Storage.prototype, method, { value() { throw new Error('Storage blocked'); } });
         }
-    });
+    }, origin);
     let bridges = 0;
-    page.on('request', request => { if (new URL(request.url()).pathname === '/review-session') bridges++; });
-    await page.goto(`${site.origin()}/${project}/pricing`);
+    const memberChecks: Record<string, string>[] = [];
+    page.on('request', request => {
+        const path = new URL(request.url()).pathname;
+        if (path === '/review-session') bridges++;
+        if (path === `/api/review/${project}` && request.method() === 'GET') memberChecks.push(request.headers());
+    });
+    const checked = page.waitForResponse(response => response.url().endsWith(`/api/review/${project}/sso`));
+    await page.goto(`${origin}/${project}/pricing`);
+    const status = (await checked).status();
+    if (status === 204) {
+        // WebKit refuses the Secure SSO cookie on this HTTP fixture. Exercise the real
+        // authenticated review-link fallback without weakening browser cookie protection.
+        await expect(page.locator('iframe[title="uier background sign-in"]')).toHaveCount(0);
+        await expect(toolbar(page)).toHaveCount(0);
+        expect(memberChecks).toEqual([]);
+        await page.goto(new URL(`/app/review/${project}?url=${encodeURIComponent(`${origin}/${project}/pricing`)}`, baseURL).href);
+    } else {
+        expect(status).toBe(200);
+    }
     await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     expect(bridges).toBe(1);
+    expect(memberChecks[0]?.authorization).toMatch(/^Bearer /);
+    if (status === 200) expect(memberChecks[0]?.['x-uier-visitor']).toBeUndefined();
 });

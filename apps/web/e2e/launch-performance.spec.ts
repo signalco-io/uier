@@ -138,8 +138,8 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         const inactiveRequests = [...requests];
         // The only inactive API work is the single, bounded background account check.
         expect(inactiveRequests).toEqual([{ path: `${new URL(baseURL!).hostname}/api/review/${projectId}/sso`, method: 'POST' }]);
-        expect(bundle.raw).toBeLessThan(12_000);
-        expect(bundle.gzip).toBeLessThan(5_000);
+        expect(bundle.raw).toBeLessThan(7_500);
+        expect(bundle.gzip).toBeLessThan(3_100);
 
         await guest.page.goto(`${host}&toolbar-code=${projectId}`);
         await expect(toolbar(guest.page)).toBeVisible();

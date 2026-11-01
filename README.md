@@ -76,6 +76,9 @@ See the [testing guide](docs/development.md#test-categories) for categories and 
 
 ## `/toolbar.js`
 
+The website and toolbar support the latest two major versions of Chrome, Edge, Firefox and Safari,
+including Safari on iOS. See the [browser policy](docs/development.md#browser-support).
+
 The install guide offers the default `/toolbar.js` embed and **Pin this version** for HTML and
 Next.js. The default follows new releases, with a five-minute browser cache and a one-hour CDN
 cache. A pinned snippet uses `/toolbar/<sha256>.js`, a SHA-384 integrity check and anonymous CORS.

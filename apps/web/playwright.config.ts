@@ -145,11 +145,11 @@ export default defineConfig({
                 ...devices['Pixel 5'],
             },
         },
-        // Portable launch flows complement the older Chromium-specific touch tests.
+        // Portable launch and loader flows complement the Chromium-specific touch tests.
         ...(process.env.PLAYWRIGHT_CROSS_BROWSER ? [
-            { name: 'Desktop Firefox', testMatch: /launch\.spec\.ts$/, use: { ...devices['Desktop Firefox'] } },
-            { name: 'Desktop WebKit', testMatch: /launch\.spec\.ts$/, use: { ...devices['Desktop Safari'] } },
-            { name: 'Mobile WebKit', testMatch: /launch\.spec\.ts$/, use: { ...devices['iPhone 13'] } },
+            { name: 'Desktop Firefox', testMatch: /(?:launch|toolbar-bootstrap)\.spec\.ts$/, use: { ...devices['Desktop Firefox'] } },
+            { name: 'Desktop WebKit', testMatch: /(?:launch|toolbar-bootstrap)\.spec\.ts$/, use: { ...devices['Desktop Safari'] } },
+            { name: 'Mobile WebKit', testMatch: /(?:launch|toolbar-bootstrap)\.spec\.ts$/, use: { ...devices['iPhone 13'] } },
         ] : []),
     ],
 });
