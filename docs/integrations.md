@@ -3,7 +3,10 @@
 ## Implementation status
 
 The shared synchronization foundation, five adapters, OAuth routes and admin-only project settings
-are implemented. Each provider stays unavailable until its deployment configuration is valid:
+are implemented. A project's Settings → Integrations shows the services to connect as a grid and the
+connected ones below it; each service's destination and controls are on its own page
+(`settings/integrations/<provider>`), where OAuth returns. Each provider stays unavailable until its
+deployment configuration is valid:
 
 | Provider | Contract | Status |
 | --- | --- | --- |
@@ -148,7 +151,8 @@ provider fairness and link safety with instrumented adapters and the real author
 
 `notion.api.spec.ts`, `github.api.spec.ts`, `linear.api.spec.ts`, `slack.api.spec.ts` and `azure-devops.api.spec.ts` use actual
 HTTP requests to local provider simulators. The matching browser specs cover OAuth returns,
-explicit destination controls, permission checks, persistent settings and disconnect. Playwright
+explicit destination controls, permission checks, persistent settings and disconnect;
+`integration-settings.spec.ts` covers the overview's grid and connected list. Playwright
 uses generated fixture credentials and loopback simulators; it never needs real provider tokens.
 
 Local and CI checks prove the code paths exercised. Provider-specific hosted acceptance,

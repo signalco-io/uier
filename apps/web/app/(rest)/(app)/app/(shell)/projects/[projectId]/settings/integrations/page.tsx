@@ -1,41 +1,112 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowUpRight, ChevronRight } from 'lucide-react';
+import { KnownPageLinks } from '@/src/knownPages';
 import { PUBLIC_PROJECT_ID } from '@/src/lib/comments/publicProject';
 import { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops';
 import { getGitHubSettings } from '@/src/lib/integrations/github';
 import { getLinearSettings } from '@/src/lib/integrations/linear';
+import type { IntegrationProviderId } from '@/src/lib/integrations/model';
 import { getNotionSettings } from '@/src/lib/integrations/notion';
 import { getSlackSettings } from '@/src/lib/integrations/slack/settings';
-import { AzureDevOpsSection } from '@/src/components/app/azure-devops/AzureDevOpsSection';
-import { GitHubSection } from '@/src/components/app/github/GitHubSection';
-import { LinearSection } from '@/src/components/app/linear/LinearSection';
-import { NotionSection } from '@/src/components/app/notion/NotionSection';
-import { SlackSection } from '@/src/components/app/slack/SlackSection';
+import { Badge } from '@/src/components/ui/badge';
+import { Button } from '@/src/components/ui/button';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
+import { IntegrationLogo } from '@/src/components/app/integrations/IntegrationLogo';
+import { azureDevOpsStatus, gitHubStatus, integrationConnectHref, linearStatus, notionStatus, projectIntegrations,
+    slackStatus } from '@/src/components/app/integrations/projectIntegrations';
 import { configurableProject } from '../settingsContext';
 
 export const metadata: Metadata = {
     title: 'Integrations · Project settings'
 };
 
-/** Each provider's connection; the connect and callback routes come back here with their outcome (`?github=connected#github`) */
-export default async function ProjectIntegrationsSettingsPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings/integrations'>) {
+type IntegrationState = { configured: boolean; connected: boolean; status: string; destination?: string };
+
+/**
+ * The services a project can connect: a grid of those not connected yet (Connect starts the provider's
+ * sign-in), then the connected ones, each opening its own page with the destination and sync controls
+ */
+export default async function ProjectIntegrationsSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings/integrations'>) {
     const { projectId } = await params;
     const { context, project } = await configurableProject(projectId);
     if (project.id === PUBLIC_PROJECT_ID)
         notFound();
-    const query = await searchParams;
-    const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
     const [notion, github, linear, azureDevOps, slack] = await Promise.all([getNotionSettings(project, context.user.id),
-        getGitHubSettings(project, context.user.id, value('githubSetup')), getLinearSettings(project, context.user.id),
+        getGitHubSettings(project, context.user.id), getLinearSettings(project, context.user.id),
         getAzureDevOpsSettings(project, context.user.id), getSlackSettings(project, context.user.id)]);
+    const states: Record<IntegrationProviderId, IntegrationState> = {
+        notion: { configured: notion.configured, connected: notion.status !== 'not_connected', status: notionStatus(notion),
+            destination: notion.dataSourceName ?? notion.notionWorkspaceName },
+        github: { configured: github.configured, connected: Boolean(github.connection), status: gitHubStatus(github),
+            destination: github.connection?.repositoryName },
+        linear: { configured: linear.configured, connected: linear.connected, status: linearStatus(linear),
+            destination: linear.teamName ? [linear.teamName, linear.projectName].filter(Boolean).join(' / ') : linear.organizationName },
+        'azure-devops': { configured: azureDevOps.configured, connected: azureDevOps.connected, status: azureDevOpsStatus(azureDevOps),
+            destination: azureDevOps.azureProjectId ? `${azureDevOps.organization} / ${azureDevOps.azureProjectName ?? 'Saved project'}` : azureDevOps.accountName },
+        slack: { configured: slack.configured, connected: Boolean(slack.connection), status: slackStatus(slack),
+            destination: slack.connection?.channelName ? `#${slack.connection.channelName}` : slack.connection?.teamName }
+    };
+    const available = projectIntegrations.filter(({ provider }) => !states[provider].connected);
+    const connected = projectIntegrations.filter(({ provider }) => states[provider].connected);
 
     return (
         <>
-            <NotionSection projectId={project.id} settings={notion} outcome={value('notion')} />
-            <GitHubSection projectId={project.id} settings={github} outcome={value('github')} />
-            <LinearSection projectId={project.id} settings={linear} outcome={value('linear')} />
-            <AzureDevOpsSection projectId={project.id} settings={azureDevOps} outcome={value('azure-devops')} />
-            <SlackSection projectId={project.id} settings={slack} outcome={value('slack')} />
+            <section aria-labelledby="available-integrations-title" className="@container flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                    <h2 id="available-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">Available integrations</h2>
+                    <p className="m-0 text-sm text-muted-foreground">Copy shared feedback to the tools your team works in. Private feedback is never sent.</p>
+                </div>
+                {available.length
+                    ? <ul aria-label="Available integrations" className="m-0 grid list-none gap-3 p-0 @lg:grid-cols-2 @2xl:grid-cols-3">
+                        {available.map(({ provider, name, summary }) => (
+                            <li key={provider} aria-labelledby={`${provider}-card-title`} className="flex flex-col gap-4 rounded-xl border bg-card p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <IntegrationLogo provider={provider} />
+                                    {!states[provider].configured && <Badge variant="secondary">Unavailable</Badge>}
+                                </div>
+                                <div className="flex flex-1 flex-col gap-1">
+                                    <h3 id={`${provider}-card-title`} className="m-0 text-sm font-semibold">{name}</h3>
+                                    <p className="m-0 text-sm text-muted-foreground">{summary}</p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {states[provider].configured && <Button asChild size="sm" variant="outline">
+                                        <a href={integrationConnectHref(provider, project.id)}>
+                                            <ArrowUpRight data-icon="inline-start" />Connect<span className="sr-only"> {name}</span>
+                                        </a>
+                                    </Button>}
+                                    <Button asChild size="sm" variant="ghost">
+                                        <Link href={KnownPageLinks.projectIntegration(project.id, provider)}>Details<span className="sr-only"> about {name}</span></Link>
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                    : <p className="m-0 text-sm text-muted-foreground">Every integration is connected to this project.</p>}
+            </section>
+            {connected.length > 0 && <section aria-labelledby="connected-integrations-title" className="flex flex-col gap-4">
+                <h2 id="connected-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">Connected</h2>
+                <ItemGroup aria-label="Connected integrations" className="gap-3">
+                    {connected.map(({ provider, name }) => (
+                        <div key={provider} role="listitem">
+                            <Item asChild variant="outline" className="rounded-xl">
+                                <Link href={KnownPageLinks.projectIntegration(project.id, provider)}>
+                                    <ItemMedia><IntegrationLogo provider={provider} className="size-9 p-1.5" /></ItemMedia>
+                                    <ItemContent className="min-w-0">
+                                        <ItemTitle>{name}</ItemTitle>
+                                        {states[provider].destination && <ItemDescription className="truncate">{states[provider].destination}</ItemDescription>}
+                                    </ItemContent>
+                                    <ItemActions>
+                                        <Badge variant="secondary">{states[provider].status}</Badge>
+                                        <ChevronRight className="text-muted-foreground" />
+                                    </ItemActions>
+                                </Link>
+                            </Item>
+                        </div>
+                    ))}
+                </ItemGroup>
+            </section>}
         </>
     );
 }

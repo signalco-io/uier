@@ -16,6 +16,8 @@ import type { ActionState } from '@/src/lib/app/actionResult';
 import type { NotionMapping, NotionSchema, NotionSettingsView } from '@/src/lib/integrations/notion';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { IntegrationTitle } from '../integrations/IntegrationLogo';
+import { notionStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { loadNotionDataSourcesAction, loadNotionSchemaAction, manageNotionAction, saveNotionMappingAction } from './actions';
 
@@ -38,9 +40,8 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
     const connected = settings.status !== 'not_connected';
     const notice = outcome && Object.hasOwn(outcomes, outcome) && (outcome !== 'connected' || connected) ? outcomes[outcome] : undefined;
     const problem = settings.statusCode && Object.hasOwn(problems, settings.statusCode) ? problems[settings.statusCode] : undefined;
-    const status = !settings.configured ? 'Unavailable' : !connected ? 'Not connected' : settings.status === 'needs_reconnect'
-        ? 'Reconnect needed' : settings.status === 'paused' ? 'Waiting for Notion' : !settings.dataSourceId ? 'Choose a destination' : settings.enabled ? 'Sync on' : 'Sync off';
-    return <Section id="notion" title="Notion" description="Create one Notion page for each shared feedback thread. uier keeps its fields, discussion and screenshot up to date."
+    const status = notionStatus(settings);
+    return <Section id="notion" title={<IntegrationTitle provider="notion" name="Notion" />} description="Create one Notion page for each shared feedback thread. uier keeps its fields, discussion and screenshot up to date."
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}

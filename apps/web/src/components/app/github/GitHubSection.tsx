@@ -16,6 +16,8 @@ import type { ActionState } from '@/src/lib/app/actionResult';
 import type { getGitHubSettings } from '@/src/lib/integrations/github';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { IntegrationTitle } from '../integrations/IntegrationLogo';
+import { gitHubStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { loadGitHubRepositoriesAction, manageGitHubAction, saveGitHubRepositoryAction } from './actions';
 
@@ -32,10 +34,8 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
     const connection = settings.connection;
     const publicConfirmationRequired = connection?.statusCode === 'public_confirmation_required';
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
-    const status = !settings.configured ? 'Unavailable' : settings.setup ? 'Choose a repository' : !connection ? (outcome === 'pending' ? 'Approval needed' : 'Not connected')
-        : connection.status === 'needs_reconnect' ? 'Reconnect needed' : connection.status === 'paused' ? 'Waiting for GitHub'
-        : connection.enabled ? 'Sync on' : 'Sync off';
-    return <Section id="github" title="GitHub" description="Create one GitHub issue for each shared feedback thread. uier keeps the issue and its discussion up to date."
+    const status = gitHubStatus(settings, outcome);
+    return <Section id="github" title={<IntegrationTitle provider="github" name="GitHub" />} description="Create one GitHub issue for each shared feedback thread. uier keeps the issue and its discussion up to date."
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && (outcome === 'pending' ? <Alert role="status">

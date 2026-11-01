@@ -1,14 +1,13 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { KnownPageLinks } from '@/src/knownPages';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import { IntegrationAccessError, requireIntegrationAdmin, setIntegrationEnabled } from '@/src/lib/integrations/connection';
 import { startIntegrationBackfill } from '@/src/lib/integrations/backfill';
 import { disconnectNotion, loadNotionDataSources, loadNotionSchema, saveNotionMapping } from '@/src/lib/integrations/notion';
 import { NotionApiError } from '@/src/lib/integrations/notion/client';
+import { revalidateIntegration } from '../integrations/revalidate';
 
 const sourceId = z.string().regex(/^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, 'Choose an available Notion database.');
 async function result<T>(run: () => Promise<T>, message?: string) {
@@ -47,7 +46,7 @@ export async function saveNotionMappingAction(_: ActionState, form: FormData): P
         let mapping: unknown;
         try { mapping = JSON.parse(encoded); } catch { throw new UserFacingError('Load the Notion fields again.'); }
         await saveNotionMapping(project, context.user.id, { dataSourceId, mapping });
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'notion');
     }, 'The Notion mapping is saved. Sync is on.');
 }
 export async function manageNotionAction(_: ActionState<{ message: string }>, form: FormData) {
@@ -60,7 +59,7 @@ export async function manageNotionAction(_: ActionState<{ message: string }>, fo
             const backfill = await startIntegrationBackfill(project, 'notion', context.user.id);
             message = backfill.total ? `A backfill of ${backfill.total} selected threads is queued. Delivery continues in the background.` : 'There are no eligible threads to backfill.';
         } else { await setIntegrationEnabled(project, 'notion', context.user.id, operation === 'enable'); message = operation === 'enable' ? 'Notion sync is on.' : 'Notion sync is off.'; }
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'notion');
         return { message };
     });
 }

@@ -45,7 +45,9 @@ http://localhost:4004 with `pnpm dev` from the repository root.
   Brand-only tokens are `hsl(var(--brand-accent))`, `--brand-accent-text`, `--brand-selection`,
   `--brand-success`, `--brand-warning`. No raw hex in components (the two dark/light logo panels
   on the brand page are the deliberate exception: they must stay black and white in both themes;
-  so is the sign-in card's "Continue with Google", whose colours, "G" and Google Sans follow Google's rules).
+  so is the sign-in card's "Continue with Google", whose colours, "G" and Google Sans follow Google's rules, and
+  `IntegrationLogo`, the provider logos on the Integrations pages: GitHub, Linear and Notion draw in the text colour,
+  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask).
 - Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
   `rounded-3xl` 24, `rounded-full`. Borders over shadows; only floating surfaces get the shadow
   from `BRAND.md`.
@@ -230,8 +232,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   The layout shows them as `LinkTabs` `side` (a column beside the section, a row above it on small screens) and
   the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
   admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
-  Installation and Notifications, and the settings page redirects them to Notifications. Integration
-  connect/callback routes and actions return to and revalidate `settings/integrations`. `install` without
+  Installation and Notifications, and the settings page redirects them to Notifications. Integrations is a grid of
+  the services not connected yet (logo, one line, Connect, Details) above the connected ones, each a row with its
+  destination and status badge; every service has its own page, `settings/integrations/<provider>`
+  (`KnownPageLinks.projectIntegration`), with the provider's section: destination, sync controls and privacy limits.
+  `components/app/integrations/projectIntegrations.ts` lists the services and computes the status badges both pages
+  show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the
+  overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
   (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)

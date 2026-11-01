@@ -31,7 +31,7 @@ export function integrationConnectRoute(provider: IntegrationProviderId, begin: 
         const projectId = new URL(request.url).searchParams.get('project');
         if (!isProjectId(projectId) || projectId === PUBLIC_PROJECT_ID || !context.isAdmin
             || !await getProject(context.workspace.id, projectId)) return new Response(null, { status: 404 });
-        const settings = new URL(KnownPageLinks.projectSettings(projectId, 'integrations'), baseUrl);
+        const settings = new URL(KnownPageLinks.projectIntegration(projectId, provider), baseUrl);
         const site = request.headers.get('sec-fetch-site');
         if ((site && site !== 'same-origin' && site !== 'none') || /prefetch/i.test(`${request.headers.get('purpose')} ${request.headers.get('sec-purpose')}`))
             return redirect(settings.href);
@@ -39,7 +39,6 @@ export function integrationConnectRoute(provider: IntegrationProviderId, begin: 
             return redirect(await begin({ userId: context.user.id, workspaceId: context.workspace.id, projectId, baseUrl }));
         } catch {
             settings.searchParams.set(provider, 'unavailable');
-            settings.hash = provider;
             return redirect(settings.href);
         }
     };
@@ -61,10 +60,9 @@ export function integrationCallbackRoute(provider: IntegrationProviderId, finish
             (await cookies()).set(WORKSPACE_COOKIE_NAME, result.workspaceId, {
                 httpOnly: true, sameSite: 'lax', path: '/', maxAge: 365 * 24 * 3600, secure: !isLocalRuntime()
             });
-            const settings = new URL(KnownPageLinks.projectSettings(result.projectId, 'integrations'), baseUrl);
+            const settings = new URL(KnownPageLinks.projectIntegration(result.projectId, provider), baseUrl);
             settings.searchParams.set(provider, result.status);
             if (provider === 'github' && result.setupReceipt) settings.searchParams.set('githubSetup', result.setupReceipt);
-            settings.hash = provider;
             return redirect(settings.href);
         } catch { return invalidIntegrationConnection(provider, baseUrl); }
     };

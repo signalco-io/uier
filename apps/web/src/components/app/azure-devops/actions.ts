@@ -1,8 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { KnownPageLinks } from '@/src/knownPages';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import { IntegrationAccessError, requireIntegrationAdmin } from '@/src/lib/integrations/connection';
@@ -10,6 +8,7 @@ import { startIntegrationBackfill } from '@/src/lib/integrations/backfill';
 import { AzureDevOpsSetupError, disconnectAzureDevOps, loadAzureDevOpsOrganizations, loadAzureDevOpsProjectOptions,
     loadAzureDevOpsProjects, saveAzureDevOpsDestination, setAzureDevOpsEnabled } from '@/src/lib/integrations/azure-devops';
 import { AzureDevOpsApiError } from '@/src/lib/integrations/azure-devops/client';
+import { revalidateIntegration } from '../integrations/revalidate';
 
 const organization = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,48}[A-Za-z0-9])?$/, 'Choose an available organization.');
 // Azure DevOps ids are GUIDs, not necessarily RFC version 4 identifiers.
@@ -85,7 +84,7 @@ export async function saveAzureDevOpsDestinationAction(_: ActionState, form: For
             openState: form.get('openState'), doneState: form.get('doneState'), areaPath: form.get('areaPath') || undefined
         });
         await saveAzureDevOpsDestination(project, context.user.id, input);
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'azure-devops');
     }, 'The Azure DevOps destination is saved. Sync is on.');
 }
 
@@ -105,7 +104,7 @@ export async function manageAzureDevOpsAction(_: ActionState<{ message: string }
             await setAzureDevOpsEnabled(project, context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'Azure DevOps sync is on.' : 'Azure DevOps sync is off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'azure-devops');
         return { message };
     });
 }

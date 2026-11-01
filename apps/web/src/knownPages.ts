@@ -60,6 +60,9 @@ export const KnownPageLinks = {
     /** A project's settings: General, or one of its other sections */
     projectSettings: (projectId: string, section?: ProjectSettingsSection) =>
         `/app/projects/${encodeURIComponent(projectId)}/settings${section ? `/${section}` : ''}`,
+    /** One connected service of a project (Settings → Integrations → its page); OAuth returns land here */
+    projectIntegration: (projectId: string, provider: string) =>
+        `/app/projects/${encodeURIComponent(projectId)}/settings/integrations/${encodeURIComponent(provider)}`,
     /** The install guide (Settings → Installation); `onboarding` is the install step of a project that was just created */
     projectInstall: (projectId: string, { onboarding = false }: { onboarding?: boolean } = {}) => onboarding
         ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1`

@@ -150,7 +150,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenter.page.getByRole('region', { name: 'Email notifications' }).getByRole('button', { name: 'Mute project emails' })).toBeVisible();
     await expect(commenter.page.getByRole('navigation', { name: 'Project settings' }).getByRole('link')).toHaveText(['Installation', 'Notifications']);
     await expect(commenter.page.getByRole('region', { name: 'General' })).toHaveCount(0);
-    for (const section of ['review', 'environments', 'people', 'integrations', 'danger-zone'])
+    for (const section of ['review', 'environments', 'people', 'integrations', 'integrations/github', 'danger-zone'])
         expect((await commenter.page.request.get(`/app/projects/${alpha}/settings/${section}`)).status()).toBe(404);
     expect((await commenter.page.request.get(`/app/review/${beta}`, { maxRedirects: 0 })).status()).toBe(404);
 

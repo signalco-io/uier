@@ -8,7 +8,7 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('linear-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Linear review' });
-    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations/linear`;
     await page.goto(settingsUrl);
     const linear = page.getByRole('region', { name: 'Linear', exact: true });
     await expect(linear).toContainText('Not connected');
@@ -21,11 +21,11 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     await connect.click();
     await expect(page.getByRole('heading', { name: 'Connect Linear test workspace' })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel Linear connection' }).click();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?linear=denied#linear$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?linear=denied$`));
     await expect(linear).toContainText('The Linear connection was canceled.');
     await linear.getByRole('link', { name: 'Connect Linear', exact: true }).click();
     await page.getByRole('button', { name: 'Allow Linear connection' }).click();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?linear=connected#linear$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?linear=connected$`));
     await expect(linear).toContainText('Choose a destination');
     await expect(linear.getByRole('combobox')).toHaveCount(0);
     await expect(linear.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
