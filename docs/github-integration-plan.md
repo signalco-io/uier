@@ -69,7 +69,7 @@ Persist no raw export or issue body in the ledger: hashes, ids and bounded opera
 
 ## 5. Connect and disconnect
 
-Proposed routes under `apps/web/app/(rest)/(app)/app/github/`: `connect`, `setup`, `callback`. Declare them in `knownPages.ts`. Use trusted `appBaseUrl()` for redirects, no-store responses and plain anchors with `Button asChild` so prefetch never creates authorization state.
+Proposed routes under `apps/web/app/(rest)/(app)/app/github/`: `connect`, `setup`, `callback`. Declare them in `knownPages.ts`. Use trusted `appBaseUrl()` for redirects, no-store responses and plain anchors styled with `buttonVariants` so prefetch never creates authorization state.
 
 1. `connect?project=<id>` requires a verified uier session, current admin membership, project ownership and a configured provider. Reject `PUBLIC_PROJECT_ID`. Check same-origin fetch metadata as in the Notion design. Create a random install state whose hash is bound to provider/user/workspace/project and redirect to the fixed app installation URL.
 2. `setup` treats `installation_id` and `setup_action` as untrusted hints. Atomically consume the install state; a foreign user, expired state or replay fails. Store the candidate id and mint a different OAuth state plus a PKCE verifier. Redirect to GitHub user authorization with the exact registered callback, `state`, `code_challenge` and `S256`.
