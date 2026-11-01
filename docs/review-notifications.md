@@ -166,8 +166,8 @@ The first suppression and receipt commit in one Cosmos transaction. Existing sup
 no update; a later distinct report may suppress the address again.
 
 `Failed`, `Quarantined` and `FilteredSpam` never suppress an address. Operation matching is guarded
-by `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1`, which is deliberately absent from production until the
-live correlation gate below is evidenced. When enabled, a report updates only `lastCode` to
+by production-only `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1`, added after the live correlation check
+recorded below. When enabled, a report updates only `lastCode` to
 `ACSReport_<status>` on a ledger whose current `lastOperationId` equals `messageId`. Unknown ids
 are acknowledged without creating a ledger. A report does not trigger a fresh send. Enabling the
 gate requires a separate reviewed Pulumi environment-variable change; local tests explicitly
@@ -179,7 +179,8 @@ Retries retain that exact message. Sign-in, invitations and guest confirmation o
 Engagement tracking stays disabled. Sending the headers does not prove that a mailbox offers
 one-click: [RFC 8058](https://www.rfc-editor.org/rfc/rfc8058.html) requires both to be covered by a
 valid DKIM signature. [The September 2026 ACS report](https://learn.microsoft.com/en-us/answers/questions/5996924/acs-email-dkim-signature-does-not-cover-list-unsub)
-observed ACS omitting these from `h=`. Our own received-message evidence remains pending.
+observed ACS omitting these from `h=`. Our own received production digest confirms the same
+limitation; see the [verification receipt](#production-digest-verification).
 
 ### Staged rollout and live evidence
 
@@ -197,23 +198,23 @@ DNS validation. The published rejection policy remains mandatory.
 3. In the separately reviewed cutover, recheck the four states and authoritative DNS, configure ACS's
    default sender display name as `uier`, link the subdomain in place while retaining AzureManagedDomain,
    then set `UIER_EMAIL_SENDER` to `DoNotReply@notify.uier.io`. Reject replacement or key rotation.
-4. Obtain explicit permission for a recipient and send a real digest through the production worker.
+4. With the recipient's permission, verify a real digest sent through the production worker.
    Independently match the report receipt's operation hash to the actual send operation before
    enabling `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1`. Never infer correlation from local examples.
 5. Inspect the received original message for display name `uier`, SPF/DKIM/DMARC pass, intact
    unsubscribe headers and whether DKIM h= covers them. Keep recipient/body/token/raw-header data
    out of committed evidence.
 
-| Production gate | Evidence as of 29 October 2026 |
+| Production gate | Evidence reviewed on 2 November 2026 |
 | --- | --- |
 | Existing report subscription/handshake | Confirmed Succeeded and HTTP 200 on 28 October; see receipt below |
 | New subdomain DNS preflight | Both Cloudflare authorities returned no TXT/SPF, DKIM or DMARC at the new owners |
 | notify.uier.io prepared and verified | #193 deployed; all four supported Azure states Verified in run 40864313704 |
 | Authoritative transactional DMARC policy | Both authoritative servers serve the full rejection policy; verification workflow passed |
 | Sender identity and in-place link | #196 deployed; ACS display name `uier`, notify domain linked, Vercel production sender `donotreply@notify.uier.io` |
-| Real report receipt/message-id correlation | Pending recipient-authorized production digest; matching remains disabled |
-| Received-message authentication, display name and headers | Pending recipient-authorized production digest |
-| DKIM covers unsubscribe headers | Unverified for uier; ACS limitation reported above |
+| Real report receipt/message-id correlation | Confirmed against the received digest, production ledger and report receipt; separate matching-variable deployment required |
+| Received-message authentication, display name and headers | SPF/DKIM/DMARC pass, display name `uier`, and both unsubscribe headers present |
+| DKIM covers unsubscribe headers | No: ACS signs `from:to:cc:subject:date:messageid`, omitting both unsubscribe headers |
 
 Through 30 October ACS accepted no digest: every scheduled attempt since the first production
 ledger on 25 October failed, recent ones with `EmailNotConfiguredError`. `ACS_CONNECTION_STRING`
@@ -226,7 +227,35 @@ Local coverage includes `emailReports.api.spec.ts` (auth, expected handshake, du
 failure and unknown/matching operations), `notificationTransport.api.spec.ts` (ACS headers and
 retry preservation), `notifications.api.spec.ts` (bounce, failed reads, one-click and invalid
 capabilities), `users.spec.ts` (admin notice) and `app.spec.ts` (requested sign-in clears suppression).
-Issue #132 remains open until the production gates are resolved.
+The received-message and correlation gates are resolved. Issue #132 remains open until the
+separate production matching-variable deployment and readback complete.
+
+### Production digest verification
+
+On 2 November 2026, the owner authorized verification against their connected inbox. An existing
+digest received on 1 November at 00:40:11 UTC supplied the evidence; no new email or feedback was
+created. It was sent during [notification run 41257678873](https://github.com/signalco-io/uier/actions/runs/41257678873).
+That run also reported two blocked ledgers, so its overall failure does not mean this digest
+failed, and this receipt does not claim the notification backlog is clear.
+
+- Gmail's receiving `Authentication-Results` reports SPF, DKIM and DMARC pass for the direct
+  `notify.uier.io` delivery. `From` has display name `uier` and sender `donotreply@notify.uier.io`.
+- `List-Unsubscribe` contains one HTTPS URL at `https://uier.io/api/notifications/unsubscribe`
+  with an opaque token. `List-Unsubscribe-Post` is exactly `List-Unsubscribe=One-Click`.
+  The token, recipient, subject and body are excluded from this record.
+- The passing ACS DKIM signature's `h=` is `from:to:cc:subject:date:messageid`. Neither unsubscribe
+  header is signed. This confirms the known ACS limitation; RFC 8058 mailbox-provider one-click UI
+  cannot be promised. The cookie-free POST endpoint remains available.
+- A read-only production Cosmos query found one delivery ledger with the received message's
+  request/operation id. A separate query in the recipient's hashed report partition found one
+  report receipt, written at 00:41:34 UTC, whose `operationHash` equals SHA-256 of that same ledger
+  `lastOperationId`: `6c29c8374c2446e38560ba019743393d394bade84a0d619d33c2a2ebc668077c`.
+  This independently proves that the real report's `messageId` matches the send operation id.
+  The receipt retains its 30-day TTL. At readback the ledger was inactive with zero failures.
+
+Production configuration readback confirmed the matching flag was absent before this change.
+The follow-up Pulumi change adds only `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` for production.
+Deployment/readback are pending; no old report is replayed and no synthetic provider event is sent.
 
 
 ### Historical rollout evidence

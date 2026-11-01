@@ -151,15 +151,19 @@ case-insensitively but still require the exact subscriber identity and ACS topic
 Readback on 28 October confirmed Succeeded and a real HTTP 200 handshake after #186/#187. See the
 [provisioning receipt](../docs/review-notifications.md#delivery-report-provisioning-receipt).
 
-Subscription provisioning does not prove real delivery. Keep `UIER_EMAIL_REPORT_MATCH_OPERATIONS`
-unset until an authorized production digest proves report `messageId` equals the send operation id.
+Subscription provisioning does not prove real delivery. On 2 November 2026, an existing received
+production digest, its ledger and its stored report receipt proved that report `messageId` equals
+the send operation id. The production-only `UIER_EMAIL_REPORT_MATCH_OPERATIONS=1` variable now
+enables bounded failure codes for matching ledgers; previews receive no matching flag.
 Azure creates the default sender automatically; adoption must import exactly the selected
 domain's `/senderUsernames/donotreply` ID. Never recreate/delete the default sender or bypass
 protection. Require a no-diff preview when removing a completed one-time import.
 
-Received-message SPF/DKIM/DMARC, unsubscribe header integrity and DKIM header coverage remain separate
-acceptance gates. The [operations guide](../docs/operations.md#email-domain-verification-and-cutover)
-and [rollout evidence](../docs/review-notifications.md#staged-rollout-and-live-evidence) track the stages.
+Received-message SPF/DKIM/DMARC passed and both unsubscribe headers were present. ACS's DKIM signature
+omitted both unsubscribe headers, so do not promise mailbox-provider one-click UI. The
+[production digest receipt](../docs/review-notifications.md#production-digest-verification) records
+the evidence without recipient, content, tokens or raw headers. The
+[operations guide](../docs/operations.md#email-domain-verification-and-cutover) tracks deployment.
 
 ## Connected service credentials
 
