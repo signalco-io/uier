@@ -108,18 +108,16 @@ function StateMenu({ resolved, disabled, onChange }: { resolved: boolean; disabl
     const state = resolved ? 'Done' : 'Open';
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${state}. Change status`}
-                    className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11">
-                    <StateDot resolved={resolved} />
-                    {state}
-                    <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
-                </Button>
+            <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${state}. Change status`}
+                    className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11" />}>
+                <StateDot resolved={resolved} />
+                {state}
+                <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-36">
                 <DropdownMenuGroup>
                     {[false, true].map(option => (
-                        <DropdownMenuItem key={String(option)} onSelect={() => option !== resolved && onChange()}>
+                        <DropdownMenuItem key={String(option)} onClick={() => option !== resolved && onChange()}>
                             <StateDot resolved={option} />
                             {option ? 'Done' : 'Open'}
                             {option === resolved && <CheckIcon className="ml-auto" />}
@@ -298,22 +296,20 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             <Message author={name} createdAt={item.createdAt}
                 actions={!item.deleted && (item.canDelete || item.canFilterAuthor) && (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                                aria-label={`More actions for reply by ${item.author.isMe ? 'you' : item.author.name}`}>
-                                <MoreHorizontalIcon />
-                            </Button>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                                aria-label={`More actions for reply by ${item.author.isMe ? 'you' : item.author.name}`} />}>
+                            <MoreHorizontalIcon />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuGroup>
                                 {item.canFilterAuthor && (
-                                    <DropdownMenuItem onSelect={() => filterAuthor(item.id)}>
+                                    <DropdownMenuItem onClick={() => filterAuthor(item.id)}>
                                         <UserIcon />
                                         More from this author
                                     </DropdownMenuItem>
                                 )}
                                 {item.canDelete && (
-                                    <DropdownMenuItem variant="destructive" onSelect={() => setConfirmingReply(item.id)}>
+                                    <DropdownMenuItem variant="destructive" onClick={() => setConfirmingReply(item.id)}>
                                         <Trash2Icon />
                                         Delete reply
                                     </DropdownMenuItem>
@@ -354,13 +350,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         {/* The list of people for those who can assign */}
                         {permissions.assign ? (
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="xs" disabled={pending} aria-label={`${assigned}. Change assignee`}
-                                        className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
-                                        <UserIcon aria-hidden="true" data-icon="inline-start" />
-                                        <span className="truncate">{assigned}</span>
-                                        <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
-                                    </Button>
+                                <DropdownMenuTrigger render={<Button variant="ghost" size="xs" disabled={pending} aria-label={`${assigned}. Change assignee`}
+                                        className="min-w-0 shrink font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" />}>
+                                    <UserIcon aria-hidden="true" data-icon="inline-start" />
+                                    <span className="truncate">{assigned}</span>
+                                    <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
                                     <DropdownMenuGroup>
@@ -368,7 +362,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
                                             <DropdownMenuItem
                                                 key={option.userId}
-                                                onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
+                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
                                                 {option.name}
                                                 {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
                                             </DropdownMenuItem>
@@ -377,7 +371,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     {comment.assignee && (
                                         <>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, null))}>
+                                            <DropdownMenuItem onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, null))}>
                                                 Unassign
                                             </DropdownMenuItem>
                                         </>
@@ -400,20 +394,18 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                         <CopyIssueButton state={copyIssue} />
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
-                                    className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11">
-                                    {pending ? <Spinner /> : <MoreHorizontalIcon />}
-                                </Button>
+                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
+                                    className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>
+                                {pending ? <Spinner /> : <MoreHorizontalIcon />}
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="min-w-48">
                                 <DropdownMenuGroup>
-                                    <DropdownMenuItem disabled={!source.available} onSelect={copyLink}>
+                                    <DropdownMenuItem disabled={!source.available} onClick={copyLink}>
                                         <Link2Icon />
                                         {source.available ? 'Copy link' : 'Copy link (original source unavailable)'}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                        onSelect={() => run(
+                                        onClick={() => run(
                                             () => updateNotificationAction(projectId, comment.id, !comment.following),
                                             comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.')}>
                                         {comment.following ? <BellOffIcon /> : <BellIcon />}
@@ -421,7 +413,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     </DropdownMenuItem>
                                     {permissions.edit && (
                                         <DropdownMenuItem
-                                            onSelect={() => {
+                                            onClick={() => {
                                                 setEditText(comment.text);
                                                 setEditError(undefined);
                                                 setEditing(true);
@@ -432,7 +424,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     )}
                                     {permissions.makePrivate && (
                                         <DropdownMenuItem
-                                            onSelect={() => run(
+                                            onClick={() => run(
                                                 () => setCommentPrivateAction(projectId, comment.id, !comment.private),
                                                 comment.private ? 'Everyone with access sees this comment again.' : 'Only admins and the author see this comment now.')}>
                                             {comment.private ? <LockOpenIcon /> : <LockIcon />}
@@ -440,7 +432,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         </DropdownMenuItem>
                                     )}
                                     {comment.canFilterAuthor && (
-                                        <DropdownMenuItem onSelect={() => filterAuthor()}>
+                                        <DropdownMenuItem onClick={() => filterAuthor()}>
                                             <UserIcon />
                                             More from this author
                                         </DropdownMenuItem>
@@ -449,7 +441,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 {permissions.delete && (
                                     <>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem variant="destructive" onSelect={() => setConfirmingDelete(true)}>
+                                        <DropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
                                             <Trash2Icon />
                                             Delete
                                         </DropdownMenuItem>
