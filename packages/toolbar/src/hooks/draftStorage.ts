@@ -73,8 +73,10 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             const p = a.position;
             const selector = (s: unknown) => typeof s === 'string' && s.length > 0 && s.length <= 1024;
             const offset = (n: unknown) => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 100_000;
+            const fraction = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
             if (!p || !['comment', 'rewrite'].includes(a.kind)
-                || !(p.type === 'point' ? selector(p.selector) && Number.isFinite(p.xNormal) && p.xNormal >= 0 && p.xNormal <= 1 && Number.isFinite(p.yNormal) && p.yNormal >= 0 && p.yNormal <= 1
+                || !(p.type === 'point' ? selector(p.selector) && fraction(p.xNormal) && fraction(p.yNormal)
+                    && ((p.widthNormal === undefined && p.heightNormal === undefined) || (fraction(p.widthNormal) && fraction(p.heightNormal)))
                     : p.type === 'text' && selector(p.startSelector) && (p.endSelector === undefined || selector(p.endSelector)) && typeof p.text === 'string' && p.text.length <= 2000
                         && offset(p.startOffset) && offset(p.endOffset) && ['text', 'element'].includes(p.startType) && ['text', 'element'].includes(p.endType))) delete value.anchor;
         }

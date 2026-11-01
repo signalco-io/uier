@@ -116,7 +116,7 @@ export function CommentToolbar({
                     <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
                         {isCoarsePointer() && !canReviewToolbar()
                             ? 'Tap anywhere to pin a comment. Tap + to cancel.'
-                            : isCoarsePointer() ? 'Tap anywhere to pin a comment.' : 'Click anywhere to pin a comment. Esc to cancel.'}
+                            : isCoarsePointer() ? 'Tap anywhere to pin a comment.' : 'Click anywhere to pin a comment, or drag over an area. Esc to cancel.'}
                         {canReviewToolbar() && <Button size="sm" variant="plain" className="pointer-events-auto ml-2 rounded-full"
                             onClick={onCancelPointComment}>Cancel</Button>}
                     </p>

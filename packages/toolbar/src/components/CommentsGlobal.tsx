@@ -13,6 +13,7 @@ import { CommentsSidebar } from './sidebar/CommentsSidebar';
 import { CommentToolbar } from './CommentToolbar';
 import { CommentSelectionPopover } from './CommentSelectionPopover';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
+import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { CommentPointOverlay } from './CommentPointOverlay';
 import { CommentBubble } from './CommentBubble';
 import { InlineCommentThreads } from './InlineCommentThread';
@@ -29,7 +30,7 @@ import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
-import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength } from './@types/Comments';
+import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength, isCommentArea } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
 function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement | undefined) {
@@ -594,9 +595,10 @@ export function CommentsGlobal({
             {!collapsed && reattaching && <>
                 {reattaching.mode === 'point' && <CommentPointOverlay onPoint={chooseAnchor} />}
                 {reattaching.candidate?.type === 'text' && <CommentSelectionHighlight commentSelection={reattaching.candidate} />}
+                {isCommentArea(reattaching.candidate) && candidatePlacement?.rects[0] && <CommentAreaHighlight rect={candidatePlacement.rects[0]} active />}
                 <InkScope>
                     {reattaching.mode ? <div className="fixed top-4 left-1/2 z-[60] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border bg-background p-3 text-sm text-foreground" role="region" aria-label="Choose new anchor">
-                        <p role="status" className="m-0">{reattaching.mode === 'point' ? 'Click an element, or focus it and press Enter.' : 'Select text on the page, then use the selection.'}</p>
+                        <p role="status" className="m-0">{reattaching.mode === 'point' ? 'Click an element or drag over an area. With the keyboard, focus an element and press Enter.' : 'Select text on the page, then use the selection.'}</p>
                         <div className="mt-2 flex gap-2">
                             {reattaching.mode === 'text' && <Button size="sm" className="min-h-11" disabled={!reattaching.candidate} onClick={() => setReattaching({ ...reattaching, mode: undefined })}>Use selected text</Button>}
                             <Button size="sm" variant="plain" className="min-h-11" onClick={finishReattach}>Cancel</Button>
@@ -606,7 +608,7 @@ export function CommentsGlobal({
                     }}>
                         <div className="h-full overflow-y-auto p-4 text-sm">
                             <h2 className="m-0 text-base font-semibold">Reattach comment</h2>
-                            <p>Choose an element or select text on this page. Confirm to move the anchor. Messages and saved evidence stay the same.</p>
+                            <p>Choose an element or an area, or select text on this page. Confirm to move the anchor. Messages and saved evidence stay the same.</p>
                             <div className="flex flex-wrap gap-2">
                                 <Button autoFocus size="sm" variant="outlined" className="min-h-11" disabled={reattach.isPending}
                                     onClick={() => setReattaching({ ...reattaching, mode: 'point', candidate: undefined })}>Choose element</Button>

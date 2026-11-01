@@ -83,15 +83,25 @@ const selectorSchema = z.string()
     .max(MAX_SELECTOR_LENGTH)
     .refine(selector => selectorPattern.test(selector), 'Selector is not supported');
 const normalSchema = z.number().min(0).max(1);
+const areaSizeSchema = z.number().gt(0).max(1);
+/** Rounding room for an area that ends at its element's edge */
+const areaTolerance = 1e-6;
 const offsetSchema = z.int().min(0).max(MAX_SELECTION_OFFSET);
 const nodeTypeSchema = z.enum(['text', 'element']);
 
+/** A point on an element; with a width and a height, an area dragged over it (the point its top-left corner) */
 export const pointPositionSchema = z.object({
     type: z.literal('point'),
     selector: selectorSchema,
     xNormal: normalSchema,
-    yNormal: normalSchema
-});
+    yNormal: normalSchema,
+    widthNormal: areaSizeSchema.optional(),
+    heightNormal: areaSizeSchema.optional()
+})
+    .refine(point => (point.widthNormal === undefined) === (point.heightNormal === undefined), 'An area needs a width and a height')
+    .refine(point => point.widthNormal === undefined || point.heightNormal === undefined
+        || (point.xNormal + point.widthNormal <= 1 + areaTolerance && point.yNormal + point.heightNormal <= 1 + areaTolerance),
+    'An area must be within its element');
 
 export const selectionPositionSchema = z.object({
     type: z.literal('text'),

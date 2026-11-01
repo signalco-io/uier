@@ -427,7 +427,7 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     const instruction = page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' });
     await expect(instruction).toHaveText(testInfo.project.use.hasTouch
         ? 'Tap anywhere to pin a comment.Cancel'
-        : 'Click anywhere to pin a comment. Esc to cancel.Cancel');
+        : 'Click anywhere to pin a comment, or drag over an area. Esc to cancel.Cancel');
     await page.keyboard.press('Escape');
     await expect(add).toHaveAttribute('aria-pressed', 'false');
     await expect(instruction).toHaveCount(0);

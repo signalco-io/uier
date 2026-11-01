@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { CommentItemPosition, CommentPoint, CommentSelection } from '../components/@types/Comments';
+import { CommentItemPosition, CommentPoint, CommentSelection, isCommentArea } from '../components/@types/Comments';
 import { getDomVersion, useLayoutVersion } from './useLayoutVersion';
 import { queryAnchorElements } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
@@ -235,10 +235,28 @@ function shownRangeRects(range: Range): DOMRect[] {
     return isShown(element) ? [...range.getClientRects()] : [];
 }
 
+/** A stored fraction of a box, clamped to the box (positions come from anonymous visitors) */
+function fraction(value: number | undefined, fallback: number) {
+    return Number.isFinite(value) ? Math.min(Math.max(value!, 0), 1) : fallback;
+}
+
 function pointRects(position: CommentPoint): DOMRect[] {
     const element = safeQuerySelector(position.selector);
     if (!element || !isShown(element)) {
         return [];
+    }
+
+    // An area is a part of the element's whole box, as it was measured when the area was drawn
+    if (isCommentArea(position)) {
+        const box = element.getBoundingClientRect();
+        const x = fraction(position.xNormal, 0);
+        const y = fraction(position.yNormal, 0);
+        return [new DOMRect(
+            box.left + box.width * x,
+            box.top + box.height * y,
+            box.width * Math.min(fraction(position.widthNormal, 1), 1 - x),
+            box.height * Math.min(fraction(position.heightNormal, 1), 1 - y)
+        )];
     }
 
     const rects = [...element.getClientRects()];
@@ -260,9 +278,10 @@ export function lowestRect(rects: DOMRect[]) {
 }
 
 /**
- * Viewport rectangles of a stored comment position: one 1x1 rect for a point comment, the line
- * boxes of the commented text for a text comment (none when the text is not on the page). Never
- * throws; an unresolvable position (and feedback about the whole page) has no rects.
+ * Viewport rectangles of a stored comment position: one 1x1 rect for a point comment, the area
+ * for an area comment, the line boxes of the commented text for a text comment (none when the
+ * text is not on the page). Never throws; an unresolvable position (and feedback about the whole
+ * page) has no rects.
  */
 export function getCommentItemRects(position: CommentItemPosition | null | undefined): DOMRect[] {
     if (!position) {

@@ -22,7 +22,11 @@ export type FeedbackContext = {
     /** Display-only assignment from an authorized member projection; no account identifier. */
     assignee?: { name: string };
     feedback: FeedbackMessage | null;
-    anchor: { type: 'point' | 'text' | 'page'; selector?: string; text?: string; startOffset?: number; endSelector?: string; endOffset?: number };
+    anchor: {
+        type: 'point' | 'text' | 'page'; selector?: string; text?: string; startOffset?: number; endSelector?: string; endOffset?: number;
+        /** A point anchor that is an area dragged over the element: fractions of the element's box */
+        area?: { x: number; y: number; width: number; height: number };
+    };
     source: { path: string; origin?: string; environment?: string };
     links: { page?: string; comment?: string };
     reproduction: {
@@ -55,6 +59,17 @@ function plain(value: string) {
 function literal(value: string) {
     const fence = '`'.repeat(Math.max(3, ...[...value.matchAll(/`+/g)].map(match => match[0].length + 1)));
     return `${fence}text\n${value}\n${fence}`;
+}
+
+/** Shared with the integrations that format the packet themselves */
+export function anchorLabel(anchor: FeedbackContext['anchor']) {
+    return anchor.type === 'point' ? anchor.area ? 'Area of an element' : 'Element' : anchor.type === 'text' ? 'Selected text' : 'Whole page';
+}
+
+/** Where the area is in its element, in percent of the element's box */
+export function areaText(area: NonNullable<FeedbackContext['anchor']['area']>) {
+    const percent = (value: number) => `${Math.round(value * 1000) / 10}%`;
+    return `${percent(area.x)} from the left, ${percent(area.y)} from the top, ${percent(area.width)} wide, ${percent(area.height)} tall`;
 }
 
 function message(value: FeedbackMessage | null, label: string) {
@@ -93,8 +108,9 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         context.source.origin ? `Source: ${plain(context.source.origin)}` : 'Source origin: unavailable or restricted.',
         context.source.environment ? `Environment: ${plain(context.source.environment)}` : '',
         link('Reviewed page', context.links.page), link('Open comment in uier', context.links.comment),
-        `Anchor: ${anchor.type === 'point' ? 'Element' : anchor.type === 'text' ? 'Selected text' : 'Whole page'}`,
+        `Anchor: ${anchorLabel(anchor)}`,
         anchor.selector !== undefined ? `Saved selector (may no longer match):\n\n${literal(anchor.selector)}` : '',
+        anchor.area ? `Area within the element: ${areaText(anchor.area)}` : '',
         anchor.text !== undefined ? `Original selected text:\n\n${literal(anchor.text)}` : '',
         anchor.startOffset !== undefined ? `Text offsets: ${anchor.startOffset}–${anchor.endOffset ?? 'unknown'}` : '',
         anchor.endSelector ? `End selector:\n\n${literal(anchor.endSelector)}` : '',

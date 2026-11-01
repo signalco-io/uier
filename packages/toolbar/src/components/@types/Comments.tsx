@@ -27,12 +27,24 @@ export const floatingShadowClassName = 'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px
  */
 export const inputFocusRingClassName = 'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background';
 
+/**
+ * A point on an element, as fractions of its box. With `widthNormal` and `heightNormal` it is an
+ * area dragged over the page: the point is the area's top-left corner, and toolbars without area
+ * support still show a pin there.
+ */
 export type CommentPoint = {
     type: 'point';
     selector: string;
     xNormal: number;
     yNormal: number;
+    widthNormal?: number;
+    heightNormal?: number;
 };
+
+/** Whether the point is a dragged area (both sizes set) */
+export function isCommentArea(position: CommentItemPosition | null | undefined): position is CommentPoint & { widthNormal: number; heightNormal: number } {
+    return position?.type === 'point' && position.widthNormal !== undefined && position.heightNormal !== undefined;
+}
 
 export type CommentSelection = {
     type: 'text';

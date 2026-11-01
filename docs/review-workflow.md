@@ -350,8 +350,8 @@ activity projection before fetching a bounded content batch. Both use the same p
 Thread details distinguish exact positions, uniquely restored text, temporarily hidden targets, missing
 targets and ambiguous matches. Text with several possible matches is never silently moved to the first.
 Missing/ambiguous/hidden targets have no page pin; comments remain searchable/reachable in the inbox.
-Authors and workspace admins can choose a new element or text on the same saved page and confirm or
-cancel. Pointer/touch and keyboard element selection are supported. The existing dockable panel and
+Authors and workspace admins can choose a new element, area or text on the same saved page and confirm or
+cancel. Pointer/touch and keyboard element selection are supported; an area is dragged with a mouse or pen. The existing dockable panel and
 movable toolbar retain their positions; collapse cancels selection and hides page annotations.
 
 Reattachment updates only the position and `anchorContext` (original and immediately previous anchors,

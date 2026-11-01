@@ -50,7 +50,7 @@
         --brand-accent: 227 100% 59%;        /* #2E5BFF, the one accent: links, focus, selection, unread */
         --brand-accent-foreground: 0 0% 100%;
         --brand-accent-text: 227 100% 59%;   /* accent used as text/icon colour (5.2:1 on paper) */
-        --brand-selection: 227 100% 59% / 0.2; /* tint for a commented text range */
+        --brand-selection: 227 100% 59% / 0.2; /* tint for a commented text range (and an area with an open thread) */
         --brand-success: 142 72% 29%;        /* #15803D resolved */
         --brand-warning: 26 90% 37%;         /* #B45309 */
 

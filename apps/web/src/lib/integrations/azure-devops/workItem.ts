@@ -1,4 +1,4 @@
-import type { FeedbackContext, FeedbackMessage } from '@uier/toolbar/feedback-context';
+import { anchorLabel, areaText, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 
 export const azureDevOpsMarker = (connectionId: string, projectId: string, threadId: string, generation: number) =>
@@ -47,8 +47,9 @@ export function azureDevOpsProjection(context: FeedbackContext, marker: string) 
         paragraph(context.source.origin ? `Source: ${text(context.source.origin)}` : 'Source origin: unavailable or restricted.'),
         context.source.environment ? paragraph(`Environment: ${text(context.source.environment)}`) : '',
         paragraph(`${link('Reviewed page', context.links.page)} · ${link('Open feedback in uier', context.links.comment)}`),
-        paragraph(`Anchor: ${anchor.type === 'point' ? 'Element' : anchor.type === 'text' ? 'Selected text' : 'Whole page'}`),
+        paragraph(`Anchor: ${anchorLabel(anchor)}`),
         anchor.selector !== undefined ? paragraph('Saved selector (may no longer match):') + literal(anchor.selector) : '',
+        anchor.area ? paragraph(`Area within the element: ${areaText(anchor.area)}`) : '',
         anchor.text !== undefined ? paragraph('Original selected text:') + literal(anchor.text) : '',
         '<h2>Original browser context</h2>',
         `<ul><li>Device: ${text(r.device ?? 'Unavailable')}</li><li>Viewport: ${r.windowSize ? `${r.windowSize[0]}×${r.windowSize[1]} CSS px` : 'Unavailable'}</li>`

@@ -4,7 +4,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { Info } from '@signalco/ui-icons';
 import { useCommentPlacement, type AnchorState } from '../hooks/useCommentItemRects';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
-import type { CommentItem, CommentItemPosition } from './@types/Comments';
+import { isCommentArea, type CommentItem, type CommentItemPosition } from './@types/Comments';
 
 export const ReattachContext = createContext<(comment: CommentItem) => void>(() => {});
 
@@ -17,7 +17,8 @@ export const anchorStateText: Record<AnchorState, string> = {
 
 export function describeAnchor(position: CommentItemPosition) {
     return position.type === 'text' ? `Text: ${position.text}`
-        : position.type === 'point' ? `Element: ${position.selector}` : 'Whole page';
+        : isCommentArea(position) ? `Area of element: ${position.selector}`
+            : position.type === 'point' ? `Element: ${position.selector}` : 'Whole page';
 }
 
 /**
