@@ -250,3 +250,15 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
 
 Browser verification and rewrite requests use the local Anthropic stand-in configured by Playwright;
 the suite uses fake credentials and does not require live provider calls.
+
+### Responsiveness regressions
+
+After building, run the delayed-response and request-budget checks on desktop and mobile:
+
+```bash
+PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test e2e/app-performance.spec.ts --project="Desktop Chrome" --project="Mobile Chrome" --retries=0
+```
+
+The tests reject server requests for presentation filters, hold mutation responses to prove the
+UI updates before confirmation, and check rollback and reload persistence. These are local
+behavior checks with in-memory storage, not a production Cosmos DB latency benchmark.

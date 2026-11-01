@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/src/lib/utils';
+import { NavigationPending } from './NavigationPending';
 
 export type LinkTab = {
     href: string;
@@ -67,6 +68,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                             variant === 'side' && 'h-8 rounded-md px-3 hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:text-foreground'
                         )}>
                         {tab.label}
+                        <NavigationPending />
                         {tab.count !== undefined && <span className="font-normal tabular-nums text-muted-foreground">{tab.count}</span>}
                     </Link>
                 );

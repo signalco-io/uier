@@ -68,6 +68,7 @@ import { CommentDevice } from './CommentDevice';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 import { integrationLabels, kindLabels } from './commentLabels';
+import { useCommentUpdate } from './CommentUpdates';
 import {
     markCommentReadAction,
     markCommentUnreadAction,
@@ -225,6 +226,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     onResolve?: (resolved: boolean) => ResolveExit;
 }) {
     const router = useRouter();
+    const updateComment = useCommentUpdate();
     const searchParams = useSearchParams();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
@@ -258,28 +260,38 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             firstRevealedRef.current?.focus();
     }, [expanded]);
 
-    const run = (action: () => Promise<ActionState>, success?: string) => startTransition(async () => {
-        const result = await action();
+    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>) => startTransition(async () => {
+        if (patch) updateComment({ id: comment.id, patch });
+        let result: ActionState;
+        try { result = await action(); }
+        catch { toast.error('Could not save the change. Try again.'); return; }
         if (result && !result.ok) {
             toast.error(result.error);
             return;
         }
         if (success)
             toast.success(success);
-        router.refresh();
+        // The server action already revalidates this page and returns its fresh snapshot.
     });
 
     const toggleResolved = () => startTransition(async () => {
         const resolved = !comment.resolved;
         const exit = onResolve?.(resolved);
-        // The refresh removes the card only once its exit has played
-        const [result] = await Promise.all([setCommentResolvedAction(projectId, comment.id, resolved), exit?.finished]);
-        if (result && !result.ok) {
+        // Start saving immediately, then move the card once its exit has played.
+        try {
+            const request = setCommentResolvedAction(projectId, comment.id, resolved)
+                .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
+            if (exit) await exit.finished;
+            startTransition(() => updateComment({ id: comment.id, patch: { resolved } }));
+            const result = await request;
+            if (result && !result.ok) {
+                exit?.cancel();
+                toast.error(result.error);
+            }
+        } catch {
             exit?.cancel();
-            toast.error(result.error);
-            return;
+            toast.error('Could not save the change. Try again.');
         }
-        router.refresh();
     });
 
     const filterAuthor = (itemId?: string) => startTransition(async () => {
@@ -311,7 +323,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             return;
         }
         setEditing(false);
-        router.refresh();
     });
 
     const reply = (item: ProjectCommentMessage) => {
@@ -368,7 +379,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                         {unread && (
                             <UnreadDot disabled={pending}
-                                onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence))} />
+                                onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence), undefined,
+                                    { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
                         )}
                         {comment.private && (
                             <Badge variant="secondary">
@@ -396,7 +408,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
                                             <DropdownMenuItem
                                                 key={option.userId}
-                                                onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`)}>
+                                                onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
+                                                    { assignee: { id: option.userId, name: option.name } })}>
                                                 {option.name}
                                                 {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
                                             </DropdownMenuItem>
@@ -405,7 +418,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     {comment.assignee && (
                                         <>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, null))}>
+                                            <DropdownMenuItem onSelect={() => run(() => setCommentAssigneeAction(projectId, comment.id, null), undefined, { assignee: undefined })}>
                                                 Unassign
                                             </DropdownMenuItem>
                                         </>
@@ -441,12 +454,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     <DropdownMenuItem
                                         onSelect={() => run(
                                             () => updateNotificationAction(projectId, comment.id, !comment.following),
-                                            comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.')}>
+                                            comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.', { following: !comment.following })}>
                                         {comment.following ? <BellOffIcon /> : <BellIcon />}
                                         {comment.following ? 'Unfollow thread' : 'Follow thread'}
                                     </DropdownMenuItem>
                                     {canMarkUnread && (
-                                        <DropdownMenuItem onSelect={() => run(() => markCommentUnreadAction(projectId, comment.id))}>
+                                        <DropdownMenuItem onSelect={() => run(() => markCommentUnreadAction(projectId, comment.id), undefined,
+                                            { activity: { ...comment.activity!, readSequence: Math.max(0, comment.activity!.lastOtherSequence - 1), unread: true } })}>
                                             <MailIcon />
                                             Mark as unread
                                         </DropdownMenuItem>

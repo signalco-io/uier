@@ -1,4 +1,5 @@
 import type { DbTeam } from './model';
+import { cache } from 'react';
 import { workspacePk } from './model';
 import { getAppStore, type AppStore } from './store';
 import { MAX_ACTIVE_TEAMS } from './limits';
@@ -27,3 +28,6 @@ export async function loadWorkspaceAccess(
         teams: teams.filter((team) => team.workspaceId === workspaceId && team.pk === workspacePk(workspaceId))
     };
 }
+
+/** Share only render reads; mutation retries must use the uncached loader above. */
+export const loadWorkspaceAccessForRender = cache((workspaceId: string) => loadWorkspaceAccess(workspaceId));

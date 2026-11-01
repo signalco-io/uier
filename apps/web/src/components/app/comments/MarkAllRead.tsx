@@ -1,17 +1,18 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import type { ReadThreadInput } from '../../../lib/comments/bulkRead';
 import { markCommentsReadAction } from './actions';
+import { useCommentUpdate } from './CommentUpdates';
 
 /** Inputs are the rendered, filtered snapshot, including its activity cursors. */
 export function MarkAllRead({ projectId, threads }: { projectId: string; threads: ReadThreadInput[] }) {
     const [pending, startTransition] = useTransition();
-    const router = useRouter();
+    const updateComment = useCommentUpdate();
     const run = (snapshot: ReadThreadInput[]) => startTransition(async () => {
+        for (const thread of snapshot) updateComment({ id: thread.id, readSequence: thread.sequence });
         let written = 0;
         const failed: ReadThreadInput[] = [];
         for (let offset = 0; offset < snapshot.length; offset += 200) {
@@ -30,7 +31,6 @@ export function MarkAllRead({ projectId, threads }: { projectId: string; threads
                 break;
             }
         }
-        router.refresh();
         if (written) toast.success(`${written} ${written === 1 ? 'thread' : 'threads'} marked as read.`);
         if (failed.length) toast.error('Some threads could not be marked as read.', {
             action: { label: 'Retry', onClick: () => run(failed) }

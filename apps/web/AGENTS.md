@@ -427,6 +427,26 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and
   `project-review.spec.ts` cover browser isolation, accessibility and the toolbar's return path.
 
+## Page and mutation responsiveness
+
+`projects.ts` and `members.ts` share repeated render reads through React `cache` (metadata,
+layouts and pages). `loadWorkspaceAccessForRender` shares the render's team snapshot; mutation
+retries must continue to use uncached `loadWorkspaceAccess`. Nothing caches access across requests.
+Independent context and comment enrichment reads run together. General settings streams lightweight
+usage totals after its authorization check instead of enriching every comment before rendering forms.
+Keep authorization/not-found checks outside streaming boundaries so forbidden document requests retain 404.
+
+`ProjectComments` is a client boundary over the server-authorized environment/author snapshot.
+Status, people, page, unread and list/board filters use native history and `useSearchParams` with
+no server request; environment and author changes still navigate through server authorization.
+`commentsQuery.ts` is the shared pure parser. `CommentUpdates` owns optimistic status, assignment,
+follow and read changes for cards, counters and board columns. Failed actions revert through
+`useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
+revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
+`NavigationPending` gives settings links immediate feedback while their authorized destination loads.
+`e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
+immediate updates, rollback, persistence and background feedback submission on desktop and mobile.
+
 ## Testing
 
 Teams use `src/lib/app/access.ts` / `accessRules.ts` for additive, current workspace/project
