@@ -10,7 +10,9 @@ const dest = resolve(root, test ? 'dist-test' : hostedTest ? 'dist-hosted-test' 
 await rm(dest, { recursive: true, force: true });
 await mkdir(dest, { recursive: true });
 const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
-const api = test ? 'http://127.0.0.1:4004' : 'https://uier.io';
+const testPort = Number(process.env.PORT || 4004);
+if (test && (!Number.isInteger(testPort) || testPort < 1 || testPort > 65535)) throw new Error('Use a valid local test PORT.');
+const api = test ? `http://127.0.0.1:${testPort}` : 'https://uier.io';
 const css = await readFile(resolve(root, '../../packages/toolbar/dist/index.css'), 'utf8');
 for (const [name, entry] of Object.entries({ worker: 'worker.ts', content: 'content.ts', popup: 'popup.tsx', helper: 'helper.ts' })) {
     await build({ entryPoints: [resolve(root, 'src', entry)], outfile: resolve(dest, `${name}.js`), bundle: true,

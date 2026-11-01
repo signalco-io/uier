@@ -7,7 +7,7 @@ export { authorNames } from '../comments/authorNames';
 import { listProjectMembers } from '../app/members';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, type ProjectActor } from './actor';
-import { canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
+import { canTriageProject, canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
 
 const memberPrefix = 'user:';
 
@@ -32,7 +32,7 @@ export type ReviewCommentDto = CommentDto & {
     private: boolean;
     reproduction?: ReproductionContext;
     /** What the current reviewer may do (the toolbar shows only these actions) */
-    permissions: { resolve: boolean; delete: boolean; edit: boolean; assign: boolean };
+    permissions: { resolve: boolean; delete: boolean; edit: boolean; assign: boolean; priority: boolean };
     thread: { items: (CommentDto['thread']['items'][number] & { canDelete?: boolean; canEdit?: boolean; mentions?: ReturnType<typeof messageMentions> })[] };
 };
 
@@ -60,6 +60,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
             unavailable: !participants.has(comment.assigneeId)
         } : undefined,
         permissions: {
+            priority: canTriageProject({ id: project?.id ?? comment.projectId ?? comment.domain.replace(/^project:/, '') }, actor),
             resolve: canResolveComment(comment, actor),
             edit: canEditComment(comment, actor) && !items[0]?.deletedAt,
             assign: actor.kind === 'member',

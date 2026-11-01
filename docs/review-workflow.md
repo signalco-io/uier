@@ -459,3 +459,47 @@ own browser, and the exact origin must already belong to an accessible project. 
 links are handled after Start review. Check installation continues to diagnose only the site embed;
 extension activation never records an installed script. Public onboarding remains on the released
 script path until hosted verification, browser acceptance and store bootstrap are complete.
+
+## Search, priority and bulk triage
+
+Search feedback filters the authorized app snapshot immediately. Its `q` URL parameter is limited
+to 200 characters and saved with debounced history replacement. Each whitespace-separated word
+must appear literally, without case sensitivity, in the first message, a non-deleted reply or quote,
+the canonical page path or the public thread number (`#12`). Deleted text is excluded. Search,
+priority, status, people, page and unread filters combine locally; environment and staff-author
+changes still load a new server-authorized scope. Back/Forward, view changes and reload retain the
+URL filters. Mark all as read snapshots only the final shown threads and their rendered cursors.
+
+Search covers at most 1,000 recent threads in the loaded environment/author scope. A notice appears
+when the storage window is capped, including when private threads reduce the visible count. Narrow
+the environment or staff-author scope to look for older feedback. This is not database-wide search.
+
+Priority is Low, Normal, High or Urgent; missing priority on older records means Normal. A current
+project member can change visible threads in app cards and toolbar thread/inbox views. Guests can
+read the label. Ordinary accounts automatically enrolled in uier's public feedback project cannot
+change priority or use bulk triage; those actions require staff there. A real priority change adds
+one activity step and integration source intent, without a priority-only email. Setting the current
+priority, including Normal on a legacy thread, adds neither. Priority does not change list order.
+
+List and Board have explicit checkboxes, an indeterminate shown-results checkbox, selected count,
+Clear selection, assignment/unassignment, priority, Mark selected as done and Reopen selected.
+Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
+visible order (Open then Done on Board). Changing a project, environment, author, filter or view
+clears selection. Threads arriving later never join a running batch. Replies and their drafts remain
+scoped independently of selection and filtering.
+
+Each batch snapshots one operation, exact ids, expected affected values and per-item submission
+keys. It validates the whole request before writing, then applies at most four shared single-thread
+mutations concurrently, rechecking current access, visibility and target eligibility on write retries.
+Status changes additionally compare an opaque content revision. New workflow fields automatically
+participate in that revision; notification/outbox bookkeeping does not. This is the extension point
+for fix verification: keep status writes in `setProjectCommentResolved`, preserve reviewer decisions,
+and never infer reviewer confirmation from bulk Done.
+
+Batches have partial success: changed, unchanged, stale, unavailable and failed counts, with a stable
+result even when changed rows leave a filter. Missing and inaccessible threads share unavailable.
+Successful selections clear; failed visible rows stay selected. Retry failed threads reuses the exact
+operation, expected values and keys; an uncertain response keeps all original keys. Review stale
+threads before starting a new action. Durable 30-day receipts prevent retries from repeating events
+or overwriting later work. One revalidation follows a completed batch. Bulk read stays separate;
+there is no bulk delete, privacy change, reviewer confirmation or toolbar bulk mutation.

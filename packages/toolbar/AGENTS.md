@@ -261,3 +261,13 @@ for one year after the last supported release. `coexistence.ts` is a secret-free
 so a mounted or late embed yields to extension activation across isolated worlds. DOM ids do not
 prove ownership. `screenshotImage.tsx` uses byte-decoded canvas in extension mode for strict img-src.
 See [browser-extension.md](../../docs/browser-extension.md) for unreleased status and hosted gate.
+
+
+## Priority and matching
+
+`triage.ts` exports pure priority values/defaults and `matchesFeedbackSearch` for app/toolbar use.
+Missing priority means Normal, including pinned responses. `CommentPriority` shows a text label to
+guests and a UI-kit control only with `permissions.priority`; its failed intended value retains the
+submission key. The review API rechecks membership/private visibility and current public-project
+staff policy. The control is shared by thread and inbox, with cache/activity invalidation through
+`useComments`. No toolbar bulk operations. Feedback packets include priority as additive context.

@@ -1,6 +1,9 @@
+import { commentPriority, priorities, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
 import type { CommentsView, PeopleFilter, StatusFilter } from './commentLabels';
 
 export type CommentsQuery = {
+    q?: string;
+    priority?: CommentPriority;
     environment?: string;
     author?: string;
     unread?: boolean;
@@ -22,6 +25,8 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
     const status = value('status');
     const page = value('page');
     return {
+        q: value('q')?.slice(0, MAX_FEEDBACK_SEARCH) || undefined,
+        priority: priorities.includes(value('priority') as CommentPriority) ? commentPriority(value('priority')) : undefined,
         environment: value('environment'),
         author: value('author'),
         unread: value('unread') === 'true',

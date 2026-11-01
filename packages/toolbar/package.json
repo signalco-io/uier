@@ -44,6 +44,10 @@
         "./extension-contract": {
             "types": "./src/extensionContract.ts",
             "default": "./dist/extensionContract.js"
+        },
+        "./triage": {
+            "types": "./src/triage.ts",
+            "default": "./dist/triage.js"
         }
     },
     "scripts": {

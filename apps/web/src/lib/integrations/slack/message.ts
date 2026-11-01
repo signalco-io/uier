@@ -1,3 +1,4 @@
+import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 import { slackLabel } from './config';
@@ -11,6 +12,7 @@ export function slackRootMessage(context: FeedbackContext, projectName: string, 
     const title = limit(literal(`${slackLabel(projectName) || 'Project'} · ${number} · ${context.kind === 'rewrite' ? 'Suggested rewrite' : context.kind === 'bug' ? 'Bug' : 'Feedback'} · ${context.status === 'done' ? 'Done' : 'Open'}`), 180);
     let excerpt = limit(literal(context.feedback?.deleted ? 'This message was deleted.'
         : `${context.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${context.feedback?.text ?? 'Feedback is unavailable.'}`), 500);
+    const priority = `Priority: ${priorityLabels[commentPriority(context.priority)]}`;
     const environment = context.source.environment ? limit(literal(`Environment: ${slackLabel(context.source.environment)}`), 100) : '';
     let reviewLink: string | undefined;
     if (context.identity.projectId && /^[a-z0-9]{12}$/.test(context.identity.projectId)) {
@@ -19,11 +21,12 @@ export function slackRootMessage(context: FeedbackContext, projectName: string, 
         if (url.protocol === 'https:' && !url.username && !url.password && url.href.length <= 256) reviewLink = url.href;
     }
     function render() {
-        const text = [title, excerpt || 'Open the feedback in uier.', environment, reviewLink ? `Open in uier: ${literal(reviewLink)}` : 'Open the project in uier to view this feedback.'].filter(Boolean).join('\n');
+        const text = [title, excerpt || 'Open the feedback in uier.', priority, environment, reviewLink ? `Open in uier: ${literal(reviewLink)}` : 'Open the project in uier to view this feedback.'].filter(Boolean).join('\n');
         const blocks: Record<string, unknown>[] = [
             { type: 'section', text: { type: 'plain_text', text: title, emoji: false } },
             { type: 'section', text: { type: 'plain_text', text: excerpt || 'Open the feedback in uier.', emoji: false } }
         ];
+        blocks.push({ type: 'context', elements: [{ type: 'plain_text', text: priority, emoji: false }] });
         if (environment) blocks.push({ type: 'context', elements: [{ type: 'plain_text', text: environment, emoji: false }] });
         if (reviewLink) blocks.push({ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'Open in uier', emoji: false }, url: reviewLink }] });
         return { text, blocks, mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false };

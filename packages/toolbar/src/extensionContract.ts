@@ -8,7 +8,7 @@ const operations: [RegExp, ExtensionMethod[]][] = [
     [new RegExp(`^comments/${id}$`), ['PATCH', 'DELETE']],
     [new RegExp(`^comments/${id}/replies$`), ['POST']],
     [new RegExp(`^comments/${id}/replies/${id}$`), ['PATCH', 'DELETE']],
-    [new RegExp(`^comments/${id}/(assignee|anchor)$`), ['PATCH']],
+    [new RegExp(`^comments/${id}/(assignee|anchor|priority)$`), ['PATCH']],
     [new RegExp(`^comments/${id}/screenshot$`), ['GET', 'POST']],
     [new RegExp(`^comments/${id}/context$`), ['GET']],
     [new RegExp(`^comments/${id}/read$`), ['POST', 'DELETE']],

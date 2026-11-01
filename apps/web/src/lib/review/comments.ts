@@ -1,9 +1,11 @@
+import { commentPriority, priorities, type CommentPriority } from '@uier/toolbar/triage';
+import { commentRevision } from './commentRevision';
 import { queueThreadCleanup } from '../comments/cleanup';
 import { syncTombstone, withSyncMark } from '../integrations/syncSignal';
 import { z } from 'zod';
 import { userIdSchema } from '../app/validation';
 import { reattachAnchor } from '../comments/reattachAnchor';
-import type { ReattachAnchorInput } from '../comments/validation';
+import { idempotencyKeySchema, type ReattachAnchorInput } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
 
 import type { OriginFilter } from '../repo/originFilter';
@@ -163,7 +165,7 @@ function visibleOrThrow(comment: DbComment, actor: ProjectActor) {
 }
 
 /** Comments of one page, or of every page (`path` undefined), that the actor can see */
-export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter, authorId?: string) {
+export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter, authorId?: string, onWindow?: (capped: boolean) => void) {
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     if (authorId !== undefined && !isAdmin(actor))
@@ -171,6 +173,7 @@ export async function listProjectComments(project: DbProject, actor: ProjectActo
     const comments = path === undefined
         ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter, authorId)
         : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter, authorId);
+    onWindow?.(comments.length >= MAX_PROJECT_COMMENTS);
     return comments.filter(comment => canSeeComment(comment, actor));
 }
 
@@ -325,29 +328,58 @@ export async function replyToProjectComment(request: Request, project: DbProject
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission) {
+async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore()) {
     const authorize = async (comment: DbComment) => {
         await refreshMutationActor(project, actor);
         visibleOrThrow(comment, actor);
+        if (guard?.triage && !canTriageProject(project, actor)) throw apiErrors.notFound();
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
     };
     const apply = async (comment: DbComment) => {
         await authorize(comment);
+        if (guard?.revision && commentRevision(comment) !== guard.revision) throw apiErrors.conflict();
+        if (guard && guard.value(comment) !== guard.expected) throw apiErrors.conflict();
         const changed = await change(comment);
+        guard?.onResult?.(changed !== comment);
         return changed === comment ? comment : withSyncMark(project, comment, { ...changed, updatedAt: nowIso() });
     };
-    if (attempt) return commitChangeSubmission(getCommentsStore(), attempt, id, authorize, apply);
-    return await updateComment(getCommentsStore(), project, actor, id, apply);
+    if (attempt) return commitChangeSubmission(store, attempt, id, authorize, apply, guard?.onResult);
+    return await updateComment(store, project, actor, id, apply);
 }
 
-export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean, idempotencyKey?: string) {
+/** Preconditions run inside every conditional-write attempt, after current authorization. Receipt replay skips them. */
+export type CommentChangeGuard = {
+    expected: string | boolean | null;
+    value: (comment: DbComment) => string | boolean | null;
+    revision?: string;
+    onResult?: (changed: boolean) => void;
+    triage?: boolean;
+};
+function guardFingerprint(guard?: CommentChangeGuard) {
+    return guard ? { expected: guard.expected, revision: guard.revision } : {};
+}
+export function canTriageProject(project: Pick<DbProject, 'id'>, actor: ProjectActor) {
+    return actor.kind === 'member' && (project.id !== PUBLIC_PROJECT_ID || actor.isAdmin);
+}
+/** Priority shares activity and integration intent, but deliberately creates no email notification. */
+export async function setProjectCommentPriority(project: DbProject, actor: ProjectActor, id: string, priority: CommentPriority, idempotencyKey: string, guard?: CommentChangeGuard, store?: CommentsStore) {
+    const parsed = z.enum(priorities).safeParse(priority);
+    if (!parsed.success) throw apiErrors.invalidRequest('Choose a valid priority.');
+    priority = parsed.data;
+    if (!idempotencyKeySchema.safeParse(idempotencyKey).success) throw apiErrors.invalidRequest('Use a valid submission key.');
+    return changeComment(project, actor, id, () => canTriageProject(project, actor), comment =>
+        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!), priority },
+        submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'priority', id, priority, ...guardFingerprint(guard) }), guard, store);
+}
+
+export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean, idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore) {
     resolved = z.boolean().parse(resolved);
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
         comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
             { ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
-        submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved }));
+        submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved, ...guardFingerprint(guard) }), guard, store);
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {
@@ -366,7 +398,7 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
 }
 
 /** One assignment service for the app and toolbar; access is always checked here. */
-export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null, idempotencyKey?: string) {
+export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null, idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore) {
     const parsed = userIdSchema.nullable().safeParse(assigneeId);
     if (!parsed.success) throw apiErrors.invalidRequest('Choose a valid user id.');
     assigneeId = parsed.data;
@@ -380,7 +412,7 @@ export async function setProjectCommentAssignee(project: DbProject, actor: Proje
             if (!assigneeId) delete updated.assigneeId;
             const recipients = [...new Set([comment.assigneeId, assigneeId].filter((id): id is string => Boolean(id)).map(id => `user:${id}`))];
             return withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { assigneeId });
-        }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'assignment', id, assigneeId }));
+        }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'assignment', id, assigneeId, ...guardFingerprint(guard) }), guard, store);
 }
 
 /** Edits the text of the comment (its first item) */

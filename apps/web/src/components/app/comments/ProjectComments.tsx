@@ -1,11 +1,11 @@
 'use client';
 
-import { useOptimistic } from 'react';
+import { useEffect, useOptimistic, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
 import { cn } from 'cn';
-import { buttonVariants } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ProjectAccess } from '../../../lib/app/model';
@@ -19,11 +19,16 @@ import { CommentList } from './CommentList';
 import type { AuthorFilter, StatusFilter } from './commentLabels';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
+import { TriageSelection } from './TriageSelection';
+import { matchesFeedbackSearch } from '@uier/toolbar/triage';
+import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
 import { MarkAllRead } from './MarkAllRead';
 
 
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string) {
     return comments.filter(comment => {
+        if (query.priority && comment.priority !== query.priority) return false;
+        if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
         if (query.unread && !comment.activity?.unread) return false;
         if (query.page && !pageMatches(query.page, comment.path))
             return false;
@@ -36,7 +41,8 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
 }
 
 /** The project's comments in a list (Open, Done or All) or on a board (Open / Done), filtered by people and page */
-export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter }: {
+export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false }: {
+    searchWindowCapped?: boolean;
     authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
     projectId: string;
@@ -52,7 +58,33 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const searchParams = useSearchParams();
     // Environment and author are authorized server scopes. Presentation filters only use
     // the already authorized snapshot and never need another database round trip.
-    const query = { ...parseCommentsQuery(Object.fromEntries(searchParams)), environment: serverQuery.environment, author: serverQuery.author };
+    const urlKey = searchParams.toString();
+    const urlQuery = parseCommentsQuery(Object.fromEntries(searchParams));
+    const [searchDraft, setSearchDraft] = useState({ url: urlKey, value: urlQuery.q ?? '' });
+    const search = searchDraft.url === urlKey ? searchDraft.value : urlQuery.q ?? '';
+    const searchNeedsNormalization = searchParams.getAll('q').length > 1 || (searchParams.get('q') ?? '') !== (urlQuery.q ?? '');
+    const query = { ...urlQuery, q: search, environment: serverQuery.environment, author: serverQuery.author };
+    useEffect(() => {
+        if (search === (urlQuery.q ?? '') && !searchNeedsNormalization) return;
+        const timer = window.setTimeout(() => {
+            const url = new URL(window.location.href);
+            if (search) url.searchParams.set('q', search); else url.searchParams.delete('q');
+            window.history.replaceState(null, '', url);
+        }, 250);
+        return () => window.clearTimeout(timer);
+    }, [search, urlQuery.q, urlKey, searchNeedsNormalization]);
+    const commitSearch = () => {
+        const url = new URL(window.location.href);
+        if (search) url.searchParams.set('q', search); else url.searchParams.delete('q');
+        window.history.replaceState(null, '', url);
+    };
+    const clearFilters = () => {
+        const url = new URL(window.location.href);
+        for (const name of ['q', 'priority', 'status', 'people', 'page', 'unread']) url.searchParams.delete(name);
+        setSearchDraft({ url: urlKey, value: '' });
+        window.history.pushState(null, '', url);
+        document.getElementById('feedback-search')?.focus();
+    };
     const [comments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
         if (comment.id !== update.id) return comment;
         if ('patch' in update) return { ...comment, ...update.patch };
@@ -129,13 +161,13 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         : filtered.filter(comment => comment.resolved === (query.status === 'done'));
     const open = shown.filter(comment => !comment.resolved);
     const done = shown.filter(comment => comment.resolved);
-    // A new filter renders a new list, so only cards moved in later animate
-    const listKey = [query.environment, query.author, query.unread, query.people, query.page, query.status].join('|');
-
+    // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
+    const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
+        <CommentsSearchNavigationProvider value={commitSearch}>
         <div className="flex flex-col gap-4">
-            <CommentFilters author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
+            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
                 readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}
                 summary={(
                     <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
@@ -144,6 +176,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                             : `${shown.length} of ${comments.length} comments`}
                     </p>
                 )} />
+            {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
+            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? [...open, ...done] : shown} assignees={assignees}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>
@@ -153,6 +187,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                         <EmptyTitle>Nothing here</EmptyTitle>
                         <EmptyDescription>No comments match these filters.</EmptyDescription>
                     </EmptyHeader>
+                    <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>Clear filters</Button></EmptyContent>
                 </Empty>
             ) : !shown.length ? (
                 <Empty className="border">
@@ -178,16 +213,18 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                                 <span className="font-normal tabular-nums text-muted-foreground">{column.items.length}</span>
                             </h3>
                             {column.items.length
-                                ? <CommentList key={listKey} projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
+                                ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
                                 : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
                         </section>
                     ))}
                 </div>
             ) : (
-                <CommentList key={listKey} projectId={projectId} comments={shown} assignees={assignees} userId={userId} label="Comments"
+                <CommentList projectId={projectId} comments={shown} assignees={assignees} userId={userId} label="Comments"
                     keepsResolved={query.status === 'all'} />
             )}
+            </TriageSelection>
         </div>
+        </CommentsSearchNavigationProvider>
         </CommentUpdatesProvider>
     );
 }

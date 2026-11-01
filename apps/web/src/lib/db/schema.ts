@@ -81,6 +81,8 @@ export type DbThreadItem = {
 };
 
 export type DbComment = {
+    /** Missing means Normal; no migration required. */
+    priority?: import('@uier/toolbar/triage').CommentPriority;
     /** State-sync signal, committed with the mutation; never exported in a comment DTO. */
     syncVersion?: number;
     syncPending?: boolean;
@@ -209,6 +211,8 @@ export function isCommentDocument(document: object): boolean {
 
 /** An atomic submission receipt. No user text or image, and no public route accepts its id. */
 export type DbSubmission = {
+    /** Desired-state receipt outcome, retained across uncertain responses and later changes. */
+    changed?: boolean;
     id: string;
     domain: string;
     type: 'submission';

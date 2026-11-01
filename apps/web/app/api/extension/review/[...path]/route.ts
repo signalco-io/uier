@@ -40,6 +40,7 @@ const handler = extensionHandler(async request => {
     if (suffix === 'replies') return !itemId ? review.replyToReviewComment(context, { id })
         : request.method === 'PATCH' ? review.editReviewCommentItem(context, { id, itemId }) : review.deleteReviewCommentItem(context, { id, itemId });
     if (suffix === 'screenshot') return request.method === 'GET' ? review.getReviewScreenshot(context, { id }) : review.replaceReviewScreenshot(context, { id });
+    if (suffix === 'priority') return review.prioritizeReviewComment(context, { id });
     if (suffix === 'assignee') return review.assignReviewComment(context, { id });
     if (suffix === 'anchor') return reattachReviewAnchor(context, { id });
     if (suffix === 'read') return request.method === 'POST' ? review.readReviewComment(context, { id }) : review.unreadReviewComment(context, { id });

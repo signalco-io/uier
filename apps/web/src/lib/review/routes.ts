@@ -1,3 +1,5 @@
+import { priorities } from '@uier/toolbar/triage';
+import { idempotencyKeySchema } from '../comments/validation';
 import { screenshotUrlMediaType } from '../screenshots/blobStore';
 import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
 import { commentResponse } from './response';
@@ -24,6 +26,7 @@ import {
     replyToProjectComment,
     setProjectCommentResolved,
     setProjectCommentAssignee,
+    setProjectCommentPriority,
     replaceProjectScreenshot
 } from './comments';
 import { eligibleParticipants, mentionsSchema } from './participants';
@@ -179,3 +182,8 @@ export async function replaceReviewScreenshot(context: ReviewApiContext, { id }:
 }
 
 export { listReviewComments, readReviewComment, unreadReviewComment } from './readRoutes';
+
+export async function prioritizeReviewComment(context: ReviewApiContext, { id }: { id: string }) {
+    const { priority, idempotencyKey } = await parseJsonBody(context.request, z.object({ priority: z.enum(priorities), idempotencyKey: idempotencyKeySchema }));
+    return commentResponse(context, await setProjectCommentPriority(context.project, context.actor, commentId(id), priority, idempotencyKey));
+}

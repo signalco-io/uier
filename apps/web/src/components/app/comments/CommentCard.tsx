@@ -1,7 +1,11 @@
 'use client';
 
+import { PriorityControl } from './PriorityControl';
+import { useCommitCommentsSearch } from './CommentsSearchNavigation';
+import { SelectComment } from './TriageSelection';
+
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
     ArrowUpRightIcon,
     BellIcon,
@@ -225,7 +229,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const router = useRouter();
     const updateComment = useCommentUpdate();
     const [replying, setReplying] = useState(false);
-    const searchParams = useSearchParams();
+    const commitSearch = useCommitCommentsSearch();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
     const [editText, setEditText] = useState(comment.text);
@@ -293,12 +297,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     });
 
     const filterAuthor = (itemId?: string) => startTransition(async () => {
+        commitSearch();
         const result = await filterCommentAuthorAction(projectId, comment.id, itemId);
         if (!result?.ok) {
             toast.error(result?.error ?? 'Could not filter by this author.');
             return;
         }
-        const params = new URLSearchParams(searchParams.toString());
+        const params = new URLSearchParams(window.location.search);
         params.set('author', result.data);
         params.delete('people');
         router.push(`/app/projects/${projectId}?${params}#comments`);
@@ -364,10 +369,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {/* The toolbar's thread header: status, public id, unread dot (Mark as read) and who it is assigned to
                     (an avatar; the tooltip names them), then the actions (on a line of their own in a narrow board column) */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <SelectComment comment={comment} />
                         {permissions.resolve
                             ? <StateMenu resolved={comment.resolved} disabled={pending} onChange={toggleResolved} />
                             : <StateBadge resolved={comment.resolved} />}
+                        <PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} />
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 <span className="sr-only">Comment </span>#{comment.number}

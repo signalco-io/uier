@@ -45,7 +45,7 @@ const selectionPosition = {
     endType: 'text'
 };
 
-const commentKeys = ['activity', 'createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'resolved', 'thread'];
+const commentKeys = ['activity', 'createdAt', 'id', 'isMine', 'kind', 'number', 'path', 'position', 'priority', 'resolved', 'thread'];
 const leakedFields = ['authorId', 'ipHash', 'ttl', 'domain', 'pixelRatio', 'browser', 'os', 'userAgent', 'updatedAt'];
 
 type CommentDto = {
@@ -121,7 +121,7 @@ test('create, list, reply, resolve and delete a comment', async ({ newVisitor })
 
     const comment = await created(await createComment(author, path, { text: '  Nice page\u202e!  ' }));
     expect(Object.keys(comment).sort()).toEqual(commentKeys);
-    expect(comment).toMatchObject({ path, position: pointPosition, kind: 'comment', resolved: false, isMine: true });
+    expect(comment).toMatchObject({ path, position: pointPosition, kind: 'comment', priority: 'normal', resolved: false, isMine: true });
     expect(comment.id).toMatch(/^comment_/);
     expect(Date.parse(comment.createdAt ?? '')).not.toBeNaN();
     expect(comment.thread.items).toHaveLength(1);

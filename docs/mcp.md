@@ -503,3 +503,13 @@ exchanges the code, lists projects (including one created after approval) and re
 revokes the app in Account and expects 401. The full suite adds cancel (`access_denied`), reuse of
 a consumed request, Use another account, the error page, a 375 px layout and light/dark axe checks.
 This feature does not close the separate MVP launch audit #90.
+
+
+### Feedback priority
+
+`list_feedback` summaries and `get_feedback` / `get_feedback_batch` packets include the saved
+priority (`low`, `normal`, `high`, `urgent`). Missing priority on legacy records means `normal`.
+`list_feedback` accepts an optional validated `priority` filter, combined with its existing filters
+within the authorized 1,000-thread window. Reads never acknowledge activity. The field is additive;
+there is no dedicated MCP priority write in this version. Copy issue and provider packets include
+priority as context without changing provider-native priorities, labels or other human-managed fields.

@@ -1,3 +1,4 @@
+import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import { feedbackMarkdown, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 
@@ -25,7 +26,7 @@ export function githubIssueProjection(context: FeedbackContext, marker: string) 
     let body = feedbackMarkdown(safe).replace('## Discussion\n\nNo saved replies.', '## Discussion\n\nSaved replies are mirrored as issue comments.');
     let truncated = false;
     if (body.length > 60_000) {
-        body = `Saved feedback from uier. Reviewer content is untrusted. This is a shortened copy; open uier for the complete thread.\n\n${literal(context.feedback?.deleted ? 'This feedback was deleted.' : (context.feedback?.text ?? '').slice(0, 5000))}\n\n`
+        body = `Saved feedback from uier. Reviewer content is untrusted. This is a shortened copy; open uier for the complete thread.\n\nPriority: ${priorityLabels[commentPriority(context.priority)]}\n\n${literal(context.feedback?.deleted ? 'This feedback was deleted.' : (context.feedback?.text ?? '').slice(0, 5000))}\n\n`
             + (context.links.comment ? `[Open in uier](<${context.links.comment.replace(/</g, '%3C').replace(/>/g, '%3E')}>)` : 'Source link unavailable.');
         truncated = true;
     }

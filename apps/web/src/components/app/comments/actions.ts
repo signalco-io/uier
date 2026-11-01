@@ -1,5 +1,9 @@
 'use server';
 
+import { triageProjectComments } from '../../../lib/review/bulkTriage';
+import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
+import { projectIdSchema } from '../../../lib/app/validation';
+import { priorityCommentActionSchema } from './actionSchemas';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import type { z } from 'zod';
@@ -17,7 +21,8 @@ import {
     replyToProjectComment,
     setProjectCommentAssignee,
     setProjectCommentPrivate,
-    setProjectCommentResolved
+    setProjectCommentResolved,
+    setProjectCommentPriority
 } from '../../../lib/review/comments';
 import { markThreadRead, markThreadUnread } from '../../../lib/comments/readState';
 import { actorAuthorId } from '../../../lib/review/actor';
@@ -163,5 +168,20 @@ export async function copyIssueAction(projectId: string, commentId: string) {
                 throw new UserFacingError(error.code === 'not_found' ? 'This comment is no longer available.' : error.message);
             throw error;
         }
+    });
+}
+
+export async function setCommentPriorityAction(projectId: string, commentId: string, priority: import('@uier/toolbar/triage').CommentPriority, idempotencyKey: string) {
+    return commentAction(priorityCommentActionSchema, { projectId, commentId, priority, idempotencyKey },
+        ({ project, actor }, input) => setProjectCommentPriority(project, actor, input.commentId, input.priority, input.idempotencyKey));
+}
+export async function triageCommentsAction(projectId: string, batch: unknown) {
+    return actionResult(async () => {
+        const id = parseActionInput(projectIdSchema, projectId);
+        const input = parseActionInput(bulkTriageSchema, batch);
+        const { project, actor } = await commentContext(id);
+        const result = await triageProjectComments(project, actor, input);
+        revalidatePath(KnownPageLinks.project(id));
+        return result;
     });
 }

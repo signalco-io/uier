@@ -151,6 +151,7 @@ export type CommentItem = {
         browser?: string; os?: string; capturedAt?: string;
         windowSize?: [number, number]; pixelRatio?: number; url?: string; text: string;
     };
+    priority?: import('../../triage').CommentPriority;
     resolved: boolean;
     /**
      * Whether the current visitor wrote this comment (only the author can resolve or delete it).
@@ -162,7 +163,7 @@ export type CommentItem = {
      * Project comments: what the reviewer may do. Members can mark any comment done; the author
      * and the workspace admins can delete it. Without it, only the author can (`isMine`).
      */
-    permissions?: { resolve: boolean; delete: boolean; edit?: boolean; assign?: boolean };
+    permissions?: { resolve: boolean; delete: boolean; edit?: boolean; assign?: boolean; priority?: boolean };
     /** Project comments: only workspace admins and the author see it */
     private?: boolean;
     assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean };

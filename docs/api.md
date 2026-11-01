@@ -407,3 +407,39 @@ suggestions are not available, while the reviewer's own rewrite still works. Set
 `apps/web/.env.local` to try them locally. The e2e tests point the app at a stand-in for the API
 ([`e2e/support/anthropicStub.ts`](../apps/web/e2e/support/anthropicStub.ts), started by `playwright.config.ts` on
 `PORT + 1000`), which checks each request and answers with canned suggestions.
+
+## Feedback priority and app triage
+
+Comment DTOs add `priority`: `low`, `normal`, `high` or `urgent`. Missing stored values and older
+pinned-client responses mean `normal`; no eager migration runs. Authorized project review DTOs
+add `permissions.priority`. Guests can read priority, while edits require current project membership
+and thread visibility. uier's public feedback project additionally requires current staff authority.
+
+`PATCH /api/review/:projectId/comments/:id/priority` accepts
+`{ priority, idempotencyKey }`, with the existing origin, identity, BotID proof and private-thread
+checks. The extension broker also allowlists this PATCH through the same service and proof checks;
+its registration gate stays unchanged. The key uses the shared 16–128-character submission-key syntax. A real change advances
+activity once and records integration source intent; it does not create an email event. A no-op or
+receipt replay does neither. Responses use the normal authorized review DTO. Invalid priority is
+`invalid_request`; missing and hidden threads share `not_found`.
+
+The app's authenticated `triageCommentsAction` calls `triageProjectComments` with one operation:
+`{ kind: 'priority', priority, items }`, `{ kind: 'assignment', assigneeId, items }` (null unassigns),
+or `{ kind: 'status', resolved, items }`. Each item contains a valid comment `id`, distinct
+`idempotencyKey` and `expected` affected value (priority, assignee id/null or resolved boolean).
+Status items also require the rendered 64-character opaque content `revision`. No other status
+semantics or reviewer confirmation can be supplied by the client.
+
+The service rejects empty, duplicate, malformed or over-50 batches before writes. String and array
+limits bound the payload. It rechecks project/member visibility, action permissions and eligible
+assignees per item and on conditional-write retries. At most four mutations run concurrently; each
+uses the shared single-thread service and atomic comment/submission receipt transaction. It returns
+ordered `results` with `success`, `noop`, `conflict`, `unavailable` or `failure`, actual counts, and
+allowlisted saved triage fields on success/no-op. Missing/inaccessible ids share unavailable.
+
+Receipts retain changed/no-op outcomes for 30 days. Replay reauthorizes and returns current saved
+fields without applying an old desired state over later work. Unchanged retries must preserve the
+original keys, operation and expected values. Status revisions cover content and future workflow
+metadata, excluding delivery bookkeeping. Follow-up verification rules belong in the shared status
+service so individual and bulk writes remain compatible. This is partial success, not a transaction
+across all selected threads. The app revalidates once per batch; bulk read remains its own contract.

@@ -161,7 +161,7 @@ test('listing returns shared routing and combines every filter without exposing 
     const text = await seed(f, { origin: 'https://staging.example', path: '/about', position: { type: 'text', text: 'About', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 5, endType: 'text' }, resolved: true,
         authorId: 'guest-one', thread: { items: [{ id: 'text', authorId: 'guest-one', text: 'Guest selection feedback' }] } });
     await markThreadRead(text, ownerId, 1);
-    const assigned = await seed(f, { origin: 'https://staging.example', path: '/about', assigneeId: context.user.id,
+    const assigned = await seed(f, { priority: 'urgent', origin: 'https://staging.example', path: '/about', assigneeId: context.user.id,
         authorId: 'guest-two', thread: { items: [{ id: 'assigned', authorId: 'guest-two', text: 'Assigned guest feedback' }] } });
     const ownPrivate = await seed(f, { path: '/about', private: true, authorId: ownerId, thread: { items: [{ id: 'own', authorId: ownerId, text: 'My private feedback' }] } });
     const hidden = await seed(f, { private: true, assigneeId: context.user.id });
@@ -187,6 +187,12 @@ test('listing returns shared routing and combines every filter without exposing 
         expect(await ids({ environment: 'origin:https://staging.example' })).toEqual([text.id, assigned.id].sort());
         expect(await ids({ environment: 'unknown' })).toEqual([unknown.id]);
         expect(await ids({ environment: 'removed' })).toEqual([removed.id]);
+        expect(await ids({ priority: 'urgent' })).toEqual([assigned.id]);
+        expect((await ids({ priority: 'normal' }))).toContain(point.id);
+        expect(all.items.find((item: { id: string }) => item.id === assigned.id).priority).toBe('urgent');
+        expect(all.items.find((item: { id: string }) => item.id === point.id).priority).toBe('normal');
+        const prioritized = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: assigned.id } }));
+        expect(prioritized.context.priority).toBe('urgent');
         expect(await ids({ anchorType: 'point' })).toEqual([point.id]);
         expect(await ids({ anchorType: 'text' })).toEqual([text.id]);
         expect((await ids({ anchorType: 'page' }))).not.toContain(point.id);
@@ -213,7 +219,7 @@ test('listing returns shared routing and combines every filter without exposing 
             expect(invalid.isError).toBe(true);
             expect(data(invalid).error).toBe('invalid_request');
         }
-        for (const filters of [{ path: 'https://example.com' }, { path: '//example.com' }, { path: '/bad\\path' }, { path: '/bad\npath' }, { anchorType: 'element' }, { unread: 'true' }, { hasScreenshot: 1 }, { authorKind: 'admin' }, { assignee: 'invalid' }, { status: 'done' }, { limit: 26 }, { extra: true }])
+        for (const filters of [{ priority: 'critical' }, { path: 'https://example.com' }, { path: '//example.com' }, { path: '/bad\\path' }, { path: '/bad\npath' }, { anchorType: 'element' }, { unread: 'true' }, { hasScreenshot: 1 }, { authorKind: 'admin' }, { assignee: 'invalid' }, { status: 'done' }, { limit: 26 }, { extra: true }])
             expect((await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, ...filters } })).isError).toBe(true);
         expect([...await loadReadSequences(f.comment.domain, ownerId)]).toEqual(before);
     } finally { await client.close(); }
