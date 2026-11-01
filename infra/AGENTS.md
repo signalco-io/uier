@@ -177,7 +177,11 @@ variables (`sensitive: false`). The scheduled worker pulls production variables;
 values are omitted from that pull and would break delivery. Authorized Vercel members and the worker
 can retrieve these server-only values. Never log or upload the ephemeral pulled environment file. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
 The allowlist also carries the Google sign-in client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
-[Google sign-in](../docs/google-sign-in.md)), which needs no encryption key.
+[Google sign-in](../docs/google-sign-in.md)) and the separate Microsoft sign-in client
+(`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`;
+[Microsoft sign-in](../docs/microsoft-sign-in.md)), which need no encryption key. Microsoft login
+does not reuse or change the Boards registration. Adding it should preview only two new production
+Vercel variables, with no identity, permission or protected-resource changes.
 
 No secret is needed to generate the five encryption keys. Each starts at `k1`. An explicit key
 rotation requires the current key and id together; a retained previous key and id are also paired,

@@ -57,6 +57,12 @@ see [Google sign-in](google-sign-in.md#create-the-google-oauth-client)). Without
 (`http://127.0.0.1:11004`) at it, with `GOOGLE_CLIENT_ID=google-test-client` and
 `GOOGLE_CLIENT_SECRET=google-test-secret`. These overrides work only in local runtime.
 
+"Sign in with Microsoft" needs a separate Entra Web application client in `apps/web/.env.local`
+(`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, redirect URI
+`http://localhost:4004/app/sign-in/microsoft/callback`). See
+[Microsoft sign-in](microsoft-sign-in.md) for registration and the local stand-in. First sign-in
+confirms a chosen email once; a linked identity can then sign in directly.
+
 Passkeys work locally on http://localhost:4004: browsers allow WebAuthn on `localhost` over plain
 HTTP, and the relying party (RP ID `localhost`, origin `http://localhost:4004`) comes from the request's
 host there, as it does on previews. They do not work on `127.0.0.1`, because an IP address can't be

@@ -13,6 +13,7 @@ import type { DbSignInRequest, DbUser } from './model';
 import { boundSignInRequestId } from './signInCookie';
 import { clearEmailSuppression } from '../email/suppression';
 import { completeGoogleLink } from './google/link';
+import { completeMicrosoftLink } from './microsoft/link';
 
 export const SIGN_IN_LINK_TTL_SECONDS = 15 * 60;
 export const SIGN_IN_CODE_LENGTH = 8;
@@ -44,9 +45,9 @@ export function safeNextPath(next: unknown) {
 
 /**
  * Sends a link and code. The action exposes the credentials only locally and on previews.
- * `googleLinkId` attaches a Google account waiting for this proof (`googleLinkIdFor`).
+ * Provider link ids attach identities waiting for this browser-bound email proof.
  */
-export async function requestSignInLink(email: string, next: string | undefined, googleLinkId?: string) {
+export async function requestSignInLink(email: string, next: string | undefined, googleLinkId?: string, microsoftLinkId?: string) {
     // Confirmation also runs without an HTTP context; only requesting an email needs headers.
     const { appBaseUrl, requestIpBucket } = await import('./request');
     const counters = getCommentsStore();
@@ -68,12 +69,13 @@ export async function requestSignInLink(email: string, next: string | undefined,
         codeHash: keyedHash('sign-in-code', `${tokenHash}:${code}`),
         next: safeNextPath(next),
         googleLinkId,
+        microsoftLinkId,
         createdAt,
         ttl: SIGN_IN_LINK_TTL_SECONDS
     });
 
     const url = `${await appBaseUrl()}${KnownPages.AppSignInConfirm}?token=${encodeURIComponent(token)}`;
-    await sendEmail(signInEmail({ to: email, url, code, linksGoogle: Boolean(googleLinkId) }));
+    await sendEmail(signInEmail({ to: email, url, code, linksGoogle: Boolean(googleLinkId), linksMicrosoft: Boolean(microsoftLinkId) }));
     return { url, code, requestId: tokenHash, expiresAt: Date.parse(createdAt) + SIGN_IN_LINK_TTL_SECONDS * 1000 };
 }
 
@@ -94,7 +96,7 @@ async function getSignInRequestById(requestId: string) {
 
 /**
  * Uses up the link: returns the (new or existing) user and where to continue, or `null`. The link
- * works in any browser, but links a waiting Google account only in the one bound to the request.
+ * works in any browser, but links a waiting provider account only in the one bound to the request.
  */
 export async function confirmSignIn(token: unknown, binding?: string): Promise<{ user: DbUser; next?: string } | null> {
     const request = await getSignInRequest(token);
@@ -112,6 +114,9 @@ async function consumeSignInRequest(request: DbSignInRequest | null, bound: bool
     // Signed in either way: the inbox is proven. Account says why Google was not linked.
     if (google === 'taken' || google === 'other_account')
         return { user, next: `${KnownPages.AppAccount}?google=${google}` };
+    const microsoft = request.microsoftLinkId && bound ? await completeMicrosoftLink(request.microsoftLinkId, user.id) : null;
+    if (microsoft === 'taken' || microsoft === 'other_account')
+        return { user, next: `${KnownPages.AppAccount}?microsoft=${microsoft}` };
     return { user, next: safeNextPath(request.next) };
 }
 

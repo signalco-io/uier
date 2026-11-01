@@ -185,13 +185,14 @@ export function invitationEmail({ to, url, inviterName, inviterEmail, projectNam
     });
 }
 
-export function signInEmail({ to, url, code, linksGoogle = false }: { to: string; url: string; code: string; linksGoogle?: boolean }) {
+export function signInEmail({ to, url, code, linksGoogle = false, linksMicrosoft = false }: { to: string; url: string; code: string; linksGoogle?: boolean; linksMicrosoft?: boolean }) {
     return layoutEmail({
         to,
         subject: `Sign in to ${brand.name}`,
         code: { label: 'Your sign-in code', value: code },
         paragraphs: [
             `Type it only in the browser where you asked to sign in to ${brand.name} as ${to}. Never share this code.`,
+            ...(linksMicrosoft ? [`Using it also links a Microsoft account to your ${brand.name} account.`] : []),
             ...(linksGoogle ? [`Using it also links a Google account to your ${brand.name} account.`] : []),
             'The code and link work once and expire together in 15 minutes. You can also use the link below.'
         ],

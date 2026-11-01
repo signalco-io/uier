@@ -17,6 +17,7 @@ const githubStubUrl = `http://127.0.0.1:${PORT + 3000}`;
 const linearStubUrl = `http://127.0.0.1:${PORT + 4000}`;
 const slackStubUrl = `http://127.0.0.1:${PORT + 5000}`;
 const azureDevOpsStubUrl = `http://127.0.0.1:${PORT + 6000}`;
+const microsoftStubUrl = `http://127.0.0.1:${PORT + 8000}`;
 const googleStubUrl = `http://127.0.0.1:${PORT + 7000}`;
 const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 // Generated only for this local test process; never a registered GitHub App private key.
@@ -46,6 +47,8 @@ export default defineConfig({
             env: { PORT: String(PORT + 5000) } },
         { command: 'node e2e/support/azureDevOpsStub.ts', url: azureDevOpsStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 6000) } },
+        { command: 'node e2e/support/microsoftStub.ts', url: microsoftStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 8000) } },
         { command: 'node e2e/support/googleStub.ts', url: googleStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 7000) } },
         {
@@ -106,6 +109,9 @@ export default defineConfig({
                 GOOGLE_CLIENT_ID: 'google-test-client', GOOGLE_CLIENT_SECRET: 'google-test-secret',
                 GOOGLE_OAUTH_AUTHORIZE_URL: `${googleStubUrl}/o/oauth2/v2/auth`, GOOGLE_OAUTH_TOKEN_URL: `${googleStubUrl}/token`,
                 GOOGLE_OAUTH_ISSUER: googleStubUrl,
+                MICROSOFT_CLIENT_ID: 'microsoft-test-client', MICROSOFT_CLIENT_SECRET: 'microsoft-test-secret',
+                MICROSOFT_OAUTH_AUTHORIZE_URL: `${microsoftStubUrl}/common/oauth2/v2.0/authorize`, MICROSOFT_OAUTH_TOKEN_URL: `${microsoftStubUrl}/token`,
+                MICROSOFT_OAUTH_AUTHORITY: microsoftStubUrl,
             },
         },
     ],
