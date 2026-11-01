@@ -415,6 +415,11 @@ export default function PrivacyPolicyPage() {
                 give one) are sent to Anthropic, whose Claude model writes the suggestions. We do not store the
                 request; only a suggestion you post is saved, like any comment.
             </p>
+            <p>
+                We record the model, token counts, time taken, outcome and estimated cost in our hosting logs.
+                These records contain no selected text, instructions, generated suggestions or customer identifiers.
+                They follow the hosting log retention settings.
+            </p>
 
             <h3>Rate limits and bot protection</h3>
             <p>

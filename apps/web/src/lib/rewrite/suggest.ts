@@ -4,12 +4,14 @@ import { z } from 'zod';
 import { apiErrors } from '../comments/http';
 import { MAX_TEXT_LENGTH, REWRITE_MAX_OUTPUT_TOKENS } from '../comments/limits';
 import { textSchema } from '../comments/validation';
+import { recordRewrite, type RewriteEvent, type RewriteOutcome } from './telemetry';
 
 /** Suggestions per request */
 export const REWRITE_SUGGESTIONS = 3;
 
-/** The model and how it is asked (README, "Rewrite suggestions") */
-const model = 'claude-opus-5-5';
+/** Production default; see docs/rewrite-costs.md for the evaluation and revert policy. */
+export const REWRITE_MODEL = 'claude-opus-5-5';
+export const REWRITE_CANDIDATES = [REWRITE_MODEL, 'claude-sonnet-5-5'] as const;
 
 /** One attempt; the SDK retries once (429, 5xx, a timeout or a dropped connection) */
 const ATTEMPT_TIMEOUT_MS = 30_000;
@@ -36,14 +38,6 @@ export function isRewriteConfigured() {
     return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
-function describeError(error: unknown) {
-    if (error instanceof Anthropic.APIUserAbortError)
-        return `no answer within ${DEADLINE_MS / 1000} s`;
-    if (error instanceof Anthropic.APIError)
-        return `${error.status} ${error.message}`;
-    return error;
-}
-
 /**
  * Rewrite suggestions for selected page text, optionally following the reviewer's instruction.
  * Only suggestions that fit a rewrite comment whole are kept (one that is too long is dropped,
@@ -51,61 +45,88 @@ function describeError(error: unknown) {
  * request is `503 unavailable`.
  */
 export async function suggestRewrites(text: string, instruction: string | undefined): Promise<string[]> {
-    if (!isRewriteConfigured())
-        throw apiErrors.unavailable('Rewrite suggestions are not available here.');
+    return createRewriteService()(text, instruction);
+}
 
-    // Reads ANTHROPIC_API_KEY (and ANTHROPIC_BASE_URL, which the e2e tests point at a stub)
-    const client = new Anthropic({ timeout: ATTEMPT_TIMEOUT_MS, maxRetries: 1 });
-    let response;
-    try {
-        response = await client.beta.messages.create({
-            model,
-            max_tokens: REWRITE_MAX_OUTPUT_TOKENS,
-            // A short, well-specified task
-            output_config: { effort: 'low', format: suggestionsFormat },
-            // A request a safety classifier declines is retried on the recommended fallback model
-            betas: ['server-side-fallback-2026-07-01'],
-            fallbacks: 'default',
-            system,
-            messages: [{
-                role: 'user',
-                content: [
-                    `<selected_text>\n${text}\n</selected_text>`,
-                    instruction ? `<reviewer_instruction>\n${instruction}\n</reviewer_instruction>` : ''
-                ].filter(Boolean).join('\n\n')
-            }]
-        }, { signal: AbortSignal.timeout(DEADLINE_MS) });
-    } catch (error) {
-        console.error('[rewrite] The suggestions request failed', describeError(error));
-        throw apiErrors.unavailable('Rewrite suggestions are not available right now. Please try again later.');
-    }
+/** Dependency injection for stub tests and the bounded synthetic evaluation; routes use defaults. */
+export function createRewriteService(options: {
+    model?: typeof REWRITE_CANDIDATES[number];
+    fetch?: typeof globalThis.fetch;
+    emit?: (event: RewriteEvent) => void;
+} = {}) {
+    return async (text: string, instruction: string | undefined): Promise<string[]> => {
+        if (!isRewriteConfigured())
+            throw apiErrors.unavailable('Rewrite suggestions are not available here.');
 
-    // Declined (by the fallback model too), or cut off before the answer was complete: no
-    // suggestions for this text, not an outage. The stop reason is checked before the text is read.
-    if (response.stop_reason === 'refusal' || response.stop_reason === 'max_tokens') {
-        console.warn(`[rewrite] No suggestions (${response.stop_reason})`);
-        return [];
-    }
-    // After a fallback the answer is the last text block
-    const answer = response.content
-        .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text')
-        .at(-1);
-    if (!answer?.text.trim())
-        return [];
+        // Reads ANTHROPIC_API_KEY (and ANTHROPIC_BASE_URL, which the e2e tests point at a stub)
+        let sdkAttempts = 0;
+        const started = performance.now();
+        const model = options.model ?? REWRITE_MODEL;
+        const client = new Anthropic({ timeout: ATTEMPT_TIMEOUT_MS, maxRetries: 1, logLevel: 'off',
+            fetch: (...args) => { sdkAttempts++; return (options.fetch ?? globalThis.fetch)(...args); } });
+        let response: Anthropic.Beta.BetaMessage | undefined;
+        let outcome: RewriteOutcome = 'provider_error';
+        let suggestionCount = 0;
+        try {
+            try {
+                response = await client.beta.messages.create({
+                    model,
+                    max_tokens: REWRITE_MAX_OUTPUT_TOKENS,
+                    // A short, well-specified task
+                    output_config: { effort: 'low', format: suggestionsFormat },
+                    // A request a safety classifier declines is retried on the recommended fallback model
+                    betas: ['server-side-fallback-2026-07-01'],
+                    fallbacks: 'default',
+                    system,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            `<selected_text>\n${text}\n</selected_text>`,
+                            instruction ? `<reviewer_instruction>\n${instruction}\n</reviewer_instruction>` : ''
+                        ].filter(Boolean).join('\n\n')
+                    }]
+                }, { signal: AbortSignal.timeout(DEADLINE_MS) });
+            } catch (error) {
+                outcome = error instanceof Anthropic.APIUserAbortError || error instanceof Anthropic.APIConnectionTimeoutError ? 'timeout' : 'provider_error';
+                throw apiErrors.unavailable('Rewrite suggestions are not available right now. Please try again later.');
+            }
 
-    let suggestions: string[];
-    try {
-        suggestions = suggestionsFormat.parse(answer.text).suggestions;
-    } catch (error) {
-        console.error('[rewrite] The suggestions answer could not be read', error);
-        throw apiErrors.unavailable('Rewrite suggestions are not available right now. Please try again later.');
-    }
+            // Declined (by the fallback model too), or cut off before the answer was complete: no
+            // suggestions for this text, not an outage. The stop reason is checked before the text is read.
+            if (response.stop_reason === 'refusal' || response.stop_reason === 'max_tokens') {
+                outcome = response.stop_reason === 'refusal' ? 'refusal' : 'truncation';
+                return [];
+            }
+            // After a fallback the answer is the last text block
+            const answer = response.content
+                .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === 'text')
+                .at(-1);
+            if (!answer?.text.trim()) {
+                outcome = 'empty_output';
+                return [];
+            }
 
-    // What a comment's text accepts (trimmed, at most MAX_TEXT_LENGTH, visible characters), unlike the original
-    const original = text.trim();
-    const kept = suggestions
-        .map(suggestion => textSchema.safeParse(suggestion))
-        .flatMap(result => result.success ? [result.data] : [])
-        .filter(suggestion => suggestion !== original);
-    return [...new Set(kept)].slice(0, REWRITE_SUGGESTIONS);
+            let suggestions: string[];
+            try {
+                suggestions = suggestionsFormat.parse(answer.text).suggestions;
+            } catch {
+                outcome = 'invalid_output';
+                throw apiErrors.unavailable('Rewrite suggestions are not available right now. Please try again later.');
+            }
+
+            // What a comment's text accepts (trimmed, at most MAX_TEXT_LENGTH, visible characters), unlike the original
+            const original = text.trim();
+            const kept = suggestions
+                .map(suggestion => textSchema.safeParse(suggestion))
+                .flatMap(result => result.success ? [result.data] : [])
+                .filter(suggestion => suggestion !== original);
+            const retained = [...new Set(kept)].slice(0, REWRITE_SUGGESTIONS);
+            suggestionCount = retained.length;
+            outcome = suggestionCount ? 'success' : 'filtered_out';
+            return retained;
+        } finally {
+            recordRewrite({ requestedModel: model, response, outcome, suggestionCount,
+                durationMs: performance.now() - started, sdkAttempts }, options.emit);
+        }
+    };
 }
