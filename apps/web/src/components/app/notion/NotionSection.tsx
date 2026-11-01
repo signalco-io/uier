@@ -97,7 +97,7 @@ function NotionDestination({ projectId, settings }: { projectId: string; setting
             <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="dataSourceId" value={sourceId} />
             <FieldGroup>
                 <Field><FieldLabel htmlFor={`${id}-source`}>Database</FieldLabel>
-                    <Select value={sourceId} onValueChange={setSourceId} disabled={loadingFields}>
+                    <Select items={allChoices.map(item => ({ value: item.id, label: item.name }))} value={sourceId} onValueChange={value => value !== null && setSourceId(value)} disabled={loadingFields}>
                         <SelectTrigger id={`${id}-source`}><SelectValue placeholder="Choose a database" /></SelectTrigger>
                         <SelectContent><SelectGroup>{allChoices.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
@@ -159,7 +159,7 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
                             {(['open', 'done'] as const).map(value => <Field key={value} data-invalid={mapping.status!.open === mapping.status!.done}>
                                 <FieldLabel htmlFor={`${id}-${value}`}>{value === 'open' ? 'Status for open feedback' : 'Status for done feedback'}</FieldLabel>
                                 {statusField && statusField.type === 'status' ? <Select value={mapping.status![value]} disabled={pending}
-                                    onValueChange={name => setMapping(current => ({ ...current, status: { ...current.status!, [value]: name } }))}>
+                                    onValueChange={name => name !== null && setMapping(current => ({ ...current, status: { ...current.status!, [value]: name } }))}>
                                     <SelectTrigger id={`${id}-${value}`} aria-invalid={mapping.status!.open === mapping.status!.done}><SelectValue placeholder="Choose a status" /></SelectTrigger>
                                     <SelectContent><SelectGroup>{statusField.options?.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectGroup></SelectContent>
                                 </Select> : <Input id={`${id}-${value}`} value={mapping.status![value]} maxLength={100} disabled={pending}
@@ -186,13 +186,12 @@ function PropertyChoice({ id, label, schema, types, value, onChange, required = 
     id: string; label: string; schema: NotionSchema; types: string[]; value: string; onChange: (value: string) => void; required?: boolean; disabled: boolean; invalid?: boolean;
 }) {
     const choices = Object.entries(schema).filter(([, field]) => types.includes(field.type));
+    const items = [{ value: 'none', label: required ? 'Choose a field' : 'Not mapped' }, ...choices.map(([key, field]) => ({ value: key, label: field.name }))];
     return <Field data-disabled={disabled} data-invalid={invalid}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <Select value={value || 'none'} onValueChange={onChange} disabled={disabled || !choices.length}>
+        <Select items={items} value={value || 'none'} onValueChange={next => next !== null && onChange(next)} disabled={disabled || !choices.length}>
             <SelectTrigger id={id} aria-invalid={invalid}><SelectValue placeholder="Choose a field" /></SelectTrigger>
-            <SelectContent><SelectGroup><SelectItem value="none">{required ? 'Choose a field' : 'Not mapped'}</SelectItem>
-                {choices.map(([key, field]) => <SelectItem key={key} value={key}>{field.name}</SelectItem>)}
-            </SelectGroup></SelectContent>
+            <SelectContent><SelectGroup>{items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
         {!choices.length && <FieldDescription>No {types.join(' or ')} fields are available.</FieldDescription>}
     </Field>;

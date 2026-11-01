@@ -91,6 +91,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
     const [publicConfirmed, setPublicConfirmed] = useState(false);
     const [switchConfirmed, setSwitchConfirmed] = useState(false);
     const repositories = loaded?.ok ? loaded.data.repositories : [];
+    const repositoryItems = repositories.map(choice => ({ value: choice.id, label: `${choice.fullName} (${choice.private ? 'private' : 'public'})` }));
     const repository = repositories.find(choice => choice.id === repositoryId);
     return <FieldGroup>
         <Field>
@@ -114,9 +115,9 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
             <FieldGroup>
                 <Field data-disabled={saving}>
                     <FieldLabel htmlFor={`${id}-repository`}>Repository</FieldLabel>
-                    <Select value={repositoryId} onValueChange={value => { setRepositoryId(value); setPublicConfirmed(false); }} disabled={saving}>
+                    <Select items={repositoryItems} value={repositoryId} onValueChange={value => { if (value === null) return; setRepositoryId(value); setPublicConfirmed(false); }} disabled={saving}>
                         <SelectTrigger id={`${id}-repository`}><SelectValue placeholder="Choose a repository" /></SelectTrigger>
-                        <SelectContent><SelectGroup>{repositories.map(choice => <SelectItem key={choice.id} value={choice.id}>{choice.fullName} ({choice.private ? 'private' : 'public'})</SelectItem>)}</SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{repositoryItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                 </Field>
                 {repository && !repository.private && <>

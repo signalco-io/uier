@@ -237,7 +237,7 @@ function ConsentForm({ requestId, request: { email, client, requestedScopes, wor
                         </Field>}
                         {replace?.mode === 'required' && <Field>
                             <FieldLabel htmlFor="replace">Connection to replace</FieldLabel>
-                            <Select value={replaceId} onValueChange={setReplaceId}>
+                            <Select items={replace.apps.map(app => ({ value: app.id, label: app.name }))} value={replaceId} onValueChange={value => value !== null && setReplaceId(value)}>
                                 <SelectTrigger id="replace" aria-describedby="replace-description"><SelectValue placeholder="Choose a connection" /></SelectTrigger>
                                 <SelectContent><SelectGroup>
                                     {replace.apps.map(app => <SelectItem key={app.id} value={app.id}>{app.name}</SelectItem>)}

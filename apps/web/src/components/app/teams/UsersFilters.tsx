@@ -32,10 +32,11 @@ export function UsersFilters({ teams }: { teams: { id: string; name: string }[] 
     return filters.map((filter) => (
         <Select
             key={filter.key}
+            items={filter.options.map(option => ({ value: option.id, label: option.name }))}
             value={params.get(filter.key) ?? 'all'}
             onValueChange={(value) => {
                 const query = new URLSearchParams(params);
-                if (value === 'all') query.delete(filter.key);
+                if (!value || value === 'all') query.delete(filter.key);
                 else query.set(filter.key, value);
                 router.push(`${pathname}?${query}`);
             }}

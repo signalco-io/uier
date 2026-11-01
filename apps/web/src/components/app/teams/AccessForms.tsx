@@ -104,7 +104,7 @@ export function Choice({
     return (
         <Field>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Select value={value} onValueChange={onChange}>
+            <Select items={options} value={value} onValueChange={next => next !== null && onChange(next)}>
                 <SelectTrigger id={id}>
                     <SelectValue />
                 </SelectTrigger>

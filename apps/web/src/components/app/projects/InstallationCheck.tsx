@@ -71,7 +71,7 @@ export function InstallationCheck({ projectId, publicId, urls }: { projectId: st
             <p className="m-0 text-sm text-muted-foreground">Open the actual site to check its toolbar and connection. Owners install the script once. Reviewers need no extension.</p>
             <Field>
                 <FieldLabel htmlFor={`installation-${projectId}`}>Site to check</FieldLabel>
-                <Select value={address} onValueChange={next => { cleanup.current(); setAddress(next); setResult(undefined); }} disabled={checking}>
+                <Select value={address} onValueChange={next => { if (next === null) return; cleanup.current(); setAddress(next); setResult(undefined); }} disabled={checking}>
                     <SelectTrigger id={`installation-${projectId}`} className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectGroup>{urls.map(url => <SelectItem key={url} value={url}>{url}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>

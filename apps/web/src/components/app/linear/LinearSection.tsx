@@ -99,7 +99,7 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
             <FieldGroup>
                 <Field>
                     <FieldLabel htmlFor={`${formId}-team`}>Team</FieldLabel>
-                    <Select value={teamId} onValueChange={setTeamId} disabled={loadingDetails}>
+                    <Select items={teamOptions.map(item => ({ value: item.id, label: item.name }))} value={teamId} onValueChange={value => value !== null && setTeamId(value)} disabled={loadingDetails}>
                         <SelectTrigger id={`${formId}-team`}><SelectValue placeholder="Choose a team" /></SelectTrigger>
                         <SelectContent><SelectGroup>{teamOptions.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
@@ -127,6 +127,7 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
     const [openState, setOpenState] = useState(() => initialChoice(openStates, settings.openStateId));
     const [doneState, setDoneState] = useState(() => initialChoice(doneStates, settings.doneStateId));
     const [linearProject, setLinearProject] = useState(() => initialChoice(options.projects.items, settings.linearProjectId) || 'none');
+    const projectItems = [{ value: 'none', label: 'No Linear project' }, ...options.projects.items.map(item => ({ value: item.id, label: item.name }))];
     return <form action={save} onReset={event => event.preventDefault()}>
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="teamId" value={options.teamId} />
@@ -136,11 +137,9 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
         <FieldGroup>
             <Field>
                 <FieldLabel htmlFor={`${id}-project`}>Linear project (optional)</FieldLabel>
-                <Select value={linearProject} onValueChange={setLinearProject} disabled={pending}>
+                <Select items={projectItems} value={linearProject} onValueChange={value => value !== null && setLinearProject(value)} disabled={pending}>
                     <SelectTrigger id={`${id}-project`}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup><SelectItem value="none">No Linear project</SelectItem>
-                        {options.projects.items.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
-                    </SelectGroup></SelectContent>
+                    <SelectContent><SelectGroup>{projectItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
             </Field>
             <StateChoice id={`${id}-open`} label="State for open feedback" choices={openStates} value={openState} onChange={setOpenState} disabled={pending} />
@@ -178,7 +177,7 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
 function StateChoice({ id, label, choices, value, onChange, disabled }: { id: string; label: string; choices: Option[]; value: string; onChange: (value: string) => void; disabled: boolean }) {
     return <Field data-disabled={disabled}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <Select value={value} onValueChange={onChange} disabled={disabled || choices.length === 0}>
+        <Select items={choices.map(item => ({ value: item.id, label: item.name }))} value={value} onValueChange={next => next !== null && onChange(next)} disabled={disabled || choices.length === 0}>
             <SelectTrigger id={id}><SelectValue placeholder="Choose a workflow state" /></SelectTrigger>
             <SelectContent><SelectGroup>{choices.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>

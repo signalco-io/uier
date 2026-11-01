@@ -59,6 +59,7 @@ function SlackDestination({ projectId, settings }: { projectId: string; settings
     const [channels, load, loading] = useActionState(loadSlackChannelsAction, null);
     const [state, save, saving] = useActionState(saveSlackDestinationAction, null);
     const [channelId, setChannelId] = useState('');
+    const channelItems = channels?.ok ? channels.data.items.map(channel => ({ value: channel.id, label: `#${channel.name}${channel.private ? ' (private)' : ''}` })) : [];
     return <FieldGroup>
         <Field>
             <FieldLabel>Slack channels</FieldLabel>
@@ -77,11 +78,9 @@ function SlackDestination({ projectId, settings }: { projectId: string; settings
             <FieldGroup>
                 <Field data-disabled={saving}>
                     <FieldLabel htmlFor={`${id}-channel`}>Channel</FieldLabel>
-                    <Select value={channelId} onValueChange={setChannelId} disabled={saving}>
+                    <Select items={channelItems} value={channelId} onValueChange={value => value !== null && setChannelId(value)} disabled={saving}>
                         <SelectTrigger id={`${id}-channel`}><SelectValue placeholder="Choose a channel" /></SelectTrigger>
-                        <SelectContent><SelectGroup>{channels.data.items.map(channel => <SelectItem key={channel.id} value={channel.id}>
-                            #{channel.name}{channel.private ? ' (private)' : ''}
-                        </SelectItem>)}</SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{channelItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                     {channels.data.truncated && <FieldDescription>The channel list is capped. Choices outside this list cannot be selected here.</FieldDescription>}
                 </Field>

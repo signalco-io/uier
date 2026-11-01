@@ -79,7 +79,7 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
             {/* Then the scope, broadest first: where (site and page), then who */}
             <LocationFilter environment={environment} environments={environments} page={page} pages={pages}
                 onEnvironment={value => go('environment', value)} onPage={value => go('page', value)} />
-            <Select value={people} onValueChange={(value) => go('people', value === 'all' ? undefined : value)}>
+            <Select items={peopleFilterLabels} value={people} onValueChange={(value) => go('people', value === 'all' ? undefined : value ?? undefined)}>
                 <SelectTrigger size="sm" aria-label="People" className="min-w-36">
                     <UserIcon className="text-muted-foreground" />
                     <SelectValue />
