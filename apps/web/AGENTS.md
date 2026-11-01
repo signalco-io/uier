@@ -212,7 +212,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   variables or a `@theme inline` block into `app/global.css`, which must not land. Colours stay HSL
   triplets in `@uier/brand/tokens.css` (the theme preset wraps them in `hsl()`), so a component that uses
   a raw `var(--x)` as a colour needs `hsl(var(--x))`. Resting surfaces get a border, not a shadow
-  (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). Toasts are `sonner`
+  (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). A person (Users, assignees,
+  invites) is `User` / `UserPlus`, a team is `Users`, and your own account is `CircleUser`, in the app and
+  the toolbar (`@signalco/ui-icons` `User`, `UserCircle`). Toasts are `sonner`
   (`toast()`), mounted with the tooltip provider in the app layout.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
