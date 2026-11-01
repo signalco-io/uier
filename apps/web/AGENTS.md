@@ -224,8 +224,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `SelectValue` shows the label, toggle-group values are arrays, and focus targets are `initialFocus` /
   `finalFocus` refs. Open triggers carry `data-popup-open`, pressed toggles `data-pressed`, open collapsible
   triggers `data-panel-open`; `src/styles/shadcn.css` maps `data-open`, `data-checked` and the rest to
-  Base UI's attributes only. `badge`, `item` and `breadcrumb` (Base UI's `useRender`, which needs
-  `useRef`) start with `"use client"` so server pages can render them; keep it when re-adding them.
+  Base UI's attributes only. Local changes to keep when re-adding a component: `badge`, `item` and
+  `breadcrumb` (Base UI's `useRender`, which needs `useRef`) start with `"use client"` so server pages can
+  render them; `buttonVariants` returns `cn()`-merged classes; dialog and alert-dialog backdrops have
+  `forceRender` (a dialog opened from the mobile sidebar sheet is nested). In tests, single-choice toggle
+  groups are `button`s with `aria-pressed` in a `group` (not radios), Base UI checkboxes are found by role
+  (`getByLabel` also matches their hidden input), and a tab panel is found by its tab's name (the outgoing
+  panel stays mounted while it exits).
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings, which has no sidebar entry of its own), active projects with
