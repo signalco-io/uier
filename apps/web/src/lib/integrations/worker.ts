@@ -74,14 +74,14 @@ export async function runIntegrationWorker(baseUrl: string, options: Integration
                 deferred++;
             }
         }
-        let stopped: IntegrationSync[] = [];
+        let blocked = 0;
         try {
-            for (const status of ['failed', 'ambiguous'] as const) stopped.push(...await store.query<IntegrationSync>({
-                type: `${adapter.provider}-sync`, where: { active: false, status }, limit: 1000 }));
+            for (const status of ['failed', 'ambiguous'] as const) blocked += await store.count<IntegrationSync>({
+                type: `${adapter.provider}-sync`, where: { active: false, status } });
         }
         catch { deferred++; }
         results.push({ provider: adapter.provider, checked, calls, deferred,
-            blocked: stopped.filter(ledger => ledger.status === 'failed' || ledger.status === 'ambiguous').length });
+            blocked });
     }
     return { discovered, providers: results, checked: results.reduce((n, result) => n + result.checked, 0),
         blocked: results.reduce((n, result) => n + result.blocked, 0) };

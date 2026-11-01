@@ -49,7 +49,7 @@ function fixture(defaultTtl = -1) {
         items: {
             async upsert(doc: Record<string, unknown>) { save(doc); },
             async create(doc: Record<string, unknown>) { if (documents.has(key(String(doc.domain), String(doc.id)))) return fail(409); save(doc); },
-            query() { return { async fetchAll() { return { resources: [...documents.values()].filter(doc => typeof doc.value.data === 'string')
+            query() { let pending = true; return { hasMoreResults: () => pending, async fetchNext() { pending = false; return { resources: [...documents.values()].filter(doc => typeof doc.value.data === 'string')
                 .map(doc => ({ ...doc.value, _etag: doc.etag, _ts: Math.floor(Date.now() / 1000) - 3600 })) }; } }; },
             async batch(operations: { operationType: string; id?: string; resourceBody: Record<string, unknown>; ifMatch?: string }[], domain: string) {
                 const conflict = operations.some(op => op.ifMatch && documents.get(key(domain, op.id!))?.etag !== op.ifMatch);

@@ -2,6 +2,7 @@ import type { Container, DeleteOperation, JSONObject, OperationInput, SqlParamet
 import { cosmosDataContainerApp, isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import type { AppDoc } from './model';
+import { appPointOperation, cosmosPoint, cosmosQueryAll } from '../db/diagnostics';
 
 export type StoredDoc<T> = {
     doc: T;
@@ -45,6 +46,8 @@ export type DocQuery<TType extends string> = {
     missingTtl?: boolean;
 };
 
+export type DocCount<TType extends string> = Pick<DocQuery<TType>, 'type' | 'pk' | 'where' | 'dueBefore' | 'missingTtl'>;
+
 /**
  * Persistence of the app's own documents (`app` container, partition key `/pk`). Every document
  * has a `type`; related documents share a partition (e.g. a workspace with its members and
@@ -68,6 +71,8 @@ export type AppStore = {
     /** Returns `false` when the document does not exist */
     delete(pk: string, id: string): Promise<boolean>;
     query<T extends AppDoc>(query: DocQuery<T['type']>): Promise<T[]>;
+    /** Exact count over the complete match set, without loading documents or a TOP cap. */
+    count<T extends AppDoc>(query: DocCount<T['type']>): Promise<number>;
 };
 
 function errorCode(error: unknown): number | string | undefined {
@@ -101,11 +106,59 @@ function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefor
         || input.afterId.length < 1 || input.afterId.length > 256 || /[\p{Cc}]/u.test(input.afterId))) throw new Error('Invalid document query cursor');
 }
 
+function appQueryOperation(kind: 'query' | 'count', input: DocQuery<string>) {
+    return `app.${kind}.${input.type}.${[...Object.keys(input.where ?? {}).sort(),
+        ...(input.dueBefore ? ['due'] : []), ...(input.missingTtl ? ['missingTtl'] : []),
+        ...(input.afterId ? ['afterId'] : []), ...(input.nameContains !== undefined ? ['nameContains'] : []),
+        ...(input.targetId !== undefined ? ['targetId'] : [])].join('-') || 'all'}`;
+}
+
+function appQuerySpec({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<string>, count = false) {
+    validateQueryBounds({ limit, orderBy, dueBefore, afterId });
+    const conditions = ['c.type = @type'];
+    if (missingTtl) conditions.push('NOT IS_DEFINED(c.ttl)');
+    const parameters: SqlParameter[] = [{ name: '@type', value: type }];
+    if (pk) {
+        conditions.push('c.pk = @pk');
+        parameters.push({ name: '@pk', value: pk });
+    }
+    Object.entries(where).forEach(([field, value], index) => {
+        if (!fieldPattern.test(field))
+            throw new Error(`Unsupported query field "${field}"`);
+        conditions.push(`c.${field} = @p${index}`);
+        parameters.push({ name: `@p${index}`, value });
+    });
+    if (dueBefore !== undefined) {
+        conditions.push('c.nextAttemptAt <= @dueBefore');
+        parameters.push({ name: '@dueBefore', value: dueBefore });
+    }
+    if (afterId !== undefined) {
+        conditions.push('c.id > @afterId');
+        parameters.push({ name: '@afterId', value: afterId });
+    }
+    if (targetId !== undefined) {
+        conditions.push('ARRAY_CONTAINS(c.targetIds, @targetId)');
+        parameters.push({ name: '@targetId', value: targetId });
+    }
+    if (nameContains !== undefined) {
+        conditions.push('CONTAINS(c.nameKey, @nameContains)');
+        parameters.push({ name: '@nameContains', value: nameContains.slice(0, 80).toLowerCase() });
+    }
+    if (limit !== undefined) parameters.push({ name: '@limit', value: limit });
+    return {
+        query: `SELECT ${count ? 'VALUE COUNT(1)' : `${limit === undefined ? '' : 'TOP @limit '}*`} FROM c WHERE ${conditions.join(' AND ')}${!count && orderBy ? ` ORDER BY c.${orderBy} ASC` : ''}`,
+        parameters
+    };
+}
+
 export function createCosmosAppStore(container: () => Container = cosmosDataContainerApp): AppStore {
+    const point = <T>(operation: string, pk: string, call: () => Promise<T>) =>
+        cosmosPoint(call, { operation: `app.${operation}.${appPointOperation(pk)}`, container: container().id, partition: 'single' });
     return {
         async get<T extends AppDoc>(pk: string, id: string) {
             try {
-                const response = await container().item(id, pk).read<Record<string, unknown>>();
+                const response = await cosmosPoint(() => container().item(id, pk).read<Record<string, unknown>>(),
+                    { operation: `app.get.${appPointOperation(pk)}`, container: container().id, partition: 'single' });
                 if (!response.resource || !response.etag)
                     return null;
                 return { doc: withoutSystemProperties<T>(response.resource), etag: response.etag };
@@ -117,7 +170,7 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
         },
         async create(doc) {
             try {
-                await container().items.create(doc);
+                await point('create', doc.pk, () => container().items.create(doc));
                 return true;
             } catch (error) {
                 if (errorCode(error) === 409)
@@ -129,7 +182,7 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
             const pk = singlePartition(docs);
             const operations: OperationInput[] = docs.map(doc => ({ operationType: 'Create', resourceBody: doc }));
             try {
-                const response = await container().items.batch(operations, pk);
+                const response = await point('batch', pk, () => container().items.batch(operations, pk));
                 // A failed transaction reports the failing operation's status; the others are 424
                 const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
                     .filter((code): code is number => typeof code === 'number');
@@ -156,7 +209,7 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
                 deletion
             ];
             try {
-                const response = await container().items.batch(operations, pk);
+                const response = await point('batch', pk, () => container().items.batch(operations, pk));
                 const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
                     .filter((code): code is number => typeof code === 'number');
                 if (codes.includes(412)) return 'conflict';
@@ -179,7 +232,7 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
                     ? { operationType: 'Replace', id: op.doc.id, resourceBody: JSON.parse(JSON.stringify(op.doc)) as JSONObject, ifMatch: op.etag }
                     : { operationType: 'Delete', id: op.id, ifMatch: op.etag });
             try {
-                const response = await container().items.batch(batch, pk);
+                const response = await point('batch', pk, () => container().items.batch(batch, pk));
                 const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)];
                 if (codes.some(code => code === 409 || code === 412 || code === 404)) return false;
                 if (response.result?.length !== operations.length || codes.some(code => !code || code < 200 || code >= 300))
@@ -193,9 +246,9 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
         },
         async replace(doc, etag) {
             try {
-                await container().item(doc.id, doc.pk).replace(doc, {
+                await point('replace', doc.pk, () => container().item(doc.id, doc.pk).replace(doc, {
                     accessCondition: { type: 'IfMatch', condition: etag }
-                });
+                }));
                 return 'ok';
             } catch (error) {
                 const code = errorCode(error);
@@ -208,7 +261,7 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
         },
         async delete(pk, id) {
             try {
-                await container().item(id, pk).delete();
+                await point('delete', pk, () => container().item(id, pk).delete());
                 return true;
             } catch (error) {
                 if (errorCode(error) === 404)
@@ -216,44 +269,20 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
                 throw error;
             }
         },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
-            validateQueryBounds({ limit, orderBy, dueBefore, afterId });
-            const conditions = ['c.type = @type'];
-            if (missingTtl) conditions.push('NOT IS_DEFINED(c.ttl)');
-            const parameters: SqlParameter[] = [{ name: '@type', value: type }];
-            if (pk) {
-                conditions.push('c.pk = @pk');
-                parameters.push({ name: '@pk', value: pk });
-            }
-            Object.entries(where).forEach(([field, value], index) => {
-                if (!fieldPattern.test(field))
-                    throw new Error(`Unsupported query field "${field}"`);
-                conditions.push(`c.${field} = @p${index}`);
-                parameters.push({ name: `@p${index}`, value });
-            });
-            if (dueBefore !== undefined) {
-                conditions.push('c.nextAttemptAt <= @dueBefore');
-                parameters.push({ name: '@dueBefore', value: dueBefore });
-            }
-            if (afterId !== undefined) {
-                conditions.push('c.id > @afterId');
-                parameters.push({ name: '@afterId', value: afterId });
-            }
-            if (targetId !== undefined) {
-                conditions.push('ARRAY_CONTAINS(c.targetIds, @targetId)');
-                parameters.push({ name: '@targetId', value: targetId });
-            }
-            if (nameContains !== undefined) {
-                conditions.push('CONTAINS(c.nameKey, @nameContains)');
-                parameters.push({ name: '@nameContains', value: nameContains.slice(0, 80).toLowerCase() });
-            }
-            if (limit !== undefined) parameters.push({ name: '@limit', value: limit });
-
-            const { resources } = await container().items.query<Record<string, unknown>>({
-                query: `SELECT ${limit === undefined ? '' : 'TOP @limit '}* FROM c WHERE ${conditions.join(' AND ')}${orderBy ? ` ORDER BY c.${orderBy} ASC` : ''}`,
-                parameters
-            }, pk ? { partitionKey: pk } : undefined).fetchAll();
+        async query<T extends AppDoc>(input: DocQuery<T['type']>) {
+            const { pk } = input;
+            const resources = await cosmosQueryAll(container().items.query<Record<string, unknown>>(
+                appQuerySpec(input), pk ? { partitionKey: pk } : undefined),
+                { operation: appQueryOperation('query', input), container: container().id, partition: pk ? 'single' : 'cross' });
             return resources.map(resource => withoutSystemProperties<T>(resource));
+        },
+        async count<T extends AppDoc>(input: DocCount<T['type']>) {
+            const { pk } = input;
+            const counts = await cosmosQueryAll(container().items.query<number>(appQuerySpec(input, true), pk ? { partitionKey: pk } : undefined),
+                { operation: appQueryOperation('count', input), container: container().id, partition: pk ? 'single' : 'cross' });
+            const count = counts[0];
+            if (counts.length !== 1 || typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) throw new Error('Invalid document count response');
+            return count;
         }
     };
 }
@@ -303,7 +332,7 @@ function setEntry(doc: AppDoc) {
 }
 
 export function createMemoryAppStore(): AppStore {
-    return {
+    const store: AppStore = {
         async get<T extends AppDoc>(pk: string, id: string) {
             const entry = partition(pk).get(id);
             return entry ? { doc: structuredClone(entry.doc) as T, etag: String(entry.version) } : null;
@@ -357,6 +386,7 @@ export function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
+        async count(input) { return (await this.query(input)).length; },
         async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
@@ -376,6 +406,7 @@ export function createMemoryAppStore(): AppStore {
             return (limit === undefined ? docs : docs.slice(0, limit)).map(doc => structuredClone(doc) as T);
         }
     };
+    return store;
 }
 
 let warnedAboutMemoryStore = false;

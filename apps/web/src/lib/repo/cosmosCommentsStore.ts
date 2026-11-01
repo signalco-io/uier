@@ -6,6 +6,7 @@ import { withNotificationEvent } from '../notifications/events';
 import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
+import { cosmosPoint, cosmosQueryAll } from '../db/diagnostics';
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
 
 function errorCode(error: unknown): number | string | undefined {
@@ -31,11 +32,11 @@ function pathParameters(path: string): SqlParameter[] {
 }
 
 export function createCosmosCommentsStore(getContainer: () => Container = cosmosDataContainerComments, getBlobs: () => ScreenshotBlobStore = getScreenshotBlobStore): CommentsStore {
-    async function queryAll<T>(domain: string, query: string, parameters: SqlParameter[]) {
-        const { resources } = await getContainer().items.query<T>({
+    async function queryAll<T>(operation: string, domain: string, query: string, parameters: SqlParameter[]) {
+        const resources = await cosmosQueryAll(getContainer().items.query<T>({
             query,
             parameters: [{ name: '@domain', value: domain }, ...parameters]
-        }, { partitionKey: domain }).fetchAll();
+        }, { partitionKey: domain }), { operation: `comments.${operation}`, container: getContainer().id, partition: 'single' });
         return resources;
     }
     const store: CommentsStore = {
@@ -44,11 +45,11 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             // don't use a non-indexed fallback expression that requires fetching the full queue.
             const parameters: SqlParameter[] = [{ name: '@limit', value: syncPendingPageLimit(options) }];
             if (options.after) parameters.push({ name: '@after', value: options.after });
-            const { resources } = await getContainer().items.query<Record<string, unknown>>({
+            const resources = await cosmosQueryAll(getContainer().items.query<Record<string, unknown>>({
                 query: "SELECT TOP @limit * FROM c WHERE c.syncPending = true AND IS_DEFINED(c.projectId) AND IS_STRING(c.syncKey) AND (IS_DEFINED(c.path) OR c.type = 'tombstone')"
                     + (options.after ? ' AND c.syncKey > @after' : '') + ' ORDER BY c.syncKey ASC',
                 parameters
-            }).fetchAll();
+            }), { operation: 'comments.sync-pending', container: getContainer().id, partition: 'cross' });
             return resources.map(resource => withoutSystemProperties<DbComment | DbSyncTombstone>(resource));
         },
         async deleteWithTombstone(domain, id, etag, tombstone) {
@@ -92,16 +93,16 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }
         },
         async listNotificationPending() {
-            const { resources } = await getContainer().items.query<Record<string, unknown>>({
+            const resources = await cosmosQueryAll(getContainer().items.query<Record<string, unknown>>({
                 query: 'SELECT * FROM c WHERE c.notificationPending = true AND IS_DEFINED(c.projectId) AND IS_DEFINED(c.path)'
-            }).fetchAll();
+            }), { operation: 'comments.notification-pending', container: getContainer().id, partition: 'cross' });
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
         async list(domain, path, limit, originFilter, authorId) {
             const filter = originSql(originFilter);
             const author = authorSql(authorId);
             const resources = await queryAll<Record<string, unknown>>(
-                domain,
+                'list', domain,
                 `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause}${author.clause} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
@@ -111,14 +112,15 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             const author = authorSql(authorId);
             // Rate-limit counters and the comment numbers' sequence share the partition; they have no `path`
             const resources = await queryAll<Record<string, unknown>>(
-                domain,
+                'listAll', domain,
                 `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause}${author.clause} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
         async get(domain, id): Promise<StoredComment | null> {
             try {
-                const response = await getContainer().item(id, domain).read<Record<string, unknown>>();
+                const response = await cosmosPoint(() => getContainer().item(id, domain).read<Record<string, unknown>>(),
+                    { operation: 'comments.get', container: getContainer().id, partition: 'single' });
                 // The partition's counters, sequence and screenshots are not comments
                 if (!response.resource || !response.etag || !isCommentDocument(response.resource))
                     return null;
@@ -197,7 +199,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         async listActivity(domain) {
             // No TOP: badge counts and unread selection must include threads outside the text list.
             // Modern records need only the compact activity map; legacy records need item authors.
-            return await queryAll<DbCommentActivity>(domain,
+            return await queryAll<DbCommentActivity>('activity', domain,
                 `SELECT c.id, c.domain, c.path, c.origin, c.private, c.authorId, c.resolved, c.createdAt, c.activity,
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
                  FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
@@ -228,10 +230,11 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             throw new Error(`Comment ${id} changed too often while replying`);
         },
         async listScreenshotsBefore(before, continuation) {
-            const page = await getContainer().items.query<{ domain: string; commentId: string; _etag: string }>({
+            const page = await cosmosPoint(() => getContainer().items.query<{ domain: string; commentId: string; _etag: string }>({
                 query: "SELECT c.domain, c.commentId, c._etag FROM c WHERE c.type = 'screenshot' AND IS_STRING(c.data) AND c.createdAt < @before",
                 parameters: [{ name: '@before', value: before }]
-            }, { maxItemCount: 100, continuationToken: continuation }).fetchNext();
+            }, { maxItemCount: 100, continuationToken: continuation }).fetchNext(),
+                { operation: 'comments.screenshot-metadata', container: getContainer().id, partition: 'cross' });
             return { items: page.resources.map(image => ({ domain: image.domain, commentId: image.commentId, etag: image._etag })),
                 continuation: page.continuationToken || undefined };
         },
@@ -290,9 +293,9 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }
         },
         async migrateScreenshots() {
-            const { resources } = await getContainer().items.query<DbScreenshot & { _etag: string; _ts: number }>({
+            const resources = await cosmosQueryAll(getContainer().items.query<DbScreenshot & { _etag: string; _ts: number }>({
                 query: "SELECT TOP 20 * FROM c WHERE c.type = 'screenshot' AND IS_STRING(c.data)"
-            }).fetchAll();
+            }), { operation: 'comments.legacy-images', container: getContainer().id, partition: 'cross' });
             const { resource: settings } = await getContainer().read();
             let migrated = 0, failed = 0;
             for (const legacy of resources) {
@@ -365,7 +368,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 // The domain's first number (409 = created concurrently, increment again). A sequence
                 // that expired (`comments-preview` has a default ttl) continues after the highest stored.
                 const [highest] = await queryAll<number | undefined>(
-                    domain,
+                    'sequence-floor', domain,
                     'SELECT VALUE MAX(c.number) FROM c WHERE c.domain = @domain AND IS_NUMBER(c.number)',
                     []);
                 const first = (typeof highest === 'number' ? highest : 0) + 1;
