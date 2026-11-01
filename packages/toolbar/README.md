@@ -325,8 +325,9 @@ error boundary, so one bad comment never breaks the toolbar.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
 - A thread starts with its status (**Open** or **Done**), public id (`#12`, numbered per site) and a blue dot
-  while it is unread, then icon actions (named by their tooltips): **Mark as read** while unread, **Mark as
-  done** / **Reopen** for the comment's author, **Copy issue** and **Copy link** for everyone. The link is the comment's page with `?uier-comment=<id>` (plus the review
+  while it is unread (clicking it marks the thread read), then icon actions (named by their tooltips): **Mark as
+  done** / **Reopen** for the comment's author, **Copy issue** and **Copy link** for everyone, and **Thread options**
+  with **Mark as unread** once a thread with someone else's activity is read. The link is the comment's page with `?uier-comment=<id>` (plus the review
   link in a review, so the toolbar opens for whoever follows it); opening it opens the thread on its pin, or
   the inbox for a done thread or feedback. The parameter is then removed from the address. Done threads have
   no pin; the inbox lists them under "Done".

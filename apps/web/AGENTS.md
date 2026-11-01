@@ -243,12 +243,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
-  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)
+  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `Copy`, `Link2`, `Mail`)
   and words: state, `#number`, unread dot and the assignee (their avatar, or the user icon while unassigned; the tooltip
   says "Unassigned" / "Assigned to ...") with the actions on one row
-  (`ThreadAction`: icon-only with a tooltip and accessible name). For those who can resolve, the state badge
-  is the Open/Done menu ("Status: Open. Change status"); Copy link and Follow thread / Unfollow thread are in
-  the More actions menu. Then the first and last message with Show all, the quiet Open in ...,
+  (`ThreadAction`: icon-only with a tooltip and accessible name). The unread dot is the Mark as read button
+  ("Unread. Mark as read"). For those who can resolve, the state badge is the Open/Done menu ("Status: Open.
+  Change status"); Copy link, Follow thread / Unfollow thread and, once read, Mark as unread are in the More
+  actions menu. Then the first and last message with Show all, the quiet Open in ...,
   and the page link in the footer, with the source's environment name (or why the original source is
   unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's
   header still has its icon Done/Reopen and Copy link: change both together where they match. The first
@@ -541,7 +542,8 @@ expose identity metadata only to members. App and toolbar must share these check
 
 - `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
   Read acknowledgements require current project/thread access and acknowledge only a rendered
-  sequence. Toolbar and app use the same member cursor; notifications must reauthorize before
+  sequence. Mark as unread (`markThreadUnread`, `DELETE .../read`, `markCommentUnreadAction`) is the one
+  explicit move back: to just before the latest activity by someone else, never for own-only threads. Toolbar and app use the same member cursor; notifications must reauthorize before
   reading it for suppression. Do not equate resolution with read state or expose actor ids in DTOs.
   Bulk acknowledgement uses `comments/bulkRead.ts` and `review/bulkRead.ts`: validate every id/cursor
   before writes, at most 200 threads/48 KiB per request and four concurrent cursor writes. Review

@@ -178,4 +178,4 @@ export async function replaceReviewScreenshot(context: ReviewApiContext, { id }:
     return commentResponse(context, comment);
 }
 
-export { listReviewComments, readReviewComment } from './readRoutes';
+export { listReviewComments, readReviewComment, unreadReviewComment } from './readRoutes';

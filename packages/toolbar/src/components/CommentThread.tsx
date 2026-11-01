@@ -20,7 +20,9 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     const read = useReadComment();
     const threadRef = useRef<HTMLDivElement>(null);
     const visitor = useVisitor().query.data;
-    const canReadAutomatically = reading && Boolean(visitor?.name || visitor?.member) && commentItem.thread.items.length <= 2;
+    // Mark as unread keeps the thread unread while it stays open
+    const [keptUnread, setKeptUnread] = useState(false);
+    const canReadAutomatically = reading && !keptUnread && Boolean(visitor?.name || visitor?.member) && commentItem.thread.items.length <= 2;
     // Only an opened thread, while visible in a foreground window. Inbox previews stay unread
     // until explicitly acknowledged; just listing feedback must not suppress notifications.
     useEffect(() => {
@@ -66,7 +68,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
 
     return (
         <Stack ref={threadRef} spacing={2} className="px-4 py-3">
-            <CommentThreadHeader comment={commentItem} />
+            <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)} />
             {/* Where it came from */}
             {source && <div className="text-xs text-muted-foreground">{source}</div>}
             {/* The messages, one under the other like a chat; the avatars make the column */}

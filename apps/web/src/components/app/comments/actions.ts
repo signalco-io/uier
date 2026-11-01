@@ -17,7 +17,7 @@ import {
     setProjectCommentPrivate,
     setProjectCommentResolved
 } from '../../../lib/review/comments';
-import { markThreadRead } from '../../../lib/comments/readState';
+import { markThreadRead, markThreadUnread } from '../../../lib/comments/readState';
 import { actorAuthorId } from '../../../lib/review/actor';
 import { apiErrors } from '../../../lib/comments/http';
 import { KnownPageLinks } from '../../../knownPages';
@@ -101,6 +101,14 @@ export async function markCommentReadAction(projectId: string, commentId: string
         const comment = await getProjectComment(project, actor, input.commentId);
         if (!comment) throw apiErrors.notFound();
         await markThreadRead(comment, actorAuthorId(actor)!, input.sequence);
+    });
+}
+
+export async function markCommentUnreadAction(projectId: string, commentId: string) {
+    return await commentAction(commentActionSchema, { projectId, commentId }, async ({ project, actor }, input) => {
+        const comment = await getProjectComment(project, actor, input.commentId);
+        if (!comment) throw apiErrors.notFound();
+        await markThreadUnread(comment, actorAuthorId(actor)!);
     });
 }
 
