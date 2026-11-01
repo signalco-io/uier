@@ -1,13 +1,12 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { KnownPageLinks } from '@/src/knownPages';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import { IntegrationAccessError, requireIntegrationAdmin, setIntegrationEnabled } from '@/src/lib/integrations/connection';
 import { startIntegrationBackfill } from '@/src/lib/integrations/backfill';
 import { disconnectGitHub, getGitHubSettings, GitHubError, listGitHubRepositories, saveGitHubRepository } from '@/src/lib/integrations/github';
+import { revalidateIntegration } from '../integrations/revalidate';
 
 type Settings = Awaited<ReturnType<typeof getGitHubSettings>>;
 type Repositories = Awaited<ReturnType<typeof listGitHubRepositories>>;
@@ -62,7 +61,7 @@ export async function saveGitHubRepositoryAction(_: ActionState<Settings>, form:
         const input = z.object({ setupReceipt: receipt, repositoryId: z.string().regex(/^[1-9][0-9]{0,18}$/, 'Choose an available repository.'), confirmPublic: z.boolean() })
             .parse({ setupReceipt: form.get('setupReceipt'), repositoryId: form.get('repositoryId'), confirmPublic: form.get('confirmPublic') === 'true' });
         await saveGitHubRepository({ ...actor, ...input });
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'github');
         return getGitHubSettings(project, context.user.id);
     }, 'GitHub is connected. Sync is on for new shared feedback.');
 }
@@ -83,7 +82,7 @@ export async function manageGitHubAction(_: ActionState<{ message: string }>, fo
             await setIntegrationEnabled(project, 'github', context.user.id, operation === 'enable');
             message = operation === 'enable' ? 'GitHub sync is on.' : 'GitHub sync is off.';
         }
-        revalidatePath(KnownPageLinks.projectSettings(project.id, 'integrations'));
+        revalidateIntegration(project.id, 'github');
         return { message };
     });
 }

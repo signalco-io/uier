@@ -8,7 +8,7 @@ export const integrationCatalog = {
         detail: 'uier creates a page for each shared feedback thread, then updates its text, discussion and page context in the background. Saved screenshots can be uploaded to Notion.',
         steps: [
             'Sign in to uier, open or create a project and add its toolbar to your website.',
-            'As a uier workspace admin, open the project’s Settings, find Notion and choose Connect Notion.',
+            'As a uier workspace admin, open the project’s Settings, then Integrations, and choose Connect on Notion.',
             'Choose your Notion workspace and share the destination database with the uier connection. The database needs a title property and a separate rich text property for the uier id.',
             'Choose the database, map those properties and save. New shared feedback will sync in the background. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
@@ -24,7 +24,7 @@ export const integrationCatalog = {
         detail: 'uier creates an issue for each shared feedback thread in your chosen repository. It updates the issue, mirrors the discussion and closes or reopens it as the uier status changes.',
         steps: [
             'Sign in to uier, open or create a project and add its toolbar to your website.',
-            'As a uier workspace admin, open the project’s Settings, find GitHub and choose Connect GitHub.',
+            'As a uier workspace admin, open the project’s Settings, then Integrations, and choose Connect on GitHub.',
             'Install uier for GitHub on selected repositories, then authorize your GitHub account. You need administration rights for the repository you choose.',
             'Load repositories, choose one and save. Public repositories require an explicit confirmation. Use Backfill GitHub feedback to include up to 1,000 existing shared threads.'
         ],
@@ -40,7 +40,7 @@ export const integrationCatalog = {
         detail: 'uier creates an issue for each shared feedback thread, mirrors its discussion and updates its state. Choose a team, optional project, open and done states, and existing labels.',
         steps: [
             'Sign in to uier, open or create a project and add its toolbar to your website.',
-            'As a uier workspace admin, open the project’s Settings, find Linear and choose Connect Linear.',
+            'As a uier workspace admin, open the project’s Settings, then Integrations, and choose Connect on Linear.',
             'Authorize the uier app in Linear, then choose the destination team and your open and done states. You can also choose a project and existing labels.',
             'Choose whether screenshots may be uploaded and save. New shared feedback will sync in the background. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
@@ -56,7 +56,7 @@ export const integrationCatalog = {
         detail: 'uier creates a work item for each shared feedback thread in the project and area you choose. It keeps the description and discussion up to date and sets your open or done state when the feedback’s status changes.',
         steps: [
             'Sign in to uier, open or create a project and add its toolbar to your website.',
-            'As a uier workspace admin, open the project’s Settings, find Azure DevOps and choose Connect Azure DevOps.',
+            'As a uier workspace admin, open the project’s Settings, then Integrations, and choose Connect on Azure DevOps.',
             'Sign in with your Microsoft work or school account and allow uier to read your profile and read and write work items.',
             'Load your organizations and projects, choose a work item type, its open and done states and an optional area path, then save. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
@@ -72,7 +72,7 @@ export const integrationCatalog = {
         detail: 'uier posts a bounded excerpt and a link for each new shared feedback thread. It updates the root message and can add summaries of replies and status changes. Open uier for the full discussion.',
         steps: [
             'Sign in to uier, open or create a project and add its toolbar to your website.',
-            'As a uier workspace admin, open the project’s Settings, find Slack and choose Connect Slack.',
+            'As a uier workspace admin, open the project’s Settings, then Integrations, and choose Connect on Slack.',
             'Authorize the uier app in your Slack workspace and invite it to the channel you want to use.',
             'Load channels, choose a channel and save. Select which changes should produce summaries. Existing feedback is silent unless you explicitly request a backfill.'
         ],

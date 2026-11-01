@@ -8,7 +8,7 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('slack-admin'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Slack review' });
-    const settingsUrl = `/app/projects/${projectId}/settings/integrations`;
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations/slack`;
     await page.goto(settingsUrl);
     const slack = page.getByRole('region', { name: 'Slack', exact: true });
     await expect(slack).toContainText('Not connected');
@@ -18,7 +18,7 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     await expect(slack).toContainText('The Slack connection was canceled.');
     await slack.getByRole('link', { name: 'Connect Slack', exact: true }).click();
     await page.getByRole('button', { name: 'Allow Slack connection' }).click();
-    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?slack=connected#slack$`));
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?slack=connected$`));
     await expect(slack).toContainText('Choose a channel');
     await expect(slack.getByRole('combobox')).toHaveCount(0);
     const captured = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));

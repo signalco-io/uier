@@ -17,7 +17,7 @@ export default async function ProjectSettingsLayout({ children, params }: Layout
     const { project, canConfigure } = await projectSettingsContext(projectId);
     const tabs = projectSettingsSections
         .filter(section => canConfigure || !section.configure)
-        .map(({ section, label }) => ({ label, href: KnownPageLinks.projectSettings(project.id, section) }));
+        .map(({ section, label }) => ({ label, href: KnownPageLinks.projectSettings(project.id, section), nested: Boolean(section) }));
 
     return (
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-10">

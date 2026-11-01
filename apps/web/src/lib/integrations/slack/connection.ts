@@ -4,6 +4,7 @@ import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { sha256Hex } from '../../app/tokens';
 import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
 import { isLocalRuntime } from '../../comments/environment';
+import { KnownPageLinks } from '../../../knownPages';
 import { setIntegrationBinding, disconnectIntegration } from '../connection';
 import { createOauthState, consumeOauthState } from '../oauthState';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants';
@@ -191,7 +192,7 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
                     throw new SlackConnectionError('needs_reconnect');
                 await attachSlackGrant(project, input.userId, retained);
             } finally { await releaseOwner(held); }
-            return new URL(`/app/projects/${project.id}/settings/integrations?slack=connected#slack`, input.baseUrl).href;
+            return new URL(`${KnownPageLinks.projectIntegration(project.id, 'slack')}?slack=connected`, input.baseUrl).href;
         }
     }
     const state = await createOauthState({ provider: 'slack', ...input, pkce: false, key: slackSecretKey(),

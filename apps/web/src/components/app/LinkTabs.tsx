@@ -11,6 +11,8 @@ export type LinkTab = {
     count?: number;
     /** Current when this matches the page (defaults to comparing the href, see `match`) */
     current?: boolean;
+    /** Also current on the pages below its href (a settings section's own pages) */
+    nested?: boolean;
 };
 
 /**
@@ -52,7 +54,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                 className
             )}>
             {tabs.map(tab => {
-                const current = tab.current ?? tab.href === here;
+                const current = tab.current ?? (tab.href === here || (tab.nested === true && pathname.startsWith(`${tab.href}/`)));
                 return (
                     <Link
                         key={tab.href}

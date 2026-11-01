@@ -16,6 +16,8 @@ import type { ActionState } from '@/src/lib/app/actionResult';
 import type { getLinearSettings } from '@/src/lib/integrations/linear';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { IntegrationTitle } from '../integrations/IntegrationLogo';
+import { linearStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { loadLinearDestinationOptionsAction, loadLinearTeamsAction, manageLinearAction, saveLinearDestinationAction } from './actions';
 
@@ -32,10 +34,8 @@ const outcomes: Record<string, string> = {
 
 export function LinearSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
-    const status = !settings.configured ? 'Unavailable' : !settings.connected ? 'Not connected'
-        : settings.status === 'needs_reconnect' ? 'Reconnect needed' : settings.status === 'paused' || settings.pausedUntil ? 'Waiting for Linear'
-        : !settings.teamId ? 'Choose a destination' : settings.enabled ? 'Sync on' : 'Sync off';
-    return <Section id="linear" title="Linear" description="Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date."
+    const status = linearStatus(settings);
+    return <Section id="linear" title={<IntegrationTitle provider="linear" name="Linear" />} description="Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date."
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
