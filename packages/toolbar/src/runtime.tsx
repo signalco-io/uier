@@ -3,15 +3,11 @@ import { GEIST_FONTS_PATH } from '@uier/brand';
 import './index.css';
 import { CommentsBootstrapper } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
-import { backgroundReviewExited, endReviewSession, resolveReviewSession, startBackgroundReview, ReviewSession } from './review';
-import { openFeedbackEvent, requestFeedbackOnMount } from './openFeedback';
-import { startInstallationCheck } from './project/installationCheck';
-import { backgroundSignIn } from './project/backgroundSession';
-import { loadReviewInfo } from './project/ProjectGate';
+import { endReviewSession, type ReviewSession } from './review';
+import { requestFeedbackOnMount } from './openFeedback';
+import { runtimeContext } from './runtimeContext';
 import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
 import { adoptToolbarStyles } from './stylesheet';
-
-startInstallationCheck();
 
 const containerId = 'uier-toolbar';
 
@@ -97,45 +93,10 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
         onExitReview={handleExit} />);
 }
 
-function whenBodyReady(callback: () => void) {
-    if (document.body) {
-        callback();
-    } else {
-        document.addEventListener('DOMContentLoaded', callback, { once: true });
-    }
-}
-
-if (toolbarConfig.mode === 'showcase') {
-    const review = resolveReviewSession();
-    whenBodyReady(() => MountOnPage(review ? 'review' : 'showcase', review));
-} else if (toolbarConfig.mode === 'feedback') {
-    // The script loads when someone asks to give feedback, and every later request after "Close
-    // toolbar" mounts it again. A toolbar already on the page opens its feedback form itself.
-    const openFeedback = () => whenBodyReady(() => {
-        if (getToolbarHost()) {
-            return;
-        }
-        requestFeedbackOnMount();
-        MountOnPage('feedback', null);
-    });
-    window.addEventListener(openFeedbackEvent, openFeedback);
-    openFeedback();
-} else {
-    console.debug('uier-toolbar: Checking for a review link...');
-    const review = resolveReviewSession();
-    if (review) {
-        console.debug('uier-toolbar: In review, mounting...');
-        whenBodyReady(() => MountOnPage('review', review));
-    } else if (toolbarConfig.project && !backgroundReviewExited()) {
-        // Ordinary visitors see nothing. Only a verified project member starts a review silently.
-        whenBodyReady(() => {
-            void backgroundSignIn().then(async signedIn => {
-                if (!signedIn) return;
-                const info = await loadReviewInfo();
-                if (info.viewer.kind !== 'member' || !info.canComment) return;
-                const session = startBackgroundReview(toolbarConfig.project!);
-                if (session) MountOnPage('review', session);
-            }).catch(() => { /* A blocked or unavailable bridge leaves review links as the fallback. */ });
-        });
-    }
-}
+// The loader supplies its captured configuration and in-memory identity through this script's
+// symbol property. Register a mount function so feedback can reopen without another download.
+runtimeContext.mount = (mode, review) => {
+    if (getToolbarHost()) return;
+    if (mode === 'feedback') requestFeedbackOnMount();
+    MountOnPage(mode, review);
+};

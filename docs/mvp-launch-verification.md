@@ -52,12 +52,14 @@ or production BotID challenge is demonstrated by these tests.
 `launch-performance.spec.ts` attaches `launch-performance.json` with exact engine version, byte
 sizes, request paths, each timing sample and observed Chromium long tasks. It tests both desktop
 and mobile Chromium profiles without CPU or network throttling. The fixture keeps a working host
-button/input, and deliberately styles host buttons to detect style leakage. The static script is
-still downloaded and parsed when a review is inactive; absence of a toolbar does not mean zero cost.
+button/input, and deliberately styles host buttons to detect style leakage. The small loader is
+downloaded and parsed when a review is inactive. The separate review script,
+styles and fonts load only when the review UI is needed; the loader still has a cost.
 
-- Bundle limits are **750,000 raw bytes / 220,000 gzip bytes**. The audited baseline is approximately
-  671 KB raw / 196 KB gzip / 165 KB Brotli before the #102 integration, with limited regression headroom. Compression is
-  calculated from the built bytes, not a claim about CDN transfer encoding, cache hits or wire size.
+- Current loader limits are **12,000 raw bytes / 5,000 gzip bytes**. Historical measurements below
+  describe the former single bundle. The review UI now loads separately; the request timing
+  attachment includes that script. Compression is calculated from the built bytes, not a claim
+  about CDN transfer encoding, cache hits or wire size.
 - An inactive project review may make **one background session POST**, and **zero comment API/font requests**, in the load plus eight host clicks
   and a **1,200 ms observation window**. This is a short deterministic guard, not an all-day idle
   measurement.
@@ -174,7 +176,8 @@ so it does not change privacy or cookie disclosures.
 
 The bulk-read implementation rebased onto `562927c` produces a toolbar of **689,133 raw /
 202,157 gzip / 170,064 Brotli bytes**, including injected CSS and the existing license notices.
-The **750,000 raw / 220,000 gzip** limits are unchanged. `launch-performance.spec.ts` now also
+At this audit, the single-bundle limits were **750,000 raw / 220,000 gzip**; the current loader
+limits are listed in the methodology above. `launch-performance.spec.ts` now also
 checks that the 100-thread inbox is acknowledged by one 100-entry request and its badge clears.
 The other activity/inbox tests exercise filtered lists, sequential 200+5 requests, a racing reply,
 partial etag failures, retained retry cursors, guest/member access, private visibility, queued-digest

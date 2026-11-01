@@ -5,7 +5,10 @@ feedback pinned to an element (point comments) or to selected text.
 
 ## Embedding
 
-The bundle (`dist/index.js`) is a classic script (an IIFE, so nothing leaks into the page's globals).
+The loader (`dist/index.js`) is a small classic script. It downloads the separate review script only
+when a review starts, a signed-in project member is confirmed, showcase mode is enabled, or feedback
+is requested. React, styles, screenshots and fonts load with the review UI. Ordinary visitors receive
+only the loader and the bounded background account check.
 The web app serves it at `/toolbar.js`; the production URL is `https://uier.io/toolbar.js`, served from
 Vercel's CDN (caching and updates: [`/toolbar.js`](../../docs/api.md#toolbarjs)). A reviewed
 site embeds it with its project's script tag from the uier app's install guide:
@@ -23,7 +26,9 @@ Copy the complete snippet; the hash and integrity value describe that exact buil
 `/toolbar.js` follows releases with a five-minute browser cache and one-hour CDN cache. Pins use
 `Cache-Control: public, max-age=31536000, immutable` and the same API origin as the default embed.
 Pinned production bundles remain available and compatible with the review API for one year after
-their last release as the current version. A pinned site gets fixes only when it updates its snippet.
+their last release as the current version. Each loader references its exact review script by a
+content-addressed path and integrity value; both assets are retained together. A pinned site gets
+fixes only when it updates its snippet.
 Preview/local pins belong to that deployment; they carry no production retention promise.
 
 The toolbar opens automatically for signed-in project members when background authentication is available.
@@ -368,12 +373,12 @@ Unassignment targets the previous assignee, subject to the same rules.
 
 ## UI and styles
 
-- `src/index.tsx` mounts the toolbar into an open shadow root on `<div id="uier-toolbar">` (open so
+- `src/runtime.tsx` mounts the toolbar into an open shadow root on `<div id="uier-toolbar">` (open so
   assistive technologies, accessibility checks and end-to-end tests can reach it; the page's own scripts
   and styles can't change it by accident either way). Everything, popovers included, renders inside it and
   the toolbar adds no styles to the page (`apps/web/e2e/embed.spec.ts` checks a reviewed site's computed styles).
 - Styles are compiled with Tailwind CSS v4 (`src/index.css`, `postcss.config.mjs`) and inlined into
-  `dist/index.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`). The complete
+  `dist/review.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`). The complete
   JavaScript literal is JSON-encoded and parsed before publication. Every review shadow root adopts
   the same constructed sheet; unused `@property` registrations are omitted and fallback values retained.
 - Colors come from `@uier/brand/tokens.css`. The pill, the pins and the inbox sidebar are always ink
@@ -387,6 +392,6 @@ Unassignment targets the previous assignee, subject to the same rules.
 
 ## Scripts
 
-- `pnpm build` - production bundle in `dist/index.js` (CSS included), its path/SRI in `dist/bundle.json`, and the React component in `dist/react.js`
+- `pnpm build` - loader in `dist/index.js`, review UI in `dist/review.js` (CSS included), loader path/SRI in `dist/bundle.json`, and the React component in `dist/react.js`
 - `pnpm dev` - rebuild on change and serve `dist` on http://localhost:4005 (loaded by `apps/web` in development)
 - `pnpm typecheck` - type check with `tsc`

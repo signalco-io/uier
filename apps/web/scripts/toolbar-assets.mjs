@@ -25,11 +25,15 @@ async function download(url, limit) {
  * Carry forward verified, supported pins before publishing the current build. No API credentials.
  * @param {string} source
  * @param {string} publicDir
- * @param {{ retainFrom?: string, now?: Date }} [options]
+ * @param {{ retainFrom?: string, now?: Date, dependencies?: string[] }} [options]
  */
-export async function publishToolbar(source, publicDir, { retainFrom, now = new Date() } = {}) {
+export async function publishToolbar(source, publicDir, { retainFrom, now = new Date(), dependencies = [] } = {}) {
     const bytes = await readFile(source);
     const currentHash = hash(bytes);
+    const assets = await Promise.all(dependencies.map(async path => {
+        const bytes = await readFile(path);
+        return { bytes, hash: hash(bytes) };
+    }));
     const directory = join(publicDir, 'toolbar');
     let previous;
     if (retainFrom) {
@@ -43,6 +47,7 @@ export async function publishToolbar(source, publicDir, { retainFrom, now = new 
         throw new Error('Invalid toolbar archive manifest');
     }
     const bundles = { [currentHash]: now.toISOString() };
+    for (const asset of assets) bundles[asset.hash] = now.toISOString();
     await mkdir(directory, { recursive: true });
     const entries = Object.entries(previous?.bundles ?? {});
     // Bounded concurrency keeps a year of assets from making the deployment serial or unbounded.
@@ -52,7 +57,7 @@ export async function publishToolbar(source, publicDir, { retainFrom, now = new 
                 || !Number.isFinite(Date.parse(lastPublished)) || Date.parse(lastPublished) > now.getTime()) {
                 throw new Error('Invalid toolbar archive entry');
             }
-            if (id === currentHash || now.getTime() - Date.parse(lastPublished) > year) return;
+            if (Object.hasOwn(bundles, id) || now.getTime() - Date.parse(lastPublished) > year) return;
             const name = `${id}.js`;
             const saved = retainFrom ? await download(new URL(`/toolbar/${name}`, retainFrom), 750_000)
                 : await readFile(join(directory, name));
@@ -63,6 +68,7 @@ export async function publishToolbar(source, publicDir, { retainFrom, now = new 
     }
     await writeFile(join(publicDir, 'toolbar.js'), bytes);
     await writeFile(join(directory, `${currentHash}.js`), bytes);
+    for (const asset of assets) await writeFile(join(directory, `${asset.hash}.js`), asset.bytes);
     // Also remove expired local outputs so repeat builds cannot publish them accidentally.
     for (const name of await readdir(directory)) {
         if (/^[a-f0-9]{64}\.js$/.test(name) && !Object.hasOwn(bundles, name.slice(0, -3))) await unlink(join(directory, name));

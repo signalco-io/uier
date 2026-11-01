@@ -112,7 +112,7 @@ Run from the repository root (each one runs the matching script in every package
 | Command | Description |
 | --- | --- |
 | `pnpm dev` | Run the website (port 4004) and the toolbar watch build + server (port 4005) |
-| `pnpm build` | Production build of the toolbar, then the website (default `public/toolbar.js`, content-addressed `public/toolbar/<sha256>.js` and archive manifest) |
+| `pnpm build` | Production build of the toolbar, then the website (default `public/toolbar.js` loader, content-addressed loader/review scripts under `public/toolbar/` and archive manifest) |
 | `pnpm typecheck` | TypeScript checks |
 | `pnpm test` | All API tests and essential browser journeys against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
 | `pnpm test:full` | All API and desktop/mobile browser regression tests |
@@ -203,12 +203,17 @@ without the three-minute budget. Turbo caches the two modes separately.
 For specific browser regressions outside the required set, use the
 [focused implementation commands](#while-implementing).
 
+The toolbar loader has a 12 KB raw / 5 KB gzip build budget in `toolbar-assets.api.spec.ts`.
+`toolbar-bootstrap.spec.ts` verifies that ordinary visitors never fetch the review script or fonts,
+and covers concurrent loads, captured configuration, nonce/SRI, blocked storage, download retry and
+feedback reopening. The review UI stays in a separate content-addressed script.
+
 ### Full regression coverage
 
 The [MVP launch evidence matrix](mvp-launch-verification.md) maps the combined review flow to
 coverage and records pending hosted/physical-device checks. `launch.spec.ts` adds owner/guest review,
 canonical routes, capture and recovery checks; `launch-performance.spec.ts` records a 100-thread inbox,
-bundle/request budgets and host interaction timings, plus a 40-text-anchor search/index budget across
+loader/request budgets and host interaction timings, plus a 40-text-anchor search/index budget across
 scroll, resize and DOM changes. Optional Firefox/WebKit projects run the portable
 launch flow with `PLAYWRIGHT_CROSS_BROWSER=1`; see the matrix for commands and engine limitations.
 

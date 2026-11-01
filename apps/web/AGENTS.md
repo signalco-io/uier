@@ -382,8 +382,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `integration.ts` owns default and pinned HTML/Next.js snippets from `@uier/toolbar/bundle`.
   `InstallGuide` offers both with the update/support policy. Constructed review sheets remove
   `unsafe-inline` from its style CSP sources. `scripts/toolbar-assets.mjs` publishes identical
-  default/content-addressed bytes, checks and retains production pins for one year after last
-  release as current; deployment builds carry forward the verified uier.io archive. Keep the
+  default/content-addressed loader bytes and the content-addressed review script, checks and retains
+  both assets for one year after last release as current; deployment builds carry forward the
+  verified uier.io archive. Keep the
   manifest no-store and content-addressed JavaScript immutable with anonymous CORS.
 - Links the app sends or redirects to come from `appBaseUrl()` (requests) or its shared pure
   `configuredAppBaseUrl()` helper (scheduled workers), never from an untrusted Host header.

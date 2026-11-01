@@ -107,7 +107,7 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
     });
     guest.page.on('requestfinished', request => {
         const url = new URL(request.url());
-        if (url.pathname === '/toolbar.js' || url.pathname.startsWith('/api/review/') || (url.pathname.startsWith('/toolbar-fonts/') || url.hostname.startsWith('fonts.')))
+        if (url.pathname === '/toolbar.js' || url.pathname.startsWith('/toolbar/') || url.pathname.startsWith('/api/review/') || (url.pathname.startsWith('/toolbar-fonts/') || url.hostname.startsWith('fonts.')))
             completedRequests.push(request.sizes().then(sizes => ({ path: `${url.hostname}${url.pathname}${url.search}`,
                 method: request.method(), sizes, timing: request.timing() })));
     });
@@ -138,8 +138,8 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         const inactiveRequests = [...requests];
         // The only inactive API work is the single, bounded background account check.
         expect(inactiveRequests).toEqual([{ path: `${new URL(baseURL!).hostname}/api/review/${projectId}/sso`, method: 'POST' }]);
-        expect(bundle.raw).toBeLessThan(750_000);
-        expect(bundle.gzip).toBeLessThan(220_000);
+        expect(bundle.raw).toBeLessThan(12_000);
+        expect(bundle.gzip).toBeLessThan(5_000);
 
         await guest.page.goto(`${host}&toolbar-code=${projectId}`);
         await expect(toolbar(guest.page)).toBeVisible();

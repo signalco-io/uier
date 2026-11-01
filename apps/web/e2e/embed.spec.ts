@@ -302,7 +302,7 @@ test('the toolbar mounts in its shadow root and leaves the reviewed site\'s styl
             dialogsInShadowRoot: host?.shadowRoot?.querySelectorAll('[role="dialog"]').length
         };
     });
-    // The only thing added to the page is the Geist font stylesheet (`@font-face` only, src/index.tsx)
+    // The only thing added to the page is the Geist font stylesheet (`@font-face` only, src/runtime.tsx)
     const addedSheets = mounted.styleSheets.filter(href => !sheetsBefore.includes(href));
     expect(addedSheets.every(href => href?.endsWith('/toolbar-fonts/geist.css'))).toBe(true);
     expect(mounted).toMatchObject({

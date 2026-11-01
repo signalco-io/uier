@@ -1,7 +1,8 @@
 # packages/toolbar - agent guide
 
-The review toolbar: one classic-script bundle (`dist/index.js`, an IIFE with the CSS inlined) that a
-site includes and that mounts the comments UI into an open shadow root, when the page is opened with
+The review toolbar: a small classic-script loader (`dist/index.js`) that a site includes. It loads
+the separate review IIFE (`dist/review.js`, with CSS inlined) and mounts the comments UI into an
+open shadow root when the page is opened with
 a review link (`?toolbar-code=<project code>` or `?review=true`) or a project member signs in silently
 (`review` mode; the review then lasts
 for the tab, `src/review.ts`), always (`showcase` mode, every public uier.io page) or when the page asks
@@ -14,9 +15,14 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 
 ## How it is built
 
-- `src/index.tsx` creates `<div id="uier-toolbar">`, attaches an open shadow root (so assistive
+- `src/index.ts` captures configuration and review state, runs installation diagnostics and the bounded
+  background member check, and loads the content-addressed, integrity-checked review script only when
+  needed. Concurrent embeds share the download; failures allow a later request to retry. `runtimeContext.ts`
+  passes the captured configuration, in-memory identity and diagnostics through a symbol on the script
+  element, including when browser storage is blocked. Preserve the loader nonce and script origin.
+- `src/runtime.tsx` creates `<div id="uier-toolbar">`, attaches an open shadow root (so assistive
   technologies, axe and Playwright can reach it), adopts the shared constructed stylesheet from
-  `stylesheet.ts` (tsup replaces `__uier_toolbar_css__` with `dist/index.css`) and renders
+  `stylesheet.ts` (tsup replaces `__uier_toolbar_css__` with `dist/review.css`) and renders
   `CommentsBootstrapper` into a `<div data-uier-root>` inside it. `mount.ts` tracks the actual host
   with a window symbol, including helpers that cross its shadow boundary; never use an id as the
   duplicate-mount guard. Clear only this instance's marker on exit.
@@ -25,20 +31,21 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
   root (`:root` alone would not). The `[data-uier-root]` container gets the `dark` class when the
   system prefers dark, so threads follow the system theme; the pill and the sidebar are wrapped in
   `components/InkScope.tsx` (always the dark tokens), pins are always ink.
-- Fonts: `index.tsx` appends the self-hosted Geist stylesheet (`GEIST_FONTS_PATH` from
+- Fonts: `runtime.tsx` appends the self-hosted Geist stylesheet (`GEIST_FONTS_PATH` from
   `@uier/brand`, resolved against `toolbarConfig.apiUrl`) to the host document, because `@font-face` inside a shadow root is unreliable.
   If the host's CSP blocks it, the toolbar falls back to `system-ui`.
 - The comments API base URL comes from `src/config.ts`: the script tag or `window.uierConfig`,
   else the toolbar script's origin, else the build-time `__UIER_API_URL__` (`tsup.config.ts`; the
   dev build always uses http://localhost:4004). Accept only plain window configuration with own
   string-valued data properties; ignore named elements, accessors, non-strings and read failures.
-- The final CSS-inlined production bytes produce `dist/bundle.json` (`@uier/toolbar/bundle`):
-  SHA-256 path and SHA-384 SRI. The web build publishes the default and pinned copies. Keep
+- The final CSS-inlined review bytes produce a SHA-256 path and SHA-384 SRI embedded in the loader.
+  The loader bytes produce `dist/bundle.json` (`@uier/toolbar/bundle`): its SHA-256 path and SHA-384 SRI.
+  The web build publishes default/pinned loaders and the review asset, retaining both in its archive. Keep
   production pins/API compatibility for one year after last release as current (docs/api.md).
 - UI-kit `next/link` imports in the embedded IIFE resolve to `components/ToolbarLink.tsx`, a
   ref-forwarding native anchor: reviewed sites need browser navigation, not Next.js routing.
   `process.env` remains stubbed to `{}` for browser compatibility of dependencies.
-- "Exit review" unmounts the React root and removes `#uier-toolbar` (`index.tsx`). It is in the
+- "Exit review" unmounts the React root and removes `#uier-toolbar` (`runtime.tsx`). It is in the
   options and, when a project's reviewer can't comment, on the notice pill (`project/ProjectGate.tsx`).
 
 ## Components
@@ -115,7 +122,10 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
   notices send only `location.origin` plus `pagePath` with that policy, never the raw page URL.
 - UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
   (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
-- Keep the bundle small: no new large dependencies without a reason (`modern-screenshot`, about
+- Keep the loader below 12 KB raw / 5 KB gzip (`e2e/toolbar-assets.api.spec.ts`). React, styles,
+  fonts and screenshots belong to the review bundle and must not load for ordinary visitors.
+  `e2e/toolbar-bootstrap.spec.ts` covers deferred loading, configuration/identity handoff, concurrent
+  requests, nonce/SRI, failure retries and feedback reopening. Keep the review bundle small: no new large dependencies without a reason (`modern-screenshot`, about
   25 KB, draws screenshots; there is no lighter way that keeps the page's own CSS).
 - Capture starts automatically for new feedback. Image selection and redaction happen after saving,
   outside draft/idempotency storage. Saved thumbnails expand by click, tap or keyboard; failed image

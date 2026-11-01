@@ -35,5 +35,8 @@ if (readFileSync(source, 'utf8').includes('http://localhost:4004')) {
     fail(`${relative(appDir, source)} is a development build of the toolbar. Run \`pnpm build\` from the repository root to rebuild it for production.`);
 }
 
-const pinned = await publishToolbar(source, dirname(target), { retainFrom: process.env.UIER_TOOLBAR_RETAIN_FROM });
+const pinned = await publishToolbar(source, dirname(target), {
+    retainFrom: process.env.UIER_TOOLBAR_RETAIN_FROM,
+    dependencies: [join(dirname(source), 'review.js')]
+});
 console.log(`[copy-toolbar] ${relative(appDir, source)} -> ${relative(appDir, target)} and ${pinned.path}`);

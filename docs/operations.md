@@ -252,6 +252,8 @@ web build reads the previous no-store `/toolbar/manifest.json`, downloads suppor
 bounded concurrency/size/time, and verifies their content-addressed SHA-256 paths. A missing
 manifest (404) bootstraps the first release. Other failures stop deployment; do not bypass them
 by clearing the archive source. The manifest records when each hash was last the current version.
+The archive contains both loaders and their review scripts. Each loader embeds its review script's
+content-addressed URL and integrity value; retain both together.
 Keep each production bundle and its review API contract working for one year after that date;
 breaking API changes must retain the old contract through the supported window. Sites update
 their pinned snippet to receive fixes. Previews/local pins carry no production retention promise.
