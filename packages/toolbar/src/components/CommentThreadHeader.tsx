@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -13,6 +13,7 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName } from './@types/Comments';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
+import { CommentAssignee, CommentAssigneeOptions } from './CommentAssignment';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
 export function CommentStatusBadge({ done }: { done: boolean }) {
@@ -46,9 +47,9 @@ export function sourceText(source: NonNullable<CommentItem['source']>) {
 export const threadActionClassName = 'size-7 text-muted-foreground hover:text-foreground';
 
 /**
- * The top of a thread (popover and inbox), in one row: its status, public id (`#12`) and unread
- * dot, then icon actions: "Mark as read" while unread, "Mark as done" / "Reopen" for the author,
- * "Copy issue" and "Copy link" for everyone.
+ * The top of a thread (popover and inbox), in one row: its status, public id (`#12`), unread
+ * dot and assignee (the people to assign it to open under the row), then icon actions: "Mark as
+ * read" while unread, "Mark as done" / "Reopen" for the author, "Copy issue" and "Copy link" for everyone.
  */
 export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
     const { review } = useContext(CommentsBootstrapperContext);
@@ -59,6 +60,8 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
     const done = comment.resolved;
     const unread = Boolean(comment.activity?.unread);
     const issue = useCopyIssue(comment.id);
+    const [assigning, setAssigning] = useState(false);
+    const assigneeRef = useRef<HTMLButtonElement>(null);
 
     const handleStatus = async () => {
         try {
@@ -94,6 +97,8 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                         </span>
                     )}
                     {unread && <UnreadDot />}
+                    <CommentAssignee comment={comment} open={assigning} onToggle={() => setAssigning(!assigning)}
+                        triggerRef={assigneeRef} className={threadActionClassName} />
                 </Row>
                 <Row className="-mr-1.5 shrink-0">
                     {unread && (
@@ -138,6 +143,9 @@ export function CommentThreadHeader({ comment }: { comment: CommentItem }) {
                     </>}
                 </Row>
             </Row>
+            {assigning && comment.permissions?.assign && (
+                <CommentAssigneeOptions comment={comment} onAssigned={() => { setAssigning(false); assigneeRef.current?.focus(); }} />
+            )}
             <CopyIssueResult state={issue} />
             <CommentsErrorMessage error={resolve.error ?? read.error} />
             {uncopiedLink && (
