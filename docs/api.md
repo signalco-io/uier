@@ -83,6 +83,17 @@ set by Pulumi). Links in emails use `https://uier.io` in production and the depl
 (`UIER_BASE_URL` overrides both); never the request's Host header.
 
 App server actions validate positional arguments before use as well as checking the session and role.
+The app's `replyCommentAction` validates project/thread ids, trimmed text, selected mention ranges
+and a required `idempotencyKey`. It resolves the current session/workspace/project and constructs
+the service Request from server request headers, preserving IP rate-limit metadata. Actor and
+permission claims never come from client fields. It uses `replyToProjectComment`, its atomic
+receipts, current-access checks, limits and event/sync writes; replies on Done threads keep Done.
+The on-demand `commentParticipantsAction` rechecks membership and private-thread visibility and
+returns eligible account names and opaque ids only, without email addresses. Guests cannot use
+these app actions and keep their existing review-API reply permissions. Actions revalidate the
+project's authorized comments snapshot. Draft scopes, seven-day expiry and local-storage recovery
+are described in [the review workflow](review-workflow.md#draft-recovery-and-submission-retries).
+
 Boolean settings are also validated by the services that persist them. Member removal compares the
 loaded user id, then atomically updates the workspace removal version and deletes the versioned
 member; concurrent removals recheck the admin count. A removed membership is never restored.

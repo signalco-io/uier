@@ -53,6 +53,7 @@ type ReplyInput = { commentId: string; text: string; mentions?: Mention[] };
  */
 const pendingComments = new Map<string, CommentItem>();
 const pendingReplies = new Map<string, CommentItemThreadItem[]>();
+const pendingReplyContexts = new Map<string, { revision: number; previousIds: Set<string> }>();
 const pendingResolutions = new Map<string, { token: string; resolved: boolean; revision: number }>();
 // The temporary id a saved comment had (see `commentKey`)
 const localKeys = new Map<string, string>();
@@ -76,7 +77,11 @@ const sameText = (item: CommentItemThreadItem | undefined, text: string) => Bool
 function applyPending(comment: CommentItem): CommentItem {
     const resolution = pendingResolutions.get(comment.id);
     if (resolution?.revision === currentReviewerRevision()) comment = { ...comment, resolved: resolution.resolved };
-    const replies = pendingReplies.get(comment.id)?.filter(reply => !reply.deleted && !comment.thread.items.some(item => sameText(item, reply.text)));
+    const replies = pendingReplies.get(comment.id)?.filter(reply => {
+        const context = pendingReplyContexts.get(reply.id);
+        return context?.revision === currentReviewerRevision() && !reply.deleted
+            && !comment.thread.items.some(item => !context.previousIds.has(item.id) && sameText(item, reply.text));
+    });
     return replies?.length ? { ...comment, thread: { items: [...comment.thread.items, ...replies] } } : comment;
 }
 
@@ -227,7 +232,7 @@ export function useComments(refreshOnMount = false): {
     path: string;
     query: UseQueryResult<CommentItem[], Error>;
     create: UseMutationResult<CommentItem, Error, CreateCommentInput, { localId: string }>;
-    reply: UseMutationResult<CommentItem, Error, ReplyInput, { itemId: string }>;
+    reply: UseMutationResult<CommentItem, Error, ReplyInput, { itemId: string; revision: number }>;
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
@@ -307,36 +312,40 @@ export function useComments(refreshOnMount = false): {
     });
 
     const forgetPendingReply = (commentId: string, itemId: string) => {
+        pendingReplyContexts.delete(itemId);
         const rest = pendingReplies.get(commentId)?.filter(item => item.id !== itemId) ?? [];
         if (rest.length) pendingReplies.set(commentId, rest);
         else pendingReplies.delete(commentId);
     };
 
     const reply = useMutation({
-        mutationFn: (input: ReplyInput) => replyToComment({
+        mutationFn: (input: ReplyInput) => drafts.run(input.commentId, () => replyToComment({
             ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify(input))
-        }),
+        })),
         onMutate: (input: ReplyInput) => {
             const item: CommentItemThreadItem = {
                 id: newLocalId(), text: input.text, mentions: input.mentions, author: { name: authorName(), isMe: true },
                 createdAt: new Date().toISOString(), canDelete: false, canEdit: false, pending: true
             };
             pendingReplies.set(input.commentId, [...(pendingReplies.get(input.commentId) ?? []), item]);
+            const previousIds = new Set(client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix })
+                .flatMap(([, comments]) => comments ?? []).filter(comment => comment.id === input.commentId).flatMap(comment => comment.thread.items.map(item => item.id)));
+            pendingReplyContexts.set(item.id, { revision: currentReviewerRevision(), previousIds });
             updateAllCachedComments(client, (comments) => comments.map(c => c.id === input.commentId ? { ...c, thread: { items: [...c.thread.items, item] } } : c));
-            return { itemId: item.id };
+            return { itemId: item.id, revision: currentReviewerRevision() };
         },
-        onSuccess: (comment, input, { itemId }) => {
+        onSuccess: (comment, input, { itemId, revision }) => {
             forgetPendingReply(input.commentId, itemId);
-            handleWritten(comment);
+            if (revision === currentReviewerRevision()) handleWritten(comment);
         },
         onError: (error, input, context) => {
-            if (context) {
-                forgetPendingReply(input.commentId, context.itemId);
+            if (context) forgetPendingReply(input.commentId, context.itemId);
+            if (context?.revision === currentReviewerRevision()) {
                 updateAllCachedComments(client, (comments) => comments.map(c => c.id === input.commentId
                     ? { ...c, thread: { items: c.thread.items.filter(item => item.id !== context.itemId) } }
                     : c));
             }
-            toastNotSent('reply', error);
+            if (context?.revision === currentReviewerRevision()) toastNotSent('reply', error);
         },
         onSettled: handleSettled
     });

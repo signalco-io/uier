@@ -1,5 +1,6 @@
 import { environmentFilter, type FeedbackSource } from './environments';
 import type { ReadActivity } from '../comments/activity';
+import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { projectCommentRouting } from './projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
@@ -39,6 +40,7 @@ export type ProjectCommentMessage = {
     edited: boolean;
     canDelete: boolean;
     canFilterAuthor: boolean;
+    pending?: boolean;
 };
 
 /** A comment as the app shows it */
@@ -74,7 +76,7 @@ export type ProjectCommentView = {
     edited: boolean;
     replies: ProjectCommentMessage[];
     canFilterAuthor: boolean;
-    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean };
+    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; reply: boolean };
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
@@ -138,7 +140,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             edit: canEditComment(comment, actor) && !first.deletedAt,
             delete: canDeleteComment(comment, actor),
             makePrivate: canMakeCommentPrivate(actor),
-            assign: actor.kind === 'member'
+            assign: actor.kind === 'member',
+            reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS
         }
     };
 }

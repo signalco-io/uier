@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="1 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="2 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -109,7 +109,10 @@ export default function PrivacyPolicyPage() {
                 The toolbar stores draft text and anchors in the current site&rsquo;s local storage for seven days
                 after the last change, scoped to the project, authorized reviewer, page and item. Edit drafts also
                 retain the original message text to detect conflicting edits. Discard, posting and toolbar sign-out
-                clear relevant drafts. Expired data is removed when the toolbar next opens. Site scripts can read
+                clear relevant drafts. The app also stores reply text and selected mentions for seven days, scoped to
+                its deployment, project, signed-in account and thread. App sign-out clears these app drafts on this
+                browser origin. Drafts do not synchronize between the app and reviewed sites. Expired data is removed
+                on next use. Site scripts can read
                 local storage. If storage is unavailable, drafts remain only while the page stays open.
             </p>
             <p>
@@ -490,7 +493,7 @@ export default function PrivacyPolicyPage() {
                 <li>Coding tool connections: until you revoke them, 30 days after the tool last renewed its access, or one year after you allowed them, whichever comes first. A tool&rsquo;s access tokens last one hour; its refresh tokens are replaced on each use and last at most 30 days, and the hash of a used one is kept for a day to detect reuse. Pending sign-in requests: 10 minutes. Sign-in codes: valid for 60 seconds, their hashes kept for 10 minutes. Descriptions of tools that registered themselves: 30 days after their last sign-in; published descriptions: cached for up to 24 hours. Expired records are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Coding tool access tokens: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Moderation author-filter references: 24 hours.</li>
-                <li>Submission receipts: 30 days. Unsent drafts: seven days in the reviewed site’s browser storage, removed on next use after expiry.</li>
+                <li>Submission receipts: 30 days. Unsent drafts: seven days in the app or reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account and workspace: until you ask us to delete them.</li>

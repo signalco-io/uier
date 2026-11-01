@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import type { z } from 'zod';
 import { parseActionInput } from '../../../lib/app/validation';
 import { actionResult, UserFacingError, type ActionState } from '../../../lib/app/actionResult';
@@ -13,6 +14,7 @@ import {
     deleteProjectCommentItem,
     editProjectCommentText,
     removeProjectComment,
+    replyToProjectComment,
     setProjectCommentAssignee,
     setProjectCommentPrivate,
     setProjectCommentResolved
@@ -26,9 +28,37 @@ import { projectFeedbackExport } from '../../../lib/review/feedbackContext';
 import { markProjectThreadsRead } from '../../../lib/review/bulkRead';
 import type { ReadThreadInput } from '../../../lib/comments/bulkRead';
 import { createCommentAuthorFilter } from '../../../lib/app/commentAuthors';
+import { assertCanUseComments } from '../../../lib/review/actor';
+import { eligibleParticipants } from '../../../lib/review/participants';
 import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
     filterAuthorActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
-    resolveCommentActionSchema } from './actionSchemas';
+    replyCommentActionSchema, resolveCommentActionSchema } from './actionSchemas';
+
+/** Session/workspace authority and request metadata come only from the server request. */
+export async function replyCommentAction(input: import('zod').infer<typeof replyCommentActionSchema>) {
+    return commentAction(replyCommentActionSchema, input, async ({ project, actor }, parsed) => {
+        assertCanUseComments(project, actor);
+        const request = new Request(`${await appBaseUrl()}/app/projects/${project.id}`, { headers: await headers() });
+        await replyToProjectComment(request, project, actor, parsed.commentId, parsed);
+    });
+}
+
+/** Fetch only on demand, with current membership and private-thread visibility. */
+export async function commentParticipantsAction(projectId: string, commentId: string) {
+    return actionResult(async () => {
+        const input = parseActionInput(commentActionSchema, { projectId, commentId });
+        const { project, actor } = await commentContext(input.projectId);
+        try {
+            assertCanUseComments(project, actor);
+            const comment = await getProjectComment(project, actor, input.commentId);
+            if (!comment) throw apiErrors.notFound();
+            return await eligibleParticipants(project, actor, comment);
+        } catch (error) {
+            if (error instanceof ApiError && error.code !== 'server_error') throw new UserFacingError(error.message);
+            throw error;
+        }
+    });
+}
 
 /** The comment's project (current workspace, visible to the user) and the user as its actor */
 async function commentContext(projectId: string) {

@@ -146,6 +146,20 @@ The toolbar likewise reflects Done/Reopen immediately; comments and replies appe
 with failed text kept in drafts. Destructive actions and access-setting changes wait for server
 confirmation.
 
+### Replies from the app and inbox
+
+Use Reply on a card in the app's List or Board, or in the toolbar inbox. The inline composer
+opens only for that card. You can answer Open and Done threads, including feedback on another
+page or environment, page-level feedback, missing anchors and removed sources, without opening
+the original page. A removed source never redirects to another address. Replying keeps the thread's
+status and unread cursor; previews and composing do not mark messages read.
+
+Enter posts, Shift+Enter adds a newline, and IME composition does not post. A selected mention
+consumes Enter or Tab. Replies appear while sending; errors keep recoverable text and selected
+mentions. Current access, comments-off state, private visibility, eligible mentions and the
+50-message thread limit are checked on the server. Replies use the existing notifications and
+integration synchronization, and capture no screenshot.
+
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
@@ -297,12 +311,21 @@ Expired drafts are ignored and pruned when the toolbar next opens. Browser/site 
 local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays
 in memory and the composer explains that the page must stay open.
 
+The app keeps reply drafts for seven days under the same versioned prefix, scoped to the app's
+origin/deployment, project, authenticated account and thread. Closing, filtering, switching List/Board
+or reloading keeps the text. Discard and successful posting remove it; app sign-out clears app
+reply drafts on that browser origin. A different account cannot restore them. The app and reviewed
+sites have independent browser storage; drafts do not synchronize between origins. A thread's pin
+and inbox on the same reviewed origin share the draft for its canonical saved page and the pending-send
+lock. If a failed send and newer text exceed 1000 characters together, Restore unsent text swaps
+the earlier text back into the editor while retaining the newer text separately.
+
 Images and device details are never persisted with drafts. Automatic capture is refreshed on
 reopen/reload, using the restored anchor and the current page/viewport. Capture uses the resolved anchor
 when available; failed capture never blocks text. Composers show no image preview.
 Saved screenshots keep their expandable thumbnail behavior.
 
-Create/reply requests from the toolbar carry a random `idempotencyKey`, kept with the draft.
+Create/reply requests from the toolbar and app reply actions carry a random `idempotencyKey`, kept with the draft.
 Unchanged retries keep it, including after reload; changing the submitted text/anchor/kind starts
 a new attempt. Pending sends share a lock across composer instances. This is recovery of authored
 work, with an explicit send action, not a background queue. Both comments APIs accept optional

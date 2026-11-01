@@ -10,14 +10,16 @@ export type DraftDetails = {
 };
 /** Text being sent in the background: the form is empty, the text stays here until the send settles */
 type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string };
-type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: { content: string; key: string }; sending?: Sending[] };
+type Attempt = { content: string; key: string };
+type Recovery = { text: string; mentions?: Mention[]; attempt?: Attempt };
+type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: Attempt; sending?: Sending[]; recoveries?: Recovery[] };
 const maxTextLength = 1000;
 
 /** Sent text back in the draft, before what was written meanwhile (when both fit) */
 function withSentText(value: RecordValue, text: string, mentions: Mention[] = []): RecordValue {
     if (!value.text.trim()) return { ...value, text, mentions };
     const joined = `${text}\n\n${value.text}`;
-    if (joined.length > maxTextLength) return value;
+    if (joined.length > maxTextLength) return { ...value, recoveries: [...(value.recoveries ?? []), { text, mentions, attempt: value.attempt }] };
     const shift = text.length + 2;
     return { ...value, text: joined, mentions: [...mentions, ...(value.mentions ?? []).map(mention => ({ ...mention, start: mention.start + shift, end: mention.end + shift }))] };
 }
@@ -39,6 +41,17 @@ const memory = new Map<string, Map<string, RecordValue>>();
 const listeners = new Map<string, Set<() => void>>();
 const notify = (key: string) => listeners.get(key)?.forEach(listener => listener());
 const pendingSends = new Map<string, Promise<unknown>>();
+
+/** Clear browser-local drafts on sign-out, including stores owned by unmounted composers. */
+export function clearDraftScopes(scope: string[]) {
+    const prefix = `${draftStoragePrefix}${JSON.stringify(scope).slice(0, -1)},`;
+    for (const [key, records] of memory) if (key.startsWith(prefix)) records.clear();
+    try {
+        const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+        for (const key of keys) if (key?.startsWith(prefix)) localStorage.removeItem(key);
+    } catch { /* Memory is still cleared when storage is blocked. */ }
+    for (const key of listeners.keys()) if (key.startsWith(prefix)) notify(key);
+}
 
 /** Small text/anchor records only. Captures and device details never enter synchronous storage. */
 export function createDraftStore(scope: string[], onWrite?: () => void, persistent = true) {
@@ -89,6 +102,11 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 end = mention.end;
                 return false;
             })) delete value.mentions;
+        }
+        if (value.recoveries !== undefined) {
+            value.recoveries = Array.isArray(value.recoveries)
+                ? value.recoveries.filter(entry => entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
+                : undefined;
         }
         values.set(key, value);
         return value;
@@ -153,8 +171,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             const entry = current?.sending?.find(item => item.id === id);
             if (!current || !entry) return;
             const sending = current.sending!.filter(item => item.id !== id);
-            const rest: RecordValue = { ...current, sending: sending.length ? sending : undefined };
-            if (saved && !rest.text.trim() && !sending.length && JSON.stringify(rest.anchor) === entry.anchor) {
+            const rest: RecordValue = { ...current, attempt: saved ? undefined : current.attempt, sending: sending.length ? sending : undefined };
+            if (saved && !rest.text.trim() && !sending.length && !rest.recoveries?.length && JSON.stringify(rest.anchor) === entry.anchor) {
                 remove(key);
                 return;
             }
@@ -162,6 +180,15 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         },
         available: () => available,
         pending: (key: string) => pendingSends.has(prefix + key),
+        recoveries: (key: string) => read(key)?.recoveries?.length ?? 0,
+        /** Swap an overflowed failed send back into the editor without dropping newer text. */
+        restore(key: string) {
+            const value = read(key);
+            const [first, ...rest] = value?.recoveries ?? [];
+            if (!value || !first) return;
+            write(key, { ...value, text: first.text, mentions: first.mentions, attempt: first.attempt, updatedAt: Date.now(),
+                recoveries: [...rest, ...(value.text.trim() ? [{ text: value.text, mentions: value.mentions, attempt: value.attempt }] : [])] });
+        },
         attempt(key: string, content: string) {
             const previous = read(key);
             if (previous?.attempt?.content === content && /^[A-Za-z0-9_-]{16,128}$/.test(previous.attempt.key)) return previous.attempt.key;

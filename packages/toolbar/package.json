@@ -29,6 +29,10 @@
             "types": "./src/mentions.ts",
             "default": "./dist/mentions.js"
         },
+        "./drafts": {
+            "types": "./src/hooks/draftStorage.ts",
+            "default": "./dist/draftStorage.js"
+        },
         "./feedback-context": {
             "types": "./src/feedbackContext.ts",
             "default": "./dist/feedbackContext.js"

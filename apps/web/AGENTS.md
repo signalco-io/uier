@@ -277,6 +277,15 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   under the message. Copy issue confirms "Issue copied." in its tooltip under the button
   (`ThreadAction`'s `notice`) for 2 seconds, as the toolbar does; its errors and manual clipboard
   fallback stay in the body; pending actions show `Spinner`.
+- `comments/ReplyComposer.tsx` is a lazy inline reply form in List and Board, using shadcn controls
+  and pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
+  resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
+  `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
+  Replies preserve status and unread state; `CommentUpdates` appends pending messages and action
+  revalidation reconciles them. Seven-day drafts are scoped to app origin/deployment, project,
+  account and thread. Closing/filtering keeps text; explicit discard, successful send and both
+  app sign-out controls clear relevant drafts. Storage failure stays in memory with a notice.
+  Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.
 - `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, loaded by the
   browser from the project's main address over HTTPS (`/favicon.ico`, `/favicon.svg`,
   `/apple-touch-icon.png`, no favicon service or server fetch; `proxy.ts` adds `img-src https:` on app

@@ -95,11 +95,14 @@ test('a guest project review recovers lost create/reply responses across reload 
     await thread.getByRole('button', { name: 'Post reply' }).click();
     await expect(thread.getByRole('alert')).toContainText('Check your connection');
     await page.reload();
-    await page.locator(`[data-uier-comment="${comments[0].id}"]`).click();
-    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Guest reply, once');
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    const card = inbox.getByRole('article').filter({ hasText: 'Guest feedback, once' });
+    await card.getByRole('button', { name: 'Reply', exact: true }).click();
+    await expect(card.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Guest reply, once');
     await page.unroute(replyEndpoint);
-    await thread.getByRole('button', { name: 'Post reply' }).click();
-    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
+    await card.getByRole('button', { name: 'Post reply' }).click();
+    await expect(card.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
     // Sent in the background
     await expect.poll(async () => (await (await read()).json())[0].thread.items.length).toBe(2);
 });

@@ -217,9 +217,9 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     // The picker: this page, all pages and the other pages, with their open comments
     await pagesButton.click();
     await expect(pageOptions.getByRole('button', { name: /^This page/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(pageOptions.getByRole('button', { name: 'All pages, 3 comments' })).toBeVisible();
+    await expect(pageOptions.getByRole('button', { name: /^All pages\s*, 3 comments$/ })).toBeVisible();
     await expect(pageOptions.getByRole('button')).toHaveCount(3);
-    await pageOptions.getByRole('button', { name: '/security, 1 comment' }).click();
+    await pageOptions.getByRole('button', { name: /^\/security\s*, 1 comment$/ }).click();
     await expect(pageOptions).toBeHidden();
     await expect(pagesButton).toContainText('/security');
     const security = sidebar.getByRole('region', { name: '/security', exact: true });
@@ -401,4 +401,124 @@ test('inbox: Show on page only where the pin can be placed; Show all counts like
     await expect(card.getByText('First answer.')).toBeVisible();
 
     await context.close();
+});
+
+test('reply in inbox shares the pin draft and answers page-level and missing-anchor threads on other pages', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const visitor = await newVisitor(browser, testInfo);
+    try {
+        const saved: SavedComment[] = [];
+        for (const [path, text, position] of [
+            ['/brand', 'Pin and inbox share a reply', { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }],
+            ['/security', 'Other page feedback', { type: 'page' }],
+            ['/security', 'Missing anchor feedback', { type: 'point', selector: '#gone', xNormal: 0.5, yNormal: 0.5 }]
+        ] as const) {
+            const response = await visitor.context.request.post(`${origin}/api/comments`, { data: { path, text, position, ...(position.type === 'page' ? { kind: 'feedback' } : {}) } });
+            expect(response.status()).toBe(201); saved.push(await response.json());
+        }
+        await visitor.page.goto(`${origin}/brand?review=true`);
+        await addToolbarScript(visitor.page);
+        await visitor.page.locator(`[data-uier-comment="${saved[0]!.id}"]`).click();
+        const pin = visitor.page.getByRole('dialog', { name: 'Comment thread', exact: true });
+        await pin.getByRole('textbox', { name: 'Reply', exact: true }).fill('Shared reply draft');
+        await visitor.page.keyboard.press('Escape');
+        await visitor.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        const inbox = visitor.page.getByRole('complementary', { name: 'Comments' });
+        const card = inbox.getByRole('article').filter({ hasText: 'Pin and inbox share a reply' });
+        await expect(inbox.getByRole('textbox', { name: 'Reply', exact: true })).toHaveCount(0);
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        const input = card.getByRole('textbox', { name: 'Reply', exact: true });
+        await expect(input).toBeFocused();
+        await expect(input).toHaveValue('Shared reply draft');
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        let writes = 0;
+        await visitor.page.route(`**/api/comments/${saved[0]!.id}/replies`, async route => {
+            writes++; await held; await route.continue();
+        });
+        try {
+            await input.press('Enter');
+            await expect.poll(() => writes).toBe(1);
+            await expect(card.getByText('Shared reply draft', { exact: true })).toBeVisible();
+            await input.fill('Keep newer text');
+            await input.press('Enter');
+            expect(writes).toBe(1);
+            release();
+            await expect(card.getByRole('button', { name: 'Post reply' })).toBeEnabled();
+            await expect(input).toHaveValue('Keep newer text');
+        } finally { release(); }
+        await card.getByRole('button', { name: 'Close reply' }).click();
+        await chooseInboxPages(visitor.page, /^All pages/);
+        for (const [index, text] of [[1, 'Other page feedback'], [2, 'Missing anchor feedback']] as const) {
+            const other = inbox.getByRole('article').filter({ hasText: text });
+            await other.getByRole('button', { name: 'Reply', exact: true }).click();
+            const reply = other.getByRole('textbox', { name: 'Reply', exact: true });
+            await reply.fill(`Answer ${index}`);
+            await reply.press('Shift+Enter');
+            await reply.pressSequentially('Next line');
+            await reply.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
+            await expect(reply).toHaveValue(`Answer ${index}\nNext line`);
+            await other.getByRole('button', { name: 'Post reply', exact: true }).click();
+            await expect(other.getByText(`Answer ${index}\nNext line`, { exact: true })).toBeVisible();
+            await expect(reply).toHaveValue('');
+        }
+        expect(new URL(visitor.page.url()).pathname).toBe('/brand');
+        for (const colorScheme of ['light', 'dark'] as const) {
+            await visitor.page.emulateMedia({ colorScheme });
+            await animationsFinished(inbox);
+            await expectNoAxeViolations(visitor.page);
+            await visitor.page.screenshot({ path: testInfo.outputPath(`inbox-reply-${colorScheme}.png`) });
+        }
+        await visitor.page.reload();
+        await addToolbarScript(visitor.page);
+        await visitor.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        await chooseInboxPages(visitor.page, /^All pages/);
+        await expect(inbox.getByText('Shared reply draft', { exact: true })).toHaveCount(1);
+        for (const comment of saved) {
+            const response = await visitor.context.request.get(`${origin}/api/comments?scope=site`);
+            expect((await response.json()).find((item: { id: string }) => item.id === comment.id).thread.items).toHaveLength(2);
+        }
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        await expect(input).toHaveValue('Keep newer text');
+    } finally { await visitor.context.close(); }
+});
+
+test('a late inbox reply response cannot restore the signed-out reviewer cache or draft', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const visitor = await newVisitor(browser, testInfo);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    try {
+        const saved = await (await visitor.context.request.post(`${origin}/api/comments`, { data: {
+            path: '/brand', text: 'Pending reply at sign-out', kind: 'feedback', position: { type: 'page' }
+        } })).json();
+        await visitor.page.goto(`${origin}/brand?review=true`);
+        await addToolbarScript(visitor.page);
+        await visitor.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        const inbox = visitor.page.getByRole('complementary', { name: 'Comments' });
+        const card = inbox.getByRole('article').filter({ hasText: 'Pending reply at sign-out' });
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        await card.getByRole('textbox', { name: 'Reply', exact: true }).fill('Old reviewer response');
+        let received = false;
+        await visitor.page.route(`**/api/comments/${saved.id}/replies`, async route => {
+            const response = await route.fetch();
+            received = true;
+            await held;
+            await route.fulfill({ response });
+        });
+        await card.getByRole('button', { name: 'Post reply', exact: true }).click();
+        await expect.poll(() => received).toBe(true);
+        await visitor.page.getByRole('button', { name: 'Close sidebar' }).click();
+        // A fresh viewer's authorized list stays empty. The old mutation result must not refill it.
+        await visitor.page.route('**/api/comments?*', route => route.fulfill({ json: [] }));
+        await visitor.page.getByRole('button', { name: 'Options', exact: true }).click();
+        await visitor.page.getByRole('button', { name: 'Sign out...', exact: true }).click();
+        await visitor.page.getByRole('button', { name: 'Sign out', exact: true }).click();
+        await expect(visitor.page.getByRole('dialog', { name: 'Options', exact: true })).toBeHidden();
+        release();
+        await expect(visitor.page.getByRole('status').filter({ hasText: 'Reply posted' })).toBeAttached();
+        await visitor.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        await expect(inbox.getByRole('article')).toHaveCount(0);
+        await expect.poll(() => visitor.page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('uier:draft:v1:')))).toEqual([]);
+    } finally { release(); await visitor.context.close(); }
 });

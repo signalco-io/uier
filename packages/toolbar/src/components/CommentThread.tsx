@@ -1,6 +1,6 @@
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
 import { useReadComment } from '../hooks/useComments';
@@ -12,8 +12,8 @@ import { toolbarConfig } from '../config';
 import { useVisitor } from '../hooks/useVisitor';
 
 /** A thread: its first and last message, and "Show all" for the ones between */
-export function CommentThread({ commentItem, reading = false }: { commentItem: CommentItem; reading?: boolean }) {
-    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} /></DraftsProvider>;
+export function CommentThread({ commentItem, reading = false, children }: { commentItem: CommentItem; reading?: boolean; children?: ReactNode }) {
+    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} />{children}</DraftsProvider>;
 }
 
 function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; reading: boolean }) {

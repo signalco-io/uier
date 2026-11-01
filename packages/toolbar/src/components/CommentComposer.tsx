@@ -112,6 +112,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const sharedPending = useSyncExternalStore(
         listener => drafts.subscribe(draftKey, listener),
         () => drafts.pending(draftKey));
+    const recoveries = useSyncExternalStore(listener => drafts.subscribe(draftKey, listener), () => drafts.recoveries(draftKey));
     // Editing waits for the save; new comments, replies and feedback never block the form
     const instant = !onCancel;
     const busy = !instant && (pending || submitting || sharedPending);
@@ -375,7 +376,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             className="size-7 rounded-md"
                             title={submitLabel}
                             aria-label={submitLabel}
-                            disabled={!trimmedText.length || busy}>
+                            disabled={!trimmedText.length || busy || sharedPending}>
                             <Send size={14} />
                         </IconButton>}
                     </Row>
@@ -392,7 +393,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 <CommentsErrorMessage error={error} />
                 {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">Browser storage is unavailable. Keep this page open to keep your draft.</p>}
                 {error != null && <p className="m-0 text-xs text-muted-foreground">Your draft is kept. Try sending again.</p>}
-                {busy && <p role="status" className="m-0 text-xs text-muted-foreground">Saving...</p>}
+                {recoveries > 0 && <div className="text-xs text-muted-foreground"><p role="status">Earlier unsent text is kept separately because both drafts exceed the character limit.</p>
+                    <Button variant="plain" size="sm" disabled={sharedPending} onClick={() => drafts.restore(draftKey)}>Restore unsent text</Button></div>}
+                {(busy || sharedPending) && <p role="status" className="m-0 text-xs text-muted-foreground">{instant ? 'Sending...' : 'Saving...'}</p>}
             </Stack>
         </form>
     );

@@ -108,3 +108,38 @@ test('project receipts isolate actor/project and still enforce private visibilit
         else process.env.UIER_LOCAL = previous;
     }
 });
+
+test('reply receipts recheck comments-off and membership, keep Done and emit one event and sync signal', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const { getAppStore } = await import('../src/lib/app/store');
+        const { memberId, workspacePk } = await import('../src/lib/app/model');
+        const id = key();
+        const project = await persistProjectAccess({ id: id.slice(0, 12) } as DbProject, [{ userId: `u_${id}`, name: 'Reviewer', isAdmin: true }]);
+        const actor = { kind: 'member', userId: `u_${id}`, name: 'Reviewer', isAdmin: true } as const;
+        const request = new Request('http://localhost/app/projects');
+        const first = await createProjectComment(request, project, actor, { origin: project.urls[0]!, path: '/gone', position, kind: 'comment', text: 'Original' });
+        const store = getMemoryCommentsStore();
+        const stored = (await store.get(first.domain, first.id))!;
+        await store.replace({ ...stored.comment, resolved: true, origin: 'https://removed.example' }, stored.etag);
+        const reply = { text: 'One reply from any surface', idempotencyKey: key() };
+        const replies = await Promise.all(Array.from({ length: 3 }, () => replyToProjectComment(request, project, actor, first.id, reply)));
+        expect(replies.every(comment => comment.resolved && comment.thread.items.length === 2)).toBe(true);
+        const saved = (await store.get(first.domain, first.id))!.comment;
+        expect(saved.notificationEvents?.filter(event => event.kind === 'reply')).toHaveLength(1);
+        expect(saved.syncVersion).toBeDefined();
+        expect((await replyToProjectComment(request, project, actor, first.id, reply)).syncVersion).toEqual(saved.syncVersion);
+        const app = getAppStore();
+        const current = (await app.get<DbProject>(project.pk, project.id))!;
+        await app.replace({ ...current.doc, access: 'disabled' }, current.etag);
+        await expect(replyToProjectComment(request, project, actor, first.id, reply)).rejects.toMatchObject({ code: 'comments_disabled' });
+        const disabled = (await app.get<DbProject>(project.pk, project.id))!;
+        await app.replace({ ...disabled.doc, access: 'invited' }, disabled.etag);
+        await app.delete(workspacePk(project.workspaceId), memberId(actor.userId));
+        await expect(replyToProjectComment(request, project, actor, first.id, reply)).rejects.toMatchObject({ code: 'sign_in_required' });
+        expect((await store.get(first.domain, first.id))!.comment).toEqual(saved);
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous;
+    }
+});
