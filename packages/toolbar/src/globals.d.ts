@@ -8,3 +8,7 @@ declare const __UIER_API_URL__: string;
 
 /** `true` for the development build (`pnpm dev`, served from the toolbar dev server) */
 declare const __UIER_DEV__: boolean;
+
+/** Exact review bundle path and SRI, filled in after its CSS has been inlined. */
+declare const __UIER_REVIEW_PATH__: string;
+declare const __UIER_REVIEW_INTEGRITY__: string;

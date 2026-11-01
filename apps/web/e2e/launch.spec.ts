@@ -99,7 +99,10 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await page.goto(directReview!);
         await expect(thread(page)).toContainText('Explain the annual price.');
         await thread(page).getByRole('textbox', { name: 'Reply' }).fill('The annual price is now explained.');
+        const replied = page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${publicId}/comments/${saved.id}/replies`
+            && response.request().method() === 'POST');
         await thread(page).getByRole('button', { name: 'Post reply' }).click();
+        expect((await replied).status()).toBe(201);
         await expect(thread(page)).toContainText('The annual price is now explained.');
         // Exercise the actual Copy link fallback rather than constructing a parallel URL.
         await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true,
@@ -107,7 +110,14 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await thread(page).getByRole('button', { name: 'Copy link' }).click();
         const directLink = await thread(page).locator('input[readonly]').inputValue();
         expect(new URL(directLink).searchParams.get('uier-comment')).toBe(saved.id);
+        // Reply/status feedback is optimistic. The other reviewer must navigate after the
+        // writes settle; a faster bootstrap can otherwise read the previous open thread.
+        const resolved = page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${publicId}/comments/${saved.id}`
+            && response.request().method() === 'PATCH');
         await thread(page).getByRole('button', { name: 'Mark as done' }).click();
+        const resolveResponse = await resolved;
+        expect(resolveResponse.status()).toBe(200);
+        expect((await resolveResponse.json()).resolved).toBe(true);
         await expect(thread(page)).toBeHidden();
         await guest.page.goto(directLink);
         // Resolved threads intentionally have no page pin; their direct links open the Done inbox.

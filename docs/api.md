@@ -144,7 +144,14 @@ project whose comments apply is the script's `data-uier-project`, so `?review=tr
 that project too, "View project" included. It calls the API on the origin of its own script URL, so a preview
 deployment's landing page talks to that preview's API.
 
-`pnpm build` in `apps/web` first copies the production bundle of `@uier/toolbar` (a workspace devDependency,
+The embed first downloads a small loader. React, the review UI, styles and screenshot code are
+downloaded only when review is active, a project member is confirmed by background sign-in, showcase
+mode is enabled, or feedback is requested. Fonts are loaded when the UI mounts. The loader snapshots
+script configuration before downloading the review UI, shares concurrent loads, and permits retries
+after a failed download. Both scripts are classic scripts, with the loader nonce passed to the review
+script for CSP compatibility.
+
+`pnpm build` in `apps/web` first copies the production loader of `@uier/toolbar` (a workspace devDependency,
 built before the web app through Turborepo's `^build`) to `apps/web/public/toolbar.js`
 ([`scripts/copy-toolbar.mjs`](../apps/web/scripts/copy-toolbar.mjs); the copy is gitignored and a Turborepo build
 output). It refuses to copy a development build. [`next.config.ts`](../apps/web/next.config.ts) serves it with
@@ -167,9 +174,12 @@ The default embed follows new releases. **Advanced: pin this version** in the in
 HTML and Next.js snippets with `/toolbar/<sha256>.js`, `integrity="sha384-..."` and
 `crossorigin="anonymous"` (`crossOrigin` in JSX). These content-addressed files use
 `Cache-Control: public, max-age=31536000, immutable` and `Access-Control-Allow-Origin: *`.
-The SHA-256 path and SHA-384 integrity value are generated from the final CSS-inlined bytes by
-the toolbar build (`@uier/toolbar/bundle`). `copy-toolbar.mjs` publishes identical bytes at the
-default and pinned paths, plus a no-store `/toolbar/manifest.json` archive index.
+The SHA-256 path and SHA-384 integrity value describe the loader bytes (`@uier/toolbar/bundle`).
+The loader contains the exact review script's SHA-256 path and SHA-384 integrity value, generated
+after its CSS is inlined, and loads it with anonymous CORS. `copy-toolbar.mjs` publishes identical
+loader bytes at the default and pinned paths, the review script at its content-addressed path, and
+a no-store `/toolbar/manifest.json` archive index. The manifest retains both loaders and their
+review scripts; a pinned loader never switches to a newer review UI.
 
 Pinned production bundles remain available and compatible with the review API for one year after
 their last release as the current version. They get fixes only when the site updates its snippet.

@@ -4,7 +4,7 @@ import { Script } from 'node:vm';
 import { defineConfig } from 'tsup';
 
 export default defineConfig(({ env }) => [{
-    entry: ['./src/index.tsx'],
+    entry: { index: './src/index.ts', review: './src/runtime.tsx' },
     // The bundle is embedded with a classic <script> tag (it reads `document.currentScript`,
     // see src/config.ts), so it is wrapped in an IIFE to keep its variables out of the page's
     // global scope. Keep the `dist/index.js` file name (tsup names IIFE output `*.global.js`).
@@ -27,21 +27,32 @@ export default defineConfig(({ env }) => [{
         // production builds fall back to uier.io.
         __UIER_API_URL__: JSON.stringify(env?.NODE_ENV === 'development' ? 'http://localhost:4004' : 'https://uier.io'),
         __UIER_DEV__: JSON.stringify(env?.NODE_ENV === 'development'),
+        __UIER_REVIEW_PATH__: JSON.stringify('__uier_review_path__'),
+        __UIER_REVIEW_INTEGRITY__: JSON.stringify('__uier_review_integrity__'),
     },
     onSuccess: async () => {
         // Replace the entire literal: esbuild may choose either quote style while minifying.
-        const css = readFileSync('./dist/index.css', 'utf8');
-        const js = readFileSync('./dist/index.js').toString();
+        const css = readFileSync('./dist/review.css', 'utf8');
+        const js = readFileSync('./dist/review.js').toString();
         if (!js.includes('__uier_toolbar_css__')) {
-            throw new Error('CSS placeholder __uier_toolbar_css__ not found in dist/index.js');
+            throw new Error('CSS placeholder __uier_toolbar_css__ not found in dist/review.js');
         }
         // Function replacer so `$` sequences in CSS are not treated as replacement patterns
         const injected = js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css));
         if (injected === js) throw new Error('CSS placeholder is not a JavaScript string literal');
         new Script(injected); // Parse the final bytes, including CSS, before publishing them.
-        writeFileSync('./dist/index.js', injected);
-        const hash = createHash('sha256').update(injected).digest('hex');
-        const integrity = `sha384-${createHash('sha384').update(injected).digest('base64')}`;
+        writeFileSync('./dist/review.js', injected);
+        // Keep the existing CSS export for workspace consumers.
+        writeFileSync('./dist/index.css', css);
+        const reviewHash = createHash('sha256').update(injected).digest('hex');
+        const reviewIntegrity = `sha384-${createHash('sha384').update(injected).digest('base64')}`;
+        const loader = readFileSync('./dist/index.js', 'utf8')
+            .replace(/(["'])__uier_review_path__\1/g, () => JSON.stringify(env?.NODE_ENV === 'development' ? './review.js' : `/toolbar/${reviewHash}.js`))
+            .replace(/(["'])__uier_review_integrity__\1/g, () => JSON.stringify(env?.NODE_ENV === 'development' ? '' : reviewIntegrity));
+        new Script(loader);
+        writeFileSync('./dist/index.js', loader);
+        const hash = createHash('sha256').update(loader).digest('hex');
+        const integrity = `sha384-${createHash('sha384').update(loader).digest('base64')}`;
         writeFileSync('./dist/bundle.json', JSON.stringify({ path: `/toolbar/${hash}.js`, integrity }));
     }
 }, {

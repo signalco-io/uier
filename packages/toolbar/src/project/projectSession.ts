@@ -1,4 +1,5 @@
 import { toolbarConfig } from '../config';
+import { runtimeContext } from '../runtimeContext';
 
 // The reviewer of a project (toolbar with `data-uier-project`), kept in the reviewed site's local
 // storage: the review token of a signed-in member, or a random visitor id and the name of a guest.
@@ -34,7 +35,11 @@ function write(key: string, value: string | undefined) {
     }
 }
 
-const memory = new Map<string, string>();
+const sessionState = runtimeContext.projectSession ??= {
+    memory: new Map<string, string>(),
+    initialReviewCode: toolbarConfig.project ? new URL(window.location.href).searchParams.get(reviewTokenParam) : undefined
+};
+const memory = sessionState.memory;
 
 function readKey(key: string) {
     return read(key) ?? memory.get(key);
@@ -61,7 +66,7 @@ function takeUrlParam(name: string) {
 }
 
 // Read while the script runs, before the page's own router can rewrite the URL
-const initialReviewCode = toolbarConfig.project ? new URL(window.location.href).searchParams.get(reviewTokenParam) : undefined;
+const initialReviewCode = sessionState.initialReviewCode;
 if (initialReviewCode && /^[A-Za-z0-9_-]{43}$/.test(initialReviewCode)) {
     // Persist before removing it: a host's own SSO redirect can unload this page during verification.
     try { window.sessionStorage.setItem(pendingCodeKey, JSON.stringify({ code: initialReviewCode, expiresAt: Date.now() + 10 * 60_000 })); } catch { /* Memory fallback below. */ }

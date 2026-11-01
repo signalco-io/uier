@@ -150,7 +150,7 @@ function absoluteUrls(css: string, base: string) {
 async function fontFaceCss() {
     const rules: string[] = [];
     for (const sheet of [...document.styleSheets]) {
-        // The toolbar's own font (src/index.tsx adds it to the page): the toolbar is not in the picture
+        // The toolbar's own font (src/runtime.tsx adds it to the page): the toolbar is not in the picture
         if (sheet.href === `${toolbarConfig.apiUrl}${GEIST_FONTS_PATH}`) {
             continue;
         }

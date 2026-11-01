@@ -7,6 +7,8 @@
  *     <script>window.uierConfig = { mode: 'showcase', apiUrl: 'https://uier.io' };</script>
  */
 
+import { runtimeContext } from './runtimeContext';
+
 export type ToolbarMode = 'showcase' | 'review' | 'feedback';
 
 export type ToolbarConfig = {
@@ -125,4 +127,4 @@ export function readToolbarConfig(): ToolbarConfig {
 }
 
 /** Configuration of this toolbar instance (read once, while the script runs) */
-export const toolbarConfig = readToolbarConfig();
+export const toolbarConfig = runtimeContext.config ?? readToolbarConfig();

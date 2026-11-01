@@ -1,25 +1,23 @@
 import { toolbarConfig } from '../config';
+import { runtimeContext } from '../runtimeContext';
 import { apiRequest, CommentsApiError } from '../hooks/api';
 import { reviewVerification } from './verification';
 
 type Report = { stage: 'loaded' | 'api' | 'ready' | 'failed'; code?: string };
 const param = 'uier-check';
-let nonce: string | undefined;
-let latest: Report = { stage: 'loaded' };
-let started = false;
-let receiver: { window: Window; origin: string } | undefined;
+const state = runtimeContext.installationCheck ??= { latest: { stage: 'loaded' }, started: false };
 
 function send(target: Window, origin: string, report: Report) {
-    target.postMessage({ type: 'uier:installation', nonce, project: toolbarConfig.project ?? null,
+    target.postMessage({ type: 'uier:installation', nonce: state.nonce, project: toolbarConfig.project ?? null,
         apiOrigin: new URL(toolbarConfig.apiUrl).origin, ...report }, origin);
 }
 
 function report(next: Report) {
-    if (!nonce || latest.stage === 'ready') return;
+    if (!state.nonce || state.latest.stage === 'ready') return;
     // Browser CSP events can arrive after fetch rejects. Prefer that concrete evidence over a generic failure.
-    if (latest.stage === 'failed' && !(next.stage === 'failed' && next.code?.startsWith('csp_') && !latest.code?.startsWith('csp_'))) return;
-    latest = next;
-    if (receiver) send(receiver.window, receiver.origin, latest);
+    if (state.latest.stage === 'failed' && !(next.stage === 'failed' && next.code?.startsWith('csp_') && !state.latest.code?.startsWith('csp_'))) return;
+    state.latest = next;
+    if (state.receiver) send(state.receiver.window, state.receiver.origin, state.latest);
 }
 
 /** Only explicit checks emit public diagnostics. Tokens, reviewer identity and page URLs never leave the page. */
@@ -30,15 +28,15 @@ export function startInstallationCheck() {
     url.searchParams.delete(param);
     history.replaceState(history.state, '', url);
     if (!/^[a-f0-9-]{36}$/.test(value)) return;
-    nonce = value;
+    state.nonce = value;
     const apiOrigin = new URL(toolbarConfig.apiUrl).origin;
     const receive = (event: MessageEvent) => {
-        if (event.data?.type !== 'uier:installation-ping' || event.data.nonce !== nonce || !event.source || !/^https?:\/\//.test(event.origin)) return;
+        if (event.data?.type !== 'uier:installation-ping' || event.data.nonce !== state.nonce || !event.source || !/^https?:\/\//.test(event.origin)) return;
         // The loaded report contains only public script configuration, allowing a mismatched API to be diagnosed.
         send(event.source as Window, event.origin, { stage: 'loaded' });
         if (event.origin !== apiOrigin) return;
-        receiver = { window: event.source as Window, origin: event.origin };
-        send(receiver.window, receiver.origin, latest);
+        state.receiver = { window: event.source as Window, origin: event.origin };
+        send(state.receiver.window, state.receiver.origin, state.latest);
     };
     const blocked = (event: SecurityPolicyViolationEvent) => {
         let relevant = false;
@@ -53,21 +51,21 @@ export function startInstallationCheck() {
     window.setTimeout(() => {
         window.removeEventListener('message', receive);
         document.removeEventListener('securitypolicyviolation', blocked);
-        receiver = undefined;
-        nonce = undefined;
+        state.receiver = undefined;
+        state.nonce = undefined;
     }, 35_000);
 }
 
 /** Called after the project gate commits the toolbar UI. Does not create a test comment. */
 export async function checkInstallationReady(info?: { canComment: boolean; project: { access: string } }, error?: unknown) {
-    if (!nonce || started || latest.stage === 'failed') return;
+    if (!state.nonce || state.started || state.latest.stage === 'failed') return;
     if (error) {
         if (error instanceof CommentsApiError && error.code === 'bot_detected') report({ stage: 'failed', code: 'verification_failed' });
         else window.setTimeout(() => report({ stage: 'failed', code: 'api_unreachable' }), 100);
         return;
     }
     if (!info) return;
-    started = true;
+    state.started = true;
     report({ stage: 'api' });
     if (!info.canComment) {
         report({ stage: 'failed', code: info.project.access === 'disabled' ? 'comments_disabled' : 'sign_in_required' });

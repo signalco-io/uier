@@ -72,6 +72,7 @@ test('public and app links load a new document with the destination security pol
     const app = await appDocument;
     expect(app.headers()['content-security-policy']).toContain("'strict-dynamic'");
     expect(app.headers()['cross-origin-opener-policy']).toBe('same-origin-allow-popups');
+    await page.waitForLoadState();
     const publicDocument = page.waitForResponse(response => response.request().isNavigationRequest()
         && new URL(response.url()).pathname === '/');
     await page.getByRole('link', { name: 'uier home' }).click();
@@ -96,7 +97,7 @@ test('toolbar bundle is served at /toolbar.js', async ({ request }) => {
     expect(headers['cache-control']).toBe('public, max-age=300, s-maxage=3600');
     expect(headers['access-control-allow-origin']).toBe('*');
 
-    // The production build of packages/toolbar, with its CSS inlined
+    // The production bootstrap; the review script carries the inlined CSS.
     const body = await response.text();
     expect(body).toContain('uier-toolbar');
     expect(body).not.toContain('__uier_toolbar_css__');
