@@ -29,14 +29,12 @@ export function ThreadAction({ label, tooltip = label, notice, disabled, busy, o
             if (open && !notice)
                 setShownNotice(undefined);
         }}>
-            <TooltipTrigger asChild>
-                {/* A disabled button gets no pointer events: the span keeps its tooltip */}
-                <span className="inline-flex">
-                    <Button variant="ghost" size="icon-sm" aria-label={label} aria-busy={busy} disabled={disabled} onClick={onClick}
-                        className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11">
-                        {children}
-                    </Button>
-                </span>
+            {/* A disabled button gets no pointer events: the span keeps its tooltip */}
+            <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button variant="ghost" size="icon-sm" aria-label={label} aria-busy={busy} disabled={disabled} onClick={onClick}
+                    className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                    {children}
+                </Button>
             </TooltipTrigger>
             <TooltipContent side={shownNotice ? 'bottom' : undefined}>{shownNotice ?? tooltip}</TooltipContent>
         </Tooltip>

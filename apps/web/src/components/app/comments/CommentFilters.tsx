@@ -113,10 +113,8 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                     onValueChange={(value) => value && go('view', value === 'board' ? 'board' : undefined)}>
                     {([['list', 'List', ListIcon], ['board', 'Board', KanbanIcon]] as const).map(([value, label, Icon]) => (
                         <Tooltip key={value}>
-                            <TooltipTrigger asChild>
-                                <ToggleGroupItem value={value} aria-label={label} className={cn(segmentedItem, 'px-0 pointer-coarse:min-w-11')}>
-                                    <Icon />
-                                </ToggleGroupItem>
+                            <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} className={cn(segmentedItem, 'px-0 pointer-coarse:min-w-11')} />}>
+                                <Icon />
                             </TooltipTrigger>
                             <TooltipContent>{label}</TooltipContent>
                         </Tooltip>

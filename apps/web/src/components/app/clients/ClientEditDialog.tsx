@@ -31,10 +31,8 @@ export function ClientEditDialog({ client, className }: { client: ClientSummary;
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <Tooltip>
-                <TooltipTrigger asChild>
-                    <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className} />}>
-                        <PencilIcon />
-                    </DialogTrigger>
+                <TooltipTrigger render={<DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className} />} />}>
+                    <PencilIcon />
                 </TooltipTrigger>
                 <TooltipContent>Edit client</TooltipContent>
             </Tooltip>

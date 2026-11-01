@@ -43,16 +43,14 @@ function GroupLinkAction({ href, label, current = false, className, children }: 
 }) {
     return (
         <Tooltip>
-            <TooltipTrigger asChild>
-                <SidebarGroupAction
+            <TooltipTrigger render={<SidebarGroupAction
                     asChild
                     data-active={current}
-                    className={cn('data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground', className)}>
-                    <Link href={href} aria-current={current ? 'page' : undefined}>
-                        {children}
-                        <span className="sr-only">{label}</span>
-                    </Link>
-                </SidebarGroupAction>
+                    className={cn('data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground', className)} />}>
+                <Link href={href} aria-current={current ? 'page' : undefined}>
+                    {children}
+                    <span className="sr-only">{label}</span>
+                </Link>
             </TooltipTrigger>
             <TooltipContent side="bottom">{label}</TooltipContent>
         </Tooltip>

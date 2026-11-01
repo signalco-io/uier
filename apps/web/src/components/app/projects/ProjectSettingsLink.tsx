@@ -16,10 +16,8 @@ export function ProjectSettingsLink({ href }: { href: string }) {
     const current = segment === 'settings' || segment === 'install';
     return (
         <Tooltip>
-            <TooltipTrigger asChild>
-                <Link href={href} aria-label="Settings" aria-current={current ? 'page' : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'icon' }), 'aria-[current=page]:bg-muted')}>
-                    <SettingsIcon />
-                </Link>
+            <TooltipTrigger render={<Link href={href} aria-label="Settings" aria-current={current ? 'page' : undefined} className={cn(buttonVariants({ variant: 'outline', size: 'icon' }), 'aria-[current=page]:bg-muted')} />}>
+                <SettingsIcon />
             </TooltipTrigger>
             <TooltipContent>Settings</TooltipContent>
         </Tooltip>
