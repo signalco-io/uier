@@ -153,10 +153,8 @@ export function ConfirmAccess({
                 }
             }}
         >
-            <DialogTrigger asChild>
-                <Button type="button" variant="outline" disabled={disabled || pending}>
-                    {label}
-                </Button>
+            <DialogTrigger render={<Button type="button" variant="outline" disabled={disabled || pending} />}>
+                {label}
             </DialogTrigger>
             <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
@@ -199,9 +197,7 @@ export function TeamEditor({ team }: { team?: DbTeam }) {
         [description, setDescription] = useState(team?.description ?? '');
     return (
         <Dialog>
-            <DialogTrigger asChild>
-                <Button variant={team ? 'outline' : 'default'}>{team ? 'Edit team' : 'Create team'}</Button>
-            </DialogTrigger>
+            <DialogTrigger render={<Button variant={team ? 'outline' : 'default'} />}>{team ? 'Edit team' : 'Create team'}</DialogTrigger>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{team ? 'Edit team' : 'Create team'}</DialogTitle>

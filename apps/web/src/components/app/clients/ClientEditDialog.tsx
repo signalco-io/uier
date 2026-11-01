@@ -32,10 +32,8 @@ export function ClientEditDialog({ client, className }: { client: ClientSummary;
         <Dialog open={open} onOpenChange={setOpen}>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className}>
-                            <PencilIcon />
-                        </Button>
+                    <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className} />}>
+                        <PencilIcon />
                     </DialogTrigger>
                 </TooltipTrigger>
                 <TooltipContent>Edit client</TooltipContent>
@@ -141,9 +139,7 @@ function ClientForm({ client, onSaved }: { client: ClientSummary; onSaved: () =>
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                </DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
                     Save

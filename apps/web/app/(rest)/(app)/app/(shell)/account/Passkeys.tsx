@@ -114,10 +114,8 @@ function RenamePasskey({ passkey }: { passkey: PasskeyView }) {
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label={`Rename ${passkey.name}`}>
-                    <PencilIcon />
-                </Button>
+            <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Rename ${passkey.name}`} />}>
+                <PencilIcon />
             </DialogTrigger>
             <DialogContent>
                 {/* Unmounted when closed, so every opening starts from the saved name */}
@@ -155,9 +153,7 @@ function RenameForm({ passkey, onSaved }: { passkey: PasskeyView; onSaved: () =>
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                </DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
                     Save

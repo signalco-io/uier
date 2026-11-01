@@ -58,9 +58,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                     <>
                         {/* A team from people and projects that already have access: an occasional, longer flow */}
                         <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="outline">From existing access</Button>
-                            </DialogTrigger>
+                            <DialogTrigger render={<Button variant="outline" />}>From existing access</DialogTrigger>
                             <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
                                 <DialogHeader>
                                     <DialogTitle>Create from existing access</DialogTitle>

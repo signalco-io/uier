@@ -113,9 +113,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                         {/* Adding existing people to teams (or removing them) is occasional: a dialog, not the top of the page */}
                         {access.teams.length > 0 && (
                             <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline">Team membership</Button>
-                                </DialogTrigger>
+                                <DialogTrigger render={<Button variant="outline" />}>Team membership</DialogTrigger>
                                 <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
                                     <DialogHeader>
                                         <DialogTitle>Team membership</DialogTitle>

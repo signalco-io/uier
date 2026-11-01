@@ -477,12 +477,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 : <MessageText text={comment.displayText} edited={comment.edited} />}
                             {comment.screenshot && (
                                 <Dialog>
-                                    <DialogTrigger asChild>
-                                        <Button variant="ghost" className="mt-1 h-auto w-24 self-start p-0" aria-label="Screenshot of the commented part of the page">
-                                            <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
-                                                alt="Screenshot of the commented part of the page" loading="lazy"
-                                                className="block h-16 w-24 rounded-lg border object-contain" />
-                                        </Button>
+                                    <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto w-24 self-start p-0" aria-label="Screenshot of the commented part of the page" />}>
+                                        <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
+                                            alt="Screenshot of the commented part of the page" loading="lazy"
+                                            className="block h-16 w-24 rounded-lg border object-contain" />
                                     </DialogTrigger>
                                     <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
                                         <DialogHeader><DialogTitle>Screenshot</DialogTitle></DialogHeader>
@@ -566,9 +564,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             {editError && <FieldError>{editError}</FieldError>}
                         </Field>
                         <DialogFooter>
-                            <DialogClose asChild>
-                                <Button type="button" variant="outline">Cancel</Button>
-                            </DialogClose>
+                            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
                             <Button type="submit" disabled={pending}>
                                 {pending && <Spinner data-icon="inline-start" />}
                                 Save
