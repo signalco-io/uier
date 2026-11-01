@@ -56,6 +56,13 @@ const items = [
         duration: 'Until the Google sign-in finishes, at most 15 minutes'
     },
     {
+        name: '__Host-uier_microsoft_sign_in',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You choose Sign in with Microsoft, or link Microsoft on your Account page',
+        purpose: 'Ties Microsoft’s answer and a Microsoft account waiting for an email code to this browser. Holds a signed record id, with no email address or Microsoft data. The callback or signing in removes it.',
+        duration: 'Until the Microsoft sign-in finishes, at most 15 minutes'
+    },
+    {
         name: '__Host-uier_passkey_challenge',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You open the sign-in page in a browser that supports passkeys, or add a passkey in the app',
@@ -129,7 +136,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="30 October 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="1 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.

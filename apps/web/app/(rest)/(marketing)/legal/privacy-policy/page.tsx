@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="30 October 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="1 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -33,7 +33,8 @@ export default function PrivacyPolicyPage() {
                 <li>
                     Commenting on {brand.domain} needs no account. If you sign in to the {brand.name} app, we store your
                     email address and name to sign you in and show who you work with. If you sign in with Google, we
-                    also store your Google account id and address.
+                    also store your Google account id and address. If you sign in with Microsoft, we store a
+                    hash of your Microsoft identity and its suggested email address.
                 </li>
                 <li>We do not show ads, sell data or follow you to other sites.</li>
             </ul>
@@ -164,6 +165,18 @@ export default function PrivacyPolicyPage() {
                 code; the Google account is linked only in the browser that asked. We count Google sign-in attempts per
                 IP address. Linking Google from your Account page needs a sign-in from the last 10 minutes. You can
                 unlink Google there at any time; email sign-in stays available.
+            </p>
+            <p>
+                If you choose Sign in with Microsoft, you sign in at Microsoft with a work, school or personal
+                account. Microsoft tells us your account and tenant ids, a suggested email or username and profile
+                details. We store a hash of your sign-in identity, its suggested address for display and when you
+                linked it. We store no Microsoft tokens or other profile details. Your first sign-in confirms an
+                email address you choose before linking; an email claim alone never grants access to your account.
+                We keep sign-in hashes for up to 10 minutes and an identity waiting for email confirmation for up
+                to 15 minutes. The HttpOnly <code>__Host-uier_microsoft_sign_in</code> cookie binds these to your
+                browser. Only the browser that requested the email can link the identity. We count starts per IP
+                address. Linking from Account needs a sign-in from the last 10 minutes. You can unlink Microsoft
+                there at any time; email sign-in stays available.
             </p>
             <p>
                 You can also sign in with a passkey that you add on your Account page. A passkey is a key pair: its
@@ -451,6 +464,7 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>Rewrite suggestions: Anthropic receives the selected text and your instruction to write them.</li>
                 <li>Google sign-in, only if you choose it: you sign in at Google, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
+                <li>Microsoft sign-in, only if you choose it: you sign in at Microsoft, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>DNS: Cloudflare answers DNS queries for {brand.domain}. It does not see the pages you visit.</li>
             </ul>
             <p>
@@ -477,6 +491,7 @@ export default function PrivacyPolicyPage() {
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>A linked Google account: until you unlink it or ask us to delete your account. Google sign-ins in progress: at most 10 minutes. A Google account waiting for an email code: at most 15 minutes.</li>
+                <li>A linked Microsoft account: until you unlink it or ask us to delete your account. Microsoft sign-ins in progress: at most 10 minutes. A Microsoft identity waiting for an email code: at most 15 minutes.</li>
                 <li>Passkeys: until you remove them on your Account page, or with your account. Passkey challenges: at most five minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>

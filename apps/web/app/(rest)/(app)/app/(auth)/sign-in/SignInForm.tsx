@@ -64,7 +64,7 @@ export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: st
     );
 }
 
-/** `alternatives`: other sign-in buttons (Google), after the passkey button under the same "or" */
+/** `alternatives`: other sign-in buttons (Google and Microsoft), after the passkey button under the same "or" */
 export function SignInForm({ next, alternatives }: { next?: string; alternatives?: ReactNode }) {
     const id = useId();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
