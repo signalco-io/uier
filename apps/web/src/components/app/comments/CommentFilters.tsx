@@ -15,7 +15,7 @@ import { LocationFilter, type PageCount } from './LocationFilter';
 
 /** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done), at the height of the other filters */
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
-const segmentedItem = 'h-[26px] min-w-[26px] rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm pointer-coarse:min-h-11';
+const segmentedItem = 'h-[26px] min-w-[26px] rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 
 /** The list's status and unread filter, then where (environment and page) and who, then the view (list or board); all kept in the URL */
 export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, readAction, author, summary }: {
@@ -55,13 +55,12 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
             {/* The toolbar inbox's status tabs; the board already shows Open and Done side by side */}
             {view === 'list' && (
                 <ToggleGroup
-                    type="single"
                     size="sm"
                     spacing={0.5}
                     aria-label="Status"
                     className={segmentedGroup}
-                    value={status}
-                    onValueChange={(value) => value && go('status', value === 'open' ? undefined : value)}>
+                    value={[status]}
+                    onValueChange={([value]) => value && go('status', value === 'open' ? undefined : value)}>
                     {(Object.keys(statusFilterLabels) as StatusFilter[]).map(value => (
                         <ToggleGroupItem key={value} value={value} className={segmentedItem}>
                             {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{statusCounts[value]}</span>
@@ -104,13 +103,12 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                 {summary}
                 {/* Icon-only tabs; the tooltip and the accessible name say which */}
                 <ToggleGroup
-                    type="single"
                     size="sm"
                     spacing={0.5}
                     aria-label="View"
                     className={segmentedGroup}
-                    value={view}
-                    onValueChange={(value) => value && go('view', value === 'board' ? 'board' : undefined)}>
+                    value={[view]}
+                    onValueChange={([value]) => value && go('view', value === 'board' ? 'board' : undefined)}>
                     {([['list', 'List', ListIcon], ['board', 'Board', KanbanIcon]] as const).map(([value, label, Icon]) => (
                         <Tooltip key={value}>
                             <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} className={cn(segmentedItem, 'px-0 pointer-coarse:min-w-11')} />}>
