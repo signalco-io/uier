@@ -20,7 +20,7 @@ start with the [README](../README.md#run-locally).
 
 The website and toolbar support the latest two stable major releases of Chrome, Edge, Firefox,
 Safari and iOS Safari. The shared [`.browserslistrc`](../.browserslistrc) is consumed by Next.js
-and the toolbar's esbuild targets; Turborepo invalidates builds when it changes. Exact versions
+and the toolbar's esbuild targets; changes trigger web CI and invalidate Turborepo builds. Exact versions
 come from the locked browser data and advance with dependency updates. To inspect them:
 
 ```sh

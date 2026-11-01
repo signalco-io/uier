@@ -39,6 +39,7 @@ jobs:
               - "pnpm-lock.yaml"
               - "pnpm-workspace.yaml"
               - "turbo.json"
+              - ".browserslistrc"
               - "tsconfig*.json"
               - ".npmrc"
               - ".nvmrc"
