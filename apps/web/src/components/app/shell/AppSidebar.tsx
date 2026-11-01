@@ -44,13 +44,11 @@ function GroupLinkAction({ href, label, current = false, className, children }: 
     return (
         <Tooltip>
             <TooltipTrigger render={<SidebarGroupAction
-                    asChild
-                    data-active={current}
-                    className={cn('data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground', className)} />}>
-                <Link href={href} aria-current={current ? 'page' : undefined}>
-                    {children}
-                    <span className="sr-only">{label}</span>
-                </Link>
+                data-active={current}
+                className={cn('data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground', className)}
+                render={<Link href={href} aria-current={current ? 'page' : undefined} />} />}>
+                {children}
+                <span className="sr-only">{label}</span>
             </TooltipTrigger>
             <TooltipContent side="bottom">{label}</TooltipContent>
         </Tooltip>
@@ -115,11 +113,9 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                             <SidebarMenu>
                                 {/* The header and its links hide when the sidebar is collapsed to icons */}
                                 <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-                                    <SidebarMenuButton asChild isActive={allProjectsCurrent} tooltip="All projects">
-                                        <Link href={KnownPages.AppProjects} aria-current={allProjectsCurrent ? 'page' : undefined}>
-                                            <LayoutGridIcon />
-                                            <span>All projects</span>
-                                        </Link>
+                                    <SidebarMenuButton isActive={allProjectsCurrent} tooltip="All projects" render={<Link href={KnownPages.AppProjects} aria-current={allProjectsCurrent ? 'page' : undefined} />}>
+                                        <LayoutGridIcon />
+                                        <span>All projects</span>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                                 {projects.map(project => {
@@ -127,22 +123,18 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                                     const current = isCurrent(pathname, href);
                                     return (
                                         <SidebarMenuItem key={project.id}>
-                                            <SidebarMenuButton asChild isActive={current} tooltip={project.name}>
-                                                <Link href={href} aria-current={current ? 'page' : undefined}>
-                                                    <ProjectMark name={project.name} url={project.url} />
-                                                    <span>{project.name}</span>
-                                                </Link>
+                                            <SidebarMenuButton isActive={current} tooltip={project.name} render={<Link href={href} aria-current={current ? 'page' : undefined} />}>
+                                                <ProjectMark name={project.name} url={project.url} />
+                                                <span>{project.name}</span>
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     );
                                 })}
                                 {!projects.length && isAdmin && (
                                     <SidebarMenuItem>
-                                        <SidebarMenuButton asChild className="text-sidebar-foreground/70">
-                                            <Link href={KnownPages.AppNewProject}>
-                                                <PlusIcon />
-                                                <span>Create a project</span>
-                                            </Link>
+                                        <SidebarMenuButton className="text-sidebar-foreground/70" render={<Link href={KnownPages.AppNewProject} />}>
+                                            <PlusIcon />
+                                            <span>Create a project</span>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 )}
@@ -159,11 +151,9 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                                 <SidebarMenu>
                                     {sections.map(section => (
                                         <SidebarMenuItem key={section.href}>
-                                            <SidebarMenuButton asChild isActive={section.current} tooltip={section.label}>
-                                                <Link href={section.href} aria-current={section.current ? 'page' : undefined}>
-                                                    <section.icon />
-                                                    <span>{section.label}</span>
-                                                </Link>
+                                            <SidebarMenuButton isActive={section.current} tooltip={section.label} render={<Link href={section.href} aria-current={section.current ? 'page' : undefined} />}>
+                                                <section.icon />
+                                                <span>{section.label}</span>
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     ))}
