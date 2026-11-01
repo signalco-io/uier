@@ -100,20 +100,18 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                                     const invited = invitations.filter(invitation => invitation.teamIds?.includes(team.id)).length;
                                     return (
                                         <div key={team.id} role="listitem">
-                                            <Item asChild className="rounded-none">
-                                                <Link href={KnownPageLinks.team(team.id)}>
-                                                    <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
-                                                        <ProjectMark name={team.name} className="size-8 rounded-lg text-sm" />
-                                                    </ItemMedia>
-                                                    <ItemContent className="min-w-0">
-                                                        <ItemTitle className="max-w-full break-words">{team.name}</ItemTitle>
-                                                        {team.description && <ItemDescription className="truncate">{team.description}</ItemDescription>}
-                                                    </ItemContent>
-                                                    <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
-                                                        {countsText(people, invited, team.projectIds.length)}
-                                                        <ChevronRightIcon aria-hidden="true" className="size-4" />
-                                                    </ItemActions>
-                                                </Link>
+                                            <Item className="rounded-none" render={<Link href={KnownPageLinks.team(team.id)} />}>
+                                                <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
+                                                    <ProjectMark name={team.name} className="size-8 rounded-lg text-sm" />
+                                                </ItemMedia>
+                                                <ItemContent className="min-w-0">
+                                                    <ItemTitle className="max-w-full break-words">{team.name}</ItemTitle>
+                                                    {team.description && <ItemDescription className="truncate">{team.description}</ItemDescription>}
+                                                </ItemContent>
+                                                <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
+                                                    {countsText(people, invited, team.projectIds.length)}
+                                                    <ChevronRightIcon aria-hidden="true" className="size-4" />
+                                                </ItemActions>
                                             </Item>
                                         </div>
                                     );
