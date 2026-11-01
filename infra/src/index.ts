@@ -10,6 +10,7 @@ import { caaRecord, dnsRecord } from './cloudflare.js';
 import { acsEmail, acsEmailReports } from './email.js';
 import { integrationEnvironment } from './integrations.js';
 import { productionCosmosIdentity } from './productionCosmosIdentity.js';
+import { previewEnvironment, preservePreviewValue } from './previewEnvironment.js';
 
 const up = async () => {
     // Only the production stack (branch main, uier.io) is deployed. The former uier-next stack
@@ -20,6 +21,7 @@ const up = async () => {
 
     // Fail before registering resources when the owner has not configured the staff list.
     const staffEmails = new Config().requireSecret('staffEmails');
+    const existingEnvironment = previewEnvironment();
 
     // Every push to main runs `pulumi up` without an approval step. `protect` makes Pulumi refuse to
     // delete or replace the resources that hold data or serve uier.io (a replace-triggering change,
@@ -320,8 +322,8 @@ const up = async () => {
         key: 'ACS_CONNECTION_STRING',
         value: email.connectionString,
         targets: ['production'],
-        // Retrievable, not "Sensitive": the scheduled notifications worker reads it from `vercel pull`,
-        // which omits Sensitive values. Changing this replaces only the variable, never the key.
+        // Retain the existing retrievable flag during CI credential migration. The worker now has
+        // separate settings; changing sensitivity would replace this production variable.
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-email-sender', {
@@ -333,18 +335,18 @@ const up = async () => {
     }, envVarOptions);
 
     // Rewrite suggestions in the toolbar (apps/web/src/lib/rewrite/suggest.ts) call the Anthropic API.
-    // Its key is the repository secret ANTHROPIC_API_KEY, which the Pulumi workflow passes in like
+    // Its key is the production-environment secret ANTHROPIC_API_KEY, supplied only to updates like
     // the Vercel and Cloudflare tokens (no credentials in config). Without it no variable is created
     // and the toolbar says suggestions are not available. Production only.
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-    if (anthropicApiKey) {
+    if (anthropicApiKey || existingEnvironment.has('ANTHROPIC_API_KEY')) {
         new ProjectEnvironmentVariable('vercel-uier-env-anthropic', {
             projectId: app.projectId,
             key: 'ANTHROPIC_API_KEY',
-            value: secret(anthropicApiKey),
+            value: secret(anthropicApiKey ?? 'existing production value retained during preview'),
             targets: ['production'],
             sensitive: true,
-        }, envVarOptions);
+        }, { ...envVarOptions, ...preservePreviewValue(existingEnvironment, 'ANTHROPIC_API_KEY', 'vercel-uier-env-anthropic') });
     }
 };
 

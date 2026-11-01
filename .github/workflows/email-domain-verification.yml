@@ -16,6 +16,7 @@ jobs:
   verify:
     name: "Verify notify.uier.io email DNS"
     if: github.ref == 'refs/heads/main'
+    environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

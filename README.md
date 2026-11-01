@@ -118,8 +118,8 @@ and a CAA record authorizing Vercel's certificate issuer, Let's Encrypt; see [op
 
 The [CI credential rollout](docs/ci-credential-rollout.md) tracks the staged move to protected
 GitHub environments and production Cosmos DB identity access. Production and preview environments
-with separate credentials are provisioned; workflow activation remains a later stage. Deployments
-are intended to run without human approval. Infrastructure and GitHub setup
+use separate credentials. Builds run without deployment tokens, and the scheduled worker uses
+its own OIDC data identity and explicit settings. Deployments run without human approval. Infrastructure and GitHub setup
 are documented in [Infrastructure and operations](docs/operations.md#required-github-configuration).
 
 | Guide | Start here when you want to… |

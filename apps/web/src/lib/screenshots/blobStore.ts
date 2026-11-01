@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ClientAssertionCredential } from '@azure/identity';
-import { getVercelOidcToken } from '@vercel/oidc';
+import { azureDataCredential } from '../azureCredential';
 import { BlobServiceClient, BlobSASPermissions, SASProtocol, StorageSharedKeyCredential, generateBlobSASQueryParameters, type UserDelegationKey, type BlobItem } from '@azure/storage-blob';
 import type { DbScreenshot } from '../db/schema';
 
@@ -69,7 +68,7 @@ export function createScreenshotBlobStore(service: BlobServiceClient, containerN
 }
 
 const stores = new Map<string, ScreenshotBlobStore>();
-/** Production uses its server-only key; previews use OIDC with rights only on screenshots-preview. */
+/** The app retains its existing credentials; the scheduled worker uses its dedicated OIDC login. */
 export function getScreenshotBlobStore(containerOverride?: string): ScreenshotBlobStore {
     const container = containerOverride ?? process.env.AZURE_SCREENSHOTS_CONTAINER;
     if (!container) throw new Error('AZURE_SCREENSHOTS_CONTAINER is required for screenshot storage.');
@@ -83,7 +82,7 @@ export function getScreenshotBlobStore(containerOverride?: string): ScreenshotBl
         const tenant = process.env.AZURE_TENANT_ID;
         const client = process.env.AZURE_CLIENT_ID;
         if (!endpoint || !tenant || !client) throw new Error('Screenshot Blob Storage requires its endpoint and Azure identity.');
-        service = new BlobServiceClient(endpoint, new ClientAssertionCredential(tenant, client, () => getVercelOidcToken()));
+        service = new BlobServiceClient(endpoint, azureDataCredential());
     }
     const store = createScreenshotBlobStore(service, container);
     stores.set(container, store);

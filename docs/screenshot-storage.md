@@ -17,14 +17,17 @@ cannot restore image bytes. See [backups](backups-and-restore.md).
 | --- | --- | --- |
 | `AZURE_SCREENSHOTS_ENDPOINT` | Account Blob endpoint | Same endpoint |
 | `AZURE_SCREENSHOTS_CONTAINER` | `screenshots` | `screenshots-preview` |
-| `AZURE_SCREENSHOTS_CONNECTION_STRING` | Server-only encrypted key, retrievable by the scheduled worker | Absent |
+| `AZURE_SCREENSHOTS_CONNECTION_STRING` | Server-only app key; the worker does not receive it | Absent |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` | Existing configuration unchanged | Existing preview OIDC identity |
 
 Preview gets Blob Data Contributor only on its container and Blob Delegator on the account.
 Delegation can sign only the intersection of its data permissions and the SAS permissions, so
 it cannot grant access to production images. No production storage key goes to previews.
-The production worker can migrate and sweep both environments with its production credentials.
-Never print pulled environment files, account keys or signed URLs.
+The scheduled worker uses its separate `production-worker` Azure OIDC app to migrate and sweep
+both environments. Its custom role grants container reads and blob read/write/delete only on the
+two screenshot containers, without container management or delegation keys. It receives the endpoint
+through its [allowlisted settings](review-notifications.md), without a storage account key or Vercel
+environment download. Never print credential values, account keys or signed URLs.
 
 **Deployment prerequisite:** the existing deployment principal's resource-group Contributor
 role excludes `Microsoft.Authorization/roleAssignments/write`. An owner must arrange permission

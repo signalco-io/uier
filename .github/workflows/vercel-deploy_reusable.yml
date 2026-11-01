@@ -1,125 +1,147 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-
-# Builds apps/web with the Vercel CLI and deploys the prebuilt output to the
-# "uier" Vercel project (deployments come from here, not from Vercel's Git integration).
-#
-# Callers must grant the job that calls this workflow: contents: read
-
 name: "Vercel deploy (reusable)"
 
 on:
   workflow_call:
     inputs:
       production:
-        description: "Deploy to production (uier.io). When false, a preview deployment is created."
+        description: "Deploy the prebuilt output to production."
         required: false
         type: boolean
         default: false
-    secrets:
-      VERCEL_TOKEN:
-        required: true
     outputs:
       url:
         description: "Deployment URL"
         value: ${{ jobs.deploy.outputs.url }}
 
+permissions: {}
 env:
-  VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn # team "signalco"
-  VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc # project "uier" (managed by Pulumi, infra/)
+  VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn
+  VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc
   VERCEL_TELEMETRY_DISABLED: "1"
   # renovate: datasource=npm depName=vercel
   VERCEL_CLI_VERSION: "65.9.0"
 
 jobs:
-  deploy:
-    name: "vercel ${{ inputs.production && 'production' || 'preview' }}"
+  build:
+    name: "Build without deployment credentials"
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    outputs:
-      url: ${{ steps.deploy.outputs.url }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      # Pinned to the exact release: the floating v6 tag (v6.0.10) predates pnpm v12 support.
       - name: Setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
-      # The CLI is installed into its own prefix so the whole install can be cached (~12s otherwise).
-      # Deploys on main save it, so PR previews restore it from there.
-      - name: Cache Vercel CLI
-        id: vercel-cli-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.vercel-cli
-          key: ${{ runner.os }}-vercel-cli-${{ env.VERCEL_CLI_VERSION }}-node${{ hashFiles('.nvmrc') }}
-
       - name: Install Vercel CLI
-        if: steps.vercel-cli-cache.outputs.cache-hit != 'true'
         run: npm install --global --ignore-scripts --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
-
-      - name: Add Vercel CLI to PATH
-        run: echo "$HOME/.vercel-cli/bin" >> "$GITHUB_PATH"
-
-      - name: Pull Vercel project settings and environment
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ENVIRONMENT: ${{ inputs.production && 'production' || 'preview' }}
-        run: vercel pull --yes --environment="$VERCEL_ENVIRONMENT"
-
-      # The project's rootDirectory is owned by Pulumi (infra/). A stale value (e.g. the
-      # pre-split "web/apps/uier") means `pulumi up` has not run for this repo layout yet.
-      - name: Check Vercel project root directory
-        run: |
-          root_directory="$(jq -r '.settings.rootDirectory // ""' .vercel/project.json)"
-          if [ "$root_directory" != "apps/web" ]; then
-            echo "::error title=Vercel project not migrated::Project rootDirectory is '${root_directory}', expected 'apps/web'. Run the Deploy workflow (pulumi up) on main first."
-            exit 1
-          fi
-
-      # `vercel build` needs no token: it uses the settings and env pulled above.
-      # UIER_DEPLOYMENT_ENV: the project exposes no Vercel system variables (VERCEL_ENV, VERCEL_URL)
-      # to the build or its functions, so the app learns production or preview from here; next.config.ts
-      # inlines it (apps/web/src/lib/app/request.ts, `deploymentEnvironment()`).
-      - name: Build
+      - name: Build with public project settings
         env:
           PRODUCTION: ${{ inputs.production }}
           UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
-          # Preserve pins from the current production deployment. Fetch/hash errors fail the
-          # build before deployment; 404 bootstraps the first release with a manifest.
           UIER_TOOLBAR_RETAIN_FROM: https://uier.io
-          # The archive changes independently of Git/task hashes (especially on a rollback).
-          # Always copy it instead of restoring an older cached public/ directory.
           TURBO_FORCE: "true"
         run: |
+          mkdir -p .vercel
+          cp .github/vercel-project.json .vercel/project.json
           if [ "$PRODUCTION" = "true" ]; then
-            vercel build --prod
+            "$HOME/.vercel-cli/bin/vercel" build --prod
           else
-            vercel build
+            "$HOME/.vercel-cli/bin/vercel" build
           fi
+          tar -czf prebuilt.tar.gz .vercel/output
+      - name: Upload prebuilt output only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: vercel-output-${{ github.run_id }}-${{ github.run_attempt }}
+          path: prebuilt.tar.gz
+          retention-days: 1
+          if-no-files-found: error
 
+  deploy:
+    name: "Deploy prebuilt ${{ inputs.production && 'production' || 'preview' }}"
+    needs: build
+    if: ${{ !inputs.production || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.production && 'production' || 'preview' }}
+    permissions:
+      contents: read
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      # No checkout, repository scripts or build hooks execute here.
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+      - name: Download this run's prebuilt output
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vercel-output-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Validate and extract prebuilt output
+        run: |
+          # BEGIN PREBUILT EXTRACTOR
+          python3 - prebuilt.tar.gz <<'PYTHON'
+          """Validate an untrusted build archive before extracting it in a token-bearing job."""
+          import pathlib
+          import sys
+          import tarfile
+
+
+          def extract(archive, destination):
+              root = pathlib.Path(destination).resolve()
+              prefix = pathlib.PurePosixPath('.vercel/output')
+              with tarfile.open(archive, 'r:gz') as source:
+                  members = source.getmembers()
+                  for member in members:
+                      name = pathlib.PurePosixPath(member.name)
+                      if name.is_absolute() or '..' in name.parts or not name.is_relative_to(prefix):
+                          raise ValueError('Build archive path leaves .vercel/output')
+                      if any(part == '.env' or part.startswith('.env.') for part in name.parts):
+                          raise ValueError('Build archive contains an environment file')
+                      if not (member.isfile() or member.isdir() or member.issym()):
+                          raise ValueError('Unsupported build archive entry')
+                      if member.issym():
+                          target = (root / name.parent / member.linkname).resolve()
+                          if pathlib.PurePosixPath(member.linkname).is_absolute() or not target.is_relative_to(root / prefix):
+                              raise ValueError('Build archive link leaves .vercel/output')
+                  source.extractall(root, members=members, filter='data')
+
+
+          if __name__ == '__main__':
+              extract(sys.argv[1], '.')
+          PYTHON
+          # END PREBUILT EXTRACTOR
+          # The destination is fixed by this workflow, never by the uploaded project metadata.
+          node -e 'require("node:fs").writeFileSync(".vercel/project.json", JSON.stringify({orgId:process.env.VERCEL_ORG_ID,projectId:process.env.VERCEL_PROJECT_ID}))'
+      - name: Install the pinned deployment CLI without lifecycle scripts
+        run: npm install --global --ignore-scripts --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
       - name: Deploy
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PRODUCTION: ${{ inputs.production }}
         run: |
-          # Archive prebuilt output to avoid Vercel's per-file upload rate limit.
           if [ "$PRODUCTION" = "true" ]; then
-            url="$(vercel deploy --prebuilt --archive=tgz --prod)"
+            url="$("$HOME/.vercel-cli/bin/vercel" deploy --prebuilt --archive=tgz --prod --yes)"
           else
-            url="$(vercel deploy --prebuilt --archive=tgz)"
+            url="$("$HOME/.vercel-cli/bin/vercel" deploy --prebuilt --archive=tgz --yes)"
           fi
+          DEPLOYMENT_URL="$url" node --input-type=module -e '
+            const value = process.env.DEPLOYMENT_URL;
+            const url = new URL(value);
+            if (url.protocol !== "https:" || url.origin !== value || !url.hostname.endsWith(".vercel.app")) process.exit(1);
+          '
           echo "url=$url" >> "$GITHUB_OUTPUT"
-
       - name: Summary
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
@@ -129,7 +151,4 @@ jobs:
             echo "### ${TARGET} deployment"
             echo
             echo "- Deployment: ${DEPLOYMENT_URL}"
-            if [ "$TARGET" = "Production" ]; then
-              echo "- Production domain: https://uier.io"
-            fi
           } >> "$GITHUB_STEP_SUMMARY"

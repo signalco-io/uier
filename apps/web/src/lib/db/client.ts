@@ -1,6 +1,5 @@
 import { type Container, CosmosClient, type Database } from '@azure/cosmos';
-import { ClientAssertionCredential } from '@azure/identity';
-import { getVercelOidcToken } from '@vercel/oidc';
+import { azureDataCredential } from '../azureCredential';
 
 const DATA_DATABASE_NAME = 'uierdata';
 export const DEFAULT_COMMENTS_CONTAINER_NAME = 'comments';
@@ -18,21 +17,16 @@ let appContainer: Container | null = null;
  * - `COSMOSDB_ENDPOINT` with `AZURE_TENANT_ID` and `AZURE_CLIENT_ID`: Microsoft Entra ID as a managed
  *   identity that trusts the deployment's Vercel OIDC token (preview deployments). Its only Cosmos DB
  *   roles are on the `comments-preview` and `app-preview` containers, so previews can't touch
- *   production data.
+ *   production data. The scheduled worker uses its dedicated GitHub Azure CLI login instead.
  */
 export function isCosmosConfigured() {
     return Boolean(process.env.COSMOSDB_CONNECTION_STRING || process.env.COSMOSDB_ENDPOINT);
 }
 
 function entraIdClient(endpoint: string) {
-    const tenantId = process.env.AZURE_TENANT_ID;
-    const clientId = process.env.AZURE_CLIENT_ID;
-    if (!tenantId || !clientId)
-        throw new Error('COSMOSDB_ENDPOINT needs AZURE_TENANT_ID and AZURE_CLIENT_ID (the managed identity of preview deployments).');
-
     // The Vercel OIDC token comes from the current request (`x-vercel-oidc-token`), so it is only
     // available while a request is handled. The credential caches the Entra ID access token.
-    const credential = new ClientAssertionCredential(tenantId, clientId, () => getVercelOidcToken());
+    const credential = azureDataCredential();
     return new CosmosClient({
         endpoint,
         aadCredentials: credential,

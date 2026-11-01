@@ -53,3 +53,22 @@ test('dotenv values are masked without executing them or allowing workflow comma
         ].sort());
     } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
+test('builds have no deployment secrets and deployment jobs never execute checkout code', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/vercel-deploy_reusable.yml'), 'utf8');
+    const build = workflow.split('\n  build:\n')[1].split('\n  deploy:\n')[0];
+    const deploy = workflow.split('\n  deploy:\n')[1];
+    assert.doesNotMatch(build, /secrets\.|VERCEL_TOKEN|vercel pull|environment:/);
+    assert.match(build, /path: prebuilt\.tar\.gz/);
+    assert.doesNotMatch(deploy, /uses: actions\/checkout|pnpm (?:install|build)|vercel pull/);
+    assert.match(deploy, /environment:.*production.*preview/);
+    assert.match(deploy, /--ignore-scripts/);
+    const worker = readFileSync(join(root, '.github/workflows/notifications.yml'), 'utf8');
+    assert.doesNotMatch(worker, /VERCEL_TOKEN|vercel pull|\.env\.production/);
+    assert.match(worker, /environment: production-worker/);
+    assert.match(worker, /UIER_WORKER_SETTINGS: \$\{\{ secrets\.UIER_WORKER_SETTINGS \}\}/);
+    const pulumi = readFileSync(join(root, '.github/workflows/pulumi_reusable.yml'), 'utf8');
+    assert.match(pulumi, /environment:.*inputs\.command == 'up'.*'production'.*'preview'/);
+    assert.match(pulumi, /ANTHROPIC_API_KEY:.*inputs\.command == 'up'/);
+    assert.match(pulumi, /UIER_INTEGRATION_ENV:.*inputs\.command == 'up'/);
+});

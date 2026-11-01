@@ -57,7 +57,7 @@ export function screenshotStorage(
         if (!key) throw new Error('Screenshot storage returned no account key.');
         return `DefaultEndpointsProtocol=https;AccountName=${name};AccountKey=${key};EndpointSuffix=core.windows.net`;
     }));
-    // Retrievable encrypted value: the scheduled worker pulls production config to migrate/sweep.
+    // Retain the app's existing retrievable key; the scheduled worker now uses its own OIDC data role.
     new ProjectEnvironmentVariable('vercel-uier-screenshots-connection', {
         projectId, key: 'AZURE_SCREENSHOTS_CONNECTION_STRING', value: connection, targets: ['production'], sensitive: false
     }, { dependsOn: containers });

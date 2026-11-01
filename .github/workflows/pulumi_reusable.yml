@@ -16,30 +16,12 @@ on:
         description: "Pulumi command to run: preview or up"
         required: true
         type: string
-    secrets:
-      AZURE_CLIENT_ID:
-        required: true
-      AZURE_TENANT_ID:
-        required: true
-      AZURE_SUBSCRIPTION_ID:
-        required: true
-      AZURE_STORAGE_ACCOUNT:
-        required: true
-      VERCEL_TOKEN:
-        required: true
-      CLOUDFLARE_API_TOKEN:
-        required: true
-      # Optional: production's ANTHROPIC_API_KEY (rewrite suggestions), see infra/src/index.ts
-      ANTHROPIC_API_KEY:
-        required: false
-      # Optional server-only provider credential map; validated by infra/src/integrations.ts
-      UIER_INTEGRATION_ENV:
-        required: false
 
 jobs:
   pulumi:
     name: "pulumi ${{ inputs.command }} (uier-production)"
     runs-on: ubuntu-latest
+    environment: ${{ inputs.command == 'up' && 'production' || 'preview' }}
     timeout-minutes: 30
     # Never run two `up`s at once. Previews are read-only and get a unique group so they never
     # replace a pending `up` (a newer pending run in a group replaces the older pending one).
@@ -59,7 +41,8 @@ jobs:
           COMMAND: ${{ inputs.command }}
         run: |
           case "$COMMAND" in
-            preview|up) ;;
+            preview) ;;
+            up) [ "$GITHUB_REF" = refs/heads/main ] || exit 1 ;;
             *) echo "::error::Unsupported Pulumi command '$COMMAND' (expected preview or up)"; exit 1 ;;
           esac
 
@@ -111,12 +94,34 @@ jobs:
       - name: Add Pulumi CLI to PATH
         run: echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
 
+      - name: Install the pinned Pulumi CLI
+        run: |
+          if [ ! -x "$HOME/.pulumi/bin/pulumi" ]; then
+            curl --fail --silent --show-error --location https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION"
+          fi
+
       - name: Azure login (OIDC)
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify the OIDC identity
+        env:
+          EXPECTED_CLIENT: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          actual_client="$(az account show --query user.name -o tsv)"
+          [ "$actual_client" = "$EXPECTED_CLIENT" ] || { echo "::error::Unexpected Azure identity"; exit 1; }
+          echo "Azure environment OIDC identity verified."
+
+      - name: Preserve optional production variables for the preview
+        if: inputs.command == 'preview'
+        working-directory: infra
+        env:
+          PULUMI_BACKEND_URL: azblob://states
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+        run: node scripts/preview-environment.mjs
 
       - name: Pulumi ${{ inputs.command }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7
@@ -145,5 +150,5 @@ jobs:
           # @pulumi/cloudflare provider (DNS for the uier.io zone)
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           # Becomes production's ANTHROPIC_API_KEY on Vercel when the repository secret is set
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          UIER_INTEGRATION_ENV: ${{ secrets.UIER_INTEGRATION_ENV }}
+          ANTHROPIC_API_KEY: ${{ inputs.command == 'up' && secrets.ANTHROPIC_API_KEY || '' }}
+          UIER_INTEGRATION_ENV: ${{ inputs.command == 'up' && secrets.UIER_INTEGRATION_ENV || '' }}
