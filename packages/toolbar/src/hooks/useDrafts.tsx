@@ -1,3 +1,4 @@
+import { runtimeAdapters } from '../adapters';
 import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { useProjectViewer } from '../project/ProjectGate';
@@ -16,7 +17,7 @@ export function DraftsProvider({ children, page }: PropsWithChildren<{ page?: st
     const context = useContext(CommentsBootstrapperContext);
     const path = page ?? context.path;
     const { draftScope } = useProjectViewer();
-    const drafts = useMemo(() => createDraftStore([toolbarConfig.apiUrl, toolbarConfig.project ?? 'public', draftScope ?? 'pending', path], () => { if (!toolbarConfig.project) getVisitorToken(true); }, Boolean(draftScope)), [draftScope, path]);
+    const drafts = useMemo(() => createDraftStore([toolbarConfig.apiUrl, toolbarConfig.project ?? 'public', draftScope ?? 'pending', runtimeAdapters() ? `${location.origin}${path}` : path], () => { if (!toolbarConfig.project) getVisitorToken(true); }, Boolean(draftScope)), [draftScope, path]);
     return <DraftsContext.Provider value={drafts}>{children}</DraftsContext.Provider>;
 }
 

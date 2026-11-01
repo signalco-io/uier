@@ -4,6 +4,7 @@ import { initBotId } from 'botid/client/core';
 // Every write handler of the comments API verifies them with `checkBotId()` (src/lib/comments/botProtection.ts).
 initBotId({
     protect: [
+        { path: '/api/extension/verification', method: 'POST' },
         { path: '/api/comments', method: 'POST' },
         { path: '/api/comments/*', method: 'POST' },
         { path: '/api/comments/*', method: 'PATCH' },

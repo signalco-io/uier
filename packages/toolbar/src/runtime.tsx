@@ -1,13 +1,15 @@
 import { createRoot } from 'react-dom/client';
 import { GEIST_FONTS_PATH } from '@uier/brand';
 import './index.css';
-import { CommentsBootstrapper } from './components/CommentsBootstrapper';
+import { CommentsBootstrapper, clearToolbarQueries } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
 import { endReviewSession, type ReviewSession } from './review';
 import { requestFeedbackOnMount } from './openFeedback';
 import { runtimeContext } from './runtimeContext';
 import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
 import { adoptToolbarStyles } from './stylesheet';
+import { runtimeAdapters } from './adapters';
+import { claimReviewLayer, extensionOwnsReviewLayer } from './coexistence';
 
 const containerId = 'uier-toolbar';
 
@@ -35,15 +37,16 @@ function ensureBrandFont() {
     }
 }
 
-function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
+export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, onExit?: () => void) {
     // The script can be included more than once (or re-run by client-side navigation)
-    if (getToolbarHost()) {
+    if (getToolbarHost() || extensionOwnsReviewLayer()) {
         console.debug('uier-toolbar: Already mounted');
         return;
     }
 
     // Create root container and attach shadow DOM. The shadow root is open so assistive
     // technologies, accessibility checkers and end-to-end tests can reach the toolbar UI.
+    if (runtimeAdapters()) clearToolbarQueries();
     const container = document.createElement('div');
     container.setAttribute('id', containerId);
     const shadowRoot = container.attachShadow({ mode: 'open' });
@@ -64,7 +67,7 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     darkScheme.addEventListener('change', applyScheme);
 
     // Inject root container into body
-    ensureBrandFont();
+    if (!runtimeAdapters()) ensureBrandFont();
     document.body.appendChild(container);
     toolbarMounts[toolbarMountKey] = container;
 
@@ -73,9 +76,11 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
 
     const unmount = () => {
         darkScheme.removeEventListener('change', applyScheme);
+        release?.();
         // After the click that asked for it has been handled
         window.setTimeout(() => {
             root.unmount();
+            if (runtimeAdapters()) clearToolbarQueries();
             container.remove();
             if (toolbarMounts[toolbarMountKey] === container) delete toolbarMounts[toolbarMountKey];
         }, 0);
@@ -83,20 +88,22 @@ function MountOnPage(mode: ToolbarMode, review: ReviewSession | null) {
     // "Exit review": the review ends for this tab and the toolbar leaves the page.
     // "Close toolbar" (`feedback` mode): it leaves until feedback is asked for again.
     const handleExit = mode === 'review'
-        ? () => { endReviewSession(); unmount(); }
+        ? () => { if (!runtimeAdapters()) endReviewSession(); unmount(); onExit?.(); }
         : mode === 'feedback' ? unmount : undefined;
 
+    const release = claimReviewLayer(unmount);
     root.render(<CommentsBootstrapper
         mode={mode}
         review={review}
         rootElement={shadowDomContainer}
         onExitReview={handleExit} />);
+    return unmount;
 }
 
 // The loader supplies its captured configuration and in-memory identity through this script's
 // symbol property. Register a mount function so feedback can reopen without another download.
 runtimeContext.mount = (mode, review) => {
-    if (getToolbarHost()) return;
+    if (runtimeAdapters() || getToolbarHost()) return;
     if (mode === 'feedback') requestFeedbackOnMount();
-    MountOnPage(mode, review);
+    mountToolbar(mode, review);
 };

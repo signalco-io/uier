@@ -24,6 +24,8 @@ const queryClient = new QueryClient({
     }
 });
 
+export function clearToolbarQueries() { queryClient.clear(); }
+
 function ReviewLayer({
     mode,
     review = null,

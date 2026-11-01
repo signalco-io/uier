@@ -17,3 +17,8 @@ overload the service and do not post personal data.
 - the code in this repository
 
 The controls that are in place are described on [uier.io/security](https://uier.io/security).
+
+The unreleased browser extension uses separate revocable sessions, exact project/site bindings,
+an isolated content script and a closed worker broker. An extension ID or CORS origin never grants
+identity or bypasses browser verification. Production client registration is disabled by default.
+See [the design and hosted release gate](docs/browser-extension.md).

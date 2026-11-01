@@ -218,6 +218,16 @@ export default function CookiePolicyPage() {
                 on other sites last until they expire or you sign out in those toolbars.
             </p>
 
+            <h2>Browser extension development preview</h2>
+            <p>
+                The unreleased desktop extension keeps its separate sign-in credentials, active-tab
+                bindings, browser-verification proofs and text drafts in extension session storage.
+                Reviewed sites cannot read this storage. Browser restart clears it; sign-out also
+                revokes the server session. Credentials last at most eight hours, site credentials
+                and verification proofs five minutes. The verification helper omits cookies.
+                The extension does not read the app&rsquo;s HttpOnly session cookie or browser cookies.
+            </p>
+
             <h2>Third parties</h2>
             <p>
                 Vercel Web Analytics, which counts page views, and Vercel BotID, which checks that comments come

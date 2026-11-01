@@ -26,6 +26,10 @@ add to individual access; external reviewers sign in, while public guest links s
 You can try the toolbar on [uier.io](https://uier.io) itself. Feedback on its public pages is public.
 To add it to your own site, follow the [embedding guide](packages/toolbar/README.md#embedding).
 
+The [desktop browser extension](docs/browser-extension.md) is an unreleased runtime spike for
+signed-in members reviewing sites without an embed. Hosted verification and store publication are
+still required before it is available to reviewers.
+
 ## Run locally
 
 You need **Node.js 24** ([`.nvmrc`](.nvmrc)) and **pnpm through Corepack**. The repository pins the

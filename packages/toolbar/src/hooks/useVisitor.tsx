@@ -1,3 +1,4 @@
+import { runtimeAdapters } from '../adapters';
 import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { apiRequest, clearReviewerCache, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey, pageVisitorQueryKey } from './api';
@@ -31,6 +32,7 @@ async function getVisitor(path: string): Promise<Visitor> {
 }
 
 async function signOut() {
+    if (runtimeAdapters()) { await runtimeAdapters()!.signOut(); return; }
     if (toolbarConfig.project) {
         forgetProjectReviewer();
         return;

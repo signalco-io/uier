@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
+import { decodeScreenshot } from '../screenshotImage';
 import { encodeScreenshot } from '../screenshot';
 import { destructiveTextClassName } from './@types/Comments';
 
@@ -14,7 +15,7 @@ export function ScreenshotRedaction({ data, pending, onSave, onCancel }: {
     data: string; pending: boolean; onSave: (data: string) => Promise<void>; onCancel: () => void;
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const imageRef = useRef<HTMLImageElement | null>(null);
+    const imageRef = useRef<Awaited<ReturnType<typeof decodeScreenshot>> | null>(null);
     const startRef = useRef<{ x: number; y: number } | null>(null);
     const savingRef = useRef(false);
     const [ready, setReady] = useState(false);
@@ -24,25 +25,23 @@ export function ScreenshotRedaction({ data, pending, onSave, onCancel }: {
 
     useEffect(() => {
         let cancelled = false;
-        const image = new Image();
-        image.src = data;
-        image.decode().then(() => {
-            if (cancelled) return;
+        decodeScreenshot(data).then(image => {
+            if (cancelled) { image.close(); return; }
             imageRef.current = image;
             setReady(true);
         }).catch(() => { if (!cancelled) setError('The saved image could not be opened. Close and try again.'); });
-        return () => { cancelled = true; imageRef.current = null; };
+        return () => { cancelled = true; imageRef.current?.close(); imageRef.current = null; };
     }, [data]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const image = imageRef.current;
         if (!canvas || !image || !ready) return;
-        canvas.width = image.naturalWidth;
-        canvas.height = image.naturalHeight;
+        canvas.width = image.width;
+        canvas.height = image.height;
         const context = canvas.getContext('2d');
         if (!context) return;
-        context.drawImage(image, 0, 0);
+        context.drawImage(image.image, 0, 0);
         context.fillStyle = 'black';
         for (const mask of areas) {
             const x = Math.floor(mask.x * canvas.width / 100);

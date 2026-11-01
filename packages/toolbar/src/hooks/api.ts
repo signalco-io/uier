@@ -1,3 +1,4 @@
+import { runtimeAdapters } from '../adapters';
 import type { QueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { getVisitorToken, projectHeaders } from '../project/projectSession';
@@ -60,6 +61,8 @@ function errorCodeFromStatus(status: number): CommentsApiErrorCode {
 
 /** A request to the uier API, answered with 2xx; errors are thrown as {@link CommentsApiError} */
 async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; accept?: string }): Promise<Response> {
+    const adapter = runtimeAdapters();
+    if (adapter) return checkedResponse(await adapter.request(url, init));
     const hasBody = init?.body !== undefined;
     const crossOriginWrite = toolbarConfig.project && init?.method && init.method !== 'GET'
         && new URL(url).origin !== window.location.origin;
@@ -91,6 +94,10 @@ async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' 
         throw new CommentsApiError('network_error', error instanceof Error ? error.message : 'Network error', 0);
     }
 
+    return checkedResponse(response);
+}
+
+async function checkedResponse(response: Response) {
     if (!response.ok) {
         let body: { error?: unknown; message?: unknown; reason?: unknown } | undefined;
         try {
@@ -128,6 +135,7 @@ export async function apiRequest<T>(url: string, init?: { method?: 'GET' | 'POST
  * install guide's sources) but not necessarily the API's origin.
  */
 export async function apiImage(url: string): Promise<string> {
+    if (runtimeAdapters()) return runtimeAdapters()!.image(url);
     const response = await apiFetch(url, { accept: 'application/vnd.uier.screenshot-url+json' });
     let image = response;
     if (response.headers.get('content-type')?.startsWith('application/vnd.uier.screenshot-url+json')) {

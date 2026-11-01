@@ -1,3 +1,4 @@
+import { runtimeAdapters } from './adapters';
 import type { ToolbarConfig, ToolbarMode } from './config';
 import type { ReviewSession } from './review';
 
@@ -20,4 +21,4 @@ type RuntimeContext = {
 export const runtimeContextKey = Symbol.for('uier.toolbar.context');
 export type RuntimeScript = HTMLScriptElement & { [runtimeContextKey]?: RuntimeContext };
 export const runtimeContext: RuntimeContext =
-    (document.currentScript as RuntimeScript | null)?.[runtimeContextKey] ?? {};
+    runtimeAdapters() ? {} : (document.currentScript as RuntimeScript | null)?.[runtimeContextKey] ?? {};

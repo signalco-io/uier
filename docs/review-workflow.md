@@ -450,3 +450,12 @@ anchor, permitted links, original permitted browser context, discussion and prot
 references in one Markdown packet. Clipboard failures offer selectable Markdown. This is an explicit
 export; it does not publish to a tracker. The shared versioned model and access rules are documented
 in [Feedback context](feedback-context.md).
+
+## Browser extension preview
+
+The [desktop extension runtime spike](browser-extension.md) adds a signed-in review path without
+an embed or changes to the site’s CSP. It is not published. Each reviewer must install it in their
+own browser, and the exact origin must already belong to an accessible project. Existing comment
+links are handled after Start review. Check installation continues to diagnose only the site embed;
+extension activation never records an installed script. Public onboarding remains on the released
+script path until hosted verification, browser acceptance and store bootstrap are complete.

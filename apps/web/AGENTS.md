@@ -922,3 +922,13 @@ after 30 days; the thread’s discovery floor prevents replay after ledger expir
 are queried by failed/ambiguous status.
 `copy-fonts.mjs` publishes the pinned Geist fonts and license before dev/build; static font files
 are CORS-readable. `cspSources` allows the API origin for both `style-src` and `font-src`.
+
+## Browser extension runtime spike
+
+`src/lib/extension` and `/api/extension` use separate revocable eight-hour sessions and five-minute
+project/exact-origin credentials. UIER_EXTENSION_CLIENT_IDS is an explicit allowlist; disabled by
+default. It grants transport/registration only, never identity or BotID bypass. Recheck current
+membership, session and addresses before calling shared review services. Keep embed CORS unchanged.
+`/app/extension` is explicit consent after first-party sign-in. `/extension-verification` is a
+nonce-protected frame for the packaged helper; only registered extension origins may frame it.
+No app cookie reaches the worker. Read [the design and remaining gates](../../docs/browser-extension.md).

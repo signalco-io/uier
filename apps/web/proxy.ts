@@ -1,3 +1,4 @@
+import { extensionClientIds } from './src/lib/extension/config';
 import { NextResponse, type NextRequest } from 'next/server';
 import { randomBytes } from 'node:crypto';
 import { createSecureHeaders } from 'next-secure-headers';
@@ -22,13 +23,13 @@ export async function proxy(request: NextRequest) {
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
-    const bridge = pathname === '/review-verification' || pathname === '/review-session';
-    const nonce = appPage || pathname === '/review-verification' ? randomBytes(16).toString('base64') : undefined;
+    const bridge = pathname === '/review-verification' || pathname === '/review-session' || pathname === '/extension-verification';
+    const nonce = appPage || (pathname === '/review-verification' || pathname === '/extension-verification') ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
-            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: ['*'] }] : []),
+            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionClientIds().map(id => `chrome-extension://${id}`) : ['*'] }] : []),
             // Project tiles show favicons from the projects' own sites (`ProjectMark`)
             ...(appPage ? [{ imgSrc: ['https:'] }] : [])
         ], nonce),
