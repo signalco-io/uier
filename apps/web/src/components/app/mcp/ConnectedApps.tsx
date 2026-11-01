@@ -55,11 +55,9 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                         : <Collapsible>
                             <p className="m-0 flex flex-wrap items-center gap-x-2">
                                 <span>{app.access.summary}</span>
-                                <CollapsibleTrigger asChild>
-                                    <Button variant="link" size="sm" className="group h-auto p-0">
-                                        Details<span className="sr-only"> for {app.name}</span>
-                                        <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
-                                    </Button>
+                                <CollapsibleTrigger render={<Button variant="link" size="sm" className="group h-auto p-0" />}>
+                                    Details<span className="sr-only"> for {app.name}</span>
+                                    <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
                                 </CollapsibleTrigger>
                             </p>
                             <CollapsibleContent>

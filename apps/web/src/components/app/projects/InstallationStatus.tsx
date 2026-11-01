@@ -26,11 +26,9 @@ export function InstallationStatus({ lastCommentAt, children }: { lastCommentAt:
                     </ItemDescription>
                 </ItemContent>
                 <ItemActions>
-                    <CollapsibleTrigger asChild>
-                        <Button variant="outline" size="sm">
-                            {open ? 'Hide install guide' : 'Show install guide'}
-                            <ChevronDownIcon data-icon="inline-end" className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                        </Button>
+                    <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
+                        {open ? 'Hide install guide' : 'Show install guide'}
+                        <ChevronDownIcon data-icon="inline-end" className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
                     </CollapsibleTrigger>
                 </ItemActions>
             </Item>

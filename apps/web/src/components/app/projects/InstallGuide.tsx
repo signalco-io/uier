@@ -82,11 +82,9 @@ function Step({ number, title, last = false, children }: { number: number; title
 function Advanced({ title, children }: { title: string; children: ReactNode }) {
     return (
         <Collapsible className="flex flex-col gap-2">
-            <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent">
-                    <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-open/advanced:rotate-90" />
-                    Advanced: {title}
-                </Button>
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
+                <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/advanced:rotate-90" />
+                Advanced: {title}
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-3">
                 {children}
