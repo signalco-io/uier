@@ -149,7 +149,9 @@ export default function PrivacyPolicyPage() {
                 after 15 minutes. The HttpOnly <code>__Host-uier_sign_in_request</code> cookie binds the code to the browser that asked for it.
                 A new request replaces this binding; signing in removes it. We count code attempts with hashed
                 request counters to limit guessing. Signing in sets the <code>__Host-uier_session</code> cookie, which keeps
-                you signed in. The <code>__Host-uier_workspace</code> cookie remembers your selected workspace.
+                you signed in. The <code>__Host-uier_last_sign_in</code> cookie remembers only which option you
+                signed in with, so the sign-in page can mark it; it stays after you sign out.
+                The <code>__Host-uier_workspace</code> cookie remembers your selected workspace.
                 The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> lists lifetimes and the temporary reads of old cookie names. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>

@@ -59,7 +59,9 @@ test('a passkey added on Account signs in, and stops working once removed', { ta
     const [credential] = await authenticator.credentials();
     expect(credential).toMatchObject({ isResidentCredential: true, rpId: 'localhost' });
 
+    // The sign-in page marks how this browser signed in last, after sign-out too
     await signOut(page);
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toHaveAccessibleDescription('Last used');
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
     await page.goto(`${base}/app/account`);
@@ -74,6 +76,8 @@ test('a passkey added on Account signs in, and stops working once removed', { ta
     if (!(await authenticator.credentials()).length)
         await authenticator.cdp.send('WebAuthn.addCredential', { authenticatorId: authenticator.authenticatorId, credential: credential! });
     await signOut(page);
+    await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toHaveAccessibleDescription('Last used');
+    await expect(page.getByRole('link', { name: 'Sign in with email' })).toHaveAccessibleDescription('');
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
     await expect(page.getByRole('main').getByRole('alert')).toHaveText('uier doesn’t know this passkey. It may have been removed. Sign in with your email instead.');
     await expect(page).toHaveURL(`${base}/app/sign-in`);

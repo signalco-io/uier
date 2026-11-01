@@ -79,6 +79,7 @@ test('first sign-in proves a chosen inbox; linked sign-in follows tenant and sub
     const result = await confirmSignInCode(request.requestId, request.code, request.binding);
     expect(result?.user.email).toBe(email);
     expect(result?.next).toBe('/app/account');
+    expect(result?.method).toBe('microsoft');
     const account = (await getMicrosoftAccount(result!.user.id))!;
     expect(account).toMatchObject({ subject: sha256Hex(`${microsoft.url}/${microsoftTenant}/v2.0\n${sub}`), email: suggestion });
     expect((await viaMicrosoft(microsoft, { sub, email: uniqueEmail('changed') })).outcome).toMatchObject({ kind: 'signed_in', userId: result!.user.id });
@@ -97,7 +98,7 @@ test('Microsoft email never grants an existing account, including personal Micro
         const outcome = (await viaMicrosoft(microsoft, { email })).outcome;
         const link = (await getMicrosoftLink(pending(outcome)))!;
         const foreign = await emailRequest(email, link.id);
-        expect((await confirmSignIn(foreign.token))?.user.id).toBe(user.id);
+        expect(await confirmSignIn(foreign.token)).toMatchObject({ user: { id: user.id }, method: 'email' });
         expect(await getMicrosoftAccount(user.id)).toBeNull();
         const own = await emailRequest(email, link.id);
         expect(await confirmSignInCode(own.requestId, own.code, 'foreign')).toBeNull();

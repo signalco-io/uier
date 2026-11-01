@@ -55,7 +55,7 @@ export async function confirmSignInCodeAction(_: ActionState, formData: FormData
     if (!result.data)
         return { ok: false, error: SIGN_IN_CODE_ERROR };
 
-    await startSession(result.data.user.id);
+    await startSession(result.data.user.id, result.data.method);
     redirect(result.data.next ?? KnownPages.App);
 }
 
@@ -67,6 +67,6 @@ export async function confirmSignInAction(_: ActionState, formData: FormData): P
     if (!result.data)
         return { ok: false, error: 'This link has expired or was already used. Ask for a new one.' };
 
-    await startSession(result.data.user.id);
+    await startSession(result.data.user.id, result.data.method);
     redirect(result.data.next ?? KnownPages.App);
 }

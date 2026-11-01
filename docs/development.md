@@ -49,7 +49,7 @@ to `apps/web/.env.local` and set the variables there.
 No email is sent locally either: the sign-in page shows the link and code it would have emailed
 ("Open the sign-in link" and the eight-digit code), so http://localhost:4004/app works with any address.
 
-"Sign in with Google" shows locally only with a Google client of your own in `apps/web/.env.local`
+The Google sign-in option shows locally only with a Google client of your own in `apps/web/.env.local`
 (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI `http://localhost:4004/app/sign-in/google/callback`;
 see [Google sign-in](google-sign-in.md#create-the-google-oauth-client)). Without one, run the test stand-in
 (`PORT=11004 node apps/web/e2e/support/googleStub.ts`) and point `GOOGLE_OAUTH_AUTHORIZE_URL`
@@ -57,7 +57,7 @@ see [Google sign-in](google-sign-in.md#create-the-google-oauth-client)). Without
 (`http://127.0.0.1:11004`) at it, with `GOOGLE_CLIENT_ID=google-test-client` and
 `GOOGLE_CLIENT_SECRET=google-test-secret`. These overrides work only in local runtime.
 
-"Sign in with Microsoft" needs a separate Entra Web application client in `apps/web/.env.local`
+The Microsoft sign-in option needs a separate Entra Web application client in `apps/web/.env.local`
 (`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, redirect URI
 `http://localhost:4004/app/sign-in/microsoft/callback`). See
 [Microsoft sign-in](microsoft-sign-in.md) for registration and the local stand-in. First sign-in

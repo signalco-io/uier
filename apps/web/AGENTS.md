@@ -413,10 +413,15 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `PasskeySignIn` starts only once the field shows (`autofill`).
   `e2e/passkeys.api.spec.ts` covers the rules; `passkeys.spec.ts` uses Chromium's virtual authenticator on
   `localhost`, with the autofill stubbed off where a test clicks the button.
-- The sign-in card (`sign-in/SignInForm.tsx`) lists every option as the same outline `Button size="lg"`, worded
-  "Sign in with ...": a passkey, Google, Microsoft, then email, the last resort. "Sign in with email" is a link
+- The sign-in card (`sign-in/SignInForm.tsx`) lists every option as the same outline `Button size="lg"` with
+  only the method's name (Passkey, Google, Microsoft, then Email, the last resort) under "Choose how to sign
+  in."; each button's `aria-label` is "Sign in with ...", which the tests look up. The email option is a link
   to `?with=email` that opens the email form in place (before hydration it navigates there); "Ask for a new
   email" uses the same URL. `app.spec.ts` checks the order and `e2e/support/app.ts` `openEmailSignIn` opens it.
+  `startSession(userId, method)` also sets `__Host-uier_last_sign_in` (the method's name only, one year,
+  kept after sign-out); the page reads it with `getLastSignInMethod` and that option's button (`relative`)
+  gets `LastUsedBadge` at its right edge and `aria-describedby` pointing at it. An email proof that linked Google or Microsoft
+  counts as that provider; invitations count as email. `passkeys.spec.ts` covers it.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and

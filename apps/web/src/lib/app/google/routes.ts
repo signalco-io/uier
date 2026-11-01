@@ -77,7 +77,7 @@ export async function finishGoogleSignInRoute(request: Request) {
 
     switch (outcome.kind) {
         case 'signed_in':
-            await startSession(outcome.userId);
+            await startSession(outcome.userId, 'google');
             return redirect(new URL(outcome.next ?? KnownPages.App, baseUrl).href);
         case 'confirm_email':
             jar.set(GOOGLE_SIGN_IN_COOKIE_NAME, outcome.binding, appCookieOptions(GOOGLE_LINK_TTL_SECONDS));

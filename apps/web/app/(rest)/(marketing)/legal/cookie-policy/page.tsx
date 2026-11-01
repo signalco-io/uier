@@ -77,6 +77,13 @@ const items = [
         duration: '30 days'
     },
     {
+        name: '__Host-uier_last_sign_in',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You sign in to the app',
+        purpose: 'Marks the option you signed in with (passkey, Google, Microsoft or email) as “Last used” on the sign-in page. Holds only that option’s name, with nothing about you; signing out keeps it.',
+        duration: 'One year'
+    },
+    {
         name: '__Secure-uier_review_sso',
         type: 'Cookie (HttpOnly, Secure, SameSite=None)',
         when: 'You sign in or visit the signed-in app',

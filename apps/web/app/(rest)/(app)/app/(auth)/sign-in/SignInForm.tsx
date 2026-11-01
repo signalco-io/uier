@@ -11,7 +11,9 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { KnownPages } from '@/src/knownPages';
 import { confirmSignInCodeAction, requestSignInAction, type SignInLinkSent } from './actions';
+import type { SignInMethod } from '@/src/lib/app/session';
 import { PasskeySignIn } from './PasskeySignIn';
+import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
 
 /** The sign-in page, keeping `next`; `email` opens the email form straight away (`?with=email`) */
 function signInHref(next: string | undefined, email: boolean) {
@@ -74,10 +76,14 @@ export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: st
 }
 
 /**
- * The sign-in options, all the same outline button: a passkey, `alternatives` (Google and Microsoft),
- * then email, the last resort, whose form opens in place (`withEmail` opens it straight away).
+ * The sign-in options, all the same outline button with the method's name ("Sign in with ..." to
+ * assistive technologies): a passkey, `alternatives` (Google and Microsoft), then email, the last
+ * resort, whose form opens in place (`withEmail` opens it straight away). `lastUsed` marks the option
+ * this browser signed in with last.
  */
-export function SignInForm({ next, alternatives, withEmail = false }: { next?: string; alternatives?: ReactNode; withEmail?: boolean }) {
+export function SignInForm({ next, alternatives, withEmail = false, lastUsed }: {
+    next?: string; alternatives?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod;
+}) {
     const id = useId();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
     const [emailOpen, setEmailOpen] = useState(withEmail);
@@ -90,7 +96,7 @@ export function SignInForm({ next, alternatives, withEmail = false }: { next?: s
 
     return (
         <div className="flex flex-col gap-3">
-            <PasskeySignIn next={next} autofill={emailOpen} />
+            <PasskeySignIn next={next} autofill={emailOpen} lastUsed={lastUsed === 'passkey'} />
             {alternatives}
             {emailOpen ? (
                 <>
@@ -123,11 +129,13 @@ export function SignInForm({ next, alternatives, withEmail = false }: { next?: s
                     </form>
                 </>
             ) : (
-                <Button variant="outline" size="lg" className="w-full" asChild>
+                <Button variant="outline" size="lg" className="relative w-full" asChild>
                     {/* A link, so it opens the form before hydration too (a full navigation to ?with=email) */}
-                    <a href={signInHref(next, true)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}>
+                    <a href={signInHref(next, true)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
+                        aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined}>
                         <MailIcon data-icon="inline-start" />
-                        Sign in with email
+                        Email
+                        {lastUsed === 'email' && <LastUsedBadge />}
                     </a>
                 </Button>
             )}

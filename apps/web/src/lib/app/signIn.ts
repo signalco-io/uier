@@ -14,6 +14,7 @@ import { boundSignInRequestId } from './signInCookie';
 import { clearEmailSuppression } from '../email/suppression';
 import { completeGoogleLink } from './google/link';
 import { completeMicrosoftLink } from './microsoft/link';
+import type { SignInMethod } from './session';
 
 export const SIGN_IN_LINK_TTL_SECONDS = 15 * 60;
 export const SIGN_IN_CODE_LENGTH = 8;
@@ -94,17 +95,20 @@ async function getSignInRequestById(requestId: string) {
     return request;
 }
 
+/** A used sign-in email: who, where to continue, and how they signed in (a provider it linked, or email) */
+type EmailSignIn = { user: DbUser; next?: string; method: SignInMethod };
+
 /**
  * Uses up the link: returns the (new or existing) user and where to continue, or `null`. The link
  * works in any browser, but links a waiting provider account only in the one bound to the request.
  */
-export async function confirmSignIn(token: unknown, binding?: string): Promise<{ user: DbUser; next?: string } | null> {
+export async function confirmSignIn(token: unknown, binding?: string): Promise<EmailSignIn | null> {
     const request = await getSignInRequest(token);
     return await consumeSignInRequest(request, request !== null && boundSignInRequestId(binding) === request.id);
 }
 
 /** Both paths use this delete: only its winner may create a user or start a session. */
-async function consumeSignInRequest(request: DbSignInRequest | null, bound: boolean): Promise<{ user: DbUser; next?: string } | null> {
+async function consumeSignInRequest(request: DbSignInRequest | null, bound: boolean): Promise<EmailSignIn | null> {
     if (!request || !await getAppStore().delete(request.pk, request.id))
         return null;
 
@@ -113,11 +117,13 @@ async function consumeSignInRequest(request: DbSignInRequest | null, bound: bool
     const google = request.googleLinkId && bound ? await completeGoogleLink(request.googleLinkId, user.id, request.email) : null;
     // Signed in either way: the inbox is proven. Account says why Google was not linked.
     if (google === 'taken' || google === 'other_account')
-        return { user, next: `${KnownPages.AppAccount}?google=${google}` };
+        return { user, next: `${KnownPages.AppAccount}?google=${google}`, method: 'email' };
     const microsoft = request.microsoftLinkId && bound ? await completeMicrosoftLink(request.microsoftLinkId, user.id) : null;
     if (microsoft === 'taken' || microsoft === 'other_account')
-        return { user, next: `${KnownPages.AppAccount}?microsoft=${microsoft}` };
-    return { user, next: safeNextPath(request.next) };
+        return { user, next: `${KnownPages.AppAccount}?microsoft=${microsoft}`, method: 'email' };
+    // A provider linked on the way in is what this person chose, and signs in directly next time
+    const method = google === 'linked' ? 'google' : microsoft === 'linked' ? 'microsoft' : 'email';
+    return { user, next: safeNextPath(request.next), method };
 }
 
 /** A different/missing binding is rejected before reading the request or spending its guess budget. */

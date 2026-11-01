@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
-import { getSessionUser } from '@/src/lib/app/session';
+import { getLastSignInMethod, getSessionUser } from '@/src/lib/app/session';
 import { safeNextPath } from '@/src/lib/app/signIn';
 import { AuthCard } from '@/src/components/app/AuthCard';
 import { SignInForm } from './SignInForm';
@@ -17,15 +17,19 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/sign-
     const nextPath = safeNextPath(next);
     if (await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
+    const lastUsed = await getLastSignInMethod();
 
     return (
         <AuthCard
             title="Sign in"
-            description="Choose how to sign in. New here? Signing in creates your account.">
+            description={<>Choose how to sign in.<br />New here? Signing in creates your account.</>}>
             <GoogleSignInProblem outcome={google} />
             <MicrosoftSignInProblem outcome={microsoft} />
-            <SignInForm next={nextPath} withEmail={method === 'email'}
-                alternatives={<><GoogleSignInButton next={nextPath} /><MicrosoftSignInButton next={nextPath} /></>} />
+            <SignInForm next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
+                alternatives={<>
+                    <GoogleSignInButton next={nextPath} lastUsed={lastUsed === 'google'} />
+                    <MicrosoftSignInButton next={nextPath} lastUsed={lastUsed === 'microsoft'} />
+                </>} />
         </AuthCard>
     );
 }

@@ -12,9 +12,12 @@ test('signed-out visitors are sent to sign in and come back afterwards', { tag: 
     await expect(page).toHaveURL(/\/app\/sign-in\?next=%2Fapp%2Faccount$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
     await expect(page).toHaveTitle('Sign in · uier');
-    // Every option is the same outline button; email comes last and opens its form in place
+    // Every option is the same outline button with the method's name; email comes last and opens its form in place
     const options = page.getByRole('main').locator('[data-slot=button]');
-    await expect(options).toHaveText(['Sign in with a passkey', 'Sign in with Google', 'Sign in with Microsoft', 'Sign in with email']);
+    await expect(options).toHaveText(['Passkey', 'Google', 'Microsoft', 'Email']);
+    await expect(options.first()).toHaveAccessibleName('Sign in with a passkey');
+    // A browser that never signed in has no "Last used" option
+    await expect(page.getByText('Last used')).toHaveCount(0);
     await expect(page.getByLabel('Email', { exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
 

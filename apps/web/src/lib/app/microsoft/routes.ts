@@ -77,7 +77,7 @@ export async function finishMicrosoftSignInRoute(request: Request) {
 
     switch (outcome.kind) {
         case 'signed_in':
-            await startSession(outcome.userId);
+            await startSession(outcome.userId, 'microsoft');
             return redirect(new URL(outcome.next ?? KnownPages.App, baseUrl).href);
         case 'confirm_email':
             jar.set(MICROSOFT_SIGN_IN_COOKIE_NAME, outcome.binding, appCookieOptions(MICROSOFT_LINK_TTL_SECONDS));

@@ -3,6 +3,7 @@ import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Button } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
+import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
 
 const problems: Record<string, string> = {
     cancelled: 'Google sign-in was cancelled.',
@@ -41,16 +42,18 @@ export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }
     );
 }
 
-/** "Sign in with Google", the same outline button as the other sign-in options (`SignInForm`'s `alternatives`) */
-export function GoogleSignInButton({ next }: { next?: string }) {
+/** "Google" ("Sign in with Google" to assistive technologies), the same outline button as the other options (`SignInForm`'s `alternatives`) */
+export function GoogleSignInButton({ next, lastUsed }: { next?: string; lastUsed?: boolean }) {
     if (!isGoogleSignInConfigured())
         return null;
     return (
-        <Button variant="outline" size="lg" className="w-full" asChild>
+        <Button variant="outline" size="lg" className="relative w-full" asChild>
             {/* A plain link: a full navigation, never prefetched (the route starts a sign-in). */}
-            <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
+            <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
+                aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
                 <GoogleG />
-                Sign in with Google
+                Google
+                {lastUsed && <LastUsedBadge />}
             </a>
         </Button>
     );

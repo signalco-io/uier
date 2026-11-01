@@ -14,7 +14,8 @@ export const cookieNames = {
     workspace: { name: '__Host-uier_workspace', legacy: 'uier_workspace', lifetime: 365 * day },
     reviewSso: { name: '__Secure-uier_review_sso', legacy: 'uier_review_sso', lifetime: 30 * day },
     // New after the cutoff: `legacy` is only the local HTTP name, never read on HTTPS (see passkeys.ts).
-    passkeyChallenge: { name: '__Host-uier_passkey_challenge', legacy: 'uier_passkey_challenge', lifetime: 5 * 60 }
+    passkeyChallenge: { name: '__Host-uier_passkey_challenge', legacy: 'uier_passkey_challenge', lifetime: 5 * 60 },
+    lastSignIn: { name: '__Host-uier_last_sign_in', legacy: 'uier_last_sign_in', lifetime: 365 * day }
 } as const;
 type CookieName = typeof cookieNames[keyof typeof cookieNames];
 type CookieReader = { get(name: string): { value: string } | undefined };
