@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
+// Its types import @radix-ui/react-checkbox, which the app does not install: onCheckedChange is typed here
 import { Checkbox } from '@signalco/ui-primitives/Checkbox';
 import { Button as AppButton } from '@/src/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
@@ -45,12 +46,12 @@ export function AccessTokens({ projects, credentials }: { projects: { id: string
                     <Input name="name" label="Token label" value={name} onChange={event => setName(event.target.value)} required maxLength={60} placeholder="My coding tool" />
                     <fieldset className="flex flex-col gap-2">
                         <legend className="mb-2 text-sm font-medium">Projects in this workspace</legend>
-                        {projects.map(project => <Checkbox key={project.id} name="projectIds" value={project.id} label={<span className="flex min-h-11 items-center">{project.name}</span>} checked={selectedProjects.includes(project.id)} onCheckedChange={checked => setSelectedProjects(previous => checked ? [...previous, project.id] : previous.filter(id => id !== project.id))} />)}
+                        {projects.map(project => <Checkbox key={project.id} name="projectIds" value={project.id} label={<span className="flex min-h-11 items-center">{project.name}</span>} checked={selectedProjects.includes(project.id)} onCheckedChange={(checked: boolean | 'indeterminate') => setSelectedProjects(previous => checked ? [...previous, project.id] : previous.filter(id => id !== project.id))} />)}
                         {!projects.length && <p className="text-sm text-muted-foreground">Create a project before connecting a coding tool.</p>}
                     </fieldset>
                     <fieldset className="flex flex-col gap-2">
                         <legend className="mb-2 text-sm font-medium">Allowed operations</legend>
-                        {scopeOptions.map(({ scope, label }) => <Checkbox key={scope} name="scopes" value={scope} label={<span className="flex min-h-11 items-center">{label}</span>} checked={selectedScopes.includes(scope)} onCheckedChange={checked => setSelectedScopes(previous => checked ? [...previous, scope] : previous.filter(value => value !== scope))} />)}
+                        {scopeOptions.map(({ scope, label }) => <Checkbox key={scope} name="scopes" value={scope} label={<span className="flex min-h-11 items-center">{label}</span>} checked={selectedScopes.includes(scope)} onCheckedChange={(checked: boolean | 'indeterminate') => setSelectedScopes(previous => checked ? [...previous, scope] : previous.filter(value => value !== scope))} />)}
                     </fieldset>
                     <FormMessage state={state} />
                     <Button type="submit" disabled={pending || !projects.length} className="self-start">{pending ? 'Creating…' : 'Create token'}</Button>
