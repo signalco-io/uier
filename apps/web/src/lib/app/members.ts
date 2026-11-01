@@ -1,9 +1,10 @@
 import type { DbMember, DbUser } from './model';
+import { cache } from 'react';
 import { getUser } from './users';
 import { listWorkspaceMembers } from './workspaces';
 import { getAppStore } from './store';
 import { workspacePk, type DbProject } from './model';
-import { hasProjectAccess, loadWorkspaceAccess } from './access';
+import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
 import { publicProjectMember } from '../comments/publicProjectPolicy';
 
 export type MemberWithUser = {
@@ -26,8 +27,8 @@ export async function listMembersWithUsers(workspaceId: string): Promise<MemberW
 }
 
 /** Members who can review the project (admins and commenters with access) */
-export async function listProjectMembers(workspaceId: string, projectId: string) {
-    const [members, access, stored] = await Promise.all([listMembersWithUsers(workspaceId), loadWorkspaceAccess(workspaceId), getAppStore().get<DbProject>(workspacePk(workspaceId), projectId)]);
+export const listProjectMembers = cache(async (workspaceId: string, projectId: string) => {
+    const [members, access, stored] = await Promise.all([listMembersWithUsers(workspaceId), loadWorkspaceAccessForRender(workspaceId), getAppStore().get<DbProject>(workspacePk(workspaceId), projectId)]);
     const project = stored?.doc;
     return project?.type === 'project' && project.workspaceId === workspaceId ? members.filter(({ member, user }) => user && hasProjectAccess(access, member, project)) : [];
-}
+});

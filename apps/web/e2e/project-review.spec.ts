@@ -907,7 +907,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
 
     // Filter by page (relative URLs)
     await page.getByRole('button', { name: /^Environment and page:/ }).click();
-    await page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${about},`) }).click();
+    await page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${about}\\s*,`) }).click();
     await expect(page).toHaveURL(new RegExp(`page=${encodeURIComponent(about)}`));
     await expect(page.getByRole('article')).toHaveCount(1);
     await expect(benCard).toBeVisible();

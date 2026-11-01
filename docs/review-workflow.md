@@ -132,6 +132,20 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 - **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
   sign out.
 
+### Page and comment responsiveness
+
+The app filters loaded comments immediately when switching Open/Done/All, List/Board, people,
+pages or unread. These choices stay in the URL and work with Back, Forward and reload. Changing
+environment or author still loads a fresh authorized list from the server. Settings links show
+navigation feedback, and General renders its forms before usage totals finish loading.
+
+Status, assignment, follow and read changes update the app's cards and counts while saving.
+A failed save restores the confirmed state and shows an error. Mark all as read uses only the
+rendered activity snapshot, keeps newer activity unread, and offers Retry for failed writes.
+The toolbar likewise reflects Done/Reopen immediately; comments and replies appear while sending,
+with failed text kept in drafts. Destructive actions and access-setting changes wait for server
+confirmation.
+
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.

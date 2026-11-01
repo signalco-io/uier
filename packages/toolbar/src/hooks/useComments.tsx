@@ -53,6 +53,7 @@ type ReplyInput = { commentId: string; text: string; mentions?: Mention[] };
  */
 const pendingComments = new Map<string, CommentItem>();
 const pendingReplies = new Map<string, CommentItemThreadItem[]>();
+const pendingResolutions = new Map<string, { token: string; resolved: boolean; revision: number }>();
 // The temporary id a saved comment had (see `commentKey`)
 const localKeys = new Map<string, string>();
 
@@ -73,6 +74,8 @@ const sameText = (item: CommentItemThreadItem | undefined, text: string) => Bool
 
 /** A saved comment with the replies to it that are still on their way */
 function applyPending(comment: CommentItem): CommentItem {
+    const resolution = pendingResolutions.get(comment.id);
+    if (resolution?.revision === currentReviewerRevision()) comment = { ...comment, resolved: resolution.resolved };
     const replies = pendingReplies.get(comment.id)?.filter(reply => !reply.deleted && !comment.thread.items.some(item => sameText(item, reply.text)));
     return replies?.length ? { ...comment, thread: { items: [...comment.thread.items, ...replies] } } : comment;
 }
@@ -339,9 +342,31 @@ export function useComments(refreshOnMount = false): {
     });
 
     const resolve = useMutation({
-        mutationFn: resolveComment,
-        onSuccess: handleCommentChanged,
-        onSettled: handleSettled
+        mutationFn: (input: { commentId: string; resolved: boolean }) => authorizedList(client, () => resolveComment(input)),
+        onMutate: async (input) => {
+            const revision = currentReviewerRevision();
+            const token = newLocalId();
+            const previous = client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix })
+                .flatMap(([, comments]) => comments ?? []).find(comment => comment.id === input.commentId)?.resolved;
+            pendingResolutions.set(input.commentId, { token, resolved: input.resolved, revision });
+            await client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
+            if (revision === currentReviewerRevision())
+                updateAllCachedComments(client, comments => comments.map(applyPending));
+            return { token, previous, revision };
+        },
+        onSuccess: (comment, _input, context) => {
+            if (context.revision === currentReviewerRevision()) handleCommentChanged(comment);
+        },
+        onError: (_error, input, context) => {
+            if (context?.revision !== currentReviewerRevision() || pendingResolutions.get(input.commentId)?.token !== context.token) return;
+            if (context.previous !== undefined)
+                updateAllCachedComments(client, comments => comments.map(comment => comment.id === input.commentId
+                    ? { ...comment, resolved: context.previous! } : comment));
+        },
+        onSettled: (_comment, _error, input, context) => {
+            if (pendingResolutions.get(input.commentId)?.token === context?.token) pendingResolutions.delete(input.commentId);
+            handleSettled();
+        }
     });
 
     const assign = useMutation({

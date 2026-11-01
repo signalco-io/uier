@@ -146,14 +146,17 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 /** Every comment of the project the app user can see (all pages), newest first */
 export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string) {
     const actor = appActor(context);
-    const comments = await listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId);
-    const [names, members, reads, integrationLinks] = await Promise.all([authorNames(comments), listProjectMembers(project.workspaceId, project.id),
-        loadReadSequences(`project:${project.id}`, `user:${context.user.id}`), loadIntegrationLinks(project, actor, comments)]);
+    const [comments, members, reads, subscriptions] = await Promise.all([
+        listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId),
+        listProjectMembers(project.workspaceId, project.id),
+        loadReadSequences(`project:${project.id}`, `user:${context.user.id}`),
+        getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } })
+    ]);
+    const [names, integrationLinks] = await Promise.all([authorNames(comments), loadIntegrationLinks(project, actor, comments)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
     const views = comments
         .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id)))
         .filter((view): view is ProjectCommentView => Boolean(view));
-    const subscriptions = await getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } });
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));
     const participated = new Set(comments.filter(comment => isNotificationParticipant(comment, `user:${context.user.id}`)).map(comment => comment.id));
     return views.map(view => ({ ...view, following: following.get(view.id) ?? participated.has(view.id), integrationLinks: integrationLinks.get(view.id) }));
@@ -168,7 +171,15 @@ export type ProjectUsage = {
     lastCommentAt?: string;
 };
 
-export function projectUsage(comments: ProjectCommentView[]): ProjectUsage {
+/** Usage needs no names, read receipts, subscriptions, assignees or integration links. */
+export async function loadProjectUsage(context: AppContext, project: DbProject) {
+    const comments = await listProjectComments(project, appActor(context));
+    return projectUsage(comments.filter(comment => comment.thread?.items?.length).map(comment => ({
+        resolved: comment.resolved === true, replies: comment.thread.items.slice(1), path: comment.path ?? '/', createdAt: comment.createdAt
+    })));
+}
+
+export function projectUsage(comments: { resolved: boolean; replies: unknown[]; path: string; createdAt?: string }[]): ProjectUsage {
     return {
         comments: comments.length,
         open: comments.filter(comment => !comment.resolved).length,

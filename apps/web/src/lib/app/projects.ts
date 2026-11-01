@@ -1,9 +1,10 @@
 import { customAlphabet } from 'nanoid';
+import { cache } from 'react';
 import { z } from 'zod';
 import { isMeaningfulQueryKey, pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
-import { hasProjectAccess, loadWorkspaceAccess } from './access';
+import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
 import type { AppContext } from './context';
 import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
@@ -133,10 +134,10 @@ export async function listProjects(workspaceId: string) {
 }
 
 /** Projects of the current workspace the member may see */
-export async function listVisibleProjects(context: AppContext) {
-    const [projects, access] = await Promise.all([listProjects(context.workspace.id), loadWorkspaceAccess(context.workspace.id)]);
+export const listVisibleProjects = cache(async (context: AppContext) => {
+    const [projects, access] = await Promise.all([listProjects(context.workspace.id), loadWorkspaceAccessForRender(context.workspace.id)]);
     return projects.filter(project => hasProjectAccess(access, context.member, project));
-}
+});
 
 export async function getProject(workspaceId: string, projectId: string) {
     if (isProjectPublicId(projectId)) {
@@ -167,10 +168,12 @@ export async function findReviewProject(code: string) {
 }
 
 /** A project of the current workspace the member may see, or `null` */
-export async function getVisibleProject(context: AppContext, projectId: string) {
-    const project = await getProject(context.workspace.id, projectId);
-    return project && hasProjectAccess(await loadWorkspaceAccess(context.workspace.id), context.member, project) ? project : null;
-}
+// React cache shares reads between metadata, layouts and pages in one render only.
+// Every subsequent request still checks current membership and team access.
+export const getVisibleProject = cache(async (context: AppContext, projectId: string) => {
+    const [project, access] = await Promise.all([getProject(context.workspace.id, projectId), loadWorkspaceAccessForRender(context.workspace.id)]);
+    return project && hasProjectAccess(access, context.member, project) ? project : null;
+});
 
 /** A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one */
 export async function createProject(context: AppContext, { name, urls, clientName }: { name: string; urls: string[]; clientName?: string }) {

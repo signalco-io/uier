@@ -7,7 +7,8 @@ import { getVisibleProject } from '@/src/lib/app/projects';
 import { resolveCommentAuthorFilter } from '@/src/lib/app/commentAuthors';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
-import { parseCommentsQuery, ProjectComments } from '@/src/components/app/comments/ProjectComments';
+import { ProjectComments } from '@/src/components/app/comments/ProjectComments';
+import { parseCommentsQuery } from '@/src/components/app/comments/commentsQuery';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]'>): Promise<Metadata> {
     const { projectId } = await params;
