@@ -12,7 +12,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` (Google sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
@@ -243,12 +243,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
-  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `MailCheck`, `Copy`, `Link2`)
+  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `Copy`, `Link2`, `Mail`)
   and words: state, `#number`, unread dot and the assignee (their avatar, or the user icon while unassigned; the tooltip
   says "Unassigned" / "Assigned to ...") with the actions on one row
-  (`ThreadAction`: icon-only with a tooltip and accessible name). For those who can resolve, the state badge
-  is the Open/Done menu ("Status: Open. Change status"); Copy link and Follow thread / Unfollow thread are in
-  the More actions menu. Then the first and last message with Show all, the quiet Open in ...,
+  (`ThreadAction`: icon-only with a tooltip and accessible name). The unread dot is the Mark as read button
+  ("Unread. Mark as read"). For those who can resolve, the state badge is the Open/Done menu ("Status: Open.
+  Change status"); Copy link, Follow thread / Unfollow thread and, once read, Mark as unread are in the More
+  actions menu. Then the first and last message with Show all, the quiet Open in ...,
   and the page link in the footer, with the source's environment name (or why the original source is
   unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's
   header still has its icon Done/Reopen and Copy link: change both together where they match. The first
@@ -390,6 +391,17 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `sessionSignedInAt`, checked at the start and again at the callback) and unlinks; a `sub` of another user is refused. The button shows only in
   production and local runtime; endpoint overrides work only locally. `google-sign-in{,.api}.spec.ts` use
   `e2e/support/googleStub.ts`.
+- **Microsoft sign-in** (`src/lib/app/microsoft/`, [setup and identity rules](../../docs/microsoft-sign-in.md))
+  uses a separate Entra client from Azure Boards, `common` for work/school and personal accounts, and
+  only `openid email profile`. Follow the Google flow's PKCE, state/nonce hashes, signed cookie,
+  one-use callback, rate limits, safe redirects and recent-session checks for Account linking.
+  Verify RS256 signatures, tenant-scoped key issuer, exact v2 issuer/tenant/audience, lifetime and nonce
+  with `jose`. Identity is SHA-256(issuer + newline + sub). Never identify a user by Microsoft's
+  `email` or `preferred_username`; first sign-in always proves a chosen inbox with the existing email
+  code flow. Only the explicit confirmation form attaches the browser's `microsoftLinkId`; a link
+  opened in another browser signs in by email and links nothing. A linked identity signs in directly
+  and never changes the uier email. Account can link/unlink one Microsoft identity. Production/local
+  only; endpoint overrides are local-only. Tests: `microsoft-sign-in{,.api}.spec.ts`, `microsoftStub.ts`.
 - Passkeys (`src/lib/app/passkeys.ts`; `PasskeySignIn` on sign-in, `PasskeysSection` on Account) use
   `@simplewebauthn/server` and `/browser` with the RP ID and origin of `appBaseUrl()` (none on an IP
   address). Challenges are single-use records (5 minutes, atomic delete) bound by the signed HttpOnly
@@ -541,7 +553,8 @@ expose identity metadata only to members. App and toolbar must share these check
 
 - `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
   Read acknowledgements require current project/thread access and acknowledge only a rendered
-  sequence. Toolbar and app use the same member cursor; notifications must reauthorize before
+  sequence. Mark as unread (`markThreadUnread`, `DELETE .../read`, `markCommentUnreadAction`) is the one
+  explicit move back: to just before the latest activity by someone else, never for own-only threads. Toolbar and app use the same member cursor; notifications must reauthorize before
   reading it for suppression. Do not equate resolution with read state or expose actor ids in DTOs.
   Bulk acknowledgement uses `comments/bulkRead.ts` and `review/bulkRead.ts`: validate every id/cursor
   before writes, at most 200 threads/48 KiB per request and four concurrent cursor writes. Review

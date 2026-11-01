@@ -11,6 +11,8 @@ const credentialNames = [
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_WEBHOOK_SECRET',
     // "Continue with Google" sign-in (docs/google-sign-in.md), production only like the providers above
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
+    // Microsoft OIDC sign-in has separate credentials from the Azure Boards integration.
+    'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET',
 ] as const;
 const encryptionKeys = [
     ['notion', 'NOTION_TOKEN_KEY'], ['linear', 'LINEAR_TOKEN_KEY'],

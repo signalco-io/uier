@@ -7,6 +7,7 @@ import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS, sessionSignedInAt, sessionUse
 import { reviewSsoCookie, REVIEW_SSO_COOKIE_NAME, reviewSsoCookieOptions } from './reviewSsoCookie';
 import { SIGN_IN_REQUEST_COOKIE_NAME } from './signInCookie';
 import { GOOGLE_SIGN_IN_COOKIE_NAME } from './google/cookie';
+import { MICROSOFT_SIGN_IN_COOKIE_NAME } from './microsoft/cookie';
 
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from './sessionIdentity';
 
@@ -31,6 +32,7 @@ export async function startSession(userId: string) {
     jar.set(SESSION_COOKIE_NAME, token, appCookieOptions(SESSION_TTL_SECONDS));
     jar.set(SIGN_IN_REQUEST_COOKIE_NAME, '', appCookieOptions(0));
     jar.set(GOOGLE_SIGN_IN_COOKIE_NAME, '', appCookieOptions(0));
+    jar.set(MICROSOFT_SIGN_IN_COOKIE_NAME, '', appCookieOptions(0));
     if (SIGN_IN_REQUEST_COOKIE_NAME !== cookieNames.signInRequest.legacy)
         jar.set(cookieNames.signInRequest.legacy, '', appCookieOptions(0));
     const companion = reviewSsoCookie(token);

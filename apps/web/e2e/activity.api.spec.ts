@@ -8,10 +8,10 @@ import { randomToken, sha256Hex, signToken } from '../src/lib/app/tokens';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { listComments, replyToComment, getCommentScreenshot } from '../src/lib/comments/service';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
-import { getReadSequence, markThreadRead, projectActivity, unreadComments } from '../src/lib/comments/readState';
+import { getReadSequence, markThreadRead, markThreadUnread, projectActivity, unreadComments } from '../src/lib/comments/readState';
 import { deleteProjectCommentItem, setProjectCommentResolved } from '../src/lib/review/comments';
 import { reviewApiHandler } from '../src/lib/review/http';
-import { listReviewComments, readReviewComment, readReviewComments } from '../src/lib/review/readRoutes';
+import { listReviewComments, readReviewComment, readReviewComments, unreadReviewComment } from '../src/lib/review/readRoutes';
 import { markThreadsRead } from '../src/lib/comments/bulkRead';
 import { POST as publicBulkRead } from '../app/api/comments/read/route';
 import { POST as publicRead } from '../app/api/comments/[id]/read/route';
@@ -109,6 +109,32 @@ test('per-reviewer cursors survive own posts, resolution, concurrent/stale reads
     expect(readActivity(comment, 'user:alice', sequence + 1).unread).toBe(true);
 });
 
+test('mark as unread moves the cursor back before the latest activity by someone else, and only then', async () => {
+    process.env.UIER_LOCAL = '1';
+    const store = getMemoryCommentsStore();
+    const domain = `project:${randomUUID()}`;
+    let comment: DbComment = { id: 'comment_unread', domain, path: '/one', position: { type: 'page' }, authorId: 'user:alice',
+        thread: { items: [{ id: 'first', text: 'Feedback', authorId: 'user:alice' }] } };
+    await store.create(comment);
+    // Only the reviewer's own activity: nothing to mark unread, and no receipt is written
+    expect(await markThreadUnread(comment, 'user:alice')).toMatchObject({ unread: false, readSequence: 0 });
+    // Never read: already unread, nothing changes
+    expect(await markThreadUnread(comment, 'user:bob')).toMatchObject({ unread: true, readSequence: 0 });
+    for (const [authorId, id] of [['user:bob', 'reply_bob'], ['user:alice', 'reply_alice']] as const) {
+        expect(await store.appendThreadItem(domain, comment.id, { id, text: id, authorId }, 50, now)).toBe('ok');
+        comment = (await store.get(domain, comment.id))!.comment;
+    }
+    await markThreadRead(comment, 'user:alice', 3);
+    expect(await markThreadUnread(comment, 'user:alice')).toMatchObject({ sequence: 3, lastOtherSequence: 2, readSequence: 1, unread: true });
+    expect(await getReadSequence(domain, 'user:alice', comment.id)).toBe(1);
+    // Repeating it does not move the cursor further back
+    expect(await markThreadUnread(comment, 'user:alice')).toMatchObject({ readSequence: 1, unread: true });
+    expect(await markThreadRead(comment, 'user:alice', 3)).toMatchObject({ readSequence: 3, unread: false });
+    await markThreadRead(comment, 'user:bob', 3);
+    expect(await markThreadUnread(comment, 'user:bob')).toMatchObject({ lastOtherSequence: 3, readSequence: 2, unread: true });
+    expect(await getReadSequence(domain, 'user:alice', comment.id)).toBe(3);
+});
+
 test('read endpoints reauthorize identity, project, private visibility, origin and revoked membership', async () => {
     process.env.UIER_LOCAL = '1';
     const app = getAppStore();
@@ -137,9 +163,23 @@ test('read endpoints reauthorize identity, project, private visibility, origin a
     expect(await getReadSequence(comment.domain, 'user:bob', comment.id)).toBe(0);
     expect((await call({ Origin: 'https://other.example' })).status).toBe(403);
     expect((await call({}, 'comment_foreign')).status).toBe(404);
+    const unreadHandler = reviewApiHandler<{ projectId: string; id: string }>(unreadReviewComment, { verifyWrites: false });
+    const unread = (extra = {}, target = comment.id) => unreadHandler(new Request(`https://uier.io/api/review/${id}/comments/${target}/read`, {
+        method: 'DELETE', headers: { ...headers, ...extra }
+    }), { params: Promise.resolve({ projectId: id, id: target }) });
+    expect((await unread({ Origin: 'https://other.example' })).status).toBe(403);
+    expect((await unread({}, 'comment_foreign')).status).toBe(404);
+    expect(await getReadSequence(comment.domain, 'user:alice', comment.id)).toBe(1);
+    const unreadResponse = await unread();
+    expect(unreadResponse.status).toBe(200);
+    expect(await unreadResponse.json()).toMatchObject({ readSequence: 0, unread: true });
+    expect(await getReadSequence(comment.domain, 'user:alice', comment.id)).toBe(0);
+    expect((await call()).status).toBe(200);
     const stored = (await store.get(comment.domain, comment.id))!;
     await store.replace({ ...comment, private: true }, stored.etag);
     expect((await call()).status).toBe(404);
+    expect((await unread()).status).toBe(404);
+    expect(await getReadSequence(comment.domain, 'user:alice', comment.id)).toBe(1);
     const list = reviewApiHandler(listReviewComments, { verifyWrites: false });
     const listCall = () => list(new Request(`https://uier.io/api/review/${id}/comments?scope=site`, { headers }), { params: Promise.resolve({ projectId: id }) });
     expect(await (await listCall()).json()).toEqual([]);
@@ -264,6 +304,11 @@ test('public read receipts isolate guests, persist across page/site requests, an
         const list = async () => (await (await second.get(`/api/comments?path=${path}`)).json()).find((item: { id: string }) => item.id === comment.id);
         expect((await list()).activity.unread).toBe(true);
         const readUrl = `/api/comments/${comment.id}/read`;
+        // Without an identity nothing was read: Mark as unread creates none
+        const anonymousUnread = await second.delete(readUrl);
+        expect(anonymousUnread.status()).toBe(200);
+        expect(anonymousUnread.headers()['set-cookie']).toBeUndefined();
+        expect(await anonymousUnread.json()).toMatchObject({ unread: true, readSequence: 0 });
         const read = await second.post(readUrl, { data: { sequence: 1 } });
         expect(read.status()).toBe(200);
         expect(read.headers()['set-cookie']).toContain('uier_visitor=');
@@ -280,6 +325,14 @@ test('public read receipts isolate guests, persist across page/site requests, an
         await second.post(readUrl, { data: { sequence: 3 } });
         const site = await (await second.get('/api/comments?scope=site')).json();
         expect(site.find((item: { id: string }) => item.id === comment.id)).toMatchObject({ resolved: true, activity: { unread: false, readSequence: 3 } });
+        // Mark as unread: back to before the latest activity by someone else (the resolve)
+        const unread = await second.delete(readUrl);
+        expect(unread.status()).toBe(200);
+        expect(await unread.json()).toMatchObject({ sequence: 3, unread: true, readSequence: 2 });
+        expect((await list()).activity).toMatchObject({ unread: true, readSequence: 2 });
+        expect((await second.delete(readUrl, { headers: { Origin: 'https://other.example' } })).status()).toBe(403);
+        expect((await second.delete('/api/comments/comment_missing/read')).status()).toBe(404);
+        await second.post(readUrl, { data: { sequence: 3 } });
         expect((await second.post(readUrl, { data: { sequence: 999 } })).status()).toBe(400);
         expect((await second.post(readUrl, { headers: { Origin: 'https://other.example' }, data: { sequence: 2 } })).status()).toBe(403);
         expect((await second.post('/api/comments/comment_missing/read', { data: { sequence: 1 } })).status()).toBe(404);
