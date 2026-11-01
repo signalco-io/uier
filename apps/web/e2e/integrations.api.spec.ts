@@ -124,6 +124,9 @@ test('two-way toggle rejects members, foreign workspaces, unsupported providers 
     await expect(setIntegrationTwoWaySync({ ...f.project, workspaceId: 'other' }, 'github', f.otherOwner.id, false)).rejects.toThrow();
     await expect(setIntegrationTwoWaySync(f.project, 'slack', f.otherOwner.id, true)).rejects.toThrow('does not support');
     await expect(setIntegrationTwoWaySync(f.project, 'github', f.otherOwner.id, 'false' as unknown as boolean)).rejects.toThrow('Choose whether');
+    await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, twoWaySync: true, status: 'needs_reconnect' }));
+    await setIntegrationTwoWaySync(f.project, 'github', f.otherOwner.id, false);
+    expect((await f.store.get<IntegrationConnection>(f.connections.github.pk, f.connections.github.id))!.doc.twoWaySync).toBe(false);
 });
 
 for (const race of ['toggle', 'disabled', 'disconnect', 'destination', 'private', 'local edit', 'admin removal'] as const) {
