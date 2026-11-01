@@ -50,7 +50,7 @@ export function RemoveMemberButton({ userId, name }: { userId: string; name: str
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={() => run(() => removeMemberAction(userId), `${name} was removed.`)}>
+                        <AlertDialogAction variant="destructive" onClick={() => { setConfirming(false); run(() => removeMemberAction(userId), `${name} was removed.`); }}>
                             Remove
                         </AlertDialogAction>
                     </AlertDialogFooter>

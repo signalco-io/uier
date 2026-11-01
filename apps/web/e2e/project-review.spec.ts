@@ -950,22 +950,22 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
 
     // The list shows open comments; Done and All show closed ones. Done and Reopen take a comment out
     await page.goto(`/app/projects/${projectId}`);
-    const status = page.getByRole('radiogroup', { name: 'Status' });
-    await expect(status.getByRole('radio', { name: 'Open 1' })).toBeChecked();
+    const status = page.getByRole('group', { name: 'Status' });
+    await expect(status.getByRole('button', { name: 'Open 1' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('article')).toHaveCount(1);
     await expect(page.getByRole('article', { name: 'Comment by Ana' })).toHaveCount(0);
-    await status.getByRole('radio', { name: 'Done 1' }).click();
+    await status.getByRole('button', { name: 'Done 1' }).click();
     await expect(page).toHaveURL(/status=done/);
     const doneAna = page.getByRole('article', { name: 'Comment by Ana' });
     await setStatus(doneAna, 'Open');
     await expect(doneAna).toHaveCount(0);
     await expect(page.getByText('Nothing done yet')).toBeVisible();
-    await status.getByRole('radio', { name: 'Open 2' }).click();
+    await status.getByRole('button', { name: 'Open 2' }).click();
     const openAna = page.getByRole('article', { name: 'Comment by Ana' });
     await setStatus(openAna, 'Done');
     await expect(openAna).toHaveCount(0);
-    await expect(status.getByRole('radio', { name: 'Done 1' })).toBeVisible();
-    await status.getByRole('radio', { name: 'All 2' }).click();
+    await expect(status.getByRole('button', { name: 'Done 1' })).toBeVisible();
+    await status.getByRole('button', { name: 'All 2' }).click();
     await expect(page.getByRole('article')).toHaveCount(2);
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}?view=board`);

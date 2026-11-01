@@ -6,7 +6,8 @@ import { projectAccessGrants, type ProjectAccessGrant } from '@/src/lib/app/acce
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Section } from '../PageHeader';
 import { initials } from '../initials';
@@ -64,11 +65,9 @@ function GrantBadge({ grant, project, workspace }: { grant: ProjectAccessGrant; 
             );
         case 'team':
             return (
-                <Badge variant="outline" asChild>
-                    <Link href={KnownPageLinks.team(grant.team.id)} title={`Through the team ${grant.team.name}`}>
-                        <UsersIcon aria-hidden="true" />
-                        {grant.team.name}
-                    </Link>
+                <Badge variant="outline" render={<Link href={KnownPageLinks.team(grant.team.id)} title={`Through the team ${grant.team.name}`} />}>
+                    <UsersIcon aria-hidden="true" />
+                    {grant.team.name}
                 </Badge>
             );
     }
@@ -88,12 +87,8 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
                 // Teams and people are managed for the whole workspace on their own pages; icons only on phones,
                 // so the title keeps its line
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="max-sm:px-2!" asChild>
-                        <Link href={KnownPages.AppTeams}><UsersIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage teams</span></Link>
-                    </Button>
-                    <Button variant="outline" size="sm" className="max-sm:px-2!" asChild>
-                        <Link href={KnownPages.AppUsers}><UserIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage users</span></Link>
-                    </Button>
+                    <Link href={KnownPages.AppTeams} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UsersIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage teams</span></Link>
+                    <Link href={KnownPages.AppUsers} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UserIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage users</span></Link>
                 </div>
             )}
         >

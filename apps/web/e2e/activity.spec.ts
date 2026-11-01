@@ -311,6 +311,8 @@ test('a member shares read state between the app and reviews on different config
         await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
         await card.getByRole('button', { name: 'More actions for the comment by guest', exact: true }).click();
         await expect(page.getByRole('menuitem', { name: 'Mark as unread', exact: true })).toHaveCount(0);
+        // Base UI dismisses on Escape once the menu has opened
+        await animationsFinished(page.getByRole('menu'));
         await page.keyboard.press('Escape');
         await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);

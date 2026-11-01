@@ -52,28 +52,27 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton size="lg" disabled={pending} className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground">
-                            <span className="sr-only">Account: </span>
-                            {person}
-                            <ChevronsUpDownIcon className="ml-auto" />
-                        </SidebarMenuButton>
+                    <DropdownMenuTrigger render={<SidebarMenuButton size="lg" disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
+                        <span className="sr-only">Account: </span>
+                        {person}
+                        <ChevronsUpDownIcon className="ml-auto" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                        className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl"
+                        className="w-(--anchor-width) min-w-56 rounded-xl"
                         side={isMobile ? 'bottom' : 'right'}
                         align="end"
                         sideOffset={4}>
-                        <DropdownMenuLabel className="p-0 font-normal">
-                            <span className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">{person}</span>
-                        </DropdownMenuLabel>
+                        {/* Base UI's group label needs a group */}
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel className="p-0 font-normal">
+                                <span className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">{person}</span>
+                            </DropdownMenuLabel>
+                        </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                            <DropdownMenuItem asChild>
-                                <Link href={KnownPages.AppAccount}>
-                                    <CircleUserIcon />
-                                    Account
-                                </Link>
+                            <DropdownMenuItem render={<Link href={KnownPages.AppAccount} />}>
+                                <CircleUserIcon />
+                                Account
                             </DropdownMenuItem>
                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>
@@ -92,7 +91,7 @@ export function AccountMenu({ name, email }: { name: string; email: string }) {
                             </DropdownMenuSub>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => startTransition(() => signOutAction())}>
+                        <DropdownMenuItem onClick={() => startTransition(() => signOutAction())}>
                             <LogOutIcon />
                             Sign out
                         </DropdownMenuItem>

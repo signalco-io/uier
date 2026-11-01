@@ -27,10 +27,8 @@ export function CopyBlock({ value, label }: { value: string; label: string }) {
             </pre>
             <div className="absolute top-1 right-1">
                 <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={copy}>
-                            {copied ? <CheckIcon /> : <CopyIcon />}
-                        </Button>
+                    <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label} onClick={copy} />}>
+                        {copied ? <CheckIcon /> : <CopyIcon />}
                     </TooltipTrigger>
                     <TooltipContent>{copied ? 'Copied' : 'Copy'}</TooltipContent>
                 </Tooltip>

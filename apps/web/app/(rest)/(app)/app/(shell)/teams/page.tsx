@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRightIcon, SearchIcon, UsersIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
@@ -57,9 +58,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                     <>
                         {/* A team from people and projects that already have access: an occasional, longer flow */}
                         <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="outline">From existing access</Button>
-                            </DialogTrigger>
+                            <DialogTrigger render={<Button variant="outline" />}>From existing access</DialogTrigger>
                             <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
                                 <DialogHeader>
                                     <DialogTitle>Create from existing access</DialogTitle>
@@ -101,20 +100,18 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                                     const invited = invitations.filter(invitation => invitation.teamIds?.includes(team.id)).length;
                                     return (
                                         <div key={team.id} role="listitem">
-                                            <Item asChild className="rounded-none">
-                                                <Link href={KnownPageLinks.team(team.id)}>
-                                                    <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
-                                                        <ProjectMark name={team.name} className="size-8 rounded-lg text-sm" />
-                                                    </ItemMedia>
-                                                    <ItemContent className="min-w-0">
-                                                        <ItemTitle className="max-w-full break-words">{team.name}</ItemTitle>
-                                                        {team.description && <ItemDescription className="truncate">{team.description}</ItemDescription>}
-                                                    </ItemContent>
-                                                    <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
-                                                        {countsText(people, invited, team.projectIds.length)}
-                                                        <ChevronRightIcon aria-hidden="true" className="size-4" />
-                                                    </ItemActions>
-                                                </Link>
+                                            <Item className="rounded-none" render={<Link href={KnownPageLinks.team(team.id)} />}>
+                                                <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
+                                                    <ProjectMark name={team.name} className="size-8 rounded-lg text-sm" />
+                                                </ItemMedia>
+                                                <ItemContent className="min-w-0">
+                                                    <ItemTitle className="max-w-full break-words">{team.name}</ItemTitle>
+                                                    {team.description && <ItemDescription className="truncate">{team.description}</ItemDescription>}
+                                                </ItemContent>
+                                                <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
+                                                    {countsText(people, invited, team.projectIds.length)}
+                                                    <ChevronRightIcon aria-hidden="true" className="size-4" />
+                                                </ItemActions>
                                             </Item>
                                         </div>
                                     );
@@ -122,9 +119,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                             </ItemGroup>
                         </Card>
                         {next && (
-                            <Button variant="outline" size="sm" asChild className="self-center">
-                                <Link href={`${KnownPages.AppTeams}?${nextQuery}`}>Next teams page</Link>
-                            </Button>
+                            <Link href={`${KnownPages.AppTeams}?${nextQuery}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>Next teams page</Link>
                         )}
                     </div>
                 ) : (

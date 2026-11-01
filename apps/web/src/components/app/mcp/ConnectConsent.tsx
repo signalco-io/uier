@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from 'react';
 import { TriangleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { CardContent, CardDescription, CardFooter, CardHeader } from '@/src/components/ui/card';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
@@ -70,7 +70,7 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
                 <p className="m-0 text-sm text-muted-foreground">If nothing happens, use this link.</p>
             </CardContent>
             <CardFooter>
-                <Button asChild variant="outline"><a href={outcome.url}>Return to {clientName}</a></Button>
+                <a href={outcome.url} className={buttonVariants({ variant: 'outline' })}>Return to {clientName}</a>
             </CardFooter>
         </>;
     if (outcome || !request)
@@ -237,7 +237,7 @@ function ConsentForm({ requestId, request: { email, client, requestedScopes, wor
                         </Field>}
                         {replace?.mode === 'required' && <Field>
                             <FieldLabel htmlFor="replace">Connection to replace</FieldLabel>
-                            <Select value={replaceId} onValueChange={setReplaceId}>
+                            <Select items={replace.apps.map(app => ({ value: app.id, label: app.name }))} value={replaceId} onValueChange={value => value !== null && setReplaceId(value)}>
                                 <SelectTrigger id="replace" aria-describedby="replace-description"><SelectValue placeholder="Choose a connection" /></SelectTrigger>
                                 <SelectContent><SelectGroup>
                                     {replace.apps.map(app => <SelectItem key={app.id} value={app.id}>{app.name}</SelectItem>)}

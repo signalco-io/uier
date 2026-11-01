@@ -55,11 +55,9 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                         : <Collapsible>
                             <p className="m-0 flex flex-wrap items-center gap-x-2">
                                 <span>{app.access.summary}</span>
-                                <CollapsibleTrigger asChild>
-                                    <Button variant="link" size="sm" className="group h-auto p-0">
-                                        Details<span className="sr-only"> for {app.name}</span>
-                                        <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
-                                    </Button>
+                                <CollapsibleTrigger render={<Button variant="link" size="sm" className="group h-auto p-0" />}>
+                                    Details<span className="sr-only"> for {app.name}</span>
+                                    <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
                                 </CollapsibleTrigger>
                             </p>
                             <CollapsibleContent>
@@ -80,9 +78,7 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
             </ItemContent>
             <ItemActions>
                 <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="outline" aria-label={`Revoke ${app.name}`}>Revoke</Button>
-                    </AlertDialogTrigger>
+                    <AlertDialogTrigger render={<Button variant="outline" aria-label={`Revoke ${app.name}`} />}>Revoke</AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle className="break-words">Revoke {app.name}?</AlertDialogTitle>
@@ -91,7 +87,7 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                         <FormMessage state={state} />
                         <AlertDialogFooter>
                             <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive" disabled={pending} onClick={event => { event.preventDefault(); revoke(); }}>
+                            <AlertDialogAction variant="destructive" disabled={pending} onClick={() => revoke()}>
                                 {pending && <Spinner data-icon="inline-start" />}
                                 Revoke
                             </AlertDialogAction>

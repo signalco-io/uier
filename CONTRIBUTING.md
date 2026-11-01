@@ -25,8 +25,8 @@ separate infrastructure setup, credentials and CI/CD.
   and `<Pin />` components. Keep copy in sentence case, use short sentences and no exclamation marks,
   and make only claims the product can back. The name is always **uier**, lowercase.
 - **UI kit.** Public pages use `@signalco/ui` and `@signalco/ui-primitives`. The signed-in app uses
-  the shadcn/ui components in `apps/web/src/components/ui`. Do not build parallel buttons, inputs
-  or menus. See [the web guide](apps/web/AGENTS.md#styling-rules) for styling and component details.
+  the shadcn/ui components in `apps/web/src/components/ui`, built on Base UI. Do not build parallel
+  buttons, inputs or menus. See [the web guide](apps/web/AGENTS.md#styling-rules) for styling and component details.
 - **Dependencies.** Use exact versions and the pinned pnpm version. Renovate keeps dependencies
   current; pnpm and Renovate wait a day after an npm release.
 - **Secrets.** Keep credentials out of Git. Local variables belong in `apps/web/.env.local`;

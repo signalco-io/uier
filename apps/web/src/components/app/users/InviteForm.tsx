@@ -23,6 +23,8 @@ const roles: { value: Role; label: string; description: string }[] = [
     { value: 'admin', label: 'Admin', description: 'Every project, its settings and the people in the workspace. Can make comments private.' }
 ];
 
+const relationships = [{ value: 'external', label: 'External' }, { value: 'internal', label: 'Internal' }];
+
 /** The invite dialog's content: their email, the role and, for commenters, the projects they can review */
 export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, onDone, onInviteAnother }: {
     projects: { id: string; name: string }[];
@@ -105,9 +107,9 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                 </Field>
                 <Field>
                     <FieldLabel htmlFor={`${id}-relationship`}>Relationship</FieldLabel>
-                    <Select value={relationship} onValueChange={setRelationship}>
+                    <Select items={relationships} value={relationship} onValueChange={value => value !== null && setRelationship(value)}>
                         <SelectTrigger id={`${id}-relationship`}><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectGroup><SelectItem value="external">External</SelectItem><SelectItem value="internal">Internal</SelectItem></SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{relationships.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                     <FieldDescription>A workspace label. External reviewers have the same commenter permissions.</FieldDescription>
                 </Field>
@@ -171,9 +173,7 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                </DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
                     Send invitation

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { InfoIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import {
     Dialog,
@@ -105,7 +105,7 @@ export function Choice({
     return (
         <Field>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Select value={value} onValueChange={onChange}>
+            <Select items={options} value={value} onValueChange={next => next !== null && onChange(next)}>
                 <SelectTrigger id={id}>
                     <SelectValue />
                 </SelectTrigger>
@@ -123,24 +123,29 @@ export function Choice({
     );
 }
 
-/** A button that does not apply here: dimmed but still focusable, with why in its tooltip (a disabled button gets no hover or focus) */
+/**
+ * A button that does not apply here: dimmed but still focusable, with why in its tooltip (a disabled button gets no
+ * hover or focus). Base UI tooltips are visual only, so the reason is also the button's description.
+ */
 export function UnavailableButton({ label, accessibleName, reason }: { label: string; accessibleName?: string; reason: string }) {
+    const reasonId = useId();
     return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Button
+        <>
+            <Tooltip>
+                <TooltipTrigger render={<Button
                     type="button"
                     variant="outline"
                     size="sm"
                     aria-disabled="true"
                     aria-label={accessibleName}
-                    className="cursor-not-allowed opacity-50 hover:bg-background active:not-aria-[haspopup]:translate-y-0 dark:hover:bg-input/30"
-                >
+                    aria-describedby={reasonId}
+                    className="cursor-not-allowed opacity-50 hover:bg-background active:not-aria-[haspopup]:translate-y-0 dark:hover:bg-input/30" />}>
                     {label}
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent>{reason}</TooltipContent>
-        </Tooltip>
+                </TooltipTrigger>
+                <TooltipContent>{reason}</TooltipContent>
+            </Tooltip>
+            <span id={reasonId} className="sr-only">{reason}</span>
+        </>
     );
 }
 
@@ -180,10 +185,8 @@ export function ConfirmAccess({
                 }
             }}
         >
-            <DialogTrigger asChild>
-                <Button type="button" variant="outline" size={size} aria-label={accessibleName} disabled={disabled || pending}>
-                    {label}
-                </Button>
+            <DialogTrigger render={<Button type="button" variant="outline" size={size} aria-label={accessibleName} disabled={disabled || pending} />}>
+                {label}
             </DialogTrigger>
             <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
@@ -226,9 +229,7 @@ export function TeamEditor({ team }: { team?: DbTeam }) {
         [description, setDescription] = useState(team?.description ?? '');
     return (
         <Dialog>
-            <DialogTrigger asChild>
-                <Button variant={team ? 'outline' : 'default'}>{team ? 'Edit team' : 'Create team'}</Button>
-            </DialogTrigger>
+            <DialogTrigger render={<Button variant={team ? 'outline' : 'default'} />}>{team ? 'Edit team' : 'Create team'}</DialogTrigger>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{team ? 'Edit team' : 'Create team'}</DialogTitle>
@@ -263,9 +264,7 @@ export function TeamEditor({ team }: { team?: DbTeam }) {
                     </FieldGroup>
                     <FormMessage state={state} />
                     {state?.ok && (
-                        <Button asChild>
-                            <Link href={KnownPageLinks.team(state.data)}>Open team</Link>
-                        </Button>
+                        <Link href={KnownPageLinks.team(state.data)} className={buttonVariants()}>Open team</Link>
                     )}
                     <DialogFooter>
                         <Button disabled={pending} type="submit">

@@ -44,7 +44,7 @@ test('a person grants selected feedback access, connects a compatible client, an
     const endpoint = new URL('/api/mcp', baseURL).toString();
     for (const clientName of ['Claude Code', 'Codex', 'Cursor']) {
         await section.getByRole('tab', { name: clientName, exact: true }).click();
-        const panel = section.getByRole('tabpanel');
+        const panel = section.getByRole('tabpanel', { name: clientName, exact: true });
         await expect(panel).toContainText(endpoint);
         // Claude Code signs in with OAuth: no token, no header, and a note to remove an old header.
         if (clientName === 'Claude Code') {
@@ -65,7 +65,7 @@ test('a person grants selected feedback access, connects a compatible client, an
         const projects = (await client.callTool({ name: 'list_projects', arguments: {} })).structuredContent;
         expect(projects).toMatchObject({ items: [{ id: projectId, name: 'Client review' }] });
         for (const theme of ['Light', 'Dark']) {
-            await page.getByRole('radiogroup', { name: 'Theme', exact: true }).getByRole('radio', { name: theme, exact: true }).click();
+            await page.getByRole('group', { name: 'Theme', exact: true }).getByRole('button', { name: theme, exact: true }).click();
             await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()));
             await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
             for (const clientName of ['Codex', 'Claude Code', 'Cursor']) {

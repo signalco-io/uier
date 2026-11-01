@@ -3,7 +3,8 @@
 import { useActionState, useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
@@ -43,9 +44,9 @@ export function SlackSection({ projectId, settings, outcome }: { projectId: stri
                 {connection.backfill && <p className="m-0 text-sm text-muted-foreground">Backfill: {connection.backfill.queued} of {connection.backfill.total} selected threads queued for delivery. {connection.backfill.done ? 'Queueing is complete.' : 'Queueing continues in the background.'}</p>}
             </>}
             {settings.configured && <>
-                <Button asChild variant="outline" className="w-fit"><a href={`${KnownPages.AppSlackConnect}?project=${encodeURIComponent(projectId)}`}>
+                <a href={`${KnownPages.AppSlackConnect}?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
                     {connection ? 'Reconnect Slack' : 'Connect Slack'}<ArrowUpRight data-icon="inline-end" />
-                </a></Button>
+                </a>
                 {connection?.status === 'connected' && <SlackDestination projectId={projectId} settings={settings} />}
             </>}
             {connection && <SlackManagement projectId={projectId} settings={settings} />}
@@ -58,6 +59,7 @@ function SlackDestination({ projectId, settings }: { projectId: string; settings
     const [channels, load, loading] = useActionState(loadSlackChannelsAction, null);
     const [state, save, saving] = useActionState(saveSlackDestinationAction, null);
     const [channelId, setChannelId] = useState('');
+    const channelItems = channels?.ok ? channels.data.items.map(channel => ({ value: channel.id, label: `#${channel.name}${channel.private ? ' (private)' : ''}` })) : [];
     return <FieldGroup>
         <Field>
             <FieldLabel>Slack channels</FieldLabel>
@@ -76,11 +78,9 @@ function SlackDestination({ projectId, settings }: { projectId: string; settings
             <FieldGroup>
                 <Field data-disabled={saving}>
                     <FieldLabel htmlFor={`${id}-channel`}>Channel</FieldLabel>
-                    <Select value={channelId} onValueChange={setChannelId} disabled={saving}>
+                    <Select items={channelItems} value={channelId} onValueChange={value => value !== null && setChannelId(value)} disabled={saving}>
                         <SelectTrigger id={`${id}-channel`}><SelectValue placeholder="Choose a channel" /></SelectTrigger>
-                        <SelectContent><SelectGroup>{channels.data.items.map(channel => <SelectItem key={channel.id} value={channel.id}>
-                            #{channel.name}{channel.private ? ' (private)' : ''}
-                        </SelectItem>)}</SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{channelItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                     {channels.data.truncated && <FieldDescription>The channel list is capped. Choices outside this list cannot be selected here.</FieldDescription>}
                 </Field>
@@ -132,7 +132,7 @@ function SlackManagement({ projectId, settings }: { projectId: string; settings:
                 <Button type="button" variant="outline" disabled={pending || Boolean(connection.backfill && !connection.backfill.done)} onClick={() => setDialog('backfill')}>Send existing feedback to Slack</Button>
             </>}
             <AlertDialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null); }}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending} onClick={() => setDialog('disconnect')}>Disconnect Slack</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} onClick={() => setDialog('disconnect')} />}>Disconnect Slack</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>{dialog === 'backfill' ? 'Send existing feedback to Slack?' : 'Disconnect Slack from this project?'}</AlertDialogTitle>
                         <AlertDialogDescription>{dialog === 'backfill'
@@ -140,7 +140,7 @@ function SlackManagement({ projectId, settings }: { projectId: string; settings:
                             : 'Stops future notifications from this project. Existing Slack messages remain. Other projects keep their connections.'}</AlertDialogDescription></AlertDialogHeader>
                     <FormMessage state={result && !result.ok ? result : null} />
                     <AlertDialogFooter><AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction variant={dialog === 'backfill' ? 'default' : 'outline'} disabled={pending} onClick={event => { event.preventDefault(); change(dialog === 'backfill' ? 'backfill' : 'disconnect'); }}>
+                        <AlertDialogAction variant={dialog === 'backfill' ? 'default' : 'outline'} disabled={pending} onClick={() => change(dialog === 'backfill' ? 'backfill' : 'disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}{dialog === 'backfill' ? 'Send existing feedback' : 'Disconnect Slack'}
                         </AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>

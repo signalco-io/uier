@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { getInvitation } from '@/src/lib/app/invitations';
 import { getTeam } from '@/src/lib/app/teams';
@@ -23,9 +24,7 @@ export default async function InvitationPage({ searchParams }: PageProps<'/app/i
             <AuthCard
                 title="This invitation has expired"
                 description="Invitation links work once and expire after 7 days. Access may also have changed. Ask the person who invited you for a new one.">
-                <Button variant="outline" size="lg" className="w-full" asChild>
-                    <Link href={KnownPages.AppSignIn}>Sign in</Link>
-                </Button>
+                <Link href={KnownPages.AppSignIn} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in</Link>
             </AuthCard>
         );
     }

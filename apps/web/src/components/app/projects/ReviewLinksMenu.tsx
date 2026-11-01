@@ -46,11 +46,9 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant={variant} size={size}>
-                    Open review
-                    <ChevronDownIcon data-icon="inline-end" />
-                </Button>
+            <DropdownMenuTrigger render={<Button variant={variant} size={size} />}>
+                Open review
+                <ChevronDownIcon data-icon="inline-end" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="max-w-[min(24rem,calc(100vw-2rem))] min-w-56">
                 {visit ? urls.map((url, index) => (
@@ -61,17 +59,15 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
                                 <span className="truncate font-mono text-[13px] text-foreground">{displayUrl(url)}</span>
                                 {index === 0 && urls.length > 1 && <span>Main site</span>}
                             </DropdownMenuLabel>
-                            <DropdownMenuItem onSelect={() => open(url)}>
+                            <DropdownMenuItem onClick={() => open(url)}>
                                 <MessageSquareIcon />
                                 Review
                                 <ExternalLinkIcon className="ml-auto" />
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <a href={url} target="_blank" rel="noopener noreferrer">
-                                    <GlobeIcon />
-                                    Visit site
-                                    <ExternalLinkIcon className="ml-auto" />
-                                </a>
+                            <DropdownMenuItem render={<a href={url} target="_blank" rel="noopener noreferrer" />}>
+                                <GlobeIcon />
+                                Visit site
+                                <ExternalLinkIcon className="ml-auto" />
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                     </Fragment>
@@ -79,7 +75,7 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
                     <DropdownMenuGroup>
                         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Review links</DropdownMenuLabel>
                         {urls.map((url, index) => (
-                            <DropdownMenuItem key={url} onSelect={() => open(url)}>
+                            <DropdownMenuItem key={url} onClick={() => open(url)}>
                                 <span className="flex min-w-0 flex-1 flex-col">
                                     <span className="truncate font-mono text-[13px]">{displayUrl(url)}</span>
                                     {index === 0 && <span className="text-xs text-muted-foreground">Main site</span>}

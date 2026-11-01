@@ -1,6 +1,7 @@
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
@@ -47,14 +48,12 @@ export function GoogleSignInButton({ next, lastUsed }: { next?: string; lastUsed
     if (!isGoogleSignInConfigured())
         return null;
     return (
-        <Button variant="outline" size="lg" className="relative w-full" asChild>
-            {/* A plain link: a full navigation, never prefetched (the route starts a sign-in). */}
-            <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
-                aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
-                <GoogleG />
-                Google
-                {lastUsed && <LastUsedBadge />}
-            </a>
-        </Button>
+        // A plain link: a full navigation, never prefetched (the route starts a sign-in).
+        <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
+            aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+            <GoogleG />
+            Google
+            {lastUsed && <LastUsedBadge />}
+        </a>
     );
 }

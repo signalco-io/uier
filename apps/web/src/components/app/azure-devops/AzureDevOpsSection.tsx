@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -44,11 +45,9 @@ export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">Azure DevOps is unavailable on this deployment. A site administrator needs to configure it.</p>
                 : <>
                     {settings.accountName && <p className="m-0 text-sm">Connected as {settings.accountName}. Work items are created and updated as this account.</p>}
-                    {(!settings.connected || settings.status === 'needs_reconnect') && <Button asChild className="w-fit">
-                        <a href={`/app/azure-devops/connect?project=${encodeURIComponent(projectId)}`}>
-                            <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? 'Reconnect Azure DevOps' : 'Connect Azure DevOps'}
-                        </a>
-                    </Button>}
+                    {(!settings.connected || settings.status === 'needs_reconnect') && <a href={`/app/azure-devops/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}>
+                        <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? 'Reconnect Azure DevOps' : 'Connect Azure DevOps'}
+                    </a>}
                     {settings.connected && settings.status !== 'needs_reconnect' && <>
                         <AzureDevOpsDestination key={`${settings.organization}:${settings.azureProjectId}:${settings.workItemType}:${settings.openState}:${settings.doneState}:${settings.areaPath}`}
                             projectId={projectId} settings={settings} />
@@ -117,7 +116,7 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
             <FieldGroup>
                 <Field>
                     <FieldLabel htmlFor={`${formId}-organization`}>Organization</FieldLabel>
-                    <Select value={organization} onValueChange={setOrganization} disabled={loading}>
+                    <Select items={organizationOptions.map(item => ({ value: item.id, label: item.name }))} value={organization} onValueChange={value => value !== null && setOrganization(value)} disabled={loading}>
                         <SelectTrigger id={`${formId}-organization`}><SelectValue placeholder="Choose an organization" /></SelectTrigger>
                         <SelectContent><SelectGroup>{organizationOptions.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
@@ -139,7 +138,7 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
             <FieldGroup>
                 <Field>
                     <FieldLabel htmlFor={`${formId}-project`}>Project</FieldLabel>
-                    <Select value={azureProject} onValueChange={setAzureProject} disabled={loading}>
+                    <Select items={projectOptions.map(item => ({ value: item.id, label: item.name }))} value={azureProject} onValueChange={value => value !== null && setAzureProject(value)} disabled={loading}>
                         <SelectTrigger id={`${formId}-project`}><SelectValue placeholder="Choose a project" /></SelectTrigger>
                         <SelectContent><SelectGroup>{projectOptions.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
@@ -170,6 +169,7 @@ function AzureDevOpsDestinationForm({ projectId, settings, options }: { projectI
     const [openState, setOpenState] = useState(() => saved(openStates, settings.openState));
     const [doneState, setDoneState] = useState(() => saved(doneStates, settings.doneState));
     const [area, setArea] = useState(() => sameProject && settings.areaPath && options.areaPaths.includes(settings.areaPath) ? settings.areaPath : DEFAULT_AREA);
+    const areaItems = [{ value: DEFAULT_AREA, label: 'Project default' }, ...options.areaPaths.map(path => ({ value: path, label: path }))];
     function chooseType(value: string) { setType(value); setOpenState(''); setDoneState(''); }
     return <form action={save} onReset={event => event.preventDefault()}>
         <input type="hidden" name="projectId" value={projectId} />
@@ -192,11 +192,9 @@ function AzureDevOpsDestinationForm({ projectId, settings, options }: { projectI
             </>}
             <Field data-disabled={pending}>
                 <FieldLabel htmlFor={`${id}-area`}>Area path (optional)</FieldLabel>
-                <Select value={area} onValueChange={setArea} disabled={pending}>
+                <Select items={areaItems} value={area} onValueChange={value => value !== null && setArea(value)} disabled={pending}>
                     <SelectTrigger id={`${id}-area`}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup><SelectItem value={DEFAULT_AREA}>Project default</SelectItem>
-                        {options.areaPaths.map(path => <SelectItem key={path} value={path}>{path}</SelectItem>)}
-                    </SelectGroup></SelectContent>
+                    <SelectContent><SelectGroup>{areaItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
                 <FieldDescription>A team’s board shows work items in its own area paths.</FieldDescription>
             </Field>
@@ -216,7 +214,7 @@ function Choice({ id, label, placeholder, choices, value, onChange, disabled }: 
     value: string; onChange: (value: string) => void; disabled: boolean }) {
     return <Field data-disabled={disabled}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <Select value={value} onValueChange={onChange} disabled={disabled || choices.length === 0}>
+        <Select value={value} onValueChange={next => next !== null && onChange(next)} disabled={disabled || choices.length === 0}>
             <SelectTrigger id={id}><SelectValue placeholder={placeholder} /></SelectTrigger>
             <SelectContent><SelectGroup>{choices.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
@@ -250,7 +248,7 @@ function AzureDevOpsManagement({ projectId, settings }: { projectId: string; set
                 Backfill existing feedback
             </Button>}
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect Azure DevOps</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect Azure DevOps</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Disconnect Azure DevOps from this project?</AlertDialogTitle>
@@ -259,7 +257,7 @@ function AzureDevOpsManagement({ projectId, settings }: { projectId: string; set
                     <FormMessage state={state && !state.ok ? state : null} />
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>
+                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}Disconnect Azure DevOps
                         </AlertDialogAction>
                     </AlertDialogFooter>

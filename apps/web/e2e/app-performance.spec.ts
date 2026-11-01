@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { toolbar } from './support/toolbar';
+import { animationsFinished, toolbar } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -38,18 +38,18 @@ test('comment filters work without server requests and survive history and reloa
     });
     // A regression cannot silently pass on a fast local server: refuse every filter round trip.
     await page.route(`**/app/projects/${project}?*`, route => route.request().method() === 'GET' ? route.abort() : route.continue());
-    await page.getByRole('radio', { name: 'Done 0', exact: true }).click();
+    await page.getByRole('button', { name: 'Done 0', exact: true }).click();
     await expect(page.getByText('Nothing done yet', { exact: true })).toBeVisible();
-    await page.getByRole('radio', { name: 'All 1', exact: true }).click();
+    await page.getByRole('button', { name: 'All 1', exact: true }).click();
     await expect(page.getByRole('article')).toHaveCount(1);
-    await page.getByRole('radio', { name: 'Board', exact: true }).click();
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Done comments', exact: true })).toBeVisible();
-    await page.getByRole('radio', { name: 'List', exact: true }).click();
-    await expect(page.getByRole('radio', { name: 'All 1', exact: true })).toBeChecked();
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'All 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.goBack();
-    await expect(page.getByRole('radio', { name: 'Board', exact: true })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.goForward();
-    await expect(page.getByRole('radio', { name: 'List', exact: true })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'List', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('combobox', { name: 'People', exact: true }).click();
     await page.getByRole('option', { name: 'Assigned to me', exact: true }).click();
     await expect(page.getByRole('article')).toHaveCount(0);
@@ -79,7 +79,7 @@ test('status, assignment, follow and read changes render before the server confi
         await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
-        await expect(page.getByRole('radio', { name: 'Done 1', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Done 1', exact: true })).toBeVisible();
         await expect.poll(() => posts).toBe(1);
         pending.release();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeEnabled();
@@ -97,6 +97,8 @@ test('status, assignment, follow and read changes render before the server confi
         await expect(card.getByRole('button', { name: /^More actions/ })).toBeEnabled();
         await card.getByRole('button', { name: /^More actions/ }).click();
         await expect(page.getByRole('menuitem', { name: 'Unfollow thread', exact: true })).toBeVisible();
+        // Base UI dismisses on Escape once the menu has opened
+        await animationsFinished(page.getByRole('menu'));
         await page.keyboard.press('Escape');
         pending = gate();
         await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
@@ -128,7 +130,7 @@ test('failed optimistic status changes restore the card and counts', async ({ pa
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
         pending.release();
         await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeEnabled();
-        await expect(page.getByRole('radio', { name: 'Open 1', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Open 1', exact: true })).toBeVisible();
         await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
     } finally { pending.release(); }
 });

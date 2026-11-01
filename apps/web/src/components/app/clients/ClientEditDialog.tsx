@@ -23,7 +23,7 @@ import { updateClientAction } from './actions';
 const LETTER = 'letter';
 const INK = 'ink';
 
-const pickerItemClassName = 'size-9 p-0 data-[state=on]:border-foreground data-[state=on]:bg-transparent';
+const pickerItemClassName = 'size-9 p-0 data-pressed:border-foreground data-pressed:bg-transparent';
 
 /** Edit a client (admins): its name, which every project of the client follows, description, icon and colour */
 export function ClientEditDialog({ client, className }: { client: ClientSummary; className?: string }) {
@@ -31,12 +31,8 @@ export function ClientEditDialog({ client, className }: { client: ClientSummary;
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <Tooltip>
-                <TooltipTrigger asChild>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className}>
-                            <PencilIcon />
-                        </Button>
-                    </DialogTrigger>
+                <TooltipTrigger render={<DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className} />} />}>
+                    <PencilIcon />
                 </TooltipTrigger>
                 <TooltipContent>Edit client</TooltipContent>
             </Tooltip>
@@ -100,11 +96,10 @@ function ClientForm({ client, onSaved }: { client: ClientSummary; onSaved: () =>
                 <FieldSet>
                     <FieldLegend variant="label">Icon</FieldLegend>
                     <ToggleGroup
-                        type="single"
                         variant="outline"
                         spacing={2}
-                        value={icon ?? LETTER}
-                        onValueChange={value => value && setIcon(value === LETTER ? undefined : value as ClientIcon)}
+                        value={[icon ?? LETTER]}
+                        onValueChange={([value]) => value && setIcon(value === LETTER ? undefined : value as ClientIcon)}
                         className="flex-wrap">
                         <ToggleGroupItem value={LETTER} aria-label="First letter" className={cn(pickerItemClassName, 'text-sm font-semibold uppercase')}>
                             {(name || client.name).trim()[0] ?? '?'}
@@ -122,11 +117,10 @@ function ClientForm({ client, onSaved }: { client: ClientSummary; onSaved: () =>
                 <FieldSet>
                     <FieldLegend variant="label">Colour</FieldLegend>
                     <ToggleGroup
-                        type="single"
                         variant="outline"
                         spacing={2}
-                        value={color ?? INK}
-                        onValueChange={value => value && setColor(value === INK ? undefined : value as ClientColor)}
+                        value={[color ?? INK]}
+                        onValueChange={([value]) => value && setColor(value === INK ? undefined : value as ClientColor)}
                         className="flex-wrap">
                         <ToggleGroupItem value={INK} aria-label="Ink" className={pickerItemClassName}>
                             <span aria-hidden="true" className="size-4 rounded-full border bg-background" />
@@ -141,9 +135,7 @@ function ClientForm({ client, onSaved }: { client: ClientSummary; onSaved: () =>
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                </DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
                     Save

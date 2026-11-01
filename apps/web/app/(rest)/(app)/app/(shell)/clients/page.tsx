@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BriefcaseIcon, ChevronRightIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
@@ -88,9 +88,7 @@ export default async function ClientsPage() {
                         </EmptyDescription>
                     </EmptyHeader>
                     <EmptyContent>
-                        <Button variant="outline" asChild>
-                            <Link href={KnownPages.AppProjects}>Go to projects</Link>
-                        </Button>
+                        <Link href={KnownPages.AppProjects} className={buttonVariants({ variant: 'outline' })}>Go to projects</Link>
                     </EmptyContent>
                 </Empty>
             )}

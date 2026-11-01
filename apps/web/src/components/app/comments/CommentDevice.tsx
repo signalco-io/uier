@@ -8,7 +8,7 @@ import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
 import type { ReproductionContext } from '../../../lib/comments/reproduction';
 import type { DbDeviceSize } from '../../../lib/db/schema';
-import { useHoverPopover } from '../useHoverPopover';
+import { hoverPopoverTrigger } from '../hoverPopover';
 import { DateTime } from './DateTime';
 import { deviceLabels } from './commentLabels';
 
@@ -21,7 +21,6 @@ const deviceIcons = { desktop: MonitorIcon, tablet: TabletIcon, mobile: Smartpho
  * context (`reproduction.ts`).
  */
 export function CommentDevice({ device, context }: { device?: DbDeviceSize; context: ReproductionContext }) {
-    const popover = useHoverPopover();
     const [copied, setCopied] = useState(false);
     const { windowSize, pixelRatio } = context;
     const SizeIcon = device ? deviceIcons[device] : MonitorIcon;
@@ -43,16 +42,14 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
     };
 
     return (
-        <Popover {...popover.root}>
-            <PopoverTrigger asChild {...popover.trigger}>
-                <Button variant="ghost" size="xs" className="shrink-0 px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
-                    {/* No icon for a screen size that was not recorded: a monitor would say desktop */}
-                    {device && <SizeIcon aria-hidden="true" className="size-3.5" />}
-                    <GlobeIcon aria-hidden="true" className="size-3.5" />
-                    <span className="sr-only">{name}</span>
-                </Button>
+        <Popover>
+            <PopoverTrigger {...hoverPopoverTrigger} render={<Button variant="ghost" size="xs" className="shrink-0 px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" />}>
+                {/* No icon for a screen size that was not recorded: a monitor would say desktop */}
+                {device && <SizeIcon aria-hidden="true" className="size-3.5" />}
+                <GlobeIcon aria-hidden="true" className="size-3.5" />
+                <span className="sr-only">{name}</span>
             </PopoverTrigger>
-            <PopoverContent align="start" aria-label="Device and browser" className="w-72 gap-3 p-3" {...popover.content}>
+            <PopoverContent align="start" aria-label="Device and browser" className="w-72 gap-3 p-3">
                 <div className="flex flex-col gap-1">
                     <Item size="xs" variant="muted">
                         <ItemMedia variant="icon"><SizeIcon aria-hidden="true" /></ItemMedia>

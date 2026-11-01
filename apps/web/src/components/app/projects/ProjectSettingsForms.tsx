@@ -216,12 +216,10 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
             setOpen(next);
             if (!next) setConfirmation('');
         }}>
-            <AlertDialogTrigger asChild>
-                {/* Outlined like the row above; the variant's tinted fill leaves its red text under 4.5:1 */}
-                <Button variant="outline" className={destructiveTextClassName}>Delete project</Button>
-            </AlertDialogTrigger>
+            {/* Outlined like the row above; the variant's tinted fill leaves its red text under 4.5:1 */}
+            <AlertDialogTrigger render={<Button variant="outline" className={destructiveTextClassName} />}>Delete project</AlertDialogTrigger>
             {/* Opens on the name field: typing it is the only way on */}
-            <AlertDialogContent onOpenAutoFocus={event => { event.preventDefault(); input.current?.focus(); }}>
+            <AlertDialogContent initialFocus={input}>
                 <form className="contents" onSubmit={handleSubmit}>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete {name}?</AlertDialogTitle>

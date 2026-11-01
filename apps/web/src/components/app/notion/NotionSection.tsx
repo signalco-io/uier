@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -47,10 +48,8 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">Notion is unavailable on this deployment. A site administrator needs to configure it.</p> : <>
                 {settings.notionWorkspaceName && <p className="m-0 text-sm">Connected workspace: {settings.notionWorkspaceName}.</p>}
-                {(!connected || settings.status === 'needs_reconnect') && <Button asChild className="w-fit">
-                    <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`}><ArrowUpRight data-icon="inline-start" />
-                        {settings.status === 'needs_reconnect' ? 'Reconnect Notion' : 'Connect Notion'}</a>
-                </Button>}
+                {(!connected || settings.status === 'needs_reconnect') && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}><ArrowUpRight data-icon="inline-start" />
+                    {settings.status === 'needs_reconnect' ? 'Reconnect Notion' : 'Connect Notion'}</a>}
                 {connected && settings.status !== 'needs_reconnect' && <>
                     {problem && <Alert><AlertTitle>Check the Notion connection</AlertTitle><AlertDescription>{problem}</AlertDescription></Alert>}
                     {settings.dataSourceId && <p className="m-0 text-sm">Destination: {settings.dataSourceName ?? 'Saved database'}.</p>}
@@ -99,7 +98,7 @@ function NotionDestination({ projectId, settings }: { projectId: string; setting
             <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="dataSourceId" value={sourceId} />
             <FieldGroup>
                 <Field><FieldLabel htmlFor={`${id}-source`}>Database</FieldLabel>
-                    <Select value={sourceId} onValueChange={setSourceId} disabled={loadingFields}>
+                    <Select items={allChoices.map(item => ({ value: item.id, label: item.name }))} value={sourceId} onValueChange={value => value !== null && setSourceId(value)} disabled={loadingFields}>
                         <SelectTrigger id={`${id}-source`}><SelectValue placeholder="Choose a database" /></SelectTrigger>
                         <SelectContent><SelectGroup>{allChoices.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
@@ -161,7 +160,7 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
                             {(['open', 'done'] as const).map(value => <Field key={value} data-invalid={mapping.status!.open === mapping.status!.done}>
                                 <FieldLabel htmlFor={`${id}-${value}`}>{value === 'open' ? 'Status for open feedback' : 'Status for done feedback'}</FieldLabel>
                                 {statusField && statusField.type === 'status' ? <Select value={mapping.status![value]} disabled={pending}
-                                    onValueChange={name => setMapping(current => ({ ...current, status: { ...current.status!, [value]: name } }))}>
+                                    onValueChange={name => name !== null && setMapping(current => ({ ...current, status: { ...current.status!, [value]: name } }))}>
                                     <SelectTrigger id={`${id}-${value}`} aria-invalid={mapping.status!.open === mapping.status!.done}><SelectValue placeholder="Choose a status" /></SelectTrigger>
                                     <SelectContent><SelectGroup>{statusField.options?.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectGroup></SelectContent>
                                 </Select> : <Input id={`${id}-${value}`} value={mapping.status![value]} maxLength={100} disabled={pending}
@@ -180,7 +179,7 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
         <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogContent><AlertDialogHeader>
             <AlertDialogTitle>Switch Notion database?</AlertDialogTitle><AlertDialogDescription>Future changes create pages in {options.dataSourceName}. Existing pages stay in the previous database. Backfill can queue existing shared feedback for the new destination.</AlertDialogDescription>
         </AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={pending}>Keep current database</AlertDialogCancel>
-            <AlertDialogAction disabled={pending} onClick={event => { event.preventDefault(); confirmed.current = true; setConfirming(false); form.current?.requestSubmit(); confirmed.current = false; }}>Switch database</AlertDialogAction>
+            <AlertDialogAction disabled={pending} onClick={() => { confirmed.current = true; setConfirming(false); form.current?.requestSubmit(); confirmed.current = false; }}>Switch database</AlertDialogAction>
         </AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>;
 }
@@ -188,13 +187,12 @@ function PropertyChoice({ id, label, schema, types, value, onChange, required = 
     id: string; label: string; schema: NotionSchema; types: string[]; value: string; onChange: (value: string) => void; required?: boolean; disabled: boolean; invalid?: boolean;
 }) {
     const choices = Object.entries(schema).filter(([, field]) => types.includes(field.type));
+    const items = [{ value: 'none', label: required ? 'Choose a field' : 'Not mapped' }, ...choices.map(([key, field]) => ({ value: key, label: field.name }))];
     return <Field data-disabled={disabled} data-invalid={invalid}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <Select value={value || 'none'} onValueChange={onChange} disabled={disabled || !choices.length}>
+        <Select items={items} value={value || 'none'} onValueChange={next => next !== null && onChange(next)} disabled={disabled || !choices.length}>
             <SelectTrigger id={id} aria-invalid={invalid}><SelectValue placeholder="Choose a field" /></SelectTrigger>
-            <SelectContent><SelectGroup><SelectItem value="none">{required ? 'Choose a field' : 'Not mapped'}</SelectItem>
-                {choices.map(([key, field]) => <SelectItem key={key} value={key}>{field.name}</SelectItem>)}
-            </SelectGroup></SelectContent>
+            <SelectContent><SelectGroup>{items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
         {!choices.length && <FieldDescription>No {types.join(' or ')} fields are available.</FieldDescription>}
     </Field>;
@@ -210,15 +208,15 @@ function NotionManagement({ projectId, settings }: { projectId: string; settings
     });
     const canSync = settings.configured && Boolean(settings.dataSourceId) && settings.status === 'connected';
     return <div className="flex flex-col gap-3"><div className="flex flex-wrap gap-2">
-        {settings.configured && settings.status !== 'needs_reconnect' && <Button asChild variant="outline"><a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`}>Reconnect Notion</a></Button>}
+        {settings.configured && settings.status !== 'needs_reconnect' && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={buttonVariants({ variant: 'outline' })}>Reconnect Notion</a>}
         {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
             {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? 'Turn sync off' : 'Turn sync on'}</Button>}
         {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>Backfill existing feedback</Button>}
-        <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect Notion</Button></AlertDialogTrigger>
+        <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect Notion</AlertDialogTrigger>
             <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Disconnect Notion from this project?</AlertDialogTitle>
                 <AlertDialogDescription>Stops future sync from this project. Existing pages and files remain in Notion. Other projects keep their connections.</AlertDialogDescription>
             </AlertDialogHeader><FormMessage state={state && !state.ok ? state : null} /><AlertDialogFooter><AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>{pending && <Spinner data-icon="inline-start" />}Disconnect Notion</AlertDialogAction>
+                <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>{pending && <Spinner data-icon="inline-start" />}Disconnect Notion</AlertDialogAction>
             </AlertDialogFooter></AlertDialogContent>
         </AlertDialog>
     </div>

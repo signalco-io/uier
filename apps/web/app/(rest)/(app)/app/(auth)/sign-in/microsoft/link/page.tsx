@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { AuthCard } from '@/src/components/app/AuthCard';
 import { KnownPages } from '@/src/knownPages';
 import { getSessionUser } from '@/src/lib/app/session';
@@ -17,7 +18,7 @@ export default async function MicrosoftLinkPage() {
     const link = await getMicrosoftLink((await cookies()).get(MICROSOFT_SIGN_IN_COOKIE_NAME)?.value);
     if (!link) return (
         <AuthCard title="This sign-in has expired" description="Start again with Microsoft, or sign in with your email.">
-            <Button variant="outline" size="lg" className="w-full" asChild><Link href={KnownPages.AppSignIn}>Sign in again</Link></Button>
+            <Link href={KnownPages.AppSignIn} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in again</Link>
         </AuthCard>
     );
     return (

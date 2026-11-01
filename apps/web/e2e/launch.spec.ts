@@ -142,7 +142,7 @@ test.describe('dark theme and reduced motion', () => {
         const settings = page.getByRole('region', { name: 'Page state' });
         await page.goto(`/app/projects/${projectId}/settings/review`);
         await settings.getByLabel('Meaningful query fields').fill('tab');
-        await settings.getByLabel('Use hash routes (#/page or #!/page)').check();
+        await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
         await settings.getByRole('button', { name: 'Save', exact: true }).click();
         await expect(settings.getByRole('status')).toContainText('Saved.');
         const path = `/${projectId}/pricing?tab=annual#/plans`;

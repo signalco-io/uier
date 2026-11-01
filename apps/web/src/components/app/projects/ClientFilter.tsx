@@ -8,11 +8,12 @@ import type { ProjectStatus } from '@/src/lib/app/model';
 export function ClientFilter({ clients, value, status }: { clients: { id: string; name: string }[]; value?: string; status: ProjectStatus }) {
     const router = useRouter();
     const pathname = usePathname();
+    const items = [{ value: 'all', label: 'All clients' }, { value: 'none', label: 'No client' }, ...clients.map(client => ({ value: client.id, label: client.name }))];
     return (
-        <Select value={value ?? 'all'} onValueChange={next => {
+        <Select items={items} value={value ?? 'all'} onValueChange={next => {
             const query = new URLSearchParams();
             if (status === 'done') query.set('status', status);
-            if (next !== 'all') query.set('client', next);
+            if (next && next !== 'all') query.set('client', next);
             router.push(`${pathname}${query.size ? `?${query}` : ''}`);
         }}>
             <SelectTrigger size="sm" aria-label="Client" className="w-56 max-w-full">
@@ -20,9 +21,7 @@ export function ClientFilter({ clients, value, status }: { clients: { id: string
             </SelectTrigger>
             <SelectContent>
                 <SelectGroup>
-                    <SelectItem value="all">All clients</SelectItem>
-                    <SelectItem value="none">No client</SelectItem>
-                    {clients.map(client => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}
+                    {items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                 </SelectGroup>
             </SelectContent>
         </Select>

@@ -69,9 +69,7 @@ function CreateWorkspaceForm() {
             </Field>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancel</Button>
-                </DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
                     Create workspace
@@ -102,16 +100,14 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton size="lg" disabled={pending} className="data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground">
-                            <AppIcon />
-                            <span className="sr-only">Workspace: </span>
-                            <WorkspaceLabel workspace={current} />
-                            <ChevronsUpDownIcon className="ml-auto" />
-                        </SidebarMenuButton>
+                    <DropdownMenuTrigger render={<SidebarMenuButton size="lg" disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
+                        <AppIcon />
+                        <span className="sr-only">Workspace: </span>
+                        <WorkspaceLabel workspace={current} />
+                        <ChevronsUpDownIcon className="ml-auto" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                        className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl"
+                        className="w-(--anchor-width) min-w-56 rounded-xl"
                         align="start"
                         side={isMobile ? 'bottom' : 'right'}
                         sideOffset={4}>
@@ -122,7 +118,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                     {workspaces.map(workspace => (
                                         <DropdownMenuItem
                                             key={workspace.id}
-                                            onSelect={() => startTransition(() => switchWorkspaceAction(workspace.id))}>
+                                            onClick={() => startTransition(() => switchWorkspaceAction(workspace.id))}>
                                             <span className="flex min-w-0 flex-1 flex-col">
                                                 <span className="truncate">{workspace.name}</span>
                                                 <span className="text-xs text-muted-foreground">{workspace.role}</span>
@@ -136,14 +132,12 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                         )}
                         <DropdownMenuGroup>
                             {canManage && (
-                                <DropdownMenuItem asChild>
-                                    <Link href={KnownPages.AppSettings}>
-                                        <SettingsIcon />
-                                        Workspace settings
-                                    </Link>
+                                <DropdownMenuItem render={<Link href={KnownPages.AppSettings} />}>
+                                    <SettingsIcon />
+                                    Workspace settings
                                 </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onSelect={() => setCreating(true)}>
+                            <DropdownMenuItem onClick={() => setCreating(true)}>
                                 <PlusIcon />
                                 Create workspace
                             </DropdownMenuItem>

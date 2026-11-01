@@ -14,7 +14,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
-| `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Radix, `radix-vega` style, `components.json`), source we own |
+| `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
@@ -218,6 +218,24 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   invites) is `User` / `UserPlus`, a team is `Users`, and your own account is `CircleUser`, in the app and
   the toolbar (`@signalco/ui-icons` `User`, `UserCircle`). Toasts are `sonner`
   (`toast()`), mounted with the tooltip provider in the app layout.
+- **Base UI.** The components are on [Base UI](https://base-ui.com) (`base-vega`); a new `shadcn add`
+  delivers the Base UI variant. Compose with `render` (`<DialogTrigger render={<Button />}>Open</DialogTrigger>`),
+  never `asChild`. A link that looks like a button is the link itself with `buttonVariants`
+  (`<Link className={buttonVariants({ variant: 'outline' })}>`): Base UI's `Button` gives a rendered `<a>`
+  `role="button"`. `Button` defaults to `type="button"`, so a form's submit button says `type="submit"`.
+  Menu items take `onClick` (there is no `onSelect`), `AlertDialogAction` does not close its dialog (close
+  it through the dialog's state), a `Select` passes its `{ value, label }` options as `items` so
+  `SelectValue` shows the label, toggle-group values are arrays, and focus targets are `initialFocus` /
+  `finalFocus` refs. Open triggers carry `data-popup-open`, pressed toggles `data-pressed`, open collapsible
+  triggers `data-panel-open`; `src/styles/shadcn.css` maps `data-open`, `data-checked` and the rest to
+  Base UI's attributes only. Local changes to keep when re-adding a component: `badge`, `item` and
+  `breadcrumb` (Base UI's `useRender`, which needs `useRef`) start with `"use client"` so server pages can
+  render them; `buttonVariants` returns `cn()`-merged classes; dialog and alert-dialog backdrops have
+  `forceRender` (a dialog opened from the mobile sidebar sheet is nested). In tests, single-choice toggle
+  groups are `button`s with `aria-pressed` in a `group` (not radios), Base UI checkboxes are found by role
+  (`getByLabel` also matches their hidden input), a tab panel is found by its tab's name (the outgoing
+  panel stays mounted while it exits), and a test waits for a menu to finish opening
+  (`animationsFinished`) before pressing Escape or opening a submenu in it.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings, which has no sidebar entry of its own), active projects with
@@ -254,11 +272,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's
   header still has its icon Done/Reopen and Copy link: change both together where they match. The first
   message's time is followed by `CommentDevice`: screen size and browser icons whose popover (hover or
-  click, `useHoverPopover` like the project header's access info) lists the reproduction context and
-  copies its text; the toolbar still shows one device icon with details under the message. Copy issue
-  confirms "Issue copied." in its tooltip under the button (`ThreadAction`'s `notice`) for 2 seconds,
-  as the toolbar does; its errors and manual clipboard fallback stay in the body; pending actions show
-  `Spinner`.
+  click, `hoverPopoverTrigger` for Base UI's `openOnHover`, like the project header's access info) lists
+  the reproduction context and copies its text; the toolbar still shows one device icon with details
+  under the message. Copy issue confirms "Issue copied." in its tooltip under the button
+  (`ThreadAction`'s `notice`) for 2 seconds, as the toolbar does; its errors and manual clipboard
+  fallback stay in the body; pending actions show `Spinner`.
 - `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, loaded by the
   browser from the project's main address over HTTPS (`/favicon.ico`, `/favicon.svg`,
   `/apple-touch-icon.png`, no favicon service or server fetch; `proxy.ts` adds `img-src https:` on app

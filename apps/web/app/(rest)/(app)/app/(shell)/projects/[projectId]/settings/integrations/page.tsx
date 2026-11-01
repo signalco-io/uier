@@ -11,7 +11,7 @@ import type { IntegrationProviderId } from '@/src/lib/integrations/model';
 import { getNotionSettings } from '@/src/lib/integrations/notion';
 import { getSlackSettings } from '@/src/lib/integrations/slack/settings';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { IntegrationLogo } from '@/src/components/app/integrations/IntegrationLogo';
 import { azureDevOpsStatus, gitHubStatus, integrationConnectHref, linearStatus, notionStatus, projectIntegrations,
@@ -71,14 +71,10 @@ export default async function ProjectIntegrationsSettingsPage({ params }: PagePr
                                     <p className="m-0 text-sm text-muted-foreground">{summary}</p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {states[provider].configured && <Button asChild size="sm" variant="outline">
-                                        <a href={integrationConnectHref(provider, project.id)}>
+                                    {states[provider].configured && <a href={integrationConnectHref(provider, project.id)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                                             <ArrowUpRight data-icon="inline-start" />Connect<span className="sr-only"> {name}</span>
-                                        </a>
-                                    </Button>}
-                                    <Button asChild size="sm" variant="ghost">
-                                        <Link href={KnownPageLinks.projectIntegration(project.id, provider)}>Details<span className="sr-only"> about {name}</span></Link>
-                                    </Button>
+                                        </a>}
+                                    <Link href={KnownPageLinks.projectIntegration(project.id, provider)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>Details<span className="sr-only"> about {name}</span></Link>
                                 </div>
                             </li>
                         ))}
@@ -90,18 +86,16 @@ export default async function ProjectIntegrationsSettingsPage({ params }: PagePr
                 <ItemGroup aria-label="Connected integrations" className="gap-3">
                     {connected.map(({ provider, name }) => (
                         <div key={provider} role="listitem">
-                            <Item asChild variant="outline" className="rounded-xl">
-                                <Link href={KnownPageLinks.projectIntegration(project.id, provider)}>
-                                    <ItemMedia><IntegrationLogo provider={provider} className="size-9 p-1.5" /></ItemMedia>
-                                    <ItemContent className="min-w-0">
-                                        <ItemTitle>{name}</ItemTitle>
-                                        {states[provider].destination && <ItemDescription className="truncate">{states[provider].destination}</ItemDescription>}
-                                    </ItemContent>
-                                    <ItemActions>
-                                        <Badge variant="secondary">{states[provider].status}</Badge>
-                                        <ChevronRight className="text-muted-foreground" />
-                                    </ItemActions>
-                                </Link>
+                            <Item variant="outline" className="rounded-xl" render={<Link href={KnownPageLinks.projectIntegration(project.id, provider)} />}>
+                                <ItemMedia><IntegrationLogo provider={provider} className="size-9 p-1.5" /></ItemMedia>
+                                <ItemContent className="min-w-0">
+                                    <ItemTitle>{name}</ItemTitle>
+                                    {states[provider].destination && <ItemDescription className="truncate">{states[provider].destination}</ItemDescription>}
+                                </ItemContent>
+                                <ItemActions>
+                                    <Badge variant="secondary">{states[provider].status}</Badge>
+                                    <ChevronRight className="text-muted-foreground" />
+                                </ItemActions>
                             </Item>
                         </div>
                     ))}

@@ -61,13 +61,11 @@ function AutocompleteInput({
           <InputGroupButton
             size="icon-xs"
             variant="ghost"
-            asChild
+            render={<AutocompleteTrigger aria-label={triggerLabel} />}
             data-slot="input-group-button"
             className="data-pressed:bg-transparent"
             disabled={disabled}
-          >
-            <AutocompleteTrigger aria-label={triggerLabel} />
-          </InputGroupButton>
+          />
         </InputGroupAddon>
       )}
       {children}

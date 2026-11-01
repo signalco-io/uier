@@ -4,7 +4,8 @@ import { useActionState, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { MailCheckIcon, MailIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -65,10 +66,8 @@ export function SignInCodeForm({ sent, next }: { sent: SignInLinkSent; next?: st
                         {pending && <Spinner data-icon="inline-start" />}
                         Sign in
                     </Button>
-                    <Button variant="outline" size="lg" className="w-full" asChild>
-                        {/* A fresh navigation resets the email form, even on the same route. */}
-                        <a href={signInHref(next, true)}>Ask for a new email</a>
-                    </Button>
+                    {/* A fresh navigation resets the email form, even on the same route. */}
+                    <a href={signInHref(next, true)} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Ask for a new email</a>
                 </FieldGroup>
             </form>
         </div>
@@ -129,15 +128,13 @@ export function SignInForm({ next, alternatives, withEmail = false, lastUsed }: 
                     </form>
                 </>
             ) : (
-                <Button variant="outline" size="lg" className="relative w-full" asChild>
-                    {/* A link, so it opens the form before hydration too (a full navigation to ?with=email) */}
-                    <a href={signInHref(next, true)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
-                        aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined}>
-                        <MailIcon data-icon="inline-start" />
-                        Email
-                        {lastUsed === 'email' && <LastUsedBadge />}
-                    </a>
-                </Button>
+                // A link, so it opens the form before hydration too (a full navigation to ?with=email)
+                <a href={signInHref(next, true)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
+                    aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+                    <MailIcon data-icon="inline-start" />
+                    Email
+                    {lastUsed === 'email' && <LastUsedBadge />}
+                </a>
             )}
         </div>
     );

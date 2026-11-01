@@ -59,11 +59,10 @@ export function AppearanceSection() {
     return (
         <Section id="appearance" title="Appearance" description="How uier looks in this browser.">
             <ToggleGroup
-                type="single"
                 variant="outline"
                 aria-label="Theme"
-                value={mounted ? (theme ?? 'system') : 'system'}
-                onValueChange={(next) => next && setTheme(next)}>
+                value={[mounted ? (theme ?? 'system') : 'system']}
+                onValueChange={([next]) => next && setTheme(next)}>
                 {themeOptions.map(option => (
                     <ToggleGroupItem key={option.value} value={option.value} className="px-3">
                         <option.icon data-icon="inline-start" />

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Button } from '@/src/components/ui/button';
+import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPageLinks } from '@/src/knownPages';
 import type { ProjectAccess } from '@/src/lib/app/model';
 import { Section } from '../PageHeader';
@@ -25,9 +25,7 @@ export function InviteReviewerStep({ projectId, publicId, access, urls, isAdmin 
             {access === 'invited' && isAdmin && <InviteButton projectId={projectId} />}
             {access === 'guests' && <GuestReviewLinks publicId={publicId} urls={urls} />}
             {access === 'disabled' && isAdmin && (
-                <Button variant="outline" asChild>
-                    <Link href={KnownPageLinks.projectSettings(projectId, 'review')}>Settings</Link>
-                </Button>
+                <Link href={KnownPageLinks.projectSettings(projectId, 'review')} className={buttonVariants({ variant: 'outline' })}>Settings</Link>
             )}
         </Section>
     );

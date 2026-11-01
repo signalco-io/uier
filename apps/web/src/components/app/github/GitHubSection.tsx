@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -45,18 +46,14 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">GitHub is unavailable on this deployment. A site administrator needs to configure it.</p>
                 : <>
                     {settings.setup ? <GitHubRepositoryPicker key={settings.setup.receipt} projectId={projectId} settings={settings} />
-                        : <Button asChild className="w-fit" variant={connection ? 'outline' : 'default'}>
-                            <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`}>
-                                <ArrowUpRight data-icon="inline-start" />{connection ? 'Reconnect GitHub' : 'Connect GitHub'}
-                            </a>
-                        </Button>}
+                        : <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: connection ? 'outline' : 'default' }), 'w-fit')}>
+                            <ArrowUpRight data-icon="inline-start" />{connection ? 'Reconnect GitHub' : 'Connect GitHub'}
+                        </a>}
                     {!settings.setup && settings.installations.length > 0 && <div className="flex flex-col gap-2">
                         <p className="m-0 text-sm text-muted-foreground">Or use an installation already connected to this workspace. GitHub verifies your account before you choose a repository.</p>
-                        {settings.installations.map(installation => <Button key={installation.id} asChild className="w-fit" variant="outline">
-                            <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`}>
-                                Use {installation.accountName} installation
-                            </a>
-                        </Button>)}
+                        {settings.installations.map(installation => <a key={installation.id} href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
+                            Use {installation.accountName} installation
+                        </a>)}
                     </div>}
                     {connection && <>
                         <p className="m-0 text-sm">Repository: {connection.repositoryName} ({publicConfirmationRequired ? 'public access needs confirmation' : connection.repositoryVisibility}).</p>
@@ -94,6 +91,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
     const [publicConfirmed, setPublicConfirmed] = useState(false);
     const [switchConfirmed, setSwitchConfirmed] = useState(false);
     const repositories = loaded?.ok ? loaded.data.repositories : [];
+    const repositoryItems = repositories.map(choice => ({ value: choice.id, label: `${choice.fullName} (${choice.private ? 'private' : 'public'})` }));
     const repository = repositories.find(choice => choice.id === repositoryId);
     return <FieldGroup>
         <Field>
@@ -117,9 +115,9 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
             <FieldGroup>
                 <Field data-disabled={saving}>
                     <FieldLabel htmlFor={`${id}-repository`}>Repository</FieldLabel>
-                    <Select value={repositoryId} onValueChange={value => { setRepositoryId(value); setPublicConfirmed(false); }} disabled={saving}>
+                    <Select items={repositoryItems} value={repositoryId} onValueChange={value => { if (value === null) return; setRepositoryId(value); setPublicConfirmed(false); }} disabled={saving}>
                         <SelectTrigger id={`${id}-repository`}><SelectValue placeholder="Choose a repository" /></SelectTrigger>
-                        <SelectContent><SelectGroup>{repositories.map(choice => <SelectItem key={choice.id} value={choice.id}>{choice.fullName} ({choice.private ? 'private' : 'public'})</SelectItem>)}</SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{repositoryItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                 </Field>
                 {repository && !repository.private && <>
@@ -145,7 +143,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
                 </Field>
             </FieldGroup>
         </form>}
-        <Button asChild className="w-fit" variant="ghost"><a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`}>Start GitHub authorization again</a></Button>
+        <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: 'ghost' }), 'w-fit')}>Start GitHub authorization again</a>
     </FieldGroup>;
 }
 
@@ -172,7 +170,7 @@ function GitHubManagement({ projectId, settings }: { projectId: string; settings
             </Button>}
             {canSync && connection.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(connection.backfill && !connection.backfill.done)} onClick={() => change('backfill')}>Backfill GitHub feedback</Button>}
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger asChild><Button type="button" variant="outline" disabled={pending}>Disconnect GitHub</Button></AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect GitHub</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>Disconnect GitHub from this project?</AlertDialogTitle>
@@ -181,7 +179,7 @@ function GitHubManagement({ projectId, settings }: { projectId: string; settings
                     <FormMessage state={result && !result.ok ? result : null} />
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={event => { event.preventDefault(); change('disconnect'); }}>
+                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}Disconnect GitHub
                         </AlertDialogAction>
                     </AlertDialogFooter>

@@ -42,39 +42,33 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for ${projectName}`} className={className}>
-                    <MoreHorizontalIcon />
-                </Button>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for ${projectName}`} className={className} />}>
+                <MoreHorizontalIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-44">
                 <DropdownMenuGroup>
-                    <DropdownMenuItem onSelect={() => openInvite(projectId)}>
+                    <DropdownMenuItem onClick={() => openInvite(projectId)}>
                         <UserPlusIcon />
                         Invite people
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                        <Link href={KnownPageLinks.projectInstall(projectId)}>
-                            <CodeIcon />
-                            Install script
-                        </Link>
+                    <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}>
+                        <CodeIcon />
+                        Install script
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                        <Link href={KnownPageLinks.projectSettings(projectId)}>
-                            <SettingsIcon />
-                            Settings
-                        </Link>
+                    <DropdownMenuItem render={<Link href={KnownPageLinks.projectSettings(projectId)} />}>
+                        <SettingsIcon />
+                        Settings
                     </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                     {status === 'done' ? (
-                        <DropdownMenuItem onSelect={() => setStatus('active')}>
+                        <DropdownMenuItem onClick={() => setStatus('active')}>
                             <Undo2Icon />
                             Reopen
                         </DropdownMenuItem>
                     ) : (
-                        <DropdownMenuItem onSelect={() => setStatus('done')}>
+                        <DropdownMenuItem onClick={() => setStatus('done')}>
                             <CheckIcon />
                             Mark as done
                         </DropdownMenuItem>

@@ -11,7 +11,8 @@ import { getLinearSettings } from '@/src/lib/integrations/linear';
 import { integrationLabels, isIntegrationProvider, type IntegrationProviderId } from '@/src/lib/integrations/model';
 import { getNotionSettings } from '@/src/lib/integrations/notion';
 import { getSlackSettings } from '@/src/lib/integrations/slack/settings';
-import { Button } from '@/src/components/ui/button';
+import { cn } from 'cn';
+import { buttonVariants } from '@/src/components/ui/button';
 import { AzureDevOpsSection } from '@/src/components/app/azure-devops/AzureDevOpsSection';
 import { GitHubSection } from '@/src/components/app/github/GitHubSection';
 import { LinearSection } from '@/src/components/app/linear/LinearSection';
@@ -47,9 +48,7 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
 
     return (
         <>
-            <Button asChild variant="ghost" size="sm" className="-mb-2 -ml-2.5 w-fit">
-                <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')}><ArrowLeft data-icon="inline-start" />All integrations</Link>
-            </Button>
+            <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-mb-2 -ml-2.5 w-fit')}><ArrowLeft data-icon="inline-start" />All integrations</Link>
             <IntegrationSection provider={provider} project={project} userId={context.user.id} outcome={value(provider)} githubSetup={value('githubSetup')} />
             {connection && <TwoWaySync key={connection.id} projectId={project.id} provider={provider}
                 enabled={connection.twoWaySync === true} canEnable={adapter!.isConfigured() && connection.status === 'connected' && !needsMapping}
