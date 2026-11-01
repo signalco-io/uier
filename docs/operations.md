@@ -316,14 +316,21 @@ an explicit empty secret value and leaves moderation unavailable until a staff l
      AND c.id = '<comment id>'
    ```
 
-   Legacy source documents under `uier.io` were copied once and remain untouched; current public
-   feedback is in `project:uier00000001`. Confirm the partition and document id before any write.
+   Current public feedback is in `project:uier00000001`. Threads posted before the public-project
+   migration may also have an original copy under `uier.io`. Confirm the partition and document id
+   before any write.
 3. Delete only that comment and its `$screenshot_<comment id>` document in the same partition.
    To remove one reply, remove its entry from `thread.items` and update the comment. If that leaves
    only a deleted first-item placeholder, delete the thread and screenshot instead.
    Never delete `$sequence_comments` or rate-limit counter documents. Refresh the app/API to
    confirm the thread or reply is gone, its screenshot returns not found when the thread went,
    and the next comment continues numbering. The API does not cache these reads.
+4. For a thread posted before the migration, query the same comment id in the `uier.io` partition.
+   Delete that legacy comment and its `$screenshot_<comment id>` document too, if present. Do this
+   for both moderation and deletion/erasure requests; do not wait for the copies' 90-day expiry
+   after their last change. When removing one reply through Data Explorer, remove it from the
+   legacy copy too. App thread deletion already cleans up legacy copies and queues a retry if
+   cleanup fails; direct Data Explorer edits bypass that cleanup.
 
 For an accidental operator delete, follow [Backups and restore](backups-and-restore.md#backups-and-restore). Never recover
 abuse, an author's deletion or content covered by an erasure request.
