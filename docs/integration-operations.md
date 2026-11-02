@@ -130,3 +130,23 @@ leases remain. Other projects sharing the installation are affected by that meth
 Repeated release is a no-op. Reconnect and save the verified destination in Settings if its binding
 is paused; release does not turn sending on or retry a feedback post. Check status and external
 readback after subsequent worker execution.
+
+
+## Reply sync diagnostics
+
+Reply reads share `statusCheckedAt` and `statusSyncCode` with status polling. Check the independent
+reply toggle before investigating a missing import. `integration_thread_full` means the source's
+50-item limit deferred additional new replies; existing edits/deletions still apply; `invalid_reply_page` rejects an oversized or repeating cursor.
+Pagination and exact checks of known originals can take several scheduled runs.
+
+Native-copy failures appear on the outbound ledger. `reply_ownership_changed` holds an edited or
+missing marked copy instead of recreating or modifying unverified content. `finding_reply` continues
+a bounded scan after an uncertain create. `reply_create_unconfirmed`, `duplicate_reply`,
+`reply_target_missing` and `reply_destination_changed` need review; do not clear the attempt and
+blindly resend. Recovery metadata holds only ids, hashes and ownership markers. Preserve it during
+cleanup and keep the original destination authority. Existing root/summary recovery controls do
+not attest the absence of a native reply.
+
+Slack `missing_scope` requires the explicit reply-access OAuth upgrade. Notion `restricted_resource`
+requires read/insert comment capabilities and may require reauthorization. Console registration,
+installation consent, project opt-in and hosted round-trip acceptance are distinct checks.

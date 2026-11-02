@@ -10,6 +10,8 @@ export function isIntegrationProvider(value: unknown): value is IntegrationProvi
     return typeof value === 'string' && integrationProviders.some(provider => provider === value);
 }
 
+/** Untrusted provider text. Kept in memory during a bounded import, never in a delivery ledger. */
+export type IntegrationReply = { id: string; target?: string; text: string; authorId: string; authorName: string; createdAt: string; editedAt?: string; deleted?: boolean };
 export type IntegrationBinding = { connectionId: string; since: string };
 export type IntegrationTarget = { provider: IntegrationProviderId; connectionId: string };
 export type IntegrationConnection = AppDoc & {
@@ -21,6 +23,7 @@ export type IntegrationConnection = AppDoc & {
     enabled: boolean;
     /** Opt-in provider-to-uier status updates. Outbound copying remains independently enabled. */
     twoWaySync?: boolean;
+    replySync?: { enabled: boolean; since: string };
     status: 'connected' | 'needs_reconnect' | 'paused';
     statusCode?: string;
     pausedUntil?: string;
@@ -107,6 +110,8 @@ export type IntegrationDeliveryContext = {
     /** Read the existing managed copy only. Never create, update or clean up provider content. */
     readonly statusOnly?: boolean;
     receiveStatus?(resolved: boolean): Promise<void>;
+    receiveReplies?(replies: IntegrationReply[]): Promise<void>;
+    readonly importedReplies?: { externalId: string; target?: string; createdAt: string }[];
     /** A safe read still checks authority and the provider's remaining budget. */
     read<T>(send: (signal: AbortSignal) => Promise<T>): Promise<T>;
     /** Persist-before-send. An uncertain non-repeatable operation cannot be blindly replayed. */
@@ -122,6 +127,7 @@ export type IntegrationAdapter = {
     maxRunMs?: number;
     maxCalls?: number;
     supportsStatusSync?: boolean;
+    supportsReplySync?: boolean;
     /** Provider access/schema maintenance, without any feedback projection. */
     maintenance?(options: { deadline: number; maxCalls: number }): Promise<{ calls: number; deferred?: number }>;
     /** Must reconcile ledger.attempt before planning another create, even during cleanup. */

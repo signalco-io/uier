@@ -149,3 +149,27 @@ All four production Settings sections remained enabled for both projects.
 - Exercise the full access, backfill, guest-link and rate-limit matrix in the setup runbook before
   claiming customer rollout acceptance.
 - Slack public unlisted distribution is enabled. Marketplace review has not been submitted.
+
+
+## Reply sync extension, 2 November 2026
+
+The optional reply-sync implementation covers GitHub, Linear, Notion, Azure DevOps and Slack,
+including source-owned edits and deletions. Existing connection defaults remain off. The earlier
+acceptance receipts above cover outbound discussion/status behavior, not this new import path.
+
+Required permission changes are Notion Read comments + Insert comments and Slack bot
+`channels:history` + `groups:history`. GitHub, Linear and Azure DevOps retain existing permissions.
+After explicit owner approval, both provider-console updates were applied and independently
+verified after reloading the settings on 2 November 2026:
+
+- Notion public uier connection: Read comments and Insert comments are enabled. Existing content
+  capabilities remain enabled and No user information remains selected.
+- Slack app `A0CD684DPU3`, workspace `T0CD752K529`: `channels:history` and `groups:history` are
+  registered with **Required: No**. The existing `chat:write`, `channels:read`, `groups:read`
+  scopes remain required, and the user-scope list remains empty. Slack reports that installations
+  must reauthorize through OAuth for the new scopes to take effect.
+
+No customer connection was reauthorized or opted into replies during this configuration change.
+Hosted create/import/edit/delete acceptance remains unverified; local simulator tests and the
+existing status-sync receipts do not establish it. Follow the
+[reply acceptance checklist](integration-setup.md#two-way-reply-sync).

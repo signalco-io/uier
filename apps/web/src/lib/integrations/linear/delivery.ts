@@ -4,6 +4,7 @@ import { sha256Hex } from '../../app/tokens';
 import { getAppStore } from '../../app/store';
 import { getProjectScreenshot } from '../../review/comments';
 import { GrantLeaseError } from '../grants';
+import { readNativeReplies, type NativeReply } from '../replies';
 import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationResult, IntegrationState } from '../model';
 import { bounded, field, linearGraphql, LinearApiError, mutation, object, uuid, validLinearAsset, withLinearRequest } from './client';
 import { isLinearConfigured } from './config';
@@ -124,6 +125,30 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             issueOwned(remote, saved, grant);
             const resolved = remoteResolved(remote, config);
             if (resolved !== undefined) await context.receiveStatus?.(resolved);
+            if (connection.replySync?.enabled) {
+                const fields = 'id body createdAt updatedAt user { id name } issue { id }';
+                const decode = (value: unknown): NativeReply => {
+                    if (!object(value) || !uuid(value.id) || typeof value.body !== 'string' || typeof value.createdAt !== 'string'
+                        || !object(value.user) || !uuid(value.user.id) || !object(value.issue) || value.issue.id !== saved.issueId)
+                        throw new LinearApiError('invalid_reply');
+                    return { id: value.id, text: value.body, fingerprint: value.body, authorId: value.user.id, authorName: bounded(value.user.name, 60),
+                        createdAt: value.createdAt, own: value.user.id === grant!.appUserId };
+                };
+                await readNativeReplies(context, saved.replySync ??= {}, {
+                    target: saved.issueId,
+                    list: cursor => read('UierLinearReplies', `query UierLinearReplies($id: String!, $after: String) { issue(id: $id) { id comments(first: 50, after: $after) { nodes { ${fields} } pageInfo { hasNextPage endCursor } } } }`,
+                        { id: saved.issueId, after: cursor ?? null }, data => {
+                            const issue = field(data, 'issue'); const comments = field(issue, 'comments'); const info = field(comments, 'pageInfo');
+                            if (issue.id !== saved.issueId || !Array.isArray(comments.nodes) || comments.nodes.length > 50
+                                || typeof info.hasNextPage !== 'boolean' || (info.hasNextPage && typeof info.endCursor !== 'string')) throw new LinearApiError('invalid_reply_page');
+                            return { items: comments.nodes.map(decode), ...(info.hasNextPage ? { next: info.endCursor as string } : {}) };
+                        }),
+                    async get(id) {
+                        try { return await read('UierLinearReply', `query UierLinearReply($id: String!) { comment(id: $id) { ${fields} } }`, { id }, data => decode(data.comment)); }
+                        catch (error) { if (error instanceof LinearApiError && error.code === 'not_found' && error.definitive) return null; throw error; }
+                    }
+                }, () => checkpoint());
+            }
             return { status: 'accepted' };
         }
 
@@ -388,7 +413,7 @@ async function uploadScreenshot(saved: LinearIssueGeneration, context: Integrati
     await checkpoint(true);
 }
 
-export const linearAdapter: IntegrationAdapter = { provider: 'linear', isConfigured: isLinearConfigured, maxRunMs: 5 * 60_000, maxCalls: 100, supportsStatusSync: true,
+export const linearAdapter: IntegrationAdapter = { provider: 'linear', isConfigured: isLinearConfigured, maxRunMs: 5 * 60_000, maxCalls: 100, supportsStatusSync: true, supportsReplySync: true,
     deliver, externalLink(connection, ledger) {
         const state = stateFrom(ledger.state); const issue = state.issue;
         if (!issue?.url || issue.trashed || issue.cleaned || !issue.identifier) return null;

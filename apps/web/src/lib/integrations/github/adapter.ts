@@ -1,6 +1,7 @@
 import type { AppDoc } from '../../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { IntegrationControlError } from '../delivery';
+import { readNativeReplies, type NativeReply } from '../replies';
 import type { IntegrationAdapter, IntegrationAttempt, IntegrationDeliveryContext } from '../model';
 import { githubAppPk, processGitHubWebhookEvents, type GitHubUserAccess } from './webhook';
 import { githubRequest, mintGitHubInstallationToken, validateGitHubRepository, type InstallationToken } from './client';
@@ -39,7 +40,7 @@ function canonicalUrl(destination: GitHubDestination, number: number) {
 
 export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs?: number } = {}): IntegrationAdapter {
     return {
-        provider: 'github', isConfigured: isGitHubConfigured, maxRunMs: 4 * 60_000, maxCalls: 60, supportsStatusSync: true,
+        provider: 'github', isConfigured: isGitHubConfigured, maxRunMs: 4 * 60_000, maxCalls: 60, supportsStatusSync: true, supportsReplySync: true,
         async maintenance(budget) {
             if (!isGitHubConfigured()) return { calls: 0 };
             const result = await processGitHubWebhookEvents(budget, options.store ?? getAppStore());
@@ -161,7 +162,7 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                     }
                     cursor.page++; cursor.pages++;
                     const last = values.at(-1);
-                    const older = kind === 'issue' && last && 'created_at' in last && Number.isFinite(Date.parse(last.created_at)) && Date.parse(last.created_at) < Date.parse(since);
+                    const older = kind === 'issue' && last && 'created_at' in last && typeof last.created_at === 'string' && Number.isFinite(Date.parse(last.created_at)) && Date.parse(last.created_at) < Date.parse(since);
                     const complete = values.length < 100 || older;
                     await checkpoint();
                     if (complete) {
@@ -270,6 +271,29 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                     await refreshRepository(destination);
                     const current = await issue(destination);
                     if (current.state === 'open' || current.state === 'closed') await ctx.receiveStatus?.(current.state === 'closed');
+                    if (connection.replySync?.enabled) {
+                        const base = githubRepositoryPath(destination.owner, destination.name);
+                        const decode = (comment: GitHubComment): NativeReply => {
+                            if (!comment || typeof comment.body !== 'string' || !comment.user || !comment.created_at
+                                || comment.issue_url !== `https://api.github.com${base}/issues/${destination.issue!.number}`) throw new GitHubError('invalid_reply');
+                            return { id: githubId(comment.id), text: comment.body, fingerprint: comment.body, authorId: githubId(comment.user.id),
+                                authorName: comment.user.login ?? 'GitHub reviewer', createdAt: comment.created_at, editedAt: comment.updated_at,
+                                own: githubId(comment.user.id) === destination.botId || Object.values(destination.items).some(item => item.id === githubId(comment.id)) };
+                        };
+                        await readNativeReplies(ctx, destination.replySync ??= {}, {
+                            target: `${destination.repositoryId}:${destination.issue!.number}`,
+                            async list(cursor) {
+                                const page = cursor && /^\d{1,6}$/.test(cursor) ? Number(cursor) : 1;
+                                const comments = await read<GitHubComment[]>(destination, `${base}/issues/${destination.issue!.number}/comments?per_page=50&page=${page}`);
+                                if (!Array.isArray(comments) || comments.length > 50) throw new GitHubError('invalid_reply_page');
+                                return { items: comments.map(decode), ...(comments.length === 50 ? { next: String(page + 1) } : {}) };
+                            },
+                            async get(id) {
+                                try { return decode(await read<GitHubComment>(destination, `${base}/issues/comments/${githubId(id)}`)); }
+                                catch (error) { if (error instanceof GitHubError && error.code === 'not_found') return null; throw error; }
+                            }
+                        }, () => checkpoint());
+                    }
                     return { status: 'accepted' };
                 }
                 if (state.active && state.active.installationId === connection.config.installationId && state.active.repositoryId === connection.config.repositoryId

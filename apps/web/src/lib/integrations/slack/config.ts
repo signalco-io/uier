@@ -2,6 +2,7 @@ import { isLocalRuntime } from '../../comments/environment';
 import { isSecretKeyConfigured } from '../secrets';
 
 export const slackScopes = ['chat:write', 'channels:read', 'groups:read'] as const;
+export const slackReplyScopes = ['channels:history', 'groups:history'] as const;
 export const slackSecretKey = () => ({ key: process.env.SLACK_TOKEN_KEY, keyId: process.env.SLACK_TOKEN_KEY_ID ?? 'k1',
     ...(process.env.SLACK_TOKEN_KEY_PREVIOUS ? { previousKeys: { [process.env.SLACK_TOKEN_KEY_PREVIOUS_ID ?? 'k1']: process.env.SLACK_TOKEN_KEY_PREVIOUS } } : {}) });
 

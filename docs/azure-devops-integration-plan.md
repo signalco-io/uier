@@ -1,8 +1,13 @@
 # Azure DevOps Boards integration
 
+> Update, 2 November 2026: optional, default-off [reply sync](integrations.md#two-way-reply-sync)
+> supersedes the original discussion-import non-goals below. New replies and original edits/deletions
+> sync through native comments. Provider imports are source-labelled and read-only in uier.
+> Provider setup and hosted acceptance are tracked separately in the setup and activation guides.
+
 > Update, 1 November 2026: optional, default-off two-way **status** sync is implemented.
 > The [current status contract](integrations.md#two-way-status-sync) supersedes the original
-> one-way/status non-goals below. Other provider edits remain outside the import contract.
+> one-way/status non-goals below. Other provider fields remain outside the import contract.
 
 Status: adapter, project settings and local simulator tests implemented. The Microsoft Entra app
 and production credentials were configured on 31 October 2026; see the

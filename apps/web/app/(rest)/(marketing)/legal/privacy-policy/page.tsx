@@ -303,7 +303,16 @@ export default function PrivacyPolicyPage() {
                 Admins can optionally enable two-way status sync for Notion, GitHub, Linear and Azure DevOps.
                 We then read the status of known linked items and update Open or Done in uier. For Notion,
                 the admin chooses the status field and values. The option starts off and can be disabled
-                independently of sending feedback. We do not import provider discussions or other edits.
+                independently of sending feedback. A separate reply-sync option, off by default for all five
+                providers, copies new replies and follows edits or deletions of their originals. We store
+                the reply text, provider author label, a derived author id, creation time and external
+                identifiers needed to sync it. Imported replies are read-only in uier and follow the
+                shared thread&rsquo;s access and retention rules. They can be copied to other connected
+                services. Provider identities do not become uier members. Attachments and reactions
+                are not imported. Slack reply sync requests public/private channel history access
+                through an explicit reconnect, but reads only known linked threads. Notion reply sync
+                needs read and insert comment capabilities. These permissions can cover more data
+                than the linked items; the worker limits reads to the configured destination.
             </p>
             <p>
                 We store destination identifiers, connection settings, encrypted authorization grants

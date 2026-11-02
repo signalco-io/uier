@@ -1,4 +1,5 @@
 import { changeFixVerification } from '../src/lib/review/fixVerification';
+import { withImportedReplies } from '../src/lib/integrations/importReplies';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -6,7 +7,8 @@ import { getAppStore, updateDoc, type AppStore, type DocQuery } from '../src/lib
 import { sha256Hex } from '../src/lib/app/tokens';
 import { findOrCreateUser } from '../src/lib/app/users';
 import type { DbComment, DbSyncTombstone } from '../src/lib/db/schema';
-import { disconnectIntegration, setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
+import { disconnectIntegration, setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
+import { canEditItem, canDeleteItem } from '../src/lib/review/comments';
 import { pollIntegrationStatuses } from '../src/lib/integrations/statusSync';
 import { queueIntegrationBackfills, startIntegrationBackfill } from '../src/lib/integrations/backfill';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
@@ -117,6 +119,67 @@ function deferred() {
     const promise = new Promise<void>(done => { resolve = done; });
     return { promise, resolve };
 }
+
+test('reply import fills available capacity without blocking status or edits and deletions in a full thread', async () => {
+    const f = await fixture(); const connection = { ...f.connections.github, twoWaySync: true, replySync: { enabled: true, since: old } };
+    const replies = Array.from({ length: 50 }, (_, index) => ({ id: String(index), target: 'an-issue', text: `Reply ${index}`, authorId: 'human', authorName: 'Human', createdAt: old }));
+    const imported = withImportedReplies(f.source, connection, { replies, resolved: true, at: old });
+    expect(imported.full).toBe(true); expect(imported.comment.resolved).toBe(true); expect(imported.comment.thread.items).toHaveLength(50);
+    const changed = withImportedReplies(imported.comment, connection, { at: old, replies: [replies[49]!, { ...replies[0]!, text: 'Edited after the limit' }, { ...replies[1]!, deleted: true }] });
+    expect(changed.full).toBe(true); expect(changed.comment.thread.items).toHaveLength(50);
+    expect(changed.comment.thread.items[1]!.text).toBe('Edited after the limit'); expect(changed.comment.thread.items[2]!.deletedAt).toBe(old);
+});
+
+test('reply imports deduplicate, apply original edits/deletions, exclude echoes and retain independent status settings', async () => {
+    const f = await fixture(); const outbound = accepting('github');
+    await processIntegrationDelivery(await queue(f, 'github'), baseUrl, outbound);
+    await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, replySync: { enabled: true, since: old } }));
+    let text = 'An external reply'; let deleted = false;
+    const incoming: IntegrationAdapter = { provider: 'github', isConfigured: () => true, supportsReplySync: true, async deliver(context) {
+        await context.read(async () => {});
+        await context.receiveReplies!([{ id: 'remote-123', target: 'same-external-issue', text, authorId: 'remote-user', authorName: 'External reviewer', createdAt: old, deleted }]);
+        return { status: 'accepted' };
+    } };
+    const poll = async () => processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, incoming, { statusOnly: true });
+    const source = async () => (await f.comments.get(f.source.domain, f.source.id))!.comment;
+    const acknowledge = async () => {
+        await enqueueIntegrationSync(f.project, 'github', f.connections.github.id, f.source.id, (await source()).syncVersion!);
+        await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, { ...outbound, async deliver(ctx) {
+            expect(ctx.feedback!.context.discussion.some(item => !item.deleted && item.text === text)).toBe(false);
+            return { status: 'accepted' };
+        } });
+    };
+    await poll(); const imported = (await source()).thread.items[1]!;
+    expect(imported.authorName).toBe('External reviewer via GitHub'); expect(imported.authorId).not.toBe(`user:${f.otherOwner.id}`);
+    expect(canEditItem(imported, { kind: 'member', userId: f.owner.id, isAdmin: true, name: 'Admin' })).toBe(false);
+    expect(canDeleteItem(imported, { kind: 'member', userId: f.owner.id, isAdmin: true, name: 'Admin' })).toBe(false);
+    await acknowledge(); const sequence = (await source()).activity!.sequence;
+    await poll(); expect((await source()).activity!.sequence).toBe(sequence);
+    // A mapping revision must not give the same external reply a second identity or echo it.
+    await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, destinationRevision: 2 }));
+    await poll(); expect((await source()).thread.items).toHaveLength(2); expect((await source()).activity!.sequence).toBe(sequence);
+    text = 'Edited at the source'; await poll(); expect((await source()).thread.items[1]).toMatchObject({ id: imported.id, text, editedAt: expect.any(String) });
+    await acknowledge(); deleted = true; await poll();
+    expect((await source()).thread.items[1]).toMatchObject({ id: imported.id, text: '', deletedAt: expect.any(String) });
+    expect((await source()).thread.items[1]!.authorName).toBeUndefined();
+    expect((await f.store.get<IntegrationConnection>(f.connections.github.pk, f.connections.github.id))!.doc.twoWaySync).toBeUndefined();
+});
+
+for (const race of ['toggle', 'privacy', 'admin', 'destination', 'local reply'] as const) test(`reply import rechecks ${race} before committing`, async () => {
+    const f = await fixture(); await processIntegrationDelivery(await queue(f, 'github'), baseUrl, accepting('github'));
+    await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, replySync: { enabled: true, since: old } }));
+    const target: IntegrationAdapter = { provider: 'github', isConfigured: () => true, supportsReplySync: true, async deliver(ctx) {
+        await ctx.receiveReplies!([{ id: 'external', text: 'Untrusted instructions remain text', authorId: 'person', authorName: 'External', createdAt: old }]);
+        if (race === 'toggle') await setIntegrationReplySync(f.project, 'github', f.owner.id, false);
+        if (race === 'privacy') await replaceSource(f, { private: true, syncVersion: 2 });
+        if (race === 'admin') await f.store.delete(f.project.pk, memberId(f.otherOwner.id));
+        if (race === 'destination') await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, destinationRevision: 2 }));
+        if (race === 'local reply') await replaceSource(f, { syncVersion: 2 });
+        return { status: 'accepted' };
+    } };
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target, { statusOnly: true });
+    expect((await f.comments.get(f.source.domain, f.source.id))!.comment.thread.items).toHaveLength(1);
+});
 
 test('two-way toggle rejects members, foreign workspaces, unsupported providers and invalid booleans', async () => {
     const f = await fixture();

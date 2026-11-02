@@ -15,6 +15,7 @@ export async function startNotionStub(port = 0) {
     const sources = new Map<string, Obj>(); const databases = new Map<string, Obj>();
     const pages = new Map<string, Obj>(); const blocks = new Map<string, Obj>(); const uploads = new Map<string, Obj>();
     const faults: Fault[] = [];
+    const comments = new Map<string, Obj>(); let commentCapabilities = true;
     function send(response: ServerResponse, status: number, body: Obj) { response.writeHead(status, { 'Content-Type': 'application/json' }); response.end(JSON.stringify(body)); }
     function issue(workspaceId: string, botId: string, noRefresh = false) {
         const access = `access-${id()}`; const refresh = noRefresh ? null : `refresh-${id()}`;
@@ -138,6 +139,30 @@ export async function startNotionStub(port = 0) {
                 const results = [...sources.values()].filter(source => source.workspaceId === token.workspace_id && !source.in_trash).map(source => { const { workspaceId: _workspace, ...safe } = source; return safe; });
                 reply(200, { object: 'list', results, has_more: false, next_cursor: null }); return;
             }
+            const commentPath = /^\/v1\/comments(?:\/([^/]+))?$/.exec(path);
+            if (commentPath) {
+                if (!commentCapabilities) { send(response, 403, errorBody(403, 'restricted_resource')); return; }
+                if (!commentPath[1] && method === 'GET') {
+                    const pageId = url.searchParams.get('block_id'); const page = pages.get(pageId ?? '');
+                    if (!page || sources.get(page.parent.data_source_id)?.workspaceId !== token.workspace_id) { send(response, 404, errorBody(404, 'object_not_found')); return; }
+                    const rows = [...comments.values()].filter(comment => comment.parent.page_id === pageId && !comment.deleted && !comment.resolved);
+                    const offset = Number(url.searchParams.get('start_cursor') ?? 0);
+                    reply(200, { object: 'list', results: rows.slice(offset, offset + 50), has_more: offset + 50 < rows.length, next_cursor: offset + 50 < rows.length ? String(offset + 50) : null }); return;
+                }
+                if (!commentPath[1] && method === 'POST') {
+                    const page = pages.get(body.parent?.page_id);
+                    if (!page || sources.get(page.parent.data_source_id)?.workspaceId !== token.workspace_id) { send(response, 404, errorBody(404, 'object_not_found')); return; }
+                    const comment = { object: 'comment', id: id(), parent: { page_id: page.id }, discussion_id: id(), created_time: new Date().toISOString(),
+                        created_by: { id: token.bot_id }, rich_text: body.rich_text };
+                    comments.set(comment.id, comment); reply(200, comment); return;
+                }
+                const comment = comments.get(commentPath[1]!); const page = comment && pages.get(comment.parent.page_id);
+                if (!comment || comment.deleted || !page || sources.get(page.parent.data_source_id)?.workspaceId !== token.workspace_id) { send(response, 404, errorBody(404, 'object_not_found')); return; }
+                if (method !== 'GET' && comment.created_by.id !== token.bot_id) { send(response, 404, errorBody(404, 'object_not_found')); return; }
+                if (method === 'PATCH') comment.rich_text = body.rich_text;
+                if (method === 'DELETE') comment.deleted = true;
+                reply(200, comment); return;
+            }
             const dataSourceMatch = /^\/v1\/data_sources\/([^/]+)(\/query)?$/.exec(path);
             if (dataSourceMatch) {
                 const source = sources.get(dataSourceMatch[1]!);
@@ -216,7 +241,8 @@ export async function startNotionStub(port = 0) {
     });
     await new Promise<void>(resolve => server.listen(port, '127.0.0.1', resolve));
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Stub did not start');
-    return { url: `http://127.0.0.1:${address.port}`, calls, pages, blocks, uploads, sources, codes, tokens,
+    return { url: `http://127.0.0.1:${address.port}`, calls, pages, blocks, uploads, sources, codes, tokens, comments,
+        setCommentCapabilities(value: boolean) { commentCapabilities = value; },
         close: () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())),
         code(workspaceId: string, botId: string, options: { noRefresh?: boolean; templateId?: string } = {}) { const code = id(); codes.set(code, { workspaceId, botId, ...options }); return code; },
         expireAccess() { tokens.clear(); },

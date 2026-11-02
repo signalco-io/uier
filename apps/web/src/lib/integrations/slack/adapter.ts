@@ -1,5 +1,6 @@
 import { sha256Hex } from '../../app/tokens';
 import { GrantLeaseError } from '../grants';
+import { readNativeReplies, reconcileNativeReply, sendNativeReplies, type NativeReply, type ReplyTransport, type ReplyPayload } from '../replies';
 import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationResult } from '../model';
 import { SlackApiError, slackRequest, type SlackMethod } from './client';
 import { isSlackConfigured, slackId, slackTimestamp } from './config';
@@ -34,7 +35,7 @@ export function validSlackLink(url: URL, connection: SlackConnection, root: Slac
         && url.pathname === `/archives/${root.channelId}/p${root.ts.replace('.', '')}`;
 }
 
-export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigured: isSlackConfigured, maxRunMs: 3 * 60_000, maxCalls: 60,
+export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigured: isSlackConfigured, maxRunMs: 3 * 60_000, maxCalls: 60, supportsReplySync: true,
     async maintenance({ deadline }) { await recoverSlackSetups({ deadline }); return { calls: 0 }; },
     async deliver(context): Promise<IntegrationResult> {
         const connection = context.connection as SlackConnection;
@@ -48,7 +49,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 // Keep the unknown copy's receipt before clearing the core attempt to clean known copies.
                 rememberUnknown(state, unknown);
                 await context.checkpoint(state, { clearAttempt: true });
-            } else if (context.ledger.attempt) {
+            } else if (context.ledger.attempt && context.ledger.attempt.step !== 'create_native_reply') {
                 if (!context.ledger.attempt.repeatable) return { status: 'ambiguous', code: 'operation_uncertain' };
                 // Known-target full updates/deletes may converge to the latest projection.
                 await context.checkpoint(state, { clearAttempt: true });
@@ -61,7 +62,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             async function read(method: SlackMethod, payload: Record<string, unknown>) {
                 return withSlackRateLimit(grant!, method, undefined, () => context.read(signal => slackRequest(method, payload, { token, signal })), context.deadline);
             }
-            async function write(method: 'chat.postMessage' | 'chat.update' | 'chat.delete', step: string, payload: Record<string, unknown>, repeatable: boolean) {
+            async function write(method: 'chat.postMessage' | 'chat.update' | 'chat.delete', step: string, payload: Record<string, unknown>, repeatable: boolean, metadata: Record<string, unknown> = {}) {
                 try {
                     const response = await withSlackRateLimit(grant!, method, String(payload.channel), async () => {
                         if (method !== 'chat.delete') {
@@ -71,7 +72,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                                 throw new SlackApiError(200, 'channel_ineligible');
                         }
                         return context.operation({ step, planHash: sha256Hex(JSON.stringify(payload)), repeatable,
-                            metadata: { teamId: grant!.teamId, channelId: payload.channel, ...(typeof payload.ts === 'string' ? { ts: payload.ts } : {}) } },
+                            metadata: { ...metadata, teamId: grant!.teamId, channelId: payload.channel, ...(typeof payload.ts === 'string' ? { ts: payload.ts } : {}) } },
                         signal => slackRequest(method, payload, { token, signal }));
                     }, context.deadline);
                     if (response.channel !== payload.channel || !slackTimestamp(response.ts)
@@ -82,6 +83,61 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                     throw error;
                 }
             }
+            const replyIO = (root: SlackMessage): ReplyTransport => {
+                if (root.teamId !== grant!.teamId) throw new SlackConnectionError('reply_authority_changed');
+                const decode = (raw: unknown): NativeReply => {
+                    if (!raw || typeof raw !== 'object') throw new SlackConnectionError('invalid_reply');
+                    const message = raw as Record<string, unknown>;
+                    if (!slackTimestamp(message.ts) || typeof message.text !== 'string' || (message.ts !== root.ts && message.thread_ts !== root.ts)) throw new SlackConnectionError('invalid_reply');
+                    const profile = message.user_profile && typeof message.user_profile === 'object' ? message.user_profile as Record<string, unknown> : {};
+                    return { id: message.ts, text: message.text, fingerprint: message.text,
+                        authorId: typeof message.user === 'string' ? message.user : String(message.bot_id ?? 'Slack reviewer'),
+                        authorName: typeof profile.display_name === 'string' ? profile.display_name : typeof message.user === 'string' ? `Slack user ${message.user}` : 'Slack app',
+                        createdAt: new Date(Number(message.ts) * 1000).toISOString(),
+                        own: message.ts === root.ts || message.user === grant!.botId || message.app_id === process.env.SLACK_APP_ID };
+                };
+                const text = (payload: ReplyPayload) => {
+                    const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+                    return `${escape(payload.author)} via uier:\n\n${escape(payload.text)}\n\n<${payload.url}|View in uier>`;
+                };
+                return { target: `${root.teamId}:${root.channelId}:${root.ts}`,
+                    async list(cursor) {
+                        const response = await read('conversations.replies', { channel: root.channelId, ts: root.ts, limit: 50, ...(cursor ? { cursor } : {}) });
+                        if (!Array.isArray(response.messages) || response.messages.length > 50) throw new SlackConnectionError('invalid_reply_page');
+                        const metadata = response.response_metadata as { next_cursor?: unknown } | undefined;
+                        if (metadata?.next_cursor && typeof metadata.next_cursor !== 'string') throw new SlackConnectionError('invalid_reply_page');
+                        return { items: response.messages.map(decode), ...(metadata?.next_cursor ? { next: metadata.next_cursor as string } : {}) };
+                    },
+                    async get(id) {
+                        if (!slackTimestamp(id)) throw new SlackConnectionError('invalid_reply_id');
+                        try {
+                            const response = await read('conversations.replies', { channel: root.channelId, ts: id, limit: 1 });
+                            if (!Array.isArray(response.messages)) throw new SlackConnectionError('invalid_reply_page');
+                            const found = response.messages.find(raw => raw && typeof raw === 'object' && (raw as Record<string, unknown>).ts === id);
+                            if (!found) throw new SlackConnectionError('reply_lookup_inconclusive');
+                            return decode(found);
+                        } catch (error) { if (error instanceof SlackApiError && ['thread_not_found', 'message_not_found'].includes(error.code)) return null; throw error; }
+                    },
+                    async create(payload, metadata) { return String((await write('chat.postMessage', 'create_native_reply', { channel: root.channelId, thread_ts: root.ts,
+                        text: text(payload), parse: 'none', mrkdwn: true, reply_broadcast: false, link_names: false, unfurl_links: false, unfurl_media: false }, false, metadata)).ts); },
+                    async update(id, payload) { await write('chat.update', 'update_native_reply', { channel: root.channelId, ts: id, text: text(payload), parse: 'none', link_names: false }, true); },
+                    async remove(id) { await write('chat.delete', 'delete_native_reply', { channel: root.channelId, ts: id }, true); }
+                };
+            };
+            if (context.statusOnly) {
+                if (!state.root || state.suppressed || state.missing || state.root.teamId !== teamId || state.root.channelId !== channelId
+                    || state.destination?.generation !== connection.destinationRevision) return { status: 'accepted' };
+                const metadata = await read('conversations.info', { channel: channelId });
+                if (!eligibleChannel(metadata.channel)) throw new SlackApiError(200, 'channel_ineligible');
+                await readNativeReplies(context, state.root.replySync ??= {}, replyIO(state.root), () => context.checkpoint(state));
+                return { status: 'accepted' };
+            }
+            if (context.ledger.attempt?.step === 'create_native_reply') {
+                const root = [state.root, ...(state.retired ?? [])].find(root => root && replyIO(root).target === context.ledger.attempt!.metadata.target);
+                if (!root) return { status: 'ambiguous', code: 'reply_destination_changed' };
+                const result = await reconcileNativeReply(context, root.replySync ??= {}, replyIO(root), clearAttempt => context.checkpoint(state, { clearAttempt }));
+                if (result) return result;
+            }
             if (context.mode === 'cleanup') {
                 state.suppressed = true; state.baselineOnly = true; state.resume = undefined; state.missing = undefined;
                 await context.checkpoint(state);
@@ -89,7 +145,10 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 let denied = false; let currentDenied = false;
                 for (const target of [...(state.notifications ?? []), ...(state.retired ?? []), ...(state.root ? [state.root] : [])]) {
                     if (target.teamId !== grant.teamId) { unreachable = true; continue; }
-                    try { await write('chat.delete', 'delete_message', { channel: target.channelId, ts: target.ts }, true); }
+                    try {
+                        await sendNativeReplies(context, target.replySync ??= {}, replyIO(target), clearAttempt => context.checkpoint(state, { clearAttempt }));
+                        await write('chat.delete', 'delete_message', { channel: target.channelId, ts: target.ts }, true);
+                    }
                     catch (error) {
                         if (error instanceof SlackApiError && ['not_in_channel', 'is_archived', 'channel_not_found', 'cant_delete_message', 'missing_scope'].includes(error.code)) {
                             denied = true;
@@ -153,7 +212,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 await context.checkpoint(state, { clearAttempt: true });
             }
             const changedStatus = connection.config.statusSummaries && state.lastNotifiedStatus !== feedback.status;
-            const newReplies = connection.config.replySummaries ? replyIds.filter(id => !state.notifiedReplyIds?.includes(id)).length : 0;
+            const newReplies = connection.config.replySummaries && !connection.replySync?.enabled ? replyIds.filter(id => !state.notifiedReplyIds?.includes(id)).length : 0;
             if (!initial && !state.resolvedSummary && (changedStatus || newReplies)) {
                 if ((state.notifications?.length ?? 0) >= 1000) return { status: 'failed', code: 'summary_limit' };
                 const summary = slackChangeSummary(changedStatus ? feedback.status : undefined, newReplies);
@@ -171,6 +230,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 if (!validSlackLink(link, connection, state.root!)) throw new SlackConnectionError('invalid_permalink');
                 state.root = { ...state.root!, permalink: link.href }; await context.checkpoint(state);
             }
+            await sendNativeReplies(context, state.root!.replySync ??= {}, replyIO(state.root!), clearAttempt => context.checkpoint(state, { clearAttempt }));
             return { status: 'accepted' };
         } catch (error) {
             if (error instanceof SlackRateWait) return { status: 'waiting', code: 'rate_wait', retryAt: error.retryAt };

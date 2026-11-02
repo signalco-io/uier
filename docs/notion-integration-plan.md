@@ -1,8 +1,13 @@
 # Notion integration: implementation plan
 
+> Update, 2 November 2026: optional, default-off [reply sync](integrations.md#two-way-reply-sync)
+> supersedes the original discussion-import non-goals below. New replies and original edits/deletions
+> sync through native comments. Provider imports are source-labelled and read-only in uier.
+> Provider setup and hosted acceptance are tracked separately in the setup and activation guides.
+
 > Update, 1 November 2026: optional, default-off two-way **status** sync is implemented.
 > The [current status contract](integrations.md#two-way-status-sync) supersedes the original
-> one-way/status non-goals below. Other provider edits remain outside the import contract.
+> one-way/status non-goals below. Other provider fields remain outside the import contract.
 
 Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 

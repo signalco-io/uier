@@ -9,6 +9,7 @@ export class SlackApiError extends Error {
 }
 
 export const slackMethods = ['oauth.v2.access', 'auth.test', 'conversations.list', 'conversations.info',
+    'conversations.replies',
     'chat.postMessage', 'chat.update', 'chat.delete', 'chat.getPermalink'] as const;
 export type SlackMethod = typeof slackMethods[number];
 
@@ -21,7 +22,7 @@ export async function slackRequest(method: SlackMethod, payload: Record<string, 
 } = {}): Promise<Record<string, unknown>> {
     const base = slackApiBaseUrl();
     const endpoint = new URL(method, base.endsWith('/') ? base : `${base}/`);
-    const read = ['auth.test', 'conversations.list', 'conversations.info', 'chat.getPermalink'].includes(method);
+    const read = ['auth.test', 'conversations.list', 'conversations.info', 'conversations.replies', 'chat.getPermalink'].includes(method);
     const headers: Record<string, string> = { ...(!read ? { 'Content-Type': options.oauth ? 'application/x-www-form-urlencoded' : 'application/json' } : {}) };
     if (options.oauth) headers.Authorization = `Basic ${Buffer.from(`${process.env.SLACK_CLIENT_ID}:${process.env.SLACK_CLIENT_SECRET}`).toString('base64')}`;
     else if (options.token) headers.Authorization = `Bearer ${options.token}`;

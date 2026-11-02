@@ -789,6 +789,16 @@ Invalid GitHub setup/callback returns open `/app/github/error` in the app shell 
 organization approval guidance. Never carry unverified project ids, callback codes or state into
 that destination. `github.api.spec.ts` and `github.spec.ts` cover pending approval and recovery.
 
+`replySync` is a separate default-off opt-in for all five providers. `replies.ts` bounds native
+comment reads and owns marked-copy reconciliation; `importReplies.ts` projects source-labelled,
+read-only imports. Server-only `integrationSource` identifies the external target and must never
+appear in DTOs. Do not map provider identities to members, infer deletion from list absence, or
+blindly resend uncertain creates. Commit incoming status/replies together after the source,
+toggle, binding, destination and admin checks; keep verification-state semantics intact.
+Slack history needs an explicit optional-scope reconnect; Notion needs read/insert comment
+capabilities. Keep normal notification permissions minimal. Native-copy cleanup also runs when
+reply sync is off. The React settings serialize booleans, never grants or source provenance.
+
 The shared API suites are
 `integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
 Azure DevOps (`azure-devops/`) uses Microsoft Entra delegated OAuth with one grant per project

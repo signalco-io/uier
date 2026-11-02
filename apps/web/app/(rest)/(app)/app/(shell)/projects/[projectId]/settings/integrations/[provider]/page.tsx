@@ -22,6 +22,10 @@ import { configurableProject } from '../../settingsContext';
 import { getIntegrationConnection } from '@/src/lib/integrations/connection';
 import { configuredIntegrationAdapters } from '@/src/lib/integrations/registry';
 import { TwoWaySync } from '@/src/components/app/integrations/TwoWaySync';
+import { ReplySync } from '@/src/components/app/integrations/ReplySync';
+import { getAppStore } from '@/src/lib/app/store';
+import type { SlackGrant } from '@/src/lib/integrations/slack/model';
+import { slackReplyScopes } from '@/src/lib/integrations/slack/config';
 import type { NotionConnection } from '@/src/lib/integrations/notion/model';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>): Promise<Metadata> {
@@ -42,7 +46,9 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
         notFound();
     const query = await searchParams;
     const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);
-    const connection = adapter?.supportsStatusSync ? await getIntegrationConnection(project, provider) : null;
+    const connection = adapter?.supportsStatusSync || adapter?.supportsReplySync ? await getIntegrationConnection(project, provider) : null;
+    const grant = provider === 'slack' && connection?.grantId ? (await getAppStore().get<SlackGrant>(connection.pk, connection.grantId))?.doc : null;
+    const needsReplyPermissions = provider === 'slack' && (!grant || !slackReplyScopes.every(scope => grant.scopes.includes(scope)));
     const needsMapping = provider === 'notion' && !(connection as NotionConnection | null)?.config.mapping?.status;
     const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
 
@@ -50,9 +56,11 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
         <>
             <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-mb-2 -ml-2.5 w-fit')}><ArrowLeft data-icon="inline-start" />All integrations</Link>
             <IntegrationSection provider={provider} project={project} userId={context.user.id} outcome={value(provider)} githubSetup={value('githubSetup')} />
-            {connection && <TwoWaySync key={connection.id} projectId={project.id} provider={provider}
+            {connection && adapter?.supportsStatusSync && <TwoWaySync key={connection.id} projectId={project.id} provider={provider}
                 enabled={connection.twoWaySync === true} canEnable={adapter!.isConfigured() && connection.status === 'connected' && !needsMapping}
                 needsMapping={needsMapping} />}
+            {connection && adapter?.supportsReplySync && <ReplySync key={`replies:${connection.id}`} projectId={project.id} provider={provider}
+                enabled={connection.replySync?.enabled === true} canEnable={adapter.isConfigured() && connection.status === 'connected'} needsPermissions={needsReplyPermissions} />}
         </>
     );
 }

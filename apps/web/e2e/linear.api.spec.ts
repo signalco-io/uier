@@ -16,7 +16,7 @@ import { claimPk, grantId, currentLinearGrant, invalidateLinearGrant, linearAcce
 import { linearGraphql, LinearApiError, validLinearAsset, withLinearRequest } from '../src/lib/integrations/linear/client';
 import type { LinearConnection, LinearGrant, LinearState } from '../src/lib/integrations/linear/model';
 import { startLinearStub, type LinearStub } from './support/linearStub';
-import { setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
+import { setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
 
 const test = base.extend<{ linear: LinearStub }>({ linear: async ({}, use) => {
     process.env.UIER_LOCAL = '1';
@@ -551,4 +551,17 @@ test('a stale reservation without a committed grant can be recovered by a fresh 
         operation: { id: 'interrupted-setup', until: old }, createdAt: old, updatedAt: old });
     expect((await connect(f, linear)).workspaceId).toBe(f.project.workspaceId);
     expect((await f.store.get(claimPk(linear.organizationId), 'owner'))!.doc).toMatchObject({ status: 'active', workspaceId: f.project.workspaceId });
+});
+
+
+test('reply sync imports Linear comments and original edits/deletions without bot echoes', async ({ linear }) => {
+    const f = await fixture(); await connect(f, linear); let current = await dispatch(f);
+    await setIntegrationReplySync(f.project, 'linear', f.owner.id, true);
+    const human = { id: randomUUID(), body: 'Linear reply', user: { id: randomUUID() }, issue: { id: (current.state as LinearState).issue!.issueId }, createdAt: new Date().toISOString() };
+    linear.comments.set(human.id, human);
+    const poll = () => processIntegrationDelivery(current, baseUrl, linearAdapter, { statusOnly: true });
+    await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe('Linear reply');
+    current = await dispatch(f); expect(linear.comments.size).toBe(1);
+    human.body = 'Edited in Linear'; await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe(human.body);
+    current = await dispatch(f); linear.comments.delete(human.id); await poll(); expect((await source(f)).thread.items.at(-1)!.deletedAt).toBeTruthy();
 });

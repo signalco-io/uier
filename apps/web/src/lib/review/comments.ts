@@ -83,11 +83,11 @@ export function canDeleteComment(comment: DbComment, actor: ProjectActor) {
 }
 
 export function canDeleteItem(item: DbThreadItem, actor: ProjectActor) {
-    return !item.deletedAt && (isAdmin(actor) || isAuthor(item.authorId, actor));
+    return !item.integrationSource && !item.deletedAt && (isAdmin(actor) || isAuthor(item.authorId, actor));
 }
 
 export function canEditItem(item: DbThreadItem, actor: ProjectActor) {
-    return !item.deletedAt && (isAdmin(actor) || isAuthor(item.authorId, actor));
+    return !item.integrationSource && !item.deletedAt && (isAdmin(actor) || isAuthor(item.authorId, actor));
 }
 
 export function canMakeCommentPrivate(actor: ProjectActor) {

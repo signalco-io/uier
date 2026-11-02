@@ -88,6 +88,7 @@ export async function finishNotionConnect(input: { userId: string; state: unknow
         const connection: NotionConnection = { type: 'notion-connection', provider: 'notion', pk, id: notionConnectionId(project.id),
             workspaceId: project.workspaceId, projectId: project.id, connectedBy: input.userId, enabled: sameWorkspace ? oldConnection.enabled : false,
             twoWaySync: Boolean(sameWorkspace && oldConnection.twoWaySync),
+            replySync: sameWorkspace ? oldConnection.replySync : undefined,
             status: 'connected', destinationRevision: (oldConnection?.destinationRevision ?? 0) + 1, grantId: id,
             config: { ...(sameWorkspace ? oldConnection.config : {}), notionWorkspaceId: data.notionWorkspaceId, notionWorkspaceName: data.notionWorkspaceName },
             createdAt: oldConnection?.createdAt ?? new Date().toISOString(), updatedAt: new Date().toISOString() };

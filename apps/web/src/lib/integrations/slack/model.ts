@@ -22,7 +22,7 @@ export type SlackConfig = {
     since?: string; replySummaries: boolean; statusSummaries: boolean;
 };
 export type SlackConnection = IntegrationConnection & { provider: 'slack'; type: 'slack-connection'; config: SlackConfig & Record<string, unknown>; setupNonce?: string };
-export type SlackMessage = { ts: string; channelId: string; teamId: string; payloadHash?: string; permalink?: string };
+export type SlackMessage = { ts: string; channelId: string; teamId: string; payloadHash?: string; permalink?: string; replySync?: import('../replies').ReplyCopies };
 export type SlackUncertainPost = { operationId: string; step: string; channelId: string; teamId: string;
     destinationRevision: number; firstSentAt: string; planHash: string; resolved?: 'adopted' | 'absent'; ts?: string };
 export type SlackState = IntegrationState & {

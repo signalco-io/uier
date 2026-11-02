@@ -5,7 +5,7 @@ import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import type { DbComment } from '../src/lib/db/schema';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { revokeIntegrationGrantsOf, setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
+import { revokeIntegrationGrantsOf, setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverThreadIntegrationSync, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
 import { loadIntegrationLinks } from '../src/lib/integrations/links';
@@ -356,4 +356,32 @@ test('a reconnect by another Microsoft user keeps the destination but waits for 
     expect((await currentAzureDevOpsGrant(reconnected)).generation).toBe(2);
     expect((await authorize(f, ado, { userId: (await currentAzureDevOpsGrant(reconnected)).userId })).result.status).toBe('connected');
     expect((await azureDevOpsConnection(await freshProject(f)))!.enabled).toBe(false);
+});
+
+
+test('native reply sync creates, edits and deletes DevOps comments and imports original changes without echoes', async ({ ado }) => {
+    test.setTimeout(90_000);
+    const f = await fixture(); await connect(f, ado); let current = await dispatch(f);
+    await setIntegrationReplySync(f.project, 'azure-devops', f.owner.id, true);
+    const original = await source(f); const reply = { id: `item_${randomUUID()}`, text: 'A native uier reply', authorId: `user:${f.owner.id}`, createdAt: new Date().toISOString() };
+    await change(f, { thread: { items: [...original.thread.items, reply] } }); ado.fault('reply_create', 'lost'); current = await dispatch(f);
+    expect(current.attempt?.step).toBe('create_native_reply'); current = await retry(f); expect(current.status).toBe('accepted');
+    expect(ado.comments.size).toBe(1);
+    const copy = [...ado.comments.values()][0]!; expect(copy.text).toContain(reply.text);
+    await change(f, { thread: { items: (await source(f)).thread.items.map(item => item.id === reply.id ? { ...item, text: 'Edited in uier' } : item) } });
+    current = await dispatch(f); expect(copy.text).toContain('Edited in uier');
+    await change(f, { thread: { items: (await source(f)).thread.items.filter(item => item.id !== reply.id) } });
+    current = await dispatch(f); expect(copy.isDeleted).toBe(true);
+    const workItemId = (current.state as AzureDevOpsState).item!.id!;
+    const human = { id: 9999, workItemId, text: 'Written in DevOps', createdDate: new Date().toISOString(), createdBy: { id: randomUUID(), displayName: 'DevOps reviewer' }, format: 'markdown', isDeleted: false };
+    ado.comments.set(human.id, human);
+    const poll = () => processIntegrationDelivery(current, baseUrl, azureDevOpsAdapter, { statusOnly: true });
+    await poll(); expect((await source(f)).thread.items.at(-1)).toMatchObject({ text: human.text, authorName: 'DevOps reviewer via Azure DevOps' });
+    current = await dispatch(f); expect([...ado.comments.values()].filter(comment => !comment.isDeleted)).toHaveLength(1);
+    human.text = 'Edited in DevOps'; await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe(human.text);
+    current = await dispatch(f); human.isDeleted = true; await poll(); expect((await source(f)).thread.items.at(-1)!.deletedAt).toBeTruthy();
+    current = await dispatch(f);
+    await setIntegrationReplySync(f.project, 'azure-devops', f.owner.id, false);
+    ado.comments.set(9998, { ...human, id: 9998, text: 'Disabled import', isDeleted: false }); await poll();
+    expect((await source(f)).thread.items.some(item => item.text === 'Disabled import')).toBe(false);
 });

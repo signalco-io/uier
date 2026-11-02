@@ -37,6 +37,7 @@ export type NotionBlock = { object?: 'block'; type: string; [key: string]: unkno
 export type BlockSpec = { key: string; block: NotionBlock; hash: string };
 export type BlockRecord = { key: string; id: string; type: string; hash: string };
 export type NotionPageRecord = {
+    replySync?: import('../replies').ReplyCopies;
     id: string; url: string; dataSourceId: string; databaseId?: string; notionWorkspaceId: string; botId: string;
     mapping: NotionMapping; pastMappings?: NotionMapping[]; blocks: BlockRecord[]; propertiesHash?: string; scrubbed?: boolean; scrubPending?: boolean; trashed?: boolean;
     screenshot?: { revision: string; fileUploadId: string };
