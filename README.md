@@ -121,6 +121,11 @@ GitHub environments and production Cosmos DB identity access. Production and pre
 use separate credentials. Builds run without deployment tokens, and the scheduled worker uses
 its own OIDC data identity and explicit settings. Deployments run without human approval. Infrastructure and GitHub setup
 are documented in [Infrastructure and operations](docs/operations.md#required-github-configuration).
+Cosmos DB key authentication is disabled and both read/write account keys were regenerated.
+Owner-managed Azure `CanNotDelete` locks cover resource group `uier-production8b2f56d6` and
+Cosmos account `uierdbaba6cd56`, in addition to Pulumi protection; see the
+[live verification record](docs/ci-credential-rollout.md#stage-5-activation-and-retirement-receipt--2-november-2026).
+
 
 | Guide | Start here when you want to… |
 | --- | --- |

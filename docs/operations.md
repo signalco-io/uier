@@ -299,6 +299,18 @@ archive is unavailable, recover its manifest and verified files from the last de
 rebuilding; do not publish a fresh empty archive. The build artifacts are gitignored and included
 in Turborepo outputs; no credentials or customer content are stored with bundles.
 
+## Azure deletion locks
+
+On 2 November 2026, the owner added Azure `CanNotDelete` locks
+`uier-production-cannot-delete` on resource group `uier-production8b2f56d6` and
+`uier-cosmos-cannot-delete` on Cosmos account `uierdbaba6cd56` in that group. The
+[stage 5 receipt](ci-credential-rollout.md#owner-managed-azure-deletion-locks) records exact scopes
+and live readback. They protect management resources and inherited children from deletion, while
+allowing in-place updates; item/blob deletion still follows data-plane permissions and retention.
+CI has no lock-management role. Exceptional resource deletion or role revocation needs a
+separately authorized owner operation to remove applicable locks and restore them after readback.
+Standard deployments remain unattended and do not remove locks or Pulumi protection.
+
 ## Removing abusive comments
 
 1. Sign in with an allowlisted staff account. Switch to the **uier** workspace and open

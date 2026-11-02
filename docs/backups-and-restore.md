@@ -71,7 +71,9 @@ The standing operator has Cosmos DB Built-in Data Contributor on `uierdata/comme
 `uierdata/comments-preview`, and Built-in Data Reader on `uierdata/app`, each at container scope.
 These grants have no automatic expiry; review/revoke them when the operator changes. App copy-back
 requires an incident-specific, temporary Data Contributor grant on the approved destination and
-revocation afterwards. No standing `app-preview` or account-wide data role is needed.
+revocation afterwards. Source management locks also block role-assignment deletion: a separately
+authorized owner must coordinate any necessary lock removal/reinstatement for revocation, as
+described under [Azure deletion locks](operations.md#azure-deletion-locks). No standing `app-preview` or account-wide data role is needed.
 Management Owner/Contributor alone does not grant Cosmos data reads.
 
 Keep **uier GitHub Deployment** at Contributor on `uier-production8b2f56d6`, with its existing
