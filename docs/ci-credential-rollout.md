@@ -4,7 +4,7 @@ Staged implementation of [#167](https://github.com/signalco-io/uier/issues/167).
 through a pull request and CI deployment. Never run `pulumi up` locally, remove resource protection,
 or remove an old credential before its replacement has passed live verification.
 
-## Preparation in this change
+## Stage 1: preparation
 
 - Every external workflow action is pinned to its resolved 40-character commit, with the original
   version in a comment. Renovate extends `helpers:pinGitHubActionDigests` and does not automerge
@@ -30,10 +30,10 @@ enabling auto-merge. A successful merge does not establish deployment or live au
 ## Initial external prerequisites
 
 Read-only preflight on 29 October 2026 found no GitHub deployment environments. The repository
-still has `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_STORAGE_ACCOUNT`,
-`VERCEL_TOKEN` and `CLOUDFLARE_API_TOKEN` as repository secrets. This change does not move or
-revoke them. GitHub cannot return existing secret values; their owner must provision replacements
-or securely re-enter them in the target environment before the workflow switch.
+then held `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_STORAGE_ACCOUNT`,
+`VERCEL_TOKEN` and `CLOUDFLARE_API_TOKEN` as repository secrets. Preparation retained them. Stage 2 provisioned replacements and
+stage 3 activated those replacements and removed the repository copies. GitHub cannot return an
+existing secret value; replacements must be provisioned before switching workflows.
 
 The main ruleset requires `CI OK` and a pull request, with zero required approving reviews.
 Azure management locks were not established by preparation. The provisioning receipt below records
@@ -70,7 +70,8 @@ the later environment and preview-identity setup; production still uses its acco
 
 GitHub and Azure were configured directly for the CI identities; no Pulumi update, database setting,
 application variable, existing credential revocation or workflow authentication change was made.
-Provisioning is complete; activation and a real OIDC/Pulumi preview are still unverified.
+At this handoff, provisioning was complete and runtime activation remained unverified.
+The stage 3 receipt below records the completed activation.
 
 ### GitHub environments
 
@@ -90,8 +91,8 @@ state, preserving multiline values. Generated integration encryption keys retain
 Pulumi resources rather than becoming overrides. No Anthropic variable was deployed or repository
 secret present, so no Anthropic secret was added. Secret values were not printed or committed.
 
-Existing repository secrets remain for the current workflows. Do not remove them until their
-replacement environment-based callers have succeeded, including notifications and email verification.
+Repository secrets were retained through stage 2. Stage 3 removed them after replacement
+environment-based callers succeeded, including notifications and email verification.
 
 ### Azure federation and access
 
@@ -149,14 +150,11 @@ creation summaries and token-list readback confirmed their scopes and Active sta
 copied directly into the corresponding encrypted GitHub environment secrets and removed from the
 clipboard afterwards. GitHub's API confirmed both secret names were present.
 
-### Activation gates still outstanding
+### Stage 2 handoff
 
-Existing workflows continue to use repository secrets and the previous identity. No run has yet
-proved the new environment OIDC subjects, preview state access/decryption or a complete Pulumi
-preview under the separate identity. Before switching those callers, preserve optional production
-variable registration without supplying production integration/Anthropic credentials to previews,
-run an infra test PR, inspect its plan and verify provider compatibility with project-scoped Vercel
-tokens. A successful token creation or role audit does not establish these runtime checks.
+Activation required an actual preview under the new subject, read-only state/key permissions,
+provider compatibility with project-scoped Vercel tokens and optional production variable preservation.
+The stage 3 receipt records those checks and migration of the main deployment, worker and email job.
 
 ## Stage 3: separate builds and remove the worker environment pull
 
@@ -231,17 +229,56 @@ snapshot refresh command; refresh it after provider/mail/key changes before reti
 
 ### Activation and retirement evidence
 
-At implementation time, local typecheck/build, the credential-free Vercel build, infrastructure
-helper tests, archive-boundary tests, workflow lint and live metadata parsing have passed. A PR run
-under the new preview identity, a main deployment under the production subject, a worker OIDC
-verification run and the migrated email-domain workflow still need their live results recorded here.
-Do not infer those results from provisioning or local tests.
+[PR #287](https://github.com/signalco-io/uier/pull/287) activated stage 3 at commit
+`3eefe4afb338d5f7e124faf883871259168e6206` on 2 November 2026. Local typecheck/build and the
+default suite passed (551 tests, one skipped), along with 28 infrastructure helpers, archive and
+function-map boundary tests, an isolated worker dependency check and workflow lint. The pinned
+Vercel CLI also built with an empty authentication config; its complete standalone archive passed
+the same extraction and dependency-reference checks used by the upload job.
 
-Retain repository secrets and all four old main/PR federated subjects until those replacement
-callers succeed. Then remove the unused repository credentials and old subjects, verify the remaining
-secret/subject inventories and repeat manual-main CI. Production application Cosmos/Blob key
-retirement remains in the later stages; preview state/key reads and Vercel's project-wide token
-scope still carry production-sensitive access.
+| Live check | Evidence | Result |
+| --- | --- | --- |
+| Real PR preview | [CI #41366760794](https://github.com/signalco-io/uier/actions/runs/41366760794) | Preview subject/client verified; encrypted state read and decrypted; 45 production variable registrations preserved; 105 resources unchanged |
+| Preview upload and runtime | [Protected preview](https://uier-ncln8tnk4-signalco.vercel.app/api/status) | Separate credential-free build/upload jobs passed; authenticated health check returned operational website/comments with a live Cosmos read |
+| Main production deployment | [Deploy #41367229311](https://github.com/signalco-io/uier/actions/runs/41367229311) | Production subject/client verified; 105 resources unchanged; prebuilt production upload ready and aliased to uier.io |
+| Worker OIDC | [Verification #41367230414](https://github.com/signalco-io/uier/actions/runs/41367230414) | Dedicated production-worker subject/client verified; all three Cosmos containers and both Blob containers readable; verify-only mode performed no writes or delivery |
+| Email-domain workflow | [Verification #41367233151](https://github.com/signalco-io/uier/actions/runs/41367233151) | Production subject/client verified; Domain/SPF/DKIM/DKIM2 Verified; authoritative DMARC rejection policy verified |
+
+Public production `/api/status` returned HTTP 200 with both services operational, and `/app/sign-in`
+returned HTTP 200. Vercel readback confirmed uier.io points to ready deployment
+`dpl_ErxJzcxFUMc6ECUTUjyVGtvCgrKa` (`uier-a1k4jgwx7-signalco.vercel.app`) after retirement.
+
+After those replacements succeeded, the repository Actions secret inventory was emptied:
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_STORAGE_ACCOUNT`,
+`VERCEL_TOKEN`, `CLOUDFLARE_API_TOKEN`, `UIER_COMMENTS_SECRET` and `UIER_INTEGRATION_ENV`
+were removed. The unused production-environment comment-secret copy was also removed; deployed
+application values and the worker settings snapshot retain the existing signing secret.
+
+All four legacy main/PR federated credentials were removed from the deployment app:
+`github-uier-main`, `github-uier-pull-request`, `github-uier-main-immutable` and
+`github-uier-pull-request-immutable`. Readback confirms each of deployment, preview and worker
+apps now has exactly one GitHub environment subject. Environment inventories contain seven
+production, six preview and four worker secrets. Branch-policy readback still allows only main
+for production/worker and main plus PR merge refs for preview, with no reviewers, wait timers or
+tag policies. `AleksandarDev` retains repository ADMIN permission.
+
+Post-retirement checks also passed with zero repository Actions secrets:
+
+- [Manual-main CI #41367710026](https://github.com/signalco-io/uier/actions/runs/41367710026): CI OK,
+  582 default tests passed and one skipped, separate preview deployment succeeded, preview OIDC
+  subject verified and 105 infrastructure resources unchanged.
+- [Production deploy #41367719405](https://github.com/signalco-io/uier/actions/runs/41367719405):
+  production OIDC subject verified, 105 resources unchanged and the standalone prebuilt upload ready.
+  Public health remained HTTP 200 with both services operational.
+- [Worker verification #41367712817](https://github.com/signalco-io/uier/actions/runs/41367712817):
+  dedicated worker OIDC subject and all five data scopes verified again, without writes or delivery.
+
+Cosmos readback matches the pre-activation baseline: Continuous7Days backup, no migration in
+progress, `disableLocalAuth: false`, `disableKeyBasedMetadataWriteAccess: false` and provisioning
+Succeeded. Production application Cosmos/Blob keys are retained for the later stages. Preview
+state/key reads and Vercel's project-wide token scope still carry production-sensitive access.
+No local Pulumi update or protected-resource deletion/replacement was performed. #167 stays open
+for the production identity cutover, operator/restore checks and key retirement in stages 4–5.
 
 ## Stage 4: switch production to the prepared Cosmos identity
 
