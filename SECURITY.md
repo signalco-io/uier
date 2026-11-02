@@ -5,6 +5,9 @@
 Email **security@signalco.io** (uier is a signalco project). Please do not open a public issue for a
 security problem.
 
+The machine-readable reporting contact is at
+[uier.io/.well-known/security.txt](https://uier.io/.well-known/security.txt).
+
 Send what you found, the steps or a request that reproduces it and the impact you expect. A page address or a
 comment id helps. We will investigate every legitimate report and do our best to fix the problem quickly.
 

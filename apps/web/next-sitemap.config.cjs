@@ -3,11 +3,10 @@
 module.exports = {
     siteUrl: process.env.SITE_URL || 'https://uier.io',
     generateRobotsTxt: true,
-    // Only indexable pages belong in the sitemap, not app flows, bridges or metadata assets
-    // (a page's own social card is served at a hashed path, such as /features/x/opengraph-image-1a2b3c).
+    // Only indexable pages belong in the sitemap, not app flows, bridges or metadata assets.
     exclude: ['/api', '/api/*', '/app', '/app/*', '/notifications', '/review-verification',
         '/review-session', '/extension-verification', '/manifest.webmanifest', '/opengraph-image',
-        '/*/opengraph-image*'],
+        '*/opengraph-image*', '/og/*'],
     // A build time is not the date the content changed. Omit it until actual dates are tracked.
     autoLastmod: false,
     changefreq: undefined,
