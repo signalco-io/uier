@@ -12,7 +12,7 @@ function Popup() {
     const [busy, setBusy] = useState(false);
     const refresh = async () => {
         const value = await message<State>({ type: 'state' });
-        setState(value); setSelected(value.projects?.length === 1 ? value.projects[0]!.projectId : '');
+        setState(value); setSelected(previous => value.projects?.some(project => project.projectId === previous) ? previous : value.projects?.length === 1 ? value.projects[0]!.projectId : '');
     };
     useEffect(() => {
         const scheme = matchMedia('(prefers-color-scheme: dark)');
@@ -43,7 +43,7 @@ function Popup() {
                 {state.projects.length > 1 && <p>Choose a project for this site.</p>}
                 {state.projects.map(project => <Button key={project.projectId} variant="outlined" aria-pressed={selected === project.projectId} onClick={() => setSelected(project.projectId)}>{project.name}</Button>)}
                 {project?.access === 'disabled' && <p>Comments are turned off for this project.</p>}
-                <Button disabled={busy || !project || project.access === 'disabled'} onClick={() => run(() => message({ type: 'start', tabId: state.tabId, projectId: project!.projectId, publicId: project!.id }))}>Start review</Button>
+                <Button disabled={busy || !project || project.access === 'disabled'} onClick={() => run(() => message({ type: 'start', tabId: state.tabId!, projectId: project!.projectId, publicId: project!.id }))}>Start review</Button>
                 {state.binding && <Button variant="outlined" disabled={busy} onClick={() => run(() => message({ type: 'exit', tabId: state.tabId }))}>Exit review</Button>}
             </>}
             <p className="text-sm text-muted-foreground">Each reviewer needs the extension on sites without the script. Existing comment links open after Start review.</p>

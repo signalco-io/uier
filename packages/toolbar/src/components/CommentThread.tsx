@@ -1,3 +1,4 @@
+import { CommentVerification } from './CommentVerification';
 import { CommentPriority } from './CommentPriority';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
@@ -24,10 +25,13 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     // Mark as unread keeps the thread unread while it stays open
     const [keptUnread, setKeptUnread] = useState(false);
     const canReadAutomatically = reading && !keptUnread && Boolean(visitor?.name || visitor?.member) && commentItem.thread.items.length <= 2;
+    const verificationAtOpen = useRef(commentItem.verification?.revision);
+    // Workflow-only changes never acknowledge activity. Opening the thread again may read it.
+    const verificationChanged = verificationAtOpen.current !== commentItem.verification?.revision;
     // Only an opened thread, while visible in a foreground window. Inbox previews stay unread
     // until explicitly acknowledged; just listing feedback must not suppress notifications.
     useEffect(() => {
-        if (!canReadAutomatically || !commentItem.activity?.unread) return;
+        if (verificationChanged || !canReadAutomatically || !commentItem.activity?.unread) return;
         let timeout: number | undefined;
         let visible = false;
         const cancel = () => { window.clearTimeout(timeout); timeout = undefined; };
@@ -47,7 +51,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
             window.removeEventListener('focus', schedule);
             window.removeEventListener('blur', cancel);
         };
-    }, [canReadAutomatically, commentItem.id, commentItem.activity?.sequence, commentItem.activity?.unread, read.mutate]);
+    }, [verificationChanged, canReadAutomatically, commentItem.id, commentItem.activity?.sequence, commentItem.activity?.unread, read.mutate]);
     const [expanded, setExpanded] = useState(false);
     // "Show all" goes away once used (it is the only way to expand): the focus moves to the first
     // message it showed instead of getting lost
@@ -107,6 +111,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
                         threadItem={threadLastItem} />
                 )}
             </Stack>
+            <CommentVerification comment={commentItem} />
             <CommentAnchorDetails comment={commentItem} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
             {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label="Connected services" className="flex flex-wrap gap-3 text-xs">

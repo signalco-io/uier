@@ -8,7 +8,7 @@ export async function authorNames(comments: DbComment[]) {
     const memberIds = items.map(item => item.authorId)
         .filter((id): id is string => typeof id === 'string' && id.startsWith('user:'))
         .map(id => id.slice('user:'.length));
-    const extraIds = comments.map(comment => comment.assigneeId).filter((id): id is string => Boolean(id));
+    const extraIds = comments.flatMap(comment => [comment.assigneeId, ...[comment.verification?.requester, comment.verification?.reviewer, comment.verification?.decision?.actorId].flatMap(id => id?.startsWith('user:') ? [id.slice(5)] : [])]).filter((id): id is string => Boolean(id));
     const users = await Promise.all([...new Set([...memberIds, ...extraIds])].map(id => getUser(id)));
     return new Map(users.flatMap(user => user ? [[user.id, user.name] as const] : []));
 }

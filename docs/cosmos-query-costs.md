@@ -59,7 +59,7 @@ their existing conditional/transactional semantics and TTLs.
 | Review reads (`review/*`, `comments/readState`, `app/projectComments`) | P project/member/comment/subscription/preference and individual cursor; Q partition-scoped comments (caller text window), complete activity projection/read cursors, member enrichment | Review/list/write requests; counts and unread selection need full activity/cursor results; content windows retain existing bounds |
 | Anonymous comments and counters (`repo/cosmosCommentsStore`) | P comment/image/submission/sequence/counter; partition Q list/listAll (caller TOP), activity (projection, no TOP), sequence MAX fallback | Requests, rate windows, first sequence creation; image metadata/blob relationship and atomic submission batches unchanged |
 | Notification discovery (`notifications/delivery`, `preferences`) | Global comments Q pending sources; P project/reference, user, member and current preferences/read cursor; Q subscriptions in project notification partition and complete workspace access | Scheduled turn and mutations; complete fan-out and final authorization checks required |
-| Notification delivery/status | Global app Q legacy completed ledgers missing TTL (100/status); active **due** deliveries (no TOP); exact COUNT by blocked status; P/replaces per leased attempt | Scheduled turn; provider/lease/retry rechecks stay authoritative. Manual retry id lookup remains global Q; it does not know the project partition |
+| Notification delivery/status | Global app Q legacy completed ledgers missing TTL (100/status); active **due** deliveries (no TOP); exact COUNT by blocked status, then TOP 20 of that status only when its count is non-zero (ids for the run's review warnings); P/replaces per leased attempt | Scheduled turn; provider/lease/retry rechecks stay authoritative. Manual retry id lookup remains global Q; it does not know the project partition |
 | Integration discovery (`integrations/discovery`, `syncSignal`) | Global comments Q, 100 by indexed `syncKey`, durable cursor; P project reference/project, cursor and deterministic ledger identity | Scheduled turn; 30-second discovery allocation, pending flag clears only after fan-out; syncKey includes domain and id |
 | Integration backfill/delivery/status (`worker`, `backfill`, `statusSync`) | Global Q backfill connections (100/id), due ledgers (100/nextAttemptAt), accepted status rows (100/id with durable cursor); exact COUNT by blocked status; P project/grant/connection/member/ledger | Independent rotating provider turns, shared job deadline (8 minutes), per-provider time/call budgets and leases; no new delivery cap or cursor |
 | Provider settings/OAuth/grants (`integrations/{github,linear,notion,slack,azure-devops}`) | P deterministic connections, installations, grants and state claims; workspace/project-scoped Q reusable grants, destinations, links and status; global Q only for provider maintenance, ownership/disconnect/recovery where scope is not known | Connect/settings/maintenance/recovery, existing explicit safety bounds retained; encrypted secrets and external operations unaffected |
@@ -181,8 +181,8 @@ and [diagnostic guidance](https://azuresdkdocs.z19.web.core.windows.net/javascri
 
 ## Reproduce safely
 
-Use Node 24, the locked dependencies, and an authenticated Azure CLI principal authorized to
-read keys. The script retrieves credentials into process memory, never files or stdout. No
+Use Node 24, the locked dependencies, and an authenticated Azure CLI principal with scoped Cosmos
+data-plane roles. The script uses `AzureCliCredential` and never retrieves account keys. No
 container/account is created or modified and no Pulumi command is invoked.
 
 ```sh
@@ -192,7 +192,9 @@ node apps/web/scripts/cosmos-query-profile.mjs preview-synthetic <resource-group
 node apps/web/scripts/cosmos-query-profile.mjs preview-idle <resource-group> <account> > /tmp/cosmos-idle.json
 ```
 
-Production mode always uses a **read-only key** and only reads existing containers. It stops
+Production mode only reads existing containers. Use Built-in Data Reader on `app`, `comments`
+and `comments-preview` for a dedicated diagnostic principal. Preview profiling needs Data
+Contributor on `app-preview`; request that temporary grant only when running synthetic profiles. It stops
 at 1,000 accumulated RU, 500 response fetches, two minutes, or 20 pages/2,000 rows per operation.
 These are diagnostic aborts, not application result caps. Preview mode hardcodes `app-preview`,
 prefixes every synthetic partition with its unique run id, and records exact identities before

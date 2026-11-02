@@ -26,10 +26,11 @@ import { emailSuppression } from '../email/suppression';
 
 export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
+const REVIEW_LIST_LIMIT = 20;
 export const COMPLETED_DELIVERY_TTL = 30 * 24 * 60 * 60;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
-export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; itemId?: string; assigneeId?: string | null };
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; itemId?: string; assigneeId?: string | null };
 
 export type NotificationDelivery = AppDoc & {
     type: 'notification-delivery'; projectId: string; threadId: string; actorId: string; userId?: string;
@@ -154,7 +155,10 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
         } };
 }
 
-/** One bounded attempt under an optimistic lease; all state survives process restarts. */
+/**
+ * One bounded attempt under an optimistic lease; all state survives process restarts.
+ * Resolves to 'failed' when this attempt failed, was rejected or became ambiguous.
+ */
 export async function processNotificationDelivery(candidate: NotificationDelivery, baseUrl: string, transport = deliverNotificationEmail, now = Date.now(), store = getAppStore()) {
     const stored = await store.get<NotificationDelivery>(candidate.pk, candidate.id);
     if (!stored || !stored.doc.active || Date.parse(stored.doc.nextAttemptAt) > now || (stored.doc.lease && Date.parse(stored.doc.lease.until) > now)) return;
@@ -224,11 +228,13 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         } else if (result.status === 'ambiguous') {
             await save({ active: false, status: 'ambiguous', lastCode: failureCode(result.code) });
             console.error(`[notifications] ${delivery.id}: ambiguous (${failureCode(result.code)})`);
+            return 'failed';
         } else if (result.status === 'failed') {
             const failures = delivery.failures + 1;
             await save({ failures, attempt: undefined, active: failures < MAX_FAILURES, status: failures < MAX_FAILURES ? 'queued' : 'failed',
                 nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)), lastCode: failureCode(result.code) });
             console.error(`[notifications] ${delivery.id}: provider rejected (${failureCode(result.code)})`);
+            return 'failed';
         } else await save({ attempt: { ...attempt, resumeFrom: result.resumeFrom }, nextAttemptAt: iso(now + 60000), status: 'waiting' });
     } catch (error) {
         const failures = delivery.failures + 1;
@@ -238,6 +244,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
             ...(error instanceof EmailNotConfiguredError ? { attempt: undefined } : {}),
             nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)) });
         console.error(`[notifications] ${delivery.id}: attempt failed (${code})`);
+        return 'failed';
     }
 }
 
@@ -266,10 +273,18 @@ export async function runNotificationWorker(baseUrl: string, transport = deliver
         if (project) await discoverThreadNotifications(project, comment);
     }
     const deliveries = await store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true }, dueBefore: iso() });
-    for (const delivery of deliveries) await processNotificationDelivery(delivery, baseUrl, transport, Date.now(), store);
-    const blocked = await Promise.all(['failed', 'ambiguous'].map(status =>
-        store.count<NotificationDelivery>({ type: 'notification-delivery', where: { active: false, status } })));
-    return { checked: deliveries.length, blocked: blocked.reduce((count, total) => count + total, 0) };
+    let failed = 0;
+    for (const delivery of deliveries)
+        if (await processNotificationDelivery(delivery, baseUrl, transport, Date.now(), store) === 'failed') failed++;
+    // Ledgers that wait for an operator: an exact count, and a bounded list of ids to retry or reconcile.
+    const blocked = await Promise.all((['failed', 'ambiguous'] as const).map(async status => {
+        const where = { active: false, status };
+        const count = await store.count<NotificationDelivery>({ type: 'notification-delivery', where });
+        return { count, ledgers: count ? await store.query<NotificationDelivery>({ type: 'notification-delivery', where, limit: REVIEW_LIST_LIMIT }) : [] };
+    }));
+    return { checked: deliveries.length, failed, blocked: blocked.reduce((total, { count }) => total + count, 0),
+        review: blocked.flatMap(({ ledgers }) => ledgers).slice(0, REVIEW_LIST_LIMIT)
+            .map(ledger => ({ id: ledger.id, status: ledger.status, lastCode: failureCode(ledger.lastCode) })) };
 }
 
 /** Manual workflow recovery. An uncertain send keeps its operation identity and is only reconciled. */

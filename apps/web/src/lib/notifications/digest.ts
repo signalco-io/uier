@@ -35,7 +35,8 @@ export function digestContent(project: DbProject, comment: DbComment, recipient:
             const location = comment.number ? ` (${path})` : '';
             action = event.assigneeId === recipient.slice('user:'.length) ? `assigned ${thread} to you${location}`
                 : event.assigneeId !== undefined ? `unassigned you from ${thread}${location}` : `updated your assignment on ${place}`;
-        } else action = `${event.kind === 'comment' ? 'left feedback on' : event.kind === 'reply' ? 'replied on' : event.kind === 'resolved' ? 'resolved' : 'reopened'} ${place}`;
+        } else if (event.kind.startsWith('verification-')) action = `${event.kind === 'verification-requested' ? 'requested a fix check on' : event.kind === 'verification-confirmed' ? event.verificationOverride ? 'confirmed the fix as an admin override on' : 'confirmed the fix on' : event.kind === 'verification-rejected' ? 'said the fix still needs work on' : 'canceled the fix check on'} ${place}`;
+        else action = `${event.kind === 'comment' ? 'left feedback on' : event.kind === 'reply' ? 'replied on' : event.kind === 'resolved' ? 'resolved' : 'reopened'} ${place}`;
         actionLines.push(`${actor} ${action}`);
         const excerpt = project.emailCommentExcerpts && event.itemId && item && !item.deletedAt
             && (event.kind === 'comment' || event.kind === 'reply' || event.kind === 'mention') ? plainLabel(item.text, EXCERPT_LIMIT) : '';

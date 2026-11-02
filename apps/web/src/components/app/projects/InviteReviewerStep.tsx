@@ -22,6 +22,7 @@ export function InviteReviewerStep({ projectId, publicId, access, urls, isAdmin 
             description={access === 'disabled'
                 ? `Comments are off. ${projectAccessLabels.disabled.description}`
                 : projectAccessLabels[access].description}>
+            {access === 'invited' && <p className="m-0 text-sm text-muted-foreground">For sites without the script, each invited reviewer needs the desktop browser extension. Check availability in review setup.</p>}
             {access === 'invited' && isAdmin && <InviteButton projectId={projectId} />}
             {access === 'guests' && <GuestReviewLinks publicId={publicId} urls={urls} />}
             {access === 'disabled' && isAdmin && (

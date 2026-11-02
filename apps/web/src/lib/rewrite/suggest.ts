@@ -10,8 +10,9 @@ import { recordRewrite, type RewriteEvent, type RewriteOutcome } from './telemet
 export const REWRITE_SUGGESTIONS = 3;
 
 /** Production default; see docs/rewrite-costs.md for the evaluation and revert policy. */
-export const REWRITE_MODEL = 'claude-opus-5-5';
-export const REWRITE_CANDIDATES = [REWRITE_MODEL, 'claude-sonnet-5-5'] as const;
+export const REWRITE_MODEL = 'claude-sonnet-5-5';
+// Keep the versioned comparison order independent of the production default.
+export const REWRITE_CANDIDATES = ['claude-opus-5-5', 'claude-sonnet-5-5'] as const;
 
 /** One attempt; the SDK retries once (429, 5xx, a timeout or a dropped connection) */
 const ATTEMPT_TIMEOUT_MS = 30_000;

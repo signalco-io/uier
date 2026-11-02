@@ -1,0 +1,75 @@
+# Extension listing worksheet
+
+Prepared copy and artwork for owner review. This is not a published listing. Complete the account,
+reviewer access and disclosure forms in the [release runbook](browser-extension-release.md).
+
+| Field | Draft |
+| --- | --- |
+| Name | uier |
+| Summary | Review configured project sites with uier. Signed-in project membership required. |
+| Category / language | Productivity / English; confirm the dashboard's current choices |
+| Homepage | https://uier.io |
+| Support | https://github.com/signalco-io/uier/issues |
+| Privacy policy | https://uier.io/legal/privacy-policy |
+
+## Description
+
+Leave feedback directly on a configured project website, including signed-in pages, staging and
+localhost. Open the extension, sign in to uier, choose a matching project and start a review. No
+script installation or security-header changes are needed on the reviewed site.
+
+Comments stay pinned to elements, selected text or areas. Reply, resolve and reopen threads with
+the project's existing access rules. Screenshots capture only the visible viewport and can be
+removed before sending. Review continues on reload and same-origin navigation in the active tab.
+Exit review stops it; a different origin requires another explicit start.
+
+Each reviewer needs the desktop extension in Chrome or Edge and access to a project containing the
+exact site origin. Anonymous guest reviews use uier's script installation. Browser internal pages,
+extension stores, local files and cross-origin iframe contents are unsupported.
+
+## Single purpose and permission justifications
+
+The single purpose is reviewing configured uier project sites by leaving on-page feedback.
+
+| Permission | Why it is used |
+| --- | --- |
+| `activeTab` | Temporary access after the reviewer explicitly opens the action; injects the review layer and captures only the reviewed visible tab. Same-origin continuation ends on Exit, tab closure or origin change. |
+| `scripting` | Injects the locally bundled toolbar into the top frame's isolated world. No remote executable code. |
+| `storage` | Trusted extension session storage holds separate sign-in credentials, active bindings, verification proofs and bounded text/anchor drafts. No images in drafts. Browser restart clears them. |
+| `identity` | Explicit first-party sign-in and consent using the exact extension callback, state and PKCE. |
+| `https://uier.io/*` host | Worker API requests and the extension-owned first-party browser-verification frame. Does not grant access to every reviewed site. |
+
+No all-sites, cookie-reading, history, offscreen or security-header rewriting permissions are used.
+
+## Disclosure worksheet
+
+Confirm the current store form's categories against actual behavior and the public policies. Do not
+claim that the extension collects no data. It handles account identity; the site origin for matching
+on action open; reviewed page URLs, selected text/anchors and context; submitted comments/replies;
+and optional screenshots. Signed-in/private sites may contain sensitive information: reviewers
+choose what to send and can remove images. Data uses the project's existing authorization and
+retention rules. The extension does not sell data, use it for advertising, collect browser history
+or read unrelated tabs/cookies. Do not make retention promises beyond the public policy.
+
+Credentials, bindings, proofs and unsent text/anchor drafts stay in trusted extension session storage;
+images stay outside persistent drafts. Sign-out clears local private data and revokes the separate
+server session. Network transport goes to uier over HTTPS. The helper obtains BotID verification on
+uier after explicit sign-in, independent of the reviewed page's CSP.
+
+## Artwork and reviewer instructions
+
+After `pnpm build`, `pnpm -C apps/extension package`, `pnpm -C apps/extension test:package`, run
+`pnpm -C apps/extension store:assets`. The release directory contains the canonical brand 128 px
+store icon and 440×280 promotional tile in `listing/`; the persistent test retains an actual
+1280×800 runtime screenshot in `test-results/`. Extension icons are 16/32/48/128 px. CI retains these
+as artifacts; check the dashboard's current required sizes and visually review them before upload.
+Screenshots use a local fictional project, never customer pages. Replace development-preview popup
+imagery with a verified released build when publishing.
+
+Provide the store reviewer with a dedicated account/project and an isolated HTTPS site that contains
+no customer data. Record its actual URL and the supported email-code sign-in instructions in the
+private dashboard reviewer notes, not this repository. Explain project matching, Start review,
+post/reply/resolve, visible-viewport screenshot, verification helper, Exit and sign-out. Ensure the
+reviewer can receive a sign-in code without relying on a maintainer being online. Never include
+customer tokens, passwords or one-time codes in a public issue or listing. Owners must verify those
+live credentials and the hosted Chrome/Edge journey before submission.

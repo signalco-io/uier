@@ -239,6 +239,7 @@ export function useComments(refreshOnMount = false): {
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
     prioritize: UseMutationResult<CommentItem, Error, { commentId: string; priority: CommentPriority; idempotencyKey: string }, unknown>;
+    verification: UseMutationResult<CommentItem, Error, { commentId: string; input: unknown }, unknown>;
     assign: UseMutationResult<CommentItem, Error, { commentId: string; assigneeId: string | null }, unknown>;
     edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
     reattach: UseMutationResult<CommentItem, Error, ReattachInput, unknown>;
@@ -388,6 +389,13 @@ export function useComments(refreshOnMount = false): {
         onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
         onSettled: handleSettled
     });
+    const verification = useMutation({
+        mutationFn: async ({ commentId, input }: { commentId: string; input: unknown }) => authorizedList(client, () =>
+            apiRequest<CommentItem>(`${commentUrl(commentId)}/verification`, { method: 'POST', body: input }).then(required)),
+        onMutate: () => currentReviewerRevision(),
+        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
+        onSettled: handleSettled
+    });
     const assign = useMutation({
         mutationFn: async ({ commentId, assigneeId }: { commentId: string; assigneeId: string | null }) => required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/assignee`, { method: 'PATCH', body: { assigneeId } })),
         onSuccess: handleCommentChanged, onSettled: handleSettled
@@ -425,6 +433,7 @@ export function useComments(refreshOnMount = false): {
         reattach,
         assign,
         prioritize,
+        verification,
         delete: remove,
         deleteReply: removeReply
     };
@@ -445,7 +454,7 @@ async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
             // React Query retains stale data on error. Purge it before showing an access notice.
             client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
             client.removeQueries({ queryKey: ['screenshot'] });
-            client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, open: 0, done: 0, total: 0 });
+            client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, ready: 0, open: 0, done: 0, total: 0 });
             if (toolbarConfig.project) void client.invalidateQueries({ queryKey: projectViewerQueryKey });
         }
         throw error;
@@ -618,7 +627,7 @@ export function useCommentsRefresh(expanded: boolean) {
 }
 
 export { activityQueryKey };
-export type ActivitySummary = { unread: number; open: number; done: number; total: number };
+export type ActivitySummary = { unread: number; ready: number; open: number; done: number; total: number };
 
 export function useActivitySummary() {
     const { environment, draftScope } = useProjectViewer();
@@ -631,7 +640,7 @@ export function useActivitySummary() {
                 if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
                     client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
                     client.removeQueries({ queryKey: ['screenshot'] });
-                    client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, open: 0, done: 0, total: 0 });
+                    client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, ready: 0, open: 0, done: 0, total: 0 });
                 }
                 throw error;
             }

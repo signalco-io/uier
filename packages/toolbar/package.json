@@ -48,6 +48,10 @@
         "./triage": {
             "types": "./src/triage.ts",
             "default": "./dist/triage.js"
+        },
+        "./verification": {
+            "types": "./src/verification.ts",
+            "default": "./dist/verification.js"
         }
     },
     "scripts": {

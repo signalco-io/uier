@@ -216,3 +216,11 @@ offboarding. Reissue approved invitations after the supported handler is restore
 The full-suite and deployed-preview results are recorded in the pull request. Deployed smoke
 testing remains separate from local checks and the account's consistency guarantees. No
 production data migration is needed or performed by this feature.
+
+Fix verification stores requester, requested reviewer and latest decision actor references in
+the comment partition. Include those references in verified account-erasure/operator cleanup,
+with activity/event recipients and existing author/assignee references. Revoke membership first;
+removed members cannot decide, while display names follow existing Former member behavior.
+Redact or remove affected latest requests/decisions rather than retaining an identifiable
+confirmation claim. Whole-thread/project deletion removes the record through existing cleanup;
+a deleted author placeholder also drops verification evidence. There is no separate history table.

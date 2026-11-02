@@ -32,6 +32,7 @@ function emptyText(filter: CommentsFilter) {
     }
     if (filter.unread) return `No unread comments${where}`;
     switch (filter.status) {
+        case 'ready': return `No checks requested${where}`;
         case 'resolved': return `No done comments${where}`;
         case 'all': return `No comments${where}`;
         default: return `No open comments${where}`;

@@ -56,7 +56,11 @@ export function rewriteEvent(input: {
     for (const [index, entry] of entries.slice(0, 8).entries()) {
         const value = object(entry);
         if (!['message', 'fallback_message'].includes(String(value.type))) { add('unsupported_iterations'); continue; }
-        const record = tokens(value, value.model);
+        // The SDK permits a null model on ordinary iteration usage. One non-fallback
+        // iteration is the serving attempt, identified by the response's model. Never
+        // substitute for an explicitly unknown model or attribute a fallback chain this way.
+        const iterationModel = value.model ?? (!fallback && entries.length === 1 ? response.model : undefined);
+        const record = tokens(value, iterationModel);
         records.push(record);
         let amount = estimateTokens(record);
         // Earlier fallback refusals lack per-hop categories. Their tokens are observed, their charge is unknown.

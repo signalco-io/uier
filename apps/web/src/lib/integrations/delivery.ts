@@ -1,3 +1,4 @@
+import { ordinaryVerificationStatus } from '../comments/verificationState';
 import { randomUUID } from 'node:crypto';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
@@ -175,7 +176,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
                 const actorId = `user:${connection.connectedBy}`;
                 const at = new Date(clock()).toISOString();
                 const changed = withSyncMark(project, current.comment, withNotificationEvent(
-                    { ...withThreadActivity(current.comment, actorId), resolved, updatedAt: at }, actorId, resolved ? 'resolved' : 'reopened', at));
+                    { ...ordinaryVerificationStatus(withThreadActivity(current.comment, actorId), resolved), updatedAt: at }, actorId, resolved ? 'resolved' : 'reopened', at));
                 // Recheck the toggle, binding and admin after all reads, then conditionally write.
                 await boundary(true, false);
                 if (await comments.replace(changed, current.etag) !== 'ok') throw new IntegrationControlError('projection_changed');

@@ -1,3 +1,4 @@
+import { verificationDetails, verificationPermissions } from './fixVerificationDto';
 import { feedbackSource, type FeedbackSource } from '../app/environments';
 import { readActivity } from '../comments/activity';
 import type { DbComment, DbThreadItem } from '../db/schema';
@@ -32,6 +33,7 @@ export type ReviewCommentDto = CommentDto & {
     private: boolean;
     reproduction?: ReproductionContext;
     /** What the current reviewer may do (the toolbar shows only these actions) */
+    verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
     permissions: { resolve: boolean; delete: boolean; edit: boolean; assign: boolean; priority: boolean };
     thread: { items: (CommentDto['thread']['items'][number] & { canDelete?: boolean; canEdit?: boolean; mentions?: ReturnType<typeof messageMentions> })[] };
 };
@@ -49,6 +51,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        ...(project ? { verification: verificationDetails(comment, project, actor, participants), verificationPermissions: verificationPermissions(comment, project, actor, participants) } : {}),
         ...(project ? { source: feedbackSource(project, comment.origin) } : {}),
         activity: readActivity(comment, authorId, readSequence),
         ...(actor.kind === 'member' ? { reproduction: toReproductionContext(comment, origins) } : {}),

@@ -1,5 +1,6 @@
 'use client';
 
+import { readyForReview } from '@uier/toolbar/verification';
 import { useEffect, useOptimistic, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -97,10 +98,10 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
     const installText = query.environment === 'all'
-        ? 'Install the script and open a review link to leave the first comment.'
-        : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.';
+        ? 'Set up reviews and open a review link to leave the first comment.'
+        : 'This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.';
     const installButton = (className?: string) => (
-        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>Install the script</Link>
+        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>Set up reviews</Link>
     );
     // Invited projects take two steps, each with its button: the script, then the people
     const steps = access === 'invited' && isAdmin;
@@ -152,14 +153,16 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const filtered = applyFilters(comments, query, userId);
     const statusCounts: Record<StatusFilter, number> = {
         open: filtered.filter(comment => !comment.resolved).length,
+        ready: filtered.filter(readyForReview).length,
         done: filtered.filter(comment => comment.resolved).length,
         all: filtered.length
     };
     const board = query.view === 'board';
     const shown = board || query.status === 'all'
         ? filtered
-        : filtered.filter(comment => comment.resolved === (query.status === 'done'));
-    const open = shown.filter(comment => !comment.resolved);
+        : filtered.filter(comment => query.status === 'ready' ? readyForReview(comment) : comment.resolved === (query.status === 'done'));
+    const open = shown.filter(comment => !comment.resolved && !readyForReview(comment));
+    const ready = shown.filter(readyForReview);
     const done = shown.filter(comment => comment.resolved);
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
@@ -177,7 +180,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                     </p>
                 )} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
-            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? [...open, ...done] : shown} assignees={assignees}>
+            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? [...open, ...ready, ...done] : shown} assignees={assignees}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>
@@ -195,17 +198,17 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                         <EmptyMedia variant="icon">
                             {query.status === 'open' ? <CircleCheckIcon /> : <CircleDashedIcon />}
                         </EmptyMedia>
-                        <EmptyTitle>{query.status === 'open' ? 'Nothing open' : 'Nothing done yet'}</EmptyTitle>
+                        <EmptyTitle>{query.status === 'ready' ? 'No checks requested' : query.status === 'open' ? 'Nothing open' : 'Nothing done yet'}</EmptyTitle>
                         <EmptyDescription>
                             {query.status === 'open'
                                 ? 'Every comment here is done. Choose Done or All to see them.'
-                                : 'Comments marked as done show here.'}
+                                : query.status === 'ready' ? 'Requested fix checks show here.' : 'Comments marked as done show here.'}
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-                    {[{ title: 'Open', items: open }, { title: 'Done', items: done }].map(column => (
+                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+                    {[{ title: 'Open', items: open }, { title: 'Ready for review', items: ready }, { title: 'Done', items: done }].map(column => (
                         <section key={column.title} aria-label={`${column.title} comments`} className="flex flex-col gap-3 rounded-2xl border bg-muted/50 p-3">
                             <h3 className="m-0 flex items-center gap-2 px-1 text-sm font-medium">
                                 <span aria-hidden="true" className={column.title === 'Done' ? 'size-1.5 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 rounded-full bg-foreground'} />
@@ -214,7 +217,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                             </h3>
                             {column.items.length
                                 ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
-                                : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
+                                : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Ready for review' ? 'No checks requested.' : column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
                         </section>
                     ))}
                 </div>

@@ -1,3 +1,4 @@
+import { verificationDescription } from '@uier/toolbar/verification';
 import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import type { FeedbackContext, FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
@@ -51,6 +52,11 @@ export function notionBlocks(context: FeedbackContext, screenshot?: { fileUpload
         context.anchor.endSelector].filter(value => value !== undefined).join('\n'), { language: 'plain text' });
     const pageUrl = approvedUrl(context.links.page);
     if (pageUrl) result.push(blockSpec('page', { object: 'block', type: 'bookmark', bookmark: { url: pageUrl } }));
+    if (context.verification) {
+        chunks('verification', 'paragraph', verificationDescription(context.verification));
+        if (context.verification.summary) chunks('verification-summary', 'paragraph', context.verification.summary);
+        if (context.verification.fixUrl) chunks('verification-link', 'paragraph', context.verification.fixUrl);
+    }
     add('heading:context', 'heading_2', 'Context');
     const details: [string, unknown][] = [['Priority', priorityLabels[commentPriority(context.priority)]], ['Environment', context.source.environment], ['Page', context.source.path], ...Object.entries(context.reproduction)];
     for (const [key, value] of details) if (value !== undefined)

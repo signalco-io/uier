@@ -2,7 +2,8 @@
 
 Read ../../docs/browser-extension.md before changes. This is an unreleased runtime spike, not a
 published extension. Do not claim hosted BotID acceptance from local-mode tests or enable rollout
-before the gate is recorded. Store bootstrap and release automation remain separate delivery work.
+before the gate is recorded. Store bootstrap remains owner work; release/status automation is implemented but disabled by default.
+Read ../../docs/browser-extension-release.md before touching publishing.
 
 Build bundles shared toolbar source through @uier/toolbar/extension. Configure adapters before
 loading runtime; never inject a remote script or use page globals for credentials. Main-world code
@@ -21,3 +22,7 @@ after capture, leave the UI hidden until done, crop to viewport and preserve tex
 Use shared brand assets/tokens and UI-kit controls. Runtime version comes from package.json.
 Run root typecheck/build/short tests before a PR, plus validate/package and the persistent Chromium
 suite after runtime changes. Test dist output, not source or a mocked extension API.
+
+protocol.ts defines the closed worker envelope; route authorization remains in the shared contract.
+Never remove pre-write store receipts or retry ambiguous writes. Test the unchanged production ZIP
+with test:package; its loopback TLS fixture is local acceptance, never hosted BotID evidence.

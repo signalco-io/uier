@@ -1,5 +1,9 @@
 'use server';
 
+import { z as verificationZ } from 'zod';
+import { changeFixVerification } from '../../../lib/review/fixVerification';
+import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema';
+
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
@@ -184,4 +188,9 @@ export async function triageCommentsAction(projectId: string, batch: unknown) {
         revalidatePath(KnownPageLinks.project(id));
         return result;
     });
+}
+
+export async function verificationCommentAction(projectId: string, commentId: string, input: unknown) {
+    return commentAction(verificationZ.object({ projectId: projectIdSchema, commentId: commentActionSchema.shape.commentId, input: fixVerificationSchema }),
+        { projectId, commentId, input }, ({ project, actor }, parsed) => changeFixVerification(project, actor, parsed.commentId, parsed.input));
 }

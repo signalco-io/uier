@@ -11,7 +11,7 @@ import { ReviewLinksMenu } from './ReviewLinksMenu';
 
 /**
  * A project's install guide (Settings → Installation, and the onboarding's second step). Comments from one
- * of the project's addresses show the script works: the guide moves behind a button, except in onboarding.
+ * of the project's addresses show recent activity, not installation proof. The guide folds outside onboarding.
  */
 export async function ProjectInstallGuide({ context, project, onboarding = false }: { context: AppContext; project: PublicProject; onboarding?: boolean }) {
     const lastCommentAt = onboarding ? undefined : (await loadProjectComments(context, project))

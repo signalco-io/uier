@@ -37,7 +37,8 @@ existing secret value; replacements must be provisioned before switching workflo
 
 The main ruleset requires `CI OK` and a pull request, with zero required approving reviews.
 Azure management locks were not established by preparation. The provisioning receipt below records
-the later environment and preview-identity setup; production still uses its account key.
+the later environment and preview-identity setup. Production runtime identity activation is recorded
+in stage 4 below; account-key authentication remains enabled until stage 5.
 
 ## Stage 2: prepare the deployment boundaries
 
@@ -273,12 +274,12 @@ Post-retirement checks also passed with zero repository Actions secrets:
 - [Worker verification #41367712817](https://github.com/signalco-io/uier/actions/runs/41367712817):
   dedicated worker OIDC subject and all five data scopes verified again, without writes or delivery.
 
-Cosmos readback matches the pre-activation baseline: Continuous7Days backup, no migration in
-progress, `disableLocalAuth: false`, `disableKeyBasedMetadataWriteAccess: false` and provisioning
-Succeeded. Production application Cosmos/Blob keys are retained for the later stages. Preview
+At the stage 3 handoff, Cosmos readback matched the pre-activation baseline: Continuous7Days backup,
+no migration in progress, `disableLocalAuth: false`, `disableKeyBasedMetadataWriteAccess: false` and provisioning
+Succeeded. Production application Cosmos/Blob keys were retained at that handoff for the later stages. Preview
 state/key reads and Vercel's project-wide token scope still carry production-sensitive access.
-No local Pulumi update or protected-resource deletion/replacement was performed. #167 stays open
-for the production identity cutover, operator/restore checks and key retirement in stages 4–5.
+No local Pulumi update or protected-resource deletion/replacement was performed. Stage 4 below
+records the production identity cutover; #167 stays open for the remaining operator/restore and key-retirement checks.
 
 ## Stage 4: switch production to the prepared Cosmos identity
 
@@ -293,13 +294,88 @@ and deliver a recipient-authorized digest. Record the commit, CI/deployment URLs
 role readback, worker result and application checks. Do not infer delivery from a successful build.
 Keep account-key authentication enabled until these checks pass.
 
+### Stage 4 implementation and readback
+
+The program removes `listDatabaseAccountConnectionStringsOutput` and the production connection-string
+variable, and adds three production-only identity variables. It retains both container names, comment
+signing keys, screenshot credentials, email/integration settings and the worker settings snapshot.
+The new variables depend on the already-protected federation and both data assignments. The exact
+CI plan must show three Vercel variable creations and one variable deletion, with no identity,
+permission, database, container, backup, domain, key or other application-variable changes.
+
+Preflight on 2 November 2026 confirmed the prepared identity `uier-production-cosmos8aa0f6cc`:
+client `337dc73c-b36c-4425-8b70-99b4f8811b28`, principal
+`71c0cea5-d909-495a-a82b-53b0b97bc7e3`, tenant `c7837eb3-77ca-413b-8653-c97b08886678`.
+Its only federation is issuer `https://oidc.vercel.com/signalco`, audience
+`https://vercel.com/signalco` and subject `owner:signalco:project:uier:environment:production`.
+Its only Cosmos assignments are Built-in Data Contributor on `comments` and `app` in `uierdata`;
+Azure management-role readback was empty. Both account authentication flags remain false,
+Continuous7Days backup has no migration in progress and account provisioning is Succeeded.
+
+### Stage 4 activation receipt — 2 November 2026
+
+[PR #332](https://github.com/signalco-io/uier/pull/332), commit
+`08ada597a8bf271e03da566a3de0e0be026f52bb`, activated the production Cosmos identity through CI.
+Local typecheck/build, 28 infrastructure tests and the default suite passed (585 tests, one skipped).
+Two launch tests initially timed out; both passed serially on a fresh port, followed by the full
+passing default suite. No toolbar source was edited.
+
+| Check | Evidence | Result |
+| --- | --- | --- |
+| PR plan and required checks | [CI #41370158581](https://github.com/signalco-io/uier/actions/runs/41370158581) | All checks passed; exactly three production Vercel variables to create, one connection-string variable to delete, 104 resources unchanged |
+| Production apply and deployment | [Deploy #41370612470](https://github.com/signalco-io/uier/actions/runs/41370612470) | Applied exactly that plan; prebuilt production deployment READY |
+| Production runtime | [Cutover deployment](https://uier-iz3p5pjxz-signalco.vercel.app) | Deployment `dpl_9DCGaNiP2MKiEm8skHmkAJLMbkbL` was confirmed behind uier.io; public `/api/status` returned HTTP 200 with website/comments operational |
+| Authenticated app and comments | Existing signed-in Edge session, freshly reloaded after deployment | Account, workspace access and project data loaded; the existing project retained 14 comments, 9 open and 5 done |
+| Worker data access | [Verify-only #41371286951](https://github.com/signalco-io/uier/actions/runs/41371286951) | Dedicated worker OIDC subject and all three Cosmos/two Blob data scopes verified; no writes or delivery |
+| Preview after permission retirement | [Manual-main CI #41371513433](https://github.com/signalco-io/uier/actions/runs/41371513433) | Separate preview OIDC subject verified; 107 infrastructure resources unchanged without the Cosmos key-read assignment |
+
+Vercel API readback verified all three production identifier/endpoint values against the prepared
+identity and live Azure endpoint. `COSMOSDB_CONNECTION_STRING` was absent. The other 51 Vercel
+variable IDs, targets, types and branch metadata were retained, including the unchanged preview
+variables, signing secrets and screenshot credentials. The production/preview identities and both
+container selections remain separate. The successful production comments and authenticated app reads
+therefore ran through the configured endpoint identity, without a connection-string fallback.
+
+After activation and these checks, the preview CI app's unused Cosmos-account key-read assignment
+`55ea0868-bad2-5a85-b028-ba6bba5224e6` was removed. Its remaining five Azure RBAC assignments are
+resource-group Reader, state-container read, state-key decrypt, ACS key read and screenshot-account
+key read. The follow-up preview succeeded after that removal. Historical state can still expose the
+old account key; removing a fresh key-read assignment does not establish full data isolation.
+
+The full follow-up CI passed: 609 web/API tests passed, one skipped, the preview deployed and
+[its authenticated health check](https://uier-4nd029kp3-signalco.vercel.app/api/status) returned both
+services operational. The extension browser fixture initially timed out waiting for its comment
+textbox; the single targeted job rerun passed without source changes. The cutover PR's required
+checks had already passed before merge.
+
+Azure account readback exactly matches the pre-cutover baseline: `disableLocalAuth: false` and
+`disableKeyBasedMetadataWriteAccess: false`, Continuous7Days backup has no migration in progress
+and provisioning is Succeeded. No local
+Pulumi update, database/container change, account-key rotation, protection removal or deployment
+approval gate was introduced. The worker snapshot and existing screenshot-storage key were retained.
+No test digest was generated; worker verification proves data access, not outbound delivery.
+Stage 5 still requires the named operator/restore prerequisites, key disabling/rotation and the final
+application/delivery checks before #167 can close.
+
 ## Stage 5: retire key access and verify the boundaries
 
-Give moderation/Data Explorer operators and the restore operator appropriate Entra data-plane
-access first; update [moderation](operations.md#removing-abusive-comments) and the
-[restore runbook](backups-and-restore.md). In a later CI stage set both `disableLocalAuth: true` and
+The owner authorized stage 5 on 2 November 2026. Prepare and verify moderation/Data Explorer and
+restore Entra access before the account update; update [moderation](operations.md#removing-abusive-comments) and the
+[restore runbook](backups-and-restore.md). This CI stage sets both `disableLocalAuth: true` and
 `disableKeyBasedMetadataWriteAccess: true`. Read back the flags, regenerate both account keys through
 an authorized controlled operation, then repeat production app/comment and digest checks.
+
+Operator preparation readback identifies **AleksandarDev**'s existing subscription Owner access
+and adds only container-scoped Cosmos data roles: Data Contributor on `comments` and
+`comments-preview`, Data Reader on `app`. The same signed-in Entra principal successfully queried
+all three without keys. Read-only discovery finds the source continuous-backup instance. Restored
+accounts require new container-scoped Entra assignments before reads; app recovery writes remain
+temporary per-incident grants. Operator tools use explicit Entra login, with no key retrieval.
+No restore was submitted and CI receives no recovery role.
+
+The expected PR plan is one in-place `uierdb` update of the two flags, with all other resources
+unchanged. Both key regenerations follow successful CI apply and live flag readback. Record actual
+apply, rotations and post-retirement checks below; source alone is not activation evidence.
 
 An owner separately adds Azure `CanNotDelete` locks on the resource group and `uierdb` and records
 their exact scopes and live readback. Contributor cannot manage these locks. Until then, the public

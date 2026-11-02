@@ -78,3 +78,17 @@ text leaves uier only when the reviewer copies it. Screenshot capture, thumbnail
 continue using the existing evidence workflow. #93's future anchor-history view should extend
 this authorized model when merged; this export does not implement reattachment or infer live
 anchor status.
+
+## Verification context
+
+Version 1 packets add optional `verification`, using the authorized display-only projection:
+request id/revision, requester/reviewer names, requested time, bounded summary and allowed fix
+link, outcome, and latest decision name/time/kind/admin override. No stored actor ids or guest
+hashes are included. `status` remains `open` or `done`; Ready for review projects to `open`.
+A `confirmed` outcome with a confirm decision is the current confirmation claim. A retained
+confirm decision under `reopened` or `unconfirmed` is historical. Ordinary closure cannot create
+one. Deleted first messages redact the verification record with their author evidence.
+
+The Markdown formatter treats names and summaries as literal content. Fix links have already
+passed URL and source-access policy. MCP and provider packets reuse this projection; exports
+never fetch fix destinations or embed external content.

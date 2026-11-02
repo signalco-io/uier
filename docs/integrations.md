@@ -197,3 +197,17 @@ uses generated fixture credentials and loopback simulators; it never needs real 
 
 Local and CI checks prove the code paths exercised. Provider-specific hosted acceptance,
 registration, credentials, distribution approval and deployment readback remain separate evidence.
+
+## Fix verification and two-way status
+
+Provider packets add authorized verification details while keeping the provider-native status
+Open/Done. Ready for review maps to Open. A remote closure is ordinary Done without reviewer
+confirmation; a remote reopen invalidates a current confirmation claim. Same-status polls do
+not change a pending request, advance its revision or create events. In-flight local requests
+win over an older status read through the existing source-version/pending-write boundary.
+
+The shared import path uses the same ordinary-status transition as app, bulk and MCP status.
+Only the requested reviewer or an explicitly attributed independent admin can create a
+confirmation inside uier. No provider status can do so. Names, summaries and fix links remain
+untrusted literal content in provider projections, and privacy cleanup keeps its existing
+scrub/close semantics rather than promising erasure of remote history.

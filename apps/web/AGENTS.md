@@ -552,7 +552,9 @@ refused, truncated or rejected. Keep content, identifiers and raw errors out of 
 payload logs. Telemetry must not fail a rewrite. `pricing.ts` owns versioned source/date/USD rates;
 `report.ts` aggregates UTC daily exports with explicit retry, fallback and missing-usage coverage.
 See [rewrite costs](../../docs/rewrite-costs.md) for operations, model evidence, limitations and revert.
-`rewrite-accounting.api.spec.ts` and `rewriteFixtures.ts` cover accounting without paid calls. Live
+`rewrite-accounting.api.spec.ts` and `rewriteFixtures.ts` cover accounting without paid calls. A single
+ordinary iteration with a null model may use the serving response model; preserve unknown models and
+fallback gaps. Evaluation summaries must never turn an unknown charge into zero. Live
 comparison requires a separate explicit bounded command; never put it in automated tests. Preserve
 budgets, timeouts, output validation and route response shapes when changing instrumentation or models.
 
@@ -596,7 +598,10 @@ The scheduled worker is packaged before credentials are loaded, then runs withou
 OIDC plus `AzureCliCredential` for Cosmos and Blob data access; deployed requests keep Vercel
 federation through `azureDataCredential`. It accepts no Cosmos/Blob account key or dotenv file.
 `UIER_WORKER_SETTINGS` contains only allowlisted data, transport and integration-crypto settings;
-`scripts/worker-settings.mjs` masks each value before loading it. No Vercel token or environment
+`scripts/worker-settings.mjs` masks each value before loading it, except the `"0"`/`"1"`
+`SLACK_DISTRIBUTION_APPROVED` gate (masking `1` hid exit codes and delivery ids). Only a run's own
+failed or ambiguous attempts fail it; ledgers already waiting for review are named as warnings with
+their `retry_delivery` id on every run. No Vercel token or environment
 pull is available. Refresh the snapshot after credential/crypto changes with
 `pnpm -C infra exec node scripts/configure-worker.mjs`; never replace app keys to repair a worker.
 Every run validates data scopes first; `verify_only` stops before writes or dispatch.
@@ -649,9 +654,13 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
   Keep `docs/mvp-launch-verification.md` honest about pending dependency, hosted and physical-device
   evidence; passing local fixtures alone must not close the launch gate.
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
-  points it at a real Cosmos DB. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
-  from Pulumi: production an account key, previews Entra ID with the Vercel OIDC token
-  (`src/lib/db/client.ts`), scoped to the `comments-preview` container.
+  points it at a separate development Cosmos DB account. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
+  from Pulumi: separate production/preview Entra identities with Vercel OIDC tokens
+  (`src/lib/db/client.ts`), scoped to `comments`/`app` or `comments-preview`/`app-preview`.
+  Production has no Cosmos connection string; setting both endpoint and connection string is rejected.
+  Cosmos account-key authentication is disabled. Standalone production operator commands use the
+  explicit `UIER_AZURE_AUTH_MODE=operator` with `AzureCliCredential`; Vercel and Actions contexts reject
+  that mode. Query profiling also uses the signed-in operator's scoped Entra roles, never account keys.
 
 ## Toolbar in development
 
@@ -1032,6 +1041,11 @@ membership, session and addresses before calling shared review services. Keep em
 nonce-protected frame for the packaged helper; only registered extension origins may frame it.
 No app cookie reaches the worker. Read [the design and remaining gates](../../docs/browser-extension.md).
 
+Installation uses the script/extension tabs in InstallGuide. Keep Check installation inside the
+script tab; comment activity does not prove embed installation. BrowserExtensionGuide reads the
+server-only distribution gate (UIER_EXTENSION_AVAILABLE=1, valid STORE_ID also in CLIENT_IDS).
+Never invent a store URL or enable it without hosted/store acceptance.
+
 
 ## App triage
 
@@ -1057,3 +1071,20 @@ Ordinary public-project enrollment grants no priority or bulk powers; `canTriage
 in services and DTOs. Priority adds activity/integration intent only, with no email event. Read it via
 `commentPriority` everywhere. Tests: `triage{,.api}.spec.ts`, MCP, feedback-context and integration
 suites. See [review workflow](../../docs/review-workflow.md#search-priority-and-bulk-triage).
+
+## Fix verification
+
+`review/fixVerification.ts` owns conditional request/confirm/reject/cancel transitions. Reuse
+`changeComment` and atomic change receipts; recheck mode, access and reviewer authority on each
+attempt. `fixVerificationDto.ts` is pure and must be called only after visibility authorization.
+`comments/verificationState.ts` is the pure server ordinary-status projection used by review,
+public and provider writes; never infer confirmation from a resolved boolean. New requests and
+status transitions rotate the request revision. Same-status provider polls preserve readiness.
+Keep `verification` bounded to the latest request/decision, with server-only actor references.
+
+`VerificationControl` and toolbar `CommentVerification` share pure `@uier/toolbar/verification`
+labels/types, not UI or runtime imports. Ready is a subset of Open in activity counts; board
+columns are exclusive. Workflow-only changes must not acknowledge reads. MCP offers approved
+request/cancel under `feedback:status`, never confirmation. Keep tools, workflows and downloadable
+skill aligned. Focused coverage is `verification{,.api}.spec.ts` plus bulk, MCP and integration
+regressions. Author placeholder deletion redacts verification with original author evidence.

@@ -1,3 +1,4 @@
+import { changeFixVerification } from '../src/lib/review/fixVerification';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -129,7 +130,7 @@ test('two-way toggle rejects members, foreign workspaces, unsupported providers 
     expect((await f.store.get<IntegrationConnection>(f.connections.github.pk, f.connections.github.id))!.doc.twoWaySync).toBe(false);
 });
 
-for (const race of ['toggle', 'disabled', 'disconnect', 'destination', 'private', 'local edit', 'admin removal'] as const) {
+for (const race of ['toggle', 'disabled', 'disconnect', 'destination', 'private', 'local edit', 'verification request', 'admin removal'] as const) {
     test(`status polling rechecks ${race} after the provider read and preserves outbound state`, async () => {
         const f = await fixture(); const target = accepting('github');
         await processIntegrationDelivery(await queue(f, 'github'), baseUrl, target);
@@ -144,6 +145,7 @@ for (const race of ['toggle', 'disabled', 'disconnect', 'destination', 'private'
                 if (race === 'destination') await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, destinationRevision: row.destinationRevision + 1 }));
                 if (race === 'private') await replaceSource(f, { private: true, syncVersion: 2 });
                 if (race === 'local edit') await replaceSource(f, { resolved: false, syncVersion: 2 });
+                if (race === 'verification request') await changeFixVerification(f.project, { kind: 'member', userId: f.otherOwner.id, name: f.otherOwner.name, isAdmin: true }, f.source.id, { action: 'request', reviewerId: 'author', expectedRevision: null, idempotencyKey: randomUUID() });
                 if (race === 'admin removal') await f.store.delete(f.project.pk, memberId(f.otherOwner.id));
             });
             await context.receiveStatus!(true);
@@ -943,4 +945,34 @@ test('a new operation proven unsent after persistence does not manufacture creat
     expect(saved.lastCode).toBe('projection_changed');
     expect(saved.attempt).toBeUndefined();
     expect(saved.processedVersion).toBe(-1);
+});
+
+test('two-way polls preserve pending readiness on Open and close/reopen without reviewer evidence', async () => {
+    const f = await fixture();
+    await changeFixVerification(f.project, { kind: 'member', userId: f.otherOwner.id, name: f.otherOwner.name, isAdmin: true }, f.source.id,
+        { action: 'request', reviewerId: 'author', expectedRevision: null, idempotencyKey: randomUUID() });
+    // Deliver the request before polling; unacknowledged local work always wins.
+    let source = (await f.comments.get(f.source.domain, f.source.id))!.comment;
+    await enqueueIntegrationSync(f.project, 'github', f.connections.github.id, source.id, source.syncVersion!);
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, accepting('github'));
+    // The source signal is shared across providers; discovery acknowledges durable target ledgers.
+    await discoverThreadIntegrationSync(f.project, source);
+    await updateDoc<IntegrationConnection>(f.connections.github.pk, f.connections.github.id, row => ({ ...row, twoWaySync: true }));
+    const target = (resolved: boolean): IntegrationAdapter => ({ provider: 'github', isConfigured: () => true, supportsStatusSync: true, async deliver(ctx) {
+        await ctx.read(async () => {}); await ctx.receiveStatus!(resolved); return { status: 'accepted' };
+    } });
+    const revision = source.verification!.revision;
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target(false), { statusOnly: true });
+    source = (await f.comments.get(f.source.domain, f.source.id))!.comment;
+    expect(source.verification).toMatchObject({ outcome: 'pending', revision });
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target(true), { statusOnly: true });
+    source = (await f.comments.get(f.source.domain, f.source.id))!.comment;
+    expect(source).toMatchObject({ resolved: true, verification: { outcome: 'unconfirmed' } });
+    expect(source.verification!.decision).toBeUndefined();
+    await discoverThreadIntegrationSync(f.project, source);
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, accepting('github'));
+    await processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target(false), { statusOnly: true });
+    source = (await f.comments.get(f.source.domain, f.source.id))!.comment;
+    expect(source).toMatchObject({ resolved: false, verification: { outcome: 'reopened' } });
+    expect(source.verification!.decision).toBeUndefined();
 });

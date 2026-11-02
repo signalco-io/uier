@@ -8,8 +8,8 @@ It manages:
 
 - the Vercel project `uier` (root directory `apps/web`, Node 24, region `dub1`) with the
   domains `uier.io` and `www.uier.io` (a `308` redirect to `uier.io`), and the comments API
-  variables (production: `COSMOSDB_CONNECTION_STRING` with the primary key and `comments`,
-  preview: the managed identity below and `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
+  variables (`COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` for separate production
+  and preview identities, `comments` / `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
   variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
   existing variable flags are retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
@@ -31,13 +31,13 @@ email key). Never give previews a
 connection string again; the federated credential hardcodes the Vercel team slug, project name
 and team issuer mode, so update it when those change.
 
-`src/productionCosmosIdentity.ts` prepares a separate protected identity trusted only for
-`owner:signalco:project:uier:environment:production`, with built-in Data Contributor on `comments`
-and `app` only. Production still uses its connection string until the staged cutover in
-[`docs/ci-credential-rollout.md`](../docs/ci-credential-rollout.md). Preparation must create exactly
-the identity, federation and two data-plane assignments; no authentication flag or Vercel value
-changes. The existing connection-string variable now has `deleteBeforeReplace` in preparation
-for a later change; keep its sensitivity/value unchanged in this deploy. Verify the CI preview.
+`src/productionCosmosIdentity.ts` uses the prepared protected identity trusted only for
+`owner:signalco:project:uier:environment:production`, with Built-in Data Contributor on `comments`
+and `app` only. Its production runtime variables replace `COSMOSDB_CONNECTION_STRING`; the program
+no longer lists account connection strings. Preview keeps its separate identity and containers.
+The stage 5 preview must show only the two authentication flags in one in-place account update,
+with no replacement, deletion or backup-policy change. See the staged readback in
+[`docs/ci-credential-rollout.md`](../docs/ci-credential-rollout.md).
 
 Never disable local authentication or key-based metadata writes until production, the scheduled
 worker, moderation operators and the restore procedure all work with Entra ID. Deploy each
@@ -60,14 +60,17 @@ reject the snapshot, so placeholders cannot reach production. Keep the five prot
 key resources registered. State/key reads are sensitive even without resource-management writes.
 `scripts/configure-worker.mjs` refreshes the worker's strict settings snapshot from deployed inputs,
 in memory and through GitHub stdin. Run it after provider/mail/key rotations before retiring old keys.
-The worker gets no account, state or deployment keys; the production app retains its current keys
-until the separate identity cutover. Do not change sensitive flags or protected resources in this stage.
+The worker gets no account, state or deployment keys. Production Cosmos access is keyless too;
+its existing screenshot-storage key is separate and unchanged. Cosmos key authentication and key-based
+metadata writes are disabled with `disableLocalAuth: true` and
+`disableKeyBasedMetadataWriteAccess: true`. Keep them enabled as protections; never restore a Cosmos
+connection string or key lookup. Backups, protection and unrelated variable sensitivity stay unchanged.
 
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.
 
-The preview `COSMOSDB_ENDPOINT` is read with `getDatabaseAccountOutput` using the account's
-stable name, like the production connection-string lookup. Avoid wiring it to the resource's
+Both targets' `COSMOSDB_ENDPOINT` values are read with `getDatabaseAccountOutput` using the
+account's stable name. Avoid wiring it to the resource's
 computed `documentEndpoint`: account settings updates make that output unknown during preview
 and can propose an extra Vercel variable update. The lookup still reads Azure's actual endpoint;
 do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.

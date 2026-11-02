@@ -612,3 +612,34 @@ test('an already connected staff credential loses private app feedback and scree
         if (previous === undefined) delete process.env.UIER_STAFF_EMAILS; else process.env.UIER_STAFF_EMAILS = previous;
     }
 });
+
+test('approved verification tools request/cancel under status scope; boolean status never confirms', async () => {
+    const f = await fixture();
+    const reviewer = await findOrCreateUser(`mcp-reviewer-${randomUUID()}@example.com`);
+    await getAppStore().create<DbMember>({ type: 'member', pk: f.project.pk, id: memberId(reviewer.id), workspaceId: f.project.workspaceId,
+        userId: reviewer.id, email: reviewer.email, role: 'commenter', projects: 'all', createdAt: new Date().toISOString() });
+    const { token } = await createMcpCredential(f.context, { name: 'Verification', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:status'], days: 7 });
+    const client = await connect(token);
+    const args = { projectId: f.project.id, commentId: f.comment.id };
+    try {
+        const tools = (await client.listTools()).tools.map(tool => tool.name);
+        expect(tools).toContain('request_feedback_verification');
+        expect(tools).toContain('cancel_feedback_verification');
+        expect(tools.some(name => /confirm/.test(name))).toBe(false);
+        const input = { ...args, expectedRevision: null, reviewerId: reviewer.id, summary: 'Fixed submit', idempotencyKey: idempotencyKey() };
+        const requested = data(await client.callTool({ name: 'request_feedback_verification', arguments: input }));
+        expect(requested.saved).toBe(true);
+        const ready = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, status: 'ready' } }));
+        expect(ready.items).toHaveLength(1);
+        expect(ready.items[0].verification).toMatchObject({ outcome: 'pending', reviewer: reviewer.name });
+        const canceled = data(await client.callTool({ name: 'cancel_feedback_verification', arguments: { ...args, expectedRevision: requested.revision, idempotencyKey: idempotencyKey() } }));
+        expect(canceled.saved).toBe(true);
+        const second = data(await client.callTool({ name: 'request_feedback_verification', arguments: { ...input, expectedRevision: canceled.revision, idempotencyKey: idempotencyKey() } }));
+        await client.callTool({ name: 'set_feedback_status', arguments: { ...args, resolved: true, idempotencyKey: idempotencyKey() } });
+        const saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+        expect(saved.verification).toMatchObject({ outcome: 'unconfirmed' });
+        expect(saved.verification!.decision).toBeUndefined();
+        expect(saved.verification!.revision).not.toBe(second.revision);
+        expect(feedbackSkill()).toContain('MCP cannot confirm a fix');
+    } finally { await client.close(); }
+});

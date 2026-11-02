@@ -40,6 +40,7 @@ export type CommentDto = {
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
     device?: { size?: DbDeviceSize; windowSize?: [number, number] };
+    verification?: import('@uier/toolbar/verification').VerificationDetails;
     resolved: boolean;
     isMine: boolean;
     createdAt?: string;

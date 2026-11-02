@@ -13,6 +13,8 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.
 - [Browser extension](browser-extension.md): unreleased desktop runtime, security boundaries, local loading and hosted/publication gates.
+- [Extension releases](browser-extension-release.md): protected release/status CI, owner bootstrap and recovery.
+- [Extension listing](browser-extension-listing.md): prepared copy, artwork and disclosure worksheet.
 - [Review workflow](review-workflow.md): the app, access, assignment, screenshots, drafts, unread activity and environments.
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
 - [Project deletion](project-deletion.md): what deleting a project removes, in what order, what stays and how failed steps are retried.
@@ -29,6 +31,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 - [Infrastructure and operations](operations.md): infrastructure setup, CI/CD, credentials, security disclosure, status checks and moderation.
 - [CI credential rollout](ci-credential-rollout.md): staged least-privilege environments, build/deploy separation and production Cosmos DB identity access.
+- [Live rewrite evaluation](rewrite-evaluation-2026-11-02.md): bounded Opus/Sonnet measurements, provisional quality screen and accounting limits.
 - [Rewrite usage and costs](rewrite-costs.md): daily operational reports, versioned estimates, accounting limits and model evaluation evidence.
 - [Backups and restore](backups-and-restore.md): policy rollout gates, access, recovery procedure and drill evidence.
 - [Cosmos query costs](cosmos-query-costs.md): operation inventory, bounded profiling, measured RU results and query/count contracts.

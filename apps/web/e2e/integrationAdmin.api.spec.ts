@@ -43,18 +43,24 @@ test('operator requests are strict and production guard rejects local/preview/mi
             operationId: randomUUID(), operatorAcknowledged: true, decision: { kind: 'confirm-absent', issueNumber: 1 } }])
         expect(() => parseIntegrationAdminInput(bad)).toThrow();
     const keys = ['UIER_LOCAL', 'UIER_DEPLOYMENT_ENV', 'VERCEL_ENV', 'NODE_ENV', 'COSMOSDB_CONNECTION_STRING', 'COSMOSDB_ENDPOINT',
-        'COSMOSDB_APP_CONTAINER', 'COSMOSDB_COMMENTS_CONTAINER', 'UIER_COMMENTS_SECRET', 'UIER_BASE_URL'];
+        'COSMOSDB_APP_CONTAINER', 'COSMOSDB_COMMENTS_CONTAINER', 'UIER_COMMENTS_SECRET', 'UIER_BASE_URL',
+        'AZURE_TENANT_ID', 'UIER_AZURE_AUTH_MODE', 'VERCEL', 'VERCEL_URL', 'GITHUB_ACTIONS'];
     const saved = new Map(keys.map(key => [key, process.env[key]]));
     try {
         for (const key of keys) delete process.env[key];
-        Object.assign(process.env, { UIER_DEPLOYMENT_ENV: 'production', COSMOSDB_CONNECTION_STRING: 'test-presence-only',
+        Object.assign(process.env, { UIER_DEPLOYMENT_ENV: 'production', NODE_ENV: 'production', COSMOSDB_ENDPOINT: 'https://fixture.documents.azure.com',
+            AZURE_TENANT_ID: 'fixture-tenant', UIER_AZURE_AUTH_MODE: 'operator',
             UIER_COMMENTS_SECRET: 'x'.repeat(32), UIER_BASE_URL: 'https://uier.io' });
         expect(() => assertIntegrationAdminProductionConfiguration()).not.toThrow();
         for (const [key, value] of [['UIER_LOCAL', '1'], ['VERCEL_ENV', 'preview'], ['NODE_ENV', 'development'],
-            ['COSMOSDB_ENDPOINT', 'https://preview.invalid'], ['COSMOSDB_APP_CONTAINER', 'app-preview'], ['UIER_BASE_URL', 'https://attacker.example']]) {
+            ['COSMOSDB_CONNECTION_STRING', 'test-presence-only'], ['UIER_AZURE_AUTH_MODE', 'github-actions'],
+            ['VERCEL', '1'], ['VERCEL_URL', 'fixture.vercel.app'], ['GITHUB_ACTIONS', 'true'], ['COSMOSDB_APP_CONTAINER', 'app-preview'], ['UIER_BASE_URL', 'https://attacker.example']]) {
             process.env[key!] = value;
             expect(() => assertIntegrationAdminProductionConfiguration()).toThrow();
-            if (key === 'UIER_BASE_URL') process.env[key] = 'https://uier.io'; else delete process.env[key!];
+            if (key === 'UIER_BASE_URL') process.env[key] = 'https://uier.io';
+            else if (key === 'NODE_ENV') Object.assign(process.env, { NODE_ENV: 'production' });
+            else if (key === 'UIER_AZURE_AUTH_MODE') process.env[key] = 'operator';
+            else delete process.env[key!];
         }
     } finally { for (const [key, value] of saved) if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 });

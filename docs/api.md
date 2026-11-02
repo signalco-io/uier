@@ -365,7 +365,7 @@ See [screenshot storage](screenshot-storage.md) for environments, CSP, migration
 
 | Environment | Store |
 | --- | --- |
-| Vercel production | Cosmos DB container `comments` (account key: `COSMOSDB_CONNECTION_STRING`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
+| Vercel production | Cosmos DB container `comments` (production Entra identity via `COSMOSDB_ENDPOINT`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
 | Vercel preview (pull requests) | Cosmos DB container `comments-preview` in the same database (`defaultTtl` 7 days), no account key: Microsoft Entra ID with the deployment's Vercel OIDC token (`COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `COSMOSDB_COMMENTS_CONTAINER=comments-preview`) |
 | Local development, e2e tests | In memory, when neither `COSMOSDB_CONNECTION_STRING` nor `COSMOSDB_ENDPOINT` is set (`next dev`, or `UIER_LOCAL=1`) |
 
@@ -388,7 +388,7 @@ Pulumi (see [Infrastructure](operations.md#infrastructure)).
 
 The toolbar's **Rewrite** action (selected text) can ask for AI suggestions: `POST /api/rewrite` (a project's
 toolbar: `POST /api/review/<code>/rewrite`) ([`src/lib/rewrite/suggest.ts`](../apps/web/src/lib/rewrite/suggest.ts)) calls the Anthropic API with the official
-SDK: model `claude-opus-5-5` at `low` effort, a JSON schema for the answer (`{ suggestions: string[] }`), and the
+SDK: model `claude-sonnet-5-5` at `low` effort, a JSON schema for the answer (`{ suggestions: string[] }`), and the
 server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`), which retries a
 request a safety classifier declines on Anthropic's recommended model. The selected text and the instruction are
 treated as content, never as instructions. Each call has `max_tokens: 4096` and a hard 1000-character limit per
@@ -400,7 +400,7 @@ partition), so more sites or projects never add up to more. Request and response
 set; a suggestion the reviewer posts is saved as a comment with `kind: "rewrite"` (its text is the suggested
 text, `quotedText` the original).
 
-The SDK reads `ANTHROPIC_API_KEY`. In production Pulumi sets it from the repository secret `ANTHROPIC_API_KEY`
+The SDK reads `ANTHROPIC_API_KEY`. In production Pulumi sets it from the GitHub production-environment secret `ANTHROPIC_API_KEY`
 (the Pulumi workflow passes it in like the Vercel and Cloudflare tokens); without the secret no variable is
 created. Previews and local development have no key: the endpoint answers `503 unavailable` and the toolbar says
 suggestions are not available, while the reviewer's own rewrite still works. Set `ANTHROPIC_API_KEY` in
@@ -448,3 +448,33 @@ original keys, operation and expected values. Status revisions cover content and
 metadata, excluding delivery bookkeeping. Follow-up verification rules belong in the shared status
 service so individual and bulk writes remain compatible. This is partial success, not a transaction
 across all selected threads. The app revalidates once per batch; bulk read remains its own contract.
+
+## Fix verification
+
+`POST /api/review/:projectId/comments/:id/verification` uses existing project CORS, reviewer
+identity, verified-write protection and private-thread access. The same-origin public-project
+counterpart is `POST /api/comments/:id/verification`, with the normal visitor/session and BotID
+checks. It is unavailable for isolated anonymous host partitions.
+
+Requests require a stable `idempotencyKey` and `expectedRevision` (null for a thread with no
+verification record). Supported payloads are:
+
+- `{ action: 'request', reviewerId: 'author' | memberId, expectedRevision, idempotencyKey, summary?, fixUrl? }`.
+- `{ action: 'confirm' | 'reject' | 'cancel', expectedRevision, idempotencyKey, override? }`.
+
+Summary is plain text, up to 500 characters. Fix URLs are up to 2,048 characters; external URLs
+must be HTTPS without credentials or query/fragment state, and configured destinations must
+match approved project page state. No URL is fetched. Guest projection respects source access.
+
+Only current project members request checks; the target is the original usable author or another
+eligible member. Confirm/reject require the requested reviewer and a distinct requester, or a
+different admin with explicit `override: true`. Cancel requires the requester or an admin.
+Membership, project mode, visibility and reviewer authority are rechecked during conditional-write
+retries. Stale revisions return `409 conflict`. Receipt replay reauthorizes and returns current
+state without overwriting later work or producing another event.
+
+DTOs add optional `verification` (latest request id/revision, outcome, display names, request time,
+summary/link and latest named/timed decision with override attribution) and `verificationPermissions`.
+Guest actor hashes never leave storage. Legacy records need no migration. The resolved boolean
+remains compatible: Ready is false, confirmation is true, and ordinary true never confirms.
+Activity summaries add `ready`, a subset of `open`, over the full authorized projection.
