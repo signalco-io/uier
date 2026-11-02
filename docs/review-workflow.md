@@ -556,6 +556,10 @@ threads before starting a new action. Durable 30-day receipts prevent retries fr
 or overwriting later work. One revalidation follows a completed batch. Bulk read stays separate;
 there is no bulk delete, privacy change, reviewer confirmation or toolbar bulk mutation.
 
+The public [feedback triage page](https://uier.io/features/feedback-triage)
+(`apps/web/app/(rest)/(marketing)/features/feedback-triage/`) states these bounds, outcomes and
+permissions. Update it in the same pull request when they change.
+
 ## Fix verification
 
 Verification is optional for each thread. A project member can request a fix check, add a short

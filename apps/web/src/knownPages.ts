@@ -5,6 +5,7 @@ export const KnownPages = {
     GetStarted: '/#get-started',
     Pricing: '/#pricing',
     Faq: '/#faq',
+    FeedbackTriage: '/features/feedback-triage',
     Brand: '/brand',
     Integrations: '/integrations',
     OpenSource: '/open-source',
