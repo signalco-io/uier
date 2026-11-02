@@ -9,17 +9,18 @@ For the operation inventory, safe diagnostics and dated RU measurements, use
 ## Infrastructure
 
 The [least-privilege rollout](ci-credential-rollout.md) records the preparation and the remaining
-credential and Cosmos DB cutover gates for #167. Production still uses its account key in this stage.
+credential and Cosmos DB cutover evidence for #167. Production Cosmos DB access uses the prepared
+Vercel-trusted identity; account-key authentication remains enabled until the stage 5 retirement checks.
 
 [`infra/`](../infra) is the Pulumi project **`uier`** (Node.js runtime) with a single stack,
 **`organization/uier/uier-production`**. It manages:
 
 - the Vercel project **`uier`** (`prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc`, root directory `apps/web`, Node.js 24,
   function region `dub1`), its domains `uier.io` and `www.uier.io` (a permanent `308` redirect to `uier.io`
-  that keeps the path and query) and the comments API variables: production gets `COSMOSDB_CONNECTION_STRING`
-  (the Cosmos DB account's primary key) and `COSMOSDB_COMMENTS_CONTAINER=comments`, preview gets
-  `COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` (the managed identity below) and
-  `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`.
+  that keeps the path and query) and the comments API variables: both targets get `COSMOSDB_ENDPOINT`,
+  `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` for separate managed identities. Production selects
+  `COSMOSDB_COMMENTS_CONTAINER=comments`, preview selects `comments-preview`, and each gets its own
+  random `UIER_COMMENTS_SECRET`. Production no longer has `COSMOSDB_CONNECTION_STRING`.
   The app's data container is `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`); only production gets the
   email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
   existing variable sensitivity is retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
@@ -221,7 +222,8 @@ resources remain registered with their previous values through preview-only `ign
 No production integration or Anthropic key is supplied as a preview environment secret. An update
 rejects this metadata, so preview placeholders can never be applied. State decryption and the
 transitional provider-key reads still expose production credentials; this stage does not establish
-full production-data isolation. Production application key retirement is a later stage.
+full production-data isolation. Production Cosmos runtime key access was removed in stage 4;
+account-key disabling/rotation and removal of historical state exposure belong to stage 5.
 
 Stage 3 removed the old repository secrets and deployment app's main/PR subjects after successful
 replacement runs, including the main-only email verification workflow. Readbacks are recorded in the

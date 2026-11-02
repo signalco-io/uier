@@ -293,6 +293,29 @@ and deliver a recipient-authorized digest. Record the commit, CI/deployment URLs
 role readback, worker result and application checks. Do not infer delivery from a successful build.
 Keep account-key authentication enabled until these checks pass.
 
+### Stage 4 implementation and readback
+
+The program removes `listDatabaseAccountConnectionStringsOutput` and the production connection-string
+variable, and adds three production-only identity variables. It retains both container names, comment
+signing keys, screenshot credentials, email/integration settings and the worker settings snapshot.
+The new variables depend on the already-protected federation and both data assignments. The exact
+CI plan must show three Vercel variable creations and one variable deletion, with no identity,
+permission, database, container, backup, domain, key or other application-variable changes.
+
+Preflight on 2 November 2026 confirmed the prepared identity `uier-production-cosmos8aa0f6cc`:
+client `337dc73c-b36c-4425-8b70-99b4f8811b28`, principal
+`71c0cea5-d909-495a-a82b-53b0b97bc7e3`, tenant `c7837eb3-77ca-413b-8653-c97b08886678`.
+Its only federation is issuer `https://oidc.vercel.com/signalco`, audience
+`https://vercel.com/signalco` and subject `owner:signalco:project:uier:environment:production`.
+Its only Cosmos assignments are Built-in Data Contributor on `comments` and `app` in `uierdata`;
+Azure management-role readback was empty. Both account authentication flags remain false,
+Continuous7Days backup has no migration in progress and account provisioning is Succeeded.
+
+Live deployment, variable readback, authenticated app/comment checks and a post-cutover worker
+verification will be recorded after CI activation. Digest delivery is a separate recipient-authorized
+check; no test digest is sent by an OIDC verification-only run. After successful activation, remove
+the preview CI app's unused Cosmos connection-string-read role assignment and verify another preview.
+
 ## Stage 5: retire key access and verify the boundaries
 
 Give moderation/Data Explorer operators and the restore operator appropriate Entra data-plane

@@ -44,8 +44,9 @@ When moving documentation, update relative links and links to section anchors ac
   `main`. `main` is production: pushes deploy (`pulumi up`, then Vercel) unless all changed
   paths are excluded by `.github/workflows/deploy.yml`.
 - Do not run `pulumi up` locally and do not change protected infrastructure; CI applies infra.
-- Secrets never go in the repo. `COSMOSDB_CONNECTION_STRING` and `UIER_COMMENTS_SECRET` live in
-  Vercel (set by Pulumi); a local connection string goes in `apps/web/.env.local`.
+- Secrets never go in the repo. Production and preview Cosmos DB access uses separate managed
+  identities; `UIER_COMMENTS_SECRET` lives in Vercel (set by Pulumi). An optional local connection
+  string goes in `apps/web/.env.local`.
 
 ## Commands (repository root)
 
