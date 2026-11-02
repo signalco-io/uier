@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
@@ -8,10 +8,10 @@ import { KnownPages } from '../../../../src/knownPages';
 // next.config.ts, infra/) or is a documented property of the service it names. Do not add a control
 // before it ships, and remove one if it stops being true.
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/security', {
     title: 'Security',
     description: `How ${brand.domain} protects the comments left on it, and how to report a vulnerability.`
-};
+});
 
 const controls = [
     {

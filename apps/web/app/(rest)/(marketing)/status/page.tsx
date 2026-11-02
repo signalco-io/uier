@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
@@ -9,10 +9,10 @@ import { getServiceStatus, STATUS_CACHE_SECONDS, type ServiceState } from '../..
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/status', {
     title: 'Status',
     description: `Live checks of ${brand.name}'s website and comments.`
-};
+});
 
 const stateLabels: Record<ServiceState, string> = {
     operational: 'Operational',

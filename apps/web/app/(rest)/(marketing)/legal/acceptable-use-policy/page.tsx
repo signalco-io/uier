@@ -1,12 +1,12 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/legal/acceptable-use-policy', {
     title: 'Acceptable use policy',
     description: `What you may not do with ${brand.domain} and the ${brand.name} toolbar, and how to report abuse.`
-};
+});
 
 export default function AcceptableUsePolicyPage() {
     return (

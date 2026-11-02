@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
@@ -7,10 +7,10 @@ import { KnownPages } from '../../../../../src/knownPages';
 // (src/lib/cookieNames.ts), the app's cookie options (src/lib/app/session.ts)
 // and the toolbar's storage keys (packages/toolbar).
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/legal/cookie-policy', {
     title: 'Cookie policy',
     description: `The cookies and the browser storage ${brand.domain} uses, and why.`
-};
+});
 
 const items = [
     {

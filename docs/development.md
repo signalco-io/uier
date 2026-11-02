@@ -203,6 +203,38 @@ suite. For documentation-only changes, validate content and links without applic
 Run `pnpm test:full` only for broad regression verification when focused checks are insufficient
 or a full run is explicitly requested. It is not a routine implementation or PR requirement.
 
+### Search indexing
+
+Public pages declare their pathname through `apps/web/src/lib/metadata.ts`. It keeps the
+canonical, Open Graph URL and social metadata aligned with the page while retaining the brand's
+title and description conventions. Canonicals always use `brand.url` (`https://uier.io`),
+including when a page is requested with tracking parameters or on another host. See Google's
+[canonical URL guidance](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls).
+
+The build generates `/sitemap.xml` and its child sitemap with `next-sitemap.config.cjs`. Only
+indexable public pages belong there. The dynamic `/status` page is added explicitly; app pages,
+notification preferences, verification bridges, the manifest and the social image are excluded.
+Modification dates are omitted until actual content changes can be tracked, rather than advertising
+every deployment as a content update.
+
+`robots.txt` permits crawling so search engines can read the app, notification and bridge pages'
+`noindex` directives. A robots disallow rule can hide those directives and still leave a URL in
+search results. Authentication remains responsible for app access. See Google's
+[noindex guidance](https://developers.google.com/search/docs/crawling-indexing/block-indexing).
+
+After a production build, run the focused HTTP regression checks:
+
+```bash
+PORT=4104 pnpm -C apps/web exec playwright test e2e/seo.api.spec.ts --project=API --retries=0
+```
+
+The `uier.io` domain property in Google Search Console was verified on 2 November 2026 using a
+Cloudflare Domain Connect TXT record. Preserve the `google-site-verification` record; it is managed
+by that one-time verification flow, separately from Pulumi. `/sitemap.xml` was submitted successfully
+and the homepage was indexed at the time of setup. The new property's reports were still processing;
+submission does not establish indexing for every page. After deploying indexing changes, check
+the sitemap status and representative URLs in Search Console.
+
 ### Required suite
 
 `pnpm test` and pull-request CI run every `.api.spec.ts` once, plus **12 browser tests**:
