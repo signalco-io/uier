@@ -8,6 +8,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Contributing](../CONTRIBUTING.md): workflow, code conventions and documentation ownership.
 - [Agent guides](../AGENTS.md): package code maps and implementation rules.
 - [Brand guide](../packages/brand/BRAND.md) and [live brand page](https://uier.io/brand): voice, tokens, logo and components.
+- [GitHub presence](github-presence.md): repository details, social preview assets and the signalco company profile.
 
 ## Product and APIs
 

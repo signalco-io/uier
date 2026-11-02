@@ -1,0 +1,32 @@
+name: Report a bug
+description: Tell us what happened and how to reproduce it.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep credentials, private feedback and personal data out of this public report.
+        Report security problems privately to security@signalco.io.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include a public page address if it helps. Use your own test content.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: For example, Chrome on macOS or Safari on iPhone
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add a screenshot or error message after removing private information.
