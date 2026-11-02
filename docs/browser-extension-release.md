@@ -46,6 +46,26 @@ Chrome Web Store; native Edge Add-ons is a separate follow-up.
    Set repository variable `CWS_STATUS_MONITOR_ENABLED=true` only after setup. The scheduled
    monitor is otherwise disabled. Google tokens are short-lived action outputs, never repository secrets.
 
+## Bootstrap receipt — 2 November 2026
+
+The repository's GitHub side is configured and read back:
+
+- `extension-production` (environment ID `26068248854`) permits only the `main` branch and
+  `extension-v*` tags. Release jobs require `AleksandarDev`'s review. Self-review remains allowed:
+  this is currently the repository's only collaborator, so preventing it would make releases
+  impossible. Add a second release owner before requiring independent approval.
+- [Tag creation rules](https://github.com/signalco-io/uier/rules/26400994) restrict creation of
+  `extension-v*` tags to `AleksandarDev`. The separate [integrity rules](https://github.com/signalco-io/uier/rules/26400995)
+  prohibit updates and deletion, with no bypass actors. No extension release tag has been created.
+- `CWS_PUBLISHING_ENABLED=false` in the release environment and repository
+  `CWS_STATUS_MONITOR_ENABLED=false` keep store writes and scheduled monitoring disabled.
+
+Publisher/Google Cloud setup and hosted acceptance are still pending. The service account,
+provider, store identifiers and acceptance evidence are not configured yet. Do not infer store
+publication or real BotID acceptance from this GitHub setup receipt. The shared environment's
+review requirement also applies to manual/status runs; scheduled monitoring must not be described
+as unattended until that approval behavior has been addressed.
+
 ## Build, dry-run and submit
 
 `apps/extension/package.json` is the version authority. Use three increasing numeric components,
