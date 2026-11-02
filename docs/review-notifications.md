@@ -40,19 +40,44 @@ that window is delivered together, with a direct link to the thread on its origi
 page, retaining the shared approved query/hash state. Later activity forms the next digest.
 The scheduled **Review notifications** GitHub Actions workflow runs every five minutes on main;
 GitHub can delay scheduled jobs, so five minutes is a batching window, not a delivery guarantee.
-It can also be run manually. It uses the existing Vercel production configuration, Cosmos DB
-containers and Azure Communication Services sender; it creates no new infrastructure.
-`ACS_CONNECTION_STRING` is a retrievable production variable because the download omits Sensitive
-values. A run without both email settings skips email delivery, leaves every ledger queued with its
-failure budget and fails, while cleanup and integrations still run.
+It can also be run manually. The credential-free build job installs dependencies and packages the
+worker and its traced runtime dependencies. A separate `production-worker` job downloads that exact
+run's artifact, signs in with Azure OIDC and loads only `UIER_WORKER_SETTINGS`. It has no checkout,
+Vercel CLI, deployment token, full-environment download, Cosmos account key or screenshot storage key.
 
-During [credential-rollout preparation](ci-credential-rollout.md), the worker still pulls the
-production environment with the repository's `VERCEL_TOKEN`. The CLI is installed with
-`--ignore-scripts`. The next step masks every non-empty dotenv value with escaped `::add-mask::`
-commands before running other steps; `run-notifications.mjs` repeats masking before loading a
-supplied file in GitHub Actions. Dotenv is parsed as data, never sourced as shell code. The file
-is removed in an `always()` step and must never be logged or uploaded. This is interim protection:
-removing the full-environment pull requires the separate worker credential/scheduler stage.
+`production-worker` allows only `main`, with no reviewers or wait timer. Its distinct OIDC subject
+prevents the worker token from matching the deployment app's `production` subject. The dedicated
+**uier GitHub Worker** app has Cosmos DB Built-in Data Contributor on `comments`, `app` and
+`comments-preview`, and the custom `uier worker screenshot data` role on `screenshots` and
+`screenshots-preview` (container read, blob read/write/delete; no container management). Preview
+comments/images are needed for the existing migration and cleanup pass; `app-preview` is excluded.
+It has no resource-management, state, Key Vault or provider-key-read role.
+
+The settings map contains the deployed Cosmos/Blob endpoints, the existing comments signing secret,
+ACS connection/sender settings and only the integration credentials and encryption keys the worker
+uses. Sign-in-only credentials, staff settings, endpoint overrides, account keys and deployment tokens
+are rejected by `scripts/worker-settings.mjs`. Every value is masked before it enters the environment;
+multiline workflow-command characters are escaped. `run-notifications.mjs` accepts no dotenv file.
+The worker uses `AzureCliCredential` from its OIDC login; deployed app requests retain Vercel federation.
+
+After changing provider credentials, encryption keys, mail settings or endpoints, an authorized
+operator refreshes the allowlisted snapshot from deployed Pulumi inputs, without writing a secret file:
+
+```bash
+pnpm -C infra exec node scripts/configure-worker.mjs
+```
+
+This command verifies the uier Azure tenant/subscription, decrypts state in memory, validates the map
+and sends it to the fixed GitHub environment on stdin. It prints only the setting count. Refresh before
+retiring an old encryption key; retain previous keys until stored ciphertext no longer needs them.
+Absent mail settings skip email without spending delivery failure budgets; cleanup and integrations
+continue, and the run fails as before.
+
+Every run first probes missing Cosmos documents and lists Blob metadata to validate the worker's data
+scopes before writes. A manual `verify_only=true` run stops there: no email, integration processing,
+migration or cleanup. `integrations_only=true` retains the existing email-free processing mode.
+See the [credential rollout](ci-credential-rollout.md#stage-3-separate-builds-and-remove-the-worker-environment-pull)
+for activation evidence and credential retirement.
 
 Before each attempt, the worker reloads current project access, membership, private-thread
 visibility, subscription, mute and read cursor. Removed members, disabled projects, guests on

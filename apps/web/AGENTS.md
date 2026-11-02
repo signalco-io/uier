@@ -540,12 +540,17 @@ provider message, address or report payload may be logged. Skip suppressed diges
 must retry. Show the generic notice only in the admin invite action. Requested sign-in/guest
 confirmation remain available and clear suppression only on completed mailbox proof. Ledger
 matching is production-gated until live message-id correlation is proven.
-The scheduled job supplies `UIER_COMMENTS_SECRET` from its repository secret because Vercel omits
-Sensitive values from downloads. Keep that copy aligned with the existing production key; never
-replace the app key to repair a worker. The email settings come from the download, so
-`ACS_CONNECTION_STRING` stays retrievable; without both, a run skips email delivery (ledgers stay
-queued with their failure budget) and fails. `integrations_only` manual runs must skip email delivery
-and reject a simultaneous email retry. GitHub Settings can reuse installations known to the current
+The scheduled worker is packaged before credentials are loaded, then runs without a checkout in
+`production-worker`, a main-only environment with no approval gate. Its separate Azure app uses
+OIDC plus `AzureCliCredential` for Cosmos and Blob data access; deployed requests keep Vercel
+federation through `azureDataCredential`. It accepts no Cosmos/Blob account key or dotenv file.
+`UIER_WORKER_SETTINGS` contains only allowlisted data, transport and integration-crypto settings;
+`scripts/worker-settings.mjs` masks each value before loading it. No Vercel token or environment
+pull is available. Refresh the snapshot after credential/crypto changes with
+`pnpm -C infra exec node scripts/configure-worker.mjs`; never replace app keys to repair a worker.
+Every run validates data scopes first; `verify_only` stops before writes or dispatch.
+`integrations_only` manual runs skip email and reject a simultaneous email retry.
+GitHub Settings can reuse installations known to the current
 workspace, but fresh PKCE user authorization and repository administration checks remain required.
 Digest unsubscribe headers are persisted in `attempt.message.headers`; retries preserve them.
 `/api/notifications/unsubscribe` changes state only on a cookie-free RFC 8058 POST; GET and

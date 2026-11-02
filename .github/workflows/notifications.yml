@@ -15,24 +15,23 @@ on:
         required: false
         default: false
         type: boolean
+      verify_only:
+        description: 'Validate Azure OIDC data access without writes, delivery or integration processing'
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 concurrency:
   group: review-notifications-production
   cancel-in-progress: false
 
-env:
-  VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn
-  VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc
-  VERCEL_TELEMETRY_DISABLED: "1"
-  # renovate: datasource=npm depName=vercel
-  VERCEL_CLI_VERSION: "65.9.0"
-
 jobs:
-  deliver:
+  build:
+    name: "Package worker without runtime credentials"
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -46,23 +45,60 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -C packages/toolbar build
-      - name: Install Vercel CLI
-        run: npm install --global --ignore-scripts --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
-      - name: Pull production configuration
+      - name: Build the self-contained worker package
+        run: |
+          node apps/web/scripts/build-notifications.mjs
+          tar -czf notifications-worker.tar.gz -C apps/web/.next/notification-package .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: notification-worker-${{ github.run_id }}-${{ github.run_attempt }}
+          path: notifications-worker.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  deliver:
+    name: "Run worker with data-only OIDC identity"
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production-worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: notification-worker-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Extract the package built from this main commit
+        run: tar -xzf notifications-worker.tar.gz
+      - name: Azure login (worker OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify the worker identity
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: '"$HOME/.vercel-cli/bin/vercel" pull --yes --environment=production'
-      - name: Mask production configuration before subsequent steps
-        run: node apps/web/scripts/mask-environment.mjs .vercel/.env.production.local
-      - name: Deliver due notifications
-        working-directory: apps/web
+          EXPECTED_CLIENT: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          actual_client="$(az account show --query user.name -o tsv)"
+          [ "$actual_client" = "$EXPECTED_CLIENT" ] || { echo "::error::Unexpected worker identity"; exit 1; }
+          echo "Worker environment OIDC identity verified."
+      - name: Process due work
         env:
+          UIER_WORKER_SETTINGS: ${{ secrets.UIER_WORKER_SETTINGS }}
           UIER_DEPLOYMENT_ENV: production
-          # Vercel does not return Sensitive variables in environment downloads.
-          UIER_COMMENTS_SECRET: ${{ secrets.UIER_COMMENTS_SECRET }}
+          UIER_AZURE_AUTH_MODE: github-actions
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          COSMOSDB_COMMENTS_CONTAINER: comments
+          COSMOSDB_APP_CONTAINER: app
+          AZURE_SCREENSHOTS_CONTAINER: screenshots
           UIER_NOTIFICATION_RETRY_DELIVERY: ${{ inputs.retry_delivery }}
           UIER_INTEGRATIONS_ONLY: ${{ inputs.integrations_only && '1' || '0' }}
-        run: node scripts/run-notifications.mjs ../../.vercel/.env.production.local
-      - name: Remove production configuration
-        if: always()
-        run: rm -f .vercel/.env.production.local
+          UIER_WORKER_VERIFY_ONLY: ${{ inputs.verify_only && '1' || '0' }}
+        run: node apps/web/.next/notification-entry/run-notifications.mjs

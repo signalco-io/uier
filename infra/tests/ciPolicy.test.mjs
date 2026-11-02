@@ -53,3 +53,36 @@ test('dotenv values are masked without executing them or allowing workflow comma
         ].sort());
     } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
+test('builds have no deployment secrets and deployment jobs never execute checkout code', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/vercel-deploy_reusable.yml'), 'utf8');
+    const build = workflow.split('\n  build:\n')[1].split('\n  deploy:\n')[0];
+    const deploy = workflow.split('\n  deploy:\n')[1];
+    assert.doesNotMatch(build, /secrets\.|VERCEL_TOKEN|vercel pull|environment:/);
+    assert.match(build, /path: prebuilt\.tar\.gz/);
+    assert.doesNotMatch(deploy, /uses: actions\/checkout|pnpm (?:install|build)|vercel pull/);
+    assert.match(deploy, /environment:.*production.*preview/);
+    assert.match(deploy, /--ignore-scripts/);
+    const worker = readFileSync(join(root, '.github/workflows/notifications.yml'), 'utf8');
+    assert.doesNotMatch(worker, /VERCEL_TOKEN|vercel pull|\.env\.production/);
+    assert.match(worker, /environment: production-worker/);
+    assert.match(worker, /UIER_WORKER_SETTINGS: \$\{\{ secrets\.UIER_WORKER_SETTINGS \}\}/);
+    const pulumi = readFileSync(join(root, '.github/workflows/pulumi_reusable.yml'), 'utf8');
+    assert.match(pulumi, /environment:.*inputs\.command == 'up'.*'production'.*'preview'/);
+    assert.match(pulumi, /ANTHROPIC_API_KEY:.*inputs\.command == 'up'/);
+    assert.match(pulumi, /UIER_INTEGRATION_ENV:.*inputs\.command == 'up'/);
+});
+
+// GitHub requires callers to reference each allowed secret for environment resolution.
+test('reusable callers allowlist environment secrets and keep production integrations out of previews', () => {
+    for (const name of ['ci.yml', 'deploy.yml']) {
+        const workflow = readFileSync(join(root, '.github/workflows', name), 'utf8');
+        assert.doesNotMatch(workflow, /secrets: inherit/);
+        const references = [...workflow.matchAll(/secrets\.([A-Z_]+)/g)].map(match => match[1]);
+        const allowed = new Set(['AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID',
+            'AZURE_STORAGE_ACCOUNT', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN',
+            ...(name === 'deploy.yml' ? ['UIER_INTEGRATION_ENV', 'ANTHROPIC_API_KEY'] : [])]);
+        assert.ok(references.length >= 7);
+        assert.ok(references.every(key => allowed.has(key)));
+    }
+});

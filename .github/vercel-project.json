@@ -1,0 +1,13 @@
+{
+  "orgId": "team_Ade0MlfC3211ml3wYJZ4c9hn",
+  "projectId": "prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc",
+  "projectName": "uier",
+  "settings": {
+    "framework": "nextjs",
+    "rootDirectory": "apps/web",
+    "nodeVersion": "24.x",
+    "buildCommand": "cd ../.. && corepack pnpm build",
+    "installCommand": "corepack pnpm install --frozen-lockfile",
+    "outputDirectory": null
+  }
+}
