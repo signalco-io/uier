@@ -120,8 +120,8 @@ permission/disclosure drafts and reproducible brand artwork. None enables public
 
 Remaining gates need owner-controlled external setup and real browser/store evidence:
 
-- Complete Google account two-step verification and pending publisher verification, then the first
-  manual item upload, stable ID/callback, reviewer account, listing/disclosures and live URL.
+- Complete pending publisher verification, reviewer access, listing/disclosures and the live URL.
+  The initial production ZIP created a draft item; two-step verification and registration are complete.
 - Actual OIDC/store API bootstrap validation (including async upload version limits). GitHub
   environment/tag protection, restricted Google federation and publisher access are configured;
   the [bootstrap receipt](browser-extension-release.md#bootstrap-receipt--2-november-2026) records

@@ -68,17 +68,19 @@ The GitHub, Google Cloud and publisher configuration has been read back:
   subject, and only the release/status workflow paths and allowed refs/events described above.
   The repository principal has `roles/iam.workloadIdentityUser` on that service account.
 - The paid publisher is named `signalco`, ID `bf72a9f6-5c5a-454c-87ec-5e159831aa3f`, with a verified
-  contact email. Identity/trader verification was submitted and is pending. The initial ZIP upload
-  was rejected because the Google account still requires two-step verification; no item ID exists yet.
-- Google configuration and the publisher ID are set in `extension-production`. `CWS_EXTENSION_ID`
-  and `EXTENSION_HOSTED_ACCEPTANCE_URL` remain unset. The read-only bootstrap dispatch below is
-  implemented but cannot run against an item until its creation succeeds.
+  contact email and two-step verification enabled. Identity/trader verification was submitted and
+  is pending. The first production ZIP (0.1.0, source `6faf266d6d0e4ecd373b4837eaf17f92c8795a5c`,
+  SHA-256 `f814e18d257c8183675379e774a9de8f068d3729153ffb26599ad168e05ccf70`) created draft item
+  `kplfcfnpeljpkbcjgpaefpmggipfpemj`. It has not been submitted for review.
+- Google configuration and the publisher/item IDs are set in `extension-production`.
+  `EXTENSION_HOSTED_ACCEPTANCE_URL` remains unset. The read-only bootstrap dispatch below is
+  implemented; its first live run is still pending.
 - The temporary development client `gnhfndanmlbcbcnogfojolkdamnlpjjm` is registered in hosted
   `UIER_EXTENSION_CLIENT_IDS`. [Production deployment 41538315879](https://github.com/signalco-io/uier/actions/runs/41538315879)
   succeeded, and `/extension-verification` returns HTTP 200 with that extension in `frame-ancestors`.
   Remove this test client after the acceptance window. Public availability remains disabled.
 
-An actual OIDC token/store API read, the stable item ID, listing and hosted acceptance are still
+An actual OIDC token/store API read, the complete listing and hosted acceptance are still
 pending. No store submission or real BotID issuance/renewal is evidenced by this configuration
 receipt. The shared environment's
 review requirement also applies to manual/status runs; scheduled monitoring must not be described
