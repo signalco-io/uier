@@ -95,6 +95,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const composer = reviewed.getByRole('textbox', { name: 'Comment', exact: true });
     await composer.fill('Strict CSP extension feedback'); await composer.press('Enter');
     await expect(reviewed.getByText('Strict CSP extension feedback', { exact: true })).toBeVisible();
+    await reviewed.screenshot({ path: info.outputPath('store-review-1280x800.png') });
     await reviewed.reload();
     await expect(reviewed.getByRole('navigation', { name: 'uier feedback', exact: true })).toBeVisible();
     await expect(commentBubble(reviewed, 1)).toBeVisible();
@@ -137,7 +138,6 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await inbox.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
     await inbox.getByRole('button', { name: 'High', exact: true }).click();
     await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
-    await reviewed.screenshot({ path: info.outputPath('store-review-1280x800.png') });
     await reviewed.keyboard.press('Escape');
     // Drafts recover across a real worker shutdown and page reload, with no image records.
     await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();

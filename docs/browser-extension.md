@@ -105,7 +105,8 @@ Local acceptance covers real sign-in/consent, multiple project matches, worker t
 posting/reload, viewport screenshot retrieval/canvas preview, proof renewal, replies, resolve/reopen,
 repeated activation, worker shutdown/restart, draft recovery, committed-but-lost write retries,
 same-document project switching, Exit/restart, SPA history, cross-origin deactivation, sign-out,
-embed coexistence with a different project, omitted API cookies and light/dark popup accessibility.
+embed coexistence with a different project, text/area anchors, screenshot redaction, safe inactive-tab
+capture failure, omitted API cookies and light/dark popup accessibility.
 The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
 credential/header injection and malformed payloads. API tests retain current membership, origin,
 privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard
