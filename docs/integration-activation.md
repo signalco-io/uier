@@ -149,3 +149,16 @@ All four production Settings sections remained enabled for both projects.
 - Exercise the full access, backfill, guest-link and rate-limit matrix in the setup runbook before
   claiming customer rollout acceptance.
 - Slack public unlisted distribution is enabled. Marketplace review has not been submitted.
+
+
+## Reply sync extension, 2 November 2026
+
+The optional reply-sync implementation covers GitHub, Linear, Notion, Azure DevOps and Slack,
+including source-owned edits and deletions. Existing connection defaults remain off. The earlier
+acceptance receipts above cover outbound discussion/status behavior, not this new import path.
+
+Required permission changes are Notion Read comments + Insert comments and Slack bot
+`channels:history` + `groups:history`. GitHub, Linear and Azure DevOps retain existing permissions.
+Provider-console changes and hosted reply acceptance are pending verification. Do not infer them
+from local simulator coverage or from an existing successful status-sync connection. Follow the
+[reply acceptance checklist](integration-setup.md#two-way-reply-sync).

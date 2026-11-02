@@ -142,10 +142,11 @@ export async function startGitHubStub(publicKey: KeyObject, options: { port?: nu
         if (path.endsWith('/comments')) {
             if (request.method === 'GET') {
                 const page = Number(url.searchParams.get('page') ?? 1);
-                return answer(200, issue.comments.slice((page - 1) * 100, page * 100));
+                const size = Number(url.searchParams.get('per_page') ?? 100);
+                return answer(200, issue.comments.slice((page - 1) * size, page * size));
             }
             if (request.method === 'POST') {
-                const comment: GitHubComment = { id: ++nextComment, body: body.body ?? '', issue_url: `https://api.github.com${base}/issues/${issue.number}`, user: bot };
+                const comment: GitHubComment = { id: ++nextComment, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), body: body.body ?? '', issue_url: `https://api.github.com${base}/issues/${issue.number}`, user: bot };
                 issue.comments.push(comment);
                 if (faults.loseCommentResponse > 0) { faults.loseCommentResponse--; return answer(500, { message: 'Lost after commit' }); }
                 return answer(201, comment);

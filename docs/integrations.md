@@ -41,7 +41,7 @@ control access to its copies. See [setup and manual tasks](integration-setup.md)
   copies. Human labels and discussion remain separate from uier's managed content.
 - **Slack:** a rotating bot grant posts one root message for new shared feedback in the chosen
   channel and updates its current summary. Optional reply-count and status summaries are off by
-  default. No history, direct-message or file scope is requested. The app must already be a channel
+  default. The normal connection requests no history, direct-message or file scope. Optional reply sync requests public/private channel history through an explicit reconnect. The app must already be a channel
   member. Channel changes start a new activation cutoff; edits to older threads stay silent unless
   an admin explicitly selects backfill or resumes a cleaned thread. Missing bot messages are held
   for review. An uncertain post cannot be found automatically without history access, so an admin
@@ -90,7 +90,7 @@ integration and has no task-status toggle.
 The existing five-minute scheduled worker polls only known managed copies. It does not subscribe
 to issue/page webhooks or request extra permissions. Current read/write scopes already cover these
 reads; no provider app registration or customer reauthorization is needed. Titles, descriptions,
-provider comments and other fields are not imported. Enabling the option allows the current remote
+other fields are not imported by status sync. Reply import has its own independent opt-in. Enabling the option allows the current remote
 status to be adopted on the next eligible poll, including on copies sent before enablement.
 
 Polling shares the outbound ledger lease, authority checks, provider budgets and timeouts. A durable
@@ -108,6 +108,48 @@ than overwriting it. An imported change fans out to the other connected services
 worker runs. With two-way sync on, equivalent Linear and Azure DevOps workflow states are kept
 when acknowledging imported changes (for example, Closed stays Closed rather than moving back to
 the mapped Resolved state). Cross-system changes are eventually consistent, not atomic.
+
+## Two-way reply sync
+
+All five providers have a separate **Sync replies in both directions** setting, off by default.
+It starts with replies created after enabling; it does not backfill old discussions. GitHub and
+Linear keep their existing outbound discussion behavior when this setting is off. Notion and Azure
+DevOps keep older discussion in the document body, while new enabled replies use native comments.
+Slack uses replies under the managed root message and suppresses redundant reply-count summaries.
+Disabling this setting stops new reply imports and native reply changes; it leaves status sync and
+ordinary outbound copying independent. Turning the whole integration off stops delivery and polling.
+
+Edit or delete the **original** reply to update its copies. A uier reply remains editable in uier;
+a provider reply is imported with a source label and remains read-only in uier, including for admins.
+Provider APIs restrict apps to modifying their own comments. Provider identities are never mapped
+to uier accounts or given member permissions. Plain text is limited to 1,000 characters and the
+existing 50-item thread limit. Attachments, reactions and comments on individual Notion content
+blocks are excluded. Notion page comments and Slack replies must belong to the exact linked item.
+
+Polling uses the status worker's leases, cursor, budgets and source/authority checks. Each read
+visits one page of at most 50 comments and up to three rotating checks of known originals. Missing
+items on a list page are not deletion evidence: an exact lookup must confirm absence. Resolved
+Notion discussions are not deleted. A full thread defers import and reports a diagnostic. Source
+edits win races; toggle, privacy, destination, binding or admin changes discard in-flight imports.
+Imported status and replies commit together with activity, notifications and source sync markers.
+A reply keeps a stable identity for its external target across mapping changes. Own copies and
+same-provider imports are filtered to prevent loops; other connected providers receive later source
+changes. Edits create activity, while only new replies create reply notifications.
+
+Native copies persist ids, hashes and ownership markers, never reply text in delivery ledgers.
+An interrupted create scans for its unique marker before adoption; absence is held for review,
+never blindly resent. Cleanup removes known app-owned reply copies before removing the root item,
+even after reply sync is disabled. Human originals, provider history and notifications can remain.
+Removing an external copy does not cause automatic recreation.
+
+Slack reply access requires an explicit **Allow Slack reply access** reconnect requesting
+`channels:history` and `groups:history` as bot scopes. It keeps an existing destination active when
+upgrading the same workspace. History grants are wider than one thread, but the worker reads only
+known linked threads in the selected channel. No user tokens, DMs, Events API or auto-join permission
+are requested. Notion's public connection needs **Read comments** and **Insert comments** capabilities;
+existing authorizations may need reconnecting. GitHub Issues read/write, Linear read/write and
+Azure DevOps `vso.work_write` already cover their comment operations. See the
+[setup steps](integration-setup.md#two-way-reply-sync) for provider registration and acceptance.
 
 ## Source outbox
 

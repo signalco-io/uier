@@ -2,6 +2,7 @@ import type { AppDoc } from '../../app/model';
 import type { IntegrationAttempt, IntegrationConnection } from '../model';
 
 export type GitHubDestination = {
+    replySync?: import('../replies').ReplyCopies;
     revision: number; installationId: string; repositoryId: string; repositoryNodeId: string;
     owner: string; name: string; botId: string; marker: string; authorizedGitHubUserId: string; authorizedAt: string;
     issue?: { id: string; number: number; url: string; bodyHash?: string; status?: string };
@@ -29,5 +30,5 @@ export type GitHubRepository = { id: number; node_id: string; name: string; owne
     private: boolean; archived?: boolean; disabled?: boolean; has_issues?: boolean; permissions?: { admin?: boolean } };
 export type GitHubIssue = { id: number; number: number; html_url: string; title: string; body: string | null; state: string;
     created_at: string; pull_request?: unknown; user: { id: number; type: string; login: string } };
-export type GitHubComment = { id: number; body: string | null; issue_url?: string; user: { id: number; type: string } };
+export type GitHubComment = { id: number; body: string | null; issue_url?: string; created_at?: string; updated_at?: string; user: { id: number; type: string; login?: string } };
 export const githubInstallationPk = (appId: string, id: string) => `github-installation:${appId}:${id}`;

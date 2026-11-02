@@ -12,8 +12,8 @@ export const integrationCatalog = {
             'Choose your Notion workspace and share the destination database with the uier connection. The database needs a title property and a separate rich text property for the uier id.',
             'Choose the database, map those properties and save. New shared feedback will sync in the background. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
-        access: 'Read, insert and update content in the pages and databases you share with the connection. uier does not request Notion comments or user information.',
-        limits: 'Optional two-way status sync keeps Open and Done aligned with Notion. It is off by default; other edits in Notion stay there. Choose a Status or Select field and its Open and Done values before enabling two-way status sync. Other optional properties need compatible mappings.',
+        access: 'Read, insert and update content in the pages and databases you share with the connection. Optional reply sync also needs read and insert comment capabilities. No user-information capability is requested.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with Notion. It is off by default. Optional reply sync copies new page comments and follows edits or deletions of their originals. Choose a Status or Select field and its Open and Done values before enabling two-way status sync. Other optional properties need compatible mappings.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed copies. Notion history and retained files can remain. Disconnect stops future sync and keeps existing copies; remove the connection in Notion to revoke its access.'
     },
     github: {
@@ -29,7 +29,7 @@ export const integrationCatalog = {
             'Load repositories, choose one and save. Public repositories require an explicit confirmation. Use Backfill GitHub feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Issues read and write, and repository metadata read. Customers choose which repositories the app can access. uier does not request source code, pull requests or Actions access.',
-        limits: 'Optional two-way status sync keeps Open and Done aligned with GitHub. It is off by default; other GitHub edits stay there. Screenshots stay behind protected links to uier rather than being uploaded to GitHub.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with GitHub. It is off by default. Optional reply sync imports new issue comments and follows edits or deletions of their originals. Screenshots stay behind protected links to uier rather than being uploaded to GitHub.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed issues and comments. GitHub history and notifications can remain. Disconnect keeps existing copies; uninstall the app in GitHub to revoke its wider access.'
     },
     linear: {
@@ -45,7 +45,7 @@ export const integrationCatalog = {
             'Choose whether screenshots may be uploaded and save. New shared feedback will sync in the background. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Read and write access as the uier app actor. uier does not request administration, agent, assignable or mentionable capabilities.',
-        limits: 'Optional two-way status sync keeps Open and Done aligned with Linear. It is off by default; other Linear edits stay there. Screenshot uploads are optional; when off, the issue keeps a protected link to the screenshot in uier.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with Linear. It is off by default. Optional reply sync imports new issue comments and follows edits or deletions of their originals. Screenshot uploads are optional; when off, the issue keeps a protected link to the screenshot in uier.',
         removal: 'Making a thread private or deleting it queues cleanup of reachable managed issues and comments. Linear history and retained files can remain. Disconnect keeps existing copies; remove the app in Linear to revoke its access.'
     },
     'azure-devops': {
@@ -61,7 +61,7 @@ export const integrationCatalog = {
             'Load your organizations and projects, choose a work item type, its open and done states and an optional area path, then save. Use Backfill existing feedback to include up to 1,000 existing shared threads.'
         ],
         access: 'Work items (read and write) and user profile (read), delegated through Microsoft Entra ID. uier acts as the account that connects and can reach only what that account can. It does not request code, pipelines or administration access.',
-        limits: 'Optional two-way status sync keeps Open and Done aligned with Azure DevOps. It is off by default; other edits in Azure DevOps stay there. Screenshots stay behind protected links to uier. Personal Microsoft accounts are not supported.',
+        limits: 'Optional two-way status sync keeps Open and Done aligned with Azure DevOps. It is off by default. Optional reply sync uses native work item comments and follows edits or deletions of their originals. Screenshots stay behind protected links to uier. Personal Microsoft accounts are not supported.',
         removal: 'Making a thread private or deleting it replaces the work item’s text and moves it to the project’s recycle bin. Azure DevOps keeps earlier revisions in the work item history. Disconnect keeps existing work items; remove uier from your Microsoft account’s apps to revoke its access.'
     },
     slack: {
@@ -69,15 +69,15 @@ export const integrationCatalog = {
         title: 'Website feedback notifications in Slack',
         description: 'Send shared website feedback and change summaries to a Slack channel.',
         result: 'A channel message with context',
-        detail: 'uier posts a bounded excerpt and a link for each new shared feedback thread. It updates the root message and can add summaries of replies and status changes. Open uier for the full discussion.',
+        detail: 'uier posts a bounded excerpt and a link for each new shared feedback thread. It updates the root message and can add summaries of replies and status changes. Optional reply sync copies new replies into the Slack thread and back to uier.',
         steps: [
             'Sign in to uier, open or create a project and add its toolbar to your website.',
             'As a uier workspace admin, open the project’s Settings, then Integrations, and choose Connect on Slack.',
             'Authorize the uier app in your Slack workspace and invite it to the channel you want to use.',
             'Load channels, choose a channel and save. Select which changes should produce summaries. Existing feedback is silent unless you explicitly request a backfill.'
         ],
-        access: 'Send messages and list accessible public and private channels: chat:write, channels:read and groups:read. uier does not request message history, user tokens or permission to join channels automatically.',
-        limits: 'Notifications can combine changes between background runs. Full discussions and screenshot files are not copied to Slack. Replies written in Slack stay in Slack. Public unlisted distribution is enabled; the app is not listed in Slack Marketplace.',
+        access: 'Send messages and list accessible public and private channels: chat:write, channels:read and groups:read. Optional reply sync requests channels:history and groups:history through an explicit reconnect. No user tokens or auto-join permission are requested.',
+        limits: 'Notifications can combine changes between background runs. Reply sync is off by default and starts with new replies. Edit or delete the original reply to update its copies. Imported replies are read-only in uier. Screenshot files are not copied to Slack. Public unlisted distribution is enabled; the app is not listed in Slack Marketplace.',
         removal: 'Making a thread private or deleting it queues removal of reachable managed messages. Delivered notifications and Slack retention can remain. Disconnect keeps existing messages; remove the app in Slack to revoke channel access.'
     }
 } as const;

@@ -8,7 +8,7 @@ import { isLocalRuntime } from '../comments/environment';
 import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import type { IntegrationProviderId } from './model';
 
-type BeginInput = { userId: string; workspaceId: string; projectId: string; baseUrl: string };
+type BeginInput = { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean };
 type FinishInput = { userId: string; state: unknown; code?: string; error?: string; baseUrl: string };
 type FinishedConnection = { workspaceId: string; projectId: string; status: 'connected' | 'denied' | 'failed'; setupReceipt?: string };
 
@@ -36,7 +36,8 @@ export function integrationConnectRoute(provider: IntegrationProviderId, begin: 
         if ((site && site !== 'same-origin' && site !== 'none') || /prefetch/i.test(`${request.headers.get('purpose')} ${request.headers.get('sec-purpose')}`))
             return redirect(settings.href);
         try {
-            return redirect(await begin({ userId: context.user.id, workspaceId: context.workspace.id, projectId, baseUrl }));
+            return redirect(await begin({ userId: context.user.id, workspaceId: context.workspace.id, projectId, baseUrl,
+                ...(provider === 'slack' && new URL(request.url).searchParams.get('replies') === '1' ? { requestReplies: true } : {}) }));
         } catch {
             settings.searchParams.set(provider, 'unavailable');
             return redirect(settings.href);

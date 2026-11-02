@@ -78,6 +78,15 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await twoWay.getByRole('button', { name: 'Save two-way status sync' }).click();
     await expect(twoWay).toContainText('Two-way status sync is saved.');
     await page.reload(); await expect(toggle).toBeChecked();
+    const replies = page.getByRole('region', { name: 'Reply sync', exact: true });
+    const replyToggle = replies.getByRole('checkbox', { name: 'Sync replies in both directions' });
+    await expect(replyToggle).not.toBeChecked(); await replyToggle.check();
+    await replies.getByRole('button', { name: 'Save reply sync' }).click();
+    await expect(replies).toContainText('Reply sync is saved.');
+    await page.reload(); await expect(replyToggle).toBeChecked(); await expect(toggle).toBeChecked();
+    await replyToggle.uncheck(); await replies.getByRole('button', { name: 'Save reply sync' }).click();
+    await expect(replies).toContainText('Reply sync is saved.');
+    await page.reload(); await expect(replyToggle).not.toBeChecked(); await expect(toggle).toBeChecked();
     await toggle.uncheck();
     await twoWay.getByRole('button', { name: 'Save two-way status sync' }).click();
     await expect(twoWay).toContainText('Two-way status sync is saved.');

@@ -4,6 +4,14 @@ Provider registration, public installation, directory submission and review appr
 states. The [activation record](integration-activation.md) records deployed configuration and live
 delivery. Its remaining acceptance checks still apply; a listing draft does not complete them.
 
+## Reply permission update, 2 November 2026
+
+Optional reply sync adds Notion read/insert comment capabilities and Slack public/private channel
+history bot scopes. The settings remain off until a project admin opts in; Slack requests expanded
+scopes only through its explicit reply-access reconnect. Existing public installation and directory
+review receipts below describe the earlier permission set. Provider-console configuration and hosted
+reply acceptance must be recorded separately; implementation and local tests do not prove them.
+
 ## Provider status
 
 Publication progress updated on 30 October 2026. Provider registrations and distribution settings

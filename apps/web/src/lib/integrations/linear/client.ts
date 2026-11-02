@@ -76,7 +76,7 @@ export async function linearGraphql<T>(token: string, operationName: string, que
     const missingEntity = code === 'INPUT_ERROR' && errors.length === 1 && object(first) && object(first.extensions)
         && first.extensions.statusCode === 400 && first.extensions.type === 'invalid input'
         && ((operationName === 'UierLinearIssue' && first.message === 'Entity not found: Issue')
-            || (operationName === 'UierLinearComment' && first.message === 'Entity not found: Comment'));
+            || (['UierLinearComment', 'UierLinearReply'].includes(operationName) && first.message === 'Entity not found: Comment'));
     if (response.status === 429 || code === 'RATELIMITED') {
         const retryAt = retryTime(response.headers);
         const budget = requestBudgets.get(bucketKey)!; budget.pausedUntil = Math.max(budget.pausedUntil, Date.parse(retryAt));

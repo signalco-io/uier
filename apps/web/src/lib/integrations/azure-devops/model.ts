@@ -32,6 +32,7 @@ export type AzureDevOpsProjectOptions = { organization: string; projectId: strin
 
 /** One external copy. Retired copies keep their own destination so cleanup never uses the current one. */
 export type AzureDevOpsWorkItem = {
+    replySync?: import('../replies').ReplyCopies;
     generation: number; marker: string; organization: string; projectId: string; projectName: string;
     workItemType: string; bodyField: AzureDevOpsBodyField; destinationRevision: number;
     id?: number; bodyHash?: string; status?: 'open' | 'done';

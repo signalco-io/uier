@@ -1,7 +1,8 @@
 import { sha256Hex } from '../../app/tokens';
 import { GrantLeaseError } from '../grants';
+import { readNativeReplies, reconcileNativeReply, sendNativeReplies, replyPlainText, replyBodyContext, type NativeReply, type ReplyTransport } from '../replies';
 import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationResult, IntegrationState } from '../model';
-import { AzureDevOpsApiError, azureDevOpsRequest, azureDevOpsUrl, object, withAzureDevOpsRequest, type AzureDevOpsResponse } from './client';
+import { AzureDevOpsApiError, azureDevOpsRequest, azureDevOpsUrl, bounded, object, withAzureDevOpsRequest, type AzureDevOpsResponse } from './client';
 import { guid, isAzureDevOpsConfigured, validOrganization } from './config';
 import { azureDevOpsAccessToken, AzureDevOpsSetupError, currentAzureDevOpsGrant, pauseAzureDevOpsGrant } from './connection';
 import type { AzureDevOpsConnection, AzureDevOpsDestination, AzureDevOpsGrant, AzureDevOpsState, AzureDevOpsWorkItem } from './model';
@@ -52,10 +53,10 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         const read = <T>(url: string, decode: (response: AzureDevOpsResponse) => T, method: 'GET' | 'POST' = 'GET', body?: unknown) =>
             withAzureDevOpsRequest(bucketKey, paceSignal(), () => context.read(signal => azureDevOpsRequest(token, url, { method, body, signal, bucketKey, paced: true }, decode)));
         const write = <T>(step: string, method: 'POST' | 'PATCH' | 'DELETE', url: string, body: unknown, decode: (response: AzureDevOpsResponse) => T,
-            metadata: IntegrationState = {}, repeatable = true) => withAzureDevOpsRequest(bucketKey, paceSignal(), async () => {
+            metadata: IntegrationState = {}, repeatable = true, patch = body !== undefined) => withAzureDevOpsRequest(bucketKey, paceSignal(), async () => {
             try {
                 return await context.operation({ step, planHash: sha256Hex(JSON.stringify({ method, url, body })), metadata, repeatable },
-                    signal => azureDevOpsRequest(token, url, { method, body, patch: body !== undefined, signal, bucketKey, paced: true }, decode));
+                    signal => azureDevOpsRequest(token, url, { method, body, patch, signal, bucketKey, paced: true }, decode));
             } catch (error) { if (error instanceof AzureDevOpsApiError && error.definitive) await checkpoint(true); throw error; }
         });
         const fieldList = (copy: AzureDevOpsWorkItem) => ['System.Id', 'System.TeamProject', 'System.WorkItemType', 'System.State', copy.bodyField].join(',');
@@ -84,6 +85,38 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             });
             return category === 'Resolved' || category === 'Completed' ? true
                 : category === 'Proposed' || category === 'InProgress' ? false : undefined;
+        };
+        const replyIO = (copy: AzureDevOpsWorkItem): ReplyTransport => {
+            const base = `${copy.projectId}/_apis/wit/workItems/${copy.id}/comments`;
+            const url = (suffix = '', query: Record<string, string> = {}) => azureDevOpsUrl(copy.organization, `${base}${suffix}`, query, '7.1-preview.4');
+            const decode = (value: unknown): NativeReply => {
+                if (!object(value) || !Number.isSafeInteger(value.id) || value.workItemId !== copy.id || typeof value.createdDate !== 'string'
+                    || !object(value.createdBy) || typeof value.createdBy.id !== 'string' || typeof value.text !== 'string') throw new AzureDevOpsApiError('invalid_reply');
+                const fingerprint = value.text;
+                return { id: String(value.id), text: value.format === 'markdown' ? value.text : replyPlainText(value.text), fingerprint,
+                    authorId: value.createdBy.id, authorName: bounded(value.createdBy.displayName, 60), createdAt: value.createdDate, deleted: value.isDeleted === true,
+                    own: Object.values(copy.replySync?.copies ?? {}).some(item => item.id === String(value.id))
+                        || (value.createdBy.id === context.ledger.attempt?.metadata.authorId
+                            && typeof context.ledger.attempt?.metadata.marker === 'string' && fingerprint.includes(context.ledger.attempt.metadata.marker)) };
+            };
+            const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+            const body = (payload: import('../replies').ReplyPayload) => ({ text: `<p>${escape(payload.author)} via uier</p><pre>${escape(payload.text)}</pre><p><a href="${escape(payload.url)}">View in uier</a></p>` });
+            return { target: `${copy.organization}:${copy.projectId}:${copy.id}`,
+                list: cursor => read(url('', { '$top': '50', order: 'asc', includeDeleted: 'true', ...(cursor ? { continuationToken: cursor } : {}) }), ({ body }) => {
+                    if (!object(body) || !Array.isArray(body.comments) || body.comments.length > 50) throw new AzureDevOpsApiError('invalid_reply_page');
+                    return { items: body.comments.map(decode), ...(body.continuationToken ? { next: String(body.continuationToken) } : {}) };
+                }),
+                async get(id) {
+                    if (!/^\d+$/.test(id)) throw new AzureDevOpsApiError('invalid_reply_id');
+                    try { return await read(url(`/${id}`, { includeDeleted: 'true' }), ({ body }) => {
+                        const reply = decode(body); return reply.own && reply.deleted ? null : reply;
+                    }); } catch (error) { if (error instanceof AzureDevOpsApiError && error.code === 'not_found') return null; throw error; }
+                },
+                create: async (payload, metadata) => write('create_native_reply', 'POST', url('', { format: 'html' }), body(payload),
+                    ({ body }) => decode(body).id, { ...metadata, authorId: grant!.userId }, false, false),
+                async update(id, payload) { await write('update_native_reply', 'PATCH', url(`/${id}`, { format: 'html' }), body(payload), ({ body }) => decode(body), {}, true, false); },
+                async remove(id) { await write('delete_native_reply', 'DELETE', url(`/${id}`), undefined, () => true); }
+            };
         };
         /** Finds a create whose response was lost by its marker, among the work items created around that time. */
         const reconcile = async (copy: AzureDevOpsWorkItem): Promise<number | 'absent' | 'pending'> => {
@@ -128,7 +161,18 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             if (!remote.body.includes(copy.marker)) throw new AzureDevOpsSetupError('external_work_item_changed');
             const resolved = await remoteResolved(remote, copy, config);
             if (resolved !== undefined) await context.receiveStatus?.(resolved);
+            await readNativeReplies(context, copy.replySync ??= {}, replyIO(copy), () => checkpoint());
             return { status: 'accepted' };
+        }
+
+        if (context.ledger.attempt?.step === 'create_native_reply') {
+            const copy = [state.item, ...(state.retired ?? [])].find(copy => copy?.id && replyIO(copy).target === context.ledger.attempt!.metadata.target);
+            if (!copy) return { status: 'ambiguous', code: 'reply_destination_changed' };
+            const remote = await maybeWorkItem(copy);
+            if (!remote) return { status: 'ambiguous', code: 'reply_target_missing' };
+            await owned(remote, copy);
+            const result = await reconcileNativeReply(context, copy.replySync ??= {}, replyIO(copy), checkpoint);
+            if (result) return result;
         }
 
         // Reconcile a previous run's operation before planning anything else, including cleanup.
@@ -169,6 +213,7 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
                         copy.deleted = true; copy.cleaned = true; await checkpoint(); continue;
                     }
                     await owned(remote, copy);
+                    await sendNativeReplies(context, copy.replySync ??= {}, replyIO(copy), checkpoint);
                     if (!copy.scrubbed) {
                         const removed = removedProjection(copy.marker);
                         await write('scrub_work_item', 'PATCH', azureDevOpsUrl(copy.organization, `_apis/wit/workitems/${copy.id}`),
@@ -211,7 +256,7 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         // A work item removed or moved by someone in Azure DevOps is never silently recreated or taken back.
         if (copy.id && !remote) return { status: 'ambiguous', code: 'work_item_missing' };
         if (remote) await owned(remote, copy);
-        const projection = azureDevOpsProjection(context.feedback.context, copy.marker);
+        const projection = azureDevOpsProjection(replyBodyContext(context, copy.replySync), copy.marker);
         const bodyHash = sha256Hex(JSON.stringify({ title: projection.title, html: projection.html, field: copy.bodyField }));
         const status = context.feedback.context.status;
         const desiredState = status === 'done' ? config.doneState : config.openState;
@@ -237,6 +282,7 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         }
         copy.bodyHash = bodyHash; copy.status = status; copy.destinationRevision = connection.destinationRevision;
         await checkpoint(true);
+        await sendNativeReplies(context, copy.replySync ??= {}, replyIO(copy), checkpoint);
         return { status: 'accepted', ...(projection.truncated ? { code: 'content_truncated' } : {}) };
     } catch (error) {
         if (error instanceof AzureDevOpsApiError) {
@@ -276,7 +322,7 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
     }
 }
 
-export const azureDevOpsAdapter: IntegrationAdapter = { provider: 'azure-devops', isConfigured: isAzureDevOpsConfigured, maxRunMs: 4 * 60_000, maxCalls: 100, supportsStatusSync: true,
+export const azureDevOpsAdapter: IntegrationAdapter = { provider: 'azure-devops', isConfigured: isAzureDevOpsConfigured, maxRunMs: 4 * 60_000, maxCalls: 100, supportsStatusSync: true, supportsReplySync: true,
     deliver, externalLink(connection, ledger) {
         const copy = stateFrom(ledger.state).item;
         const config = (connection as AzureDevOpsConnection).config;

@@ -5,6 +5,7 @@ import { getProjectScreenshot } from '../../review/comments';
 import { memberActor } from '../../review/actor';
 import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationOperation, IntegrationResult } from '../model';
 import { IntegrationControlError } from '../delivery';
+import { readNativeReplies, reconcileNativeReply, sendNativeReplies, replyBodyContext, type NativeReply, type ReplyTransport } from '../replies';
 import { array, isNotionPageUrl, NotionApiError, notionId, object, pageProperty, richText, sameId, type JsonObject } from './client';
 import { isNotionConfigured } from './config';
 import { GrantLeaseError, NotionSession, pauseNotion, revokeNotionAdmin, type NotionServices } from './connection';
@@ -19,7 +20,7 @@ const pathId = (id: string) => encodeURIComponent(notionId(id));
 
 /** All network calls go through the shared lease/authority/budget boundary. */
 export function createNotionAdapter(services: NotionServices = {}): IntegrationAdapter {
-    return { provider: 'notion', isConfigured: isNotionConfigured, maxRunMs: 8 * 60_000, maxCalls: 150, supportsStatusSync: true,
+    return { provider: 'notion', isConfigured: isNotionConfigured, maxRunMs: 8 * 60_000, maxCalls: 150, supportsStatusSync: true, supportsReplySync: true,
         maintenance: input => probeNotionConnections(input, services),
         revokeAdmin: (workspaceId, userId) => revokeNotionAdmin(workspaceId, userId, services.store),
         externalLink(connection, ledger) {
@@ -82,6 +83,39 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                     if (blocks.length > 1000) throw new NotionApiError(409, 'too_many_blocks');
                 } while (cursor);
                 return blocks;
+            };
+            const replyIO = (page: NotionPageRecord): ReplyTransport => {
+                const decode = (raw: JsonObject): NativeReply => {
+                    const value = raw.object === 'comment' ? raw : { ...object(raw.comment), id: raw.id ?? object(raw.comment).id };
+                    const parent = object(value.parent); const author = object(value.created_by);
+                    if ((!sameId(parent.page_id, page.id) && !sameId(parent.block_id, page.id)) || typeof value.created_time !== 'string')
+                        throw new NotionApiError(400, 'invalid_reply');
+                    const text = richText(value.rich_text);
+                    const links = array(value.rich_text).map(part => object(object(object(part).text).link).url).filter(value => typeof value === 'string').join(' ');
+                    return { id: notionId(value.id), text, fingerprint: `${text} ${links}`, authorId: notionId(author.id),
+                        authorName: typeof author.name === 'string' ? author.name : 'Notion reviewer', createdAt: value.created_time,
+                        own: sameId(author.id, page.botId), deleted: value.deleted === true || value.in_trash === true };
+                };
+                const body = (payload: import('../replies').ReplyPayload) => ({ rich_text: [
+                    { type: 'text', text: { content: `${payload.author} via uier:\n\n${payload.text}\n\n` } },
+                    { type: 'text', text: { content: 'View in uier', link: { url: payload.url } } }
+                ] });
+                return { target: page.id,
+                    async list(cursor) {
+                        const response = await read('GET', `/v1/comments?block_id=${pathId(page.id)}&page_size=50${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ''}`);
+                        if (!Array.isArray(response.results) || response.results.length > 50 || typeof response.has_more !== 'boolean'
+                            || (response.has_more && typeof response.next_cursor !== 'string')) throw new NotionApiError(400, 'invalid_reply_page');
+                        return { items: response.results.map(raw => decode(object(raw))), ...(response.has_more ? { next: response.next_cursor as string } : {}) };
+                    },
+                    async get(id) {
+                        try { return decode(await read('GET', `/v1/comments/${pathId(id)}`)); }
+                        catch (error) { if (error instanceof NotionApiError && error.status === 404) return null; throw error; }
+                    },
+                    async create(payload, metadata) { return decode(await write('create_native_reply', 'POST', '/v1/comments',
+                        { parent: { page_id: page.id }, ...body(payload) }, metadata)).id; },
+                    async update(id, payload) { await write('update_native_reply', 'PATCH', `/v1/comments/${pathId(id)}`, body(payload), {}, true); },
+                    async remove(id) { await write('delete_native_reply', 'DELETE', `/v1/comments/${pathId(id)}`, undefined, {}, true); }
+                };
             };
             const pageById = (id: unknown) => [state.page, ...(state.retired ?? [])].find(page => page && sameId(page.id, id));
             const queryPages = async (dataSourceId: string, mapping: NotionPageRecord['mapping'], botId: string, databaseId?: string) => {
@@ -204,6 +238,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                     await write('untrash_page', 'PATCH', `/v1/pages/${pathId(page.id)}`, { in_trash: false, notifications: silent }, { pageId: page.id }, true);
                     page.trashed = false; await persist(true);
                 }
+                await sendNativeReplies(ctx, page.replySync ??= {}, replyIO(page), persist);
                 if (!page.scrubbed || page.scrubPending) {
                     const source = await read('GET', `/v1/data_sources/${pathId(page.dataSourceId)}`);
                     const properties = emptyNotionProperties(page.mapping, parseNotionSchema(source));
@@ -302,17 +337,26 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
             try {
                 if (ctx.statusOnly) {
                     const page = state.page; const mapping = connection.config.mapping?.status;
-                    if (!page || !mapping || page.trashed || page.scrubbed || page.scrubPending
+                    if (!page || page.trashed || page.scrubbed || page.scrubPending
                         || !sameId(page.dataSourceId, connection.config.dataSourceId)
-                        || !sameId(page.notionWorkspaceId, connection.config.notionWorkspaceId)
-                        || JSON.stringify(page.mapping.status) !== JSON.stringify(mapping)) return { status: 'accepted' };
+                        || !sameId(page.notionWorkspaceId, connection.config.notionWorkspaceId)) return { status: 'accepted' };
                     const current = await verifyPage(page);
                     if (current.in_trash || current.archived) return { status: 'accepted' };
-                    const property = pageProperty(current, mapping.property);
-                    if (property.type !== mapping.type) return { status: 'paused', code: 'mapping_invalid' };
-                    const name = object(property[mapping.type]).name;
-                    if (name === mapping.open || name === mapping.done) await ctx.receiveStatus?.(name === mapping.done);
+                    if (connection.twoWaySync && mapping && JSON.stringify(page.mapping.status) === JSON.stringify(mapping)) {
+                        const property = pageProperty(current, mapping.property);
+                        if (property.type !== mapping.type) return { status: 'paused', code: 'mapping_invalid' };
+                        const name = object(property[mapping.type]).name;
+                        if (name === mapping.open || name === mapping.done) await ctx.receiveStatus?.(name === mapping.done);
+                    }
+                    await readNativeReplies(ctx, page.replySync ??= {}, replyIO(page), () => persist());
                     return { status: 'accepted' };
+                }
+                if (ctx.ledger.attempt?.step === 'create_native_reply') {
+                    const page = [state.page, ...(state.retired ?? [])].find(page => page?.id === ctx.ledger.attempt!.metadata.target);
+                    if (!page) return { status: 'ambiguous', code: 'reply_destination_changed' };
+                    await verifyPage(page, true);
+                    const result = await reconcileNativeReply(ctx, page.replySync ??= {}, replyIO(page), persist);
+                    if (result) return result;
                 }
                 if (ctx.mode === 'cleanup') return await cleanupAllPages();
                 try {
@@ -427,7 +471,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                         screenshot = { fileUploadId: state.upload.id, revision };
                     }
                 }
-                const desired = notionBlocks(ctx.feedback.context, screenshot, screenshotNote);
+                const desired = notionBlocks(replyBodyContext(ctx, page.replySync), screenshot, screenshotNote);
                 if (state.rebuild) {
                     const actual = await children(page);
                     if (actual.length === desired.length && actual.every((block, index) => blockHash(block) === desired[index]!.hash))
@@ -493,6 +537,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                 }
                 if (!screenshot) page.screenshot = undefined;
                 await persist();
+                await sendNativeReplies(ctx, page.replySync ??= {}, replyIO(page), persist);
                 return { status: 'accepted', ...(screenshotNote ? { code: 'screenshot_too_large' } : {}) };
             } catch (error) {
                 if (error instanceof IntegrationControlError) throw error;

@@ -7,7 +7,7 @@ type StatusCursor = AppDoc & { type: 'integration-status-cursor'; afterId?: stri
 
 /** Rotating bounded scan. Polling shares each ledger's outbound lease and provider call budget. */
 export async function pollIntegrationStatuses(baseUrl: string, adapter: IntegrationAdapter, options: DeliveryOptions = {}) {
-    if (!adapter.supportsStatusSync || !adapter.isConfigured()) return { checked: 0, calls: 0 };
+    if ((!adapter.supportsStatusSync && !adapter.supportsReplySync) || !adapter.isConfigured()) return { checked: 0, calls: 0 };
     const store = options.store ?? getAppStore();
     const now = options.now ?? Date.now;
     const pk = 'integration-status'; const id = adapter.provider;

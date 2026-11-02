@@ -1,3 +1,4 @@
+import { setIntegrationReplySync } from '../src/lib/integrations/connection';
 import { randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
 import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -581,4 +582,31 @@ test('literal hostile feedback cannot become mentions, links, files or browser d
     const token = await slackAccessToken((await rawSlackConnection(await fresh(f)))!); slack.fault('chat.getPermalink', 'internal');
     await expect(slackRequest('chat.getPermalink', { channel: slack.channelId, message_ts: state(row).root!.ts }, { token })).rejects.toMatchObject({ name: 'SlackApiError', message: 'Slack could not complete the request.' });
     expect(new SlackApiError(500, 'internal_error').message).not.toContain(token);
+});
+
+
+test('native reply sync upgrades Slack scopes explicitly, syncs thread replies and original edits/deletions', async ({ slack }) => {
+    test.setTimeout(90_000);
+    const f = await fixture(); await connect(f, slack); await newThread(f); let current = await dispatch(f);
+    await expect(setIntegrationReplySync(f.project, 'slack', f.owner.id, true)).rejects.toThrow('Reconnect Slack');
+    const upgrade = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestReplies: true }));
+    expect(upgrade.searchParams.get('scope')).toContain('channels:history'); expect(upgrade.searchParams.has('user_scope')).toBe(false);
+    expect((await finishSlackConnect({ userId: f.owner.id, state: upgrade.searchParams.get('state'), baseUrl,
+        code: slack.code({ scopes: 'chat:write,channels:read,groups:read,channels:history,groups:history' }) })).status).toBe('connected');
+    await fresh(f); await setIntegrationReplySync(f.project, 'slack', f.owner.id, true);
+    const reply = { id: `item_${randomUUID()}`, text: 'A Slack thread reply', authorId: `user:${f.owner.id}`, createdAt: new Date().toISOString() };
+    await change(f, { thread: { items: [...(await source(f)).thread.items, reply] } }); slack.fault('chat.postMessage', 'lost'); current = await dispatch(f);
+    expect(current.attempt?.step).toBe('create_native_reply'); current = await retry(f); expect(current.status).toBe('accepted');
+    const root = state(current).root!; const copy = [...slack.messages.values()].find(message => message.threadTs === root.ts)!;
+    expect(copy.payload.text).toContain(reply.text);
+    await change(f, { thread: { items: (await source(f)).thread.items.map(item => item.id === reply.id ? { ...item, text: 'Edited uier reply' } : item) } });
+    current = await dispatch(f); expect(copy.payload.text).toContain('Edited uier reply');
+    await change(f, { thread: { items: (await source(f)).thread.items.filter(item => item.id !== reply.id) } });
+    current = await dispatch(f); expect(slack.messages.has(`${root.channelId}:${copy.ts}`)).toBe(false);
+    const ts = (Date.now() / 1000 + 0.01).toFixed(6); slack.human(root.channelId, ts, root.ts, 'Human Slack reply');
+    const poll = () => processIntegrationDelivery(current, baseUrl, slackAdapter, { statusOnly: true });
+    await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe('Human Slack reply');
+    current = await dispatch(f); expect([...slack.messages.values()].filter(message => message.threadTs === root.ts)).toHaveLength(1);
+    slack.messages.get(`${root.channelId}:${ts}`)!.payload.text = 'Edited in Slack'; await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe('Edited in Slack');
+    current = await dispatch(f); slack.messages.delete(`${root.channelId}:${ts}`); await poll(); expect((await source(f)).thread.items.at(-1)!.deletedAt).toBeTruthy();
 });

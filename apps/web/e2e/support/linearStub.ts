@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 export type StubLinearIssue = { id: string; identifier: string; url: string; title: string; description: string; creator: { id: string };
     team: { id: string }; project: { id: string } | null; state: { id: string; type?: string }; labels: { nodes: { id: string }[] }; trashed: boolean; archivedAt: string | null };
-export type StubLinearComment = { id: string; body: string; user: { id: string }; issue: { id: string } };
+export type StubLinearComment = { id: string; body: string; user: { id: string }; issue: { id: string }; createdAt?: string; updatedAt?: string };
 export type LinearFault = 'rate_limit' | 'partial' | 'lost' | 'forbidden' | 'invalid_success' | 'unauthenticated' | 'invalid_input';
 export type LinearStub = Awaited<ReturnType<typeof startLinearStub>>;
 
@@ -169,12 +169,16 @@ export async function startLinearStub(port = 0) {
                 const issue = issues.get(v.id as string); if (!issue) return gqlError(response, 'ENTITY_NOT_FOUND');
                 if (payload.query.includes('permanentlyDelete: true')) return gqlError(response, 'FORBIDDEN');
                 issue.trashed = true; result = { issueDelete: { success: true } };
-            } else if (name === 'UierLinearComment') {
+            } else if (name === 'UierLinearReplies') {
+                const issue = issues.get(v.id as string); if (!issue) return missingEntity(response, 'Issue');
+                const offset = Number(v.after ?? 0); const rows = [...comments.values()].filter(comment => comment.issue.id === issue.id);
+                result = { issue: { id: issue.id, comments: { nodes: rows.slice(offset, offset + 50), pageInfo: { hasNextPage: offset + 50 < rows.length, endCursor: String(offset + 50) } } } };
+            } else if (name === 'UierLinearReply' || name === 'UierLinearComment') {
                 const comment = comments.get(v.id as string); if (!comment) return missingEntity(response, 'Comment'); result = { comment };
             } else if (name === 'UierLinearCommentCreate') {
                 const input = v.input as Record<string, unknown>;
                 if (comments.has(input.id as string)) return gqlError(response, 'CONFLICT');
-                const comment: StubLinearComment = { id: input.id as string, body: input.body as string, user: { id: appUserId }, issue: { id: input.issueId as string } };
+                const comment: StubLinearComment = { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), id: input.id as string, body: input.body as string, user: { id: appUserId }, issue: { id: input.issueId as string } };
                 comments.set(comment.id, comment); result = { commentCreate: { success: true, comment } };
             } else if (name === 'UierLinearCommentUpdate') {
                 const comment = comments.get(v.id as string); if (!comment) return gqlError(response, 'ENTITY_NOT_FOUND');

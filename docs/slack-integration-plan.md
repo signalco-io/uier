@@ -1,5 +1,10 @@
 # Slack notifications: implementation plan
 
+> Update, 2 November 2026: optional, default-off [reply sync](integrations.md#two-way-reply-sync)
+> supersedes the original discussion-import non-goals below. New replies and original edits/deletions
+> sync through native comments. Provider imports are source-labelled and read-only in uier.
+> Provider setup and hosted acceptance are tracked separately in the setup and activation guides.
+
 Status: adapter and project settings implemented. Provider registration and hosted acceptance remain manual release gates. This document retains the original design and proposed phases; [the implemented contract](integrations.md), [setup](integration-setup.md) and [operations](integration-operations.md) describe the current code and limits.
 
 This adapter depends on the shared integration layer in [the Notion plan, section 2.1](notion-integration-plan.md#21-expansion-to-other-services). It can ship independently of Notion's later phases. [GitHub](github-integration-plan.md) and [Linear](linear-integration-plan.md) are issue integrations; Slack is a notification destination.

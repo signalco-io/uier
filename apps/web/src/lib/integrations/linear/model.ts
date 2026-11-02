@@ -27,6 +27,7 @@ export type LinearOption = { id: string; name: string; type?: string };
 export type LinearOptionPage = { items: LinearOption[]; truncated: boolean };
 export type LinearSavedComment = { id: string; hash?: string; deleted?: boolean; uncertain?: boolean };
 export type LinearIssueGeneration = {
+    replySync?: import('../replies').ReplyCopies;
     generation: number; issueId: string; marker: string; teamId: string; projectId?: string;
     grantId?: string; organizationId?: string; appUserId?: string;
     uncertainUpload?: { revision: string; assetUrl: string }; createUncertain?: boolean;

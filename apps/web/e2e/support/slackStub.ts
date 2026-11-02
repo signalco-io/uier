@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 type Obj = Record<string, unknown>;
 type CodeOptions = { teamId?: string; scopes?: string; appId?: string; enterprise?: boolean; rotation?: boolean; userToken?: boolean };
-type Token = { teamId: string; userId: string; refresh: string };
+type Token = { teamId: string; userId: string; refresh: string; scopes: string };
 export type SlackStubMessage = { channel: string; ts: string; owner: string; payload: Obj; threadTs?: string };
 export type SlackStubFault = 'lost' | 'rate' | 'internal' | 'auth' | 'forbidden' | 'invalid_ok' | 'missing';
 const slackId = (prefix: string) => prefix + randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase();
@@ -26,16 +26,16 @@ export async function startSlackStub(port = 0) {
         ['CARCHIVED', { id: 'CARCHIVED', name: 'archived', is_channel: true, is_member: true, is_archived: true, is_shared: false }]
     ]);
     const codes = new Map<string, CodeOptions>(); const tokens = new Map<string, Token>(); const refreshes = new Map<string, Token>();
-    const authorizations = new Map<string, { redirect: string; state: string; teamId: string }>();
+    const authorizations = new Map<string, { redirect: string; state: string; teamId: string; scopes: string }>();
     const messages = new Map<string, SlackStubMessage>();
     const calls: { method: string; verb: string; payload: Obj; teamId?: string; at: number }[] = [];
     const faults = new Map<string, SlackStubFault[]>(); const rateDelays = new Map<string, string[]>();
     let loseRefresh = false; let refreshCalls = 0; let oauthCalls = 0; let sequence = 0; let url = '';
-    function token(team: string) {
+    function token(team: string, scopes = 'chat:write,channels:read,groups:read') {
         const access = `xoxb-test-${randomUUID()}`; const refresh = `xoxe-test-${randomUUID()}`;
-        const value = { teamId: team, userId: botId, refresh }; tokens.set(access, value); refreshes.set(refresh, value);
+        const value = { teamId: team, userId: botId, refresh, scopes }; tokens.set(access, value); refreshes.set(refresh, value);
         return { ok: true, access_token: access, refresh_token: refresh, token_type: 'bot', expires_in: 43200,
-            app_id: appId, team: { id: team, name: 'Test Slack workspace' }, bot_user_id: botId, scope: 'chat:write,channels:read,groups:read', is_enterprise_install: false };
+            app_id: appId, team: { id: team, name: 'Test Slack workspace' }, bot_user_id: botId, scope: scopes, is_enterprise_install: false };
     }
     const server = createServer(async (request, response) => {
         try {
@@ -46,9 +46,9 @@ export async function startSlackStub(port = 0) {
                 const state = target.searchParams.get('state');
                 if (!['http:', 'https:'].includes(redirect.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(redirect.hostname)
                     || redirect.pathname !== '/app/slack/callback' || redirect.username || redirect.password || redirect.hash
-                    || target.searchParams.get('client_id') !== 'slack-test-client' || target.searchParams.get('scope') !== 'chat:write,channels:read,groups:read'
+                    || target.searchParams.get('client_id') !== 'slack-test-client' || !['chat:write,channels:read,groups:read', 'chat:write,channels:read,groups:read,channels:history,groups:history'].includes(target.searchParams.get('scope') ?? '')
                     || target.searchParams.has('user_scope') || !state) return send(response, { ok: false, error: 'invalid_arguments' }, 400);
-                const flow = randomUUID(); authorizations.set(flow, { redirect: redirect.href, state, teamId: slackId('T') });
+                const flow = randomUUID(); authorizations.set(flow, { redirect: redirect.href, state, teamId: slackId('T'), scopes: target.searchParams.get('scope')! });
                 response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
                 return response.end(`<!doctype html><html lang="en"><head><title>Slack test authorization</title></head><body><main><h1>Connect Slack test workspace</h1><p>This local stand-in grants the uier bot access to a test workspace.</p><form method="post" action="/oauth/decision"><input type="hidden" name="flow" value="${flow}"><button name="decision" value="allow">Allow Slack connection</button><button name="decision" value="deny">Cancel Slack connection</button></form></main></body></html>`);
             }
@@ -57,7 +57,7 @@ export async function startSlackStub(port = 0) {
                 const flow = authorizations.get(flowId); authorizations.delete(flowId);
                 if (!flow) return send(response, { ok: false, error: 'invalid_arguments' }, 400);
                 const redirect = new URL(flow.redirect); redirect.searchParams.set('state', flow.state);
-                if (params.get('decision') === 'allow') { const code = randomUUID(); codes.set(code, { teamId: flow.teamId }); redirect.searchParams.set('code', code); }
+                if (params.get('decision') === 'allow') { const code = randomUUID(); codes.set(code, { teamId: flow.teamId, scopes: flow.scopes }); redirect.searchParams.set('code', code); }
                 else redirect.searchParams.set('error', 'access_denied');
                 response.writeHead(303, { Location: redirect.href, 'Cache-Control': 'no-store' }); return response.end();
             }
@@ -79,7 +79,7 @@ export async function startSlackStub(port = 0) {
                 const code = params.get('code') ?? ''; const options = codes.get(code); codes.delete(code);
                 if (!options) return send(response, { ok: false, error: 'invalid_code' });
                 oauthCalls++;
-                const result = token(options.teamId ?? teamId);
+                const result = token(options.teamId ?? teamId, options.scopes);
                 return send(response, { ...result, app_id: options.appId ?? appId, scope: options.scopes ?? result.scope,
                     is_enterprise_install: options.enterprise === true,
                     ...(options.rotation === false ? { refresh_token: undefined, expires_in: undefined } : {}),
@@ -87,7 +87,7 @@ export async function startSlackStub(port = 0) {
             }
             const auth = request.headers.authorization?.replace(/^Bearer /, ''); const identity = auth ? tokens.get(auth) : undefined;
             if (!identity) return send(response, { ok: false, error: 'invalid_auth' });
-            const read = ['auth.test', 'conversations.list', 'conversations.info', 'chat.getPermalink'].includes(method);
+            const read = ['auth.test', 'conversations.list', 'conversations.info', 'conversations.replies', 'chat.getPermalink'].includes(method);
             if (request.method !== (read ? 'GET' : 'POST')) return send(response, { ok: false, error: 'invalid_method' }, 405);
             const payload: Obj = read ? Object.fromEntries(target.searchParams.entries()) : JSON.parse(await body(request)) as Obj;
             calls.push({ method, verb: request.method!, payload: structuredClone(payload), teamId: identity.teamId, at: Date.now() });
@@ -106,10 +106,21 @@ export async function startSlackStub(port = 0) {
             } else if (method === 'conversations.info') {
                 const channel = channels.get(String(payload.channel));
                 if (!channel) return send(response, { ok: false, error: 'channel_not_found' }); result = { ok: true, channel };
+            } else if (method === 'conversations.replies') {
+                const channel = channels.get(String(payload.channel));
+                const required = channel?.is_private ? 'groups:history' : 'channels:history';
+                if (!identity.scopes.split(',').includes(required)) return send(response, { ok: false, error: 'missing_scope' });
+                const root = messages.get(`${payload.channel}:${payload.ts}`);
+                if (!root) return send(response, { ok: false, error: 'thread_not_found' });
+                const all = [root, ...[...messages.values()].filter(message => message.channel === root.channel && message.threadTs === root.ts)];
+                const offset = Number(payload.cursor ?? 0); const limit = Number(payload.limit ?? 50);
+                result = { ok: true, messages: all.slice(offset, offset + limit).map(message => ({ ts: message.ts, text: String(message.payload.text ?? ''),
+                    user: message.owner, thread_ts: message.threadTs ?? message.ts, ...(message.owner === botId ? { app_id: appId } : { user_profile: { display_name: 'Slack reviewer' } }) })),
+                    has_more: offset + limit < all.length, response_metadata: { next_cursor: offset + limit < all.length ? String(offset + limit) : '' } };
             } else if (method === 'chat.postMessage') {
                 const channel = channels.get(String(payload.channel));
                 if (!channel || channel.is_member !== true || channel.is_archived === true) return send(response, { ok: false, error: 'not_in_channel' });
-                if (payload.parse !== 'none' || payload.mrkdwn !== false || payload.unfurl_links !== false || payload.unfurl_media !== false || payload.reply_broadcast !== false)
+                if (payload.parse !== 'none' || (payload.mrkdwn !== false && !(payload.mrkdwn === true && typeof payload.thread_ts === 'string' && payload.link_names === false)) || payload.unfurl_links !== false || payload.unfurl_media !== false || payload.reply_broadcast !== false)
                     return send(response, { ok: false, error: 'invalid_arguments' });
                 const ts = `${Math.floor(Date.now() / 1000)}.${String(++sequence).padStart(6, '0')}`;
                 messages.set(`${payload.channel}:${ts}`, { channel: String(payload.channel), ts, owner: botId, payload: structuredClone(payload), threadTs: typeof payload.thread_ts === 'string' ? payload.thread_ts : undefined });
@@ -141,7 +152,7 @@ export async function startSlackStub(port = 0) {
             if (fault === 'rate') { const delays = rateDelays.get(method) ?? []; delays.push(retryAfter); rateDelays.set(method, delays); }
         },
         loseNextRefresh() { loseRefresh = true; },
-        human(channel: string, ts: string) { messages.set(`${channel}:${ts}`, { channel, ts, owner: 'UHUMAN', payload: { text: 'Human reply' } }); },
+        human(channel: string, ts: string, threadTs?: string, text = 'Human reply') { messages.set(`${channel}:${ts}`, { channel, ts, owner: 'UHUMAN', payload: { text }, threadTs }); },
         close: () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())) };
 }
 export type SlackStub = Awaited<ReturnType<typeof startSlackStub>>;

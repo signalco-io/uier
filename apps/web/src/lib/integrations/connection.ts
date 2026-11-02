@@ -6,6 +6,8 @@ import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { integrationProviders, type IntegrationBinding, type IntegrationConnection, type IntegrationProviderId, type IntegrationSync } from './model';
 import { configuredIntegrationAdapters } from './registry';
 import { UserFacingError } from '../app/actionErrors';
+import { slackReplyScopes } from './slack/config';
+import type { SlackGrant } from './slack/model';
 
 export class IntegrationAccessError extends Error {
     constructor() {
@@ -66,6 +68,32 @@ export async function setIntegrationTwoWaySync(project: DbProject, provider: Int
         if (enabled && provider === 'notion' && !mapping?.status)
             throw new UserFacingError('Map a Notion status field before enabling two-way status sync.');
         return { ...current, twoWaySync: enabled, updatedAt: new Date().toISOString() };
+    }, store);
+}
+
+/** Reply import is independent of status sync and remains an explicit admin opt-in. */
+export async function setIntegrationReplySync(project: DbProject, provider: IntegrationProviderId, userId: string,
+    enabled: boolean, store = getAppStore()) {
+    if (typeof enabled !== 'boolean') throw new UserFacingError('Choose whether reply sync is on.');
+    const member = await getMember(project.workspaceId, userId);
+    const currentProject = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
+    if (member?.role !== 'admin' || currentProject?.type !== 'project' || currentProject.workspaceId !== project.workspaceId
+        || currentProject.id === PUBLIC_PROJECT_ID) throw new IntegrationAccessError();
+    const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);
+    if (!adapter?.supportsReplySync) throw new UserFacingError('This integration does not support reply sync.');
+    const connection = await getIntegrationConnection(currentProject, provider, store);
+    if (!connection) throw new UserFacingError('Connect this integration first.');
+    if (enabled && provider === 'slack') {
+        const grant = connection.grantId ? (await store.get<SlackGrant>(connection.pk, connection.grantId))?.doc : null;
+        if (!grant || !slackReplyScopes.every(scope => grant.scopes.includes(scope)))
+            throw new UserFacingError('Reconnect Slack to allow reading thread replies.');
+    }
+    return updateDoc<IntegrationConnection>(connection.pk, connection.id, current => {
+        if (current.destinationRevision !== connection.destinationRevision || current.grantId !== connection.grantId
+            || current.connectedBy !== connection.connectedBy) throw new UserFacingError('The connection changed. Reload and try again.');
+        if (enabled && (!adapter.isConfigured() || current.status !== 'connected')) throw new UserFacingError('Reconnect this integration first.');
+        return { ...current, replySync: { enabled, since: enabled && !current.replySync?.enabled ? new Date().toISOString()
+            : current.replySync?.since ?? new Date().toISOString() }, updatedAt: new Date().toISOString() };
     }, store);
 }
 

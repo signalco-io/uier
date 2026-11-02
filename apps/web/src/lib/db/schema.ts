@@ -54,6 +54,8 @@ export type DbMention = { userId: string; start: number; end: number };
 export type AgentSource = { credentialId: string; name: string; kind?: 'credential' | 'oauth' };
 
 export type DbThreadItem = {
+    /** Server-only deduplication/echo identity. Never grants project access. */
+    integrationSource?: { provider: import('../integrations/model').IntegrationProviderId; connectionId: string; destinationRevision: number; externalId: string; target?: string };
     /** Explicitly authorized connector; the author remains the human account. */
     agent?: AgentSource;
     mentions?: DbMention[];

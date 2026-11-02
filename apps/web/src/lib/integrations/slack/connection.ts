@@ -10,7 +10,7 @@ import { createOauthState, consumeOauthState } from '../oauthState';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants';
 import { decryptSecret, encryptSecret } from '../secrets';
 import { slackRequest, SlackApiError } from './client';
-import { isSlackConfigured, slackAuthorizeUrl, slackId, slackLabel, slackScopes, slackSecretKey } from './config';
+import { isSlackConfigured, slackAuthorizeUrl, slackId, slackLabel, slackScopes, slackReplyScopes, slackSecretKey } from './config';
 import type { SlackConnection, SlackGrant, SlackInstallationOwner } from './model';
 import { SlackRateWait, withSlackRateLimit } from './rate';
 
@@ -169,7 +169,7 @@ function tokenFields(data: Record<string, unknown>) {
     return { access: data.access_token, refresh: data.refresh_token, expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString() };
 }
 
-export async function beginSlackConnect(input: { userId: string; workspaceId: string; projectId: string; baseUrl: string }) {
+export async function beginSlackConnect(input: { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean }) {
     const project = await requireSlackProject(input.workspaceId, input.projectId, input.userId);
     if (!isSlackConfigured()) throw new SlackConnectionError('not_configured');
     await recoverSlackSetups({ workspaceId: project.workspaceId });
@@ -179,7 +179,7 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
         const available: SlackGrant[] = [];
         for (const grant of grants) {
             const owner = (await getAppStore().get<SlackInstallationOwner>(ownerPk(grant.teamId), 'owner'))?.doc;
-            if (grant.tokens && !grant.refreshStartedAt && owner?.status === 'active' && owner.workspaceId === project.workspaceId
+            if ((!input.requestReplies || slackReplyScopes.every(scope => grant.scopes.includes(scope))) && grant.tokens && !grant.refreshStartedAt && owner?.status === 'active' && owner.workspaceId === project.workspaceId
                 && owner.grantId === grant.id && owner.generation === grant.generation
                 && (!owner.operationLease || Date.parse(owner.operationLease.until) <= Date.now())) available.push(grant);
         }
@@ -196,9 +196,9 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
         }
     }
     const state = await createOauthState({ provider: 'slack', ...input, pkce: false, key: slackSecretKey(),
-        ...(current?.config.teamId ? { metadata: { teamId: current.config.teamId } } : {}) });
+        metadata: { ...(current?.config.teamId ? { teamId: current.config.teamId } : {}), ...(input.requestReplies ? { replies: '1' } : {}) } });
     const url = new URL(slackAuthorizeUrl());
-    url.search = new URLSearchParams({ client_id: process.env.SLACK_CLIENT_ID!, scope: slackScopes.join(','),
+    url.search = new URLSearchParams({ client_id: process.env.SLACK_CLIENT_ID!, scope: [...slackScopes, ...(input.requestReplies ? slackReplyScopes : [])].join(','),
         redirect_uri: callbackUrl(input.baseUrl), state: state.state }).toString();
     return url.href;
 }
@@ -223,7 +223,8 @@ export async function finishSlackConnect(input: { userId: string; state: unknown
         const scopes = typeof data.scope === 'string' ? data.scope.split(',') : [];
         if (data.token_type !== 'bot' || data.app_id !== process.env.SLACK_APP_ID || data.is_enterprise_install === true
             || !slackId(team?.id) || !slackId(data.bot_user_id) || !slackScopes.every(scope => scopes.includes(scope))
-            || scopes.some(scope => !slackScopes.includes(scope as typeof slackScopes[number]))
+            || (state.metadata?.replies === '1' && !slackReplyScopes.every(scope => scopes.includes(scope)))
+            || scopes.some(scope => ![...slackScopes, ...slackReplyScopes].includes(scope as typeof slackScopes[number]))
             || (data.authed_user && typeof data.authed_user === 'object' && 'access_token' in data.authed_user))
             throw new SlackConnectionError('invalid_installation');
         const tokens = tokenFields(data);
@@ -253,7 +254,7 @@ export async function finishSlackConnect(input: { userId: string; state: unknown
             || held.generation !== owner.generation) throw new SlackConnectionError('installation_lease_lost');
         if (!prior ? !await store.create(grant) : await store.replace(grant, prior.etag) !== 'ok') throw new SlackConnectionError('installation_busy');
         await saveOwner(owner, grant.generation, store);
-        await attachSlackGrant(project, input.userId, grant, nonce, store);
+        await attachSlackGrant(project, input.userId, grant, nonce, store, state.metadata?.replies === '1');
         await requireSlackProject(project.workspaceId, project.id, input.userId, store);
         if (!await settleSlackSetup(owner, nonce, grant.generation, store)) throw new SlackConnectionError('access_denied');
         return { ...result, status: 'connected' as const };
@@ -357,14 +358,16 @@ export async function disconnectSlack(project: DbProject, userId: string) {
     } finally { if (owner) await releaseOwner(owner); }
 }
 
-async function attachSlackGrant(project: DbProject, userId: string, grant: SlackGrant, setupNonce?: string, store = getAppStore()) {
+async function attachSlackGrant(project: DbProject, userId: string, grant: SlackGrant, setupNonce?: string, store = getAppStore(), replyUpgrade = false) {
     project = await requireSlackProject(project.workspaceId, project.id, userId, store);
     const previous = await rawSlackConnection(project, store);
     const sameTeam = previous?.config.teamId === grant.teamId;
+    const preserveDestination = sameTeam && replyUpgrade;
     const now = new Date().toISOString();
     const connection: SlackConnection = { type: 'slack-connection', provider: 'slack', pk: project.pk, id: slackConnectionId(project.id),
-        workspaceId: project.workspaceId, projectId: project.id, connectedBy: userId, enabled: false, status: 'connected',
-        destinationRevision: (previous?.destinationRevision ?? 0) + 1, grantId: grant.id,
+        workspaceId: project.workspaceId, projectId: project.id, connectedBy: userId, enabled: preserveDestination ? previous!.enabled : false, status: 'connected',
+        destinationRevision: preserveDestination ? previous!.destinationRevision : (previous?.destinationRevision ?? 0) + 1, grantId: grant.id,
+        ...(sameTeam && previous?.replySync ? { replySync: previous.replySync } : {}),
         createdAt: previous?.createdAt ?? now, updatedAt: now, setupNonce,
         config: { ...(sameTeam ? previous?.config : {}), teamId: grant.teamId, teamName: grant.teamName, botId: grant.botId, teamHost: grant.teamHost,
             replySummaries: sameTeam ? previous!.config.replySummaries : false, statusSummaries: sameTeam ? previous!.config.statusSummaries : false } };

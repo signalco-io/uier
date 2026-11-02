@@ -27,7 +27,7 @@ export function digestContent(project: DbProject, comment: DbComment, recipient:
             : [...comment.thread.items].reverse().find(item => item.authorId === event.actorId);
         const authorName = item?.authorId === event.actorId && !item.deletedAt ? item.authorName : undefined;
         const name = plainLabel(itemAuthorName({ authorId: event.actorId, authorName }, names)) || (member ? 'Former member' : 'Guest');
-        const actor = `${name}${member ? '' : ' (guest)'}${event.agent ? ` via ${plainLabel(event.agent.name) || 'Connector'}` : ''}`;
+        const actor = `${name}${member || event.actorId.startsWith('integration:') ? '' : ' (guest)'}${event.agent ? ` via ${plainLabel(event.agent.name) || 'Connector'}` : ''}`;
         const mentioned = event.kind === 'mention' || ((event.kind === 'comment' || event.kind === 'reply') && event.recipients?.includes(recipient));
         let action: string;
         if (mentioned) action = `mentioned you on ${place}`;

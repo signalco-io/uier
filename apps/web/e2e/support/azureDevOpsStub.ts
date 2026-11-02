@@ -26,6 +26,7 @@ export async function startAzureDevOpsStub(port = 0) {
         { name: 'Shared Steps', fields: ['System.Title', 'System.State'], states: [['Active', 'InProgress'], ['Closed', 'Completed']] }
     ];
     const workItems = new Map<number, StubWorkItem>();
+    const comments = new Map<number, { id: number; workItemId: number; text: string; createdDate: string; createdBy: { id: string; displayName: string }; format: string; isDeleted?: boolean }>(); let commentSequence = 0;
     const codes = new Map<string, { challenge: string; userId: string; scope: string }>();
     const authorizations = new Map<string, { redirect: string; state: string; challenge: string }>();
     const tokens = new Map<string, { userId: string }>();
@@ -133,8 +134,10 @@ export async function startAzureDevOpsStub(port = 0) {
                     else if (wit.join('/') === 'workitemsbatch' && request.method === 'POST') operation = 'batch';
                 }
             }
+            const replyMatch = /\/workItems\/(\d+)\/comments(?:\/(\d+))?$/i.exec(path);
+            if (replyMatch && segments[2] === projectId) operation = `reply_${replyMatch[2] ? request.method === 'PATCH' ? 'update' : request.method === 'DELETE' ? 'delete' : 'get' : request.method === 'POST' ? 'create' : 'list'}`;
             calls.push({ operation, method: request.method ?? 'GET', path, body: payload, authorization: bearer });
-            if (target.searchParams.get('api-version') !== '7.1') return fail(response, 400);
+            if (target.searchParams.get('api-version') !== (operation.startsWith('reply_') ? '7.1-preview.4' : '7.1')) return fail(response, 400);
             if (!auth) return fail(response, 401);
             const fault = faults.get(operation)?.shift();
             if (fault === 'rate_limit') return send(response, { message: 'throttled' }, 429, { 'Retry-After': '7' });
@@ -145,7 +148,26 @@ export async function startAzureDevOpsStub(port = 0) {
             if (fault === 'server_error') return fail(response, 500);
             if (fault === 'unanswered') { response.destroy(); return; }
             let result: unknown; let status = 200;
-            if (operation === 'profile') result = { id: auth.userId, displayName: 'Test Microsoft user', publicAlias: auth.userId, emailAddress: 'stub@example.test' };
+            if (operation.startsWith('reply_') && replyMatch) {
+                const item = workItems.get(Number(replyMatch[1])); if (!item || item.deleted) return fail(response, 404);
+                if (operation === 'reply_list') {
+                    const rows = [...comments.values()].filter(comment => comment.workItemId === item.id);
+                    const offset = Number(target.searchParams.get('continuationToken') ?? 0);
+                    result = { comments: rows.slice(offset, offset + 50), continuationToken: offset + 50 < rows.length ? String(offset + 50) : undefined };
+                } else if (operation === 'reply_create') {
+                    if (request.headers['content-type'] !== 'application/json' || !payload || typeof payload !== 'object' || !('text' in payload)) return fail(response, 400);
+                    const comment = { id: ++commentSequence, workItemId: item.id, text: String(payload.text), createdDate: new Date().toISOString(), createdBy: { id: auth.userId, displayName: 'Test Microsoft user' }, format: target.searchParams.get('format') ?? 'html' };
+                    comments.set(comment.id, comment); result = comment;
+                } else {
+                    const comment = comments.get(Number(replyMatch[2])); if (!comment || comment.workItemId !== item.id) return fail(response, 404);
+                    if (operation === 'reply_update') {
+                        if (request.headers['content-type'] !== 'application/json' || !payload || typeof payload !== 'object' || !('text' in payload)) return fail(response, 400);
+                        comment.text = String(payload.text);
+                    }
+                    if (operation === 'reply_delete') comment.isDeleted = true;
+                    result = comment;
+                }
+            } else if (operation === 'profile') result = { id: auth.userId, displayName: 'Test Microsoft user', publicAlias: auth.userId, emailAddress: 'stub@example.test' };
             else if (operation === 'accounts') {
                 if (target.searchParams.get('memberId') !== auth.userId) return fail(response, 400);
                 result = { count: 1, value: [{ accountId: organizationId, accountName: organization, accountUri: `https://vssps.dev.azure.com/${organization}/` }] };
@@ -201,7 +223,7 @@ export async function startAzureDevOpsStub(port = 0) {
     await new Promise<void>(resolve => server.listen(port, '127.0.0.1', resolve));
     const address = server.address(); if (!address || typeof address === 'string') throw new Error('Stub address unavailable');
     url = `http://127.0.0.1:${address.port}`;
-    return { url, organization, organizationId, userId, projectId, projectName, workItems, calls, faults,
+    return { url, organization, organizationId, userId, projectId, projectName, workItems, comments, calls, faults,
         get refreshCalls() { return refreshCalls; },
         code(challenge: string, options: { userId?: string; profileOnly?: boolean } = {}) {
             const code = randomUUID(); codes.set(code, { challenge, userId: options.userId ?? userId, scope: options.profileOnly ? 'profile' : 'full' }); return code;

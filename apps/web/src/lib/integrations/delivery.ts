@@ -1,17 +1,16 @@
-import { ordinaryVerificationStatus } from '../comments/verificationState';
+import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
+import { withImportedReplies } from './importReplies';
 import { randomUUID } from 'node:crypto';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
-import { withThreadActivity } from '../comments/activity';
-import { withNotificationEvent } from '../notifications/events';
 import { withSyncMark } from './syncSignal';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
 import { projectFeedbackExport } from '../review/feedbackContext';
 import { getIntegrationConnection } from './connection';
-import type { IntegrationAdapter, IntegrationAttempt, IntegrationConnection, IntegrationDeliveryContext, IntegrationOperation, IntegrationResult, IntegrationState, IntegrationSync } from './model';
+import type { IntegrationReply, IntegrationAdapter, IntegrationAttempt, IntegrationConnection, IntegrationDeliveryContext, IntegrationOperation, IntegrationResult, IntegrationState, IntegrationSync } from './model';
 
 export const INTEGRATION_MAX_FAILURES = 8;
 export const integrationFailureCode = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(value) ? value : 'provider_error';
@@ -54,13 +53,13 @@ async function authority(ledger: IntegrationSync, store: AppStore, comments: Com
 function projectHash(project: DbProject) {
     // Source URL/environment changes can invalidate an export without changing its thread cursor.
     return sha256Hex(JSON.stringify({ id: project.id, workspaceId: project.workspaceId, name: project.name,
-        urls: project.urls, environments: project.environments, pageState: project.pageState }));
+        urls: project.urls, environments: project.environments, pageState: project.pageState, access: project.access }));
 }
 
 function connectionHash(connection: IntegrationConnection) {
     return sha256Hex(JSON.stringify({ id: connection.id, provider: connection.provider, workspaceId: connection.workspaceId,
         projectId: connection.projectId, connectedBy: connection.connectedBy, destinationRevision: connection.destinationRevision,
-        grantId: connection.grantId, twoWaySync: connection.twoWaySync, config: connection.config, createdAt: connection.createdAt, updatedAt: connection.updatedAt }));
+        grantId: connection.grantId, twoWaySync: connection.twoWaySync, replySync: connection.replySync, config: connection.config, createdAt: connection.createdAt, updatedAt: connection.updatedAt }));
 }
 
 function allowsMode(connection: IntegrationConnection, mode: IntegrationDeliveryContext['mode']) {
@@ -78,7 +77,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
     const deadline = Math.floor(options.deadline ?? now + Math.min(adapter.maxRunMs ?? 60_000, 4 * 60_000));
     const stored = await store.get<IntegrationSync>(candidate.pk, candidate.id);
     const statusOnly = options.statusOnly === true;
-    if (!stored || (statusOnly ? !adapter.supportsStatusSync || stored.doc.status !== 'accepted' || stored.doc.active
+    if (!stored || (statusOnly ? (!adapter.supportsStatusSync && !adapter.supportsReplySync) || stored.doc.status !== 'accepted' || stored.doc.active
         || stored.doc.attempt || stored.doc.deletion || stored.doc.tombstoned : !stored.doc.active || Date.parse(stored.doc.nextAttemptAt) > now)
         || stored.doc.provider !== adapter.provider
         || (stored.doc.lease && Date.parse(stored.doc.lease.until) > now) || deadline <= now) return;
@@ -112,7 +111,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         }
         const { connection, project, source, actor } = snapshot;
         const mode = ledger.deletion || !source || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
-        if (statusOnly && (connection.twoWaySync !== true || mode !== 'sync' || !source
+        if (statusOnly && ((!connection.twoWaySync && !connection.replySync?.enabled) || mode !== 'sync' || !source
             || (source.syncVersion ?? 0) > ledger.processedVersion || ledger.requestedVersion > ledger.processedVersion
             || ledger.requestRevision > ledger.processedRequestRevision)) {
             await finish({});
@@ -136,6 +135,12 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         }
         through = ledger.deletion?.version ?? source?.syncVersion ?? ledger.requestedVersion;
         const feedback = mode === 'cleanup' || statusOnly ? null : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
+        if (feedback && source) {
+            const echoes = new Set(source.thread.items.filter(item => item.integrationSource?.provider === connection.provider
+                && item.integrationSource.connectionId === connection.id).map(item => item.id));
+            feedback.context.discussion = feedback.context.discussion.filter(item => !echoes.has(item.id));
+            feedback.markdown = feedbackMarkdown(feedback.context);
+        }
         const initialProjectHash = projectHash(project);
         const sourceVersion = source?.syncVersion ?? 0;
         const boundary = async (write: boolean, providerRequest = true) => {
@@ -162,24 +167,26 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             if (clock() >= deadline || !ownsLease(ledger)) throw new IntegrationControlError('budget_exhausted');
         };
         const signal = () => AbortSignal.timeout(Math.max(1, Math.min(20_000, deadline - clock())));
+        let incomingStatus: boolean | undefined;
+        const incomingReplies: IntegrationReply[] = [];
         const context: IntegrationDeliveryContext = {
             connection, project, feedback, mode, through, deadline, baseUrl,
             statusOnly,
+            importedReplies: (source?.thread.items ?? []).filter(item => item.integrationSource?.provider === connection.provider
+                && item.integrationSource.connectionId === connection.id
+                && !item.deletedAt).map(item => ({ externalId: item.integrationSource!.externalId, target: item.integrationSource!.target, createdAt: item.createdAt ?? connection.replySync?.since ?? '' })),
             get ledger() { return ledger; },
             async receiveStatus(resolved: boolean) {
                 if (!statusOnly || typeof resolved !== 'boolean') throw new Error('Invalid inbound status');
+                if (connection.twoWaySync !== true) return;
                 await boundary(true, false);
-                const current = await comments.get(`project:${project.id}`, ledger.threadId);
-                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.private
-                    || isPrivateAppFeedback(current.comment)) throw new IntegrationControlError('projection_changed');
-                if (Boolean(current.comment.resolved) === resolved) return;
-                const actorId = `user:${connection.connectedBy}`;
-                const at = new Date(clock()).toISOString();
-                const changed = withSyncMark(project, current.comment, withNotificationEvent(
-                    { ...ordinaryVerificationStatus(withThreadActivity(current.comment, actorId), resolved), updatedAt: at }, actorId, resolved ? 'resolved' : 'reopened', at));
-                // Recheck the toggle, binding and admin after all reads, then conditionally write.
+                incomingStatus = resolved;
+            },
+            async receiveReplies(replies) {
+                if (!statusOnly || !connection.replySync?.enabled || !adapter.supportsReplySync || project.access === 'disabled') return;
                 await boundary(true, false);
-                if (await comments.replace(changed, current.etag) !== 'ok') throw new IntegrationControlError('projection_changed');
+                if (!Array.isArray(replies) || incomingReplies.length + replies.length > 100) throw new Error('Reply batch too large');
+                incomingReplies.push(...replies);
             },
             async read<T>(send: (signal: AbortSignal) => Promise<T>) {
                 await boundary(false);
@@ -218,6 +225,19 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         };
         const result = await adapter.deliver(context);
         if (statusOnly) {
+            if (result.status === 'accepted') {
+                await boundary(true, false);
+                const current = await comments.get(`project:${project.id}`, ledger.threadId);
+                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.private
+                    || isPrivateAppFeedback(current.comment)) throw new IntegrationControlError('projection_changed');
+                const at = new Date(clock()).toISOString();
+                const changed = withImportedReplies(current.comment, connection, { resolved: incomingStatus, replies: incomingReplies, at });
+                if (changed !== current.comment) {
+                    await boundary(true, false);
+                    if (await comments.replace(withSyncMark(project, current.comment, { ...changed, updatedAt: at }), current.etag) !== 'ok')
+                        throw new IntegrationControlError('projection_changed');
+                }
+            }
             await finish({ lastCode: result.code });
             return;
         }

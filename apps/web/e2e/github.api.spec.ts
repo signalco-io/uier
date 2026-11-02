@@ -18,7 +18,7 @@ import { githubAppPk, receiveGitHubWebhook } from '../src/lib/integrations/githu
 import { githubInstallationPk, type GitHubConnection, type GitHubInstallation, type GitHubState } from '../src/lib/integrations/github/model';
 import { startGitHubStub } from './support/githubStub';
 import { createOauthState } from '../src/lib/integrations/oauthState';
-import { setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
+import { setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
 
 const variables = ['UIER_LOCAL', 'UIER_GITHUB_APP_ID', 'UIER_GITHUB_APP_SLUG', 'UIER_GITHUB_CLIENT_ID', 'UIER_GITHUB_CLIENT_SECRET',
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_SETUP_KEY', 'UIER_GITHUB_WEBHOOK_SECRET', 'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL'];
@@ -698,4 +698,19 @@ test('same-target reauthorization by the same or a new admin retains external id
     expect(ledger.status).toBe('accepted'); expect(external(ledger).id).toBe(originalIssue);
     expect(state(ledger).active?.authorizedGitHubUserId).toBe('8');
     expect(state(ledger).retired).toEqual([]);
+});
+
+
+test('reply sync imports GitHub comments, follows original edits/deletions and leaves human comments untouched', async () => {
+    const f = await fixture(); let current = await sync(f, { realTime: true });
+    await setIntegrationReplySync(f.project, 'github', f.user.id, true);
+    const remote = external(current); const human = { id: 900000, body: 'GitHub discussion reply', issue_url: `https://api.github.com/repos/${f.connection.config.owner}/${f.connection.config.name}/issues/${remote.number}`,
+        user: { id: 12345, type: 'User', login: 'GitHub reviewer' }, created_at: new Date().toISOString() };
+    remote.comments.push(human);
+    const original = async () => (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+    const poll = () => processIntegrationDelivery(current, baseUrl, f.adapter, { statusOnly: true });
+    await poll(); expect((await original()).thread.items.at(-1)).toMatchObject({ text: human.body, authorName: 'GitHub reviewer via GitHub' });
+    current = await sync(f, { realTime: true }); expect(remote.comments).toHaveLength(1);
+    human.body = 'Edited on GitHub'; await poll(); expect((await original()).thread.items.at(-1)!.text).toBe(human.body);
+    current = await sync(f, { realTime: true }); remote.comments = []; await poll(); expect((await original()).thread.items.at(-1)!.deletedAt).toBeTruthy();
 });

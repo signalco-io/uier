@@ -20,7 +20,7 @@ import { probeNotionConnections } from '../src/lib/integrations/notion/probe';
 import type { NotionConnection, NotionGrant, NotionState } from '../src/lib/integrations/notion/model';
 import { pngImage, jpegImage } from './support/images';
 import { startNotionStub } from './support/notionStub';
-import { setIntegrationTwoWaySync } from '../src/lib/integrations/connection';
+import { setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
 
 let stub: Awaited<ReturnType<typeof startNotionStub>>;
 const client = new NotionClient();
@@ -616,4 +616,45 @@ test('app id cursors are exclusive, ordered and rejected when unbounded or used 
     await expect(store.query({ type: 'probe-test', pk, limit: 1, afterId: 'a' })).rejects.toThrow('Invalid document query cursor');
     for (const afterId of ['', 'a'.repeat(257), 'a\nb'])
         await expect(store.query({ type: 'probe-test', pk, limit: 1, orderBy: 'id', afterId })).rejects.toThrow('Invalid document query cursor');
+});
+
+
+test('reply sync uses native Notion comments, follows original edits/deletions, prevents echoes and cleans app copies', async () => {
+    const f = await fixture(); const comment = await source(f); let current = await sync(f, comment);
+    const project = (await f.store.get<DbProject>(f.project.pk, f.project.id))!.doc;
+    await setIntegrationReplySync(project, 'notion', f.owner.id, true);
+    const replied = await replyToProjectComment(request, project, f.actor, comment.id, { text: 'A native uier reply' });
+    const item = replied.thread.items.at(-1)!;
+    stub.fault({ method: 'POST', path: '/v1/comments', afterCommit: true });
+    current = await sync(f, comment); expect(current.attempt?.step).toBe('create_native_reply');
+    await updateDoc<IntegrationSync>(current.pk, current.id, value => ({ ...value, nextAttemptAt: new Date(0).toISOString() }));
+    current = await sync(f, comment); expect(current.status).toBe('accepted');
+    expect(stub.comments.size).toBe(1);
+    const native = [...stub.comments.values()].find(reply => reply.parent.page_id === page(current).id)!;
+    expect(richText(native.rich_text)).toContain('A native uier reply');
+    await editProjectCommentItem(project, f.actor, comment.id, item.id, { text: 'Updated native reply', expectedText: item.text });
+    current = await sync(f, comment); expect(richText(native.rich_text)).toContain('Updated native reply');
+    await deleteProjectCommentItem(project, f.actor, comment.id, item.id); current = await sync(f, comment); expect(current.status).toBe('accepted'); expect(native.deleted).toBe(true);
+    const humanId = randomUUID(); const human = { object: 'comment', id: humanId, parent: { page_id: page(current).id }, discussion_id: randomUUID(),
+        created_time: new Date().toISOString(), created_by: { id: randomUUID(), name: 'Notion teammate' }, rich_text: [{ text: { content: 'Reply in Notion' } }], deleted: false, resolved: false };
+    stub.comments.set(humanId, human);
+    const original = async () => (await getCommentsStore().get(comment.domain, comment.id))!.comment;
+    const poll = () => processIntegrationDelivery(current, baseUrl, adapter, { statusOnly: true });
+    await poll(); const imported = (await original()).thread.items.at(-1)!;
+    expect(imported).toMatchObject({ text: 'Reply in Notion', authorName: 'Notion teammate via Notion' });
+    await expect(editProjectCommentItem(project, f.actor, comment.id, imported.id, { text: 'Impersonation', expectedText: imported.text })).rejects.toThrow();
+    await expect(deleteProjectCommentItem(project, f.actor, comment.id, imported.id)).rejects.toThrow();
+    current = await sync(f, comment); expect([...stub.comments.values()].filter(reply => !reply.deleted)).toHaveLength(1);
+    human.rich_text = [{ text: { content: 'Edited in Notion' } }]; await poll(); expect((await original()).thread.items.at(-1)!.text).toBe('Edited in Notion');
+    current = await sync(f, comment); human.resolved = true; await poll(); expect((await original()).thread.items.at(-1)!.deletedAt).toBeUndefined();
+    human.deleted = true; await poll(); expect((await original()).thread.items.at(-1)!.deletedAt).toBeTruthy();
+    current = await sync(f, comment);
+    await replyToProjectComment(request, project, f.actor, comment.id, { text: 'Private cleanup reply' });
+    stub.fault({ method: 'POST', path: '/v1/comments', afterCommit: true }); current = await sync(f, comment);
+    expect(current.attempt?.step).toBe('create_native_reply');
+    const cleanupCopy = [...stub.comments.values()].find(reply => !reply.deleted)!;
+    await setProjectCommentPrivate(project, f.actor, comment.id, true);
+    await updateDoc<IntegrationSync>(current.pk, current.id, value => ({ ...value, nextAttemptAt: new Date(0).toISOString() }));
+    current = await sync(f, comment);
+    expect(cleanupCopy.deleted).toBe(true);
 });

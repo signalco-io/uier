@@ -82,7 +82,7 @@ credentials for local testing; production credentials do not belong in `.env.loc
 
 1. Register a **public connection** with installation scope **Any workspace**, rather than an internal
    connection. Configure `https://uier.io/app/notion/callback` as its production redirect URI.
-2. Enable Read content, Insert content and Update content. Do not request unrelated user-information
+2. Enable Read content, Insert content and Update content. For optional reply sync also enable Read comments and Insert comments. Do not request unrelated user-information
    access. Verify the application identity and capabilities in the real portal before activation.
 3. Record the OAuth client id/secret in the map. An optional duplicated template can contain the
    feedback database. Its first data source must have a title field and a separate rich text field
@@ -168,7 +168,7 @@ application. See [Entra OAuth for Azure DevOps](https://learn.microsoft.com/en-u
 
 1. Register a Slack app with exact OAuth redirect `https://uier.io/app/slack/callback`.
 2. Use bot scopes `chat:write`, `channels:read` and `groups:read`. Do not add user scopes,
-   `chat:write.public`, history/replies scopes, incoming webhooks, interactivity or the Events API.
+   `chat:write.public`, incoming webhooks, interactivity or the Events API. Register optional bot scopes `channels:history` and `groups:history` for reply sync; the normal connect path does not request them.
 3. Complete Slack's applicable distribution/approval requirements for the intended customer
    workspaces. Enable token rotation for the controlled test installation and verify it before production rollout.
    Keep `SLACK_DISTRIBUTION_APPROVED="0"` until that release decision is made; `"1"` is an owner
@@ -178,8 +178,8 @@ application. See [Entra OAuth for Azure DevOps](https://learn.microsoft.com/en-u
 
 See [Slack OAuth](https://docs.slack.dev/authentication/installing-with-oauth/) and
 [token rotation](https://docs.slack.dev/authentication/using-token-rotation/). Slack receives bounded
-notifications and selected-change counts, rather than complete discussions or screenshots. An
-unconfirmed message create needs review; uier does not add history scopes or blindly resend it.
+notifications and selected-change counts by default. Optional reply sync uses native thread messages.
+An unconfirmed root or summary create still needs review; enabling history does not blindly resend it.
 
 ## CI preview and production activation
 
@@ -287,3 +287,35 @@ observe uier after scheduled runs, then change uier and read back the same exter
 two-way status sync, change the provider status again and verify uier stays unchanged. Repeat with
 the configured Notion property and confirm another unmapped property has no effect. Local simulator
 tests do not establish hosted acceptance for this new path.
+
+
+## Two-way reply sync
+
+Reply sync is a separate, default-off admin setting for all five providers. See the
+[reply contract](integrations.md#two-way-reply-sync) for source-owned edits/deletions and limits.
+
+- **Notion:** enable Read comments and Insert comments in the public connection's capabilities.
+  Reauthorize an existing connection if its grant lacks these capabilities. The adapter uses
+  [list](https://developers.notion.com/reference/list-comments),
+  [retrieve](https://developers.notion.com/reference/retrieve-comment),
+  [create](https://developers.notion.com/reference/create-a-comment),
+  [update](https://developers.notion.com/reference/update-a-comment) and
+  [delete](https://developers.notion.com/reference/delete-a-comment) on the linked page's comments.
+  User-information capabilities are unnecessary. Update/delete only affect integration-owned copies.
+- **Slack:** register `channels:history` and `groups:history` as optional bot scopes, alongside the
+  existing three scopes. The project admin selects **Allow Slack reply access**, approves OAuth in
+  the same workspace, then enables reply sync. The existing channel stays selected. Bot
+  [conversations.replies](https://docs.slack.dev/reference/methods/conversations.replies/) reads only
+  known linked threads; `chat:write` creates, edits and deletes the bot's own reply copies.
+- **GitHub / Linear:** existing issue/comment and read/write app permissions suffice. No extra
+  scopes or content webhooks are added.
+- **Azure DevOps:** existing delegated `vso.work_write` covers the
+  [Comments API](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/add-comment?view=azure-devops-rest-7.1).
+  Native comments use `7.1-preview.4`, literal escaped HTML and the connecting Microsoft identity.
+
+For hosted acceptance, use dedicated disposable feedback. Enable replies without status sync;
+create one reply in each system, edit each original, then delete each original and read back its
+copy. Confirm imports have source labels and cannot be edited as a uier member. Disable replies,
+change the provider again and verify no import. Test a paginated thread, resolved Notion discussion,
+privacy cleanup and a lost create response with no duplicate on recovery. Check another thread and
+project are untouched. Local simulator checks do not establish hosted permission or API acceptance.
