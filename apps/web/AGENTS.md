@@ -28,7 +28,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
-| `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and social card, generated from brand constants |
+| `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and the brand social card, generated from brand constants |
+| `app/og/[card]/route.ts`, `src/lib/social/` | the other social cards (public pages, comment/review/invitation links), their titles and descriptions, and the link-preview metadata ([social cards](#social-cards-and-link-previews)) |
 | `app/not-found.tsx`, `app/(rest)/error.tsx` | the 404 page and the error boundary, both a `StatusPage` (`src/components/StatusPage.tsx`: logo, a browser frame with a pin on the empty spot, what happened, where to go) |
 | `src/components/marketing/` | `ContentPage` (the building blocks of every public page, landing included: header with a one-sentence lead, section heading, section (heading beside its content on wide screens, like the landing's questions; `wide` stacks them, for the brand page's specimens), `Panel` of hairline-divided cells with `Tile`, `CheckList`, `InlineLink`), `HowItWorks` (the landing's cover: one animated loop on the example site from adding the script tag to a thread marked as done, under a row with its heading, a caption and Pause), `LandingSpecimens` (static, `aria-hidden` pictures of the review layer and the app for the landing's feature tiles; example content is an imaginary restaurant site, a different part of it than the walkthrough shows), `LandingPricing`, `LandingFaq`, `SiteFooter` (the footer of every public page; `Footer1` vendored from signalco renders it), `ReviewThreadDemo` (a visual specimen on `/brand`; the landing thread is live) |
 | `src/components/legal/` | `LegalDocument`: legal navigation, title, effective date and the text styles of every legal page |
@@ -122,6 +123,30 @@ Listing illustrations come from `scripts/render-integration-listings.mjs`, exist
 and Geist fonts. They contain no customer data and are labelled illustrations. Keep permissions,
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
 `e2e/integration-pages.spec.ts` covers the public guides, support/setup links and accessibility.
+
+## Social cards and link previews
+
+Every link to uier.io unfurls with a card of its own (1200 × 630, BRAND.md "Marketing and metadata").
+The root layout sets only `siteOpenGraph` and `summary_large_image`: Next fills each preview's title
+and description from the page's own `title` and `description`, so never put an `openGraph.title`,
+`description` or `url` in a layout (every page would unfurl as that one).
+
+- **Public pages** take their title and description from `pageCards` in `src/lib/social/cards.ts`
+  through `pageMetadata('<id>')`; the card is `/og/<id>`. A new public page gets an entry there.
+  The landing page and pages without an entry show the brand card (`app/opengraph-image.tsx`).
+- **App links** are previewed signed out, so a comment, review or project link ends at sign in
+  (`?next=`) and an invitation at its page. `describeAppLink` names the kind of link (`comment`,
+  `review`, `sign-in`) and, for review links, the site's host from the link's own `url`; it reads
+  nothing from the store, so a preview never shows a comment, project, workspace or person.
+  The browser tab keeps "Sign in"; only `og:`/`twitter:` change.
+- Cards are static (`/og/[card]` prerenders `socialCardIds`, unknown ids are 404) and draw no text
+  from a request. Pictures are specimens with placeholder bars, never words that read as content.
+- `next-sitemap.config.cjs` keeps `/app` disallowed in robots.txt but allows the entry points of
+  shared links (`/app/review/`, `/app/projects/`, `/app/sign-in`, `/app/invitation`): Slack, X and
+  LinkedIn honour robots.txt. Those pages are `noindex`.
+
+`e2e/social-cards.api.spec.ts` checks every card and every public page's preview, the app link
+previews and robots.txt.
 
 ## Footer
 

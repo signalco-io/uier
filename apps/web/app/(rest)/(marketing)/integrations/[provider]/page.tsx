@@ -5,6 +5,7 @@ import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
 import { KnownPages } from '../../../../../src/knownPages';
 import { integrationCatalog, isIntegrationCatalogKey } from '../../../../../src/lib/integrations/catalog';
+import { pageMetadata } from '../../../../../src/lib/social/metadata';
 
 type Props = { params: Promise<{ provider: string }> };
 
@@ -15,8 +16,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { provider } = await params;
     if (!isIntegrationCatalogKey(provider)) return {};
-    const integration = integrationCatalog[provider];
-    return { title: integration.title, description: integration.description };
+    return pageMetadata(`integration-${provider}`);
 }
 
 export default async function IntegrationPage({ params }: Props) {

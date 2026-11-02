@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 import { KnownPageLinks } from '../../../../src/knownPages';
 import { integrationCatalog } from '../../../../src/lib/integrations/catalog';
+import { pageMetadata } from '../../../../src/lib/social/metadata';
 
-export const metadata: Metadata = { title: 'Integrations', description: 'Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack.' };
+export const metadata: Metadata = pageMetadata('integrations');
 
 export default function IntegrationsPage() {
     return <main className="flex flex-col pb-16">

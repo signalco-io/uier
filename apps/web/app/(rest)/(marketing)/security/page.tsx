@@ -3,15 +3,13 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 import { KnownPages } from '../../../../src/knownPages';
+import { pageMetadata } from '../../../../src/lib/social/metadata';
 
 // Every control listed here is implemented and verifiable in this repository (apps/web/src/lib/comments,
 // next.config.ts, infra/) or is a documented property of the service it names. Do not add a control
 // before it ships, and remove one if it stops being true.
 
-export const metadata: Metadata = {
-    title: 'Security',
-    description: `How ${brand.domain} protects the comments left on it, and how to report a vulnerability.`
-};
+export const metadata: Metadata = pageMetadata('security');
 
 const controls = [
     {

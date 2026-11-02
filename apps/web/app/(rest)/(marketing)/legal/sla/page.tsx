@@ -2,14 +2,12 @@ import type { Metadata } from 'next';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
+import { pageMetadata } from '../../../../../src/lib/social/metadata';
 
 // No service commitments have been approved for uier. Do not add uptime targets, response times or
 // credits here before they are decided and the product can back them.
 
-export const metadata: Metadata = {
-    title: 'Service level agreement',
-    description: `${brand.name} is free and has no service level agreement: no uptime, response time or support commitments.`
-};
+export const metadata: Metadata = pageMetadata('sla');
 
 export default function SlaPage() {
     return (

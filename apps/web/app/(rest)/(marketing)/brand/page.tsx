@@ -17,14 +17,13 @@ import { Button as AppButton } from '../../../../src/components/ui/button';
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
 import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
+import { KnownPageLinks } from '../../../../src/knownPages';
+import { pageMetadata } from '../../../../src/lib/social/metadata';
 
 // The living brand page. Everything here renders from @uier/brand and the UI kit with the
 // brand tokens applied, so it shows the brand as it ships. The written rules: packages/brand/BRAND.md.
 
-export const metadata: Metadata = {
-    title: 'Brand',
-    description: `How ${brand.name} looks and sounds: logo, colour, type, shape and the review layer.`
-};
+export const metadata: Metadata = pageMetadata('brand');
 
 const brandMdUrl = `${brand.repository}/blob/main/packages/brand/BRAND.md`;
 const packageUrl = `${brand.repository}/tree/main/packages/brand`;
@@ -305,6 +304,7 @@ export default function BrandPage() {
                         <li><InlineLink href="/apple-touch-icon.png">apple-touch-icon.png</InlineLink> <span className="text-muted-foreground">· black plate, white mark at 54 %</span></li>
                         <li><InlineLink href="/android-chrome-512x512.png">android-chrome-512x512.png</InlineLink> <span className="text-muted-foreground">· same plate, maskable</span></li>
                         <li><InlineLink href="/opengraph-image">opengraph-image</InlineLink> <span className="text-muted-foreground">· the 1200 × 630 social card, generated from the constants</span></li>
+                        <li><InlineLink href={KnownPageLinks.socialCard('comment')}>og/comment</InlineLink> <span className="text-muted-foreground">· the cards of public pages and app links: comment, review, invitation, sign in</span></li>
                         <li><InlineLink href="/manifest.webmanifest">manifest.webmanifest</InlineLink> <span className="text-muted-foreground">· name, icons and colours from the constants</span></li>
                     </ul>
                     <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm leading-relaxed text-secondary-foreground">

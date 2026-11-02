@@ -3,16 +3,14 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
 import { getServiceStatus, STATUS_CACHE_SECONDS, type ServiceState } from '../../../../src/lib/status/serviceStatus';
+import { pageMetadata } from '../../../../src/lib/social/metadata';
 
 // Shows only what the live checks in src/lib/status measure, when the page is requested. No uptime
 // percentages or history: nothing records them.
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-    title: 'Status',
-    description: `Live checks of ${brand.name}'s website and comments.`
-};
+export const metadata: Metadata = pageMetadata('status');
 
 const stateLabels: Record<ServiceState, string> = {
     operational: 'Operational',

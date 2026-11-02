@@ -2,15 +2,13 @@ import type { Metadata } from 'next';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
+import { pageMetadata } from '../../../../../src/lib/social/metadata';
 
 // Describes what the site, the comments API and the app actually do (apps/web/src/lib/comments,
 // apps/web/src/lib/app, README "Comments API" and "The app"). Change this page when what is collected,
 // where it is stored or for how long changes.
 
-export const metadata: Metadata = {
-    title: 'Privacy policy',
-    description: `What ${brand.domain} collects, why, where it is stored and for how long.`
-};
+export const metadata: Metadata = pageMetadata('privacy-policy');
 
 export default function PrivacyPolicyPage() {
     return (

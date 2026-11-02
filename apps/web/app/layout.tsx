@@ -2,6 +2,7 @@ import { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { brand } from '@uier/brand';
+import { siteOpenGraph } from '@/src/lib/social/metadata';
 import './global.css';
 export default function RootLayout({ children }: {
     children: React.ReactNode;
@@ -32,18 +33,9 @@ export const metadata = {
         ],
         apple: '/apple-touch-icon.png'
     },
-    openGraph: {
-        type: 'website',
-        siteName: brand.name,
-        title: `${brand.name} · ${brand.tagline}`,
-        description: brand.shortDescription,
-        url: brand.url
-    },
-    twitter: {
-        card: 'summary_large_image',
-        title: `${brand.name} · ${brand.tagline}`,
-        description: brand.shortDescription
-    }
+    // Previews take each page's own title and description (and card, src/lib/social)
+    openGraph: siteOpenGraph,
+    twitter: { card: 'summary_large_image' }
 } satisfies Metadata;
 
 export const viewport = {

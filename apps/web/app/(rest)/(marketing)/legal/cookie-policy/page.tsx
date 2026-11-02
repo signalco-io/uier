@@ -2,15 +2,13 @@ import type { Metadata } from 'next';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
+import { pageMetadata } from '../../../../../src/lib/social/metadata';
 
 // Every cookie and storage key the site sets. Keep in sync with cookieNames
 // (src/lib/cookieNames.ts), the app's cookie options (src/lib/app/session.ts)
 // and the toolbar's storage keys (packages/toolbar).
 
-export const metadata: Metadata = {
-    title: 'Cookie policy',
-    description: `The cookies and the browser storage ${brand.domain} uses, and why.`
-};
+export const metadata: Metadata = pageMetadata('cookie-policy');
 
 const items = [
     {

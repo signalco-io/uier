@@ -24,6 +24,7 @@ export const KnownPages = {
     AppSignInGoogleCallback: '/app/sign-in/google/callback',
     AppSignInGoogleLink: '/app/sign-in/google/link',
     AppProjects: '/app/projects',
+    AppReview: '/app/review',
     AppNewProject: '/app/projects/new',
     AppUsers: '/app/users',
     AppTeams: '/app/teams',
@@ -86,8 +87,10 @@ export const KnownPageLinks = {
         if (commentId)
             query.set('comment', commentId);
         const search = query.toString();
-        return `/app/review/${encodeURIComponent(projectId)}${search ? `?${search}` : ''}`;
+        return `${KnownPages.AppReview}/${encodeURIComponent(projectId)}${search ? `?${search}` : ''}`;
     },
+    /** A social card (Open Graph image) from `src/lib/social/cards.ts` */
+    socialCard: (card: string) => `/og/${encodeURIComponent(card)}`,
     /** The projects list filtered to one client by its id (the `client` filter of /app/projects) */
     clientProjects: (clientId: string, status: 'active' | 'done' = 'active') => {
         const query = new URLSearchParams();
