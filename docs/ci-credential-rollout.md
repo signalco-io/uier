@@ -189,8 +189,10 @@ retain the existing toolbar archive behavior.
 A separate deploy job has no checkout. It validates archive paths, entry types and symbolic links,
 rejects environment files, reconstructs the fixed uier team/project context and installs the pinned
 CLI with lifecycle scripts disabled. It executes only `vercel deploy --prebuilt --archive=tgz`.
-Unit tests exercise traversal, credential-file and escaping-link rejection. The actual local output
-archive also passed the same extractor, with 806 paths and no environment files.
+Unit tests exercise traversal, credential-file and escaping-link rejection. The build also packages Next.js `filePathMap` dependencies inside `.vercel/output/runtime-files`
+and rewrites their source references. The upload extractor rejects any dependency reference outside
+that packaged directory, as well as missing or environment-file references. Tests check that the
+package works after removing its source dependencies and refuses runner-file references.
 
 ### Scheduled worker boundary
 

@@ -61,6 +61,7 @@ jobs:
           else
             "$HOME/.vercel-cli/bin/vercel" build
           fi
+          node .github/scripts/package_prebuilt.mjs
           tar -czf prebuilt.tar.gz .vercel/output
       - name: Upload prebuilt output only
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -96,6 +97,7 @@ jobs:
           # BEGIN PREBUILT EXTRACTOR
           python3 - prebuilt.tar.gz <<'PYTHON'
           """Validate an untrusted build archive before extracting it in a token-bearing job."""
+          import json
           import pathlib
           import sys
           import tarfile
@@ -119,6 +121,21 @@ jobs:
                           if pathlib.PurePosixPath(member.linkname).is_absolute() or not target.is_relative_to(root / prefix):
                               raise ValueError('Build archive link leaves .vercel/output')
                   source.extractall(root, members=members, filter='data')
+              # filePathMap is interpreted by the upload CLI. It must never read runner files.
+              for config in (root / prefix / 'functions').rglob('.vc-config.json'):
+                  mapping = json.loads(config.read_text()).get('filePathMap', {})
+                  if not isinstance(mapping, dict):
+                      raise ValueError('Invalid function dependency map')
+                  for source, destination in mapping.items():
+                      if not isinstance(source, str) or not isinstance(destination, str):
+                          raise ValueError('Invalid function dependency path')
+                      path = pathlib.PurePosixPath(source)
+                      target = pathlib.PurePosixPath(destination)
+                      for value in (path, target):
+                          if value.is_absolute() or '..' in value.parts or '\\' in str(value) or any(part == '.env' or part.startswith('.env.') for part in value.parts):
+                              raise ValueError('Unsafe function dependency path')
+                      if not path.is_relative_to(prefix / 'runtime-files') or not (root / path).resolve().is_relative_to(root / prefix) or not (root / path).exists():
+                          raise ValueError('Function dependency leaves the packaged output')
 
 
           if __name__ == '__main__':

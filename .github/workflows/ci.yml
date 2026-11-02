@@ -105,7 +105,9 @@ jobs:
         run: pnpm build
 
       - name: Validate deployment artifact boundaries
-        run: python3 .github/scripts/test_prebuilt.py
+        run: |
+          python3 .github/scripts/test_prebuilt.py
+          node --test .github/scripts/package_prebuilt.test.mjs
 
       - name: Package the standalone worker
         run: node apps/web/scripts/build-notifications.mjs

@@ -1,4 +1,5 @@
 import io
+import json
 import pathlib
 import tarfile
 import tempfile
@@ -35,6 +36,18 @@ class BuildArchiveTests(unittest.TestCase):
             target = pathlib.Path(directory) / 'unpacked'
             namespace['extract'](archive, target)
             self.assertEqual((target / '.vercel/output/static/config-link').read_text(), '{"version":3}')
+
+    def test_function_maps_cannot_read_runner_credentials_or_unpacked_paths(self):
+        for source in ['.env', '../.vercel/auth.json', 'node_modules/private', '.vercel/output/runtime-files/missing']:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                archive = pathlib.Path(directory) / 'prebuilt.tar.gz'
+                with tarfile.open(archive, 'w:gz') as output:
+                    info = tarfile.TarInfo('.vercel/output/functions/api.func/.vc-config.json')
+                    content = json.dumps({'filePathMap': {source: 'index.js'}}).encode()
+                    info.size = len(content)
+                    output.addfile(info, io.BytesIO(content))
+                with self.assertRaises(ValueError):
+                    namespace['extract'](archive, pathlib.Path(directory) / 'unpacked')
 
     def test_paths_credentials_and_links_cannot_escape_the_output(self):
         for name, link in [('package.json', None), ('.vercel/project.json', None),
