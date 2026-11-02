@@ -9,6 +9,9 @@ export const workerSettingNames = new Set([
     ...['NOTION_TOKEN_KEY', 'LINEAR_TOKEN_KEY', 'SLACK_TOKEN_KEY', 'AZURE_DEVOPS_TOKEN_KEY', 'UIER_GITHUB_SETUP_KEY']
         .flatMap(name => [name, `${name}_ID`, `${name}_PREVIOUS`, `${name}_PREVIOUS_ID`]),
 ]);
+// A "0"/"1" release gate, not a secret. Masking "1" hid every 1 in the run log: exit codes,
+// counts and the delivery ids that `retry_delivery` needs.
+const unmaskedSettingNames = new Set(['SLACK_DISTRIBUTION_APPROVED']);
 
 export function parseWorkerSettings(encoded) {
     if (typeof encoded !== 'string' || !encoded || Buffer.byteLength(encoded) > 48_000)
@@ -20,6 +23,8 @@ export function parseWorkerSettings(encoded) {
         if (!workerSettingNames.has(name) || typeof value !== 'string' || !value.trim() || value.includes('\0') || value.length > 16_384)
             throw new Error('Invalid worker setting.');
     }
+    if (parsed.SLACK_DISTRIBUTION_APPROVED !== undefined && !['0', '1'].includes(parsed.SLACK_DISTRIBUTION_APPROVED))
+        throw new Error('Invalid worker setting.');
     for (const name of ['COSMOSDB_ENDPOINT', 'AZURE_SCREENSHOTS_ENDPOINT', 'UIER_COMMENTS_SECRET'])
         if (!parsed[name]) throw new Error('A required worker setting is missing.');
     return parsed;
@@ -28,7 +33,7 @@ export function parseWorkerSettings(encoded) {
 export function loadWorkerSettings(encoded, environment = process.env, write = value => process.stdout.write(value)) {
     const values = parseWorkerSettings(encoded);
     if (environment.GITHUB_ACTIONS === 'true') {
-        for (const value of Object.values(values))
+        for (const [name, value] of Object.entries(values)) if (!unmaskedSettingNames.has(name))
             write(`::add-mask::${value.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')}\n`);
     }
     Object.assign(environment, values);

@@ -22,7 +22,7 @@ test.beforeAll(async () => {
         '../src/lib/screenshots/blobStore': 'export function getScreenshotBlobStore() { return {async listBefore(){ console.log("PROBE blobs"); return {items:[]}; }}; }',
         '../src/lib/comments/cleanup': 'export async function sweepCommentCleanup() { console.log("CALL cleanup"); return {removed:0,failed:0}; }',
         '../src/lib/app/projectDeletion': 'export async function sweepProjectDeletions() { console.log("CALL deletions"); return {failed:0}; }',
-        '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return {checked:0,blocked:0}; }',
+        '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return JSON.parse(process.env.UIER_WORKER_TEST_DELIVERY || \'{"checked":0,"failed":0,"blocked":0,"review":[]}\'); }',
         '../src/lib/app/deployment': 'export function configuredAppBaseUrl() { return "https://uier.io"; }',
         '../src/lib/integrations/worker': 'export async function runIntegrationWorker() { console.log("CALL integrations"); return {discovered:{checked:0,deferred:0},providers:[],blocked:0}; }'
     };
@@ -73,6 +73,21 @@ test('a run without email settings leaves deliveries untouched, keeps other work
         expect(result.stdout).toContain('CALL cleanup');
         expect(result.stdout).toContain('CALL integrations');
     }
+});
+
+test('ledgers waiting for review are named for retry_delivery without failing every later run', async () => {
+    const id = `delivery_${'1'.repeat(64)}`;
+    const result = await run(false, '', { UIER_WORKER_TEST_DELIVERY: JSON.stringify({ checked: 3, failed: 0, blocked: 2,
+        review: [{ id, status: 'failed', lastCode: 'EmailNotConfiguredError' }, { id: `delivery_${'a'.repeat(64)}`, status: 'ambiguous', lastCode: 'operation_unknown' }] }) });
+    expect(result.stdout).toContain('[notifications] Checked 3 delivery ledgers; 0 attempts failed; 2 require review.');
+    expect(result.stdout).toContain(`::warning title=Notification delivery needs review::${id} is failed (EmailNotConfiguredError). After fixing the cause, run this workflow with retry_delivery set to this id.`);
+    expect(result.stdout).toContain(`delivery_${'a'.repeat(64)} is ambiguous (operation_unknown)`);
+    expect(result.stdout).toContain('CALL integrations');
+});
+
+test('a failed delivery attempt in this run fails the run after the remaining work', async () => {
+    await expect(run(false, '', { UIER_WORKER_TEST_DELIVERY: JSON.stringify({ checked: 2, failed: 1, blocked: 0, review: [] }) }))
+        .rejects.toMatchObject({ code: 1, stdout: expect.stringMatching(/1 attempts failed; 0 require review\.[\s\S]*CALL integrations/) });
 });
 
 test('an integration-only run with an email retry fails before any work', async () => {

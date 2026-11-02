@@ -63,8 +63,13 @@ if (process.env.UIER_WORKER_VERIFY_ONLY !== '1') {
         } else {
             if (process.env.UIER_NOTIFICATION_RETRY_DELIVERY) await retryNotificationDelivery(process.env.UIER_NOTIFICATION_RETRY_DELIVERY);
             const result = await runNotificationWorker(baseUrl);
-            console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.blocked} require review.`);
-            if (result.blocked) process.exitCode = 1;
+            console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.failed} attempts failed; ${result.blocked} require review.`);
+            // Ids are hashes and codes are bounded classes: no recipient or content reaches the log.
+            for (const ledger of result.review)
+                console.info(`::warning title=Notification delivery needs review::${ledger.id} is ${ledger.status} (${ledger.lastCode}). After fixing the cause, run this workflow with retry_delivery set to this id.`);
+            // Only this run's failed attempts fail it. A ledger waiting for review stays listed above:
+            // failing every run for it kept the workflow red long after delivery recovered.
+            if (result.failed) process.exitCode = 1;
         }
     } else console.info('[notifications] Email delivery skipped for this integration-only run.');
     const integrations = await runIntegrationWorker(baseUrl);
