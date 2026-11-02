@@ -4,13 +4,13 @@ import { Config, getStack, interpolate, secret } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectDomain, ProjectEnvironmentVariable } from '@pulumiverse/vercel';
 import { ResourceGroup } from '@pulumi/azure-native/resources/index.js';
-import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlResourceSqlRoleAssignment, DatabaseAccountOfferType, getDatabaseAccountOutput, listDatabaseAccountConnectionStringsOutput } from '@pulumi/azure-native/cosmosdb/index.js';
+import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlResourceSqlRoleAssignment, DatabaseAccountOfferType, getDatabaseAccountOutput } from '@pulumi/azure-native/cosmosdb/index.js';
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { caaRecord, dnsRecord } from './cloudflare.js';
 import { acsEmail, acsEmailReports } from './email.js';
 import { integrationEnvironment } from './integrations.js';
-import { productionCosmosIdentity } from './productionCosmosIdentity.js';
+import { productionCosmosEnvironment, productionCosmosIdentity } from './productionCosmosIdentity.js';
 import { previewEnvironment, preservePreviewValue } from './previewEnvironment.js';
 
 const up = async () => {
@@ -97,22 +97,12 @@ const up = async () => {
         protect,
         aliases: [{ type: 'azure-native:documentdb:DatabaseAccount' }],
     });
-    const cosmosConnectionStrings = listDatabaseAccountConnectionStringsOutput({
-        resourceGroupName: resourceGroup.name,
-        accountName: cosmosDbAccount.name,
-    });
-    // Read by the stable account name, as with connection strings. The resource's computed
-    // documentEndpoint becomes unknown when account settings change, otherwise making preview
-    // plan a Vercel variable update too. This lookup still detects real endpoint changes.
+    // Read by the stable account name. The resource's computed documentEndpoint becomes unknown
+    // when account settings change; this lookup still detects actual endpoint changes.
     const cosmosDocumentEndpoint = getDatabaseAccountOutput({
         resourceGroupName: resourceGroup.name,
         accountName: cosmosDbAccount.name,
     }).documentEndpoint;
-    // Production only. Preview deployments get no account key (an account key can read and write
-    // every container); they use the managed identity below.
-    const cosmosPrimaryConnectionString = cosmosConnectionStrings
-        .apply(keys => keys.connectionStrings?.at(0)?.connectionString ?? '');
-
     // Create a SQL Database within the Cosmos DB Account
     const sqlDatabase = new SqlResourceSqlDatabase(databaseName, {
         resourceGroupName: resourceGroup.name,
@@ -158,9 +148,9 @@ const up = async () => {
     // App data written by PR preview deployments: 7 days after the last write.
     const appPreviewContainer = sqlContainer('app-preview', 7 * 24 * 60 * 60, '/pk');
 
-    // Stage #167: create and verify the production identity before changing Vercel variables,
-    // worker credentials or account authentication. This deploy keeps the existing key working.
-    productionCosmosIdentity(resourceGroup, cosmosDbAccount, sqlDatabase.name, {
+    // Prepared and verified before the stage 4 runtime cutover. Account-key authentication
+    // remains enabled until the separate operator/restore and key-retirement stage.
+    const productionCosmos = productionCosmosIdentity(resourceGroup, cosmosDbAccount, sqlDatabase.name, {
         comments: commentsContainer.name,
         app: appContainer.name,
     });
@@ -214,8 +204,8 @@ const up = async () => {
     const commentsSecret = (name: string) => new RandomBytes(name, { length: 32 }).base64;
 
     // Assign app environment variables
-    // Production and preview deployments get separate variables (disjoint targets): production uses
-    // the primary key, previews the managed identity and their own container.
+    // Production and preview deployments use separate managed identities and container names.
+    // Credentials have disjoint targets so a preview cannot select the production identity.
     // Vercel allows one variable per key and target, so a replace of the new variables (a changed
     // `key` or `sensitive`) has to delete the old one first; variables apply to new deployments only.
     const envVarOptions = { deleteBeforeReplace: true };
@@ -244,18 +234,7 @@ const up = async () => {
     }, envVarOptions);
     // The Azure resource-name casing receiver deployed before this guarded subscription attempt.
     acsEmailReports(email.communicationServiceId, emailReportSecret);
-    new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
-        teamId: vercelTeamId,
-        projectId: app.projectId,
-        key: 'COSMOSDB_CONNECTION_STRING',
-        value: cosmosPrimaryConnectionString,
-        targets: ['production'],
-        // Required (and replace-on-change) since @pulumiverse/vercel 4.8. Older providers stored
-        // `sensitive = (type == "sensitive")` after creating the variable without it (type "encrypted"
-        // unless a team policy forces sensitive). It must equal the value in state, or Pulumi plans a
-        // replace (which fails safely with ENV_CONFLICT, as create runs before delete).
-        sensitive: false,
-    }, envVarOptions);
+    productionCosmosEnvironment(app.projectId, cosmosDocumentEndpoint, productionCosmos);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container', {
         teamId: vercelTeamId,
         projectId: app.projectId,

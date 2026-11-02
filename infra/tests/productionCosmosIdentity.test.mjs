@@ -14,8 +14,8 @@ runtime.setMocks({
     call(args) { return args.inputs; },
 });
 
-test('production federation grants item access only to the two production containers', async () => {
-    const { productionCosmosIdentity } = await import('../dist/productionCosmosIdentity.js');
+test('production federation and keyless runtime settings retain the two production data scopes', async () => {
+    const { productionCosmosEnvironment, productionCosmosIdentity } = await import('../dist/productionCosmosIdentity.js');
     const accountId = '/subscriptions/fixture/resourceGroups/uier/providers/Microsoft.DocumentDB/databaseAccounts/uierdb';
     const created = productionCosmosIdentity(
         { name: 'uier-resource-group', location: 'westeurope' },
@@ -42,4 +42,21 @@ test('production federation grants item access only to the two production contai
         assert.equal(inputs.resourceGroupName, 'uier-resource-group');
     }
     assert.equal(new Set(roles.map(role => role.inputs.roleAssignmentId)).size, 2);
+
+    const variables = productionCosmosEnvironment('uier-project', 'https://fixture.documents.azure.com/', created);
+    await all(variables.map(variable => variable.id)).promise();
+    assert.equal(resources.length, 7);
+    const settings = resources.filter(resource => resource.type.startsWith('vercel:')).map(resource => resource.inputs);
+    const values = settings.map(({ key, value }) =>
+        [key, value?.['4dabf18193072939515e22adb298388d'] ? value.value : value]);
+    assert.deepEqual(Object.fromEntries(values), {
+        COSMOSDB_ENDPOINT: 'https://fixture.documents.azure.com/',
+        AZURE_TENANT_ID: 'fixture-tenant', AZURE_CLIENT_ID: 'production-client',
+    });
+    for (const variable of settings) {
+        assert.deepEqual(variable.targets, ['production']);
+        assert.equal(variable.projectId, 'uier-project');
+        assert.equal(variable.teamId, 'team_Ade0MlfC3211ml3wYJZ4c9hn');
+        assert.equal(variable.sensitive, false);
+    }
 });

@@ -599,8 +599,9 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
   evidence; passing local fixtures alone must not close the launch gate.
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
   points it at a real Cosmos DB. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
-  from Pulumi: production an account key, previews Entra ID with the Vercel OIDC token
-  (`src/lib/db/client.ts`), scoped to the `comments-preview` container.
+  from Pulumi: separate production/preview Entra identities with Vercel OIDC tokens
+  (`src/lib/db/client.ts`), scoped to `comments`/`app` or `comments-preview`/`app-preview`.
+  Production has no Cosmos connection string; setting both endpoint and connection string is rejected.
 
 ## Toolbar in development
 

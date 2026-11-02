@@ -13,11 +13,11 @@ let appContainer: Container | null = null;
 
 /**
  * Cosmos DB is reached in one of two ways (both set by Pulumi, see infra/src/index.ts):
- * - `COSMOSDB_CONNECTION_STRING`: an account key (production, or your own account locally).
- * - `COSMOSDB_ENDPOINT` with `AZURE_TENANT_ID` and `AZURE_CLIENT_ID`: Microsoft Entra ID as a managed
- *   identity that trusts the deployment's Vercel OIDC token (preview deployments). Its only Cosmos DB
- *   roles are on the `comments-preview` and `app-preview` containers, so previews can't touch
- *   production data. The scheduled worker uses its dedicated GitHub Azure CLI login instead.
+ * - `COSMOSDB_CONNECTION_STRING`: an optional local development account key.
+ * - `COSMOSDB_ENDPOINT` with `AZURE_TENANT_ID` and `AZURE_CLIENT_ID`: Microsoft Entra ID.
+ *   Deployed requests use separate Vercel-trusted identities on the production `comments`/`app`
+ *   or preview `comments-preview`/`app-preview` containers. The scheduled worker uses its own
+ *   data-only GitHub Azure CLI login instead. Supplying both settings is rejected.
  */
 export function isCosmosConfigured() {
     return Boolean(process.env.COSMOSDB_CONNECTION_STRING || process.env.COSMOSDB_ENDPOINT);
