@@ -12,6 +12,7 @@ export const KnownPages = {
     OpenSource: '/open-source',
     Security: '/security',
     Status: '/status',
+    ExtensionDemo: '/extension-demo.html',
     Notifications: '/notifications',
     NotificationUnsubscribe: '/api/notifications/unsubscribe',
 

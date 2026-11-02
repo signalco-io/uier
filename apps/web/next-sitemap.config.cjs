@@ -5,7 +5,7 @@ module.exports = {
     generateRobotsTxt: true,
     // Only indexable pages belong in the sitemap, not app flows, bridges or metadata assets.
     exclude: ['/api', '/api/*', '/app', '/app/*', '/notifications', '/review-verification',
-        '/review-session', '/extension-verification', '/manifest.webmanifest', '/opengraph-image',
+        '/review-session', '/extension-verification', '/extension-demo.html', '/manifest.webmanifest', '/opengraph-image',
         '*/opengraph-image*', '/og/*'],
     // A build time is not the date the content changed. Omit it until actual dates are tracked.
     autoLastmod: false,

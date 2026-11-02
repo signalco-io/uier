@@ -81,9 +81,11 @@ as artifacts; check the dashboard's current required sizes and visually review t
 Screenshots use a local fictional project, never customer pages. Replace development-preview popup
 imagery with a verified released build when publishing.
 
-Provide the store reviewer with a dedicated account/project and an isolated HTTPS site that contains
-no customer data. Record its actual URL and the supported email-code sign-in instructions in the
-private dashboard reviewer notes, not this repository. Explain project matching, Start review,
+The controlled HTTPS reviewer page is `https://uier.io/extension-demo.html`: plain fictional content
+with no embed or executable page code, and a CSP that denies page resource loads. Reviewers sign
+in with their own test identity and create an isolated project whose site is `https://uier.io`.
+This self-service setup needs no shared password, customer workspace or maintainer-delivered code.
+Record the supported sign-in and setup steps in the private dashboard reviewer notes. Explain project matching, Start review,
 post/reply/resolve, visible-viewport screenshot, verification helper, Exit and sign-out. Ensure the
 reviewer can receive a sign-in code without relying on a maintainer being online. Never include
 customer tokens, passwords or one-time codes in a public issue or listing. Owners must verify those
