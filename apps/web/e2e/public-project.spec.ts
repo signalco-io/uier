@@ -5,18 +5,19 @@ import { chooseInboxPages, commentBubbles, openThread, toolbar } from './support
 
 test('the headline thread is live and anonymous replies survive a reload', async ({ page }, testInfo) => {
     await page.goto('/');
-    const headline = page.getByRole('region', { name: 'Headline comment thread' });
-    await expect(headline.getByText('Will first-time visitors get what “the page” means before they scroll? “on the site” might land faster.')).toBeVisible();
-    await expect(page.locator(`[data-uier-comment="${HEADLINE_COMMENT_ID}"]`)).toBeVisible();
+    const pin = page.locator(`[data-uier-comment="${HEADLINE_COMMENT_ID}"]`);
+    await expect(pin).toBeVisible();
     await expect(page.locator(`[data-uier-highlight="${HEADLINE_COMMENT_ID}"]`).first()).toBeVisible();
     expect((await page.context().cookies()).find(cookie => cookie.name === 'uier_visitor')).toBeUndefined();
+    await pin.click();
+    await expect(openThread(page).getByText('Will first-time visitors get what “the page” means before they scroll? “on the site” might land faster.')).toBeVisible();
     const text = `Headline reply ${testInfo.project.name} ${Date.now()}`;
-    const reply = headline.getByRole('textbox', { name: 'Reply to the headline' });
+    const reply = openThread(page).getByRole('textbox', { name: 'Reply', exact: true });
     await reply.fill(text);
     const savedReply = page.waitForResponse(response => response.url().includes(`/api/comments/${HEADLINE_COMMENT_ID}/replies`) && response.request().method() === 'POST');
     await reply.press('Enter');
     expect((await savedReply).status()).toBe(201);
-    await expect(headline.getByText(text)).toBeVisible();
+    await expect(openThread(page).getByText(text)).toBeVisible();
     await page.reload();
     await expect(toolbar(page)).toBeVisible();
     // Replies are stored in the same thread as the pin and inbox, even when collapsed by Show all.
@@ -54,17 +55,14 @@ test('anonymous visitors can comment on another public page and keep the comment
     await context.close();
 });
 
-test('collapse hides inline public threads and preserves their reply drafts', async ({ page }) => {
+test('collapse hides the public pins and highlights', async ({ page }) => {
     await page.goto('/');
-    const headline = page.getByRole('region', { name: 'Headline comment thread' });
-    await headline.getByRole('textbox', { name: 'Reply to the headline' }).fill('An unsent headline reply');
+    await expect(page.locator(`[data-uier-comment="${HEADLINE_COMMENT_ID}"]`)).toBeVisible();
     await page.getByRole('button', { name: 'Collapse toolbar' }).click();
-    await expect(headline).toHaveCount(0);
     await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
     await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Expand toolbar' }).click();
-    await expect(headline).toBeVisible();
-    await expect(headline.getByRole('textbox', { name: 'Reply to the headline' })).toHaveValue('An unsent headline reply');
     await expect(page.locator(`[data-uier-comment="${HEADLINE_COMMENT_ID}"]`)).toBeVisible();
+    await expect(page.locator(`[data-uier-highlight="${HEADLINE_COMMENT_ID}"]`).first()).toBeVisible();
 });

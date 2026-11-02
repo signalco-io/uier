@@ -73,11 +73,11 @@ that the assets (favicon, icons, manifest, OG image) are served, and that it pas
 ## Landing page
 
 Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
-review layer is shown with persisted starter threads (the toolbar renders `data-uier-thread` slots, pins and highlights), one solid
+review layer is shown with persisted starter threads (the toolbar renders their pins and highlights), one solid
 "Get started" and one outlined secondary action, no badges above the headline. The cover beside the
-headline is the how-it-works scene (`HowItWorks`); the headline thread's live slot is in "Try it on
-this page", and the description stays a direct child of the hero's first column (tests select it as
-`main>section>div>p`).
+headline is the how-it-works scene (`HowItWorks`), and the description stays a direct child of the
+hero's first column (tests select it as `main>section>div>p`). "Try it on this page" points visitors
+to the real toolbar; it does not embed a thread.
 
 Sections, in order, each with an `h2` whose id the navigation and footer link to (`KnownPages`):
 how it works (`#how-it-works`, the small heading over the cover scene), features (`#features`), get

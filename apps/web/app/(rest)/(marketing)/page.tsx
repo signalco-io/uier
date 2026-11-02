@@ -17,7 +17,6 @@ import {
     ThreadSpecimen
 } from '../../../src/components/marketing/LandingSpecimens';
 import { KnownPages } from '../../../src/knownPages';
-import { HEADLINE_COMMENT_ID } from '../../../src/lib/comments/publicProject';
 
 export const metadata = publicPageMetadata('/');
 
@@ -144,12 +143,6 @@ export default function LandingPage() {
                                 </li>
                             ))}
                         </ol>
-                        {/* The headline's thread, open and live: reply right here (the toolbar renders it) */}
-                        <div data-uier-thread={HEADLINE_COMMENT_ID} />
-                        <p className="mt-auto text-sm text-muted-foreground">
-                            Comments on this site are public and anonymous. Visitor threads are deleted after 90 days.
-                            The starter threads and their replies stay.
-                        </p>
                     </div>
                     <div className="flex flex-col gap-6 rounded-2xl border p-8">
                         <div className="flex flex-col gap-2">
