@@ -1,6 +1,8 @@
+import { vercelTeamId } from './vercelScope.js';
 import { secret, type Input } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectEnvironmentVariable } from '@pulumiverse/vercel';
+import { previewEnvironment, preservePreviewValue } from './previewEnvironment.js';
 
 const credentialNames = [
     'NOTION_CLIENT_ID', 'NOTION_CLIENT_SECRET',
@@ -58,13 +60,18 @@ export function parseIntegrationEnvironment(encoded: string | undefined): Record
 /** New resources only: existing project, database, domains and email configuration are untouched. */
 export function integrationEnvironment(projectId: Input<string>) {
     const configured = parseIntegrationEnvironment(process.env.UIER_INTEGRATION_ENV);
-    const options = { deleteBeforeReplace: true };
-    // The scheduled worker obtains production runtime configuration with Vercel env pull.
-    // Write-only Sensitive values are excluded from that pull. Keep these retrievable/server-only;
-    // Pulumi secret inputs still encrypt state and redact previews. Never log pulled values.
-    const variable = (name: string, value: Input<string>, sensitive = false) => new ProjectEnvironmentVariable(
-        `vercel-uier-env-integration-${name.toLowerCase().replaceAll('_', '-')}`,
-        { projectId, key: name, value, targets: ['production'], sensitive }, options);
+    const existing = previewEnvironment();
+    const registered = new Set<string>();
+    // Retain existing retrievable flags to avoid replacing production variables during the CI
+    // credential migration. The worker now has a separate allowlisted settings map in GitHub.
+    // Pulumi secret inputs still encrypt state and redact previews.
+    const variable = (name: string, value: Input<string>, sensitive = false) => {
+        const logicalName = `vercel-uier-env-integration-${name.toLowerCase().replaceAll('_', '-')}`;
+        registered.add(name);
+        return new ProjectEnvironmentVariable(logicalName,
+            { teamId: vercelTeamId, projectId, key: name, value, targets: ['production'], sensitive },
+            { deleteBeforeReplace: true, ...preservePreviewValue(existing, name, logicalName) });
+    };
     for (const [provider, name] of encryptionKeys) {
         // Always register these stable protected resources, including while a provider is disabled
         // or an explicit rotation override is active. They are never implicitly regenerated.
@@ -78,6 +85,10 @@ export function integrationEnvironment(projectId: Input<string>) {
     }
     for (const name of credentialNames) {
         const value = configured[name]; if (value) variable(name, secret(value));
+    }
+    for (const [name, metadata] of existing) {
+        if (allowedNames.has(name) && !registered.has(name))
+            variable(name, secret('existing production value retained during preview'), metadata.sensitive);
     }
     variable('UIER_DEPLOYMENT_ENV', 'production', false);
 }

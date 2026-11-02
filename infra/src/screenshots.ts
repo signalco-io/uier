@@ -1,3 +1,4 @@
+import { vercelTeamId } from './vercelScope.js';
 import { createHash } from 'node:crypto';
 import { all, getStack, interpolate, secret, type Input } from '@pulumi/pulumi';
 import { getClientConfigOutput } from '@pulumi/azure-native/authorization/getClientConfig.js';
@@ -44,10 +45,12 @@ export function screenshotStorage(
         return endpoints.blob;
     });
     new ProjectEnvironmentVariable('vercel-uier-screenshots-endpoint', {
+        teamId: vercelTeamId,
         projectId, key: 'AZURE_SCREENSHOTS_ENDPOINT', value: endpoint, targets: ['production', 'preview'], sensitive: false
     }, { dependsOn: containers });
     for (const [target, name] of [['production', 'screenshots'], ['preview', 'screenshots-preview']] as const) {
         new ProjectEnvironmentVariable(`vercel-uier-screenshots-container-${target}`, {
+            teamId: vercelTeamId,
             projectId, key: 'AZURE_SCREENSHOTS_CONTAINER', value: name, targets: [target], sensitive: false
         }, { dependsOn: [contributor, delegator] });
     }
@@ -57,8 +60,9 @@ export function screenshotStorage(
         if (!key) throw new Error('Screenshot storage returned no account key.');
         return `DefaultEndpointsProtocol=https;AccountName=${name};AccountKey=${key};EndpointSuffix=core.windows.net`;
     }));
-    // Retrievable encrypted value: the scheduled worker pulls production config to migrate/sweep.
+    // Retain the app's existing retrievable key; the scheduled worker now uses its own OIDC data role.
     new ProjectEnvironmentVariable('vercel-uier-screenshots-connection', {
+        teamId: vercelTeamId,
         projectId, key: 'AZURE_SCREENSHOTS_CONNECTION_STRING', value: connection, targets: ['production'], sensitive: false
     }, { dependsOn: containers });
     return { account, containers, contributor, delegator };

@@ -12,8 +12,8 @@ It manages:
   preview: the managed identity below and `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
   variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
-  scheduled worker reads both from `vercel pull`), and `ANTHROPIC_API_KEY` (rewrite
-  suggestions) when the repository secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
+  existing variable flags are retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
+  suggestions) when the production-environment secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
 - the production-only sensitive `UIER_STAFF_EMAILS` variable from required secret Pulumi config
   `uier:staffEmails`. Never store staff addresses in plaintext. See README "Removing abusive
   comments" for encrypted config updates, rollout and verification;
@@ -44,15 +44,24 @@ worker, moderation operators and the restore procedure all work with Entra ID. D
 stage through CI and record readback before removing a credential, subject or key. Pulumi
 protection is not an Azure management lock; the rollout records the separate owner prerequisite.
 
-GitHub `production`/`preview` environments and a separate **uier GitHub Preview** CI app were
-provisioned on 2 November 2026; current workflows still use their repository credentials.
-The owner chose unattended deployments, so neither environment requires reviewers or a wait timer;
-production allows only `main`, preview allows `main` and PR merge refs. `AleksandarDev` remains
-administrator. The [provisioning receipt](../docs/ci-credential-rollout.md#stage-2-provisioning-receipt--2-november-2026)
-records exact identities, read/decrypt/key-read permissions, provider scopes and pending OIDC/preview
-verification. Do not assume resource-read roles isolate production data when they can retrieve keys
-or decrypt state. Preserve optional production variable registration before removing their credentials
-from previews; never activate a placeholder value in `pulumi up`.
+CI uses `production` for updates and `preview` for PR/manual-main previews, with separate Azure
+apps and provider tokens. `production-worker` is main-only and has its own OIDC subject/data app;
+it cannot reuse the deployment identity's subject. None requires reviewers or a wait timer.
+`AleksandarDev` remains administrator. See the [credential rollout](../docs/ci-credential-rollout.md)
+for exact subjects, scopes and live verification. Reusable callers explicitly name allowed secrets; the target job environment overrides their values.
+Previews pass empty integration/Anthropic slots and receive no production integration credentials.
+
+Vercel resources use the explicit team ID from `src/vercelScope.ts`. Do not restore provider-level
+`vercel:team`: its team-wide metadata read is incompatible with project-scoped tokens.
+
+Preview `scripts/preview-environment.mjs` extracts only variable metadata from encrypted state.
+`src/previewEnvironment.ts` preserves existing optional production values during a dry run; updates
+reject the snapshot, so placeholders cannot reach production. Keep the five protected integration
+key resources registered. State/key reads are sensitive even without resource-management writes.
+`scripts/configure-worker.mjs` refreshes the worker's strict settings snapshot from deployed inputs,
+in memory and through GitHub stdin. Run it after provider/mail/key rotations before retiring old keys.
+The worker gets no account, state or deployment keys; the production app retains its current keys
+until the separate identity cutover. Do not change sensitive flags or protected resources in this stage.
 
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.
@@ -67,7 +76,8 @@ do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
 
 `src/screenshots.ts` adds protected private Azure Blob containers `screenshots` / `screenshots-preview`
 in a new Standard LRS Hot account. No CDN, anonymous access, versioning or soft deletion. Production
-gets a server-only retrievable storage key for the scheduled worker; previews retain OIDC and get
+retains its server-only retrievable app key; the scheduled worker uses its separate OIDC data role.
+Previews retain OIDC and get
 Blob Data Contributor on their container plus Blob Delegator at account scope. These two Azure RBAC
 assignments require owner-arranged assignment permission beyond CI’s resource-group Contributor.
 Do not broaden CI permissions automatically. Review additions only, with existing protected resources
@@ -82,7 +92,7 @@ unchanged. See [storage rollout](../docs/screenshot-storage.md) before merging o
 - No credentials in config or code: Pulumi, the state backend and the secrets provider use
   the current Azure login (GitHub OIDC in CI, `az login` locally); Vercel and Cloudflare tokens
   come from `VERCEL_API_TOKEN` and `CLOUDFLARE_API_TOKEN`, the Anthropic key from `ANTHROPIC_API_KEY`
-  (repository secrets passed in by `.github/workflows/pulumi_reusable.yml`).
+  (environment secrets resolved inside `.github/workflows/pulumi_reusable.yml`).
 - Pulumi runs the compiled `dist/index.js` (`typescript: false`), so build before a preview:
   `pnpm preview` does both.
 - Keep the Pulumi CLI version pinned in `.github/workflows/pulumi_reusable.yml` equal to
@@ -182,14 +192,14 @@ the evidence without recipient, content, tokens or raw headers. The
 logical resource names, 32-byte lengths and protection unchanged. They remain registered while a
 provider is disabled or an explicit key override is active. Never replace a key to fix a preview.
 
-The optional GitHub repository secret `UIER_INTEGRATION_ENV` is passed only to the Pulumi job by
-`ci.yml` / `deploy.yml` through `pulumi_reusable.yml`. It must be a JSON string map of the strict
+The optional GitHub production-environment secret `UIER_INTEGRATION_ENV` is available only to
+`pulumi up` in `pulumi_reusable.yml`. Previews receive metadata rather than this credential map. It must be a JSON string map of the strict
 provider credential / rotation allowlist in `src/integrations.ts`. The program rejects unknown names,
 local endpoint overrides, empty/non-string values and invalid or colliding key ids without echoing
 submitted names or values. All supplied values are Pulumi secrets and production-only, retrievable encrypted Vercel
-variables (`sensitive: false`). The scheduled worker pulls production variables; write-only Sensitive
-values are omitted from that pull and would break delivery. Authorized Vercel members and the worker
-can retrieve these server-only values. Never log or upload the ephemeral pulled environment file. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
+variables (`sensitive: false`). Existing retrievable variable flags remain unchanged to avoid replacement during this migration.
+Authorized Vercel members can retrieve them; the worker receives its own allowlisted GitHub settings
+snapshot, which must be refreshed after credential/key changes. Never log or upload credential values. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
 The allowlist also carries the Google sign-in client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
 [Google sign-in](../docs/google-sign-in.md)) and the separate Microsoft sign-in client
 (`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`;

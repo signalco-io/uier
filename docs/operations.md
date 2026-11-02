@@ -22,8 +22,8 @@ credential and Cosmos DB cutover gates for #167. Production still uses its accou
   `COSMOSDB_COMMENTS_CONTAINER=comments-preview`, and each gets its own random `UIER_COMMENTS_SECRET`.
   The app's data container is `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`); only production gets the
   email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
-  scheduled notifications worker reads both from `vercel pull`), and `ANTHROPIC_API_KEY` (rewrite
-  suggestions) once the repository secret `ANTHROPIC_API_KEY` is set,
+  existing variable sensitivity is retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
+  suggestions) once the production-environment secret `ANTHROPIC_API_KEY` is set,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
   both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself;
   the apex CAA `0 issue letsencrypt.org` restricts issuance to that documented CA (Cloudflare `data`, not `content`),
@@ -155,7 +155,7 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 | [`ci.yml`](../.github/workflows/ci.yml) | pull requests, manual | Web: typecheck, build, Playwright e2e and a Vercel preview deployment (URL in the job summary). Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
 | [`deploy.yml`](../.github/workflows/deploy.yml) | push to `main`, manual | `pulumi up` first, then build and deploy the website to Vercel production (`uier.io`). |
 | [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
-| [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | `vercel pull`, `vercel build`, `vercel deploy --prebuilt --archive=tgz` (reduces file uploads). |
+| [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Builds with public settings and no deployment credentials, then deploys only prebuilt output in a separate environment-bound job. |
 
 - **`main`** is the only long-lived branch and is production. Pushes run `pulumi up` and a Vercel
   production deployment served on `uier.io`, unless all changed paths are excluded by `deploy.yml`.
@@ -172,61 +172,58 @@ to a pull request cancels its previous CI run.
 
 ### Required GitHub configuration
 
-The current workflows still use the repository credentials below. On 2 November 2026 the
-`production` and `preview` environments and separate Azure/provider credentials were provisioned;
-the [provisioning receipt](ci-credential-rollout.md#stage-2-provisioning-receipt--2-november-2026)
-records their subjects, exact role scopes, expiry dates and outstanding activation checks.
-Production allows only `main`; preview allows `main` and pull-request merge refs. Neither has
-required reviewers or a wait timer, following the owner's unattended deployment policy.
-`AleksandarDev` remains administrator. Prepare and verify the replacement callers before removing
-repository secrets; GitHub cannot return their existing values.
+Workflows resolve credentials from job environments. Reusable-workflow callers name each allowed
+secret so GitHub makes the target environment value available. Repository copies are retired after validation.
+`production` allows only `main`; `preview` allows `main` and `refs/pull/*/merge`;
+`production-worker` allows only `main`. All three have no reviewers or wait timer, following the
+owner's unattended deployment policy. `AleksandarDev` remains administrator.
 
-Repository secrets:
+| Setting | `production` | `preview` | `production-worker` |
+| --- | --- | --- | --- |
+| `AZURE_CLIENT_ID` | uier GitHub Deployment | uier GitHub Preview | uier GitHub Worker |
+| `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | uier tenant/subscription | Same identifiers | Same identifiers |
+| `AZURE_STORAGE_ACCOUNT` | Pulumi state account | Same account, read scope | Absent |
+| `VERCEL_TOKEN` | Separate uier-project token | Separate uier-project token | Absent |
+| `CLOUDFLARE_API_TOKEN` | DNS Edit on `uier.io` | DNS Read on `uier.io` | Absent |
+| `UIER_INTEGRATION_ENV`, optional `ANTHROPIC_API_KEY` | Pulumi production variables | Absent | Absent |
+| `UIER_WORKER_SETTINGS` | Absent | Absent | Allowlisted data/transport/crypto settings only |
 
-| Secret | Used for |
+The strict production integration map and rotations are described in
+[connected service setup](integration-setup.md). The worker snapshot and refresh command are in
+[review notifications](review-notifications.md). Neither build job references an environment or
+secret. Builds use [public Vercel settings](../.github/vercel-project.json), matching the project,
+root directory and Node version in Pulumi; the explicit install command supports the pinned pnpm
+version without fetching project secrets. Only `.vercel/output` enters the build artifact, never a
+pulled dotenv file. The deploy job validates archive paths and links, reconstructs the fixed project
+context, installs the pinned CLI with lifecycle scripts disabled and runs `--prebuilt` without a checkout.
+
+OIDC uses issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`
+and immutable owner/repository identifiers:
+
+| Subject suffix after `repo:signalco-io@89613566/uier@1432139886:` | Identity |
 | --- | --- |
-| `AZURE_CLIENT_ID` | `azure/login` (OIDC) and the azure-native provider (`ARM_CLIENT_ID`) - Entra ID app **uier GitHub Deployment** |
-| `AZURE_TENANT_ID` | `azure/login` (OIDC) and the azure-native provider (`ARM_TENANT_ID`) |
-| `AZURE_SUBSCRIPTION_ID` | `azure/login` (OIDC) and the azure-native provider (`ARM_SUBSCRIPTION_ID`) |
-| `AZURE_STORAGE_ACCOUNT` | Pulumi state backend `azblob://states` (no account key: access is granted by Azure RBAC) |
-| `VERCEL_TOKEN` | Vercel CLI deployments and the Pulumi Vercel provider (`VERCEL_API_TOKEN`); scoped to the signalco team |
-| `CLOUDFLARE_API_TOKEN` | Pulumi Cloudflare provider; DNS edit permission on the `uier.io` zone |
-| `ANTHROPIC_API_KEY` | Optional: production's `ANTHROPIC_API_KEY` on Vercel (rewrite suggestions), set by Pulumi; until it is set suggestions are not available |
-| `UIER_INTEGRATION_ENV` | Optional JSON string map of server-only provider credentials and explicit rotation overrides; Pulumi validates the allowlist and sets production-only retrievable encrypted Vercel variables for the app and scheduled worker. Four stable encryption keys are generated automatically. See [connected service setup](integration-setup.md). |
+| `environment:production` | uier GitHub Deployment (`988ad1db-b5be-4e47-8046-e76e7f19fc58`) |
+| `environment:preview` | uier GitHub Preview (`5cefd38c-02e8-45fe-8367-f766ebfdf53e`) |
+| `environment:production-worker` | uier GitHub Worker (`11a15260-e6c1-438a-95b3-aa51c8ec641c`) |
 
-The Entra ID app **uier GitHub Deployment** needs federated credentials (issuer
-`https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`) for the subjects below.
-This repository was created after GitHub switched new repositories to *immutable* OIDC subjects, so its
-tokens identify the owner and repository by ID (`repo:signalco-io@89613566/uier@1432139886:...`, see
-`gh api repos/signalco-io/uier/actions/oidc/customization/sub`) instead of `repo:signalco-io/uier:...`:
+Production retains Contributor on `uier-production8b2f56d6`, Key Vault Crypto User on the
+`pulumi-backend` key and Storage Blob Data Contributor on the `states` container. It has no restore
+role. Preview's exact read/decrypt/key-read scopes are in the
+[stage 2 receipt](ci-credential-rollout.md#stage-2-provisioning-receipt--2-november-2026).
+The worker has only the data scopes documented above, with a separate subject so its OIDC token
+cannot authenticate as the infrastructure identity.
 
-| Subject | Used by |
-| --- | --- |
-| `repo:signalco-io@89613566/uier@1432139886:ref:refs/heads/main` | `deploy.yml` (and manual CI runs on `main`) |
-| `repo:signalco-io@89613566/uier@1432139886:pull_request` | `pulumi preview` in `ci.yml` |
+Before a preview, `infra/scripts/preview-environment.mjs` exports encrypted state and sends only
+existing production variable names/sensitivity to the program. Optional integration/Anthropic
+resources remain registered with their previous values through preview-only `ignoreChanges`.
+No production integration or Anthropic key is supplied as a preview environment secret. An update
+rejects this metadata, so preview placeholders can never be applied. State decryption and the
+transitional provider-key reads still expose production credentials; this stage does not establish
+full production-data isolation. Production application key retirement is a later stage.
 
-and these role assignments:
-
-| Role | Scope |
-| --- | --- |
-| Contributor | resource group `uier-production8b2f56d6` |
-| Key Vault Crypto User | key `pulumi-backend` in `vault-pulumib5f713d9` |
-| Storage Blob Data Contributor | container `states` in `sastate2a61d506` |
-
-Contributor on the resource group also covers the preview managed identity, its federated credential and the
-Cosmos DB data plane role assignment (`Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments/write` is a
-Cosmos DB control plane action, not a `Microsoft.Authorization` one, which Contributor excludes).
-The [screenshot Blob rollout](screenshot-storage.md) requires two new Azure RBAC assignments;
-an owner must arrange narrowly scoped assignment permission or create/import those assignments
-before merging. This is separate from the existing Cosmos data-plane roles.
-
-The workflows do not yet reference the provisioned GitHub deployment environments. Adding
-`environment:` to an Azure job changes its OIDC subject to
-`repo:signalco-io@89613566/uier@1432139886:environment:<name>`. The deployment app already trusts
-`:environment:production`; the separate **uier GitHub Preview** app trusts only
-`:environment:preview`. Its scoped role assignments grant reads, state decryption and existing
-provider-key reads, with no Azure resource-management write role. Those key reads and decrypted
-state still expose production credentials; they do not establish production-data isolation.
+Remove old repository secrets and the deployment app's old main/PR subjects only after successful
+replacement runs, including the main-only email verification workflow. Record each readback in the
+[credential rollout](ci-credential-rollout.md#stage-3-separate-builds-and-remove-the-worker-environment-pull).
 
 Actions settings (Settings -> Actions -> General -> Workflow permissions): the default `GITHUB_TOKEN` should be
 **read-only** and must **not** be allowed to create or approve pull requests. Every workflow here declares its

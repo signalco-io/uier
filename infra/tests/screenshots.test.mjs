@@ -20,6 +20,8 @@ test('screenshots are private with read-only CORS and preview data access only o
     await all([created.account.id, ...created.containers.map(container => container.id), created.contributor.id, created.delegator.id]).promise();
     // Environment resources are registered after their inputs resolve.
     await new Promise(resolve => setImmediate(resolve));
+    for (const resource of resources.filter(item => item.type.startsWith('vercel:')))
+        assert.equal(resource.inputs.teamId, 'team_Ade0MlfC3211ml3wYJZ4c9hn');
     const account = resources.find(item => item.type.endsWith(':StorageAccount')).inputs;
     assert.equal(account.allowBlobPublicAccess, false);
     assert.equal(account.enableHttpsTrafficOnly, true);

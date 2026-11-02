@@ -160,30 +160,88 @@ tokens. A successful token creation or role audit does not establish these runti
 
 ## Stage 3: separate builds and remove the worker environment pull
 
-Change workflow authentication only after Stage 2 is provisioned and verified. `pulumi up` and
-production deploys use the production environment; previews use the separate preview environment.
-Retire the write app's `ref:refs/heads/main` and `pull_request` subjects only after every old caller
-has a successful replacement run. Remove the repository-level production secrets after migration.
+The stage 3 workflows use environment secrets directly: `production` for Pulumi updates and
+production uploads, `preview` for infrastructure previews and preview uploads. Caller workflows
+name each allowed secret, as required by GitHub; the target job environment supplies
+the values. Repository copies are retired after validation. Neither environment requires a reviewer or wait timer. The email-domain
+verification job uses `production` too. The Azure login is checked against the expected app client
+identifier in every credential-bearing Azure job.
 
-The Vercel build job must execute pull-request code without a deployment token. A separate deploy
-job runs no checkout code and uploads only prebuilt output. Project settings/build variables must
-reach the build without a production token; never transfer a pulled dotenv file in an artifact.
-Inspect output for accidentally embedded secrets before enabling artifact upload. Credentials used
-to upload a preview are distinct from production's token. Neither deployment requires human approval.
+Before a preview, the CLI exports encrypted state. Only the 45 existing production environment
+variable names, logical resource names and sensitivity flags enter `UIER_PREVIEW_ENV_METADATA`.
+Optional integration credentials, rotation values and Anthropic settings remain registered with
+preview-only value preservation; their real values are neither passed as environment secrets nor
+replaced by placeholders during updates. Updates reject preview metadata. A live preview must still
+show no unexpected changes to existing data, domains, backups, keys or production variables.
 
-For the notification/integration worker, choose one verified route before removing its key:
+The provider-level Vercel `team` setting is removed: it performs a team-wide metadata read that
+project-scoped tokens cannot make. Every managed Vercel resource supplies the fixed team ID instead.
+This keeps both new tokens scoped to uier.
 
-- A request-context worker on Vercel with a scheduler-only secret. Confirm the plan supports a
-  five-minute schedule before selecting Vercel Cron; retain bounded delivery, retries and integrations.
-- A GitHub worker using an independently scoped Azure OIDC data identity, with only the production
-  environment values its transports/crypto need. Build before loading credentials, mask every loaded
-  value, and use an explicit Azure credential rather than Vercel's request-only token helper.
+### Build and deployment boundary
 
-Remove `vercel pull` and the full production environment file from notifications. A worker running
-outside a Vercel request cannot reuse `getVercelOidcToken()` without an alternative credential path.
-The current worker checks for `COSMOSDB_CONNECTION_STRING`; update that guard and test the chosen
-credential before switching production. Connected-service encryption keys and provider credentials
-are worker requirements too; copying only the mail settings would stop outbound integrations.
+The Vercel build job has no environment or deployment token. It uses checked-in public project
+settings, the pinned CLI and the existing build commands. A credential-free local production build
+with a fresh CLI config directory succeeded before rollout. Only `.vercel/output` is archived;
+no dotenv file or pulled project environment is uploaded. The production and preview build outputs
+retain the existing toolbar archive behavior.
+
+A separate deploy job has no checkout. It validates archive paths, entry types and symbolic links,
+rejects environment files, reconstructs the fixed uier team/project context and installs the pinned
+CLI with lifecycle scripts disabled. It executes only `vercel deploy --prebuilt --archive=tgz`.
+Unit tests exercise traversal, credential-file and escaping-link rejection. The build also packages Next.js `filePathMap` dependencies inside `.vercel/output/runtime-files`
+and rewrites their source references. The upload extractor rejects any dependency reference outside
+that packaged directory, as well as missing or environment-file references. Tests check that the
+package works after removing its source dependencies and refuses runner-file references.
+
+### Scheduled worker boundary
+
+The GitHub five-minute schedule is retained. `notifications.yml` builds a standalone worker and its
+traced dependencies without credentials. A separate **production-worker** environment allows only
+`main`, with no reviewers, wait timer or tags. Its Azure subject is
+`repo:signalco-io@89613566/uier@1432139886:environment:production-worker`, deliberately distinct
+from the deployment app's subject.
+
+**uier GitHub Worker** identifiers:
+
+- Application/client ID: `11a15260-e6c1-438a-95b3-aa51c8ec641c`.
+- Application object ID: `808208cd-40c6-429d-bba3-7606e886e0e3`.
+- Service principal ID: `6a1b5b2f-081c-48ea-af8f-4aaf3d4deb30`.
+
+Its only Azure RBAC assignments are the custom `uier worker screenshot data` role on `screenshots`
+and `screenshots-preview`; it grants container reads and blob read/write/delete only, without
+container write/delete or delegation keys. The role definition is `dffe52dd-c4d2-4d41-8a42-410ca1ae7e1c`.
+Its Cosmos data-plane assignments are Built-in Data Contributor on
+`comments`, `app` and `comments-preview`. These support the existing production delivery,
+integration, deletion and preview-image cleanup passes. It has no state, Key Vault, resource-write,
+provider-key-read or `app-preview` access and has no client password or certificate.
+
+The worker environment contains only its Azure client/tenant/subscription identifiers and
+`UIER_WORKER_SETTINGS`, initially 31 allowlisted deployed values: data endpoints, existing comment
+signing secret, email transport settings and required integration credentials/encryption keys.
+There is no Vercel token, account key, provider deployment token, Anthropic key, sign-in-only
+credential or environment download. Every setting is masked before loading. The worker uses the
+Azure CLI credential established by its OIDC login instead of a Vercel request token.
+
+The packaged worker was loaded from an isolated temporary directory to verify its dependency
+closure and context guard. Every production run validates missing-document/Blob metadata reads
+before writes. Manual `verify_only=true` stops after those checks without email, integration work,
+migration or cleanup. See [worker settings and rotation](review-notifications.md) for the strict
+snapshot refresh command; refresh it after provider/mail/key changes before retiring old keys.
+
+### Activation and retirement evidence
+
+At implementation time, local typecheck/build, the credential-free Vercel build, infrastructure
+helper tests, archive-boundary tests, workflow lint and live metadata parsing have passed. A PR run
+under the new preview identity, a main deployment under the production subject, a worker OIDC
+verification run and the migrated email-domain workflow still need their live results recorded here.
+Do not infer those results from provisioning or local tests.
+
+Retain repository secrets and all four old main/PR federated subjects until those replacement
+callers succeed. Then remove the unused repository credentials and old subjects, verify the remaining
+secret/subject inventories and repeat manual-main CI. Production application Cosmos/Blob key
+retirement remains in the later stages; preview state/key reads and Vercel's project-wide token
+scope still carry production-sensitive access.
 
 ## Stage 4: switch production to the prepared Cosmos identity
 
