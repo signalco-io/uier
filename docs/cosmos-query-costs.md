@@ -181,8 +181,8 @@ and [diagnostic guidance](https://azuresdkdocs.z19.web.core.windows.net/javascri
 
 ## Reproduce safely
 
-Use Node 24, the locked dependencies, and an authenticated Azure CLI principal authorized to
-read keys. The script retrieves credentials into process memory, never files or stdout. No
+Use Node 24, the locked dependencies, and an authenticated Azure CLI principal with scoped Cosmos
+data-plane roles. The script uses `AzureCliCredential` and never retrieves account keys. No
 container/account is created or modified and no Pulumi command is invoked.
 
 ```sh
@@ -192,7 +192,9 @@ node apps/web/scripts/cosmos-query-profile.mjs preview-synthetic <resource-group
 node apps/web/scripts/cosmos-query-profile.mjs preview-idle <resource-group> <account> > /tmp/cosmos-idle.json
 ```
 
-Production mode always uses a **read-only key** and only reads existing containers. It stops
+Production mode only reads existing containers. Use Built-in Data Reader on `app`, `comments`
+and `comments-preview` for a dedicated diagnostic principal. Preview profiling needs Data
+Contributor on `app-preview`; request that temporary grant only when running synthetic profiles. It stops
 at 1,000 accumulated RU, 500 response fetches, two minutes, or 20 pages/2,000 rows per operation.
 These are diagnostic aborts, not application result caps. Preview mode hardcodes `app-preview`,
 prefixes every synthetic partition with its unique run id, and records exact identities before

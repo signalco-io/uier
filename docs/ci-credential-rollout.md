@@ -359,11 +359,23 @@ application/delivery checks before #167 can close.
 
 ## Stage 5: retire key access and verify the boundaries
 
-Give moderation/Data Explorer operators and the restore operator appropriate Entra data-plane
-access first; update [moderation](operations.md#removing-abusive-comments) and the
-[restore runbook](backups-and-restore.md). In a later CI stage set both `disableLocalAuth: true` and
+The owner authorized stage 5 on 2 November 2026. Prepare and verify moderation/Data Explorer and
+restore Entra access before the account update; update [moderation](operations.md#removing-abusive-comments) and the
+[restore runbook](backups-and-restore.md). This CI stage sets both `disableLocalAuth: true` and
 `disableKeyBasedMetadataWriteAccess: true`. Read back the flags, regenerate both account keys through
 an authorized controlled operation, then repeat production app/comment and digest checks.
+
+Operator preparation readback identifies **AleksandarDev**'s existing subscription Owner access
+and adds only container-scoped Cosmos data roles: Data Contributor on `comments` and
+`comments-preview`, Data Reader on `app`. The same signed-in Entra principal successfully queried
+all three without keys. Read-only discovery finds the source continuous-backup instance. Restored
+accounts require new container-scoped Entra assignments before reads; app recovery writes remain
+temporary per-incident grants. Operator tools use explicit Entra login, with no key retrieval.
+No restore was submitted and CI receives no recovery role.
+
+The expected PR plan is one in-place `uierdb` update of the two flags, with all other resources
+unchanged. Both key regenerations follow successful CI apply and live flag readback. Record actual
+apply, rotations and post-retirement checks below; source alone is not activation evidence.
 
 An owner separately adds Azure `CanNotDelete` locks on the resource group and `uierdb` and records
 their exact scopes and live readback. Contributor cannot manage these locks. Until then, the public

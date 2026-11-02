@@ -365,7 +365,7 @@ See [screenshot storage](screenshot-storage.md) for environments, CSP, migration
 
 | Environment | Store |
 | --- | --- |
-| Vercel production | Cosmos DB container `comments` (account key: `COSMOSDB_CONNECTION_STRING`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
+| Vercel production | Cosmos DB container `comments` (production Entra identity via `COSMOSDB_ENDPOINT`, `COSMOSDB_COMMENTS_CONTAINER=comments`) |
 | Vercel preview (pull requests) | Cosmos DB container `comments-preview` in the same database (`defaultTtl` 7 days), no account key: Microsoft Entra ID with the deployment's Vercel OIDC token (`COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `COSMOSDB_COMMENTS_CONTAINER=comments-preview`) |
 | Local development, e2e tests | In memory, when neither `COSMOSDB_CONNECTION_STRING` nor `COSMOSDB_ENDPOINT` is set (`next dev`, or `UIER_LOCAL=1`) |
 

@@ -76,6 +76,9 @@ const up = async () => {
     const cosmosDbAccount = new DatabaseAccount(cosmosAccountName, {
         resourceGroupName: resourceGroup.name,
         databaseAccountOfferType: DatabaseAccountOfferType.Standard,
+        // Production, worker and operator access use Entra ID. Retire account-key access.
+        disableLocalAuth: true,
+        disableKeyBasedMetadataWriteAccess: true,
         // Periodic -> continuous is one-way. Merge only after the owner approves an isolated,
         // in-place account update in the PR's Pulumi preview (see #135).
         backupPolicy: {

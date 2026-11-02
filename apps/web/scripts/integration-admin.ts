@@ -59,7 +59,10 @@ export function parseIntegrationAdminInput(value: unknown): IntegrationAdminInpu
 export function assertIntegrationAdminProductionConfiguration() {
     if (process.env.UIER_DEPLOYMENT_ENV !== 'production' || process.env.VERCEL_ENV === 'preview' || isLocalRuntime()
         || process.env.UIER_LOCAL === '1' || process.env.NODE_ENV === 'development'
-        || !process.env.COSMOSDB_CONNECTION_STRING || process.env.COSMOSDB_ENDPOINT || (process.env.UIER_COMMENTS_SECRET?.length ?? 0) < 32
+        || !process.env.COSMOSDB_ENDPOINT || process.env.COSMOSDB_CONNECTION_STRING || !process.env.AZURE_TENANT_ID
+        || process.env.UIER_AZURE_AUTH_MODE !== 'operator' || process.env.NODE_ENV !== 'production'
+        || process.env.VERCEL || process.env.VERCEL_ENV || process.env.VERCEL_URL || process.env.GITHUB_ACTIONS === 'true'
+        || (process.env.UIER_COMMENTS_SECRET?.length ?? 0) < 32
         || (process.env.COSMOSDB_APP_CONTAINER && process.env.COSMOSDB_APP_CONTAINER !== 'app')
         || (process.env.COSMOSDB_COMMENTS_CONTAINER && process.env.COSMOSDB_COMMENTS_CONTAINER !== 'comments')
         || configuredAppBaseUrl() !== 'https://uier.io') throw new IntegrationAdminError('production_configuration_required');

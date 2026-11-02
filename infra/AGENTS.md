@@ -35,8 +35,8 @@ and team issuer mode, so update it when those change.
 `owner:signalco:project:uier:environment:production`, with Built-in Data Contributor on `comments`
 and `app` only. Its production runtime variables replace `COSMOSDB_CONNECTION_STRING`; the program
 no longer lists account connection strings. Preview keeps its separate identity and containers.
-Require the cutover preview to show only three production variable creations and deletion of the
-old connection-string variable, with all protected resources unchanged. See the stage 4 readback in
+The stage 5 preview must show only the two authentication flags in one in-place account update,
+with no replacement, deletion or backup-policy change. See the staged readback in
 [`docs/ci-credential-rollout.md`](../docs/ci-credential-rollout.md).
 
 Never disable local authentication or key-based metadata writes until production, the scheduled
@@ -61,8 +61,10 @@ key resources registered. State/key reads are sensitive even without resource-ma
 `scripts/configure-worker.mjs` refreshes the worker's strict settings snapshot from deployed inputs,
 in memory and through GitHub stdin. Run it after provider/mail/key rotations before retiring old keys.
 The worker gets no account, state or deployment keys. Production Cosmos access is keyless too;
-its existing screenshot-storage key is separate and unchanged. Keep account authentication flags,
-backups, resource protection and unrelated variable sensitivity unchanged until stage 5.
+its existing screenshot-storage key is separate and unchanged. Cosmos key authentication and key-based
+metadata writes are disabled with `disableLocalAuth: true` and
+`disableKeyBasedMetadataWriteAccess: true`. Keep them enabled as protections; never restore a Cosmos
+connection string or key lookup. Backups, protection and unrelated variable sensitivity stay unchanged.
 
 The toolbar bundle needs no infrastructure of its own: the web app serves it at
 `https://uier.io/toolbar.js` from Vercel's CDN.

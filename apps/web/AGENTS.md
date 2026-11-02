@@ -640,10 +640,13 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
   Keep `docs/mvp-launch-verification.md` honest about pending dependency, hosted and physical-device
   evidence; passing local fixtures alone must not close the launch gate.
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
-  points it at a real Cosmos DB. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
+  points it at a separate development Cosmos DB account. Deployments get their Cosmos DB settings and `UIER_COMMENTS_SECRET`
   from Pulumi: separate production/preview Entra identities with Vercel OIDC tokens
   (`src/lib/db/client.ts`), scoped to `comments`/`app` or `comments-preview`/`app-preview`.
   Production has no Cosmos connection string; setting both endpoint and connection string is rejected.
+  Cosmos account-key authentication is disabled. Standalone production operator commands use the
+  explicit `UIER_AZURE_AUTH_MODE=operator` with `AzureCliCredential`; Vercel and Actions contexts reject
+  that mode. Query profiling also uses the signed-in operator's scoped Entra roles, never account keys.
 
 ## Toolbar in development
 
