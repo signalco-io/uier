@@ -1,3 +1,4 @@
+import type { WorkerMessage } from './protocol';
 declare const __EXTENSION_API__: string;
 export const apiOrigin = __EXTENSION_API__;
 export const sessionKey = 'extension-session-v1';
@@ -17,7 +18,7 @@ export function reviewable(url: string | undefined) {
             && !(u.hostname === 'chrome.google.com' && u.pathname.startsWith('/webstore'));
     } catch { return false; }
 }
-export async function message<T>(input: unknown): Promise<T> {
+export async function message<T>(input: WorkerMessage): Promise<T> {
     const response = await chrome.runtime.sendMessage(input);
     if (!response?.ok) throw new Error(response?.error || 'The extension could not connect.');
     return response.value as T;

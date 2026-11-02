@@ -2,44 +2,54 @@ import { test, expect, chromium, type BrowserContext } from '@playwright/test';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { expectNoAxeViolations } from '../../web/e2e/accessibility';
-import { animationsFinished, commentBubble, openThread } from '../../web/e2e/support/toolbar';
-import { signIn, createProject, projectPublicId, uniqueEmail } from '../../web/e2e/support/app';
+import { animationsFinished, commentBubble, openThread, selectText } from '../../web/e2e/support/toolbar';
+import { signIn, createProject, uniqueEmail } from '../../web/e2e/support/app';
+
+import { packageApiProxy } from './packageApi';
+import { productionPackage, extensionPath, clientId, apiBase } from './environment';
 
 let context: BrowserContext, origin: string, profile: string;
 let publicId: string;
-const apiOrigin = `http://127.0.0.1:${process.env.PORT || 4004}`;
+let proxy: Awaited<ReturnType<typeof packageApiProxy>> | undefined;
 const server = createServer((req, res) => {
     if (req.url?.startsWith('/embedded')) {
-        res.end(`<!doctype html><html lang="en"><title>Embedded review</title><h1>Review this page</h1><script src="${apiOrigin}/toolbar.js" data-uier-mode="showcase" data-uier-project="${publicId}" defer></script></html>`);
+        res.end(`<!doctype html><html lang="en"><title>Embedded review</title><h1>Review this page</h1><script src="${apiBase}/toolbar.js" data-uier-mode="showcase" data-uier-project="${publicId}" defer></script></html>`);
         return;
     }
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'");
-    res.end('<!doctype html><html lang="en"><title>Strict CSP</title><h1>Review this page</h1><p>No embed or page scripts.</p><a href="/next">Next page</a></html>');
+    res.end('<!doctype html><html lang="en"><title>Strict CSP</title><main><h1>Review this page</h1><p>No embed or page scripts.</p><a href="/next">Next page</a></main></html>');
 });
 test.beforeAll(async () => {
     await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     profile = await mkdtemp(resolve(tmpdir(), 'uier-extension-'));
-    const path = resolve(import.meta.dirname, '../dist-test');
-    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, baseURL: apiOrigin, args: ['--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
+    const path = extensionPath;
+    if (productionPackage) proxy = await packageApiProxy(profile);
+    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 }, baseURL: apiBase, args: [...(proxy ? [`--host-resolver-rules=MAP uier.io 127.0.0.1:${proxy.port}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`, `--ignore-certificate-errors-spki-list=${proxy.spki}`] : []), '--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
     context.setDefaultTimeout(10_000);
+
 });
-test.afterAll(async () => { await context?.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(profile, { recursive: true, force: true }); });
+test.afterAll(async () => { await context?.close(); await proxy?.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(profile, { recursive: true, force: true }); });
 
 test('packaged isolated runtime uses real sign-in, helper and worker under strict CSP', async ({}, info) => {
     const app = await context.newPage();
-    await signIn(app, uniqueEmail('extension'));
+    const email = uniqueEmail('extension');
+    await signIn(app, email);
     const projectId = await createProject(app, { name: 'Strict CSP site', urls: [origin] });
-    publicId = await projectPublicId(app, projectId);
-    const id = (await readFile(resolve(import.meta.dirname, '../dist-test/development-id.txt'), 'utf8')).trim();
+    publicId = await app.evaluate(async id => (await (await fetch(`/api/review/${id}`)).json()).project.id, projectId);
+    const otherProjectId = await createProject(app, { name: 'Another project', urls: [origin] });
+    const otherPublicId = await app.evaluate(async id => (await (await fetch(`/api/review/${id}`)).json()).project.id, otherProjectId);
+    const id = clientId;
     const popup = await context.newPage();
     await popup.goto(`chrome-extension://${id}/popup.html`);
     const login = context.waitForEvent('page');
     await popup.getByRole('button', { name: 'Sign in to uier' }).click();
     const auth = await login;
+    await auth.waitForLoadState();
+    if (new URL(auth.url()).pathname.startsWith('/app/sign-in')) await signIn(auth, email, { from: auth.url() });
     await auth.getByRole('button', { name: 'Sign in to uier' }).click();
     await expect(popup.getByRole('button', { name: 'Sign out' })).toBeVisible();
     for (const colorScheme of ['light', 'dark'] as const) {
@@ -66,9 +76,19 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await actionPopup.reload();
 
     await expect(actionPopup.getByRole('button', { name: 'Strict CSP site' })).toBeVisible();
+    await actionPopup.getByRole('button', { name: 'Strict CSP site', exact: true }).click();
     await actionPopup.getByRole('button', { name: 'Start review' }).click();
-    await expect(actionPopup.getByRole('button', { name: 'Start review' })).toBeEnabled({ timeout: 30_000 });
+
     await expect(reviewed.getByRole('navigation', { name: 'uier feedback', exact: true })).toBeVisible({ timeout: 30_000 });
+    // Repeated activation stays idempotent; a popup cannot impersonate a content broker.
+    const tabId = await worker.evaluate(async () => Number(Object.keys(await chrome.storage.session.get(null)).find(key => key.startsWith('binding:'))!.slice(8)));
+    const send = (message: object) => actionPopup.evaluate(message => chrome.runtime.sendMessage(message), message);
+    expect((await send({ type: 'request', url: `${apiBase}/api/review/${publicId}/comments`, headers: { Authorization: 'forged' } })).ok).toBe(false);
+    expect((await send({ type: 'request', url: `${apiBase}/api/review/${publicId}/comments` })).ok).toBe(false);
+    expect((await send({ type: 'start', tabId, projectId, publicId })).ok).toBe(true);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    // Sign-in cookies are no longer needed by the worker or the verification helper.
+    await context.clearCookies();
     await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
     const box = (await reviewed.getByRole('heading', { level: 1 }).boundingBox())!;
     await reviewed.mouse.click(box.x + 10, box.y + 10);
@@ -83,6 +103,17 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const screenshot = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(screenshot).toBeVisible();
     await expect(screenshot.locator('canvas')).toBeVisible();
+    await screenshot.click();
+    await expect(reviewed.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
+
+    await reviewed.getByRole('button', { name: 'Redact screenshot' }).click();
+    const editor = reviewed.getByRole('region', { name: 'Redact screenshot' });
+    await editor.getByLabel('Left (%)').fill('0'); await editor.getByLabel('Top (%)').fill('0');
+    await editor.getByLabel('Width (%)').fill('100'); await editor.getByLabel('Height (%)').fill('100');
+    await editor.getByRole('button', { name: 'Add redaction', exact: true }).click();
+    await editor.getByRole('button', { name: 'Save redaction' }).click();
+    await expect(reviewed.getByRole('status').filter({ hasText: 'Screenshot replaced.' })).toBeVisible();
+    // Reopen through the broker, with the host's img-src still set to none.
     await screenshot.click();
     await expect(reviewed.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
     await reviewed.getByRole('button', { name: 'Close screenshot', exact: true }).click();
@@ -106,24 +137,111 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await inbox.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
     await inbox.getByRole('button', { name: 'High', exact: true }).click();
     await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
+    await reviewed.screenshot({ path: info.outputPath('store-review-1280x800.png') });
+    await reviewed.keyboard.press('Escape');
+    // Drafts recover across a real worker shutdown and page reload, with no image records.
+    await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const paragraph = (await reviewed.locator('p').first().boundingBox())!;
+    await reviewed.mouse.click(paragraph.x + 8, paragraph.y + 8);
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Recovered extension draft');
+    await expect.poll(() => worker.evaluate(async () => JSON.stringify(await chrome.storage.session.get(null)))).toContain('Recovered extension draft');
+    const draftRecords = await worker.evaluate(async () => Object.entries(await chrome.storage.session.get(null)).filter(([key]) => key.startsWith('drafts:')));
+    expect(JSON.stringify(draftRecords)).not.toContain('data:image/');
+    const targets = await browserCdp.send('Target.getTargets');
+    const workerTarget = targets.targetInfos.find(target => target.type === 'service_worker' && target.url.startsWith(`chrome-extension://${id}/`));
+    expect(workerTarget).toBeTruthy();
+    const workerStartedAt = await worker.evaluate(() => performance.timeOrigin);
+    await browserCdp.send('Target.closeTarget', { targetId: workerTarget!.targetId });
+    expect((await send({ type: 'state' })).ok).toBe(true);
+    // Playwright preserves its Worker handle across MV3 restarts.
+    expect(await worker.evaluate(() => performance.timeOrigin)).not.toBe(workerStartedAt);
+    await reviewed.reload();
+    await reviewed.getByRole('button', { name: 'New comment', exact: true }).click();
+    await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recovered extension draft');
+    if (proxy) {
+        proxy.dropNextReviewWrite();
+        await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
+        await expect(reviewed.getByRole('dialog', { name: 'New comment', exact: true }).getByRole('alert')).toContainText('Check your connection');
+        await reviewed.reload();
+        await reviewed.getByRole('button', { name: 'New comment', exact: true }).click();
+        await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recovered extension draft');
+    }
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
+    await expect(reviewed.getByText('Recovered extension draft', { exact: true })).toBeVisible();
+    // The committed-but-lost response is retried under its original submission ID.
+    expect(await worker.evaluate(async api => {
+        const values = await chrome.storage.session.get(null);
+        const binding = Object.values(values).find((value: any) => value?.scope?.token) as { scope: { token: string } };
+        const response = await fetch(`${api}/api/extension/review/comments?path=%2F`, { credentials: 'omit', headers: { Authorization: `Bearer ${binding.scope.token}` } });
+        if (!response.ok) throw new Error('Could not verify saved comments');
+        return (await response.json()).length;
+    }, apiBase)).toBe(2);
+    await reviewed.keyboard.press('Escape');
+    // Text and area anchors use the same packaged runtime and worker image path.
+    await selectText(reviewed, 'No embed or page scripts.');
+    await reviewed.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: 'Add comment', exact: true }).click();
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Feedback on selected text');
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
+    await expect(reviewed.getByText('Feedback on selected text', { exact: true })).toBeVisible();
+    await reviewed.keyboard.press('Escape');
+    await reviewed.evaluate(() => getSelection()?.removeAllRanges());
+    await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const areaBox = (await reviewed.getByRole('heading', { level: 1 }).boundingBox())!;
+    await reviewed.mouse.move(areaBox.x + 350, areaBox.y + 5); await reviewed.mouse.down();
+    await reviewed.mouse.move(areaBox.x + 500, areaBox.y + areaBox.height - 5, { steps: 5 }); await reviewed.mouse.up();
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Feedback on an area');
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
+    await expect(reviewed.getByText('Feedback on an area', { exact: true })).toBeVisible();
+    await reviewed.keyboard.press('Escape');
+    // A capture in an inactive tab fails safely while its text can still be submitted.
+    await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const otherTab = await context.newPage(); await otherTab.goto(`${origin}/other-tab`); await otherTab.bringToFront();
+    await reviewed.mouse.click(areaBox.x + 650, areaBox.y + 10);
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Text survives a tab switch');
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
+    await expect(reviewed.getByText('Text survives a tab switch', { exact: true })).toBeVisible();
+    const switched = await worker.evaluate(async api => {
+        const values = await chrome.storage.session.get(null);
+        const binding = Object.values(values).find((value: any) => value?.scope?.token) as { scope: { token: string } };
+        const response = await fetch(`${api}/api/extension/review/comments?path=%2F`, { credentials: 'omit', headers: { Authorization: `Bearer ${binding.scope.token}` } });
+        return (await response.json()).find((comment: any) => comment.thread.items[0]?.text === 'Text survives a tab switch');
+    }, apiBase);
+    expect(switched).toBeTruthy(); expect(switched.screenshot).toBeUndefined();
+    await reviewed.bringToFront(); await otherTab.close();
+    // Switching projects in the same document creates a fresh configured runtime.
+    expect((await send({ type: 'start', tabId, projectId: otherProjectId, publicId: otherPublicId })).ok).toBe(true);
+    await expect(commentBubble(reviewed, 2)).toHaveCount(0);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    expect((await send({ type: 'exit', tabId })).ok).toBe(true);
+    await reviewed.reload();
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
+    expect((await send({ type: 'start', tabId, projectId, publicId })).ok).toBe(true);
+    await expect(commentBubble(reviewed, 2)).toBeVisible();
+    // SPA history changes retain the review without reinjecting a second toolbar.
+    await reviewed.evaluate(() => history.pushState(null, '', '/spa'));
+    await expect(reviewed.getByRole('navigation', { name: 'uier feedback', exact: true })).toBeVisible();
+    await reviewed.goBack();
+    await expect(commentBubble(reviewed, 2)).toBeVisible();
     // Credentials stay out of page storage and DOM attributes.
     expect(await reviewed.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
     // A live embed yields to the extension; a late embed also sees the public ownership probe.
+    publicId = otherPublicId; // Existing embed intentionally belongs to another project.
     await reviewed.goto(`${origin}/embedded`);
     await expect(reviewed.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
-    await reviewed.evaluate(async apiOrigin => {
+    await reviewed.evaluate(async api => {
         const script = document.createElement('script');
-        script.src = `${apiOrigin}/toolbar.js`; script.dataset.uierMode = 'showcase';
+        script.src = `${api}/toolbar.js`; script.dataset.uierMode = 'showcase';
         document.head.append(script);
         await new Promise<void>((resolve, reject) => { script.onload = () => resolve(); script.onerror = () => reject(new Error('Embed load failed')); });
-    }, apiOrigin);
+    }, apiBase);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
     // A second origin ends activation, including when returning to a previously allowed address.
     await reviewed.goto(origin.replace('127.0.0.1', 'localhost'));
     await reviewed.goto(origin);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
 
+    if (proxy) expect(proxy.requests.filter(request => request.path.startsWith('/api/extension/')).every(request => !request.hasCookie)).toBe(true);
     await actionPopup.evaluate(async () => { await chrome.runtime.sendMessage({ type: 'sign-out' }); });
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
     expect(await worker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual([]);

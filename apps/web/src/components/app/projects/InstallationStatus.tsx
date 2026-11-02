@@ -8,7 +8,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle }
 import { RelativeTime } from '../comments/DateTime';
 
 /**
- * A project whose site already sends comments: connected, with the time of the latest comment,
+ * A project whose site already sends feedback: informational only, with the time of the latest comment,
  * and the install guide (its children) behind a button
  */
 export function InstallationStatus({ lastCommentAt, children }: { lastCommentAt: string; children: ReactNode }) {
@@ -20,9 +20,9 @@ export function InstallationStatus({ lastCommentAt, children }: { lastCommentAt:
                     <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-success))]" />
                 </ItemMedia>
                 <ItemContent>
-                    <ItemTitle>Connected</ItemTitle>
+                    <ItemTitle>Feedback received</ItemTitle>
                     <ItemDescription>
-                        The toolbar is on your site. Last comment <RelativeTime value={lastCommentAt} />.
+                        Last comment <RelativeTime value={lastCommentAt} />. This does not confirm that the script is installed.
                     </ItemDescription>
                 </ItemContent>
                 <ItemActions>

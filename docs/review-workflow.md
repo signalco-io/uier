@@ -507,8 +507,10 @@ The [desktop extension runtime spike](browser-extension.md) adds a signed-in rev
 an embed or changes to the site’s CSP. It is not published. Each reviewer must install it in their
 own browser, and the exact origin must already belong to an accessible project. Existing comment
 links are handled after Start review. Check installation continues to diagnose only the site embed;
-extension activation never records an installed script. Public onboarding remains on the released
-script path until hosted verification, browser acceptance and store bootstrap are complete.
+extension activation never records an installed script. Installation and onboarding offer both
+setup choices, with the script selected by default and an explicit pending-availability message for
+the extension. A real store link requires owner configuration after hosted verification, browser
+acceptance and store bootstrap. Each uninstrumented review-link recipient also needs the extension.
 
 ## Search, priority and bulk triage
 

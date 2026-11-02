@@ -16,7 +16,9 @@
     "package": "node scripts/package.mjs",
     "test": "node --test scripts/*.test.mjs",
     "test:browser": "playwright test",
-    "build:hosted-test": "node scripts/build.mjs --hosted-test"
+    "build:hosted-test": "node scripts/build.mjs --hosted-test",
+    "test:package": "node scripts/prepare-package.mjs && UIER_EXTENSION_TEST_PACKAGE=1 playwright test",
+    "store:assets": "node scripts/store-assets.mjs"
   },
   "dependencies": {
     "@uier/brand": "workspace:*",
