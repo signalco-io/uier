@@ -41,6 +41,14 @@ The single purpose is reviewing configured uier project sites by leaving on-page
 
 No all-sites, cookie-reading, history, offscreen or security-header rewriting permissions are used.
 
+The dashboard's remote-code question is answered **Yes**, with the isolated hosted verification
+frame disclosed. All extension-context logic is packaged locally; the cross-origin
+`https://uier.io/extension-verification` frame runs hosted BotID without extension API access.
+Its checked message supplies a short-lived proof, never executable commands. The
+[MV3 requirements](https://developer.chrome.com/docs/webstore/program-policies/mv3-requirements)
+exempt remote code in contexts isolated from extension APIs, while still requiring reviewable
+functionality and compliant data use. Do not describe this hosted frame as locally packaged code.
+
 ## Disclosure worksheet
 
 Confirm the current store form's categories against actual behavior and the public policies. Do not
@@ -55,6 +63,13 @@ Credentials, bindings, proofs and unsent text/anchor drafts stay in trusted exte
 images stay outside persistent drafts. Sign-out clears local private data and revokes the separate
 server session. Network transport goes to uier over HTTPS. The helper obtains BotID verification on
 uier after explicit sign-in, independent of the reviewed page's CSP.
+
+The prepared dashboard categories are personally identifiable information, authentication
+information, personal communications, location (request IP information), web history (explicitly
+reviewed URLs), user activity (submitted anchor/viewport context) and website content. This does
+not imply a history-reading permission or continuous activity logging. Health and financial
+collection are not the product's purpose. The publisher owner approved all three Limited Use
+certifications, and they are saved in the draft.
 
 ## Artwork and reviewer instructions
 
