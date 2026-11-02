@@ -247,6 +247,19 @@ Every external workflow action is pinned to a full commit SHA with a version com
 
 A ruleset on `main` requires a pull request with a passing **`CI OK`** check and blocks force pushes and deletions; "Allow auto-merge" is enabled on the repository.
 
+## Security disclosure discovery
+
+[`/.well-known/security.txt`](https://uier.io/.well-known/security.txt) is a static UTF-8 text
+file in `apps/web/public/.well-known/`, following [RFC 9116](https://www.rfc-editor.org/rfc/rfc9116.html).
+It publishes the existing `security@signalco.io` reporting contact and links to the repository's
+[security policy](../SECURITY.md). `/security.txt` permanently redirects to the canonical path.
+
+Review the contact and policy when renewing the fixed `Expires` date, keeping the new expiry
+less than one year ahead. Requests and builds do not extend it automatically. The HTTP check in
+`e2e/seo.api.spec.ts` fails when the file expires, and checks the UTF-8 plain-text response and
+legacy redirect. After deployment, fetch the canonical URL without authentication and verify
+the content type, reporting fields and expiry; keep the document out of the HTML sitemap.
+
 ## Status
 
 [uier.io/status](https://uier.io/status) and `GET /api/status` show the live state of the services, checked on the
