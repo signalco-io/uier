@@ -479,6 +479,18 @@ revalidate and return updated RSC data: do not add a second `router.refresh()` a
 `e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
 immediate updates, rollback, persistence and background feedback submission on desktop and mobile.
 
+## Rewrite accounting
+
+`src/lib/rewrite/suggest.ts` is the shared showcase/project model boundary. Emit exactly one bounded
+`rewrite_usage` event per configured service call via `telemetry.ts`; record usage before output is
+refused, truncated or rejected. Keep content, identifiers and raw errors out of logs, including SDK
+payload logs. Telemetry must not fail a rewrite. `pricing.ts` owns versioned source/date/USD rates;
+`report.ts` aggregates UTC daily exports with explicit retry, fallback and missing-usage coverage.
+See [rewrite costs](../../docs/rewrite-costs.md) for operations, model evidence, limitations and revert.
+`rewrite-accounting.api.spec.ts` and `rewriteFixtures.ts` cover accounting without paid calls. Live
+comparison requires a separate explicit bounded command; never put it in automated tests. Preserve
+budgets, timeouts, output validation and route response shapes when changing instrumentation or models.
+
 ## Testing
 
 Teams use `src/lib/app/access.ts` / `accessRules.ts` for additive, current workspace/project

@@ -277,7 +277,10 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   names and metadata, including URLs/hosts and user/team mentions, with unchanged structured context.
 
 Browser verification and rewrite requests use the local Anthropic stand-in configured by Playwright;
-the suite uses fake credentials and does not require live provider calls.
+the suite uses fake credentials and does not require live provider calls. `rewrite-accounting.api.spec.ts`
+checks token pricing, outcomes, retries, missing usage, privacy and daily report coverage. The
+[rewrite cost runbook](rewrite-costs.md) has the no-network comparison command and the separate bounded
+live-evaluation procedure. Keep all automated checks on stubs.
 
 ### Responsiveness regressions
 

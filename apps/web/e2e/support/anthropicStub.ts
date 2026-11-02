@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
 
+const { rewriteFixture, stubUsage } = await import(new URL('./rewriteFixtures.ts', import.meta.url).href) as typeof import('./rewriteFixtures');
+
 // A stand-in for the Anthropic Messages API in the e2e tests: playwright.config.ts starts it
 // (`node e2e/support/anthropicStub.ts`) and points the app's ANTHROPIC_BASE_URL at it, with a fake
 // ANTHROPIC_API_KEY. It checks the request rewrite suggestions make (src/lib/rewrite/suggest.ts)
@@ -89,7 +91,7 @@ function message(content: unknown[], stopReason: string, stopDetails: unknown = 
         stop_reason: stopReason,
         stop_sequence: null,
         stop_details: stopDetails,
-        usage: { input_tokens: 120, output_tokens: 60 }
+        usage: { ...stubUsage }
     };
 }
 
@@ -99,19 +101,21 @@ function reply(selected: string, instruction: string | undefined): { status: num
     const markers = `${selected}\n${instruction ?? ''}`;
     if (markers.includes('[stub:fail]'))
         return { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'Stub: the API failed.' } } };
+    for (const kind of ['missing_usage', 'invalid_output', 'empty_output', 'filtered_out', 'fallback_usage']) {
+        if (markers.includes(`[stub:${kind}]`)) return { status: 200, body: rewriteFixture(kind === 'fallback_usage' ? 'fallback' : kind) };
+    }
     if (markers.includes('[stub:refuse]')) {
         // Text that reads as suggestions: only the stop reason says they must not be used
         return { status: 200, body: message([{ type: 'text', text: JSON.stringify({ suggestions: ['Declined suggestion.'] }) }], 'refusal', { type: 'refusal', category: 'cyber', explanation: 'Stub: declined.' }) };
     }
     if (markers.includes('[stub:fallback]')) {
-        return {
-            status: 200,
-            body: message([
-                { type: 'text', text: JSON.stringify({ suggestions: ['Before the fallback.'] }) },
-                { type: 'fallback', from: { model: expected.model }, to: { model: 'claude-fallback-stub' }, trigger: { type: 'refusal', category: 'cyber' } },
-                { type: 'text', text: JSON.stringify({ suggestions: ['After the fallback.'] }) }
-            ], 'end_turn')
-        };
+        const fallback = rewriteFixture('fallback');
+        fallback.content = [
+            { type: 'text', text: JSON.stringify({ suggestions: ['Before the fallback.'] }) },
+            fallback.content[0],
+            { type: 'text', text: JSON.stringify({ suggestions: ['After the fallback.'] }) }
+        ];
+        return { status: 200, body: fallback };
     }
     if (markers.includes('[stub:truncate]'))
         return { status: 200, body: message([{ type: 'text', text: '{"suggestions":["Cut off' }], 'max_tokens') };

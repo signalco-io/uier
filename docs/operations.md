@@ -355,3 +355,12 @@ an explicit empty secret value and leaves moderation unavailable until a staff l
 
 For an accidental operator delete, follow [Backups and restore](backups-and-restore.md#backups-and-restore). Never recover
 abuse, an author's deletion or content covered by an erasure request.
+
+## Rewrite usage and costs
+
+[Rewrite accounting and evaluation](rewrite-costs.md) documents the `rewrite_usage` server-log event,
+UTC daily report command, missing usage and retry/fallback coverage, price maintenance and provider
+reconciliation. Use the existing hosting log export before its retention expires; no paid log drain or
+observability upgrade is required. Keep provider invoice/Cost Report totals separate from application
+estimates. The current evidence gap and unchanged Opus model decision are recorded there; no real-model
+comparison or Anthropic charges have been measured in this implementation session.

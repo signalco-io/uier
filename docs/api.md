@@ -396,7 +396,7 @@ suggestion in its prompt; longer suggestions, duplicates and the original are le
 model still declines gives no suggestions (`200`, the toolbar says "No suggestions for this text."); a failure, or
 no answer within 45 seconds (both attempts), is `503 unavailable`. The limits (above) are checked before the model
 is called: per visitor and per site or project, and app-wide per IP and per day (counters in the `app`
-partition), so more sites or projects never add up to more. Nothing about a request is stored and no cookie is
+partition), so more sites or projects never add up to more. Request and response content is not stored and no cookie is
 set; a suggestion the reviewer posts is saved as a comment with `kind: "rewrite"` (its text is the suggested
 text, `quotedText` the original).
 
@@ -407,6 +407,11 @@ suggestions are not available, while the reviewer's own rewrite still works. Set
 `apps/web/.env.local` to try them locally. The e2e tests point the app at a stand-in for the API
 ([`e2e/support/anthropicStub.ts`](../apps/web/e2e/support/anthropicStub.ts), started by `playwright.config.ts` on
 `PORT + 1000`), which checks each request and answers with canned suggestions.
+
+Both routes emit one bounded operational usage event per configured model call, including responses with no usable
+suggestions. No selected text, instructions, generated text or customer identifiers enter these events.
+See [rewrite usage and costs](rewrite-costs.md) for daily reports, versioned pricing, retry/fallback gaps and the
+current model evaluation. Estimates are not provider invoices.
 
 ## Feedback priority and app triage
 
