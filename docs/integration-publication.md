@@ -9,8 +9,9 @@ delivery. Its remaining acceptance checks still apply; a listing draft does not 
 Optional reply sync adds Notion read/insert comment capabilities and Slack public/private channel
 history bot scopes. The settings remain off until a project admin opts in; Slack requests expanded
 scopes only through its explicit reply-access reconnect. Existing public installation and directory
-review receipts below describe the earlier permission set. Provider-console configuration and hosted
-reply acceptance must be recorded separately; implementation and local tests do not prove them.
+review receipts below describe the earlier permission set. The owner-approved provider-console changes were saved and verified on 2 November; see the
+[reply permission receipt](integration-activation.md#reply-sync-extension-2-november-2026). Hosted
+reply acceptance remains separate from implementation and local tests.
 
 ## Provider status
 
