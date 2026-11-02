@@ -29,8 +29,13 @@ test('feedback triage states the shipped workflow, its bounds and its next steps
         await expect(results.getByRole('listitem').filter({ hasText: outcome }).first()).toBeVisible();
     await expect(results).toContainText('Retry failed threads');
     await expect(page.getByRole('region', { name: 'Who can triage' })).toContainText('cannot change it');
-    // Done is the ordinary status; reviewer confirmation is not described until it ships.
-    await expect(main).not.toContainText(/unlimited|confirm|verif/i);
+    // Bulk Done is ordinary completion, told apart from reviewer confirmation in the app's own words;
+    // the verification workflow itself belongs on its own page.
+    await expect(selection).toContainText(/ordinary completion, never a reviewer.s confirmation/);
+    await expect(selection).toContainText('Done without reviewer confirmation');
+    await expect(limits).toContainText('Open, Ready for review, then Done on the board');
+    await expect(limits).toContainText('confirm a fix');
+    await expect(main).not.toContainText(/unlimited|Confirm fix|Request verification/i);
 
     const start = page.getByRole('region', { name: 'Try it in a project' });
     await expect(start.getByText(brand.pricing, { exact: true })).toBeVisible();
@@ -46,7 +51,10 @@ test('the homepage, its questions and the footer lead to feedback triage', async
     await expect(page.getByRole('region', { name: 'What it does' }).getByRole('link', { name: 'bulk triage' }))
         .toHaveAttribute('href', '/features/feedback-triage');
     const question = page.getByRole('region', { name: 'Questions' }).locator('details').filter({ hasText: 'How do I sort through a lot of feedback?' });
-    await question.locator('summary').click();
+    // The keyboard, as in landing.spec.ts: on a phone the toolbar can cover the summary while it settles
+    await question.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(question).toHaveAttribute('open', '');
     await expect(question.getByRole('link', { name: 'Feedback triage' })).toHaveAttribute('href', '/features/feedback-triage');
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Feedback triage', exact: true })).toHaveAttribute('href', '/features/feedback-triage');
 });

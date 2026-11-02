@@ -8,8 +8,9 @@ import { KnownPages } from '../../../../../src/knownPages';
 // Every claim and bound here is the shipped app triage (docs/review-workflow.md, "Search, priority
 // and bulk triage"): MAX_PROJECT_COMMENTS (src/lib/review/comments.ts), MAX_TRIAGE_THREADS
 // (src/lib/review/bulkTriageSchema.ts), TriageSelection and CommentFilters. Change this page with them.
-// "Done" is the ordinary thread status. Describe requested reviewer confirmation separately, and only
-// once it ships.
+// Bulk Done is ordinary completion: a pending fix check ends as Done without reviewer confirmation
+// (comments/verificationState.ts, @uier/toolbar/verification labels). Describe the fix verification
+// workflow on its own page, not here.
 
 const title = 'Feedback triage';
 
@@ -82,7 +83,10 @@ export default function FeedbackTriagePage() {
                         <p>Give every selected thread the same priority.</p>
                     </Tile>
                     <Tile title="Mark selected as done">
-                        <p>Each thread becomes Done, as it would with its own Done button.</p>
+                        <p>
+                            Each thread becomes Done, as it would with its own Done button. This is ordinary completion, never a reviewer&rsquo;s
+                            confirmation: a thread that was Ready for review shows Done without reviewer confirmation.
+                        </p>
                     </Tile>
                     <Tile title="Reopen selected">
                         <p>Each thread goes back to Open.</p>
@@ -115,13 +119,13 @@ export default function FeedbackTriagePage() {
                         <p>Search and filters cover up to 1,000 of the most recent threads in the loaded environment. When there are more, the app says so: narrow the environment or the author to reach older feedback.</p>
                     </Tile>
                     <Tile title="50 threads per action">
-                        <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown, Open before Done on the board. The rest stay as they are.</p>
+                        <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown: Open, Ready for review, then Done on the board. The rest stay as they are.</p>
                     </Tile>
                     <Tile title="One project at a time">
                         <p>Search and actions cover the project you have open. There is no search across projects, and an action only reaches the threads you selected.</p>
                     </Tile>
                     <Tile title="What bulk actions leave out">
-                        <p>They do not delete threads, make them private or mark them as read. Mark all as read is its own button. In the toolbar you change one thread at a time.</p>
+                        <p>They do not delete threads, make them private, mark them as read or confirm a fix. Mark all as read is its own button. In the toolbar you change one thread at a time.</p>
                     </Tile>
                 </Panel>
             </PageSection>

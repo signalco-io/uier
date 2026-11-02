@@ -182,7 +182,9 @@ add it to `KnownPages` and to the public paths in `e2e/seo.api.spec.ts` and
 
 `/features/feedback-triage` states the shipped bounds from `MAX_PROJECT_COMMENTS` (1,000 threads)
 and `MAX_TRIAGE_THREADS` (50), the batch outcomes and the permissions; change the page with them.
-Its Done is the ordinary status: describe requested reviewer confirmation separately once it ships.
+Its bulk Done is ordinary completion and never reviewer confirmation: a pending check ends as "Done
+without reviewer confirmation" (`@uier/toolbar/verification` labels). Describe the fix verification
+workflow on its own page, not here.
 `e2e/feature-pages.api.spec.ts` covers its metadata, social card and the 404s;
 `e2e/feature-pages.spec.ts` its claims, links and accessibility.
 
