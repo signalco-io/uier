@@ -83,7 +83,7 @@ jobs:
   publish:
     needs: build
     if: github.event_name == 'push' || !inputs.dry_run
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     environment: extension-production
     permissions:

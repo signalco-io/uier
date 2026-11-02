@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   changes:
     name: "Detect changes"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       contents: read
@@ -217,7 +217,7 @@ jobs:
     name: "CI OK"
     needs: [changes, web, infra, preview, extension]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions: {}
     steps:
