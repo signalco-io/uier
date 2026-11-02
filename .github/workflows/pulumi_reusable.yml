@@ -11,7 +11,7 @@ name: "Pulumi (reusable)"
 
 on:
   workflow_call:
-    # Callers pass empty slots; the job environment supplies the values.
+    # Callers name each allowed secret; the job environment supplies the values.
     secrets:
       AZURE_CLIENT_ID:
         required: true

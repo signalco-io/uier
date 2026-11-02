@@ -48,8 +48,8 @@ CI uses `production` for updates and `preview` for PR/manual-main previews, with
 apps and provider tokens. `production-worker` is main-only and has its own OIDC subject/data app;
 it cannot reuse the deployment identity's subject. None requires reviewers or a wait timer.
 `AleksandarDev` remains administrator. See the [credential rollout](../docs/ci-credential-rollout.md)
-for exact subjects, scopes and live verification. No workflow receives production credentials
-through caller-level secret forwarding.
+for exact subjects, scopes and live verification. Reusable callers explicitly name allowed secrets; the target job environment overrides their values.
+Previews pass empty integration/Anthropic slots and receive no production integration credentials.
 
 Preview `scripts/preview-environment.mjs` extracts only variable metadata from encrypted state.
 `src/previewEnvironment.ts` preserves existing optional production values during a dry run; updates

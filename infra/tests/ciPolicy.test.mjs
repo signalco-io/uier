@@ -73,12 +73,16 @@ test('builds have no deployment secrets and deployment jobs never execute checko
     assert.match(pulumi, /UIER_INTEGRATION_ENV:.*inputs\.command == 'up'/);
 });
 
-// GitHub requires a caller slot even when an environment overrides the value.
-test('reusable callers enable only declared environment secrets using empty slots', () => {
+// GitHub requires callers to reference each allowed secret for environment resolution.
+test('reusable callers allowlist environment secrets and keep production integrations out of previews', () => {
     for (const name of ['ci.yml', 'deploy.yml']) {
         const workflow = readFileSync(join(root, '.github/workflows', name), 'utf8');
-        assert.doesNotMatch(workflow, /secrets: inherit|secrets\./);
-        const slots = [...workflow.matchAll(/^      ([A-Z_]+): ""$/gm)];
-        assert.ok(slots.length >= 7);
+        assert.doesNotMatch(workflow, /secrets: inherit/);
+        const references = [...workflow.matchAll(/secrets\.([A-Z_]+)/g)].map(match => match[1]);
+        const allowed = new Set(['AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID',
+            'AZURE_STORAGE_ACCOUNT', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN',
+            ...(name === 'deploy.yml' ? ['UIER_INTEGRATION_ENV', 'ANTHROPIC_API_KEY'] : [])]);
+        assert.ok(references.length >= 7);
+        assert.ok(references.every(key => allowed.has(key)));
     }
 });

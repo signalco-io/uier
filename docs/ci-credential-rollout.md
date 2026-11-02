@@ -162,8 +162,8 @@ tokens. A successful token creation or role audit does not establish these runti
 
 The stage 3 workflows use environment secrets directly: `production` for Pulumi updates and
 production uploads, `preview` for infrastructure previews and preview uploads. Caller workflows
-pass explicit empty secret slots, as required by GitHub; the target job environment supplies
-the values. No repository credential is forwarded. Neither environment requires a reviewer or wait timer. The email-domain
+name each allowed secret, as required by GitHub; the target job environment supplies
+the values. Repository copies are retired after validation. Neither environment requires a reviewer or wait timer. The email-domain
 verification job uses `production` too. The Azure login is checked against the expected app client
 identifier in every credential-bearing Azure job.
 

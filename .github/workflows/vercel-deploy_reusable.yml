@@ -3,7 +3,7 @@ name: "Vercel deploy (reusable)"
 
 on:
   workflow_call:
-    # Callers pass empty slots; the job environment supplies the values.
+    # Callers name each allowed secret; the job environment supplies the values.
     secrets:
       VERCEL_TOKEN:
         required: true
