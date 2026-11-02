@@ -73,3 +73,32 @@ test('non-search pages expose noindex and robots.txt permits reading it', async 
         expect(meta(await response.text(), 'robots'), path).toMatch(/\bnoindex\b/);
     }
 });
+
+test('security.txt is discoverable as plain text with current reporting details', async ({ request }) => {
+    const path = '/.well-known/security.txt';
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toMatch(/^text\/plain;\s*charset=utf-8$/i);
+    const text = await response.text();
+    expect(text).toMatch(/\n$/);
+    const fields = new Map<string, string[]>();
+    for (const line of text.split(/\r?\n/).filter(line => line && !line.startsWith('#'))) {
+        const match = /^([A-Za-z][A-Za-z-]*): (.+)$/.exec(line);
+        expect(match, line).not.toBeNull();
+        const name = match![1]!.toLowerCase();
+        fields.set(name, [...(fields.get(name) ?? []), match![2]!]);
+    }
+    expect(fields.get('contact')).toContain(`mailto:${brand.contact.security}`);
+    expect(fields.get('canonical')).toEqual([`${brand.url}${path}`]);
+    expect(fields.get('policy')).toEqual([`${brand.repository}/security/policy`]);
+    const expiry = fields.get('expires');
+    expect(expiry).toHaveLength(1);
+    expect(expiry![0]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+    const expiresAt = Date.parse(expiry![0]!);
+    expect(expiresAt).toBeGreaterThan(Date.now());
+    expect(expiresAt).toBeLessThan(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+    const legacy = await request.get('/security.txt', { maxRedirects: 0 });
+    expect(legacy.status()).toBe(308);
+    expect(new URL(legacy.headers().location!, legacy.url()).pathname).toBe(path);
+});

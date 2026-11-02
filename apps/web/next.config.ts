@@ -68,6 +68,9 @@ const nextConfig: NextConfig = {
             headers: [{ key: 'Cache-Control', value: 'no-store' }]
         }];
     },
+    async redirects() {
+        return [{ source: '/security.txt', destination: '/.well-known/security.txt', permanent: true }];
+    },
     async rewrites() {
         // OAuth discovery for the MCP endpoint (src/lib/mcp/oauth). Only the path-specific protected
         // resource document exists: a root document would describe another resource (RFC 9728).

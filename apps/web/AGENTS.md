@@ -223,6 +223,13 @@ expires both names so fallback cannot undo it. Remove the migration branches aft
 
 ## Security and open source pages
 
+`public/.well-known/security.txt` publishes the existing reporting contact and repository policy
+using RFC 9116. `next.config.ts` redirects `/security.txt` to that canonical location. Keep its
+contact aligned with `brand.contact.security` and `SECURITY.md`, and renew its fixed `Expires`
+date before it passes; requests and builds must not silently extend it. `e2e/seo.api.spec.ts`
+checks delivery, format, contact, expiry and the redirect. See
+[security disclosure discovery](../../docs/operations.md#security-disclosure-discovery).
+
 `/security` lists only controls that are in place and can be checked in this repository; remove a
 control from it when it stops being true, and add one only when it ships. `/open-source` mirrors the
 licenses in each `package.json`, the root `LICENSE` and the README "License" section. Both have the
