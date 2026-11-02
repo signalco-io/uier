@@ -8,7 +8,9 @@ import { InlineLink, Panel } from './ContentPage';
 // Native <details> disclosures: keyboard (Enter/Space) and screen readers work without script, and
 // find-in-page searches the closed answers too.
 
-const questions: { question: string; answer: ReactNode }[] = [
+export type Question = { question: string; answer: ReactNode };
+
+const questions: Question[] = [
     {
         question: `What is ${brand.name}?`,
         answer: <>A way to review a live website on the page itself. A toolbar sits at the bottom of the page: pin a comment to an element or to selected text, reply in the thread and resolve it when it is done. Projects bring it to your own sites, with your team and review links.</>
@@ -28,6 +30,10 @@ const questions: { question: string; answer: ReactNode }[] = [
     {
         question: 'Can developers and AI agents use the feedback?',
         answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the priority, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector. Claude Code signs in through your browser; other tools use an access token from your account settings. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time.</>
+    },
+    {
+        question: 'Can the reviewer confirm that a fix works?',
+        answer: <>Yes, in a project. When a fix is ready, a member requests verification and the reviewer chooses Confirm fix or Still needs work. Marking a thread done without it still works. <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> explains who can decide.</>
     },
     {
         question: 'Do I need an account?',
@@ -60,6 +66,11 @@ const questions: { question: string; answer: ReactNode }[] = [
 ];
 
 export function LandingFaq() {
+    return <FaqPanel questions={questions} />;
+}
+
+/** Questions as disclosures in one panel: the landing's and a feature page's own */
+export function FaqPanel({ questions }: { questions: Question[] }) {
     return (
         <Panel>
             {questions.map(item => (

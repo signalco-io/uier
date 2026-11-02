@@ -8,7 +8,7 @@ import { Pin } from '@uier/brand/Pin';
 // only illustrate what the tile's text says, so they are hidden from assistive technologies. The
 // example content is an imaginary restaurant site, so none of it reads as a claim about uier.
 
-const floating = 'shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:shadow-none';
+export const floating = 'shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:shadow-none';
 
 /** The picture area at the top of a feature tile */
 export function Specimen({ children, className }: { children: ReactNode; className?: string }) {
@@ -19,7 +19,7 @@ export function Specimen({ children, className }: { children: ReactNode; classNa
     );
 }
 
-function Avatar({ initials }: { initials: string }) {
+export function Avatar({ initials }: { initials: string }) {
     return <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">{initials}</span>;
 }
 

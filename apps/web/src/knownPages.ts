@@ -8,6 +8,7 @@ export const KnownPages = {
     FeedbackTriage: '/features/feedback-triage',
     Brand: '/brand',
     Integrations: '/integrations',
+    FixVerification: '/features/fix-verification',
     OpenSource: '/open-source',
     Security: '/security',
     Status: '/status',

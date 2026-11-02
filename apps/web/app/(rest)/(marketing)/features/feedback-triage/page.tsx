@@ -9,8 +9,8 @@ import { KnownPages } from '../../../../../src/knownPages';
 // and bulk triage"): MAX_PROJECT_COMMENTS (src/lib/review/comments.ts), MAX_TRIAGE_THREADS
 // (src/lib/review/bulkTriageSchema.ts), TriageSelection and CommentFilters. Change this page with them.
 // Bulk Done is ordinary completion: a pending fix check ends as Done without reviewer confirmation
-// (comments/verificationState.ts, @uier/toolbar/verification labels). Describe the fix verification
-// workflow on its own page, not here.
+// (comments/verificationState.ts, @uier/toolbar/verification labels). The fix verification workflow
+// is described on its own page (/features/fix-verification), linked from Mark selected as done.
 
 const title = 'Feedback triage';
 
@@ -86,6 +86,7 @@ export default function FeedbackTriagePage() {
                         <p>
                             Each thread becomes Done, as it would with its own Done button. This is ordinary completion, never a reviewer&rsquo;s
                             confirmation: a thread that was Ready for review shows Done without reviewer confirmation.
+                            {' '}<InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> is how a reviewer confirms a fix.
                         </p>
                     </Tile>
                     <Tile title="Reopen selected">

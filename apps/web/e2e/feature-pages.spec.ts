@@ -33,6 +33,7 @@ test('feedback triage states the shipped workflow, its bounds and its next steps
     // the verification workflow itself belongs on its own page.
     await expect(selection).toContainText(/ordinary completion, never a reviewer.s confirmation/);
     await expect(selection).toContainText('Done without reviewer confirmation');
+    await expect(selection.getByRole('link', { name: 'Fix verification' })).toHaveAttribute('href', '/features/fix-verification');
     await expect(limits).toContainText('Open, Ready for review, then Done on the board');
     await expect(limits).toContainText('confirm a fix');
     await expect(main).not.toContainText(/unlimited|Confirm fix|Request verification/i);

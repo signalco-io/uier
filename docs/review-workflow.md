@@ -589,3 +589,7 @@ are never fetched or embedded. Configured review links use approved project page
 links require HTTPS without credentials, query or fragment state. Guest exports omit restricted
 review destinations. Copy issue, MCP reads and connected-service packets include the verification
 outcome and named/timed decision, alongside their compatible Open/Done status.
+
+The public [fix verification page](https://uier.io/features/fix-verification)
+(`apps/web/app/(rest)/(marketing)/features/fix-verification/`) states these labels, actor rules and
+outcomes. Update it in the same pull request when they change.

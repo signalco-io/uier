@@ -38,6 +38,6 @@ test('feedback triage publishes its own canonical, description and social card',
 });
 
 test('unpublished feature pages return a real 404', async ({ request }) => {
-    for (const path of ['/features', '/features/unknown', '/features/fix-verification'])
+    for (const path of ['/features', '/features/unknown'])
         expect((await request.get(path)).status(), path).toBe(404);
 });
