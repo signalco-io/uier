@@ -7,6 +7,7 @@ export const KnownPages = {
     Faq: '/#faq',
     Brand: '/brand',
     Integrations: '/integrations',
+    FixVerification: '/features/fix-verification',
     OpenSource: '/open-source',
     Security: '/security',
     Status: '/status',

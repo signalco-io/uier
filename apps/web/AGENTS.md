@@ -10,7 +10,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<slug>/page.tsx` (one shipped workflow per page), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
@@ -122,6 +122,16 @@ Listing illustrations come from `scripts/render-integration-listings.mjs`, exist
 and Geist fonts. They contain no customer data and are labelled illustrations. Keep permissions,
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
 `e2e/integration-pages.spec.ts` covers the public guides, support/setup links and accessibility.
+
+## Feature pages
+
+`/features/<slug>` explains one shipped workflow; there is no `/features` index yet. Publish a page
+only once its workflow is live, with labels and actor rules taken from the delivered controls, and
+register it in `KnownPages`, `e2e/footer.spec.ts` and an axe check. A page's own social card is its
+`opengraph-image.tsx`, kept out of the sitemap by `next-sitemap.config.cjs`. Questions use `FaqPanel`
+from `LandingFaq`. `/features/fix-verification` keeps a reviewer's confirmation apart from ordinary
+Done, a connected service's closure and MCP status; `e2e/fix-verification-page*.spec.ts` covers its
+copy, links, metadata, card and accessibility.
 
 ## Footer
 
