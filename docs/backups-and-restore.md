@@ -56,22 +56,46 @@ geo-redundancy: continuous backups do not preserve the old periodic policy's geo
 
 ## Access and preparation
 
-The named human operator needs **CosmosRestoreOperator** at the subscription or source
-**restorable-account** scope (not the production resource group), plus account-write permission on
-the destination resource group, for example Cosmos DB Operator there. A subscription owner grants
-and records the operator, scope and expiry in the incident record. On 2026-10-28 the read-only
-subscription-wide role-assignment listing found **no explicit CosmosRestoreOperator assignment**;
-broader inherited permissions must be checked separately before any restore. For this authorized
-drill, recovery owner **AleksandarDev**'s Azure session was checked in the uier tenant and has
-existing **Owner** access at the subscription. That includes the required restore and target-write
-actions; no new grant was made. Do not assume the preview identity can restore.
+The standing recovery and moderation operator is **AleksandarDev**. The owner's Azure user
+object is `33e65245-6fe9-419f-86da-74b8a2fd5cba` in tenant
+`c7837eb3-77ca-413b-8653-c97b08886678`. On 2 November 2026, the signed-in user and existing
+subscription **Owner** assignment were read back. That inherited role includes restore on the
+source restorable account and target-account writes; no redundant management role was added.
+Read-only discovery of the source restorable account and backup feed must succeed before recovery.
+For a different operator, an owner must grant **CosmosRestoreOperator** at the source
+**restorable-account** scope (or subscription), plus target-account write access on the temporary
+resource group, for example Cosmos DB Operator there. A production-resource-group grant alone
+does not cover the source restore action. Record exact scopes and expiry per incident.
+
+The standing operator has Cosmos DB Built-in Data Contributor on `uierdata/comments` and
+`uierdata/comments-preview`, and Built-in Data Reader on `uierdata/app`, each at container scope.
+These grants have no automatic expiry; review/revoke them when the operator changes. App copy-back
+requires an incident-specific, temporary Data Contributor grant on the approved destination and
+revocation afterwards. No standing `app-preview` or account-wide data role is needed.
+Management Owner/Contributor alone does not grant Cosmos data reads.
 
 Keep **uier GitHub Deployment** at Contributor on `uier-production8b2f56d6`, with its existing
-state/key permissions. Add no restore role to CI and no restore workflow. The preview identity
-keeps Data Contributor only on `comments-preview` and `app-preview` in the source account.
-The human copy operator separately needs data-plane read on the restored container and narrowly
-scoped write on the destination. A restored account has **new keys** and does **not** inherit the
-preview identity's Cosmos data-plane role assignments. Never put its keys in Vercel, logs or Git.
+state/key permissions. Add no restore role to CI and no restore workflow. The preview runtime
+identity keeps Data Contributor only on `comments-preview` and `app-preview` in the source account.
+A restored account does **not** inherit source Cosmos data-plane assignments. Before reading it,
+the owner must grant the human operator Built-in Data Reader on its exact restored container:
+
+```bash
+az cosmosdb sql role assignment create --subscription "$recovery_subscription" \
+  --resource-group "$recovery_group" --account-name "$recovery_account" \
+  --principal-id 33e65245-6fe9-419f-86da-74b8a2fd5cba \
+  --role-definition-id 00000000-0000-0000-0000-000000000001 \
+  --scope /dbs/uierdata/colls/comments-preview
+```
+
+Use `AzureCliCredential({ tenantId: 'c7837eb3-77ca-413b-8653-c97b08886678' })` as the Cosmos SDK's
+`aadCredentials`, with the live temporary endpoint and endpoint discovery disabled. Use that
+same Entra credential with the live source endpoint for approved copy-back. Never retrieve a
+source/restored key or connection string. Source key authentication is disabled; new restored
+accounts may have different authentication flags, so disable local authentication and key-based
+metadata writes on the **temporary account** before network/data access, and read the flags back.
+Temporary access and roles disappear with the temporary group. The prior drill below used account
+keys; it is historical recovery evidence, not a new Entra restore drill.
 
 Before recovery, record the incident's accidental deletion, exact account/database/container,
 partition and item ids, UTC time, original container `defaultTtl`, original item `ttl` and `_ts`,

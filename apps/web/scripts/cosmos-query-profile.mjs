@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { CosmosClient } from '@azure/cosmos';
+import { AzureCliCredential } from '@azure/identity';
 
 const mode = process.argv[2];
 const [resourceGroup, account] = process.argv.slice(3);
@@ -16,10 +17,9 @@ const az = (...args) => {
     catch { throw new Error('Azure CLI access failed; raw output suppressed.'); }
 };
 const { documentEndpoint: endpoint } = az('cosmosdb', 'show', '-g', resourceGroup, '-n', account);
-// Keep keys in process memory. Production mode can only read, even if this script has a bug.
-const keys = az('cosmosdb', 'keys', 'list', '-g', resourceGroup, '-n', account,
-    '--type', mode === 'production-read-only' ? 'read-only-keys' : 'keys');
-const client = new CosmosClient({ endpoint, key: mode === 'production-read-only' ? keys.primaryReadonlyMasterKey : keys.primaryMasterKey,
+// Use the signed-in operator's scoped Entra data roles; never retrieve account keys.
+const { tenantId } = az('account', 'show');
+const client = new CosmosClient({ endpoint, aadCredentials: new AzureCliCredential({ tenantId }),
     connectionPolicy: { enableEndpointDiscovery: false, requestTimeout: 15_000, retryOptions: { maxRetryAttemptCount: 2 } } });
 const db = client.database('uierdata');
 const app = db.container(mode === 'production-read-only' ? 'app' : 'app-preview');

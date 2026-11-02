@@ -46,7 +46,8 @@ When moving documentation, update relative links and links to section anchors ac
 - Do not run `pulumi up` locally and do not change protected infrastructure; CI applies infra.
 - Secrets never go in the repo. Production and preview Cosmos DB access uses separate managed
   identities; `UIER_COMMENTS_SECRET` lives in Vercel (set by Pulumi). An optional local connection
-  string goes in `apps/web/.env.local`.
+  string goes in `apps/web/.env.local` for a separate development account; production key authentication
+  is disabled. Operator access uses Entra ID as described in the operations/restore runbooks.
 
 ## Commands (repository root)
 

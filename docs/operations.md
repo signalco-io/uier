@@ -343,7 +343,13 @@ an explicit empty secret value and leaves moderation unavailable until a staff l
 
 **Cosmos DB fallback:** use Data Explorer only when the app procedure is unavailable.
 
-1. Open database `uierdata`, container `comments` (`comments-preview` for previews).
+1. Sign in to Azure Data Explorer using **Microsoft Entra ID** in the uier tenant, never a key
+   or connection string. The standing fallback operator is **AleksandarDev** (Azure user object
+   `33e65245-6fe9-419f-86da-74b8a2fd5cba`), with Cosmos Built-in Data Contributor scoped separately
+   to `comments` and `comments-preview`. `app` is Data Reader only. These roles are separate from
+   Azure management Owner; review/revoke them when the operator changes. For SDK tooling, use
+   `AzureCliCredential` with the live account endpoint. Open database `uierdata`, container
+   `comments` (`comments-preview` for previews).
 2. Query the exact public project partition and thread id:
 
    ```sql

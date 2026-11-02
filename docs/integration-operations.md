@@ -14,7 +14,18 @@ From the repository root:
 node apps/web/scripts/run-integration-admin.mjs --input /absolute/path/status.json --env /absolute/path/production.env
 ```
 
-The environment must identify production (`UIER_DEPLOYMENT_ENV=production`), the production Cosmos account-key configuration, normal `app`/`comments` containers, the existing comments secret and the trusted `https://uier.io` base URL. Local and preview runtimes are rejected. GitHub adoption additionally needs the registered GitHub App configuration. The command prints only bounded ids, status/code, next-attempt timestamps and operation identity; errors are fixed codes. Status does not decrypt credentials or call providers.
+The environment must identify production (`UIER_DEPLOYMENT_ENV=production`), `COSMOSDB_ENDPOINT`,
+`AZURE_TENANT_ID`, `NODE_ENV=production` and `UIER_AZURE_AUTH_MODE=operator` (no Cosmos connection
+string), normal `app`/`comments` containers, the existing comments secret and the trusted
+`https://uier.io` base URL. The command uses the human's `az login` session through `AzureCliCredential`; Vercel and GitHub
+Actions contexts, development mode and preview containers are rejected. This explicit operator mode
+is never configured on deployed requests or workers. Status needs Built-in Data Reader on `app`;
+recovery writes need an incident-specific Data Contributor grant there, revoked afterwards. The
+standing operator and restore scopes are recorded in
+[Backups and restore](backups-and-restore.md#access-and-preparation). GitHub adoption additionally
+needs the registered GitHub App configuration. The command prints only bounded ids, status/code,
+next-attempt timestamps and operation identity; errors are fixed codes. Status does not decrypt
+credentials or call providers.
 
 ```json
 {
