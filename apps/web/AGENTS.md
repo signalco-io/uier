@@ -173,12 +173,14 @@ public page to its `publicPaths` (and to `e2e/seo.api.spec.ts`).
 ## Feature pages
 
 `/features/<slug>` explains one shipped workflow; there is no `/features` index yet. Publish a page
-only once its workflow is live, with labels and actor rules taken from the delivered controls, and
+only once its workflow is live in production, with labels and actor rules taken from the delivered
+controls, link it from the landing questions and the footer, and
 register it in `KnownPages`, `publicPageMetadata`, `e2e/seo.api.spec.ts`,
 `e2e/social-cards.api.spec.ts`, `e2e/footer.spec.ts` and an axe check. Its card is a `PageCard` with
 section `Features` (see above). Questions use `FaqPanel` from `LandingFaq`.
-`/features/fix-verification` keeps a reviewer's confirmation apart from ordinary Done, a connected
-service's closure and MCP status; `e2e/fix-verification-page.spec.ts` covers its copy, links,
+`/features/fix-verification` keeps a reviewer's confirmation apart from ordinary and bulk Done, a
+connected service's closure and MCP status; change it with the verification controls and
+`src/lib/review/fixVerification.ts`. `e2e/fix-verification-page.spec.ts` covers its copy, links,
 responsive layout and accessibility.
 
 ## Footer

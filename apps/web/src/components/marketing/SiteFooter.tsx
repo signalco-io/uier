@@ -14,6 +14,7 @@ export function SiteFooter() {
                     ctas: [
                         { label: 'How it works', href: KnownPages.HowItWorks },
                         { label: 'Features', href: KnownPages.Features },
+                        { label: 'Fix verification', href: KnownPages.FixVerification },
                         { label: 'Integrations', href: KnownPages.Integrations },
                         { label: 'Pricing', href: KnownPages.Pricing },
                         { label: 'FAQ', href: KnownPages.Faq },

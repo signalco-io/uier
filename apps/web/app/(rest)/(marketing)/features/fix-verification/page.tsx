@@ -7,9 +7,10 @@ import { FixVerificationSpecimen } from '../../../../../src/components/marketing
 import { KnownPages } from '../../../../../src/knownPages';
 
 // The fix-verification workflow (docs/review-workflow.md, "Fix verification"). Labels and actor rules
-// are the delivered ones: the thread's controls (VerificationControl in the app, CommentVerification
-// in the toolbar) and src/lib/review/fixVerification.ts. Ordinary Done, a connected service closing
-// its issue and MCP status are never reviewer confirmation; say so wherever they come up.
+// are the shipped ones: the thread's controls (VerificationControl in the app, CommentVerification and
+// verification.ts in the toolbar), changeFixVerification and verificationPermissions in
+// src/lib/review. Change this page with them. Ordinary Done, bulk Done, a connected service closing its
+// issue and MCP status are never reviewer confirmation; say so wherever they come up.
 
 export const metadata = publicPageMetadata(KnownPages.FixVerification, {
     title: 'Fix verification for website feedback',
@@ -19,22 +20,22 @@ export const metadata = publicPageMetadata(KnownPages.FixVerification, {
 const steps = [
     {
         title: 'Request verification',
-        text: 'On an open thread, add a short fix summary and an optional fix link, then choose the reviewer. The original author is suggested while they still have access.'
+        text: 'On a thread, add a short fix summary and an optional fix link, then choose the reviewer. The original author is suggested while they still have access.'
     },
     {
         title: 'Ready for review',
-        text: 'The thread shows Ready for review in the app, on the page and in the toolbar inbox, and still counts as open. The reviewer is notified by email under their usual settings.'
+        text: 'The thread shows Ready for review in the app, on the page and in the toolbar inbox, and still counts as open. The reviewer gets an email under their usual notification settings.'
     },
     {
         title: 'Confirm fix or Still needs work',
-        text: 'The reviewer checks the page. Confirm fix marks the thread done with their name and the time. Still needs work opens it again for the next attempt.'
+        text: 'The reviewer checks the page. Confirm fix marks the thread done with their name and the time. Still needs work keeps it open for the next attempt.'
     }
 ];
 
 const actions: { action: string; who: string; result: string }[] = [
-    { action: 'Request verification', who: 'A project member who can see the thread', result: 'Ready for review. The thread still counts as open.' },
+    { action: 'Request verification', who: 'A project member who can see the thread', result: 'Ready for review. The thread counts as open, even if it was done.' },
     { action: 'Confirm fix', who: 'The requested reviewer', result: 'Done, with the reviewer’s name and the time.' },
-    { action: 'Still needs work', who: 'The requested reviewer', result: 'Open again. The next check is a new request.' },
+    { action: 'Still needs work', who: 'The requested reviewer', result: 'Open, marked Still needs work. The next check is a new request.' },
     { action: 'Confirm fix as admin, Still needs work as admin', who: 'A workspace admin who is not the requester or the reviewer', result: 'The same result, labeled as an admin override for the reviewer.' },
     { action: 'Cancel request', who: 'The requester or an admin', result: 'Open, with the request canceled.' },
     { action: 'Done without verification', who: 'Anyone who can already mark the thread done', result: 'Done without reviewer confirmation.' },
@@ -75,7 +76,7 @@ const questions: Question[] = [
     },
     {
         question: 'Can the person who fixed it confirm it?',
-        answer: <>No. The requester cannot choose themselves as the reviewer or confirm their own request. They can still mark the thread done, which is recorded as done without reviewer confirmation.</>
+        answer: <>No. The requester cannot choose themselves as the reviewer or confirm their own request, not even as an admin. They can still mark the thread done, which is recorded as done without reviewer confirmation.</>
     },
     {
         question: 'What if the reviewer is not available?',
@@ -156,7 +157,7 @@ export default function FixVerificationPage() {
                 </div>
                 <Panel className="md:grid-cols-2">
                     <Tile title="Guests answer as themselves">
-                        <p>When the reviewer is the guest who left the feedback, they answer with the same visitor identity, in the browser they commented from, while the project is open to guests. No account or email check is needed, and other guests cannot answer for them.</p>
+                        <p>When the reviewer is the guest who left the feedback, they answer with the same visitor identity, in the browser they commented from, while anyone with the link can still comment on the project. No account or email check is needed, and other guests cannot answer for them.</p>
                     </Tile>
                     <Tile title="No one else steps in">
                         <p>If the original author is gone or has lost access, choose another member who can see the thread. The requester can never be the reviewer.</p>
@@ -170,7 +171,7 @@ export default function FixVerificationPage() {
                 lead="A thread can be done without anyone checking the fix. Only a reviewer’s decision counts as confirmation.">
                 <Panel className="md:grid-cols-2">
                     <Tile title="Done without verification">
-                        <p>Marking a thread done, alone or in a bulk selection, still works. A check that was waiting ends without confirmation.</p>
+                        <p>Marking threads done, one at a time or in a bulk selection, is ordinary completion. A check that was waiting ends as done without reviewer confirmation.</p>
                     </Tile>
                     <Tile title="Connected issue trackers">
                         <p>With two-way status sync on, closing the issue in a connected service marks the thread done without confirmation. Ready for review shows there as open.</p>
@@ -193,7 +194,7 @@ export default function FixVerificationPage() {
                 lead="Point the reviewer at the fixed page. A short summary says what changed.">
                 <CheckList items={fixLinks} />
                 <p className="max-w-[720px] text-sm text-muted-foreground">
-                    Links to other sites cannot carry a query string, a fragment or credentials, and links to the project’s addresses keep only the page state the project allows. {brand.name} never fetches or embeds a fix link; the reviewer opens it.
+                    Links to other sites cannot carry a query string, a fragment or credentials, and links to the project’s addresses can carry only the page state the project allows. {brand.name} never fetches or embeds a fix link; the reviewer opens it.
                 </p>
             </PageSection>
 
@@ -213,7 +214,7 @@ export default function FixVerificationPage() {
             <PageSection
                 id="try-it"
                 title="Try it"
-                lead={<>Verification needs a project: the toolbar on this page is a public showcase where everyone comments as a guest.</>}>
+                lead="Try it on a project of your own, where you choose who checks each fix.">
                 <ol className="flex flex-col gap-4">
                     {tryIt.map((step, index) => (
                         <li key={step} className="flex items-baseline gap-4">

@@ -3,7 +3,7 @@ import { brand } from '@uier/brand';
 import { assertAccessibility } from './accessibility';
 
 // /features/fix-verification: the reviewer's confirmation stays apart from Done, a connected
-// service's closure and MCP status, in the thread's own labels
+// service's closure and MCP status, in the shipped thread labels (#333)
 
 const path = '/features/fix-verification';
 
@@ -17,7 +17,9 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
 
     const actions = page.getByRole('table', { name: 'Fix verification actions, who can take them and what happens' });
     const row = (action: string) => actions.getByRole('row').filter({ has: page.getByRole('rowheader', { name: action, exact: true }) });
+    await expect(row('Request verification')).toContainText('even if it was done');
     await expect(row('Confirm fix')).toContainText('The requested reviewer');
+    await expect(row('Still needs work')).toContainText('Open, marked Still needs work.');
     await expect(row('Confirm fix as admin, Still needs work as admin')).toContainText('labeled as an admin override');
     await expect(row('Done without verification')).toContainText('Done without reviewer confirmation.');
     await expect(row('Reopen')).toContainText('history only');
@@ -26,6 +28,7 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
     await expect(main.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/app');
     await expect(main.getByRole('link', { name: 'Create a project' })).toHaveAttribute('href', '/app');
     await expect(main.getByRole('link', { name: 'main questions' })).toHaveAttribute('href', '/#faq');
+    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Fix verification' })).toHaveAttribute('href', path);
 
     const questions = page.getByRole('region', { name: 'Questions', exact: true });
     const tracker = questions.locator('details').filter({ hasText: 'Does closing the issue in GitHub or Linear confirm the fix?' });

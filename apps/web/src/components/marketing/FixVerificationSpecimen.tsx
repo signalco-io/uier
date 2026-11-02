@@ -41,7 +41,7 @@ export function FixVerificationSpecimen() {
                         <span className="text-[13px] leading-5">We open on Sundays since May. Can this say 12–22?</span>
                     </div>
                     <div className="flex flex-col gap-2.5 border-t px-3.5 py-3 text-[13px] leading-5">
-                        <span className="text-muted-foreground">Requested by Leo for Mia.</span>
+                        <span className="text-muted-foreground">Ready for review. Requested by Leo for Mia at 6 May 2026, 14:05 UTC.</span>
                         <span>Sunday hours updated on staging.</span>
                         <span className="self-start underline underline-offset-2">Open fix link</span>
                         <span className="flex flex-wrap gap-1.5 pt-1">
