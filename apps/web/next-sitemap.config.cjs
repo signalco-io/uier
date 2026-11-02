@@ -3,9 +3,20 @@
 module.exports = {
     siteUrl: process.env.SITE_URL || 'https://uier.io',
     generateRobotsTxt: true,
-    // The signed-in app is not for search engines, and a page's social card is an image, not a page
-    exclude: ['/app', '/app/*', '/review-verification', '/review-session', '/*/opengraph-image*'],
+    // Only indexable pages belong in the sitemap, not app flows, bridges or metadata assets
+    // (a page's own social card is served at a hashed path, such as /features/x/opengraph-image-1a2b3c).
+    exclude: ['/api', '/api/*', '/app', '/app/*', '/notifications', '/review-verification',
+        '/review-session', '/extension-verification', '/manifest.webmanifest', '/opengraph-image',
+        '/*/opengraph-image*'],
+    // A build time is not the date the content changed. Omit it until actual dates are tracked.
+    autoLastmod: false,
+    changefreq: undefined,
+    priority: undefined,
+    // This public page renders dynamically, so it is absent from the prerender manifest.
+    additionalPaths: async () => [{ loc: '/status' }],
     robotsTxtOptions: {
-        policies: [{ userAgent: '*', allow: '/', disallow: ['/app'] }]
+        // Crawlers must fetch the app and bridge pages to see their noindex directives.
+        // Authentication protects app data; robots.txt does not control access or indexing.
+        policies: [{ userAgent: '*', allow: '/' }]
     }
 }

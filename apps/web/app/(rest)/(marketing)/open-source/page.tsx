@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
@@ -6,10 +6,10 @@ import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../sr
 // Licenses as declared in each package.json and the root LICENSE. Keep this table in step with them
 // (and with the README "License" section).
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/open-source', {
     title: 'Open source',
     description: `${brand.name} is open source: the website, the comments API, the toolbar, the brand and the infrastructure are in one public repository.`
-};
+});
 
 const blob = (path: string) => `${brand.repository}/blob/main/${path}`;
 const tree = (path: string) => `${brand.repository}/tree/main/${path}`;

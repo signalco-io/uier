@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
@@ -6,10 +6,10 @@ import { KnownPages } from '../../../../../src/knownPages';
 // No service commitments have been approved for uier. Do not add uptime targets, response times or
 // credits here before they are decided and the product can back them.
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/legal/sla', {
     title: 'Service level agreement',
     description: `${brand.name} is free and has no service level agreement: no uptime, response time or support commitments.`
-};
+});
 
 export default function SlaPage() {
     return (

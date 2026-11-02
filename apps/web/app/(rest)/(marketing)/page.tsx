@@ -1,3 +1,4 @@
+import { publicPageMetadata } from '@/src/lib/metadata';
 import type { ReactNode } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -17,6 +18,8 @@ import {
 } from '../../../src/components/marketing/LandingSpecimens';
 import { KnownPages } from '../../../src/knownPages';
 import { HEADLINE_COMMENT_ID } from '../../../src/lib/comments/publicProject';
+
+export const metadata = publicPageMetadata('/');
 
 // Copy and layout follow packages/brand/BRAND.md ("Marketing and metadata"): the tagline is the
 // headline, the review layer is shown on the page itself instead of a screenshot. Every claim

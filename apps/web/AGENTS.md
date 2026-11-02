@@ -123,15 +123,29 @@ and Geist fonts. They contain no customer data and are labelled illustrations. K
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
 `e2e/integration-pages.spec.ts` covers the public guides, support/setup links and accessibility.
 
+## Search indexing
+
+Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
+description. Canonicals and Open Graph URLs point to the production URL without query parameters;
+never put a homepage canonical in the root layout, where other pages would inherit it.
+`next-sitemap.config.cjs` excludes app flows, notification preferences, empty verification bridges
+and metadata assets. Add public dynamic pages through `additionalPaths` (currently `/status`).
+Do not emit build times as `lastmod`; use real content modification dates if they become available.
+
+App pages, notification preferences and verification/session bridges declare `noindex`. Keep them
+crawlable in `robots.txt` so search engines can read that directive; authentication protects app
+data. `e2e/seo.api.spec.ts` checks generated HTML, the sitemap and these crawl directives. See
+[search indexing](../../docs/development.md#search-indexing) for checks and Search Console context.
+
 ## Feature pages
 
 `/features/<slug>` explains one shipped workflow; there is no `/features` index yet. Publish a page
 only once its workflow is live, with labels and actor rules taken from the delivered controls, and
-register it in `KnownPages`, `e2e/footer.spec.ts` and an axe check. A page's own social card is its
-`opengraph-image.tsx`, kept out of the sitemap by `next-sitemap.config.cjs`. Questions use `FaqPanel`
-from `LandingFaq`. `/features/fix-verification` keeps a reviewer's confirmation apart from ordinary
-Done, a connected service's closure and MCP status; `e2e/fix-verification-page*.spec.ts` covers its
-copy, links, metadata, card and accessibility.
+register it in `KnownPages`, `publicPageMetadata`, `e2e/seo.api.spec.ts`, `e2e/footer.spec.ts` and
+an axe check. A page's own social card is its `opengraph-image.tsx`, kept out of the sitemap by
+`next-sitemap.config.cjs`. Questions use `FaqPanel` from `LandingFaq`. `/features/fix-verification`
+keeps a reviewer's confirmation apart from ordinary Done, a connected service's closure and MCP
+status; `e2e/fix-verification-page*.spec.ts` covers its copy, links, metadata, card and accessibility.
 
 ## Footer
 

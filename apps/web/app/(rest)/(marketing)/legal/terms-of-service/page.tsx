@@ -1,12 +1,12 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/legal/terms-of-service', {
     title: 'Terms of service',
     description: `The terms for using ${brand.domain} and leaving comments with the ${brand.name} toolbar.`
-};
+});
 
 export default function TermsOfServicePage() {
     return (

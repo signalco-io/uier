@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
@@ -7,10 +7,10 @@ import { KnownPages } from '../../../../../src/knownPages';
 // apps/web/src/lib/app, README "Comments API" and "The app"). Change this page when what is collected,
 // where it is stored or for how long changes.
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/legal/privacy-policy', {
     title: 'Privacy policy',
     description: `What ${brand.domain} collects, why, where it is stored and for how long.`
-};
+});
 
 export default function PrivacyPolicyPage() {
     return (

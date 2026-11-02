@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
@@ -11,17 +11,10 @@ import { KnownPages } from '../../../../../src/knownPages';
 // in the toolbar) and src/lib/review/fixVerification.ts. Ordinary Done, a connected service closing
 // its issue and MCP status are never reviewer confirmation; say so wherever they come up.
 
-const title = 'Fix verification for website feedback';
-const description = `Ask the person who reported a problem to confirm the fix. ${brand.name} records who confirmed it and when, apart from marking it done.`;
-const canonical = new URL(KnownPages.FixVerification, brand.url).href;
-
-export const metadata: Metadata = {
-    title,
-    description,
-    alternates: { canonical },
-    openGraph: { type: 'website', siteName: brand.name, title: `${title} · ${brand.name}`, description, url: canonical },
-    twitter: { card: 'summary_large_image', title: `${title} · ${brand.name}`, description }
-};
+export const metadata = publicPageMetadata(KnownPages.FixVerification, {
+    title: 'Fix verification for website feedback',
+    description: `Ask the person who reported a problem to confirm the fix. ${brand.name} records who confirmed it and when, apart from marking it done.`
+});
 
 const steps = [
     {

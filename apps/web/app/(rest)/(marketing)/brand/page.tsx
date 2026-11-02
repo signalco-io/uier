@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import { publicPageMetadata } from '@/src/lib/metadata';
 import type { ComponentProps, PropsWithChildren } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -21,10 +21,10 @@ import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components
 // The living brand page. Everything here renders from @uier/brand and the UI kit with the
 // brand tokens applied, so it shows the brand as it ships. The written rules: packages/brand/BRAND.md.
 
-export const metadata: Metadata = {
+export const metadata = publicPageMetadata('/brand', {
     title: 'Brand',
     description: `How ${brand.name} looks and sounds: logo, colour, type, shape and the review layer.`
-};
+});
 
 const brandMdUrl = `${brand.repository}/blob/main/packages/brand/BRAND.md`;
 const packageUrl = `${brand.repository}/tree/main/packages/brand`;
