@@ -36,6 +36,14 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Verify the OIDC identity
+        env:
+          EXPECTED_CLIENT: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          actual_client="$(az account show --query user.name -o tsv)"
+          [ "$actual_client" = "$EXPECTED_CLIENT" ] || { echo "::error::Unexpected Azure identity"; exit 1; }
+          echo "Azure environment OIDC identity verified."
+
       - name: Verify the provisioned domain and authentication records
         env:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
