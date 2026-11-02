@@ -48,7 +48,7 @@ Chrome Web Store; native Edge Add-ons is a separate follow-up.
 
 ## Bootstrap receipt — 2 November 2026
 
-The repository's GitHub side is configured and read back:
+The GitHub, Google Cloud and publisher configuration has been read back:
 
 - `extension-production` (environment ID `26068248854`) permits only the `main` branch and
   `extension-v*` tags. Release jobs require `AleksandarDev`'s review. Self-review remains allowed:
@@ -59,10 +59,28 @@ The repository's GitHub side is configured and read back:
   prohibit updates and deletion, with no bypass actors. No extension release tag has been created.
 - `CWS_PUBLISHING_ENABLED=false` in the release environment and repository
   `CWS_STATUS_MONITOR_ENABLED=false` keep store writes and scheduled monitoring disabled.
+- Google project `uier-extension-publishing` (`672373366839`) has the Chrome Web Store, IAM,
+  Service Account Credentials and STS APIs enabled. The dedicated account is
+  `uier-extension-publisher@uier-extension-publishing.iam.gserviceaccount.com`; it has no project
+  data roles or JSON key. The publisher's service-account table confirms its access.
+- Provider `projects/672373366839/locations/global/workloadIdentityPools/github-uier/providers/github`
+  trusts GitHub's issuer, numeric repository `1432139886`, owner `89613566`, the protected environment
+  subject, and only the release/status workflow paths and allowed refs/events described above.
+  The repository principal has `roles/iam.workloadIdentityUser` on that service account.
+- The paid publisher is named `signalco`, ID `bf72a9f6-5c5a-454c-87ec-5e159831aa3f`, with a verified
+  contact email. Identity/trader verification was submitted and is pending. The initial ZIP upload
+  was rejected because the Google account still requires two-step verification; no item ID exists yet.
+- Google configuration and the publisher ID are set in `extension-production`. `CWS_EXTENSION_ID`
+  and `EXTENSION_HOSTED_ACCEPTANCE_URL` remain unset. The read-only bootstrap dispatch below is
+  implemented but cannot run against an item until its creation succeeds.
+- The temporary development client `gnhfndanmlbcbcnogfojolkdamnlpjjm` is registered in hosted
+  `UIER_EXTENSION_CLIENT_IDS`. [Production deployment 41538315879](https://github.com/signalco-io/uier/actions/runs/41538315879)
+  succeeded, and `/extension-verification` returns HTTP 200 with that extension in `frame-ancestors`.
+  Remove this test client after the acceptance window. Public availability remains disabled.
 
-Publisher/Google Cloud setup and hosted acceptance are still pending. The service account,
-provider, store identifiers and acceptance evidence are not configured yet. Do not infer store
-publication or real BotID acceptance from this GitHub setup receipt. The shared environment's
+An actual OIDC token/store API read, the stable item ID, listing and hosted acceptance are still
+pending. No store submission or real BotID issuance/renewal is evidenced by this configuration
+receipt. The shared environment's
 review requirement also applies to manual/status runs; scheduled monitoring must not be described
 as unattended until that approval behavior has been addressed.
 
@@ -109,6 +127,14 @@ before publish and retains the receipt for dashboard reconciliation. Validate th
 bootstrap; do not invent an API field, re-upload blindly or infer the version from success alone.
 
 ## Status, retries and recovery
+
+For first-item bootstrap, dispatch **Extension store status** from main with `inspect_store=true`
+after setting `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`. Approve the environment review. This job
+requests a fresh read-only Google token and calls v2 `fetchStatus` once for that exact item. It
+needs no tag, release journal or GitHub write permission, and never uploads or submits a package.
+Its summary records the item name, upload state and submitted/published revisions, omitting the
+token and public key. A policy warning or takedown fails the check. Retain the successful Actions
+URL as the live bootstrap receipt; a local mock is not proof of Google/store authorization.
 
 **Extension store status** dispatch accepts a tag; blank selects the newest extension draft among
 20 recent releases. The optional six-hour monitor uses the same bounded selection. Each run obtains

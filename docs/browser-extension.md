@@ -120,10 +120,12 @@ permission/disclosure drafts and reproducible brand artwork. None enables public
 
 Remaining gates need owner-controlled external setup and real browser/store evidence:
 
-- Publisher ownership/registration, first manual item upload, stable IDs/callback, reviewer account,
-  listing/disclosures and live URL.
-- GitHub environment/tag protection, restricted Google federation/service-account publisher access,
-  configured identifiers and actual API bootstrap validation (including async upload version limits).
+- Complete Google account two-step verification and pending publisher verification, then the first
+  manual item upload, stable ID/callback, reviewer account, listing/disclosures and live URL.
+- Actual OIDC/store API bootstrap validation (including async upload version limits). GitHub
+  environment/tag protection, restricted Google federation and publisher access are configured;
+  the [bootstrap receipt](browser-extension-release.md#bootstrap-receipt--2-november-2026) records
+  the identifiers and remaining configuration.
 - Hosted Chrome and Edge with real BotID/proof renewal, authenticated/staging pages, blocked cookies,
   tab-switch capture failure, text/area/image editing, keyboard/accessibility and the complete issue matrix.
 - One real automatic store update, review/status tracking and installed browser upgrade; then enable
