@@ -1,18 +1,26 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="packages/brand/assets/logo-white.svg">
-  <img src="packages/brand/assets/logo.svg" alt="uier" width="216" height="64">
-</picture>
-
-# Say it on the page.
+[![uier · Say it on the page.](.github/assets/social-preview.png)](https://uier.io)
 
 Review any live website by leaving comments directly on it. Pin feedback to an element or selected
 text, discuss it with your team, and mark it done. Each comment keeps the browser and viewport it
-was left from, with a screenshot when capture succeeds. The server decodes and re-encodes every
-screenshot before storage, removing embedded metadata and extra animation frames. Images stay
-within 512 KB and 4096 px per side. Deleting feedback removes its image; scheduled cleanup retries
-failed image deletes once unreferenced images are older than an hour.
+was left from, with a screenshot when capture succeeds.
 
-[Try uier](https://uier.io) · [Open the app](https://uier.io/app) · [Documentation](docs/README.md) · [Contribute](CONTRIBUTING.md)
+[Try uier](https://uier.io) · [Open the app](https://uier.io/app) · [How it works](https://uier.io/#how-it-works) · [Documentation](docs/README.md) · [Contribute](CONTRIBUTING.md)
+
+## From feedback to a fix
+
+| What you need | What uier keeps together |
+| --- | --- |
+| Point to the problem | Comments pinned to an element, selected text or an area of the page |
+| Reproduce it | Page address, browser, viewport and a screenshot when capture succeeds |
+| Review with other people | Workspaces, projects, teams, invitations and optional guest review links |
+| Follow the work | Replies, assignees, unread activity and a list or board for feedback |
+| Check a fix | Ready for review and verification by an eligible reviewer |
+| Bring context to a coding tool | Copy issue and an authenticated [MCP connection](docs/mcp.md) |
+
+## Pricing
+
+Every feature available today is free and will stay free forever. If we introduce pricing, it will
+apply only to new features users want.
 
 ## How it works
 
@@ -25,6 +33,11 @@ add to individual access; external reviewers sign in, while public guest links s
 
 You can try the toolbar on [uier.io](https://uier.io) itself. Feedback on its public pages is public.
 To add it to your own site, follow the [embedding guide](packages/toolbar/README.md#embedding).
+
+Screenshots are decoded and re-encoded before storage to remove embedded metadata and extra
+animation frames. They stay within 512 KB and 4096 px per side. Deleting feedback removes its image;
+scheduled cleanup retries failed deletes once unreferenced images are older than an hour. See
+[screenshot storage](docs/screenshot-storage.md) for the storage and cleanup contract.
 
 The [desktop browser extension](docs/browser-extension.md) is an unreleased implementation for
 signed-in members reviewing sites without an embed. Hosted verification and store publication are
@@ -137,6 +150,7 @@ Cosmos account `uierdbaba6cd56`, in addition to Pulumi protection; see the
 | [Connected services](docs/integrations.md) | Mirror feedback to Notion, GitHub, Linear or Azure DevOps, or send Slack notifications |
 | [Integration setup guides](https://uier.io/integrations) · [Publication status](docs/integration-publication.md) | Connect a project or inspect provider directory review gates |
 | [Brand guide](packages/brand/BRAND.md) · [Live brand page](https://uier.io/brand) | Work with the uier identity and shared tokens |
+| [GitHub presence](docs/github-presence.md) | Update the repository details, social preview and company profile |
 | [Infrastructure and operations](docs/operations.md) | Work on deployment, service checks or maintenance |
 | [Screenshot storage](docs/screenshot-storage.md) | Private Blob images, direct access and migration |
 | [Backups and restore](docs/backups-and-restore.md) | Recover accidental deletions and inspect the recorded restore drill |
@@ -162,6 +176,9 @@ rate-limit counters. Personal workspaces and onboarding stay unchanged.
 Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
 workflow, code conventions and checks. Coding agents should also read [AGENTS.md](AGENTS.md).
 Report security problems through [SECURITY.md](SECURITY.md).
+
+For product help, email [contact@signalco.io](mailto:contact@signalco.io). The
+[support guide](SUPPORT.md) links to setup, troubleshooting, privacy and service status.
 
 ## License
 
