@@ -56,8 +56,10 @@ It has no resource-management, state, Key Vault or provider-key-read role.
 The settings map contains the deployed Cosmos/Blob endpoints, the existing comments signing secret,
 ACS connection/sender settings and only the integration credentials and encryption keys the worker
 uses. Sign-in-only credentials, staff settings, endpoint overrides, account keys and deployment tokens
-are rejected by `scripts/worker-settings.mjs`. Every value is masked before it enters the environment;
-multiline workflow-command characters are escaped. `run-notifications.mjs` accepts no dotenv file.
+are rejected by `scripts/worker-settings.mjs`. Every value except the `SLACK_DISTRIBUTION_APPROVED`
+release gate is masked before it enters the environment; multiline workflow-command characters are
+escaped. The gate must be `"0"` or `"1"` and is not a secret: masking `1` hid every 1 in the run log,
+including exit codes, counts and the delivery ids needed for recovery. `run-notifications.mjs` accepts no dotenv file.
 The worker uses `AzureCliCredential` from its OIDC login; deployed app requests retain Vercel federation.
 
 After changing provider credentials, encryption keys, mail settings or endpoints, an authorized
@@ -122,16 +124,23 @@ backoff (up to one hour, eight failures).
 ACS repeatability lasts five minutes. If an interrupted initial send has no observable operation
 after that window, its outcome is ambiguous. The ledger stops for review instead of starting an
 unrelated operation that could duplicate mail. Failed or ambiguous ledgers retain their operation
-and failure class; the workflow reports their count and fails. Logs identify only the delivery id
-and bounded failure code, without recipients or message content. ACS acceptance is not proof of
+and failure class. Every run counts them and names up to 20 in a "Notification delivery needs
+review" warning with the delivery id, status and failure class. A run fails when one of its own
+attempts failed, was rejected or became ambiguous. A ledger that is already waiting for review does
+not fail later runs: that kept the workflow red for a week after delivery had recovered and hid
+whether email was being sent. Logs identify only the delivery id and bounded failure code, without
+recipients or message content. ACS acceptance is not proof of
 inbox delivery. The authenticated delivery-report receiver below processes provider reports once its subscription is deployed.
 
 Provider references: [ACS repeatable requests](https://learn.microsoft.com/en-us/rest/api/communication/repeatable-requests)
 and [email operation status](https://learn.microsoft.com/en-us/rest/api/communication/email/email/get-send-result?view=rest-communication-email-2025-09-01).
 
 After correcting a delivery configuration error, run the workflow manually with `retry_delivery`
-set to the id shown in the failure log. A confirmed failure gets another bounded retry cycle.
-An ambiguous operation retains its original id and only reconciles with ACS; it never starts an
+set to the id from the run's review warning. A confirmed failure gets another bounded retry cycle;
+a retry rechecks access and read state, so activity the recipient has since read is suppressed
+rather than sent. A failed ledger that kept its prepared attempt is retried as that same operation:
+if ACS has no record of it after the five-minute repeatability window, it becomes ambiguous instead
+of sending. An ambiguous operation retains its original id and only reconciles with ACS; it never starts an
 unrelated send. Check the provider's operation evidence before considering any manual data repair.
 
 Unsubscribe/manage links are purpose-signed capabilities that cannot sign in or read comments.
@@ -247,6 +256,16 @@ was a Sensitive Vercel variable, so the worker's download had the sender but no 
 is now retrievable (`sensitive: false`; the key is unchanged), and a run without email settings no
 longer spends delivery attempts. After that deploy, retry each ledger that reached eight failures
 with `retry_delivery`.
+
+That retry was not run. From 30 October 15:23 UTC scheduled runs logged no failed attempts, but two
+ledgers had already reached eight failures during the outage and stayed `failed`:
+`delivery_13ee92161ef39e0b7f2124bffd0a26a1abc262448eaa8357c9b8d9e4e9f6f521` (since 27 October) and
+`delivery_e5008b5d92d2038652ca0de30c90c433e0352b5e055ad6aa4a3c86349c0089e4` (since 29 October). The
+worker failed every run while any blocked ledger existed, so the workflow stayed red from 27 October
+although email delivery had recovered. From 29 October, when the Slack gate was set to `1`, the
+masked gate also printed every 1 in the log as `***`, including the exit code and parts of delivery
+ids. Runs now name both ledgers as warnings and pass. Whether to retry them, which may send a
+week-old digest of activity the recipient has not read yet, is an owner decision.
 
 Local coverage includes `emailReports.api.spec.ts` (auth, expected handshake, duplicates, write
 failure and unknown/matching operations), `notificationTransport.api.spec.ts` (ACS headers and

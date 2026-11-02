@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser, findUserByEmail } from '../src/lib/app/users';
-import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
+import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { createProjectComment, deleteProjectCommentItem, removeProjectComment, editProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
@@ -150,11 +150,40 @@ test('worker counts blocked ledgers through exact status-filtered counts', async
     const result = await runNotificationWorker(baseUrl, async () => ({ status: 'sent' }), { ...app, count: async query => {
         queries.push(query);
         return app.count(query);
+    }, async query<T extends AppDoc>(input: Parameters<typeof app.query>[0]) {
+        // Other tests leave blocked ledgers in the shared store; list only this project's
+        const rows = await app.query<T>(input);
+        return input.where?.active === false ? rows.filter(row => row.pk === ledger.pk) : rows;
     } });
     expect(result.blocked).toBeGreaterThanOrEqual(1);
+    expect(result.failed).toBe(0);
+    // Named by id and bounded failure class only, so the run log can say what to retry
+    expect(result.review).toEqual([{ id: ledger.id, status: 'ambiguous', lastCode: 'UnknownProviderError' }]);
     expect(queries).toContainEqual({ type: 'notification-delivery', where: { active: false, status: 'ambiguous' } });
     expect(queries).not.toContainEqual({ type: 'notification-delivery', where: { active: false } });
     expect((await app.get<NotificationDelivery>(ledger.pk, ledger.id))?.doc.ttl).toBe(-1);
+});
+
+test('worker reports attempts that failed in this run separately from ledgers waiting for review', async () => {
+    const f = await fixture();
+    await discoverThreadNotifications(f.project, f.comment);
+    const ledger = (await deliveries(f.project))[0]!;
+    // Past the digest window, so this run attempts the send
+    await updateDoc<NotificationDelivery>(ledger.pk, ledger.id, row => ({ ...row, nextAttemptAt: old }));
+    const comments = getCommentsStore();
+    const stored = (await comments.get(f.comment.domain, f.comment.id))!;
+    await comments.replace({ ...stored.comment, notificationEvents: stored.comment.notificationEvents?.map(event => ({ ...event, at: old })) }, stored.etag);
+    const app = getAppStore();
+    // Attempt only this project's ledger: other tests' ledgers share the store
+    const result = await runNotificationWorker(baseUrl, async () => { throw new Error('simulated provider outage'); }, { ...app,
+        async query<T extends AppDoc>(input: Parameters<typeof app.query>[0]) {
+            const rows = await app.query<T>(input);
+            return input.where?.active === true ? rows.filter(row => row.pk === ledger.pk) : rows;
+        } });
+    expect(result.failed).toBe(1);
+    // Still within its retry budget, so it is not yet waiting for review
+    expect(result.review.map(row => row.id)).not.toContain(ledger.id);
+    expect((await app.get<NotificationDelivery>(ledger.pk, ledger.id))?.doc).toMatchObject({ active: true, status: 'queued', failures: 1, lastCode: 'Error' });
 });
 
 test('owners receive new feedback, participants receive batched replies/status, actors do not receive their own activity', async () => {

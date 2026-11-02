@@ -587,7 +587,10 @@ The scheduled worker is packaged before credentials are loaded, then runs withou
 OIDC plus `AzureCliCredential` for Cosmos and Blob data access; deployed requests keep Vercel
 federation through `azureDataCredential`. It accepts no Cosmos/Blob account key or dotenv file.
 `UIER_WORKER_SETTINGS` contains only allowlisted data, transport and integration-crypto settings;
-`scripts/worker-settings.mjs` masks each value before loading it. No Vercel token or environment
+`scripts/worker-settings.mjs` masks each value before loading it, except the `"0"`/`"1"`
+`SLACK_DISTRIBUTION_APPROVED` gate (masking `1` hid exit codes and delivery ids). Only a run's own
+failed or ambiguous attempts fail it; ledgers already waiting for review are named as warnings with
+their `retry_delivery` id on every run. No Vercel token or environment
 pull is available. Refresh the snapshot after credential/crypto changes with
 `pnpm -C infra exec node scripts/configure-worker.mjs`; never replace app keys to repair a worker.
 Every run validates data scopes first; `verify_only` stops before writes or dispatch.
