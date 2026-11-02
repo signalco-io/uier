@@ -46,8 +46,9 @@ catch {
     assert(!releases.some(r => r.tag_name === tag), 'Existing release could not be read');
     if (command === 'status') throw new Error('No release journal exists for this tag');
     gh('release', 'create', tag, '--repo', repo, '--verify-tag', '--draft', '--title', `uier extension ${version}`, '--notes', 'Extension release journal. Store state is recorded in the receipt; this draft is not a publication announcement.');
-    release = JSON.parse(gh('release', 'view', tag, '--repo', repo, '--json', 'assets'));
+    release = JSON.parse(gh('release', 'view', tag, '--repo', repo, '--json', 'isDraft,assets'));
 }
+assert.equal(release.isDraft, true, 'Release journals must stay draft; reconcile a public release before modifying it');
 let receipt;
 if (release.assets.some(asset => asset.name === receiptName)) {
     gh('release', 'download', tag, '--repo', repo, '--pattern', receiptName, '--dir', out, '--clobber');
@@ -69,6 +70,7 @@ try {
         const { sha256 } = artifact;
         const existing = release.assets.find(asset => asset.name === `${zipName}.sha256`);
         if (existing) {
+            assert([zipName, `${zipName}.json`].every(name => release.assets.some(asset => asset.name === name)), 'Incomplete retained package requires release reconciliation');
             const saved = gh('release', 'download', tag, '--repo', repo, '--pattern', `${zipName}.sha256`, '--output', '-').trim();
             assert.equal(saved.split(/\s/)[0], sha256, 'Tag already has a different package checksum');
         } else {
