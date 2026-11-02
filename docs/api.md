@@ -388,7 +388,7 @@ Pulumi (see [Infrastructure](operations.md#infrastructure)).
 
 The toolbar's **Rewrite** action (selected text) can ask for AI suggestions: `POST /api/rewrite` (a project's
 toolbar: `POST /api/review/<code>/rewrite`) ([`src/lib/rewrite/suggest.ts`](../apps/web/src/lib/rewrite/suggest.ts)) calls the Anthropic API with the official
-SDK: model `claude-opus-5-5` at `low` effort, a JSON schema for the answer (`{ suggestions: string[] }`), and the
+SDK: model `claude-sonnet-5-5` at `low` effort, a JSON schema for the answer (`{ suggestions: string[] }`), and the
 server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`), which retries a
 request a safety classifier declines on Anthropic's recommended model. The selected text and the instruction are
 treated as content, never as instructions. Each call has `max_tokens: 4096` and a hard 1000-character limit per
@@ -400,7 +400,7 @@ partition), so more sites or projects never add up to more. Request and response
 set; a suggestion the reviewer posts is saved as a comment with `kind: "rewrite"` (its text is the suggested
 text, `quotedText` the original).
 
-The SDK reads `ANTHROPIC_API_KEY`. In production Pulumi sets it from the repository secret `ANTHROPIC_API_KEY`
+The SDK reads `ANTHROPIC_API_KEY`. In production Pulumi sets it from the GitHub production-environment secret `ANTHROPIC_API_KEY`
 (the Pulumi workflow passes it in like the Vercel and Cloudflare tokens); without the secret no variable is
 created. Previews and local development have no key: the endpoint answers `503 unavailable` and the toolbar says
 suggestions are not available, while the reviewer's own rewrite still works. Set `ANTHROPIC_API_KEY` in

@@ -23,7 +23,7 @@ const apiKey = process.env.ANTHROPIC_STUB_API_KEY;
 
 /** What the app must send (README, "Rewrite suggestions") */
 const expected = {
-    model: 'claude-opus-5-5',
+    model: 'claude-sonnet-5-5',
     beta: 'server-side-fallback-2026-07-01',
     effort: 'low',
     maxTokens: 4096,
@@ -67,7 +67,7 @@ function problems(headers: Record<string, string | string[] | undefined>, body: 
     check(typeof body.max_tokens === 'number' && body.max_tokens > 0 && body.max_tokens <= expected.maxTokens, `max_tokens is not 1-${expected.maxTokens}`);
     check(typeof body.system === 'string' && body.system.includes(`${expected.characterLimit} characters`), `the system prompt does not state the ${expected.characterLimit}-character limit`);
     check(body.messages?.length === 1 && body.messages[0]?.role === 'user' && typeof content === 'string' && content.includes('<selected_text>'), 'not one user message with the selected text');
-    // Claude Opus 5.5 rejects these
+    // The selected Claude 5.5 model rejects these
     check(body.thinking === undefined || body.thinking.type === 'adaptive', 'thinking is set to something other than adaptive');
     check(body.temperature === undefined && body.top_p === undefined && body.top_k === undefined, 'sampling parameters are set');
     check(!body.stream, 'the request is streamed');
@@ -102,14 +102,14 @@ function reply(selected: string, instruction: string | undefined): { status: num
     if (markers.includes('[stub:fail]'))
         return { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'Stub: the API failed.' } } };
     for (const kind of ['missing_usage', 'invalid_output', 'empty_output', 'filtered_out', 'fallback_usage']) {
-        if (markers.includes(`[stub:${kind}]`)) return { status: 200, body: rewriteFixture(kind === 'fallback_usage' ? 'fallback' : kind) };
+        if (markers.includes(`[stub:${kind}]`)) return { status: 200, body: rewriteFixture(kind === 'fallback_usage' ? 'fallback' : kind, expected.model) };
     }
     if (markers.includes('[stub:refuse]')) {
         // Text that reads as suggestions: only the stop reason says they must not be used
         return { status: 200, body: message([{ type: 'text', text: JSON.stringify({ suggestions: ['Declined suggestion.'] }) }], 'refusal', { type: 'refusal', category: 'cyber', explanation: 'Stub: declined.' }) };
     }
     if (markers.includes('[stub:fallback]')) {
-        const fallback = rewriteFixture('fallback');
+        const fallback = rewriteFixture('fallback', expected.model);
         fallback.content = [
             { type: 'text', text: JSON.stringify({ suggestions: ['Before the fallback.'] }) },
             fallback.content[0],

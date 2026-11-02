@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { evaluationAccounting } from '../scripts/rewrite-evaluate';
 import { estimateTokens } from '../src/lib/rewrite/pricing';
 import { dailyRewriteReport } from '../src/lib/rewrite/report';
-import { createRewriteService } from '../src/lib/rewrite/suggest';
+import { createRewriteService, REWRITE_CANDIDATES, REWRITE_MODEL } from '../src/lib/rewrite/suggest';
 import { recordRewrite, rewriteEvent, rewriteEventSchema, type RewriteEvent } from '../src/lib/rewrite/telemetry';
 import { rewriteFixture, stubUsage } from './support/rewriteFixtures';
 
@@ -10,6 +11,20 @@ test.beforeAll(() => { process.env.ANTHROPIC_API_KEY = 'synthetic-key'; });
 test.afterAll(() => { if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = previousKey; });
 const observed = (response: unknown, extra = {}) => rewriteEvent({ requestedModel: 'claude-opus-5-5', response,
     outcome: 'success', suggestionCount: 3, sdkAttempts: 1, durationMs: 10, ...extra });
+
+test('production requests Sonnet while the comparison keeps both distinct models', async () => {
+    let requestedModel: unknown;
+    const events: RewriteEvent[] = [];
+    await createRewriteService({ emit: event => events.push(event), fetch: async (_url, init) => {
+        const body = JSON.parse(String(init?.body)) as { model: unknown };
+        requestedModel = body.model;
+        return Response.json(rewriteFixture('success', REWRITE_MODEL));
+    } })('Synthetic selection.', undefined);
+    expect(requestedModel).toBe('claude-sonnet-5-5');
+    expect(REWRITE_CANDIDATES).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5']);
+    expect(events[0]).toMatchObject({ requestedModel: 'claude-sonnet-5-5', returnedModel: 'claude-sonnet-5-5',
+        accounting: 'known', estimatedUsd: 0.00084 });
+});
 
 test('prices input, output and mixed cache TTLs once, with explicit unknown categories', () => {
     const usage = { model: 'claude-opus-5-5', input: 100, output: 50, cacheRead: 200, cacheWrite: 40, cache5m: 30, cache1h: 10 };
@@ -32,7 +47,7 @@ test('prices input, output and mixed cache TTLs once, with explicit unknown cate
 for (const kind of ['success', 'refusal', 'truncation', 'invalid_output', 'empty_output', 'filtered_out', 'missing_usage', 'fallback']) {
     test(`shared service accounts for ${kind} without logging content`, async () => {
         const events: RewriteEvent[] = [];
-        const suggest = createRewriteService({ emit: event => events.push(event), fetch: async () => Response.json(rewriteFixture(kind)) });
+        const suggest = createRewriteService({ model: 'claude-opus-5-5', emit: event => events.push(event), fetch: async () => Response.json(rewriteFixture(kind)) });
         const result = await suggest('PRIVATE_SELECTED_TEXT', 'PRIVATE_INSTRUCTION').catch(() => 'unavailable');
         expect(events).toHaveLength(1);
         const event = events[0]!;
@@ -57,7 +72,7 @@ for (const kind of ['success', 'refusal', 'truncation', 'invalid_output', 'empty
 test('one logical call records SDK retry and missing failure usage, without double counting', async () => {
     const events: RewriteEvent[] = [];
     let calls = 0;
-    const suggest = createRewriteService({ emit: e => events.push(e), fetch: async () => {
+    const suggest = createRewriteService({ model: 'claude-opus-5-5', emit: e => events.push(e), fetch: async () => {
         calls++;
         return calls === 1 ? Response.json({ error: { type: 'api_error', message: 'PRIVATE_ERROR' } }, { status: 500, headers: { 'retry-after-ms': '1' } })
             : Response.json(rewriteFixture());
@@ -66,7 +81,7 @@ test('one logical call records SDK retry and missing failure usage, without doub
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ sdkAttempts: 2, accounting: 'partial', limitations: ['sdk_retry_usage_unavailable'] });
     const failed: RewriteEvent[] = [];
-    await expect(createRewriteService({ emit: e => failed.push(e), fetch: async () => Response.json({ error: { type: 'api_error', message: 'PRIVATE_ERROR' } },
+    await expect(createRewriteService({ model: 'claude-opus-5-5', emit: e => failed.push(e), fetch: async () => Response.json({ error: { type: 'api_error', message: 'PRIVATE_ERROR' } },
         { status: 500, headers: { 'retry-after-ms': '1' } }) })('Private', undefined)).rejects.toMatchObject({ status: 503 });
     expect(failed).toHaveLength(1);
     expect(failed[0]).toMatchObject({ outcome: 'provider_error', sdkAttempts: 2, estimatedUsd: null });
@@ -75,9 +90,9 @@ test('one logical call records SDK retry and missing failure usage, without doub
 
 test('timeout and telemetry failure preserve service behavior', async () => {
     const events: RewriteEvent[] = [];
-    await expect(createRewriteService({ emit: e => events.push(e), fetch: async () => { throw new DOMException('Synthetic timeout', 'AbortError'); } })('Private', undefined)).rejects.toMatchObject({ status: 503 });
+    await expect(createRewriteService({ model: 'claude-opus-5-5', emit: e => events.push(e), fetch: async () => { throw new DOMException('Synthetic timeout', 'AbortError'); } })('Private', undefined)).rejects.toMatchObject({ status: 503 });
     expect(events[0]).toMatchObject({ outcome: 'timeout', accounting: 'unknown' });
-    expect(await createRewriteService({ emit: () => { throw new Error('sink unavailable'); }, fetch: async () => Response.json(rewriteFixture()) })('Private', undefined)).toHaveLength(3);
+    expect(await createRewriteService({ model: 'claude-opus-5-5', emit: () => { throw new Error('sink unavailable'); }, fetch: async () => Response.json(rewriteFixture()) })('Private', undefined)).toHaveLength(3);
     expect(() => recordRewrite({ requestedModel: 'claude-opus-5-5', outcome: 'provider_error', suggestionCount: 0, sdkAttempts: 1, durationMs: 1 }, () => { throw new Error(); })).not.toThrow();
 });
 
@@ -94,6 +109,32 @@ test('refusal charging and incomplete fallback remain explicit', () => {
     expect(observed(unknown)).toMatchObject({ returnedModel: 'unknown', accounting: 'unknown' });
     unknown.model = 'claude-opus-4-8';
     expect(observed(unknown)).toMatchObject({ returnedModel: 'claude-opus-4-8', estimatedUsd: null, accounting: 'unknown' });
+    expect(observed(rewriteFixture('fallback', 'claude-sonnet-5-5'))).toMatchObject({
+        returnedModel: 'claude-sonnet-5', fallback: true, estimatedUsd: null, accounting: 'unknown' });
+});
+
+test('a single unnamed ordinary iteration uses the serving model without adding top-level usage', () => {
+    const response = rewriteFixture('nullable_iteration_model');
+    response.usage = { ...response.usage as object, input_tokens: 9999, output_tokens: 9999 };
+    expect(observed(response)).toMatchObject({ accounting: 'known', estimatedUsd: 0.00168,
+        usage: [{ model: 'claude-opus-5-5', input: 120, output: 60 }] });
+    const unpriced = { ...stubUsage, type: 'message', model: 'unpriced-model' };
+    response.usage = { ...stubUsage, iterations: [unpriced] };
+    expect(observed(response).accounting).toBe('unknown');
+    response.usage = { ...stubUsage, iterations: [{ ...unpriced, model: null }, { ...unpriced, model: null }] };
+    expect(observed(response).accounting).toBe('unknown');
+    const fallback = rewriteFixture('fallback');
+    fallback.usage = { ...stubUsage, iterations: [{ ...unpriced, type: 'fallback_message', model: null }] };
+    expect(observed(fallback).accounting).toBe('unknown');
+});
+
+test('evaluation summaries never present unavailable charges as zero', () => {
+    const missing = { event: observed(rewriteFixture('missing_usage')) };
+    const known = { event: observed(rewriteFixture()) };
+    expect(evaluationAccounting([missing])).toEqual({ estimatedUsd: null, accounting: 'unknown' });
+    expect(evaluationAccounting([])).toEqual({ estimatedUsd: null, accounting: 'unknown' });
+    expect(evaluationAccounting([missing, known])).toEqual({ estimatedUsd: 0.00168, accounting: 'partial' });
+    expect(evaluationAccounting([known])).toEqual({ estimatedUsd: 0.00168, accounting: 'known' });
 });
 
 test('deployment environment uses the build-inlined context before Vercel system variables', () => {

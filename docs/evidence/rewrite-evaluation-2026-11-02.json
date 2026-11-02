@@ -1,0 +1,604 @@
+{
+  "corpusVersion": "2026-11-02.1",
+  "estimatorVersion": "2026-11-02.2",
+  "logicalCalls": 16,
+  "httpInferenceAttempts": 16,
+  "providerChargesUsd": null,
+  "providerChargesStatus": "Cost report data as of 2026-11-02T00:37Z preceded this run; recent usage may take hours to appear.",
+  "originalEventPreserved": true,
+  "qualityReview": {
+    "reviewer": "assistant_blinded_screen",
+    "independentHumanReview": false,
+    "rubricVersion": "2026-11-02.1",
+    "gradingRule": "Lowest score among the three retained suggestions in each dimension. 0 fail, 1 needs editing, 2 usable as-is."
+  },
+  "sourceHashes": {
+    "scripts/rewrite-evaluate.ts": "f7005db3725a5a8e0e08e2d60c47c788d3896580cddc44cea6b2b9968e559fbe",
+    "src/lib/rewrite/suggest.ts": "df69b1b2993f71e4e97c8513887d61e710c3aaae9ef388e685da1e42be7daad9",
+    "src/lib/rewrite/telemetry.ts": "7b92de81a21f5c49372add787cab7ec2c832deabad45f89fc0b19299df1555ed"
+  },
+  "summary": [
+    {
+      "model": "claude-opus-5-5",
+      "calls": 8,
+      "knownPricedCalls": 7,
+      "inputTokens": 4552,
+      "outputTokens": 521,
+      "knownEstimatedUsdSubtotal": 0.025856,
+      "p50Ms": 2050,
+      "p95Ms": 3195,
+      "fullyUsableBundles": 3,
+      "scoresOutOf80": 71
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "calls": 8,
+      "knownPricedCalls": 8,
+      "inputTokens": 4552,
+      "outputTokens": 547,
+      "knownEstimatedUsdSubtotal": 0.014574,
+      "p50Ms": 1786,
+      "p95Ms": 3189,
+      "fullyUsableBundles": 2,
+      "scoresOutOf80": 70
+    }
+  ],
+  "observations": [
+    {
+      "caseId": "short-en",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:40:08.196Z",
+      "durationMs": 3195,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 503,
+      "outputTokens": 38,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": null,
+      "accounting": "unknown",
+      "pricingVersion": "2026-11-02.1",
+      "limitations": [
+        "unknown_rates_or_cache"
+      ],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 2,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [],
+      "fullyUsable": true,
+      "suggestionLengths": [
+        16,
+        31,
+        21
+      ]
+    },
+    {
+      "caseId": "short-en",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:48:53.069Z",
+      "durationMs": 2633,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 503,
+      "outputTokens": 46,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.001466,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "assumes_control_name"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        29,
+        38,
+        32
+      ]
+    },
+    {
+      "caseId": "tone-en",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:48:55.145Z",
+      "durationMs": 2050,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 540,
+      "outputTokens": 70,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00356,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "unsupported_form_length",
+        "softens_requirement"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        61,
+        62,
+        61
+      ]
+    },
+    {
+      "caseId": "tone-en",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:48:57.344Z",
+      "durationMs": 2182,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 540,
+      "outputTokens": 77,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00185,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "unsupported_form_length",
+        "softens_requirement"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        71,
+        72,
+        78
+      ]
+    },
+    {
+      "caseId": "shorter-en",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:48:59.343Z",
+      "durationMs": 1984,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 543,
+      "outputTokens": 48,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.003132,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 2,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [],
+      "fullyUsable": true,
+      "suggestionLengths": [
+        42,
+        50,
+        41
+      ]
+    },
+    {
+      "caseId": "shorter-en",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:49:00.728Z",
+      "durationMs": 1374,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 543,
+      "outputTokens": 49,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.001576,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 2,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [],
+      "fullyUsable": true,
+      "suggestionLengths": [
+        42,
+        52,
+        39
+      ]
+    },
+    {
+      "caseId": "croatian",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:49:02.958Z",
+      "durationMs": 2225,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 550,
+      "outputTokens": 82,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00384,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "adds_ownership",
+        "adds_repeat_review_assumption"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        53,
+        53,
+        65
+      ]
+    },
+    {
+      "caseId": "croatian",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:49:04.870Z",
+      "durationMs": 1905,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 550,
+      "outputTokens": 80,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.0019,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "adds_ownership"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        46,
+        65,
+        48
+      ]
+    },
+    {
+      "caseId": "german",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:49:07.488Z",
+      "durationMs": 2601,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 573,
+      "outputTokens": 97,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.004232,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "drops_publication_condition"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        57,
+        48,
+        39
+      ]
+    },
+    {
+      "caseId": "german",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:49:08.926Z",
+      "durationMs": 1432,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 573,
+      "outputTokens": 107,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.002216,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 2,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [],
+      "fullyUsable": true,
+      "suggestionLengths": [
+        58,
+        57,
+        57
+      ]
+    },
+    {
+      "caseId": "japanese",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:49:10.938Z",
+      "durationMs": 1986,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 550,
+      "outputTokens": 69,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00358,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 2,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [],
+      "fullyUsable": true,
+      "suggestionLengths": [
+        17,
+        21,
+        23
+      ]
+    },
+    {
+      "caseId": "japanese",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:49:12.374Z",
+      "durationMs": 1427,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 550,
+      "outputTokens": 78,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00188,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 1,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "fails_conciseness"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        18,
+        23,
+        30
+      ]
+    },
+    {
+      "caseId": "max-length",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:49:14.618Z",
+      "durationMs": 2225,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 755,
+      "outputTokens": 63,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00428,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 1,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "fails_length_preservation"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        58,
+        70,
+        60
+      ]
+    },
+    {
+      "caseId": "max-length",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:49:16.417Z",
+      "durationMs": 1786,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 755,
+      "outputTokens": 55,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.00206,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 2,
+        "instructions": 1,
+        "dropInReplacement": 2,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "fails_length_preservation"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        48,
+        50,
+        62
+      ]
+    },
+    {
+      "caseId": "safety-context",
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-11-02T00:49:18.258Z",
+      "durationMs": 1803,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 538,
+      "outputTokens": 54,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.003232,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "changes_availability_to_permission"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        40,
+        59,
+        53
+      ]
+    },
+    {
+      "caseId": "safety-context",
+      "model": "claude-sonnet-5-5",
+      "timestamp": "2026-11-02T00:49:21.462Z",
+      "durationMs": 3189,
+      "outcome": "success",
+      "sdkAttempts": 1,
+      "fallback": false,
+      "suggestionCount": 3,
+      "inputTokens": 538,
+      "outputTokens": 55,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "estimatedUsd": 0.001626,
+      "accounting": "known",
+      "pricingVersion": "2026-11-02.2",
+      "limitations": [],
+      "scores": {
+        "meaningLanguage": 1,
+        "instructions": 2,
+        "dropInReplacement": 1,
+        "distinctSuggestions": 2,
+        "characterLimit": 2
+      },
+      "findings": [
+        "changes_availability_to_request"
+      ],
+      "fullyUsable": false,
+      "suggestionLengths": [
+        49,
+        49,
+        55
+      ]
+    }
+  ],
+  "baseCommit": "f92e3fb",
+  "comparisonOrder": "Opus then Sonnet for each synthetic case; first Opus call retained from the stopped run.",
+  "productionModelDecision": "Use claude-sonnet-5-5 as explicitly selected; independent human review and provider charge reconciliation remain pending.",
+  "accountingCoverage": {
+    "knownCalls": 15,
+    "unknownCalls": 1,
+    "knownCallFraction": 0.9375,
+    "knownEstimatedUsdSubtotal": 0.04043
+  },
+  "matchedPricedComparison": {
+    "pairs": 7,
+    "opusEstimatedUsd": 0.025856,
+    "sonnetEstimatedUsd": 0.013108,
+    "sonnetReductionFraction": 0.49303836633663367,
+    "opusFullyUsableBundles": 2,
+    "sonnetFullyUsableBundles": 2
+  }
+}

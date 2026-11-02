@@ -14,8 +14,10 @@ export function rewriteFixture(kind = 'success', model = 'claude-opus-5-5') {
     if (kind === 'empty_output') answer.content = [];
     if (kind === 'filtered_out') answer.content = [{ type: 'text', text: JSON.stringify({ suggestions: [' ', 'x'.repeat(1001)] }) }];
     if (kind === 'missing_usage') answer.usage = undefined;
+    if (kind === 'nullable_iteration_model') answer.usage = { ...stubUsage,
+        iterations: [{ ...stubUsage, type: 'message', model: null }] };
     if (kind === 'fallback') {
-        answer.model = 'claude-sonnet-5-5';
+        answer.model = model === 'claude-sonnet-5-5' ? 'claude-sonnet-5' : 'claude-sonnet-5-5';
         answer.content.unshift({ type: 'fallback', from: { model }, to: { model: answer.model }, trigger: { type: 'refusal', category: 'cyber' } });
         answer.usage = { ...stubUsage, iterations: [
             { ...stubUsage, type: 'message', model, output_tokens: 0 },
