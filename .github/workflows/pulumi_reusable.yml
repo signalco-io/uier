@@ -11,6 +11,24 @@ name: "Pulumi (reusable)"
 
 on:
   workflow_call:
+    # Callers pass empty slots; the job environment supplies the values.
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_STORAGE_ACCOUNT:
+        required: true
+      VERCEL_TOKEN:
+        required: true
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      UIER_INTEGRATION_ENV:
+        required: true
+      ANTHROPIC_API_KEY:
+        required: true
     inputs:
       command:
         description: "Pulumi command to run: preview or up"

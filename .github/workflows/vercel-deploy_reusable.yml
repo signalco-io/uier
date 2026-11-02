@@ -3,6 +3,10 @@ name: "Vercel deploy (reusable)"
 
 on:
   workflow_call:
+    # Callers pass empty slots; the job environment supplies the values.
+    secrets:
+      VERCEL_TOKEN:
+        required: true
     inputs:
       production:
         description: "Deploy the prebuilt output to production."

@@ -147,6 +147,16 @@ jobs:
       id-token: write
       pull-requests: write
     uses: ./.github/workflows/pulumi_reusable.yml
+    # Empty slots enable environment secrets without forwarding repository credentials.
+    secrets:
+      AZURE_CLIENT_ID: ""
+      AZURE_TENANT_ID: ""
+      AZURE_SUBSCRIPTION_ID: ""
+      AZURE_STORAGE_ACCOUNT: ""
+      VERCEL_TOKEN: ""
+      CLOUDFLARE_API_TOKEN: ""
+      UIER_INTEGRATION_ENV: ""
+      ANTHROPIC_API_KEY: ""
     with:
       command: preview
 
@@ -161,6 +171,9 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/vercel-deploy_reusable.yml
+    # Empty slots enable environment secrets without forwarding repository credentials.
+    secrets:
+      VERCEL_TOKEN: ""
     with:
       production: false
 

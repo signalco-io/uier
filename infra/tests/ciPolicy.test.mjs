@@ -72,3 +72,13 @@ test('builds have no deployment secrets and deployment jobs never execute checko
     assert.match(pulumi, /ANTHROPIC_API_KEY:.*inputs\.command == 'up'/);
     assert.match(pulumi, /UIER_INTEGRATION_ENV:.*inputs\.command == 'up'/);
 });
+
+// GitHub requires a caller slot even when an environment overrides the value.
+test('reusable callers enable only declared environment secrets using empty slots', () => {
+    for (const name of ['ci.yml', 'deploy.yml']) {
+        const workflow = readFileSync(join(root, '.github/workflows', name), 'utf8');
+        assert.doesNotMatch(workflow, /secrets: inherit|secrets\./);
+        const slots = [...workflow.matchAll(/^      ([A-Z_]+): ""$/gm)];
+        assert.ok(slots.length >= 7);
+    }
+});

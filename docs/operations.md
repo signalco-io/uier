@@ -172,7 +172,8 @@ to a pull request cancels its previous CI run.
 
 ### Required GitHub configuration
 
-Workflows resolve credentials from job environments, without caller-level secret forwarding.
+Workflows resolve credentials from job environments. Reusable-workflow callers pass explicit
+empty secret slots so GitHub makes those environment secrets available; no repository value is forwarded.
 `production` allows only `main`; `preview` allows `main` and `refs/pull/*/merge`;
 `production-worker` allows only `main`. All three have no reviewers or wait timer, following the
 owner's unattended deployment policy. `AleksandarDev` remains administrator.
