@@ -171,6 +171,11 @@ Actions; the Vercel project is not connected to Vercel's Git integration.
 Concurrency: deploys run one at a time and are never cancelled; `pulumi up` runs are serialized; a new push
 to a pull request cancels its previous CI run.
 
+Runners: jobs that only gate, aggregate or call an API (`Detect changes`, `CI OK`, the extension store
+status and inspect jobs, and the extension `publish` job) run on `ubuntu-slim` (1 vCPU, 5 GB, 15-minute
+limit, minimal tools). Anything that installs the workspace, builds, tests, packages or runs longer than
+15 minutes stays on `ubuntu-latest`.
+
 ### Required GitHub configuration
 
 Workflows resolve credentials from job environments. Reusable-workflow callers name each allowed
