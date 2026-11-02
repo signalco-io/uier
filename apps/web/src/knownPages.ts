@@ -58,12 +58,17 @@ export const KnownPages = {
 /** The sections of a project's settings, each its own page under the settings (General is the settings page itself) */
 export type ProjectSettingsSection = 'review' | 'environments' | 'installation' | 'people' | 'integrations' | 'notifications' | 'danger-zone';
 
+/** The sections of the account, each its own page under it (General is the account page itself) */
+export type AccountSection = 'sign-in' | 'coding-agents';
+
 /** Pages with a parameter */
 export const KnownPageLinks = {
     integration: (provider: string) => `/integrations/${encodeURIComponent(provider)}`,
     team: (id: string) => `/app/teams/${encodeURIComponent(id)}`,
     member: (id: string) => `/app/users/${encodeURIComponent(id)}`,
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
+    /** The account: General, or one of its other sections */
+    account: (section?: AccountSection) => `${KnownPages.AppAccount}${section ? `/${section}` : ''}`,
     /** A project's settings: General, or one of its other sections */
     projectSettings: (projectId: string, section?: ProjectSettingsSection) =>
         `/app/projects/${encodeURIComponent(projectId)}/settings${section ? `/${section}` : ''}`,

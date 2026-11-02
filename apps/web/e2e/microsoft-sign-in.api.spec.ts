@@ -157,7 +157,7 @@ test('Account linking requires the initiating recent session; identity conflicts
     await linkMicrosoftAccount(other.id, { subject: pendingLink.subject, email: '' });
     const proof = await emailRequest(uniqueEmail('ms-conflict-proof'), pendingLink.id);
     const confirmed = await confirmSignIn(proof.token, proof.binding);
-    expect(confirmed?.next).toBe('/app/account?microsoft=taken');
+    expect(confirmed?.next).toBe('/app/account/sign-in?microsoft=taken');
     expect(await getMicrosoftAccount(confirmed!.user.id)).toBeNull();
 
 });

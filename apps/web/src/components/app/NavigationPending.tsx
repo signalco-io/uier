@@ -8,6 +8,6 @@ import { Spinner } from '@/src/components/ui/spinner';
 export function NavigationPending({ children }: { children?: ReactNode }) {
     const { pending } = useLinkStatus();
     if (children) return pending ? <Spinner /> : children;
-    // Reserve the icon's space so a pending link does not move its neighbours.
-    return <Spinner className={pending ? undefined : 'invisible'} />;
+    // Reserve the icon's space so a pending link does not move its neighbours; a hidden one stays still.
+    return <Spinner className={pending ? undefined : 'invisible animate-none'} />;
 }

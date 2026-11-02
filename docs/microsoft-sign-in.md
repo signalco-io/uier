@@ -3,7 +3,7 @@
 The sign-in card offers **Microsoft** ("Sign in with Microsoft" to assistive technologies) alongside
 passkeys, Google and email, as the same outline button with the Microsoft logo in its own colours.
 Work and school accounts and personal Microsoft accounts are supported. Email sign-in stays
-available. Account → Microsoft account lets people link or unlink their Microsoft identity.
+available. Account → Sign-in → Microsoft account lets people link or unlink their Microsoft identity.
 
 ## Register the application
 

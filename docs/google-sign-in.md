@@ -3,7 +3,7 @@
 The Google option on the app's sign-in card ("Sign in with Google") signs people in with their Google
 account. It is the second option, after Passkey and before Microsoft and Email (the email code and
 link). Email sign-in always stays available. A signed-in person can link or unlink
-Google under Account → Google account.
+Google under Account → Sign-in → Google account.
 
 The flow is OpenID Connect's authorization code flow with PKCE, written in `apps/web/src/lib/app/google/`
 like the integrations' OAuth (no auth framework):
@@ -92,7 +92,7 @@ The sign-in time is `sessionSignedInAt` in `sessionIdentity.ts`: the session tok
 tokens without it the expiry minus `SESSION_TTL_SECONDS`.
 
 If the Google account was linked elsewhere while an email proof was pending, the person is still
-signed in by email and lands on Account with `google=taken`.
+signed in by email and lands on Account → Sign-in with `google=taken`.
 
 ## What is stored
 

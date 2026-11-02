@@ -266,7 +266,7 @@ test('rule 4: an email proof whose Google account was linked elsewhere meanwhile
     expect(await linkGoogleAccount(other.id, { sub, email })).toBe('linked');
     const request = await emailRequest(email, linkId);
     expect(await confirmSignInCode(request.requestId, request.code, request.binding)).toEqual({ user: expect.objectContaining({ id: user.id }),
-        next: '/app/account?google=taken', method: 'email' });
+        next: '/app/account/sign-in?google=taken', method: 'email' });
     expect((await findUserByGoogleSubject(sub))?.id).toBe(other.id);
     expect(await getGoogleAccount(user.id)).toBeNull();
 });
@@ -494,7 +494,7 @@ test.describe('routes', () => {
         try {
             const signedOut = await fresh.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
             const back = new URL(signedOut.headers().location!);
-            expect(`${back.pathname}${back.search}`).toBe('/app/sign-in?next=%2Fapp%2Faccount');
+            expect(`${back.pathname}${back.search}`).toBe('/app/sign-in?next=%2Fapp%2Faccount%2Fsign-in');
 
             // A Gmail account signs up through the stub: the server has the user and a fresh session
             const start = await fresh.get('/app/sign-in/google', { maxRedirects: 0 });

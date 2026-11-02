@@ -14,6 +14,7 @@ import {
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { integrationLabels, isIntegrationProvider } from '@/src/lib/integrations/model';
 import { projectSettingsSections } from '../projects/projectSettingsSections';
+import { accountSections } from '../account/accountSections';
 
 type Crumb = { label: string; href: string };
 
@@ -22,7 +23,8 @@ const projectPages: Record<string, string> = { install: 'Install', settings: 'Se
 /**
  * Where the current page sits: `/app/projects/<id>/settings` -> Projects / <project> / Settings, and a
  * settings section after that (`/settings/integrations` -> ... / Settings / Integrations) and a connected
- * service's page under Integrations (`/settings/integrations/github` -> ... / Integrations / GitHub)
+ * service's page under Integrations (`/settings/integrations/github` -> ... / Integrations / GitHub);
+ * an account section the same way (`/app/account/sign-in` -> Account / Sign-in)
  */
 function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[] {
     const [, , section, id, page, subpage, detail] = pathname.split('/');
@@ -50,8 +52,11 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
         return [{ label: 'Users', href: KnownPages.AppUsers }];
     if (section === 'clients')
         return [{ label: 'Clients', href: KnownPages.AppClients }];
-    if (section === 'account')
-        return [{ label: 'Account', href: KnownPages.AppAccount }];
+    if (section === 'account') {
+        const root = { label: 'Account', href: KnownPages.AppAccount };
+        const accountSection = id ? accountSections.find(item => item.section === id) : undefined;
+        return accountSection ? [root, { label: accountSection.label, href: pathname }] : [root];
+    }
     if (section === 'settings')
         return [{ label: 'Workspace settings', href: KnownPages.AppSettings }];
     if (section === 'github' && id === 'error')

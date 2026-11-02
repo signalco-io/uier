@@ -153,7 +153,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             } });
             expect(status.isError).toBe(true);
 
-            await page.goto('/app/account');
+            await page.goto('/app/account/coding-agents');
             const apps = page.getByRole('region', { name: 'Connected apps' });
             const row = apps.getByRole('listitem').filter({ hasText: 'Laptop agent' });
             await expect(row).toContainText('App: E2E coding tool');

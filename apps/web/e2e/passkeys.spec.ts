@@ -22,7 +22,7 @@ async function virtualAuthenticator(page: Page) {
 }
 
 async function signOut(page: Page) {
-    await page.goto(`${base}/app/account`);
+    await page.goto(`${base}/app/account/sign-in`);
     await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
 }
 
@@ -34,7 +34,7 @@ async function withoutPasskeyAutofill(page: Page) {
 }
 
 async function addPasskey(page: Page) {
-    await page.goto(`${base}/app/account`);
+    await page.goto(`${base}/app/account/sign-in`);
     const section = page.getByRole('region', { name: 'Passkeys' });
     await expect(section).toContainText('No passkeys yet.');
     await section.getByRole('button', { name: 'Add a passkey' }).click();
@@ -49,7 +49,7 @@ test('a passkey added on Account signs in, and stops working once removed', { ta
     await signIn(page, uniqueEmail('passkey'), { from: `${base}/app/sign-in` });
 
     // Both WebAuthn features keep their default `self` allowlist under the app's page policy.
-    const policy = (await page.request.get(`${base}/app/account`)).headers()['permissions-policy'];
+    const policy = (await page.request.get(`${base}/app/account/sign-in`)).headers()['permissions-policy'];
     expect(policy).toContain('camera=()');
     expect(policy).not.toContain('publickey-credentials');
     const section = await addPasskey(page);
@@ -64,7 +64,7 @@ test('a passkey added on Account signs in, and stops working once removed', { ta
     await expect(page.getByRole('link', { name: 'Sign in with email' })).toHaveAccessibleDescription('Last used');
     await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
-    await page.goto(`${base}/app/account`);
+    await page.goto(`${base}/app/account/sign-in`);
     await expect(passkeys).toContainText('Last used');
 
     await passkeys.getByRole('button', { name: 'Remove Passkey' }).click();
@@ -106,7 +106,7 @@ test('passkeys can be renamed, and the email field offers them as autofill', asy
     await page.waitForURL(url => url.pathname === '/app/sign-in');
     await page.getByRole('link', { name: 'Sign in with email' }).click();
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
-    await page.goto(`${base}/app/account`);
+    await page.goto(`${base}/app/account/sign-in`);
     await expect(section.getByRole('listitem')).toContainText('Last used');
 });
 
@@ -123,14 +123,14 @@ test('adding a passkey needs a recent sign-in, and Sign in again comes back to A
     const signedInAt = Math.floor(Date.now() / 1000) - PASSKEY_RECENT_SIGN_IN_SECONDS - 60;
     await page.context().addCookies([{ ...session, value: signToken('session', { uid, iat: signedInAt }, 3600) }]);
 
-    await page.goto(`${base}/app/account`);
+    await page.goto(`${base}/app/account/sign-in`);
     const section = page.getByRole('region', { name: 'Passkeys' });
     await expect(section).toContainText('To add a passkey, sign in again. Adding one needs a sign-in from the last 10 minutes.');
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toHaveCount(0);
     await section.getByRole('button', { name: 'Sign in again' }).click();
-    await expect(page).toHaveURL(`${base}/app/sign-in?next=%2Fapp%2Faccount`);
+    await expect(page).toHaveURL(`${base}/app/sign-in?next=%2Fapp%2Faccount%2Fsign-in`);
     await signIn(page, email, { from: page.url() });
-    await expect(page).toHaveURL(`${base}/app/account`);
+    await expect(page).toHaveURL(`${base}/app/account/sign-in`);
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toBeVisible();
 });
 
@@ -142,7 +142,7 @@ test('browsers without WebAuthn get no passkey button, and Account says why', as
     await expect(page.getByRole('link', { name: 'Sign in with email' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign in with a passkey' })).toHaveCount(0);
     await signIn(page, uniqueEmail('no-webauthn'), { from: page.url() });
-    await page.goto(`${base}/app/account`);
+    await page.goto(`${base}/app/account/sign-in`);
     const section = page.getByRole('region', { name: 'Passkeys' });
     await expect(section).toContainText('This browser does not support passkeys. You can still sign in with an email code.');
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toHaveCount(0);

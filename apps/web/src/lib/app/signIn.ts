@@ -5,7 +5,7 @@ import { keyedHash } from '../comments/environment';
 import { ApiError } from '../comments/http';
 import { sendEmail } from '../email/send';
 import { signInEmail } from '../email/templates';
-import { KnownPages } from '../../knownPages';
+import { KnownPageLinks, KnownPages } from '../../knownPages';
 import { getAppStore } from './store';
 import { isRandomToken, randomToken, sha256Hex } from './tokens';
 import { findOrCreateUser } from './users';
@@ -117,10 +117,10 @@ async function consumeSignInRequest(request: DbSignInRequest | null, bound: bool
     const google = request.googleLinkId && bound ? await completeGoogleLink(request.googleLinkId, user.id, request.email) : null;
     // Signed in either way: the inbox is proven. Account says why Google was not linked.
     if (google === 'taken' || google === 'other_account')
-        return { user, next: `${KnownPages.AppAccount}?google=${google}`, method: 'email' };
+        return { user, next: `${KnownPageLinks.account('sign-in')}?google=${google}`, method: 'email' };
     const microsoft = request.microsoftLinkId && bound ? await completeMicrosoftLink(request.microsoftLinkId, user.id) : null;
     if (microsoft === 'taken' || microsoft === 'other_account')
-        return { user, next: `${KnownPages.AppAccount}?microsoft=${microsoft}`, method: 'email' };
+        return { user, next: `${KnownPageLinks.account('sign-in')}?microsoft=${microsoft}`, method: 'email' };
     // A provider linked on the way in is what this person chose, and signs in directly next time
     const method = google === 'linked' ? 'google' : microsoft === 'linked' ? 'microsoft' : 'email';
     return { user, next: safeNextPath(request.next), method };

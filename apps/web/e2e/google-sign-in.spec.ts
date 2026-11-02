@@ -5,9 +5,9 @@ import { uniqueEmail } from './support/app';
 // replays and bindings are covered by google-sign-in.api.spec.ts.
 test('Sign in with Google confirms a non-Gmail address by email, links the account and can be unlinked', async ({ page }) => {
     const email = uniqueEmail('google-browser');
-    await page.goto('/app/sign-in?next=/app/account');
+    await page.goto('/app/sign-in?next=/app/account/sign-in');
     const google = page.getByRole('link', { name: 'Sign in with Google' });
-    await expect(google).toHaveAttribute('href', '/app/sign-in/google?next=%2Fapp%2Faccount');
+    await expect(google).toHaveAttribute('href', '/app/sign-in/google?next=%2Fapp%2Faccount%2Fsign-in');
     await google.click();
 
     await expect(page.getByRole('heading', { name: 'Choose a Google test account' })).toBeVisible();
@@ -23,7 +23,7 @@ test('Sign in with Google confirms a non-Gmail address by email, links the accou
     await page.getByLabel('Sign-in code', { exact: true }).fill((await page.locator('[data-sign-in-code]').textContent())!);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
-    await page.waitForURL(url => url.pathname === '/app/account');
+    await page.waitForURL(url => url.pathname === '/app/account/sign-in');
     const section = page.getByRole('region', { name: 'Google account' });
     await expect(section).toContainText(`Linked to ${email}.`);
 

@@ -602,12 +602,23 @@ test('the account page saves the name and signs out', async ({ page }) => {
     await expect(page.getByLabel('Name')).toHaveValue(/^account-/);
     await page.getByLabel('Name').fill('Mia Reviewer');
     await page.getByRole('button', { name: 'Save' }).click();
-    // The coding agents' copy buttons have their own (empty) status regions
     await expect(page.getByRole('region', { name: 'Profile' }).getByRole('status')).toHaveText('Your name is saved.');
     await appNavigation(page);
     await expect(page.getByRole('button', { name: 'Account: Mia Reviewer' })).toBeVisible();
     await closeAppNavigation(page);
     await expect(page).toHaveTitle('Account · uier');
+    await expectNoAxeViolations(page);
+
+    // The account's sections, like a project's settings: General is the account page itself
+    const sections = page.getByRole('navigation', { name: 'Account' });
+    await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Coding agents']);
+    await expect(sections.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('region', { name: 'Sign out' })).toHaveCount(0);
+    await sections.getByRole('link', { name: 'Sign-in' }).click();
+    await expect(page).toHaveURL(/\/app\/account\/sign-in$/);
+    await expect(page).toHaveTitle('Sign-in · Account · uier');
+    await expect(sections.getByRole('link', { name: 'Sign-in' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('region', { name: 'Profile' })).toHaveCount(0);
     await expectNoAxeViolations(page);
 
     await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
@@ -857,7 +868,7 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); }; });
         await input.fill('Clear on sign-out');
         await expect(card.getByText('Browser storage is unavailable. Keep this page open to keep your draft.')).toBeVisible();
-        await page.goto('/app/account');
+        await page.goto('/app/account/sign-in');
         await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
         await expect(page).toHaveURL(/\/app\/sign-in$/);
         expect(await page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('uier:draft:') && key.includes('"app"')))).toEqual([]);

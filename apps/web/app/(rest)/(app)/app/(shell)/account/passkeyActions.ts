@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/server';
-import { KnownPages } from '@/src/knownPages';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import {
@@ -48,7 +48,7 @@ export async function addPasskeyAction(response: unknown): Promise<PasskeyState<
         const outcome = await verifyPasskeyRegistration(user, signedInAt, response, binding, await passkeyCeremonyContext());
         if (!outcome.ok)
             throw new UserFacingError(passkeyFailureMessage(outcome.reason, 'register'));
-        revalidatePath(KnownPages.AppAccount);
+        revalidatePath(KnownPageLinks.account('sign-in'));
         return outcome.value;
     }, 'Passkey added. Use it the next time you sign in.'));
 }
@@ -58,7 +58,7 @@ export async function renamePasskeyAction(passkeyId: string, name: string) {
         const id = parseActionInput(passkeyIdSchema, passkeyId);
         const context = await appContextOrThrow();
         await renamePasskey(context.user.id, id, passkeyNameSchema.parse(name));
-        revalidatePath(KnownPages.AppAccount);
+        revalidatePath(KnownPageLinks.account('sign-in'));
     }, 'Passkey renamed.');
 }
 
@@ -68,7 +68,7 @@ export async function removePasskeyAction(passkeyId: string) {
         const id = parseActionInput(passkeyIdSchema, passkeyId);
         const context = await appContextOrThrow();
         const removed = await removePasskey(context.user.id, id);
-        revalidatePath(KnownPages.AppAccount);
+        revalidatePath(KnownPageLinks.account('sign-in'));
         if (!removed)
             return null;
         const { rp } = await passkeyCeremonyContext().catch(() => ({ rp: null }));
@@ -79,5 +79,5 @@ export async function removePasskeyAction(passkeyId: string) {
 /** A fresh sign-in, so the person can add a passkey: back to Account afterwards */
 export async function signInAgainAction() {
     await endSession();
-    redirect(`${KnownPages.AppSignIn}?next=${encodeURIComponent(KnownPages.AppAccount)}`);
+    redirect(`${KnownPages.AppSignIn}?next=${encodeURIComponent(KnownPageLinks.account('sign-in'))}`);
 }
