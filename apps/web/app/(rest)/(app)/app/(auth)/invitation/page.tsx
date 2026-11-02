@@ -9,10 +9,13 @@ import { listProjects } from '@/src/lib/app/projects';
 import { getProject } from '@/src/lib/app/projects';
 import { getUser } from '@/src/lib/app/users';
 import { AuthCard } from '@/src/components/app/AuthCard';
+import { appLinkMetadata, invitationLink } from '@/src/lib/metadata';
 import { AcceptInvitationForm } from './AcceptInvitationForm';
 
+// The preview never names the workspace, project or inviter: it is fetched without the person
 export const metadata: Metadata = {
-    title: 'Invitation'
+    title: 'Invitation',
+    ...appLinkMetadata(invitationLink)
 };
 
 export default async function InvitationPage({ searchParams }: PageProps<'/app/invitation'>) {
