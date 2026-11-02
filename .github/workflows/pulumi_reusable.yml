@@ -167,6 +167,6 @@ jobs:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           # @pulumi/cloudflare provider (DNS for the uier.io zone)
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          # Becomes production's ANTHROPIC_API_KEY on Vercel when the repository secret is set
+          # Becomes production's ANTHROPIC_API_KEY on Vercel when the production environment secret is set
           ANTHROPIC_API_KEY: ${{ inputs.command == 'up' && secrets.ANTHROPIC_API_KEY || '' }}
           UIER_INTEGRATION_ENV: ${{ inputs.command == 'up' && secrets.UIER_INTEGRATION_ENV || '' }}

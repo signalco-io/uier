@@ -173,7 +173,8 @@ to a pull request cancels its previous CI run.
 ### Required GitHub configuration
 
 Workflows resolve credentials from job environments. Reusable-workflow callers name each allowed
-secret so GitHub makes the target environment value available. Repository copies are retired after validation.
+secret so GitHub makes the target environment value available. The repository copies were retired
+after stage 3 validation; the Actions repository secret inventory is empty.
 `production` allows only `main`; `preview` allows `main` and `refs/pull/*/merge`;
 `production-worker` allows only `main`. All three have no reviewers or wait timer, following the
 owner's unattended deployment policy. `AleksandarDev` remains administrator.
@@ -194,7 +195,8 @@ The strict production integration map and rotations are described in
 secret. Builds use [public Vercel settings](../.github/vercel-project.json), matching the project,
 root directory and Node version in Pulumi; the explicit install command supports the pinned pnpm
 version without fetching project secrets. Only `.vercel/output` enters the build artifact, never a
-pulled dotenv file. The deploy job validates archive paths and links, reconstructs the fixed project
+pulled dotenv file. Next.js dependency-map sources are packaged inside that output too. The deploy
+job validates archive paths, links and dependency references, reconstructs the fixed project
 context, installs the pinned CLI with lifecycle scripts disabled and runs `--prebuilt` without a checkout.
 
 OIDC uses issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`
@@ -221,8 +223,8 @@ rejects this metadata, so preview placeholders can never be applied. State decry
 transitional provider-key reads still expose production credentials; this stage does not establish
 full production-data isolation. Production application key retirement is a later stage.
 
-Remove old repository secrets and the deployment app's old main/PR subjects only after successful
-replacement runs, including the main-only email verification workflow. Record each readback in the
+Stage 3 removed the old repository secrets and deployment app's main/PR subjects after successful
+replacement runs, including the main-only email verification workflow. Readbacks are recorded in the
 [credential rollout](ci-credential-rollout.md#stage-3-separate-builds-and-remove-the-worker-environment-pull).
 
 Actions settings (Settings -> Actions -> General -> Workflow permissions): the default `GITHUB_TOKEN` should be
