@@ -125,6 +125,8 @@ jobs:
               extract(sys.argv[1], '.')
           PYTHON
           # END PREBUILT EXTRACTOR
+          # The CLI validates the remote rootDirectory even for a prebuilt upload.
+          mkdir -p apps/web
           # The destination is fixed by this workflow, never by the uploaded project metadata.
           node -e 'require("node:fs").writeFileSync(".vercel/project.json", JSON.stringify({orgId:process.env.VERCEL_ORG_ID,projectId:process.env.VERCEL_PROJECT_ID}))'
       - name: Install the pinned deployment CLI without lifecycle scripts

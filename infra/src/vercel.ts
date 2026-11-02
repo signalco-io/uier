@@ -1,3 +1,4 @@
+import { vercelTeamId } from './vercelScope.js';
 import { Project } from '@pulumiverse/vercel';
 
 // Inlined from signalco infra/packages/pulumi/src/vercel (vercelApp.ts + nextJsApp.ts).
@@ -21,6 +22,7 @@ export function vercelApp(prefix: string, name: string, {
     protect?: boolean;
 }) {
     const project = new Project(`vercel-${prefix}`, {
+        teamId: vercelTeamId,
         framework,
         ignoreCommand,
         outputDirectory,

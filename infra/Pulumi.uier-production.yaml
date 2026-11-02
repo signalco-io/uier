@@ -4,7 +4,6 @@ config:
   azure-native:tenantId: c7837eb3-77ca-413b-8653-c97b08886678
   uier:zoneid:
     secure: v1:J6ggeYv1vDbBiw74:BNvL9rt5MqZbi38sZVNlQRJ37k9tR9DK8wQje9lkaeFVMzy0XB0NKghhv/9REnAs
-  vercel:team: team_Ade0MlfC3211ml3wYJZ4c9hn
   uier:staffEmails:
     secure: v1:BItegh1jY8mIEQ3k:PWDUNVe/Qcf/gAqchTwF9L+UZPsVPQL8gw7pbq7WETPo0IcYBIb7Isgv7Q==
 secretsprovider: azurekeyvault://vault-pulumib5f713d9.vault.azure.net/keys/pulumi-backend/31ac989112f948b299b6e92d2ba96695

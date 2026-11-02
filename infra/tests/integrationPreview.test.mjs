@@ -28,6 +28,8 @@ test('a deployed state inventory retains optional provider and rotation resource
         for (const key of keys) assert.ok(resources.some(resource => resource.inputs.key === key), key);
         assert.equal(resources.filter(resource => resource.type.endsWith(':RandomBytes')).length, 5);
         assert.ok(!resources.some(resource => resource.inputs.targets?.includes('preview')));
+        for (const resource of resources.filter(item => item.type.startsWith('vercel:')))
+            assert.equal(resource.inputs.teamId, 'team_Ade0MlfC3211ml3wYJZ4c9hn');
     } finally {
         if (previous === undefined) delete process.env.UIER_PREVIEW_ENV_METADATA; else process.env.UIER_PREVIEW_ENV_METADATA = previous;
         if (configured === undefined) delete process.env.UIER_INTEGRATION_ENV; else process.env.UIER_INTEGRATION_ENV = configured;

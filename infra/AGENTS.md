@@ -51,6 +51,9 @@ it cannot reuse the deployment identity's subject. None requires reviewers or a 
 for exact subjects, scopes and live verification. Reusable callers explicitly name allowed secrets; the target job environment overrides their values.
 Previews pass empty integration/Anthropic slots and receive no production integration credentials.
 
+Vercel resources use the explicit team ID from `src/vercelScope.ts`. Do not restore provider-level
+`vercel:team`: its team-wide metadata read is incompatible with project-scoped tokens.
+
 Preview `scripts/preview-environment.mjs` extracts only variable metadata from encrypted state.
 `src/previewEnvironment.ts` preserves existing optional production values during a dry run; updates
 reject the snapshot, so placeholders cannot reach production. Keep the five protected integration

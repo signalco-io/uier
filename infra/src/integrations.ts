@@ -1,3 +1,4 @@
+import { vercelTeamId } from './vercelScope.js';
 import { secret, type Input } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
 import { ProjectEnvironmentVariable } from '@pulumiverse/vercel';
@@ -68,7 +69,7 @@ export function integrationEnvironment(projectId: Input<string>) {
         const logicalName = `vercel-uier-env-integration-${name.toLowerCase().replaceAll('_', '-')}`;
         registered.add(name);
         return new ProjectEnvironmentVariable(logicalName,
-            { projectId, key: name, value, targets: ['production'], sensitive },
+            { teamId: vercelTeamId, projectId, key: name, value, targets: ['production'], sensitive },
             { deleteBeforeReplace: true, ...preservePreviewValue(existing, name, logicalName) });
     };
     for (const [provider, name] of encryptionKeys) {

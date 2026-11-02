@@ -1,3 +1,4 @@
+import { vercelTeamId } from './vercelScope.js';
 import { screenshotStorage } from './screenshots.js';
 import { Config, getStack, interpolate, secret } from '@pulumi/pulumi';
 import { RandomBytes } from '@pulumi/random';
@@ -37,6 +38,7 @@ const up = async () => {
 
     // Configure domain name
     const domain = new ProjectDomain('vercel-uier-domain', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         domain: 'uier.io',
     });
@@ -45,6 +47,7 @@ const up = async () => {
     // www.uier.io only redirects to uier.io (permanently, keeping the path and query).
     // Not protected: it serves no content and can be recreated at any time.
     new ProjectDomain('vercel-uier-domain-www', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         domain: 'www.uier.io',
         redirect: domain.domain,
@@ -219,6 +222,7 @@ const up = async () => {
     // Required config is a release gate: never deploy an accidental empty staff list.
     // Config is encrypted at rest; Vercel receives it only for production, write-only.
     new ProjectEnvironmentVariable('vercel-uier-env-staff-emails', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'UIER_STAFF_EMAILS',
         value: staffEmails,
@@ -235,11 +239,13 @@ const up = async () => {
         // Real digest/receipt correlation verified on 2 November; see docs/review-notifications.md.
         ['match-operations', 'UIER_EMAIL_REPORT_MATCH_OPERATIONS', '1', false],
     ] as const) new ProjectEnvironmentVariable(`vercel-uier-env-email-report-${name}`, {
+        teamId: vercelTeamId,
         projectId: app.projectId, key, value, sensitive, targets: ['production'],
     }, envVarOptions);
     // The Azure resource-name casing receiver deployed before this guarded subscription attempt.
     acsEmailReports(email.communicationServiceId, emailReportSecret);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'COSMOSDB_CONNECTION_STRING',
         value: cosmosPrimaryConnectionString,
@@ -251,6 +257,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'COSMOSDB_COMMENTS_CONTAINER',
         value: commentsContainer.name,
@@ -259,6 +266,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-comments-secret', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'UIER_COMMENTS_SECRET',
         value: commentsSecret('uier-comments-secret'),
@@ -267,6 +275,7 @@ const up = async () => {
         sensitive: true,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-endpoint-preview', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'COSMOSDB_ENDPOINT',
         value: cosmosDocumentEndpoint,
@@ -276,6 +285,7 @@ const up = async () => {
     // Tenant and client id of the managed identity: identifiers, not credentials (only a preview
     // deployment's OIDC token gets a token for them).
     new ProjectEnvironmentVariable('vercel-uier-env-azure-tenant-preview', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'AZURE_TENANT_ID',
         value: previewIdentity.tenantId,
@@ -283,6 +293,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-azure-client-preview', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'AZURE_CLIENT_ID',
         value: previewIdentity.clientId,
@@ -290,6 +301,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-container-preview', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'COSMOSDB_COMMENTS_CONTAINER',
         value: commentsPreviewContainer.name,
@@ -297,6 +309,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-comments-secret-preview', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'UIER_COMMENTS_SECRET',
         value: commentsSecret('uier-comments-secret-preview'),
@@ -304,6 +317,7 @@ const up = async () => {
         sensitive: true,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-app-container', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'COSMOSDB_APP_CONTAINER',
         value: appContainer.name,
@@ -311,6 +325,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-cosmos-app-container-preview', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'COSMOSDB_APP_CONTAINER',
         value: appPreviewContainer.name,
@@ -318,6 +333,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-acs', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'ACS_CONNECTION_STRING',
         value: email.connectionString,
@@ -327,6 +343,7 @@ const up = async () => {
         sensitive: false,
     }, envVarOptions);
     new ProjectEnvironmentVariable('vercel-uier-env-email-sender', {
+        teamId: vercelTeamId,
         projectId: app.projectId,
         key: 'UIER_EMAIL_SENDER',
         value: email.senderAddress,
@@ -341,6 +358,7 @@ const up = async () => {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     if (anthropicApiKey || existingEnvironment.has('ANTHROPIC_API_KEY')) {
         new ProjectEnvironmentVariable('vercel-uier-env-anthropic', {
+            teamId: vercelTeamId,
             projectId: app.projectId,
             key: 'ANTHROPIC_API_KEY',
             value: secret(anthropicApiKey ?? 'existing production value retained during preview'),

@@ -174,6 +174,10 @@ preview-only value preservation; their real values are neither passed as environ
 replaced by placeholders during updates. Updates reject preview metadata. A live preview must still
 show no unexpected changes to existing data, domains, backups, keys or production variables.
 
+The provider-level Vercel `team` setting is removed: it performs a team-wide metadata read that
+project-scoped tokens cannot make. Every managed Vercel resource supplies the fixed team ID instead.
+This keeps both new tokens scoped to uier.
+
 ### Build and deployment boundary
 
 The Vercel build job has no environment or deployment token. It uses checked-in public project
