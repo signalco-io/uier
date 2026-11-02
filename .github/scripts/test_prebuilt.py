@@ -43,7 +43,7 @@ class BuildArchiveTests(unittest.TestCase):
                 archive = pathlib.Path(directory) / 'prebuilt.tar.gz'
                 with tarfile.open(archive, 'w:gz') as output:
                     info = tarfile.TarInfo('.vercel/output/functions/api.func/.vc-config.json')
-                    content = json.dumps({'filePathMap': {source: 'index.js'}}).encode()
+                    content = json.dumps({'filePathMap': {'index.js': source}}).encode()
                     info.size = len(content)
                     output.addfile(info, io.BytesIO(content))
                 with self.assertRaises(ValueError):

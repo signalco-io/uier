@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -14,13 +14,15 @@ test('function dependencies and internal links survive without the build checkou
         await writeFile(join(root, 'node_modules/library/index.js'), 'fixture');
         await symlink('library', join(root, 'node_modules/alias'));
         await writeFile(configPath, JSON.stringify({ filePathMap: {
-            'node_modules/library/index.js': 'node_modules/library/index.js', 'node_modules/alias': 'node_modules/alias',
+            'lib/index.js': 'node_modules/library/index.js', 'lib/alias': 'node_modules/alias',
         } }));
         await packagePrebuilt(root);
         await rm(join(root, 'node_modules'), { recursive: true });
         const config = JSON.parse(await readFile(configPath, 'utf8'));
         assert.equal(await readFile(join(root, '.vercel/output/runtime-files/node_modules/alias/index.js'), 'utf8'), 'fixture');
-        assert.ok(Object.keys(config.filePathMap).every(path => path.startsWith('.vercel/output/runtime-files/')));
-        assert.deepEqual(Object.values(config.filePathMap), ['node_modules/library/index.js', 'node_modules/alias']);
+        assert.ok(Object.values(config.filePathMap).every(path => path.startsWith('.vercel/output/runtime-files/')));
+        assert.deepEqual(Object.keys(config.filePathMap), ['lib/index.js', 'lib/alias']);
+        for (const source of Object.values(config.filePathMap))
+            await stat(join(root, source));
     } finally { await rm(root, { recursive: true, force: true }); }
 });

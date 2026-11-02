@@ -28,13 +28,13 @@ export async function packagePrebuilt(directory) {
         const config = JSON.parse(await readFile(path, 'utf8'));
         if (!config.filePathMap) continue;
         const packaged = {};
-        for (const [source, destination] of Object.entries(config.filePathMap)) {
+        for (const [destination, source] of Object.entries(config.filePathMap)) {
             // Next traces this setup example; it is not a runtime dependency or deployable environment.
             if (source === 'apps/web/.env.example') continue;
             safePath(source); safePath(destination);
             if (source.startsWith(`${prefix}/`)) {
                 if (!inside(output, await realpath(resolve(root, source)))) throw new Error('Prebuilt dependency escapes output.');
-                packaged[source] = destination;
+                packaged[destination] = source;
                 continue;
             }
             const target = `${prefix}/${source}`;
@@ -53,7 +53,7 @@ export async function packagePrebuilt(directory) {
                 else throw new Error('Unsupported prebuilt dependency type.');
                 copied.add(source);
             }
-            packaged[target] = destination;
+            packaged[destination] = target;
         }
         config.filePathMap = packaged;
         await writeFile(path, JSON.stringify(config));

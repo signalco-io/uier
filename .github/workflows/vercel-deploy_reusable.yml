@@ -126,7 +126,7 @@ jobs:
                   mapping = json.loads(config.read_text()).get('filePathMap', {})
                   if not isinstance(mapping, dict):
                       raise ValueError('Invalid function dependency map')
-                  for source, destination in mapping.items():
+                  for destination, source in mapping.items():
                       if not isinstance(source, str) or not isinstance(destination, str):
                           raise ValueError('Invalid function dependency path')
                       path = pathlib.PurePosixPath(source)
