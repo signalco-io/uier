@@ -49,7 +49,7 @@ if (test || hostedTest) {
 }
 await mkdir(resolve(dest, 'icons'));
 for (const size of [16, 32, 48, 128]) {
-    await sharp(resolve(root, '../../packages/brand/assets/mark.svg'), { density: 384 }).resize(size, size).png().toFile(resolve(dest, `icons/${size}.png`));
+    await sharp(resolve(root, '../web/public/apple-touch-icon.png')).resize(size, size).png().toFile(resolve(dest, `icons/${size}.png`));
 }
 await writeFile(resolve(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 await cp(resolve(root, '../../LICENSE'), resolve(dest, 'LICENSE'));

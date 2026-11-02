@@ -1,6 +1,6 @@
 # Browser extension
 
-The desktop Manifest V3 extension is an **unreleased runtime spike** for [#268](https://github.com/signalco-io/uier/issues/268).
+The desktop Manifest V3 extension is an **unreleased implementation** for [#268](https://github.com/signalco-io/uier/issues/268).
 It is an additional installation path for signed-in project members. It is not available in a store.
 Do not enable production distribution until the hosted verification gate below has passed.
 
@@ -81,37 +81,52 @@ reload, replies, resolve/reopen, proof expiry/renewal and screenshot retrieval w
 blocked. Verify worker suspension, cross-origin redirects, removed access/addresses, comments off,
 private feedback, keyboard use and light/dark accessibility. Resolve helper reliability before rollout.
 
-The publisher account, initial manual store upload, stable production ID/callback, listing assets,
-privacy disclosures, isolated reviewer account, Google OIDC federation and live store link require
-owner setup. Do not invent a store URL or advertise availability. Public onboarding stays on the
-released script path until this gate is satisfied. Follow #268's owner and store checklists.
+The app now offers script and extension setup, including onboarding and review-link guidance.
+The extension tab explains its pending availability without a fake store link. The released script
+remains the default. A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
+`UIER_EXTENSION_STORE_ID` also occurs in `UIER_EXTENSION_CLIENT_IDS`, and owners have completed
+the hosted and publication gates. Feedback activity is labelled as feedback, never embed-installation proof.
 
 Native Edge Add-ons, Firefox, Safari, mobile and anonymous extension access remain separate follow-ups.
 Extension API contract v1 must remain compatible for one year after its last supported release.
 A bad store release requires a higher numeric version containing a fix; installed versions cannot
 be rolled back by decreasing the version.
 
-## Validation and publishing work still required
+## Validation and delivery
 
-The PR job validates the production manifest/resources, creates a versioned ZIP/checksum/source
-receipt, and runs the separate localhost package in persistent Chromium. Local acceptance covers
-real identity consent, worker transport, the helper, posting/reload, screenshot capture and canvas
-preview under strict CSP, proof-cache renewal, replies, resolve/reopen, cross-origin deactivation,
-worker-owned sign-out cleanup, early/late embed coexistence and popup light/dark accessibility. API tests cover one-use/expiry,
-callback/client/PKCE rejection, exact-origin binding, membership revocation, comments off and CORS.
-This is not production-package or hosted Chrome/Edge acceptance.
+PR CI validates production resources, packages a deterministic ZIP/checksum/source receipt and runs
+that unchanged ZIP in persistent Chromium. The local TLS fixture maps the production API hostname to
+a disposable loopback proxy, including native identity windows; it never patches the manifest or
+bundle and does not contact the production API. The temporary certificate is trusted only by that
+browser process's SPKI flag. This verifies the production artifact with local BotID mode, **not real
+hosted verification**.
 
-Remaining implementation after the hosted gate:
+Local acceptance covers real sign-in/consent, multiple project matches, worker transport, strict-CSP
+posting/reload, viewport screenshot retrieval/canvas preview, proof renewal, replies, resolve/reopen,
+repeated activation, worker shutdown/restart, draft recovery, committed-but-lost write retries,
+same-document project switching, Exit/restart, SPA history, cross-origin deactivation, sign-out,
+embed coexistence with a different project, text/area anchors, screenshot redaction, safe inactive-tab
+capture failure, omitted API cookies and light/dark popup accessibility.
+The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
+credential/header injection and malformed payloads. API tests retain current membership, origin,
+privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard
+and light/dark accessibility coverage. Release tests cover tag/main/version checks, reproducible
+ZIP bytes, conflicts, bounded async polling, unknown/rejected states and uncertain-write recovery.
 
-- Complete the browser matrix: different embedded projects, worker suspension,
-  authenticated/staging sites, SPA/history and redirects, blocked storage/cookies, multiple matches,
-  private feedback, safe retries, draft recovery, image replacement/redaction and keyboard journeys.
-- Finish project Installation/onboarding/empty-state/review-link choices with a verified store URL.
-- Implement protected extension-vX.Y.Z release and bounded status workflows, environment/ref trust,
-  Google OIDC/service-account federation, Chrome Web Store API v2 upload/publish/fetchStatus,
-  dry-run, receipts and conflict-safe resumption. This spike has no store upload/publish workflow.
-- Configure the publisher/account/initial listing and isolated reviewer project. Validate the real
-  API credentials during bootstrap, exercise one update and store review, then document dashboard
-  cancellation, credential revocation and forward-fix recovery using the resulting live identifiers.
+The [release runbook](browser-extension-release.md) documents the implemented protected tag/dry-run
+and bounded status workflows, Google OIDC/service-account configuration, API v2 receipts, version
+support and forward-fix recovery. The [listing worksheet](browser-extension-listing.md) supplies copy,
+permission/disclosure drafts and reproducible brand artwork. None enables public rollout.
+
+Remaining gates need owner-controlled external setup and real browser/store evidence:
+
+- Publisher ownership/registration, first manual item upload, stable IDs/callback, reviewer account,
+  listing/disclosures and live URL.
+- GitHub environment/tag protection, restricted Google federation/service-account publisher access,
+  configured identifiers and actual API bootstrap validation (including async upload version limits).
+- Hosted Chrome and Edge with real BotID/proof renewal, authenticated/staging pages, blocked cookies,
+  tab-switch capture failure, text/area/image editing, keyboard/accessibility and the complete issue matrix.
+- One real automatic store update, review/status tracking and installed browser upgrade; then enable
+  the verified live installation link. Local tests cannot replace these receipts.
 
 Do not close #268 until its hosted, store and release-automation completion criteria are evidenced.

@@ -1,9 +1,9 @@
 import { CheckIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
-const steps = ['Your site', 'Add the script', 'Invite a reviewer'] as const;
+const steps = ['Your site', 'Set up reviews', 'Invite a reviewer'] as const;
 
-/** Where a new project is in onboarding: the site, the script, then the first reviewer */
+/** Where a new project is in onboarding: the site, review setup, then the first reviewer */
 export function OnboardingSteps({ current, className }: { current: 1 | 2 | 3; className?: string }) {
     return (
         <ol aria-label="Onboarding progress" className={cn('m-0 flex list-none flex-col gap-3 p-0 sm:flex-row sm:items-center', className)}>

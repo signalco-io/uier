@@ -594,7 +594,7 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
         await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
         await expect(page.getByRole('list', { name: 'Guest links' })).toHaveCount(0);
         if (path.endsWith(projectId))
-            await expect(content.getByRole('link', { name: 'Install the script' })).toBeVisible();
+            await expect(content.getByRole('link', { name: 'Set up reviews' })).toBeVisible();
         for (const colorScheme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme });
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));

@@ -1021,6 +1021,11 @@ membership, session and addresses before calling shared review services. Keep em
 nonce-protected frame for the packaged helper; only registered extension origins may frame it.
 No app cookie reaches the worker. Read [the design and remaining gates](../../docs/browser-extension.md).
 
+Installation uses the script/extension tabs in InstallGuide. Keep Check installation inside the
+script tab; comment activity does not prove embed installation. BrowserExtensionGuide reads the
+server-only distribution gate (UIER_EXTENSION_AVAILABLE=1, valid STORE_ID also in CLIENT_IDS).
+Never invent a store URL or enable it without hosted/store acceptance.
+
 
 ## App triage
 

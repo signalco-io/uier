@@ -62,7 +62,12 @@ function errorCodeFromStatus(status: number): CommentsApiErrorCode {
 /** A request to the uier API, answered with 2xx; errors are thrown as {@link CommentsApiError} */
 async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; accept?: string }): Promise<Response> {
     const adapter = runtimeAdapters();
-    if (adapter) return checkedResponse(await adapter.request(url, init));
+    if (adapter) {
+        let response: Response;
+        try { response = await adapter.request(url, init); }
+        catch (error) { throw new CommentsApiError('network_error', error instanceof Error ? error.message : 'Network error', 0); }
+        return checkedResponse(response);
+    }
     const hasBody = init?.body !== undefined;
     const crossOriginWrite = toolbarConfig.project && init?.method && init.method !== 'GET'
         && new URL(url).origin !== window.location.origin;

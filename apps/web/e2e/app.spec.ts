@@ -179,11 +179,11 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Create a project' })).toBeVisible();
     await expect(page).toHaveTitle('Create project · uier');
-    // The onboarding progress: the site, the script, then the first reviewer
+    // The onboarding progress: the site, review setup, then the first reviewer
     const progress = page.getByRole('list', { name: 'Onboarding progress' });
     await expect(progress.getByRole('listitem')).toHaveCount(3);
     await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 3: Your site');
-    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 3: Add the script');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 3: Set up reviews');
     await expect(progress.getByRole('listitem').nth(2)).toContainText('Step 3 of 3: Invite a reviewer');
     await expectNoAxeViolations(page);
 
@@ -192,7 +192,7 @@ test('onboarding creates a project with its addresses and shows the install guid
     // Install guide (the project's Install tab): the script with the project code, platform guidance and the CSP sources
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
-    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Add the script');
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Set up reviews');
     await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
@@ -213,6 +213,25 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByText(/style-src http:\/\/localhost:\d+/)).toBeVisible();
     // Metadata is streamed after the content
     await expect(page).toHaveTitle('Install · uier');
+    // Installation methods are keyboard accessible; checking the embed is script-specific.
+    const scriptTab = page.getByRole('tab', { name: 'Install the script', exact: true });
+    await scriptTab.focus(); await page.keyboard.press('ArrowRight');
+    const extensionTab = page.getByRole('tab', { name: 'Use browser extension', exact: true });
+    await expect(extensionTab).toBeFocused(); await page.keyboard.press('Enter');
+    const extensionGuide = page.getByRole('region', { name: 'Browser extension setup' });
+    await expect(extensionGuide).toBeVisible();
+    await expect(extensionGuide).toContainText('The extension is not available yet');
+    await expect(page.getByRole('link', { name: 'Get the browser extension' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Check installation', exact: true })).toBeHidden();
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
+        await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+        await expectNoAxeViolations(page);
+    }
+    await extensionTab.focus(); await page.keyboard.press('ArrowLeft'); await page.keyboard.press('Enter');
+    await expect(scriptTab).toHaveAttribute('aria-selected', 'true');
+
     const reviewerStep = page.getByRole('region', { name: 'Invite a reviewer' });
     await expect(reviewerStep).toContainText('Only people you invite can see and leave comments. They sign in with their email.');
     await expect(reviewerStep.locator('code')).toHaveCount(0);

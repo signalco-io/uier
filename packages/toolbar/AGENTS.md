@@ -266,6 +266,9 @@ so a mounted or late embed yields to extension activation across isolated worlds
 prove ownership. `screenshotImage.tsx` uses byte-decoded canvas in extension mode for strict img-src.
 See [browser-extension.md](../../docs/browser-extension.md) for unreleased status and hosted gate.
 
+Packaged request adapter failures must become CommentsApiError(network_error), preserving the
+shared retry/draft recovery behavior. Keep HTTP status parsing outside that transport catch.
+
 
 ## Priority and matching
 

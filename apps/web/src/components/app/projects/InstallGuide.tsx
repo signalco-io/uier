@@ -1,3 +1,4 @@
+import { BrowserExtensionGuide } from './BrowserExtensionGuide';
 import type { ReactNode } from 'react';
 import { ChevronRightIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -115,7 +116,13 @@ function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Pla
 export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }: { baseUrl: string; projectId: string; publicId: string; urls: string[]; reviewStep: ReactNode }) {
     const script = embedScript(baseUrl, publicId);
     return (
-        <div className="flex flex-col gap-8">
+        <Tabs defaultValue="script" className="gap-6">
+            <TabsList aria-label="Review installation method">
+                <TabsTrigger value="script">Install the script</TabsTrigger>
+                <TabsTrigger value="extension">Use browser extension</TabsTrigger>
+            </TabsList>
+            <TabsContent value="extension"><BrowserExtensionGuide /></TabsContent>
+            <TabsContent value="script">
             <ol className="m-0 flex list-none flex-col p-0">
                 <Step number={1} title="Copy the script">
                     <p className="m-0 text-sm text-muted-foreground">
@@ -168,7 +175,7 @@ export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }:
                     <InstallationCheck key={urls.join('\0')} projectId={projectId} publicId={publicId} urls={urls} />
                 </Step>
             </ol>
-
-        </div>
+            </TabsContent>
+        </Tabs>
     );
 }

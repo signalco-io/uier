@@ -97,10 +97,10 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
     const installText = query.environment === 'all'
-        ? 'Install the script and open a review link to leave the first comment.'
-        : 'This environment has no feedback. Choose another environment, or install the script and open a review link to leave the first comment.';
+        ? 'Set up reviews and open a review link to leave the first comment.'
+        : 'This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.';
     const installButton = (className?: string) => (
-        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>Install the script</Link>
+        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>Set up reviews</Link>
     );
     // Invited projects take two steps, each with its button: the script, then the people
     const steps = access === 'invited' && isAdmin;
