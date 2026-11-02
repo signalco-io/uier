@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { ImageResponse } from 'next/og';
 import { brand, MARK_PATH, MARK_VIEWBOX, PIN_PATH, PIN_VIEWBOX } from '@uier/brand';
 import { integrationLogos } from '@/src/components/app/integrations/IntegrationLogo';
-import { socialCardSize, type LinkCard, type PageCard, type SocialCard } from './cards';
+import { socialCardSize, type LinkCard, type PageCard } from './cards';
 
 // The social cards, drawn with satori (`next/og`) from the brand constants: paper, the lockup, the
 // title, the address in mono, and a piece of the review layer as the picture (BRAND.md, "Marketing
@@ -279,10 +279,15 @@ function LinkCardImage({ card }: { card: LinkCard }) {
     );
 }
 
-/** A social card as a 1200 × 630 PNG */
-export async function renderSocialCard(card: SocialCard) {
-    return new ImageResponse(
-        card.kind === 'page' ? <PageCardImage card={card} /> : <LinkCardImage card={card} />,
-        { ...socialCardSize, fonts: await socialCardFonts() }
-    );
+/**
+ * A public page's card as a 1200 × 630 PNG: the default export of the `opengraph-image.tsx` next
+ * to the page, with the same title and description as the page's metadata.
+ */
+export async function pageCardImage(card: PageCard) {
+    return new ImageResponse(<PageCardImage card={card} />, { ...socialCardSize, fonts: await socialCardFonts() });
+}
+
+/** A link card (`linkCards`) as a 1200 × 630 PNG */
+export async function linkCardImage(card: LinkCard) {
+    return new ImageResponse(<LinkCardImage card={card} />, { ...socialCardSize, fonts: await socialCardFonts() });
 }

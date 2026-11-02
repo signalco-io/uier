@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
 import { getLastSignInMethod, getSessionUser } from '@/src/lib/app/session';
 import { safeNextPath } from '@/src/lib/app/signIn';
-import { appLinkMetadata, describeAppLink } from '@/src/lib/social/metadata';
+import { appLinkMetadata, describeAppLink } from '@/src/lib/metadata';
 import { AuthCard } from '@/src/components/app/AuthCard';
 import { SignInForm } from './SignInForm';
 import { GoogleSignInButton, GoogleSignInProblem } from './GoogleSignIn';

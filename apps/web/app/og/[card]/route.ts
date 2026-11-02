@@ -1,18 +1,18 @@
-import { isSocialCardId, socialCard, socialCardIds } from '@/src/lib/social/cards';
-import { renderSocialCard } from '@/src/lib/social/SocialCard';
+import { isLinkCardId, linkCardIds, linkCards } from '@/src/lib/social/cards';
+import { linkCardImage } from '@/src/lib/social/SocialCard';
 
-// The social cards of public pages and app links (`/og/<card>`), rendered once at build time.
-// Unknown cards are a 404: nothing here draws text from the request.
+// The cards of links into the app (`/og/<card>`), rendered once at build time. Unknown cards are
+// a 404: nothing here draws text from the request. Public pages have their own opengraph-image.tsx.
 export const dynamic = 'force-static';
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-    return socialCardIds.map(card => ({ card }));
+    return linkCardIds.map(card => ({ card }));
 }
 
 export async function GET(_request: Request, { params }: RouteContext<'/og/[card]'>) {
     const { card } = await params;
-    if (!isSocialCardId(card))
+    if (!isLinkCardId(card))
         return new Response('Not found', { status: 404 });
-    return renderSocialCard(socialCard(card));
+    return linkCardImage(linkCards[card]);
 }

@@ -2,7 +2,7 @@ import { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { brand } from '@uier/brand';
-import { siteOpenGraph } from '@/src/lib/social/metadata';
+import { siteOpenGraph } from '@/src/lib/metadata';
 import './global.css';
 export default function RootLayout({ children }: {
     children: React.ReactNode;
@@ -33,7 +33,8 @@ export const metadata = {
         ],
         apple: '/apple-touch-icon.png'
     },
-    // Previews take each page's own title and description (and card, src/lib/social)
+    // No title, description or URL here: public pages set theirs (publicPageMetadata), other
+    // pages' previews fall back to their own title and description
     openGraph: siteOpenGraph,
     twitter: { card: 'summary_large_image' }
 } satisfies Metadata;

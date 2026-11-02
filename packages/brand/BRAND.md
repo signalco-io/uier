@@ -264,7 +264,7 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
   pages get the same card with their title, description and address (an integration's adds the
   service's logo on a bordered tile). Links into the app (a comment, a review link, an invitation,
   sign in) get the lockup and the kind of link beside a static piece of the review layer with
-  placeholder bars, never real or example words. All are in `apps/web/src/lib/social`.
+  placeholder bars, never real or example words. All are drawn by `apps/web/src/lib/social`.
 - App icon: black plate, radius 22 % of the side, white mark at 54 % nudged 1.5 % down and
   right. Exported square (platforms apply their own masks). Favicon: the bare mark, ink in
   light tabs and white in dark through a `prefers-color-scheme` rule in `assets/favicon.svg`.
