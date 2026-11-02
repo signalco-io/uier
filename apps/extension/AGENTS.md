@@ -26,3 +26,5 @@ suite after runtime changes. Test dist output, not source or a mocked extension 
 protocol.ts defines the closed worker envelope; route authorization remains in the shared contract.
 Never remove pre-write store receipts or retry ambiguous writes. Test the unchanged production ZIP
 with test:package; its loopback TLS fixture is local acceptance, never hosted BotID evidence.
+Dispose the content runtime synchronously on pagehide, including BFCache navigation. Only the
+worker may remount a restored document after checking its live binding; stale lazy mounts must stop.

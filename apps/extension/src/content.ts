@@ -3,6 +3,7 @@ import { configureToolbarRuntime, mountExtensionToolbar } from '@uier/toolbar/ex
 import { message, type Result } from './environment';
 import type { CapturedScreenshot } from '../../../packages/toolbar/src/screenshot';
 import type { ToolbarConfig } from '../../../packages/toolbar/src/config';
+import { getToolbarHost } from '../../../packages/toolbar/src/mount';
 
 // Repeated executeScript does not register another listener or create another review layer.
 const key = Symbol.for('uier.extension.content.v1');
@@ -24,11 +25,20 @@ if (!global[key]) {
         setItem(key: string, value: string) { records.set(key, value); void message({ type: 'draft', key, value }).catch(() => {}); },
         removeItem(key: string) { records.delete(key); void message({ type: 'draft', key, value: null }).catch(() => {}); }
     };
+    const dispose = () => {
+        if (disposed) return;
+        disposed = true; mounted = false;
+        // BFCache preserves the DOM and freezes timers. Remove the host synchronously so Back
+        // cannot revive private UI after the worker has ended activation on another origin.
+        getToolbarHost()?.remove(); unmount?.(); records.clear(); clearDraftMemory();
+        chrome.runtime.onMessage.removeListener(receive);
+        window.removeEventListener('pagehide', dispose);
+        delete global[key];
+    };
     const receive = (msg: any, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => {
         if (sender.id !== chrome.runtime.id) return;
         if (msg.type === 'dispose') {
-            disposed = true; mounted = false; unmount?.(); records.clear(); clearDraftMemory();
-            chrome.runtime.onMessage.removeListener(receive); delete global[key];
+            dispose();
             window.setTimeout(() => respond({ ok: true }), 0);
             return true;
         }
@@ -52,7 +62,6 @@ if (!global[key]) {
                     image: url => message<string>({ type: 'image', url }),
                     capture(region) {
                         const captured = captureQueue.then(async () => {
-                            const { getToolbarHost } = await import('../../../packages/toolbar/src/mount');
                             const host = getToolbarHost();
                             const display = host?.style.getPropertyValue('display');
                             const priority = host?.style.getPropertyPriority('display');
@@ -74,11 +83,14 @@ if (!global[key]) {
                 });
                 configured = true;
             }
-            unmount = await mountExtensionToolbar(() => { mounted = false; void message({ type: 'exit' }); });
+            unmount = await mountExtensionToolbar(() => { mounted = false; void message({ type: 'exit' }); }, () => !disposed);
+            if (disposed) throw new Error('This review document was replaced.');
             mounted = true;
         })().finally(() => { pending = undefined; });
         void pending.then(() => respond({ ok: true }), error => respond({ ok: false, error: String(error) }));
         return true;
     };
     chrome.runtime.onMessage.addListener(receive);
+    // Same-origin continuation is re-injected only by the worker after it checks the live binding.
+    window.addEventListener('pagehide', dispose, { once: true });
 }

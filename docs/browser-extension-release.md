@@ -1,6 +1,6 @@
 # Extension releases
 
-The implementation is ready for owner bootstrap; production distribution remains disabled.
+Publisher bootstrap is configured; production distribution remains disabled until the release gates pass.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
 
@@ -67,22 +67,28 @@ The GitHub, Google Cloud and publisher configuration has been read back:
   trusts GitHub's issuer, numeric repository `1432139886`, owner `89613566`, the protected environment
   subject, and only the release/status workflow paths and allowed refs/events described above.
   The repository principal has `roles/iam.workloadIdentityUser` on that service account.
+  GitHub reports `use_immutable_subject=true`; the exact accepted environment subject is
+  `repo:signalco-io@89613566/uier@1432139886:environment:extension-production`. Do not substitute
+  the older name-only subject or disable immutable subjects to make federation work.
 - The paid publisher is named `signalco`, ID `bf72a9f6-5c5a-454c-87ec-5e159831aa3f`, with a verified
   contact email and two-step verification enabled. Identity/trader verification was submitted and
   is pending. The first production ZIP (0.1.0, source `6faf266d6d0e4ecd373b4837eaf17f92c8795a5c`,
   SHA-256 `f814e18d257c8183675379e774a9de8f068d3729153ffb26599ad168e05ccf70`) created draft item
   `kplfcfnpeljpkbcjgpaefpmggipfpemj`. It has not been submitted for review.
 - Google configuration and the publisher/item IDs are set in `extension-production`.
-  `EXTENSION_HOSTED_ACCEPTANCE_URL` remains unset. The read-only bootstrap dispatch below is
-  implemented; its first live run is still pending.
+  `EXTENSION_HOSTED_ACCEPTANCE_URL` remains unset. [Read-only bootstrap run 41541608506](https://github.com/signalco-io/uier/actions/runs/41541608506)
+  succeeded after the immutable subject correction: GitHub OIDC generated a short-lived read-only
+  service-account token and v2 `fetchStatus` read the exact draft item. No store write occurred.
 - The temporary development client `gnhfndanmlbcbcnogfojolkdamnlpjjm` is registered in hosted
   `UIER_EXTENSION_CLIENT_IDS`. [Production deployment 41538315879](https://github.com/signalco-io/uier/actions/runs/41538315879)
   succeeded, and `/extension-verification` returns HTTP 200 with that extension in `frame-ancestors`.
   Remove this test client after the acceptance window. Public availability remains disabled.
 
-An actual OIDC token/store API read, the complete listing and hosted acceptance are still
-pending. No store submission or real BotID issuance/renewal is evidenced by this configuration
-receipt. The shared environment's
+The listing copy, category/language, icon, screenshot, promotional tile, privacy explanations and
+owner-approved Limited Use certifications are saved in the draft. Distribution is **unlisted**.
+Private reviewer notes explain self-service sign-in and an isolated project for `https://example.com`;
+they contain no shared password or customer account. No store submission or real BotID
+issuance/renewal is evidenced by this configuration receipt. The shared environment's
 review requirement also applies to manual/status runs; scheduled monitoring must not be described
 as unattended until that approval behavior has been addressed.
 

@@ -15,6 +15,10 @@ is the uier API. No cookies, history, all-sites grant, header rewriting or offsc
 A temporary activeTab grant follows same-origin navigation. Bindings in trusted storage.session
 are checked against the current top-frame document and actual tab URL for every operation.
 Cross-origin navigation clears activation; returning to the original site requires Start review.
+Content runtimes remove their host and listeners on `pagehide`, before a document can enter the
+back/forward cache. Only worker reinjection with a live binding restores same-origin continuation;
+an old cached document cannot revive its toolbar after cross-origin deactivation. Lazy mounting
+also checks that the content runtime has not been disposed.
 
 An explicit identity.launchWebAuthFlow opens first-party sign-in and consent. Registered clients
 have an exact https://<extension-id>.chromiumapp.org/uier callback. State and S256 PKCE bind a
@@ -81,6 +85,30 @@ reload, replies, resolve/reopen, proof expiry/renewal and screenshot retrieval w
 blocked. Verify worker suspension, cross-origin redirects, removed access/addresses, comments off,
 private feedback, keyboard use and light/dark accessibility. Resolve helper reliability before rollout.
 
+### Hosted receipt — 3 November 2026
+
+Native Chrome 156 and Microsoft Edge 156 on macOS exercised the `0.1.1` hosted test build,
+development client `gnhfndanmlbcbcnogfojolkdamnlpjjm`, against the real `https://uier.io` API.
+The isolated fictional project used `http://127.0.0.1:4017` without an embed. Its CSP denied scripts,
+connections, frames, images, fonts and styles. Both browsers blocked third-party cookies without
+site exceptions. These runs used no loopback API proxy, local BotID mode or verification bypass.
+
+- Explicit sign-in/consent matched the exact configured project origin and Start review mounted
+  the packaged toolbar. Both browsers saved new feedback through production.
+- Reload/restoration retrieved saved feedback and its screenshot. Both browsers expanded the
+  stored screenshot despite the page's `img-src 'none'`, then replied, resolved and reopened.
+- After the original five-minute proof lifetime, Chrome saved a reply through automatic worker
+  renewal. Edge obtained a renewed proof on explicit restart and saved its reply. Third-party
+  cookies remained blocked throughout.
+- Cross-origin redirects ended activation even for another configured address. Back restored the
+  original page with no toolbar; explicit Start review was required. Edge also verified valid
+  same-origin Back continuation. The package regression asserts actual cached-document identity
+  for both cases and fails against the previous runtime.
+
+The real hosted design gate has evidence. Store submission, review outcome, installed package
+acceptance and an actual automatic browser upgrade are separate remaining gates; this test build
+is not a store installation. Keep public availability disabled until those receipts exist.
+
 The app now offers script and extension setup, including onboarding and review-link guidance.
 The extension tab explains its pending availability without a fake store link. The released script
 remains the default. A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
@@ -120,14 +148,17 @@ permission/disclosure drafts and reproducible brand artwork. None enables public
 
 Remaining gates need owner-controlled external setup and real browser/store evidence:
 
-- Complete pending publisher verification, reviewer access, listing/disclosures and the live URL.
-  The initial production ZIP created a draft item; two-step verification and registration are complete.
-- Actual OIDC/store API bootstrap validation (including async upload version limits). GitHub
-  environment/tag protection, restricted Google federation and publisher access are configured;
+- Complete pending publisher verification, store review and the live URL. The draft item, listing
+  artwork, privacy certifications and isolated self-service reviewer instructions are configured;
+  two-step verification and registration are complete.
+- Live upload/version behavior validation (including async upload version limits). GitHub
+  environment/tag protection, restricted Google federation, publisher access and the actual
+  read-only OIDC/store API bootstrap have passed;
   the [bootstrap receipt](browser-extension-release.md#bootstrap-receipt--2-november-2026) records
   the identifiers and remaining configuration.
-- Hosted Chrome and Edge with real BotID/proof renewal, authenticated/staging pages, blocked cookies,
-  tab-switch capture failure, text/area/image editing, keyboard/accessibility and the complete issue matrix.
+- Complete the remaining release matrix, including installed-package Chrome/Edge acceptance.
+  The hosted receipt above proves the core BotID/cookie-independent transport flow; focused package
+  and API tests retain authorization, screenshot, accessibility and lifecycle coverage.
 - One real automatic store update, review/status tracking and installed browser upgrade; then enable
   the verified live installation link. Local tests cannot replace these receipts.
 

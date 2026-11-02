@@ -28,7 +28,7 @@ test.beforeAll(async () => {
     profile = await mkdtemp(resolve(tmpdir(), 'uier-extension-'));
     const path = extensionPath;
     if (productionPackage) proxy = await packageApiProxy(profile);
-    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 }, baseURL: apiBase, args: [...(proxy ? [`--host-resolver-rules=MAP uier.io 127.0.0.1:${proxy.port}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`, `--ignore-certificate-errors-spki-list=${proxy.spki}`] : []), '--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
+    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 }, baseURL: apiBase, ignoreDefaultArgs: ['--disable-back-forward-cache'], args: [...(proxy ? [`--host-resolver-rules=MAP uier.io 127.0.0.1:${proxy.port}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`, `--ignore-certificate-errors-spki-list=${proxy.spki}`] : []), '--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
     context.setDefaultTimeout(10_000);
 
 });
@@ -95,7 +95,6 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const composer = reviewed.getByRole('textbox', { name: 'Comment', exact: true });
     await composer.fill('Strict CSP extension feedback'); await composer.press('Enter');
     await expect(reviewed.getByText('Strict CSP extension feedback', { exact: true })).toBeVisible();
-    await reviewed.screenshot({ path: info.outputPath('store-review-1280x800.png') });
     await reviewed.reload();
     await expect(reviewed.getByRole('navigation', { name: 'uier feedback', exact: true })).toBeVisible();
     await expect(commentBubble(reviewed, 1)).toBeVisible();
@@ -104,6 +103,8 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const screenshot = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(screenshot).toBeVisible();
     await expect(screenshot.locator('canvas')).toBeVisible();
+    await animationsFinished(thread);
+    await reviewed.screenshot({ path: info.outputPath('store-review-1280x800.png') });
     await screenshot.click();
     await expect(reviewed.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
 
@@ -236,9 +237,22 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
         await new Promise<void>((resolve, reject) => { script.onload = () => resolve(); script.onerror = () => reject(new Error('Embed load failed')); });
     }, apiBase);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
-    // A second origin ends activation, including when returning to a previously allowed address.
-    await reviewed.goto(origin.replace('127.0.0.1', 'localhost'));
     await reviewed.goto(origin);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    const reviewedDocument = await reviewed.evaluate(() => performance.timeOrigin);
+    // A same-origin cache restore is remounted only through the live worker binding.
+    await reviewed.goto(`${origin}/next`);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    await reviewed.evaluate(() => history.back());
+    await expect(reviewed).toHaveURL(`${origin}/`);
+    expect(await reviewed.evaluate(() => performance.timeOrigin)).toBe(reviewedDocument);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    // A second origin ends activation even when Back restores the previous document from BFCache.
+    await reviewed.goto(origin.replace('127.0.0.1', 'localhost'));
+    // A restored document emits pageshow, not another load event for Playwright to await.
+    await reviewed.evaluate(() => history.back());
+    await expect(reviewed).toHaveURL(`${origin}/`);
+    expect(await reviewed.evaluate(() => performance.timeOrigin)).toBe(reviewedDocument);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
 
     if (proxy) expect(proxy.requests.filter(request => request.path.startsWith('/api/extension/')).every(request => !request.hasCookie)).toBe(true);
