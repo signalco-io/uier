@@ -1,3 +1,4 @@
+import { publicPageMetadata } from '@/src/lib/metadata';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { provider } = await params;
     if (!isIntegrationCatalogKey(provider)) return {};
     const integration = integrationCatalog[provider];
-    return { title: integration.title, description: integration.description };
+    return publicPageMetadata(`/integrations/${provider}`, { title: integration.title, description: integration.description });
 }
 
 export default async function IntegrationPage({ params }: Props) {

@@ -123,6 +123,20 @@ and Geist fonts. They contain no customer data and are labelled illustrations. K
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
 `e2e/integration-pages.spec.ts` covers the public guides, support/setup links and accessibility.
 
+## Search indexing
+
+Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
+description. Canonicals and Open Graph URLs point to the production URL without query parameters;
+never put a homepage canonical in the root layout, where other pages would inherit it.
+`next-sitemap.config.cjs` excludes app flows, notification preferences, empty verification bridges
+and metadata assets. Add public dynamic pages through `additionalPaths` (currently `/status`).
+Do not emit build times as `lastmod`; use real content modification dates if they become available.
+
+App pages, notification preferences and verification/session bridges declare `noindex`. Keep them
+crawlable in `robots.txt` so search engines can read that directive; authentication protects app
+data. `e2e/seo.api.spec.ts` checks generated HTML, the sitemap and these crawl directives. See
+[search indexing](../../docs/development.md#search-indexing) for checks and Search Console context.
+
 ## Footer
 
 Every public page gets `SiteFooter` from the marketing layout; pages do not render their own.
