@@ -373,18 +373,73 @@ accounts require new container-scoped Entra assignments before reads; app recove
 temporary per-incident grants. Operator tools use explicit Entra login, with no key retrieval.
 No restore was submitted and CI receives no recovery role.
 
-The expected PR plan is one in-place `uierdb` update of the two flags, with all other resources
-unchanged. Both key regenerations follow successful CI apply and live flag readback. Record actual
-apply, rotations and post-retirement checks below; source alone is not activation evidence.
+### Stage 5 activation and retirement receipt — 2 November 2026
 
-An owner separately adds Azure `CanNotDelete` locks on the resource group and `uierdb` and records
-their exact scopes and live readback. Contributor cannot manage these locks. Until then, the public
-control continues to describe Pulumi-only protection. Keep the main ruleset/review wording accurate.
+[PR #336](https://github.com/signalco-io/uier/pull/336) merged as
+`e4386deea5c047a980e114fe7c38ffbe7c48ef03`. Local typecheck/build and the default suite passed
+(613 tests, one skipped), the focused credential/operator API suite passed all eight tests, and
+all 28 infrastructure tests passed. The PR's required checks passed without an approval wait.
 
-Final acceptance also needs a real infra pull request running without an approval wait under the
-owner's unattended policy, a successful preview under the separate identity, evidence of its
-effective roles, and a main push that successfully runs
-both `pulumi up` and the production deploy. Keep #167 open until all live gates are recorded.
+| Live check | Evidence | Result |
+| --- | --- | --- |
+| Real infra PR preview | [CI #41415768576](https://github.com/signalco-io/uier/actions/runs/41415768576) | Separate preview identity; exactly one in-place account update for the two flags, 107 resources unchanged; 613 web/API tests passed, one skipped |
+| Production apply and deployment | [Deploy #41416454930](https://github.com/signalco-io/uier/actions/runs/41416454930) | Production OIDC verified; one account updated, 107 unchanged; prebuilt production deployment READY and aliased to uier.io |
+| Live account flags | Independent Azure readback after apply and after rotation | `disableLocalAuth: true`, `disableKeyBasedMetadataWriteAccess: true`, provisioning Succeeded |
+| Primary read/write key | Authorized owner regeneration, then metadata readback | Generation time advanced to `2026-11-02T08:56:55.384363Z` |
+| Secondary read/write key | Authorized owner regeneration, then metadata readback | Generation time advanced to `2026-11-02T08:57:29.438959Z` |
+| Production comments | Full reload in the existing authenticated browser after both rotations | Same 14 comments: nine open, five done |
+| Production app data | Fresh account-page navigation after both rotations | Account, workspace admin access, existing project access and profile loaded |
+| Operator data access | Signed-in human's `AzureCliCredential`, after both rotations | Live queries on `comments`, `comments-preview` and `app` succeeded without account keys |
+| Worker OIDC after retirement | [Verify-only #41416987348](https://github.com/signalco-io/uier/actions/runs/41416987348) | All three Cosmos and two Blob scopes readable; no writes or delivery |
+| Real digest after retirement | [Worker #41418336559](https://github.com/signalco-io/uier/actions/runs/41418336559), [reconciliation #41418482614](https://github.com/signalco-io/uier/actions/runs/41418482614) | Authorized recipient received the synthetic digest; ledger accepted/inactive with cursor 1/1; received request id matched the stored send operation and its report receipt |
+| Fixture cleanup | Independent readback at `09:13:40 UTC` | Disposable workspace, project, comment and delivery ledger absent; temporary app-container write assignment subsequently revoked |
+| Azure deletion locks | Owner-created locks and independent GET readback | `CanNotDelete` on the uier resource group and Cosmos account; exact scopes below |
+
+The cutover deployment was `dpl_EjJdjqJwcpxVZXkjTXY252HUsZQw`
+(`uier-8xvmo77k8-signalco.vercel.app`). Vercel readback confirmed its production target, correct
+project, READY state and the uier.io alias. Public `/api/status` returned HTTP 200 with website
+and comments operational. All three production-only Entra settings remain present and the Cosmos
+connection string remains absent. Endpoint, account identity, Continuous7Days policy and null
+backup migration state match the pre-stage baseline. No key value was retrieved for regeneration;
+only generation metadata was compared. Read-only keys are also unusable while local auth is disabled.
+The separate screenshot-storage credential was not rotated.
+
+The recipient authorized one test digest. Its isolated workspace had that recipient as its sole
+member, with no other ready notification or pending thread at the preflight. The message arrived
+at `09:11:19 UTC`, from display name `uier` on `notify.uier.io`; SPF, DKIM and DMARC passed and both
+unsubscribe headers were present. The stored operation, received message and report receipt were
+matched before cleanup. Worker runs used current main, including the independently merged #337
+notification-status fix; this stage supplied no manual `retry_delivery` request. Committed
+evidence excludes addresses, content, tokens, raw headers and operation identifiers.
+
+The human's standing data roles are still only Contributor on `comments`/`comments-preview` and
+Reader on `app`. A temporary Contributor grant on `app` existed solely to create/remove the
+authorized disposable fixture and was deleted before management locks were added. No new restore
+was billed/submitted and no restore role was granted to CI. The existing recovery drill and the
+updated Entra procedure remain separately documented in [Backups and restore](backups-and-restore.md).
+
+### Owner-managed Azure deletion locks
+
+The owner session added and read back these two `CanNotDelete` locks, outside Pulumi:
+
+| Lock | Exact resource scope |
+| --- | --- |
+| `uier-production-cannot-delete` | `/subscriptions/d22db5bd-ca9a-447c-9b1b-dc56aca401d7/resourceGroups/uier-production8b2f56d6` |
+| `uier-cosmos-cannot-delete` | `/subscriptions/d22db5bd-ca9a-447c-9b1b-dc56aca401d7/resourceGroups/uier-production8b2f56d6/providers/Microsoft.DocumentDB/databaseAccounts/uierdbaba6cd56` |
+
+These protect Azure management resources, including inherited children, from deletion; they do
+not block ordinary authorized item/blob deletion. They allow in-place updates. CI retains its
+existing roles and cannot manage these locks. Exceptional resource deletion or role revocation
+needs a separately authorized owner operation to remove all applicable locks and restore them
+after readback; never add lock-management permission or an approval gate to the standard deploy.
+
+Final identity/policy readback confirms one environment federation per GitHub app, five read/decrypt/
+provider-key-read assignments on the preview app (no Cosmos key-read assignment), data-only worker
+roles, main-only production/worker deployment policies and main plus PR merge refs for preview.
+There are no reviewers or wait timers. The main ruleset still requires a PR and CI OK, with zero
+required approving reviews. This follows the owner's explicit unattended policy, which supersedes
+#167's original preview-reviewer requirement. The security control's conservative Pulumi-only
+wording remains true; the README and operations guide additionally record the live Azure locks.
 
 References: [GitHub secure workflow use](https://docs.github.com/en/actions/reference/security/secure-use),
 [Cosmos DB data-plane RBAC](https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-connect-role-based-access-control),

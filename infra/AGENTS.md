@@ -41,8 +41,10 @@ with no replacement, deletion or backup-policy change. See the staged readback i
 
 Never disable local authentication or key-based metadata writes until production, the scheduled
 worker, moderation operators and the restore procedure all work with Entra ID. Deploy each
-stage through CI and record readback before removing a credential, subject or key. Pulumi
-protection is not an Azure management lock; the rollout records the separate owner prerequisite.
+stage through CI and record readback before removing a credential, subject or key. The stage 5
+receipt records live flags, both regenerated read/write keys and verified production/worker reads.
+Owner-managed Azure `CanNotDelete` locks now cover the resource group and Cosmos account in
+addition to Pulumi protection. CI cannot manage locks; never bypass them for a deploy.
 
 CI uses `production` for updates and `preview` for PR/manual-main previews, with separate Azure
 apps and provider tokens. `production-worker` is main-only and has its own OIDC subject/data app;
