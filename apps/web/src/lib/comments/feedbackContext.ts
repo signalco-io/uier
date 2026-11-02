@@ -23,7 +23,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         schemaVersion: 1, contentTrust: 'untrusted',
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${summary || 'Website feedback'}`,
-        priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', feedback: first,
+        verification: dto.verification, priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', feedback: first,
         ...(options.assigneeName ? { assignee: { name: options.assigneeName } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }
             : position.type === 'point' ? {

@@ -189,8 +189,8 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
                 if (!comment) return [];
-                const { id, path, origin, private: isPrivate, authorId, resolved, createdAt, activity } = comment;
-                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, createdAt, activity: clone(activity),
+                const { id, path, origin, private: isPrivate, authorId, resolved, verification, createdAt, activity } = comment;
+                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, verification: verification ? { outcome: verification.outcome } : undefined, createdAt, activity: clone(activity),
                     thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
             }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
         },

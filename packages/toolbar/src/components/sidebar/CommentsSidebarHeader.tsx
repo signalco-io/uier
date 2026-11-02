@@ -34,6 +34,7 @@ export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
 
 const statuses = [
     { value: 'unresolved', label: 'Open' },
+    { value: 'ready', label: 'Ready for review' },
     { value: 'resolved', label: 'Done' },
     { value: 'all', label: 'All' }
 ] as const;
@@ -45,7 +46,7 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     onStatusChange: (status: CommentsStatusFilter) => void;
 }) {
     return (
-        <Row role="group" aria-label="Show comments" spacing={2} className="border-b">
+        <Row role="group" aria-label="Show comments" spacing={2} className="flex-wrap border-b">
             {statuses.map((s) => (
                 <Button key={s.value} size="sm" variant="plain" aria-pressed={status === s.value}
                     className={cx('-mb-px gap-1.5 rounded-none border-b-2 px-0.5 hover:bg-transparent active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-11',

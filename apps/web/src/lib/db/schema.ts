@@ -80,7 +80,16 @@ export type DbThreadItem = {
     deletedAt?: string;
 };
 
+/** Latest request only. A reopened confirmation remains historical; no unbounded history. */
+export type DbVerification = {
+    id: string; revision: string; requester: string; reviewer: string; requestedAt: string;
+    outcome: import('@uier/toolbar/verification').VerificationOutcome;
+    summary?: string; fixUrl?: string;
+    decision?: { kind: 'confirm' | 'reject' | 'cancel'; actorId: string; at: string; override: boolean };
+};
+
 export type DbComment = {
+    verification?: DbVerification;
     /** Missing means Normal; no migration required. */
     priority?: import('@uier/toolbar/triage').CommentPriority;
     /** State-sync signal, committed with the mutation; never exported in a comment DTO. */
@@ -223,6 +232,7 @@ export type DbSubmission = {
 
 /** Lightweight activity projection; legacy threads need only item authors and deletion markers. */
 export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'createdAt' | 'activity'> & {
+    verification?: Pick<DbVerification, 'outcome'>;
     thread: { items: Pick<DbThreadItem, 'authorId' | 'deletedAt'>[] };
 };
 

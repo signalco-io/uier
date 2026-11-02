@@ -130,15 +130,15 @@ test('ID tokens require a valid signature, exact issuer/tenant/audience, lifetim
     const claims = { iss: `${microsoft.url}/${microsoftTenant}/v2.0`, tid: microsoftTenant, ver: '2.0', sub: randomUUID(), aud: microsoft.clientId,
         iat: now, exp: now + 3600, nonce };
     const expected = { clientId: microsoft.clientId, authority: microsoft.url, nonceHash: sha256Hex(nonce) };
-    expect(await microsoftIdTokenClaims(await microsoft.issueToken(claims), expected)).not.toBeNull();
+    expect(await microsoftIdTokenClaims(await microsoft.issueToken(claims), expected, now * 1000)).not.toBeNull();
     for (const override of [{ iss: 'https://evil.example/v2.0' }, { tid: randomUUID() }, { tid: '../common' }, { aud: 'other-client' },
         { aud: [microsoft.clientId, 'other-client'] }, { azp: 'other-client' }, { exp: now - 1 }, { iat: now + 301 }, { iat: now - 901 },
         { nbf: now + 60 }, { nonce: 'wrong' }, { sub: '' }, { ver: '1.0' }])
-        expect(await microsoftIdTokenClaims(await microsoft.issueToken({ ...claims, ...override }), expected), JSON.stringify(override)).toBeNull();
+        expect(await microsoftIdTokenClaims(await microsoft.issueToken({ ...claims, ...override }), expected, now * 1000), JSON.stringify(override)).toBeNull();
     const token = await microsoft.issueToken(claims); const parts = token.split('.');
     parts[1] = Buffer.from(JSON.stringify({ ...claims, sub: 'tampered' })).toString('base64url');
-    expect(await microsoftIdTokenClaims(parts.join('.'), expected)).toBeNull();
-    expect(await microsoftIdTokenClaims('invalid', expected)).toBeNull();
+    expect(await microsoftIdTokenClaims(parts.join('.'), expected, now * 1000)).toBeNull();
+    expect(await microsoftIdTokenClaims('invalid', expected, now * 1000)).toBeNull();
 });
 
 test('Account linking requires the initiating recent session; identity conflicts never switch users', async ({ microsoft }) => {

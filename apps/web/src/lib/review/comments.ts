@@ -1,3 +1,4 @@
+import { ordinaryVerificationStatus } from '../comments/verificationState';
 import { commentPriority, priorities, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from './commentRevision';
 import { queueThreadCleanup } from '../comments/cleanup';
@@ -328,9 +329,9 @@ export async function replyToProjectComment(request: Request, project: DbProject
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore()) {
+export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore()) {
     const authorize = async (comment: DbComment) => {
-        await refreshMutationActor(project, actor);
+        await refreshMutationActor(project, actor, guard?.requireComments);
         visibleOrThrow(comment, actor);
         if (guard?.triage && !canTriageProject(project, actor)) throw apiErrors.notFound();
         if (!allowed(comment))
@@ -355,6 +356,7 @@ export type CommentChangeGuard = {
     revision?: string;
     onResult?: (changed: boolean) => void;
     triage?: boolean;
+    requireComments?: boolean;
 };
 function guardFingerprint(guard?: CommentChangeGuard) {
     return guard ? { expected: guard.expected, revision: guard.revision } : {};
@@ -377,8 +379,8 @@ export async function setProjectCommentResolved(project: DbProject, actor: Proje
     resolved = z.boolean().parse(resolved);
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
-        comment => Boolean(comment.resolved) === resolved ? comment : withNotificationEvent(
-            { ...withThreadActivity(comment, actorAuthorId(actor)!), resolved }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
+        comment => Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withNotificationEvent(
+            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!), resolved, true) }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -496,6 +498,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             if (item.createdAt)
                 placeholder.createdAt = item.createdAt;
             const kept: DbComment = { ...comment, thread: { ...comment.thread, items: [placeholder, ...replies] }, updatedAt: now };
+            delete kept.verification;
             delete kept.authorId;
             delete kept.device;
             delete kept.screenshot;

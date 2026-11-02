@@ -448,3 +448,17 @@ The worker adopts the 30-day expiry for old completed ledgers in batches of at m
 status per run, selecting only records without a TTL. It first saves their discovery floor on
 the owning thread; a conflicting checkpoint defers expiry until a later run. Failed and
 ambiguous ledgers are excluded from this adoption.
+
+## Fix-check notifications
+
+Verification adds `verification-requested`, `verification-confirmed`, `verification-rejected` and
+`verification-canceled` event kinds to the same atomic activity outbox. Requests target the
+requested reviewer; decisions target the requester and reviewer. Existing current access,
+visibility, follow/unfollow, project mute, unread suppression and verified guest subscription
+rules apply. An unverified guest address is never a delivery destination. No event is generated
+for receipt replay or a no-op, and the acting person does not receive their own update.
+
+The existing five-minute worker groups these events into digests. Wording distinguishes a fix
+check, confirmation, needs-work decision and cancellation. Admin confirmations explicitly say
+admin override. Queued work is not evidence of email receipt. Summaries and fix links are not
+copied into notification events; delivery reads current authorized thread context.

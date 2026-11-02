@@ -1,5 +1,6 @@
 'use client';
 
+import { readyForReview } from '../verification';
 import { useContext, useRef, useState } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -17,14 +18,14 @@ import { CommentAssignee, CommentAssigneeOptions } from './CommentAssignment';
 import { CommentThreadMenu } from './CommentThreadMenu';
 
 /** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
-export function CommentStatusBadge({ done }: { done: boolean }) {
+export function CommentStatusBadge({ done, ready }: { done: boolean; ready?: boolean }) {
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
             <span
                 aria-hidden="true"
                 className={cx('size-1.5 rounded-full', done ? 'bg-[hsl(var(--brand-success))]' : 'bg-foreground')} />
             <span className="sr-only">Status: </span>
-            {done ? 'Done' : 'Open'}
+            {done ? 'Done' : ready ? 'Ready for review' : 'Open'}
         </span>
     );
 }
@@ -71,6 +72,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: Comm
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const done = comment.resolved;
+    const doneLabel = readyForReview(comment) ? 'Done without verification' : 'Mark as done';
     const unread = Boolean(comment.activity?.unread);
     // Only someone else's activity can be unread
     const canMarkUnread = !unread && !comment.pending && Boolean(comment.activity?.lastOtherSequence);
@@ -112,9 +114,9 @@ export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: Comm
 
     return (
         <Stack spacing={1}>
-            <Row spacing={1} justifyContent="space-between">
+            <Row spacing={1} justifyContent="space-between" className="flex-wrap gap-y-1">
                 <Row spacing={1} className="min-w-0">
-                    <CommentStatusBadge done={done} />
+                    <CommentStatusBadge ready={readyForReview(comment)} done={done} />
                     {/* The public id, numbered per site */}
                     {comment.number !== undefined && (
                         <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
@@ -133,8 +135,8 @@ export function CommentThreadHeader({ comment, onMarkedUnread }: { comment: Comm
                             size="xs"
                             variant="plain"
                             className={threadActionClassName}
-                            title={done ? 'Reopen' : 'Mark as done'}
-                            aria-label={done ? 'Reopen' : 'Mark as done'}
+                            title={done ? 'Reopen' : doneLabel}
+                            aria-label={done ? 'Reopen' : doneLabel}
                             disabled={resolve.isPending}
                             onClick={handleStatus}>
                             {done ? <Undo size={16} /> : <Check size={16} />}

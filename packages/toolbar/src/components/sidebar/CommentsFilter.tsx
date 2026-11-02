@@ -1,7 +1,8 @@
+import { readyForReview } from '../../verification';
 import { matchesFeedbackSearch } from '../../triage';
 import type { CommentItem } from '../@types/Comments';
 
-export type CommentsStatusFilter = 'unresolved' | 'resolved' | 'all';
+export type CommentsStatusFilter = 'unresolved' | 'ready' | 'resolved' | 'all';
 
 /**
  * Which pages the inbox lists: this page (the default), all of the site's pages, one other
@@ -36,7 +37,7 @@ export function matchesFilter(comment: CommentItem, filter: CommentsFilter) {
 }
 
 export function matchesStatus(comment: CommentItem, status: CommentsStatusFilter) {
-    return status === 'all' || comment.resolved === (status === 'resolved');
+    return status === 'ready' ? readyForReview(comment) : status === 'all' || comment.resolved === (status === 'resolved');
 }
 
 /** Everything but the status: assigned to me, unread and the words of the search */

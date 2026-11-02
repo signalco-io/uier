@@ -1,3 +1,5 @@
+import { changeFixVerification } from './fixVerification';
+import { fixVerificationSchema } from './fixVerificationSchema';
 import { priorities } from '@uier/toolbar/triage';
 import { idempotencyKeySchema } from '../comments/validation';
 import { screenshotUrlMediaType } from '../screenshots/blobStore';
@@ -186,4 +188,9 @@ export { listReviewComments, readReviewComment, unreadReviewComment } from './re
 export async function prioritizeReviewComment(context: ReviewApiContext, { id }: { id: string }) {
     const { priority, idempotencyKey } = await parseJsonBody(context.request, z.object({ priority: z.enum(priorities), idempotencyKey: idempotencyKeySchema }));
     return commentResponse(context, await setProjectCommentPriority(context.project, context.actor, commentId(id), priority, idempotencyKey));
+}
+
+export async function verifyReviewFix(context: ReviewApiContext, { id }: { id: string }) {
+    const input = await parseJsonBody(context.request, fixVerificationSchema);
+    return commentResponse(context, await changeFixVerification(context.project, context.actor, commentId(id), input));
 }

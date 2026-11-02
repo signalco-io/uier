@@ -150,6 +150,8 @@ export type CommentsApiContext = {
     request: Request;
     domain: string;
     visitor: Visitor;
+    project?: import('../app/model').DbProject;
+    actor?: ProjectActor;
     /** Public project: the address of uier's site the request came from, the source of new comments */
     origin?: string;
 };
@@ -219,7 +221,7 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
             if (project) assertCanUseComments(project, actor);
             // Writes are same-origin, so the request's host is the reviewed page's (as in the review API)
             const origin = project ? projectReviewOrigin(project, request) : undefined;
-            response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor, origin }, await routeContext.params);
+            response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor, origin, ...(project ? { project, actor } : {}) }, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);
         }

@@ -67,8 +67,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     its comments. Open review lists every address (main site first) to review or visit. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
   - Comments `/app/projects/<code>`: the project's **comments**, as a
-    list or a board (Open / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
-    (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Done and All, with
+    list or a board (Open / Ready for review / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
+    (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Ready for review, Done and All, with
     counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot
     (clicking it marks the comment read) and assignee (their avatar or, while unassigned, the user icon, named by its tooltip; a menu of people for those who can assign) with the actions
     (Done or Reopen, Copy issue, and More with Copy link, Follow thread and, once read, Mark as unread) on one row, then the first and last
@@ -134,7 +134,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 
 ### Page and comment responsiveness
 
-The app filters loaded comments immediately when switching Open/Done/All, List/Board, people,
+The app filters loaded comments immediately when switching Open/Ready for review/Done/All, List/Board, people,
 pages or unread. These choices stay in the URL and work with Back, Forward and reload. Changing
 environment or author still loads a fresh authorized list from the server. Settings links show
 navigation feedback, and General renders its forms before usage totals finish loading.
@@ -536,7 +536,7 @@ priority, including Normal on a legacy thread, adds neither. Priority does not c
 List and Board have explicit checkboxes, an indeterminate shown-results checkbox, selected count,
 Clear selection, assignment/unassignment, priority, Mark selected as done and Reopen selected.
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
-visible order (Open then Done on Board). Changing a project, environment, author, filter or view
+visible order (Open, Ready for review, then Done on Board). Changing a project, environment, author, filter or view
 clears selection. Threads arriving later never join a running batch. Replies and their drafts remain
 scoped independently of selection and filtering.
 
@@ -555,3 +555,33 @@ operation, expected values and keys; an uncertain response keeps all original ke
 threads before starting a new action. Durable 30-day receipts prevent retries from repeating events
 or overwriting later work. One revalidation follows a completed batch. Bulk read stays separate;
 there is no bulk delete, privacy change, reviewer confirmation or toolbar bulk mutation.
+
+## Fix verification
+
+Verification is optional for each thread. A project member can request a fix check, add a short
+summary and fix link, and choose an eligible reviewer. The original author is the default when
+that identity still has access. A requester cannot choose or independently confirm themselves.
+Missing authors require an eligible member selection; no identity is silently substituted.
+
+Ready for review remains unresolved and is included in Open counts. Its dedicated filter shows
+pending checks. Board columns are exclusive: Open, Ready for review, Done. Replies, priority,
+search and selection continue to work in all three states. Changes do not acknowledge unread
+activity. Saving shows pending feedback; failures preserve the entered details and retry identity.
+
+The requested reviewer can choose Confirm fix or Still needs work. Original guest authors use
+their existing visitor identity without an account or email verification. A different workspace
+admin can explicitly decide on the reviewer's behalf; the result names the admin and labels the
+override. The requester or an admin can cancel. Each new request gets a new id and revision;
+stale decisions conflict after another request, cancellation, Done or Reopen.
+
+Done without verification remains available while a check is pending. Ordinary Done, bulk Done,
+old clients, MCP status and provider closure end pending checks without confirmation. Reopening
+makes previous confirmation historical. Same-status remote Open polls preserve readiness.
+The latest request and decision are retained, without an unbounded history or a second evidence
+system. Original messages, source, anchor and screenshot remain unchanged.
+
+Fix summaries are plain text, at most 500 characters. Links are at most 2,048 characters and
+are never fetched or embedded. Configured review links use approved project page state; external
+links require HTTPS without credentials, query or fragment state. Guest exports omit restricted
+review destinations. Copy issue, MCP reads and connected-service packets include the verification
+outcome and named/timed decision, alongside their compatible Open/Done status.

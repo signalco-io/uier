@@ -513,3 +513,20 @@ priority (`low`, `normal`, `high`, `urgent`). Missing priority on legacy records
 within the authorized 1,000-thread window. Reads never acknowledge activity. The field is additive;
 there is no dedicated MCP priority write in this version. Copy issue and provider packets include
 priority as context without changing provider-native priorities, labels or other human-managed fields.
+
+### Fix verification
+
+`list_feedback` adds `status: 'ready'` and display-only verification context. `get_feedback` and
+batch reads include the same additive packet details as Copy issue. Their v1 `resolved` and
+Open/Done fields remain compatible; Ready is unresolved. Reads do not acknowledge activity.
+
+| Tool | Scope | Input and meaning |
+| --- | --- | --- |
+| `request_feedback_verification` | `feedback:status` | Thread ids, stable retry key, current `expectedRevision` (or null), `reviewerId` (`author` or eligible member id), optional summary/fix URL. Requests a check after explicit human approval. |
+| `cancel_feedback_verification` | `feedback:status` | Thread ids, stable retry key and current revision. Requester/admin cancels after explicit human approval. |
+
+No confirmation operation is offered through MCP. `set_feedback_status` remains ordinary
+Done/Open and never records reviewer confirmation. A pending check closed this way ends
+unconfirmed. Tool descriptions, report-back prompts and the downloadable agent skill all require
+approval of the exact operation and stable retry keys. Request/cancel attribution retains the
+human connection owner and connection identity, including across token refresh.

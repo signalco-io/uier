@@ -1052,3 +1052,20 @@ Ordinary public-project enrollment grants no priority or bulk powers; `canTriage
 in services and DTOs. Priority adds activity/integration intent only, with no email event. Read it via
 `commentPriority` everywhere. Tests: `triage{,.api}.spec.ts`, MCP, feedback-context and integration
 suites. See [review workflow](../../docs/review-workflow.md#search-priority-and-bulk-triage).
+
+## Fix verification
+
+`review/fixVerification.ts` owns conditional request/confirm/reject/cancel transitions. Reuse
+`changeComment` and atomic change receipts; recheck mode, access and reviewer authority on each
+attempt. `fixVerificationDto.ts` is pure and must be called only after visibility authorization.
+`comments/verificationState.ts` is the pure server ordinary-status projection used by review,
+public and provider writes; never infer confirmation from a resolved boolean. New requests and
+status transitions rotate the request revision. Same-status provider polls preserve readiness.
+Keep `verification` bounded to the latest request/decision, with server-only actor references.
+
+`VerificationControl` and toolbar `CommentVerification` share pure `@uier/toolbar/verification`
+labels/types, not UI or runtime imports. Ready is a subset of Open in activity counts; board
+columns are exclusive. Workflow-only changes must not acknowledge reads. MCP offers approved
+request/cancel under `feedback:status`, never confirmation. Keep tools, workflows and downloadable
+skill aligned. Focused coverage is `verification{,.api}.spec.ts` plus bulk, MCP and integration
+regressions. Author placeholder deletion redacts verification with original author evidence.

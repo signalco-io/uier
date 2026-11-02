@@ -11,6 +11,7 @@ const operations: [RegExp, ExtensionMethod[]][] = [
     [new RegExp(`^comments/${id}/(assignee|anchor|priority)$`), ['PATCH']],
     [new RegExp(`^comments/${id}/screenshot$`), ['GET', 'POST']],
     [new RegExp(`^comments/${id}/context$`), ['GET']],
+    [new RegExp(`^comments/${id}/verification$`), ['POST']],
     [new RegExp(`^comments/${id}/read$`), ['POST', 'DELETE']],
     [new RegExp(`^comments/${id}/notifications$`), ['GET', 'POST']]
 ];

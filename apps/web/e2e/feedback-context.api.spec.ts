@@ -40,7 +40,9 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
         expect(packet.markdown).toContain(`\n${text}\n`);
         expect(packet.markdown).toContain('`````text');
         expect(packet.context.reproduction).toEqual({ device: 'desktop', windowSize: [1280, 720] });
-        expect(JSON.stringify(packet)).not.toMatch(/Private browser|Private OS|capturedAt|pixelRatio|do-not-export|secret|authorId|isMe|ttl/);
+        expect(JSON.stringify(packet)).not.toMatch(/Private browser|Private OS|do-not-export|secret/);
+        // Check field names; a random comment/item id may legitimately contain words such as ttl.
+        expect(JSON.stringify(packet.context)).not.toMatch(/"(?:capturedAt|pixelRatio|authorId|actorId|isMe|ttl)"\s*:/);
         expect(packet.markdown).toBe(feedbackMarkdown(packet.context));
         if (index === 3) {
             expect(packet.context.feedback.quotedText).toBe('Old headline');

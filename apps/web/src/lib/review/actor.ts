@@ -151,4 +151,5 @@ export async function refreshMutationActor(project: DbProject, actor: ProjectAct
         assertCanUseComments(current, actor);
     }
     if (requireComments) assertCanUseComments(current, actor);
+    return current;
 }
