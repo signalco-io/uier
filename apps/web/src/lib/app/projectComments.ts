@@ -1,3 +1,4 @@
+import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from '../review/commentRevision';
 import { environmentFilter, type FeedbackSource } from './environments';
@@ -68,6 +69,8 @@ export type ProjectCommentView = {
     device?: DbDeviceSize;
     reproduction: ReproductionContext;
     createdAt?: string;
+    verification?: import('@uier/toolbar/verification').VerificationDetails;
+    verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
     resolved: boolean;
     private: boolean;
     assignee?: { id: string; name: string };
@@ -105,6 +108,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const origin = source.origin ?? '';
     const size = comment.device?.size;
     return {
+        verification: verificationDetails(comment, project, actor, participants),
+        verificationPermissions: verificationPermissions(comment, project, actor, participants),
         priority: commentPriority(comment.priority),
         revision: commentRevision(comment),
         source,

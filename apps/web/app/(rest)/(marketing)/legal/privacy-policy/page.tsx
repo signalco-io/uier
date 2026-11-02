@@ -74,6 +74,13 @@ export default function PrivacyPolicyPage() {
                     previous anchors (including selected text), last change time and change count. This context
                     follows the comment&rsquo;s visibility and retention. Reattachment keeps messages and saved images;
                 </li>
+                <li>
+                    if a member requests a fix check, the latest request and revision, requester and
+                    reviewer identities, request time, optional short summary and fix link, outcome,
+                    and latest decision actor and time, including an explicit admin override. This
+                    follows the thread&rsquo;s visibility and retention; ordinary Done does not record
+                    reviewer confirmation. Fix links are not fetched or embedded automatically;
+                </li>
                 <li>when it was posted or edited, and the time in your browser when feedback capture started;</li>
                 <li>
                     details about the device it came from: its size (desktop, tablet or mobile), the window

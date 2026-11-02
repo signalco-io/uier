@@ -20,6 +20,7 @@ export type FeedbackContext = {
     title: string;
     kind: 'comment' | 'feedback' | 'bug' | 'rewrite';
     status: 'open' | 'done';
+    verification?: import('./verification').VerificationDetails;
     /** Display-only assignment from an authorized member projection; no account identifier. */
     priority?: CommentPriority;
     assignee?: { name: string };
@@ -104,6 +105,14 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         `Packet version: ${context.schemaVersion}\n\nFeedback: ${plain(identity.commentId)}${reference(context)}${identity.projectId ? `\n\nProject: ${plain(identity.projectId)}` : ''}\n\nKind: ${context.kind} · Status: ${context.status}`,
         `Priority: ${priorityLabels[commentPriority(context.priority)]}`,
         context.assignee ? `Assignee: ${plain(context.assignee.name)}` : '',
+        context.verification ? [
+            '## Fix verification',
+            `Outcome: ${plain(context.verification.outcome)} · Requested by ${plain(context.verification.requester)} for ${plain(context.verification.reviewer)} at ${plain(context.verification.requestedAt)}`,
+            `Request: ${plain(context.verification.id)} · Revision: ${plain(context.verification.revision)}`,
+            context.verification.summary ? literal(context.verification.summary) : '',
+            context.verification.fixUrl ? link('Fix link', context.verification.fixUrl) : '',
+            context.verification.decision ? `${plain(context.verification.decision.kind)} by ${plain(context.verification.decision.actor)} at ${plain(context.verification.decision.at)}${context.verification.decision.override ? ' (admin override)' : ''}. A prior decision is historical unless the outcome is confirmed.` : 'No reviewer confirmation.'
+        ].filter(Boolean).join('\n\n') : '',
         '## Original feedback',
         message(context.feedback, context.kind === 'rewrite' ? 'Suggested rewrite (not original page copy)' : 'Saved message'),
         '## Page and anchor',

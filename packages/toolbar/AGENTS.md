@@ -275,3 +275,14 @@ guests and a UI-kit control only with `permissions.priority`; its failed intende
 submission key. The review API rechecks membership/private visibility and current public-project
 staff policy. The control is shared by thread and inbox, with cache/activity invalidation through
 `useComments`. No toolbar bulk operations. Feedback packets include priority as additive context.
+
+## Fix verification
+
+`verification.ts` is the pure public display contract, status helper and literal description.
+`CommentVerification` is shared by thread popovers and inbox cards, with signalco controls,
+reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
+The status badge reads Ready for review for pending unresolved requests; the ordinary action
+says Done without verification. Confirmation requires the server's current request revision.
+Workflow mutations refresh all lists/activity, preserve failed details and never auto-acknowledge
+activity. Ready remains in Open counts, with its own filter. The extension contract adds the
+same narrowly allowed verification POST; retain all supported older routes.

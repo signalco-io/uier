@@ -73,6 +73,8 @@ import { updateNotificationAction } from './notificationActions';
 import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
 import { integrationLabels, kindLabels } from './commentLabels';
 import { useCommentUpdate } from './CommentUpdates';
+import { VerificationControl } from './VerificationControl';
+import { readyForReview } from '@uier/toolbar/verification';
 import { ReplyComposer } from './ReplyComposer';
 import {
     markCommentReadAction,
@@ -100,19 +102,19 @@ function StateDot({ resolved }: { resolved: boolean }) {
     return <span aria-hidden="true" className={resolved ? 'size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 shrink-0 rounded-full bg-foreground'} />;
 }
 
-function StateBadge({ resolved }: { resolved: boolean }) {
+function StateBadge({ resolved, ready }: { resolved: boolean; ready?: boolean }) {
     return (
         <Badge variant="outline" className="gap-1.5">
             <StateDot resolved={resolved} />
             <span className="sr-only">Status: </span>
-            {resolved ? 'Done' : 'Open'}
+            {resolved ? 'Done' : ready ? 'Ready for review' : 'Open'}
         </Badge>
     );
 }
 
 /** The status badge as a menu, for those who can mark the comment done or reopen it */
-function StateMenu({ resolved, disabled, onChange }: { resolved: boolean; disabled: boolean; onChange: () => void }) {
-    const state = resolved ? 'Done' : 'Open';
+function StateMenu({ resolved, ready, disabled, onChange }: { resolved: boolean; ready?: boolean; disabled: boolean; onChange: () => void }) {
+    const state = resolved ? 'Done' : ready ? 'Ready for review' : 'Open';
     return (
         <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${state}. Change status`}
@@ -126,7 +128,7 @@ function StateMenu({ resolved, disabled, onChange }: { resolved: boolean; disabl
                     {[false, true].map(option => (
                         <DropdownMenuItem key={String(option)} onClick={() => option !== resolved && onChange()}>
                             <StateDot resolved={option} />
-                            {option ? 'Done' : 'Open'}
+                            {option ? ready ? 'Done without verification' : 'Done' : 'Open'}
                             {option === resolved && <CheckIcon className="ml-auto" />}
                         </DropdownMenuItem>
                     ))}
@@ -372,8 +374,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <SelectComment comment={comment} />
                         {permissions.resolve
-                            ? <StateMenu resolved={comment.resolved} disabled={pending} onChange={toggleResolved} />
-                            : <StateBadge resolved={comment.resolved} />}
+                            ? <StateMenu ready={readyForReview(comment)} resolved={comment.resolved} disabled={pending} onChange={toggleResolved} />
+                            : <StateBadge ready={readyForReview(comment)} resolved={comment.resolved} />}
                         <PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} />
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
@@ -501,6 +503,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 </div>
                 <CopyIssueResult state={copyIssue} />
+                <VerificationControl projectId={projectId} userId={userId} comment={comment} />
 
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-2 p-0">

@@ -152,6 +152,8 @@ export type CommentItem = {
         windowSize?: [number, number]; pixelRatio?: number; url?: string; text: string;
     };
     priority?: import('../../triage').CommentPriority;
+    verification?: import('../../verification').VerificationDetails;
+    verificationPermissions?: import('../../verification').VerificationPermissions;
     resolved: boolean;
     /**
      * Whether the current visitor wrote this comment (only the author can resolve or delete it).

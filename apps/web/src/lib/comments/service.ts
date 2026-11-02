@@ -1,3 +1,5 @@
+import { ordinaryVerificationStatus } from './verificationState';
+import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
 import { cleanupThread, queueThreadCleanup } from './cleanup';
 import { readActivity, threadActivity, withThreadActivity } from './activity';
 import { getReadSequence, loadReadSequences, unreadComments } from './readState';
@@ -86,12 +88,20 @@ function assertVisible(comment: DbComment, context: CommentsApiContext) {
         throw apiErrors.notFound();
 }
 
+function publicVerification(comment: DbComment, context: CommentsApiContext, names: Map<string, string>) {
+    if (!comment.verification || !context.project || !context.actor) return {};
+    const permissions = verificationPermissions(comment, context.project, context.actor, names);
+    return { verification: verificationDetails(comment, context.project, context.actor, names),
+        verificationPermissions: { ...permissions, request: false } };
+}
+
 async function toDto(comment: DbComment, context: CommentsApiContext): Promise<CommentDto> {
     assertVisible(comment, context);
-    const dto = toCommentDto(comment, context.visitor.authorId, await authorNames([comment]));
+    const names = await authorNames([comment]);
+    const dto = toCommentDto(comment, context.visitor.authorId, names);
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
-    return { ...dto, activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
+    return { ...dto, ...publicVerification(comment, context, names), activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
 }
 
 export function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
@@ -156,7 +166,7 @@ export async function listComments(context: CommentsApiContext, path: string | n
     const reads = await loadReadSequences(context.domain, context.visitor.authorId);
     return withinListResponseSize(comments.flatMap(comment => {
         const dto = toCommentDto(comment, context.visitor.authorId, names);
-        return dto ? [{ ...dto, activity: readActivity(comment, context.visitor.authorId, reads.get(comment.id)) }] : [];
+        return dto ? [{ ...dto, ...publicVerification(comment, context, names), activity: readActivity(comment, context.visitor.authorId, reads.get(comment.id)) }] : [];
     }));
 }
 
@@ -335,7 +345,7 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {
     const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
         assertCommentAuthor(comment, context);
-        return { ...(Boolean(comment.resolved) === input.resolved ? comment : withThreadActivity(comment, writerId(context))), resolved: input.resolved, updatedAt: nowIso() };
+        return { ...ordinaryVerificationStatus(Boolean(comment.resolved) === input.resolved && !(!input.resolved && comment.verification?.outcome === 'pending') ? comment : withThreadActivity(comment, writerId(context)), input.resolved, true), updatedAt: nowIso() };
     });
 
     return toDto(updated, context);
@@ -383,6 +393,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
         thread: { ...comment.thread, items: [placeholder, ...replies] },
         updatedAt: now
     };
+    delete updated.verification;
     delete updated.authorId;
     delete updated.device;
     delete updated.screenshot;

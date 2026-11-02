@@ -187,6 +187,6 @@ export function clearReviewerCache(client: QueryClient) {
     void client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
     void client.cancelQueries({ queryKey: activityQueryKey });
     client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
-    client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, open: 0, done: 0, total: 0 });
+    client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, ready: 0, open: 0, done: 0, total: 0 });
     client.removeQueries({ queryKey: ['screenshot'] });
 }

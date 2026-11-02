@@ -235,7 +235,7 @@ test('priority CAS preserves unrelated replies, assignment and status; status re
     const input = { kind: 'status', resolved: false, items: [{ id: current.id, expected: true, revision: commentRevision(current), idempotencyKey: randomUUID() }] };
     const stored = (await store.get(current.domain, current.id))!;
     // A future verification request/decision participates automatically without a schema dependency.
-    await store.replace({ ...stored.comment, verification: { revision: 'new-decision', confirmed: true } } as DbComment, stored.etag);
+    await store.replace({ ...stored.comment, verification: { id: randomUUID(), revision: 'new-decision', requester: `user:${alice.userId}`, reviewer: `user:${bob.userId}`, requestedAt: new Date().toISOString(), outcome: 'confirmed' } } as DbComment, stored.etag);
     expect((await triageProjectComments(project, alice, input)).counts.conflict).toBe(1);
     expect((await store.get(current.domain, current.id))!.comment.resolved).toBe(true);
 });

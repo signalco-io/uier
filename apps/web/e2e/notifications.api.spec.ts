@@ -1,3 +1,4 @@
+import { changeFixVerification } from '../src/lib/review/fixVerification';
 import { POST as receiveReport } from '../app/api/email/reports/route';
 import { GET as oneClickGet, POST as oneClickPost } from '../app/api/notifications/unsubscribe/route';
 import { signToken } from '../src/lib/app/tokens';
@@ -656,4 +657,28 @@ test('one-click rejects malformed, expired and confirmation tokens; guest confir
     expect((await notificationSubscription(f.project.id, inspected.doc.actorId, f.comment.id))?.following).toBe(false);
     await actOnNotificationToken(token, 'verify');
     expect(await emailSuppression(address)).toBeUndefined();
+});
+
+
+test('fix requests and decisions use current target delivery rules without duplicate or self email', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    await dispatch(f.project, f.comment, sent);
+    sent.length = 0;
+    const input = { action: 'request', reviewerId: f.member.id, expectedRevision: null, idempotencyKey: randomUUID() };
+    const requested = await changeFixVerification(f.project, f.ownerActor, f.comment.id, input);
+    await changeFixVerification(f.project, f.ownerActor, f.comment.id, input);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe(f.member.email);
+    expect(sent[0]!.text).toContain('requested a fix check');
+    const decision = { action: 'confirm', expectedRevision: requested.verification!.revision, idempotencyKey: randomUUID() };
+    await changeFixVerification(f.project, f.memberActor, f.comment.id, decision);
+    await changeFixVerification(f.project, f.memberActor, f.comment.id, decision);
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.to).toBe(f.owner.email);
+    expect(sent[1]!.text).toContain('confirmed the fix');
+    await dispatch(f.project, f.comment, sent);
+    expect(sent).toHaveLength(2);
 });

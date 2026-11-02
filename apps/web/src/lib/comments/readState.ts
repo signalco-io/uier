@@ -1,3 +1,4 @@
+import { readyForReview } from '@uier/toolbar/verification';
 import { threadRecordTtl } from './retention';
 import type { AppDoc } from '../app/model';
 import { getAppStore } from '../app/store';
@@ -76,7 +77,7 @@ export async function markThreadUnread(comment: DbComment, reviewerId: string) {
     throw apiErrors.conflict();
 }
 
-export type ActivitySummary = { unread: number; open: number; done: number; total: number };
+export type ActivitySummary = { unread: number; ready: number; open: number; done: number; total: number };
 
 /** No text or actor ids are returned to the browser. Authorization/visibility stays server-side. */
 export async function projectActivity(domain: string, reviewerId: string | undefined,
@@ -85,7 +86,7 @@ export async function projectActivity(domain: string, reviewerId: string | undef
     const comments = records.filter(visible).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
     const unreadIds = comments.filter(comment => readActivity(comment, reviewerId, reads.get(comment.id)).unread).map(comment => comment.id);
     return {
-        summary: { unread: unreadIds.length, open: comments.filter(comment => !comment.resolved).length,
+        summary: { unread: unreadIds.length, ready: comments.filter(readyForReview).length, open: comments.filter(comment => !comment.resolved).length,
             done: comments.filter(comment => comment.resolved).length, total: comments.length } satisfies ActivitySummary,
         unreadIds
     };

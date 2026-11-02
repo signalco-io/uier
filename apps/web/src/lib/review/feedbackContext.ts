@@ -16,13 +16,15 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
     if (!comment) throw apiErrors.notFound();
     const origins = projectOrigins(project);
     const names = await authorNames([comment]);
-    const participants = actor.kind === 'member' && comment.assigneeId ? await participantNames(project) : names;
-    const dto = toReviewCommentDto(comment, actor, names, origins, 0, participants);
+    const participants = await participantNames(project);
+    const dto = toReviewCommentDto(comment, actor, names, origins, 0, participants, project);
     if (!dto) throw apiErrors.notFound();
     // Guests see only the source they are currently reviewing, never other configured addresses
     // or the member-only browser context. Removed sources do not fall back to another environment.
     const allowedOrigins = actor.kind === 'member' ? origins : siteOrigin && origins.includes(siteOrigin) ? [siteOrigin] : [];
     const pageUrl = toReproductionContext(comment, allowedOrigins).url;
+    if (actor.kind !== 'member' && dto.verification?.fixUrl && origins.includes(new URL(dto.verification.fixUrl).origin)
+        && !allowedOrigins.includes(new URL(dto.verification.fixUrl).origin)) delete dto.verification.fixUrl;
     const screenshot = dto.screenshot ? await getCommentsStore().getScreenshot(comment.domain, comment.id) : null;
     let commentUrl: string | undefined;
     if (pageUrl) {

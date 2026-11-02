@@ -448,3 +448,33 @@ original keys, operation and expected values. Status revisions cover content and
 metadata, excluding delivery bookkeeping. Follow-up verification rules belong in the shared status
 service so individual and bulk writes remain compatible. This is partial success, not a transaction
 across all selected threads. The app revalidates once per batch; bulk read remains its own contract.
+
+## Fix verification
+
+`POST /api/review/:projectId/comments/:id/verification` uses existing project CORS, reviewer
+identity, verified-write protection and private-thread access. The same-origin public-project
+counterpart is `POST /api/comments/:id/verification`, with the normal visitor/session and BotID
+checks. It is unavailable for isolated anonymous host partitions.
+
+Requests require a stable `idempotencyKey` and `expectedRevision` (null for a thread with no
+verification record). Supported payloads are:
+
+- `{ action: 'request', reviewerId: 'author' | memberId, expectedRevision, idempotencyKey, summary?, fixUrl? }`.
+- `{ action: 'confirm' | 'reject' | 'cancel', expectedRevision, idempotencyKey, override? }`.
+
+Summary is plain text, up to 500 characters. Fix URLs are up to 2,048 characters; external URLs
+must be HTTPS without credentials or query/fragment state, and configured destinations must
+match approved project page state. No URL is fetched. Guest projection respects source access.
+
+Only current project members request checks; the target is the original usable author or another
+eligible member. Confirm/reject require the requested reviewer and a distinct requester, or a
+different admin with explicit `override: true`. Cancel requires the requester or an admin.
+Membership, project mode, visibility and reviewer authority are rechecked during conditional-write
+retries. Stale revisions return `409 conflict`. Receipt replay reauthorizes and returns current
+state without overwriting later work or producing another event.
+
+DTOs add optional `verification` (latest request id/revision, outcome, display names, request time,
+summary/link and latest named/timed decision with override attribution) and `verificationPermissions`.
+Guest actor hashes never leave storage. Legacy records need no migration. The resolved boolean
+remains compatible: Ready is false, confirmation is true, and ordinary true never confirms.
+Activity summaries add `ready`, a subset of `open`, over the full authorized projection.
