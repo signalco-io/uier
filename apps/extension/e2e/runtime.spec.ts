@@ -139,9 +139,12 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await inbox.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
     await inbox.getByRole('button', { name: 'High', exact: true }).click();
     await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
-    await reviewed.keyboard.press('Escape');
+    await inbox.getByRole('button', { name: 'Close sidebar', exact: true }).click();
+    await expect(inbox).toBeHidden();
     // Drafts recover across a real worker shutdown and page reload, with no image records.
-    await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const addComment = reviewed.getByRole('button', { name: 'Add comment', exact: true });
+    await addComment.click();
+    await expect(addComment).toHaveAttribute('aria-pressed', 'true');
     const paragraph = (await reviewed.locator('p').first().boundingBox())!;
     await reviewed.mouse.click(paragraph.x + 8, paragraph.y + 8);
     await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Recovered extension draft');
