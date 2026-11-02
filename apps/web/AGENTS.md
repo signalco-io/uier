@@ -1074,6 +1074,12 @@ script tab; comment activity does not prove embed installation. BrowserExtension
 server-only distribution gate (UIER_EXTENSION_AVAILABLE=1, valid STORE_ID also in CLIENT_IDS).
 Never invent a store URL or enable it without hosted/store acceptance.
 
+`public/extension-demo.html` is an unindexed, deliberately plain reviewer fixture without the
+marketing layout, embed, scripts or styles. Its exact-path proxy policy denies all page resource
+loads. Keep it free of customer data and sign-in secrets; reviewers create their own isolated
+project. The API check preserves that boundary; the browser check scans its content directly
+because the ordinary public-page accessibility helper waits for a showcase toolbar.
+
 
 ## App triage
 

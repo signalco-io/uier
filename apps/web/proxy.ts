@@ -7,6 +7,7 @@ import { sessionContentSecurityPolicy } from './src/lib/review/sessionDocument';
 import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
 import { reviewSsoCookie } from './src/lib/app/reviewSsoCookie';
+import { KnownPages } from './src/knownPages';
 
 /** App pages that work signed out */
 const publicAppPaths = ['/app/sign-in', '/app/invitation', '/app/connect/error'];
@@ -23,6 +24,7 @@ export async function proxy(request: NextRequest) {
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
+    const extensionDemo = pathname === KnownPages.ExtensionDemo;
     const bridge = pathname === '/review-verification' || pathname === '/review-session' || pathname === '/extension-verification';
     const nonce = appPage || (pathname === '/review-verification' || pathname === '/extension-verification') ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
@@ -35,7 +37,10 @@ export async function proxy(request: NextRequest) {
         ], nonce),
         ...(bridge ? { frameGuard: false } : {})
     });
-    const csp = pathname === '/review-session'
+    // A plain, unembedded reviewer fixture deliberately denies page execution and resource loads.
+    const csp = extensionDemo
+        ? "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        : pathname === '/review-session'
         ? sessionContentSecurityPolicy
         : policy.find(header => header.key === 'Content-Security-Policy')!.value;
     const requestHeaders = new Headers(request.headers);
@@ -46,7 +51,8 @@ export async function proxy(request: NextRequest) {
     const finish = (response: NextResponse) => {
         for (const { key, value } of policy) response.headers.set(key, value);
         response.headers.set('Content-Security-Policy', csp);
-        if (bridge || nonce) response.headers.set('Cache-Control', 'no-store');
+        if (bridge || nonce || extensionDemo) response.headers.set('Cache-Control', 'no-store');
+        if (extensionDemo) response.headers.set('X-Robots-Tag', 'noindex');
         if (!bridge) {
             response.headers.set('Permissions-Policy', permissionsPolicy);
             // The installation popup must retain its WindowProxy across the customer-site redirect.

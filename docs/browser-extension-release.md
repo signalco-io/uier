@@ -76,7 +76,8 @@ The GitHub, Google Cloud and publisher configuration has been read back:
   SHA-256 `f814e18d257c8183675379e774a9de8f068d3729153ffb26599ad168e05ccf70`) created draft item
   `kplfcfnpeljpkbcjgpaefpmggipfpemj`. It has not been submitted for review.
 - Google configuration and the publisher/item IDs are set in `extension-production`.
-  `EXTENSION_HOSTED_ACCEPTANCE_URL` remains unset. [Read-only bootstrap run 41541608506](https://github.com/signalco-io/uier/actions/runs/41541608506)
+  `EXTENSION_HOSTED_ACCEPTANCE_URL` now points to the [native Chrome/Edge receipt](https://github.com/signalco-io/uier/issues/268#issuecomment-6591333055).
+  [Read-only bootstrap run 41541608506](https://github.com/signalco-io/uier/actions/runs/41541608506)
   succeeded after the immutable subject correction: GitHub OIDC generated a short-lived read-only
   service-account token and v2 `fetchStatus` read the exact draft item. No store write occurred.
 - The temporary development client `gnhfndanmlbcbcnogfojolkdamnlpjjm` is registered in hosted
@@ -86,7 +87,7 @@ The GitHub, Google Cloud and publisher configuration has been read back:
 
 The listing copy, category/language, icon, screenshot, promotional tile, privacy explanations and
 owner-approved Limited Use certifications are saved in the draft. Distribution is **unlisted**.
-Private reviewer notes explain self-service sign-in and an isolated project for `https://example.com`;
+Private reviewer notes explain self-service sign-in and an isolated project;
 they contain no shared password or customer account. No store submission or real BotID
 issuance/renewal is evidenced by this configuration receipt. The shared environment's
 review requirement also applies to manual/status runs; scheduled monitoring must not be described
