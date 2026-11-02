@@ -235,9 +235,9 @@ Review tokens and MCP connections (access tokens and connected apps) recheck the
 This grants project access directly, with no invitation email or acceptance step, and keeps each person's current workspace
 and new-user onboarding as the default. Switch to the **uier** workspace to view the project.
 
-The hero's `data-uier-thread="comment_uier_headline"` slot renders a live thread in an open shadow
-root, sharing the toolbar's components, queries and anonymous visitor cookie. Both hero pins and the
-text highlight come from stored comments. The inbox includes other public pages. Explicit review
+The landing page's two starter pins and the headline's text highlight come from stored comments;
+visitors reply in the toolbar's own thread, with its anonymous visitor cookie. The inbox includes
+other public pages. Explicit review
 links still start review mode; the signed-in app does not automatically publish a showcase.
 
 The app's **Give feedback** button (sidebar, above the account) opens the same toolbar on the app page in
