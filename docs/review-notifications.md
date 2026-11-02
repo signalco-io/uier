@@ -412,7 +412,10 @@ Caught-up accepted/suppressed ledgers expire after 30 days. Active work, failed 
 ledgers have no shorter expiry than their thread; manual recovery remains required for blocked sends.
 Discovery records `notificationDiscoveredThrough` on the thread after every recipient ledger is
 durable, so a recreated expired ledger starts after already-discovered events. Worker blocked
-counts query only inactive failed/ambiguous ledgers. The same schedule sweeps orphan screenshot
+counts use exact server aggregates for inactive failed/ambiguous ledgers. Active delivery
+selection loads only due candidates; the reported checked count is that due selection, with
+lease/access checks repeated before dispatch. See [Cosmos query costs](cosmos-query-costs.md)
+for measurements and the complete-list contract. The same schedule sweeps orphan screenshot
 metadata in pages of 100 without fetching pixels, protecting writes younger than one hour and
 concurrent replacements with etags.
 

@@ -139,16 +139,16 @@ test('worker adopts expiry on legacy completed ledgers only after persisting the
     expect(sent).toHaveLength(1);
 });
 
-test('worker counts blocked ledgers through status-filtered queries', async () => {
+test('worker counts blocked ledgers through exact status-filtered counts', async () => {
     const f = await fixture();
     await discoverThreadNotifications(f.project, f.comment);
     const ledger = (await deliveries(f.project))[0]!;
     await updateDoc<NotificationDelivery>(ledger.pk, ledger.id, row => ({ ...row, active: false, status: 'ambiguous', ttl: -1 }));
     const queries: unknown[] = [];
     const app = getAppStore();
-    const result = await runNotificationWorker(baseUrl, async () => ({ status: 'sent' }), { ...app, query: async query => {
+    const result = await runNotificationWorker(baseUrl, async () => ({ status: 'sent' }), { ...app, count: async query => {
         queries.push(query);
-        return app.query(query);
+        return app.count(query);
     } });
     expect(result.blocked).toBeGreaterThanOrEqual(1);
     expect(queries).toContainEqual({ type: 'notification-delivery', where: { active: false, status: 'ambiguous' } });

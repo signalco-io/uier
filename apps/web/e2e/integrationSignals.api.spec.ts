@@ -342,7 +342,8 @@ test('Cosmos outbox queries bound the indexed cursor page before fetching resour
     const captured: { query: string; parameters: { name: string; value: unknown }[] }[] = [];
     const container = { items: { query: (input: { query: string; parameters: { name: string; value: unknown }[] }) => {
         captured.push(input);
-        return { fetchAll: async () => ({ resources: [{ ...comment, _etag: 'do-not-export' }] }) };
+        let pending = true;
+        return { hasMoreResults: () => pending, fetchNext: async () => { pending = false; return { resources: [{ ...comment, _etag: 'do-not-export' }] }; } };
     } } } as unknown as Container;
     const store = createCosmosCommentsStore(() => container);
     const after = syncPendingKey(comment.domain, 'comment_before');

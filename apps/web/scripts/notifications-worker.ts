@@ -8,6 +8,8 @@ import { retryNotificationDelivery, runNotificationWorker } from '../src/lib/not
 import { configuredAppBaseUrl } from '../src/lib/app/deployment';
 import { runIntegrationWorker } from '../src/lib/integrations/worker';
 
+process.env.UIER_COSMOS_WORKLOAD = 'scheduled';
+
 if (process.env.UIER_DEPLOYMENT_ENV !== 'production' || !process.env.COSMOSDB_CONNECTION_STRING || !process.env.UIER_COMMENTS_SECRET)
     throw new Error('The notification worker requires the production deployment configuration.');
 

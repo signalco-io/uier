@@ -265,11 +265,11 @@ export async function runNotificationWorker(baseUrl: string, transport = deliver
         const project = await findProject(comment.projectId);
         if (project) await discoverThreadNotifications(project, comment);
     }
-    const deliveries = await store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true } });
+    const deliveries = await store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true }, dueBefore: iso() });
     for (const delivery of deliveries) await processNotificationDelivery(delivery, baseUrl, transport, Date.now(), store);
     const blocked = await Promise.all(['failed', 'ambiguous'].map(status =>
-        store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: false, status } })));
-    return { checked: deliveries.length, blocked: blocked.reduce((count, rows) => count + rows.length, 0) };
+        store.count<NotificationDelivery>({ type: 'notification-delivery', where: { active: false, status } })));
+    return { checked: deliveries.length, blocked: blocked.reduce((count, total) => count + total, 0) };
 }
 
 /** Manual workflow recovery. An uncertain send keeps its operation identity and is only reconciled. */

@@ -3,6 +3,8 @@
 Maintainer reference for infrastructure, deployment, service checks and moderation. Local web
 development needs none of these credentials; see [local development](development.md).
 For recovery procedures, use [Backups and restore](backups-and-restore.md).
+For the operation inventory, safe diagnostics and dated RU measurements, use
+[Cosmos query costs](cosmos-query-costs.md).
 
 ## Infrastructure
 
