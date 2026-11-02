@@ -1,3 +1,4 @@
+import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import { feedbackMarkdown, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 import type { LinearIssueGeneration } from './model';
@@ -15,7 +16,7 @@ export function linearIssueProjection(context: FeedbackContext, issue: LinearIss
         + (issue.screenshot ? `\n![Saved screenshot](<${issue.screenshot.assetUrl}>)\n` : '') + `\n${issue.marker}\n`;
     // Never turn a large packet into an undocumented provider-limit failure or a complete-mirror claim.
     if (markdown.length > 50_000) return { title: context.title.slice(0, 100), description:
-        `${literal((context.feedback?.text ?? 'Unavailable feedback').slice(0, 5000))}\n\nThis thread is too large to mirror completely. Read the current thread in uier.\n\n`
+        `Priority: ${priorityLabels[commentPriority(context.priority)]}\n\n${literal((context.feedback?.text ?? 'Unavailable feedback').slice(0, 5000))}\n\nThis thread is too large to mirror completely. Read the current thread in uier.\n\n`
         + (context.links.comment ? `[Open feedback in uier](<${context.links.comment}>)\n\n` : '') + issue.marker, truncated: true };
     return { title: context.title.slice(0, 100), description: markdown, truncated: false };
 }

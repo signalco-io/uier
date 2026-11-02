@@ -1,3 +1,4 @@
+import type { CommentPriority } from '../triage';
 import { useProjectViewer } from '../project/ProjectGate';
 import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -237,6 +238,7 @@ export function useComments(refreshOnMount = false): {
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
+    prioritize: UseMutationResult<CommentItem, Error, { commentId: string; priority: CommentPriority; idempotencyKey: string }, unknown>;
     assign: UseMutationResult<CommentItem, Error, { commentId: string; assigneeId: string | null }, unknown>;
     edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
     reattach: UseMutationResult<CommentItem, Error, ReattachInput, unknown>;
@@ -379,6 +381,13 @@ export function useComments(refreshOnMount = false): {
         }
     });
 
+    const prioritize = useMutation({
+        mutationFn: async ({ commentId, priority, idempotencyKey }: { commentId: string; priority: CommentPriority; idempotencyKey: string }) =>
+            required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/priority`, { method: 'PATCH', body: { priority, idempotencyKey } })),
+        onMutate: () => currentReviewerRevision(),
+        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
+        onSettled: handleSettled
+    });
     const assign = useMutation({
         mutationFn: async ({ commentId, assigneeId }: { commentId: string; assigneeId: string | null }) => required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/assignee`, { method: 'PATCH', body: { assigneeId } })),
         onSuccess: handleCommentChanged, onSettled: handleSettled
@@ -415,6 +424,7 @@ export function useComments(refreshOnMount = false): {
         edit,
         reattach,
         assign,
+        prioritize,
         delete: remove,
         deleteReply: removeReply
     };

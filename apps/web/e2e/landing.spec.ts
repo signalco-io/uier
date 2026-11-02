@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 import { expectNoAxeViolations } from './accessibility';
-import { showcaseHint, toolbar } from './support/toolbar';
+import { animationsFinished, showcaseHint, toolbar } from './support/toolbar';
 
 test('landing page renders', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page }) => {
     const response = await page.goto('/');
@@ -85,6 +85,14 @@ test('landing page is accessible (with the showcase toolbar)', { tag: '@smoke' }
     await page.goto('/');
     await expect(toolbar(page)).toBeVisible();
     await expect(showcaseHint(page)).toBeVisible();
+    // The decorative caption fades with the walkthrough. Scan its settled colors.
+    const pause = page.getByRole('button', { name: 'Pause', exact: true });
+    // The first-run hint can overlap the cover on phones; the control remains keyboard accessible.
+    await pause.focus();
+    await pause.press('Enter');
+    await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+    await animationsFinished(page.getByRole('region', { name: 'How it works', exact: true }));
+    await animationsFinished(showcaseHint(page));
     await expectNoAxeViolations(page);
 });
 

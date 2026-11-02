@@ -102,3 +102,30 @@ test('live membership and comments-off checks apply to extension review contexts
     const expired = signToken('extension-review-v1', { projectId: f.project.id, origin: 'https://reviewed.example' }, -1);
     await expect(extensionReviewContext(request('review/info', expired))).rejects.toMatchObject({ status: 401 });
 });
+
+test('priority uses scoped extension identity and the shared proof and member authority', async () => {
+    const { prioritizeReviewComment } = await import('../src/lib/review/routes');
+    const { createProjectComment } = await import('../src/lib/review/comments');
+    const { memberActor } = await import('../src/lib/review/actor');
+    const f = await fixture();
+    const actor = (await memberActor(f.project, f.user.id))!;
+    const comment = await createProjectComment(new Request('https://uier.io'), f.project, actor, {
+        origin: 'https://reviewed.example', path: '/', position: { type: 'page' }, kind: 'feedback', text: 'Extension priority'
+    });
+    const credentials = await exchangeExtensionCode(f.exchange);
+    const scoped = await (await createScope(request('scope', credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+    const url = `https://uier.io/api/extension/review/comments/${comment.id}/priority`;
+    const headers = { Authorization: `Bearer ${scoped.token}`, 'Content-Type': 'application/json' };
+    const body = JSON.stringify({ priority: 'urgent', idempotencyKey: randomUUID() });
+    const unverified = await extensionReviewContext(new Request(url, { method: 'PATCH', headers, body }));
+    await expect(assertVerifiedWrite(unverified)).rejects.toMatchObject({ status: 403 });
+    const proof = signToken('review-verification', { projectId: f.project.id, origin: 'https://reviewed.example', authorId: actorAuthorId(actor) }, 300);
+    const verified = new Request(url, { method: 'PATCH', headers: { ...headers, 'X-Uier-Verification': proof }, body });
+    const context = await extensionReviewContext(verified);
+    await assertVerifiedWrite(context);
+    const response = await prioritizeReviewComment(context, { id: comment.id });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ priority: 'urgent', permissions: { priority: true } });
+    await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
+    await expect(extensionReviewContext(verified)).rejects.toMatchObject({ status: 401 });
+});

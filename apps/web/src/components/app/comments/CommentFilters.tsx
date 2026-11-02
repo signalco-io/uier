@@ -1,5 +1,9 @@
 'use client';
 
+import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
+import { Field, FieldLabel } from '@/src/components/ui/field';
+import { Input } from '@/src/components/ui/input';
+
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { KanbanIcon, ListIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -9,7 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { LocationFilter, type PageCount } from './LocationFilter';
 
 
@@ -18,7 +22,10 @@ const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
 const segmentedItem = 'h-[26px] min-w-[26px] rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 
 /** The list's status and unread filter, then where (environment and page) and who, then the view (list or board); all kept in the URL */
-export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, readAction, author, summary }: {
+export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, readAction, author, summary, search, onSearch, priority }: {
+    search: string;
+    onSearch: (value: string) => void;
+    priority?: CommentPriority;
     author?: AuthorFilter;
     readAction?: ReactNode;
     /** How many comments are shown, before the List/Board switch */
@@ -36,12 +43,14 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
     /** Relative URLs (paths) that have comments, with how many */
     pages: PageCount[];
 }) {
+    const searchRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
     const go = (name: string, value: string | undefined) => {
         const params = new URLSearchParams(searchParams.toString());
+        if (search) params.set('q', search); else params.delete('q');
         if (value === undefined)
             params.delete(name);
         else
@@ -54,6 +63,18 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
 
     return (
         <div className="flex w-full flex-wrap items-center gap-2">
+            <Field className="w-full sm:w-64">
+                <FieldLabel htmlFor="feedback-search" className="sr-only">Search feedback</FieldLabel>
+                <Input className="pointer-coarse:min-h-11" ref={searchRef} id="feedback-search" type="search" maxLength={MAX_FEEDBACK_SEARCH} placeholder="Search feedback" value={search} onChange={event => onSearch(event.target.value)} />
+            </Field>
+            {search && <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={() => { onSearch(''); searchRef.current?.focus(); }}>Clear search</Button>}
+            <Select items={{ all: 'All priorities', ...priorityLabels }} value={priority ?? 'all'} onValueChange={value => go('priority', value === 'all' ? undefined : value ?? undefined)}>
+                <SelectTrigger size="sm" aria-label="Priority filter" className="pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectGroup>
+                    <SelectItem className="pointer-coarse:min-h-11" value="all">All priorities</SelectItem>
+                    {priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>{priorityLabels[value]}</SelectItem>)}
+                </SelectGroup></SelectContent>
+            </Select>
             {/* The toolbar inbox's status tabs; the board already shows Open and Done side by side */}
             {view === 'list' && (
                 <ToggleGroup

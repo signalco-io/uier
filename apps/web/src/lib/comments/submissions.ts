@@ -6,7 +6,7 @@ import { ApiError, apiErrors } from './http';
 import { MAX_THREAD_ITEMS } from './limits';
 import { withThreadActivity } from './activity';
 
-/** Longer than the seven-day local draft lifetime; receipts contain hashes and ids only. */
+/** Longer than the seven-day local draft lifetime; receipts contain hashes, ids and desired-state outcomes only. */
 export const submissionTtlSeconds = 30 * 24 * 60 * 60;
 
 function stable(value: unknown): string {
@@ -36,8 +36,8 @@ export async function recoverSubmission(store: CommentsStore, attempt: Submissio
 }
 
 /** Commit then recover even if the database response itself was lost. */
-async function commit(store: CommentsStore, attempt: Submission, comment: DbComment, etag?: string, screenshot?: DbScreenshot) {
-    const receipt: DbSubmission = { ...attempt, type: 'submission', commentId: comment.id, ttl: submissionTtlSeconds };
+async function commit(store: CommentsStore, attempt: Submission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, changed?: boolean) {
+    const receipt: DbSubmission = { ...attempt, ...(changed === undefined ? {} : { changed }), type: 'submission', commentId: comment.id, ttl: submissionTtlSeconds };
     try {
         if (await store.commitSubmission(receipt, comment, etag, screenshot) === 'ok') return comment;
     } catch (error) {
@@ -84,16 +84,16 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
 
 /** Same partition transaction as replies: desired-state changes cannot replay over newer work. */
 export async function commitChangeSubmission(store: CommentsStore, attempt: Submission, id: string,
-    visible: (comment: DbComment) => unknown, change: (comment: DbComment) => Promise<DbComment>) {
+    visible: (comment: DbComment) => unknown, change: (comment: DbComment) => Promise<DbComment>, onResult?: (changed: boolean) => void) {
     for (let retry = 0; retry < 8; retry++) {
         const recovered = await recoverSubmission(store, attempt);
-        if (recovered) { await visible(recovered); return recovered; }
+        if (recovered) { await visible(recovered); onResult?.((await store.getSubmission(attempt.domain, attempt.id))?.changed === true); return recovered; }
         const stored = await store.get(attempt.domain, id);
         if (!stored) throw apiErrors.notFound();
         await visible(stored.comment);
         const updated = await change(stored.comment);
-        const saved = await commit(store, attempt, updated, stored.etag);
-        if (saved) { await visible(saved); return saved; }
+        const saved = await commit(store, attempt, updated, stored.etag, undefined, updated !== stored.comment);
+        if (saved) { await visible(saved); onResult?.((await store.getSubmission(attempt.domain, attempt.id))?.changed === true); return saved; }
     }
     throw apiErrors.conflict();
 }

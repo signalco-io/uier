@@ -1,3 +1,4 @@
+import { CommentPriority } from './CommentPriority';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -69,6 +70,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     return (
         <Stack ref={threadRef} spacing={2} className="px-4 py-3">
             <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)} />
+            <CommentPriority comment={commentItem} />
             {/* Where it came from */}
             {source && <div className="text-xs text-muted-foreground">{source}</div>}
             {/* The messages, one under the other like a chat; the avatars make the column */}

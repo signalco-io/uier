@@ -233,7 +233,7 @@ export default function PrivacyPolicyPage() {
                 under their account name, guests under the name they give. Who sees the comments is the
                 project&rsquo;s choice: its members, or anyone with its review link. A comment an admin makes
                 private is visible only to the project&rsquo;s admins and its author. Members can assign comments
-                to eligible members and mark them done. We store the assignee&rsquo;s account id. A selected
+                to eligible members, set their priority and mark them done. We store the priority and the assignee&rsquo;s account id. A selected
                 @mention stores the recipient&rsquo;s account id and its range in the message text, so names can
                 change without changing the recipient. Unsent selections are kept with the browser-local draft
                 for up to seven days and are cleared on discard, submission or sign-out. Only signed-in project members can look up participants;
@@ -284,11 +284,11 @@ export default function PrivacyPolicyPage() {
                 A workspace admin can connect a project to Notion, GitHub, Linear, Azure DevOps or Slack and choose
                 its destination. Shared feedback can then be copied to that service. Private feedback
                 and the public showcase are excluded. Notion pages, GitHub or Linear issues and Azure DevOps
-                work items can include feedback, replies, names, assignment, status, page links and reproduction
+                work items can include feedback, replies, names, assignment, priority, status, page links and reproduction
                 context. Notion can receive saved screenshots; Linear screenshot uploads are optional.
                 GitHub and Azure DevOps use protected links to screenshots in uier. Azure DevOps work items are
                 written as the Microsoft account that connected the project. Slack receives bounded excerpts,
-                project and page context, links and optional reply-count or status summaries, without
+                project and page context, priority, links and optional reply-count or status summaries, without
                 screenshot files. People with access to the chosen destination can read these copies
                 under the service&rsquo;s own permissions.
             </p>

@@ -1,3 +1,4 @@
+import { priorities } from '@uier/toolbar/triage';
 import { z } from 'zod';
 import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
 import { idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
@@ -16,3 +17,5 @@ export const filterAuthorActionSchema = commentActionSchema.extend({ itemId: com
 export const readCommentActionSchema = commentActionSchema.extend({ sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) });
 export const readCommentsActionSchema = bulkReadSchema.extend({ projectId: projectIdSchema });
 export const notificationActionSchema = z.object({ projectId: projectIdSchema, threadId: commentIdSchema.optional(), enabled: z.boolean() });
+
+export const priorityCommentActionSchema = commentActionSchema.extend({ priority: z.enum(priorities), idempotencyKey: idempotencyKeySchema });

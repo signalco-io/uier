@@ -1,3 +1,4 @@
+import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { storedPagePath } from '@uier/toolbar/page-state';
 import { displayName } from './visitor';
@@ -25,6 +26,7 @@ export type CommentDeletedThreadItemDto = {
 };
 
 export type CommentDto = {
+    priority: CommentPriority;
     activity?: import('./activity').ReadActivity;
     id: string;
     path: string;
@@ -174,6 +176,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         },
         device: toDeviceDto(comment.device),
         resolved: comment.resolved === true,
+        priority: commentPriority(comment.priority),
         isMine: Boolean(authorId) && authorId === visitorAuthorId,
         createdAt: optionalString(comment.createdAt)
     };

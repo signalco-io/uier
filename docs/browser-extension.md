@@ -34,7 +34,8 @@ fails closed. A helper can appear again when proof renewal is needed; this is an
 spike limitation to validate before designing a quieter production experience.
 
 The broker exposes a closed review route/method contract, not arbitrary fetch. Private image bytes
-also travel through it without signed-URL redirects. Credentials remain in trusted worker storage;
+also travel through it without signed-URL redirects. Priority writes use the allowlisted PATCH
+operation and the same membership, visibility and proof checks as the embedded toolbar. Credentials remain in trusted worker storage;
 content scripts receive project configuration, review responses and draft records only. No bearer
 is written into the reviewed page, its storage or page-visible messages.
 
@@ -55,7 +56,8 @@ page can hide or interfere with any injected UI, but cannot acquire extension cr
 
 1. Run Node 24 and the pinned Corepack pnpm. Run pnpm install, then pnpm build.
 2. For local API acceptance run pnpm -C apps/extension build:test. This separate artifact has a
-   fixed development public key and only http://127.0.0.1:4004/* host access. Never upload it.
+   fixed development public key and only http://127.0.0.1:4004/* host access by default. Set the
+   same `PORT` for `build:test` and `test:browser` to isolate concurrent local runs. Never upload it.
 3. Load apps/extension/dist-test unpacked through chrome://extensions (Developer mode).
 4. Configure UIER_EXTENSION_CLIENT_IDS with that development ID on the local API. Production
    defaults to disabled: only explicitly configured 32-letter Chrome extension IDs are accepted.

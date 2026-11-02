@@ -1,3 +1,5 @@
+import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
+import { commentRevision } from '../review/commentRevision';
 import { environmentFilter, type FeedbackSource } from './environments';
 import type { ReadActivity } from '../comments/activity';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
@@ -7,6 +9,7 @@ import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
 import type { ProjectActor } from '../review/actor';
 import {
+    canTriageProject,
     canDeleteComment,
     canDeleteItem,
     canEditComment,
@@ -38,6 +41,7 @@ export type ProjectCommentMessage = {
     createdAt?: string;
     deleted: boolean;
     edited: boolean;
+    quotedText?: string;
     canDelete: boolean;
     canFilterAuthor: boolean;
     pending?: boolean;
@@ -45,6 +49,8 @@ export type ProjectCommentMessage = {
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    priority: CommentPriority;
+    revision: string;
     integrationLinks?: ExternalFeedbackLink[];
     source: FeedbackSource;
     following?: boolean;
@@ -76,7 +82,7 @@ export type ProjectCommentView = {
     edited: boolean;
     replies: ProjectCommentMessage[];
     canFilterAuthor: boolean;
-    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; reply: boolean };
+    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; reply: boolean; triage: boolean };
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
@@ -99,6 +105,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const origin = source.origin ?? '';
     const size = comment.device?.size;
     return {
+        priority: commentPriority(comment.priority),
+        revision: commentRevision(comment),
         source,
         activity,
         id: comment.id,
@@ -128,7 +136,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         replies: replies.map(reply => ({
             id: String(reply.id),
             author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId },
-            text: mentionText(reply, participants),
+            text: reply.deletedAt ? '' : mentionText(reply, participants),
+            quotedText: reply.deletedAt ? undefined : reply.quotedText,
             createdAt: reply.createdAt,
             deleted: Boolean(reply.deletedAt),
             edited: Boolean(reply.editedAt),
@@ -140,6 +149,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             edit: canEditComment(comment, actor) && !first.deletedAt,
             delete: canDeleteComment(comment, actor),
             makePrivate: canMakeCommentPrivate(actor),
+            triage: canTriageProject(project, actor),
             assign: actor.kind === 'member',
             reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS
         }
@@ -147,10 +157,10 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void) {
     const actor = appActor(context);
     const [comments, members, reads, subscriptions] = await Promise.all([
-        listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId),
+        listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId, onWindow),
         listProjectMembers(project.workspaceId, project.id),
         loadReadSequences(`project:${project.id}`, `user:${context.user.id}`),
         getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } })

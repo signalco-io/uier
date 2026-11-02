@@ -1,3 +1,4 @@
+import { commentPriority, priorities } from '@uier/toolbar/triage';
 import { screenshotBytes } from '../screenshots/blobStore';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
@@ -31,6 +32,7 @@ const MAX_RESULT_BYTES = 256 * 1024;
 const feedbackFilters = z.object({
     projectId, ...page,
     search: z.string().max(200).default(''),
+    priority: z.enum(priorities).optional(),
     status: z.enum(['all', 'open', 'resolved']).default('all'),
     path: reviewPathSchema.optional(),
     environment: z.string().min(1).max(512).optional(),
@@ -93,12 +95,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const authorId = actorAuthorId(actor);
         const [participants, reads] = await Promise.all([participantNames(project), loadReadSequences(`project:${project.id}`, authorId)]);
         const search = input.search.toLocaleLowerCase();
-        const items = comments.filter(comment => (input.status === 'all' || Boolean(comment.resolved) === (input.status === 'resolved'))
+        const items = comments.filter(comment => (input.priority === undefined || commentPriority(comment.priority) === input.priority)
+            && (input.status === 'all' || Boolean(comment.resolved) === (input.status === 'resolved'))
             && comment.thread.items.some(item => !item.deletedAt && item.text.toLocaleLowerCase().includes(search)))
             .map(comment => {
                 const first = comment.thread.items[0];
                 const { path, source, assignee, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
-                return { id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', resolved: Boolean(comment.resolved), private: Boolean(comment.private),
+                return { id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), private: Boolean(comment.private),
                     summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,

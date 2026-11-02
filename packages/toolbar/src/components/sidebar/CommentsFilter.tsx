@@ -1,3 +1,4 @@
+import { matchesFeedbackSearch } from '../../triage';
 import type { CommentItem } from '../@types/Comments';
 
 export type CommentsStatusFilter = 'unresolved' | 'resolved' | 'all';
@@ -26,18 +27,6 @@ export function inboxPageKey(comment: CommentItem): `page:${string}` {
     return `page:${comment.source?.environment ?? ''}|${comment.path}`;
 }
 
-/** What a search looks through: the messages, quotes, authors, the page and the public id (`#12`) */
-function searchableText(comment: CommentItem) {
-    return [
-        comment.number !== undefined ? `#${comment.number}` : '',
-        comment.path,
-        comment.assignee?.name ?? '',
-        ...comment.thread.items.flatMap(item => item.deleted
-            ? []
-            : [item.text, item.quotedText ?? '', item.author?.name ?? '', ...(item.mentions ?? []).map(mention => mention.name ?? '')])
-    ].join('\n').toLocaleLowerCase();
-}
-
 /** Whether the comment has the status and every word of the search (pages are chosen separately) */
 export function matchesFilter(comment: CommentItem, filter: CommentsFilter) {
     if (!matchesStatus(comment, filter.status)) {
@@ -55,10 +44,6 @@ export function matchesSearch(comment: CommentItem, filter: CommentsFilter) {
     if (filter.assignedToMe && !comment.assignee?.isMe) return false;
     if (filter.unread && !comment.activity?.unread) return false;
 
-    const words = filter.keywords?.toLocaleLowerCase().split(/\s+/).filter(Boolean) ?? [];
-    if (!words.length) {
-        return true;
-    }
-    const text = searchableText(comment);
-    return words.every(word => text.includes(word));
+    return matchesFeedbackSearch({ number: comment.number, path: comment.path, messages: comment.thread.items,
+        context: [comment.assignee?.name ?? '', ...comment.thread.items.flatMap(item => item.deleted ? [] : [item.author?.name ?? '', ...(item.mentions ?? []).map(mention => mention.name ?? '')])] }, filter.keywords ?? '');
 }

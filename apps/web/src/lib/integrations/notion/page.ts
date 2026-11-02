@@ -1,3 +1,4 @@
+import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import type { FeedbackContext, FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 import { NotionApiError, array, object, richText, type JsonObject } from './client';
@@ -51,7 +52,7 @@ export function notionBlocks(context: FeedbackContext, screenshot?: { fileUpload
     const pageUrl = approvedUrl(context.links.page);
     if (pageUrl) result.push(blockSpec('page', { object: 'block', type: 'bookmark', bookmark: { url: pageUrl } }));
     add('heading:context', 'heading_2', 'Context');
-    const details: [string, unknown][] = [['Environment', context.source.environment], ['Page', context.source.path], ...Object.entries(context.reproduction)];
+    const details: [string, unknown][] = [['Priority', priorityLabels[commentPriority(context.priority)]], ['Environment', context.source.environment], ['Page', context.source.path], ...Object.entries(context.reproduction)];
     for (const [key, value] of details) if (value !== undefined)
         chunks(`context:${key}`, 'bulleted_list_item', `${key}: ${Array.isArray(value) ? value.join(' × ') : String(value)}`);
     add('heading:screenshot', 'heading_2', 'Screenshot');

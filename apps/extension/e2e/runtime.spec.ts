@@ -10,9 +10,10 @@ import { signIn, createProject, projectPublicId, uniqueEmail } from '../../web/e
 
 let context: BrowserContext, origin: string, profile: string;
 let publicId: string;
+const apiOrigin = `http://127.0.0.1:${process.env.PORT || 4004}`;
 const server = createServer((req, res) => {
     if (req.url?.startsWith('/embedded')) {
-        res.end(`<!doctype html><html lang="en"><title>Embedded review</title><h1>Review this page</h1><script src="http://127.0.0.1:4004/toolbar.js" data-uier-mode="showcase" data-uier-project="${publicId}" defer></script></html>`);
+        res.end(`<!doctype html><html lang="en"><title>Embedded review</title><h1>Review this page</h1><script src="${apiOrigin}/toolbar.js" data-uier-mode="showcase" data-uier-project="${publicId}" defer></script></html>`);
         return;
     }
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'");
@@ -23,7 +24,7 @@ test.beforeAll(async () => {
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     profile = await mkdtemp(resolve(tmpdir(), 'uier-extension-'));
     const path = resolve(import.meta.dirname, '../dist-test');
-    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, baseURL: 'http://127.0.0.1:4004', args: ['--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
+    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, baseURL: apiOrigin, args: ['--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
     context.setDefaultTimeout(10_000);
 });
 test.afterAll(async () => { await context?.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(profile, { recursive: true, force: true }); });
@@ -101,18 +102,22 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await inbox.getByRole('button', { name: /^Done/ }).click();
     await inbox.getByRole('button', { name: 'Reopen', exact: true }).click();
     await expect(commentBubble(reviewed, 2)).toBeVisible();
+    await inbox.getByRole('button', { name: /^Open/ }).click();
+    await inbox.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
+    await inbox.getByRole('button', { name: 'High', exact: true }).click();
+    await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
     // Credentials stay out of page storage and DOM attributes.
     expect(await reviewed.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
     // A live embed yields to the extension; a late embed also sees the public ownership probe.
     await reviewed.goto(`${origin}/embedded`);
     await expect(reviewed.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
-    await reviewed.evaluate(async () => {
+    await reviewed.evaluate(async apiOrigin => {
         const script = document.createElement('script');
-        script.src = 'http://127.0.0.1:4004/toolbar.js'; script.dataset.uierMode = 'showcase';
+        script.src = `${apiOrigin}/toolbar.js`; script.dataset.uierMode = 'showcase';
         document.head.append(script);
         await new Promise<void>((resolve, reject) => { script.onload = () => resolve(); script.onerror = () => reject(new Error('Embed load failed')); });
-    });
+    }, apiOrigin);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
     // A second origin ends activation, including when returning to a previously allowed address.
     await reviewed.goto(origin.replace('127.0.0.1', 'localhost'));

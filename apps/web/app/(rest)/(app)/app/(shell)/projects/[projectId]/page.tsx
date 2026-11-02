@@ -30,8 +30,9 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
     if (query.author && !author) notFound();
     // All environments unless a valid one is chosen
     query.environment = isEnvironmentSelection(project, query.environment) ? query.environment : 'all';
+    let searchWindowCapped = false;
     const [comments, members] = await Promise.all([
-        loadProjectComments(context, project, query.environment, author?.authorId),
+        loadProjectComments(context, project, query.environment, author?.authorId, capped => { searchWindowCapped = capped; }),
         listProjectMembers(context.workspace.id, project.id)
     ]);
     return (
@@ -44,6 +45,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
                     access={project.access}
                     isAdmin={context.isAdmin}
                     comments={comments}
+                    searchWindowCapped={searchWindowCapped}
                     query={query}
                     authorFilter={author?.filter}
                     userId={context.user.id}
