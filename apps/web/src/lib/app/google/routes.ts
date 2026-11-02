@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { KnownPages } from '../../../knownPages';
+import { KnownPageLinks, KnownPages } from '../../../knownPages';
 import { ApiError } from '../../comments/http';
 import { appBaseUrl, requestIpBucket } from '../request';
 import { appCookieOptions, getSessionSignIn, getSessionUser, startSession } from '../session';
@@ -22,7 +22,7 @@ function signInUrl(baseUrl: string, outcome?: string, next?: string) {
 }
 
 function accountUrl(baseUrl: string, outcome?: string) {
-    const url = new URL(KnownPages.AppAccount, baseUrl);
+    const url = new URL(KnownPageLinks.account('sign-in'), baseUrl);
     if (outcome) url.searchParams.set('google', outcome);
     url.hash = 'google';
     return url.href;
@@ -46,7 +46,7 @@ export async function startGoogleSignInRoute(request: Request) {
 
     const [user, session] = await Promise.all([getSessionUser(), getSessionSignIn()]);
     if (linking && (!user || session?.userId !== user.id))
-        return redirect(signInUrl(baseUrl, undefined, KnownPages.AppAccount));
+        return redirect(signInUrl(baseUrl, undefined, KnownPageLinks.account('sign-in')));
     if (!linking && user)
         return redirect(new URL(next ?? KnownPages.App, baseUrl).href);
     try {

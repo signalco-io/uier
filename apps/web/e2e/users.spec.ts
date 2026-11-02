@@ -348,7 +348,7 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await page.reload();
     await expect(page.getByRole('heading', { name: 'uier.io public feedback', exact: true })).toBeVisible();
     // A fresh sign-in keeps the chosen workspace. The personal project's admin remains intact.
-    await page.goto('/app/account');
+    await page.goto('/app/account/sign-in');
     await page.getByRole('region', { name: 'Sign out', exact: true }).getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/sign-in$/);
     await signIn(page, `e2e-users-staff-${device}@example.test`);

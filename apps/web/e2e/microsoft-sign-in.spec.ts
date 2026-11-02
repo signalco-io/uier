@@ -4,9 +4,9 @@ import { signIn, uniqueEmail } from './support/app';
 
 test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks', async ({ page }) => {
     const email = uniqueEmail('microsoft-browser');
-    await page.goto('/app/sign-in?next=/app/account');
+    await page.goto('/app/sign-in?next=/app/account/sign-in');
     const button = page.getByRole('link', { name: 'Sign in with Microsoft' });
-    await expect(button).toHaveAttribute('href', '/app/sign-in/microsoft?next=%2Fapp%2Faccount');
+    await expect(button).toHaveAttribute('href', '/app/sign-in/microsoft?next=%2Fapp%2Faccount%2Fsign-in');
     await expect(page.getByRole('link', { name: 'Sign in with Google' })).toBeVisible();
     expect((await new AxeBuilder({ page }).include('main').analyze()).violations).toEqual([]);
     await button.click();
@@ -21,17 +21,17 @@ test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks
     await expect(page.getByRole('status')).toContainText(email);
     await page.getByLabel('Sign-in code', { exact: true }).fill((await page.locator('[data-sign-in-code]').textContent())!);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await page.waitForURL(url => url.pathname === '/app/account');
+    await page.waitForURL(url => url.pathname === '/app/account/sign-in');
     const section = page.getByRole('region', { name: 'Microsoft account' });
     await expect(section).toContainText('Linked to');
 
     // Linked sign-in needs no email claim or repeat email proof.
     await page.context().clearCookies();
-    await page.goto('/app/sign-in?next=/app/account');
+    await page.goto('/app/sign-in?next=/app/account/sign-in');
     await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
     await page.getByLabel('Subject').fill(subject);
     await page.getByRole('button', { name: 'Allow' }).click();
-    await page.waitForURL(url => url.pathname === '/app/account');
+    await page.waitForURL(url => url.pathname === '/app/account/sign-in');
     await expect(page.getByRole('main')).toContainText(email);
     await section.getByRole('button', { name: 'Unlink Microsoft account' }).click();
     await expect(section.getByRole('status')).toHaveText('Microsoft account unlinked. Sign in with your email from now on.');
@@ -46,11 +46,11 @@ test('Microsoft cancellation returns a bounded reason and Account can link witho
     await page.waitForURL(url => url.pathname === '/app/sign-in' && url.searchParams.get('microsoft') === 'cancelled');
     await expect(page.getByRole('main').getByRole('alert')).toHaveText('Microsoft sign-in was cancelled.');
     await signIn(page, uniqueEmail('ms-link-account'));
-    await page.goto('/app/account');
+    await page.goto('/app/account/sign-in');
     const section = page.getByRole('region', { name: 'Microsoft account' });
     await section.getByRole('link', { name: 'Link Microsoft account' }).click();
     await page.getByRole('button', { name: 'Allow' }).click();
-    await page.waitForURL(url => url.pathname === '/app/account' && url.searchParams.get('microsoft') === 'linked');
+    await page.waitForURL(url => url.pathname === '/app/account/sign-in' && url.searchParams.get('microsoft') === 'linked');
     await expect(section).toContainText('A Microsoft account is linked.');
     await expect(section.getByRole('button', { name: 'Unlink Microsoft account' })).toBeVisible();
 });

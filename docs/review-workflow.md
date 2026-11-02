@@ -129,8 +129,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   line), which everyone in the workspace sees in the workspace menu and when they connect a coding tool.
   Admins open it from the workspace menu at the top of the sidebar. The uier
   workspace that everyone joins for feedback on the app has no settings page.
-- **Account** (`/app/account`): the name shown with comments, the theme (light, dark or system) and
-  sign out.
+- **Account** (`/app/account`): sections like a project's settings. General has the name shown with
+  comments, the theme (light, dark or system) and your workspace access; Sign-in (`/app/account/sign-in`)
+  has Google, Microsoft, passkeys and sign out; Coding agents (`/app/account/coding-agents`) has connected
+  apps and access tokens.
 
 ### Page and comment responsiveness
 

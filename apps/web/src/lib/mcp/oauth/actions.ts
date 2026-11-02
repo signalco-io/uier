@@ -53,6 +53,6 @@ export async function revokeConnectedAppAction(grantId: string) {
         const input = parseActionInput(connectedAppActionSchema, { grantId });
         const context = await appContextOrThrow();
         await revokeConnectedApp(context.user.id, input.grantId);
-        revalidatePath(KnownPages.AppAccount);
+        revalidatePath(KnownPageLinks.account('coding-agents'));
     });
 }

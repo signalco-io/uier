@@ -15,7 +15,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
-| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
+| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
@@ -325,8 +325,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - **Project settings** are sections, each its own page under `settings/` (`settings/layout.tsx`): General (the
   settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
   Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
-  The layout shows them as `LinkTabs` `side` (a column beside the section, a row above it on small screens) and
-  the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
+  The layout shows them with `SettingsLayout` (`LinkTabs` `side`: a column beside the section, a row above it on
+  small screens) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
   admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
   Installation and Notifications, and the settings page redirects them to Notifications. Integrations is a grid of
   the services not connected yet (logo, one line, Connect, Details) above the connected ones, each a row with its
@@ -336,6 +336,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
+- **Account** (`account/`) uses the same `SettingsLayout` and `Section` cards: General (the account page
+  itself: profile, appearance, workspace access), Sign-in (Google, Microsoft, passkeys, sign out) and Coding
+  agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
+  linking outcomes land on Sign-in, and the breadcrumbs end with the section. A change to `SettingsLayout`
+  applies to both settings.
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
   (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `Copy`, `Link2`, `Mail`)
   and words: state, `#number`, unread dot and the assignee (their avatar, or the user icon while unassigned; the tooltip

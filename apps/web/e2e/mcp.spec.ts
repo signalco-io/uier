@@ -9,7 +9,7 @@ import { expectNoAxeViolations } from './accessibility';
 test('a person grants selected feedback access, connects a compatible client, and revokes it', async ({ page, baseURL }, testInfo) => {
     await signIn(page, uniqueEmail('mcp'));
     const projectId = await createProject(page, { name: 'Client review', urls: ['https://reviewed.example'] });
-    await page.goto('/app/account');
+    await page.goto('/app/account/coding-agents');
     const section = page.getByRole('region', { name: 'Coding agents' });
     await expect(section.getByRole('region', { name: 'Connected apps' })).toContainText('No connected apps yet.');
     // Access tokens (for environments without a browser) are collapsed by default.
@@ -64,18 +64,18 @@ test('a person grants selected feedback access, connects a compatible client, an
     try {
         const projects = (await client.callTool({ name: 'list_projects', arguments: {} })).structuredContent;
         expect(projects).toMatchObject({ items: [{ id: projectId, name: 'Client review' }] });
-        for (const theme of ['Light', 'Dark']) {
-            await page.getByRole('group', { name: 'Theme', exact: true }).getByRole('button', { name: theme, exact: true }).click();
-            await expect(page.locator('html')).toHaveClass(new RegExp(theme.toLowerCase()));
+        for (const theme of ['light', 'dark'] as const) {
+            await page.emulateMedia({ colorScheme: theme });
+            await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`));
             await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
             for (const clientName of ['Codex', 'Claude Code', 'Cursor']) {
                 await section.getByRole('tab', { name: clientName, exact: true }).click();
                 await expectNoAxeViolations(page);
             }
             expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-            await section.screenshot({ path: testInfo.outputPath(`mcp-${theme.toLowerCase()}.png`) });
+            await section.screenshot({ path: testInfo.outputPath(`mcp-${theme}.png`) });
             await section.getByRole('button', { name: 'Revoke My coding tool' }).scrollIntoViewIfNeeded();
-            await page.screenshot({ path: testInfo.outputPath(`mcp-${theme.toLowerCase()}-credential.png`) });
+            await page.screenshot({ path: testInfo.outputPath(`mcp-${theme}-credential.png`) });
         }
         await section.getByRole('button', { name: 'Revoke My coding tool' }).click();
         await expect(section.getByRole('button', { name: 'Revoke My coding tool' })).toHaveCount(0);
@@ -102,7 +102,7 @@ test('feedback on a customer project page exports its uier owner and needs a gra
     finally { await stranger.dispose(); }
 
     const connect = async (name: string, project: string, status = false) => {
-        await page.goto('/app/account');
+        await page.goto('/app/account/coding-agents');
         const section = page.getByRole('region', { name: 'Coding agents' });
         await section.getByRole('button', { name: 'Show access tokens' }).click();
         await section.getByLabel('Token label').fill(name);
