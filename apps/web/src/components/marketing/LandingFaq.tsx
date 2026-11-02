@@ -24,8 +24,12 @@ const questions: Question[] = [
         answer: <>If you can add a script tag to the page, yes. The install guide in the app has steps for HTML, Next.js, React, WordPress, Webflow and Shopify, and lists the sources to allow if your site sends a Content-Security-Policy.</>
     },
     {
+        question: 'How do I sort through a lot of feedback?',
+        answer: <>In the app, search a project&rsquo;s feedback and filter it by status, priority, people, page or environment. Select up to 50 threads to assign them, set their priority, mark them as done or reopen them at once. <InlineLink href={KnownPages.FeedbackTriage}>Feedback triage</InlineLink> explains how it works and its limits.</>
+    },
+    {
         question: 'Can developers and AI agents use the feedback?',
-        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector. Claude Code signs in through your browser; other tools use an access token from your account settings. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time.</>
+        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the priority, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector. Claude Code signs in through your browser; other tools use an access token from your account settings. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time.</>
     },
     {
         question: 'Can the reviewer confirm that a fix works?',

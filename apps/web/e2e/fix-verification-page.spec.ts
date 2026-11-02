@@ -29,6 +29,9 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
     await expect(main.getByRole('link', { name: 'Create a project' })).toHaveAttribute('href', '/app');
     await expect(main.getByRole('link', { name: 'main questions' })).toHaveAttribute('href', '/#faq');
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Fix verification' })).toHaveAttribute('href', path);
+    const done = page.getByRole('region', { name: 'Done is not the same as confirmed', exact: true });
+    await expect(done).toContainText(/ordinary completion, never a reviewer.s confirmation/);
+    await expect(done.getByRole('link', { name: 'bulk triage' })).toHaveAttribute('href', '/features/feedback-triage');
 
     const questions = page.getByRole('region', { name: 'Questions', exact: true });
     const tracker = questions.locator('details').filter({ hasText: 'Does closing the issue in GitHub or Linear confirm the fix?' });

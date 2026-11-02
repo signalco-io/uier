@@ -213,9 +213,10 @@ including when a page is requested with tracking parameters or on another host. 
 
 The build generates `/sitemap.xml` and its child sitemap with `next-sitemap.config.cjs`. Only
 indexable public pages belong there. The dynamic `/status` page is added explicitly; app pages,
-notification preferences, verification bridges, the manifest and the social image are excluded.
-Modification dates are omitted until actual content changes can be tracked, rather than advertising
-every deployment as a content update.
+notification preferences, verification bridges, the manifest and the social images (the root card,
+page cards such as `/features/feedback-triage/opengraph-image-*` and the app link cards under `/og/`)
+are excluded. Modification dates are omitted until actual content changes can be tracked, rather than
+advertising every deployment as a content update.
 
 `robots.txt` permits crawling so search engines can read the app, notification and bridge pages'
 `noindex` directives. A robots disallow rule can hide those directives and still leave a URL in

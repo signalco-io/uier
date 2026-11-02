@@ -171,7 +171,10 @@ export default function FixVerificationPage() {
                 lead="A thread can be done without anyone checking the fix. Only a reviewer’s decision counts as confirmation.">
                 <Panel className="md:grid-cols-2">
                     <Tile title="Done without verification">
-                        <p>Marking threads done, one at a time or in a bulk selection, is ordinary completion. A check that was waiting ends as done without reviewer confirmation.</p>
+                        <p>
+                            Marking threads done, one at a time or with <InlineLink href={KnownPages.FeedbackTriage}>bulk triage</InlineLink>, is ordinary
+                            completion, never a reviewer’s confirmation. A thread that was Ready for review shows Done without reviewer confirmation.
+                        </p>
                     </Tile>
                     <Tile title="Connected issue trackers">
                         <p>With two-way status sync on, closing the issue in a connected service marks the thread done without confirmation. Ready for review shows there as open.</p>
