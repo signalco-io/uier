@@ -60,7 +60,8 @@ const features: { title: string; text: string; visual: ReactNode; wide?: boolean
     }
 ];
 
-const details = [
+const details: ReactNode[] = [
+    <>Search, priority and <InlineLink href={KnownPages.FeedbackTriage}>bulk triage</InlineLink> in the app</>,
     'Rewrite suggestions for selected text',
     'Feedback and bug reports without a pin',
     'Replace a screenshot or cover private details',
