@@ -1,7 +1,8 @@
 # Rewrite usage, cost estimates and model evaluation
 
-Tracking: [#277](https://github.com/signalco-io/uier/issues/277). The production model remains
-`claude-opus-5-5`. No savings or model quality improvement has been established.
+Tracking: [#277](https://github.com/signalco-io/uier/issues/277). The selected production default is
+`claude-sonnet-5-5`. The [bounded live comparison](rewrite-evaluation-2026-11-02.md) records measured token
+usage, provisional quality findings and the remaining provider-charge reconciliation gap.
 
 ## Baseline and evidence gap, 2 November 2026
 
@@ -10,12 +11,14 @@ rewrite usage export or Anthropic invoice/Cost Report is available in this sessi
 change the service did not retain usage. Observed production calls, tokens, charges and cost per
 usable result for that period are **unknown**, not zero. Hosting charges cannot establish AI spending.
 
-The local process has neither `ANTHROPIC_API_KEY` nor `ANTHROPIC_ADMIN_KEY`; there is no local
-environment file supplying them. GitHub's repository-secret listing does not include
-`ANTHROPIC_API_KEY` (the existing Pulumi provisioning source). The connected Vercel account and its
-available team return no uier project. None of this proves there was no historical spending.
-No live evaluation was run and no provider charge is claimed. Real cost/quality comparison and
-provider/application reconciliation remain outstanding; this work does not close #277.
+At the original investigation cutoff, the local process had neither `ANTHROPIC_API_KEY` nor
+`ANTHROPIC_ADMIN_KEY`, and no local environment file supplied them. GitHub's repository-secret listing
+did not include `ANTHROPIC_API_KEY`. The connected Vercel account and its available team returned no
+uier project. None of this proves there was no historical spending. The later production setup uses
+GitHub's `production` environment secret, passed through the existing Pulumi deployment.
+No live evaluation had run at that cutoff. A later authorized 16-call run is recorded in the
+[live evaluation evidence](rewrite-evaluation-2026-11-02.md). Historical production charges remain
+unknown; independent quality review and provider-charge reconciliation remain follow-up work.
 
 ## Operational events
 
@@ -41,7 +44,7 @@ retention expires. Hosting's own request metadata is separate from the fields em
 
 ## Prices and accounting
 
-`apps/web/src/lib/rewrite/pricing.ts` is the maintained rate table. Version **2026-11-02.1** is an
+`apps/web/src/lib/rewrite/pricing.ts` is the maintained rate table. Version **2026-11-02.2** is an
 estimate schedule checked on 2 November 2026 against the official
 [Claude API price table](https://platform.claude.com/docs/en/about-claude/pricing).
 It applies standard synchronous global USD rates: Opus 5.5 input/output **4/20**, Sonnet 5.5 **2/10**
@@ -54,7 +57,10 @@ unsupported pricing, so their observed tokens are retained with unknown charges.
   thinking; its breakdown must not be added again. Cache writes use the TTL breakdown, never both
   the aggregate and its parts. Nonzero cache writes without a matching breakdown have unknown cost.
 - When `usage.iterations` exists, use its entries instead of adding top-level usage. Top-level usage
-  represents the final attempt, not the whole fallback chain. See the official
+  represents the final attempt, not the whole fallback chain. The SDK permits a null ordinary
+  iteration model: one non-fallback iteration can use the serving response model. Explicitly unknown
+  models, multiple unnamed iterations and unnamed fallback hops remain unknown. Version 2026-11-02.2
+  adds this attribution without changing rates or silently repricing historical events. See the official
   [fallback usage and billing contract](https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback#billing-and-rate-limits).
 - The fetch wrapper counts actual SDK HTTP attempts without emitting a second outcome event. A
   retried call lacks the earlier HTTP attempt's usage; its final estimate is **partial** even when
@@ -146,19 +152,25 @@ Score each output blind to model on five dimensions, **0 fail / 1 needs editing 
 meaning and original language; requested tone/length; plain-text drop-in replacement without explanation;
 three genuinely distinct suggestions; each suggestion within 1000 characters. The harness checks distinct
 strings and character lengths only; it leaves semantic dimensions null for human review. Keep refusal,
-fallback and malformed-output behavior results separate from semantic pass rates. A candidate qualifies
-only when every ordinary case scores 2 on all dimensions, handling remains compatible, and measured
-cost per usable call improves over the baseline. Repeat a bounded run to check a promising result before
-changing production; publish the sample size, per-case scores, measured token costs, latency and coverage.
+fallback and malformed-output behavior results separate from semantic pass rates. The original automatic
+qualification rule required every ordinary case to score 2 on all dimensions, compatible handling and
+improved measured cost per usable call, followed by a repeat bounded run. Publish the sample size,
+per-case scores, measured token costs, latency and coverage even when the owner explicitly selects
+a model before that threshold is met, as in the decision below.
 
-**Decision:** keep Opus 5.5. Sonnet 5.5 is the lower-priced compatible candidate for a live comparison
-([current model parameters](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)); its quality
-has not been measured here. Haiku 5.5 is excluded from this unchanged-configuration benchmark because
-it has [no server-side fallback](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5).
-It would require a separate behavior decision, not a model-string substitution. The price difference
-alone is insufficient evidence. The remaining gate for #277 is authorized real-model evidence and the
-stated-period reconciliation (or a documented provider-billing gap alongside real application estimates).
+**Decision:** use Sonnet 5.5 for rewrite suggestions. Seven matched, priced pairs measured a 49.3%
+lower token-based estimate for Sonnet; this is a small synthetic sample and not an invoice or quality
+parity claim. The provisional blinded assistant screen passed all five dimensions on 2/8 Sonnet
+bundles and 3/8 Opus bundles. Both models needed edits in other cases. Independent human review and
+provider-charge reconciliation remain open in #277; the former automatic all-cases qualification
+threshold was not met. The explicitly selected default is Sonnet while those limits stay visible.
 
-If a future evaluated change switches the model, change `REWRITE_MODEL` in `suggest.ts`, update the
-HTTP stub's expected model and API docs, and rerun accounting/API/desktop/mobile tests. Revert by restoring
+Sonnet supports the existing low effort, JSON schema and default refusal fallback parameters
+([current model parameters](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)); all other
+request bounds stay unchanged. Haiku 5.5 remains outside this comparison because it has
+[no server-side fallback](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5).
+
+To change the selected model, update `REWRITE_MODEL` in `suggest.ts`, update the
+HTTP stub's expected model and API docs, and rerun accounting/API/desktop/mobile tests. Keep the
+versioned `REWRITE_CANDIDATES` comparison list distinct and independent of the production default. Revert by restoring
 `claude-opus-5-5` in those same places. Do not change budgets or retry policy to improve benchmark results.

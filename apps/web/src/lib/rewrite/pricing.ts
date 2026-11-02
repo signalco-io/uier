@@ -1,6 +1,6 @@
 /** Standard, global, synchronous Claude API USD / million tokens. Never an invoice. */
 export const REWRITE_PRICING = {
-    version: '2026-11-02.1',
+    version: '2026-11-02.2',
     checkedOn: '2026-11-02',
     currency: 'USD',
     source: 'https://platform.claude.com/docs/en/about-claude/pricing',
@@ -11,7 +11,7 @@ export const REWRITE_PRICING = {
 } as const;
 
 /** Documented fallback id retained for diagnosis even without a qualified rate schedule. */
-export const REWRITE_KNOWN_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-opus-4-8'] as const;
+export const REWRITE_KNOWN_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-opus-4-8', 'claude-sonnet-5'] as const;
 
 export function knownModel(model: unknown): typeof REWRITE_KNOWN_MODELS[number] | 'unknown' {
     // Never copy an arbitrary provider string into a log (including error payloads).
