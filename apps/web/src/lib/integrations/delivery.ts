@@ -225,20 +225,22 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         };
         const result = await adapter.deliver(context);
         if (statusOnly) {
+            let full = false;
             if (result.status === 'accepted') {
                 await boundary(true, false);
                 const current = await comments.get(`project:${project.id}`, ledger.threadId);
                 if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.private
                     || isPrivateAppFeedback(current.comment)) throw new IntegrationControlError('projection_changed');
                 const at = new Date(clock()).toISOString();
-                const changed = withImportedReplies(current.comment, connection, { resolved: incomingStatus, replies: incomingReplies, at });
+                const imported = withImportedReplies(current.comment, connection, { resolved: incomingStatus, replies: incomingReplies, at });
+                const changed = imported.comment; full = imported.full;
                 if (changed !== current.comment) {
                     await boundary(true, false);
                     if (await comments.replace(withSyncMark(project, current.comment, { ...changed, updatedAt: at }), current.etag) !== 'ok')
                         throw new IntegrationControlError('projection_changed');
                 }
             }
-            await finish({ lastCode: result.code });
+            await finish({ lastCode: full ? 'integration_thread_full' : result.code });
             return;
         }
         await applyResult(result, connection);

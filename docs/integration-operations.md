@@ -125,7 +125,7 @@ readback after subsequent worker execution.
 
 Reply reads share `statusCheckedAt` and `statusSyncCode` with status polling. Check the independent
 reply toggle before investigating a missing import. `integration_thread_full` means the source's
-50-item limit blocked the batch; `invalid_reply_page` rejects an oversized or repeating cursor.
+50-item limit deferred additional new replies; existing edits/deletions still apply; `invalid_reply_page` rejects an oversized or repeating cursor.
 Pagination and exact checks of known originals can take several scheduled runs.
 
 Native-copy failures appear on the outbound ledger. `reply_ownership_changed` holds an edited or

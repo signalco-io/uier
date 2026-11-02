@@ -1,4 +1,5 @@
 import { changeFixVerification } from '../src/lib/review/fixVerification';
+import { withImportedReplies } from '../src/lib/integrations/importReplies';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -118,6 +119,16 @@ function deferred() {
     const promise = new Promise<void>(done => { resolve = done; });
     return { promise, resolve };
 }
+
+test('reply import fills available capacity without blocking status or edits and deletions in a full thread', async () => {
+    const f = await fixture(); const connection = { ...f.connections.github, twoWaySync: true, replySync: { enabled: true, since: old } };
+    const replies = Array.from({ length: 50 }, (_, index) => ({ id: String(index), target: 'an-issue', text: `Reply ${index}`, authorId: 'human', authorName: 'Human', createdAt: old }));
+    const imported = withImportedReplies(f.source, connection, { replies, resolved: true, at: old });
+    expect(imported.full).toBe(true); expect(imported.comment.resolved).toBe(true); expect(imported.comment.thread.items).toHaveLength(50);
+    const changed = withImportedReplies(imported.comment, connection, { at: old, replies: [replies[49]!, { ...replies[0]!, text: 'Edited after the limit' }, { ...replies[1]!, deleted: true }] });
+    expect(changed.full).toBe(true); expect(changed.comment.thread.items).toHaveLength(50);
+    expect(changed.comment.thread.items[1]!.text).toBe('Edited after the limit'); expect(changed.comment.thread.items[2]!.deletedAt).toBe(old);
+});
 
 test('reply imports deduplicate, apply original edits/deletions, exclude echoes and retain independent status settings', async () => {
     const f = await fixture(); const outbound = accepting('github');

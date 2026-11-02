@@ -5,19 +5,19 @@ import { ordinaryVerificationStatus } from '../comments/verificationState';
 import type { DbComment } from '../db/schema';
 import { withNotificationEvent } from '../notifications/events';
 import { integrationLabels, type IntegrationConnection, type IntegrationReply } from './model';
-import { ReplySyncError } from './replies';
 
 /** Pure projection; the caller rechecks authority and commits with the source ETag. */
 export function withImportedReplies(comment: DbComment, connection: IntegrationConnection, input: {
     resolved?: boolean; replies: IntegrationReply[]; at: string;
 }) {
     let changed = comment;
+    let full = false;
     if (connection.twoWaySync === true && input.resolved !== undefined && Boolean(comment.resolved) !== input.resolved) {
         const actorId = `user:${connection.connectedBy}`;
         changed = withNotificationEvent(ordinaryVerificationStatus(withThreadActivity(changed, actorId), input.resolved),
             actorId, input.resolved ? 'resolved' : 'reopened', input.at);
     }
-    if (!connection.replySync?.enabled) return changed;
+    if (!connection.replySync?.enabled) return { comment: changed, full };
     for (const reply of input.replies) {
         if (typeof reply.id !== 'string' || !reply.id || reply.id.length > 200 || typeof reply.authorId !== 'string' || !reply.authorId
             || (reply.target !== undefined && (typeof reply.target !== 'string' || !reply.target || reply.target.length > 500))
@@ -34,7 +34,7 @@ export function withImportedReplies(comment: DbComment, connection: IntegrationC
             continue;
         }
         if (reply.deleted || Date.parse(reply.createdAt) < Date.parse(connection.replySync.since)) continue;
-        if (changed.thread.items.length >= MAX_THREAD_ITEMS) throw new ReplySyncError('integration_thread_full');
+        if (changed.thread.items.length >= MAX_THREAD_ITEMS) { full = true; continue; }
         const authorId = `integration:${connection.provider}:${sha256Hex(reply.authorId).slice(0, 32)}`;
         const name = typeof reply.authorName === 'string' ? reply.authorName.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().slice(0, 60) : '';
         const item = { id, text: reply.text.trim().slice(0, MAX_TEXT_LENGTH), authorId,
@@ -43,5 +43,5 @@ export function withImportedReplies(comment: DbComment, connection: IntegrationC
         changed = withNotificationEvent({ ...withThreadActivity(changed, authorId), thread: { ...changed.thread, items: [...changed.thread.items, item] } },
             authorId, 'reply', input.at, undefined, undefined, { itemId: id });
     }
-    return changed;
+    return { comment: changed, full };
 }

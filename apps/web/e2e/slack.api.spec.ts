@@ -593,7 +593,12 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     expect(upgrade.searchParams.get('scope')).toContain('channels:history'); expect(upgrade.searchParams.has('user_scope')).toBe(false);
     expect((await finishSlackConnect({ userId: f.owner.id, state: upgrade.searchParams.get('state'), baseUrl,
         code: slack.code({ scopes: 'chat:write,channels:read,groups:read,channels:history,groups:history' }) })).status).toBe('connected');
-    await fresh(f); await setIntegrationReplySync(f.project, 'slack', f.owner.id, true);
+    await fresh(f);
+    const upgraded = (await rawSlackConnection(f.project))!;
+    const reused = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestReplies: true }));
+    expect(reused.pathname).toBe(`/app/projects/${f.project.id}/settings/integrations/slack`);
+    expect(await rawSlackConnection(f.project)).toMatchObject({ enabled: true, destinationRevision: upgraded.destinationRevision });
+    await setIntegrationReplySync(f.project, 'slack', f.owner.id, true);
     const reply = { id: `item_${randomUUID()}`, text: 'A Slack thread reply', authorId: `user:${f.owner.id}`, createdAt: new Date().toISOString() };
     await change(f, { thread: { items: [...(await source(f)).thread.items, reply] } }); slack.fault('chat.postMessage', 'lost'); current = await dispatch(f);
     expect(current.attempt?.step).toBe('create_native_reply'); current = await retry(f); expect(current.status).toBe('accepted');

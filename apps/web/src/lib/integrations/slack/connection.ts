@@ -190,7 +190,7 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
                 const retained = (await getAppStore().get<SlackGrant>(grant.pk, grant.id))?.doc;
                 if (!retained?.tokens || retained.status !== 'connected' || retained.generation !== held.generation || retained.refreshStartedAt)
                     throw new SlackConnectionError('needs_reconnect');
-                await attachSlackGrant(project, input.userId, retained);
+                await attachSlackGrant(project, input.userId, retained, undefined, getAppStore(), input.requestReplies === true);
             } finally { await releaseOwner(held); }
             return new URL(`${KnownPageLinks.projectIntegration(project.id, 'slack')}?slack=connected`, input.baseUrl).href;
         }

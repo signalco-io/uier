@@ -129,7 +129,8 @@ blocks are excluded. Notion page comments and Slack replies must belong to the e
 Polling uses the status worker's leases, cursor, budgets and source/authority checks. Each read
 visits one page of at most 50 comments and up to three rotating checks of known originals. Missing
 items on a list page are not deletion evidence: an exact lookup must confirm absence. Resolved
-Notion discussions are not deleted. A full thread defers import and reports a diagnostic. Source
+Notion discussions are not deleted. A batch fills the available thread capacity and reports a diagnostic for additional new replies;
+edits and deletions of existing imports continue when the thread is full. Source
 edits win races; toggle, privacy, destination, binding or admin changes discard in-flight imports.
 Imported status and replies commit together with activity, notifications and source sync markers.
 A reply keeps a stable identity for its external target across mapping changes. Own copies and
