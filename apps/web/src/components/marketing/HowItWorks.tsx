@@ -254,7 +254,8 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
                 {layout && cardPosition && (
                     <>
                         <Pin
-                            count={replied ? 2 : 1}
+                            number={15}
+                            messages={replied ? 2 : 1}
                             size={26}
                             style={{ position: 'absolute', left: layout.end.x - 4, top: layout.end.y + layout.lineHeight - 8 }}
                             className={fade(threadOpen)} />

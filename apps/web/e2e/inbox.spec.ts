@@ -396,7 +396,7 @@ test('inbox: Show on page only where the pin can be placed; Show all counts like
     // Two messages, like its pin ("Comment deleted" is not one)
     const card = thisPage.getByRole('article', { name: 'Comment #2' });
     await expect(card.getByText('Comment deleted')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Comment, 2 messages', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comment #2, 2 messages', exact: true })).toBeVisible();
     await card.getByRole('button', { name: 'Show all 2 messages' }).click();
     await expect(card.getByText('First answer.')).toBeVisible();
 

@@ -34,7 +34,7 @@ export function StatusPage({ code, title, note, description, actions }: {
                         <span className="h-2.5 w-4/5 rounded-full bg-muted" />
                         <span className="relative my-2 h-28 rounded-xl border-2 border-dashed">
                             {/* The pin's sharp corner is the anchor: on the empty spot, its thread beside it */}
-                            <Pin count={1} className="absolute top-[30%] left-[30%] sm:left-[22%]" />
+                            <Pin number={1} className="absolute top-[30%] left-[30%] sm:left-[22%]" />
                             <span className="absolute top-[30%] left-[calc(30%+40px)] hidden w-40 flex-col gap-1.5 rounded-xl border bg-card p-2.5 text-left shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] sm:left-[calc(22%+40px)] sm:flex">
                                 <span className="flex items-center gap-1.5 text-xs font-medium">
                                     <span className="flex size-4 items-center justify-center rounded-full bg-muted text-[9px]">U</span>

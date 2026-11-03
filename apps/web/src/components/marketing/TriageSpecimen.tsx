@@ -58,7 +58,7 @@ export function TriageSpecimen() {
                     {threads.map(thread => (
                         <div key={thread.number} className="flex items-center gap-3 border-t py-2.5">
                             <Box checked={thread.selected} />
-                            <Pin count={thread.count} size={22} className="shrink-0" />
+                            <Pin number={thread.number} messages={thread.count} size={22} className="shrink-0" />
                             <span className="flex min-w-0 flex-1 flex-col">
                                 <span className="truncate text-[13px]">{thread.text}</span>
                                 <span className="truncate font-mono text-[11px] text-muted-foreground">#{thread.number} · {thread.path}</span>
