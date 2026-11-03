@@ -12,7 +12,7 @@ comments are pinned to elements or selected text and stored per domain.
 | Path | Package | What | Guide |
 | --- | --- | --- | --- |
 | `apps/web` | `@uier/web` | uier.io website, `/brand` page, the signed-in app (`/app`) and the `/api/comments` API (Next.js, Cosmos DB) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
-| `apps/extension` | `@uier/extension` | unreleased desktop MV3 runtime spike | [apps/extension/AGENTS.md](apps/extension/AGENTS.md) |
+| `apps/extension` | `@uier/extension` | desktop Manifest V3 browser extension | [apps/extension/AGENTS.md](apps/extension/AGENTS.md) |
 | `packages/toolbar` | `@uier/toolbar` | the review toolbar bundle (tsup, React, shadow DOM) | [packages/toolbar/AGENTS.md](packages/toolbar/AGENTS.md) |
 | `packages/brand` | `@uier/brand` | **the brand: tokens, logo, constants, assets, `BRAND.md`** | [packages/brand/AGENTS.md](packages/brand/AGENTS.md) |
 | `infra` | `@uier/infra` | Pulumi (Vercel project, Cloudflare DNS, Cosmos DB); not in the pnpm workspace | [infra/AGENTS.md](infra/AGENTS.md) |

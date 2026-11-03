@@ -1,8 +1,8 @@
 # Extension releases
 
 Version 0.1.2 is published publicly. Native Chrome and Edge automatically upgraded from 0.1.1
-and passed post-update acceptance. Production app-link deployment and readback remain pending.
-Public availability remains disabled until the remaining release gates pass.
+and passed post-update acceptance. The production installation link is live, and the deployed
+allowlist contains only the stable store client.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
 
@@ -180,7 +180,7 @@ The public visibility change was submitted separately. Google's first attempt re
 homepage and privacy-policy URLs with connection timeouts. Their stored HTTPS URLs are correct;
 independent GET/HEAD checks returned HTTP 200 in under a second, including crawler user agents,
 and Google Public DNS resolved the production address. Saving the verified declarations and
-retrying succeeded: the dashboard confirmed submission and now shows **Pending review**.
+retrying succeeded: the dashboard confirmed submission and showed **Pending review**.
 Automatic publication is enabled for the requested unlisted-to-public transition.
 
 The visibility review then completed; the dashboard now shows **Published - public**.
@@ -191,9 +191,26 @@ Production Vercel configuration now registers only the stable store client and s
 before any infrastructure apply or web deployment: Azure OIDC succeeded, but the SDK credential
 chain stopped at the AWS-hosted runner's metadata endpoint. The workflow now explicitly selects
 the verified Azure CLI credential and checks backend login before running the Pulumi action.
-A successful CI deployment, displayed installation-link check and deployed stable-client-only
-allowlist readback remain the final rollout gates. Keep #268 open until they are recorded.
-The old unpacked copies remain disabled.
+[Production deployment 41625585259](https://github.com/signalco-io/uier/actions/runs/41625585259)
+then succeeded on source `95d8078ec4674e77a7a44a86fa26c3038681865e`. Its verified Azure CLI
+backend login passed and infrastructure reported **108 unchanged** before the web deployment.
+The live isolated project's Installation → Use browser extension guide shows **Get the browser
+extension**; following it opens the official item at version 0.1.2. `GET /extension-verification`
+returns HTTP 200 with `frame-ancestors chrome-extension://kplfcfnpeljpkbcjgpaefpmggipfpemj` and
+private/no-store caching. The development client is absent from the deployed policy.
+
+The final production configuration is `UIER_EXTENSION_AVAILABLE=1`, the actual store ID, and
+`UIER_EXTENSION_CLIENT_IDS=kplfcfnpeljpkbcjgpaefpmggipfpemj`. The old unpacked copies remain disabled.
+[Final read-only store run 41623812550](https://github.com/signalco-io/uier/actions/runs/41623812550)
+confirms the 0.1.2 journal is `published`; the dashboard separately confirms public visibility.
+
+Both native browsers also saved replies after the original 15-minute access and five-minute proof
+lifetimes without another sign-in. Initial upgraded sign-in completed before 10:53:50 UTC; these
+renewal checks ran after 11:11:59 UTC. This is hosted renewal evidence, separate from forced-expiry
+package tests. Review activation was stopped afterwards; owner-approved persistent sign-in remains.
+
+The desktop Chrome/Edge, store, release and public installation gates for #268 are complete.
+Native Edge Add-ons and other browser/mobile/guest-extension work remain separate follow-ups.
 
 ## Build, dry-run and submit
 
