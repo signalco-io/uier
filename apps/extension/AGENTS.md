@@ -2,7 +2,9 @@
 
 Read ../../docs/browser-extension.md before changes. This is an unreleased runtime spike, not a
 published extension. Do not claim hosted BotID acceptance from local-mode tests or enable rollout
-before the gate is recorded. Store bootstrap remains owner work; release/status automation is implemented but disabled by default.
+before the gate is recorded. Hosted acceptance and the first unlisted submission are recorded in
+the docs; Google review and installed-upgrade acceptance remain pending. Protected release writes
+are enabled, while the optional status schedule remains disabled.
 Read ../../docs/browser-extension-release.md before touching publishing.
 
 Build bundles shared toolbar source through @uier/toolbar/extension. Configure adapters before

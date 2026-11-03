@@ -1,8 +1,9 @@
 # Browser extension
 
-The desktop Manifest V3 extension is an **unreleased implementation** for [#268](https://github.com/signalco-io/uier/issues/268).
-It is an additional installation path for signed-in project members. It is not available in a store.
-Do not enable production distribution until the hosted verification gate below has passed.
+The desktop Manifest V3 extension is an additional installation path for signed-in project members,
+tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.1 is submitted for Chrome
+Web Store review as an unlisted beta; it is not yet available to install from the store.
+Keep public availability disabled until store and installed-upgrade acceptance are recorded.
 
 ## Design record
 
@@ -119,10 +120,15 @@ site exceptions. These runs used no loopback API proxy, local BotID mode or veri
   original page with no toolbar; explicit Start review was required. Edge also verified valid
   same-origin Back continuation. The package regression asserts actual cached-document identity
   for both cases and fails against the previous runtime.
+- Chrome also saved feedback on a fictional cookie-authenticated page, a separately configured
+  localhost staging origin and a same-origin SPA route. Both browsers then saved feedback on
+  [the controlled HTTPS reviewer demo](https://uier.io/extension-demo.html), whose CSP also denies
+  scripts, connections, frames, images, fonts and styles. Chrome retrieved and expanded its saved
+  screenshot after reloading that page. All feedback used the isolated acceptance project.
 
-The real hosted design gate has evidence. Store submission, review outcome, installed package
-acceptance and an actual automatic browser upgrade are separate remaining gates; this test build
-is not a store installation. Keep public availability disabled until those receipts exist.
+The real hosted design gate has evidence. The [first protected submission](browser-extension-release.md#first-submission-receipt--3-november-2026)
+also succeeded. Review outcome, installed-package acceptance and an actual automatic browser
+upgrade remain separate gates; this test build is not a store installation.
 
 The app now offers script and extension setup, including onboarding and review-link guidance.
 The extension tab explains its pending availability without a fake store link. The released script
@@ -163,20 +169,20 @@ and bounded status workflows, Google OIDC/service-account configuration, API v2 
 support and forward-fix recovery. The [listing worksheet](browser-extension-listing.md) supplies copy,
 permission/disclosure drafts and reproducible brand artwork. None enables public rollout.
 
-Remaining gates need owner-controlled external setup and real browser/store evidence:
+The protected 0.1.1 upload and submission succeeded, using keyless Google federation and a retained
+immutable package. The [submission receipt](browser-extension-release.md#first-submission-receipt--3-november-2026)
+records its source, checksum and review status. This successful upload does not exercise the
+async-upload reconciliation path; keep its fail-closed behavior and dashboard recovery rules.
+
+Remaining gates need Google review and real installed browser/store evidence:
 
 - Complete pending publisher verification, store review and the live URL. The draft item, listing
   artwork, privacy certifications and isolated self-service reviewer instructions are configured;
   two-step verification and registration are complete.
-- Live upload/version behavior validation (including async upload version limits). GitHub
-  environment/tag protection, restricted Google federation, publisher access and the actual
-  read-only OIDC/store API bootstrap have passed;
-  the [bootstrap receipt](browser-extension-release.md#bootstrap-receipt--2-november-2026) records
-  the identifiers and remaining configuration.
 - Complete the remaining release matrix, including installed-package Chrome/Edge acceptance.
   The hosted receipt above proves the core BotID/cookie-independent transport flow; focused package
   and API tests retain authorization, screenshot, accessibility and lifecycle coverage.
-- One real automatic store update, review/status tracking and installed browser upgrade; then enable
+- One real automatic store update and installed browser upgrade; then enable
   the verified live installation link. Local tests cannot replace these receipts.
 
 Do not close #268 until its hosted, store and release-automation completion criteria are evidenced.
