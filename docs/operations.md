@@ -3,7 +3,7 @@
 Maintainer reference for infrastructure, deployment, service checks and moderation. Local web
 development needs none of these credentials; see [local development](development.md).
 For recovery procedures, use [Backups and restore](backups-and-restore.md).
-For search engine notifications and acquisition measurement, use [Search and acquisition](search-and-acquisition.md).
+For search engine notifications and analytics status, use [Search discovery](search-discovery.md).
 For the operation inventory, safe diagnostics and dated RU measurements, use
 [Cosmos query costs](cosmos-query-costs.md).
 

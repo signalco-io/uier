@@ -30,7 +30,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 ## Operations
 
-- [Search and acquisition](search-and-acquisition.md): search console proofs, IndexNow deployments, public guides and privacy-conscious funnel measurements.
+- [Search discovery](search-discovery.md): search console proofs, IndexNow deployments, public guides and disabled analytics status.
 - [Infrastructure and operations](operations.md): infrastructure setup, CI/CD, credentials, security disclosure, status checks and moderation.
 - [CI credential rollout](ci-credential-rollout.md): staged least-privilege environments, build/deploy separation and production Cosmos DB identity access.
 - [Live rewrite evaluation](rewrite-evaluation-2026-11-02.md): bounded Opus/Sonnet measurements, provisional quality screen and accounting limits.

@@ -140,15 +140,7 @@ to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebS
 signalco publisher. Preserve the homepage Bing verification meta tag after setup.
 `search-index.mjs` generates the public static-page manifest after the sitemap; the production
 workflow submits only its changed public URLs through IndexNow. See
-[search and acquisition](../../docs/search-and-acquisition.md) for safeguards and recovery.
-
-`src/lib/acquisition` records new-account milestones in the existing user document; legacy accounts
-are not backfilled. Business writes must succeed independently of telemetry. `AcquisitionAnalytics`
-keeps coarse labels in memory, carries them in public-to-app links, strips private analytics URLs
-and respects Do Not Track/GPC. It adds no browser storage.
-Only the authenticated same-origin `/api/acquisition` can claim its user's pending stages.
-Never add identifiers, feedback, arbitrary campaign text or raw referrers to event properties.
-Keep the privacy disclosure aligned and test authorization, concurrency and URL redaction.
+[search discovery](../../docs/search-discovery.md) for safeguards and recovery.
 
 Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
 description. Canonicals and Open Graph URLs point to the production URL without query parameters;
@@ -248,8 +240,8 @@ Only those two exact paths are frameable; case variants get deny/`frame-ancestor
 Public pages deliberately retain static rendering and `script-src 'unsafe-inline'`: their generated
 Next bootstrap and theme scripts vary by build. We do not apply request nonces to cached HTML.
 Keep providers in the marketing/app layouts so a root `headers()` call does not turn the public site
-dynamic. `@vercel/analytics` 2.0.1 uses same-origin `/_vercel/insights/script.js` in production;
-only development permits `va.vercel-scripts.com`. Vercel toolbar/frame/Pusher hosts apply only to
+dynamic. Vercel Web Analytics collection is disabled by the owner (3 November 2026); `ClientProvider` does
+not inject its SDK. The existing analytics CSP sources remain available for a future explicit setup. Vercel toolbar/frame/Pusher hosts apply only to
 `UIER_DEPLOYMENT_ENV=preview` (set at build time). Clipboard permissions are left alone.
 COOP is `same-origin` on public pages and `same-origin-allow-popups` across the app, including
 `/app/review`: the installation check retains its WindowProxy when the popup redirects cross-origin.

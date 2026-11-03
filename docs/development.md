@@ -205,8 +205,8 @@ or a full run is explicitly requested. It is not a routine implementation or PR 
 
 ### Search indexing
 
-See [search and acquisition](search-and-acquisition.md) for structured data, public workflow guides,
-Bing verification, IndexNow's content comparison and source-segmented activation events.
+See [search discovery](search-discovery.md) for structured data, public workflow guides,
+Bing verification, IndexNow's content comparison and the disabled analytics status.
 
 Public pages declare their pathname through `apps/web/src/lib/metadata.ts`. It keeps the
 canonical, Open Graph URL and social metadata aligned with the page while retaining the brand's

@@ -8,7 +8,6 @@ import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { loadWorkspaceAccessForRender } from '@/src/lib/app/access';
 import { InviteProvider } from '@/src/components/app/users/InviteDialog';
-import { AcquisitionActivationAnalytics } from '@/src/components/marketing/AcquisitionAnalytics';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel */
 export default async function AppShellLayout({ children }: PropsWithChildren) {
@@ -21,7 +20,6 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
 
     return (
         <SidebarProvider>
-            <AcquisitionActivationAnalytics enabled={Boolean(context.user.acquisition)} />
             <InviteProvider teams={teams} enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
                 <AppSidebar
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
