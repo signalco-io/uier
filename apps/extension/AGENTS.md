@@ -2,9 +2,9 @@
 
 Read ../../docs/browser-extension.md before changes. Version 0.1.1 is published as an unlisted beta.
 Do not claim hosted BotID acceptance from local-mode tests or enable public rollout before the
-gates are recorded. Hosted acceptance, submission and publication are recorded in the docs;
-installed-package and automatic-upgrade acceptance remain separate gates. Protected release writes
-are enabled, while the optional status schedule remains disabled.
+gates are recorded. Native store-installed 0.1.1 acceptance is recorded for Chrome and Edge;
+0.1.2 is submitted for review. Its installed upgrade and post-update acceptance remain gates.
+Protected release writes are enabled, while the optional status schedule remains disabled.
 Read ../../docs/browser-extension-release.md before touching publishing.
 
 Build bundles shared toolbar source through @uier/toolbar/extension. Configure adapters before

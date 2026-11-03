@@ -1,7 +1,8 @@
 # uier browser extension
 
-Manifest V3 extension for desktop Chrome and Edge. Version 0.1.1 is published as an unlisted beta.
-Public rollout remains disabled pending installed-package and automatic-upgrade acceptance.
+Manifest V3 extension for desktop Chrome and Edge. Version 0.1.1 is published as an unlisted beta
+and passed native store-installed acceptance in both browsers. Version 0.1.2 is submitted for review.
+Public rollout remains disabled pending its installed upgrade and post-update acceptance.
 The [design and hosted gate](../../docs/browser-extension.md) records security boundaries, local
 loading and remaining publication work. Licensed AGPL-3.0-only; shared toolbar/brand remain MIT.
 
@@ -19,7 +20,7 @@ From the repository root, use Node 24 and the pinned Corepack pnpm:
 
 The [official Chrome Web Store item](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj)
 is available for beta acceptance. Production client registration and hosted BotID renewal are
-recorded in the release receipts; store installation and automatic upgrades remain separate gates.
+recorded in the release receipts; an actual automatic upgrade remains a separate gate.
 
 The [release runbook](../../docs/browser-extension-release.md) covers the implemented tag/dry-run
 and bounded status workflows, owner bootstrap and recovery. [Listing drafts](../../docs/browser-extension-listing.md)
