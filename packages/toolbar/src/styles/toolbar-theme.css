@@ -46,3 +46,29 @@
         }
     }
 }
+
+/* In the page's open modal dialog the host is a manual popover in the top layer (src/modalLayer.ts).
+   Without a box of its own, at the page's origin like in <body>, and clear of the page's styles for
+   dialogs, popovers and backdrops, so positions and the dialog's look stay the same. */
+:host([popover]) {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible !important;
+    background: none !important;
+    opacity: 1 !important;
+    /* Not `translate`, `scale` and `rotate` as well: the minifier merges them into a transform
+       that is not `none`, and any transform would hold the review layer's fixed boxes */
+    transform: none !important;
+    filter: none !important;
+    contain: none !important;
+}
+
+:host([popover])::backdrop {
+    display: none !important;
+}

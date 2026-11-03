@@ -10,6 +10,7 @@ import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
 import { adoptToolbarStyles } from './stylesheet';
 import { runtimeAdapters } from './adapters';
 import { claimReviewLayer, extensionOwnsReviewLayer } from './coexistence';
+import { followModalDialogs } from './modalLayer';
 
 const containerId = 'uier-toolbar';
 
@@ -70,12 +71,15 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
     if (!runtimeAdapters()) ensureBrandFont();
     document.body.appendChild(container);
     toolbarMounts[toolbarMountKey] = container;
+    // Into the page's open modal dialog while there is one (src/modalLayer.ts)
+    const stopFollowingModals = followModalDialogs(container);
 
     // Run React
     const root = createRoot(shadowDomContainer);
 
     const unmount = () => {
         darkScheme.removeEventListener('change', applyScheme);
+        stopFollowingModals();
         release?.();
         // After the click that asked for it has been handled
         window.setTimeout(() => {

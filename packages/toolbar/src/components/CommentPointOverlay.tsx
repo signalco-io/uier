@@ -4,6 +4,7 @@ import { anchorSelector } from '../anchorSelector';
 import { CommentPoint } from './@types/Comments';
 import { canReviewToolbar, toolbarReviewTarget } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
+import { activeModalDialog, isInActiveModal } from '../modalLayer';
 
 type CommentPointOverlayProps = {
     onPoint: (commentPoint: CommentPoint) => void;
@@ -27,8 +28,12 @@ function pageElementAt(x: number, y: number) {
             !element.closest('.review-overlay,[data-uier-outline]') && toolbarReviewTarget(element));
         if (target) return toolbarReviewTarget(target)!;
     }
+    // With a modal dialog open only its content can be reviewed: not the inert page behind its
+    // backdrop, nor the backdrop itself (hit as the dialog, outside the dialog's own box)
+    const modal = activeModalDialog();
     const elements = window.document.elementsFromPoint(x, y)
-        ?.filter(el => el && el !== getToolbarHost() && !el.classList.contains('review-overlay')) ?? [];
+        ?.filter(el => el && el !== getToolbarHost() && !el.classList.contains('review-overlay')
+            && isInActiveModal(el) && (el !== modal || ownBoxAt(el, x, y))) ?? [];
     // A stretched link (`::after` over its whole row or card) is hit everywhere on the row: prefer
     // the element under it that is actually at the point (the row's picture, summary or badge).
     return elements.find(el => ownBoxAt(el, x, y)) ?? elements.at(0);
@@ -39,12 +44,14 @@ function pageElementAround(area: DOMRect) {
     for (let element: Element | null | undefined = pageElementAt(area.left + area.width / 2, area.top + area.height / 2); element; element = element.parentElement) {
         // Up from a reviewed toolbar surface, the rest of the toolbar is not an anchor
         if (element.getRootNode() !== document && !toolbarReviewTarget(element)) break;
+        // Nor, from inside an open modal dialog, the inert page around it
+        if (!isInActiveModal(element)) break;
         const box = element.getBoundingClientRect();
         if (box.left <= area.left + 1 && box.top <= area.top + 1 && box.right >= area.right - 1 && box.bottom >= area.bottom - 1) {
             return element;
         }
     }
-    return document.body;
+    return activeModalDialog() ?? document.body;
 }
 
 function clampFraction(value: number) {
