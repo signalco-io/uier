@@ -19,8 +19,8 @@ localhost. Open the extension, sign in to uier, choose a matching project and st
 script installation or security-header changes are needed on the reviewed site.
 
 Comments stay pinned to elements, selected text or areas. Reply, resolve and reopen threads with
-the project's existing access rules. Screenshots capture only the visible viewport and can be
-removed before sending. Review continues on reload and same-origin navigation in the active tab.
+the project's existing access rules. Screenshots are captured automatically within the visible
+viewport. Authors can redact or replace saved screenshots. Review continues on reload and same-origin navigation in the active tab.
 Exit review stops it; a different origin requires another explicit start.
 
 Each reviewer needs the desktop extension in Chrome or Edge and access to a project containing the
@@ -54,8 +54,8 @@ functionality and compliant data use. Do not describe this hosted frame as local
 Confirm the current store form's categories against actual behavior and the public policies. Do not
 claim that the extension collects no data. It handles account identity; the site origin for matching
 on action open; reviewed page URLs, selected text/anchors and context; submitted comments/replies;
-and optional screenshots. Signed-in/private sites may contain sensitive information: reviewers
-choose what to send and can remove images. Data uses the project's existing authorization and
+and automatic screenshots. Signed-in/private sites may contain sensitive information: reviewers
+choose where to leave feedback, and authors can redact or replace saved images. Data uses the project's existing authorization and
 retention rules. The extension does not sell data, use it for advertising, collect browser history
 or read unrelated tabs/cookies. Do not make retention promises beyond the public policy.
 
