@@ -156,7 +156,9 @@ page or environment, page-level feedback, missing anchors and removed sources, w
 the original page. A removed source never redirects to another address. Replying keeps the thread's
 status and unread cursor; previews and composing do not mark messages read.
 
-Enter posts, Shift+Enter adds a newline, and IME composition does not post. A selected mention
+Enter posts, Shift+Enter adds a newline, and IME composition does not post. Every composer says
+"Shift+Enter for a new line" (the toolbar's only where a mouse or trackpad is present; on a phone
+the on-screen Enter key is labelled Send instead). A selected mention
 consumes Enter or Tab. Replies appear while sending; errors keep recoverable text and selected
 mentions. Current access, comments-off state, private visibility, eligible mentions and the
 50-message thread limit are checked on the server. Replies use the existing notifications and
@@ -315,7 +317,10 @@ and thread/item. Pinned drafts retain their element/text anchor and return as cl
 for stale-edit protection. Closing a composer keeps its draft. Discard (Cancel for edits), a
 successful submission and toolbar sign-out remove it; sign-out clears that reviewer's project
 drafts on every page of the current site. Drafts on another reviewed origin must be cleared there.
-Expired drafts are ignored and pruned when the toolbar next opens. Browser/site scripts can read
+Expired drafts are ignored and pruned when the toolbar next opens. A composer that reopens with kept text
+says "Draft saved in this browser"; nothing is sent to uier before posting, so the cue makes no other claim.
+While a new comment or rewrite draft pin is closed, **Resume draft** above the toolbar pill scrolls to the pin
+and opens it with its text, after a reload too. Browser/site scripts can read
 local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays
 in memory and the composer explains that the page must stay open.
 

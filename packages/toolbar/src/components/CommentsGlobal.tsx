@@ -121,6 +121,17 @@ export function CommentsGlobal({
         const stopRewrite = watch(newRewriteDraftKey, 'rewrite');
         return () => { stopComment(); stopRewrite(); };
     }, [drafts]);
+    // Draft pins whose composer is open; a closed one is offered as "Resume draft" in the toolbar
+    const [openDrafts, setOpenDrafts] = useState<ReadonlySet<string>>(() => new Set());
+    const handleDraftOpenState = useCallback((key: string, open: boolean) => setOpenDrafts(current => {
+        if (current.has(key) === open) return current;
+        const next = new Set(current);
+        if (open) next.add(key); else next.delete(key);
+        return next;
+    }), []);
+    // The draft "Resume draft" reopens (its `key`), scrolled into view first when its pin is off-screen
+    const [resumingDraft, setResumingDraft] = useState<number>();
+    const handleDraftResumed = useCallback(() => setResumingDraft(undefined), []);
     const [activeThreads, setActiveThreads] = useState<ReadonlySet<string>>(() => new Set());
     // A comment being sent (its temporary id), whose thread opens once it is saved (see `handleSaved`)
     const awaitingThreadRef = useRef<string>(undefined);
@@ -437,6 +448,23 @@ export function CommentsGlobal({
         setSidebarOpen(true);
     };
 
+    // The latest closed draft pin with text (a closed draft pin always has text)
+    const draftKeyOf = (kind: CommentDraft['kind']) => kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey;
+    const resumableDraft = creatingComments
+        .filter(draft => !openDrafts.has(draftKeyOf(draft.kind)) && drafts.get(draftKeyOf(draft.kind))?.trim())
+        .sort((a, b) => (drafts.details(draftKeyOf(b.kind))?.updatedAt ?? 0) - (drafts.details(draftKeyOf(a.kind))?.updatedAt ?? 0))[0];
+    const resumeDraft = () => {
+        if (!resumableDraft) return;
+        closeHintForUse();
+        setCreatingCommentPoint(false);
+        setCreatingCommentSelection(undefined);
+        awaitingThreadRef.current = undefined;
+        draftKeyRef.current += 1;
+        // Like reopening its pin: a new capture, then the composer with the text
+        setCreatingComment({ kind: resumableDraft.kind, position: resumableDraft.position, key: draftKeyRef.current, initiallyClosed: true });
+        setResumingDraft(draftKeyRef.current);
+    };
+
     // A posted comment's pin is there at once; its thread opens when it is saved (at its full size,
     // so the popover takes the side with room), unless something else was started meanwhile
     const handleCreated = (localId: string, draftKey: number) => {
@@ -574,6 +602,9 @@ export function CommentsGlobal({
                     <CommentBubble
                         draft={creatingComment}
                         initiallyClosed={creatingComment.initiallyClosed}
+                        autoOpen={resumingDraft === creatingComment.key}
+                        onAutoOpened={handleDraftResumed}
+                        onOpenStateChange={handleDraftOpenState}
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
                         onCreated={localId => handleCreated(localId, creatingComment.key)}
                         onSaved={handleSaved}
@@ -658,6 +689,8 @@ export function CommentsGlobal({
                 inboxButtonRef={inboxButtonRef}
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
+                // Not over the inbox or while choosing a new anchor
+                onResumeDraft={resumableDraft && !sidebarOpen && !reattaching ? resumeDraft : undefined}
                 onCancelPointComment={() => { setCreatingCommentPoint(false); addButtonRef.current?.focus(); }}
                 sidebarOpen={sidebarOpen}
                 onToggleSidebar={() => {
