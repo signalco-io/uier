@@ -1,9 +1,8 @@
 'use client';
 
 import { MegaphoneIcon } from 'lucide-react';
-import { openUierFeedback } from '@uier/toolbar/react';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/src/components/ui/sidebar';
-import { toolbarScriptSrc } from '../../toolbar/ToolbarScript';
+import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
 
 /**
  * Feedback on the app itself: uier's own toolbar opens on the page with its feedback form. On app
@@ -12,12 +11,9 @@ import { toolbarScriptSrc } from '../../toolbar/ToolbarScript';
 export function FeedbackButton() {
     const { isMobile, setOpenMobile } = useSidebar();
 
-    // The app's own API, also when the development toolbar comes from its own server
-    const openFeedback = () => openUierFeedback({ src: toolbarScriptSrc, apiUrl: window.location.origin });
-
     const handleClick = () => {
         if (!isMobile) {
-            openFeedback();
+            openToolbarFeedback();
             return;
         }
         // The toolbar sits over the page: the navigation sheet makes way for it first, because once
@@ -25,7 +21,7 @@ export function FeedbackButton() {
         setOpenMobile(false);
         const whenSheetClosed = () => document.querySelector('[data-slot="sidebar"][data-mobile="true"]')
             ? requestAnimationFrame(whenSheetClosed)
-            : openFeedback();
+            : openToolbarFeedback();
         requestAnimationFrame(whenSheetClosed);
     };
 

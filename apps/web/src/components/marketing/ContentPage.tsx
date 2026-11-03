@@ -6,9 +6,11 @@ import { cx } from '@signalco/ui-primitives/cx';
 // one type scale and section rhythm from BRAND.md ("Typography", "Space"), whitespace between
 // sections instead of rules, and one way to group items: a panel of cells divided by hairlines.
 
-export function PageHeader({ title, lead, children }: PropsWithChildren<{ title: string; lead: ReactNode; }>) {
+/** `media` goes above the title, e.g. an integration's logo */
+export function PageHeader({ title, lead, media, children }: PropsWithChildren<{ title: string; lead: ReactNode; media?: ReactNode; }>) {
     return (
         <header className="flex max-w-[720px] flex-col gap-5 pt-12 md:pt-20">
+            {media}
             <h1 className="text-[40px] font-semibold leading-[1.1] tracking-[-0.03em]">{title}</h1>
             <p className="text-lg leading-relaxed text-muted-foreground">{lead}</p>
             {children}
@@ -52,9 +54,9 @@ export function PageSection({ id, title, lead, wide, children }: PropsWithChildr
 /**
  * Cells in one bordered panel, divided by hairlines. `className` sets the grid columns; the cells
  * draw their right and bottom rules, and the panel clips the outer ones, so a last row that is not
- * full still lines up.
+ * full still lines up. As a `dl`, each cell is a `div` with its `dt` and `dd`.
  */
-export function Panel({ as: Component = 'div', className, children }: PropsWithChildren<{ as?: 'div' | 'ul' | 'ol'; className?: string; }>) {
+export function Panel({ as: Component = 'div', className, children }: PropsWithChildren<{ as?: 'div' | 'ul' | 'ol' | 'dl'; className?: string; }>) {
     return (
         <div className="overflow-hidden rounded-2xl border">
             <Component className={cx('-mb-px -mr-px grid grid-cols-1 [&>*]:border-b [&>*]:border-r', className)}>
@@ -64,11 +66,14 @@ export function Panel({ as: Component = 'div', className, children }: PropsWithC
     );
 }
 
-/** A titled cell of a Panel */
-export function Tile({ title, children }: PropsWithChildren<{ title: string; }>) {
+/** A titled cell of a Panel, with an optional `label` chip beside the title */
+export function Tile({ title, label, children }: PropsWithChildren<{ title: string; label?: string; }>) {
     return (
         <div className="flex flex-col gap-2 p-6">
-            <h3 className="text-base font-semibold">{title}</h3>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h3 className="text-base font-semibold">{title}</h3>
+                {label && <Chip>{label}</Chip>}
+            </div>
             <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">{children}</div>
         </div>
     );
@@ -85,6 +90,11 @@ export function CheckList({ items, columns = 1 }: { items: ReactNode[]; columns?
             ))}
         </ul>
     );
+}
+
+/** A small outlined label, like the landing page's install guides */
+export function Chip({ children }: PropsWithChildren) {
+    return <span className="inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-medium text-foreground">{children}</span>;
 }
 
 export function InlineLink({ href, children }: PropsWithChildren<{ href: string; }>) {

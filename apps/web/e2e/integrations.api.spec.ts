@@ -17,6 +17,8 @@ import type { IntegrationAdapter, IntegrationConnection, IntegrationProviderId, 
 import { loadIntegrationLinks } from '../src/lib/integrations/links';
 import { syncPendingKey } from '../src/lib/integrations/syncSignal';
 import { runIntegrationWorker } from '../src/lib/integrations/worker';
+import { configuredIntegrationAdapters } from '../src/lib/integrations/registry';
+import { integrationCatalog } from '../src/lib/integrations/catalog';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 
@@ -88,6 +90,17 @@ async function replaceSource(f: Fixture, patch: Partial<DbComment>) {
     expect(await f.comments.replace({ ...stored.comment, ...patch }, stored.etag)).toBe('ok');
     return (await f.comments.get(f.source.domain, f.source.id))!.comment;
 }
+
+test('public and in-app feature lists offer the sync options each adapter supports', () => {
+    for (const adapter of configuredIntegrationAdapters) {
+        const features = integrationCatalog[adapter.provider].features;
+        expect(features.some(feature => feature.key === 'two-way-status'), adapter.provider).toBe(adapter.supportsStatusSync === true);
+        expect(features.some(feature => feature.key === 'reply-sync'), adapter.provider).toBe(adapter.supportsReplySync === true);
+        expect(features.filter(feature => ['two-way-status', 'reply-sync'].includes(feature.key)).every(feature => feature.optional), adapter.provider).toBe(true);
+        expect(new Set(features.map(feature => feature.key)).size, adapter.provider).toBe(features.length);
+    }
+    expect(Object.keys(integrationCatalog).sort()).toEqual(configuredIntegrationAdapters.map(adapter => adapter.provider).sort());
+});
 
 test('GitHub public-visibility consent pause blocks content but still permits authorized privacy cleanup', async () => {
     const f = await fixture(); const calls: string[] = [];

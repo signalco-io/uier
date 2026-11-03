@@ -11,12 +11,19 @@ test('Integrations lists services to connect, then connected ones that open thei
     await expect(available.getByRole('heading', { level: 3 })).toHaveText(['Notion', 'GitHub', 'Linear', 'Azure DevOps', 'Slack']);
     await expect(available.getByRole('link', { name: 'Connect Notion', exact: true })).toHaveAttribute('href', `/app/notion/connect?project=${projectId}`);
     await expect(page.getByRole('list', { name: 'Connected integrations' })).toHaveCount(0);
+    await expect(available.getByRole('list', { name: 'Optional for Linear' }).getByRole('listitem')).toHaveText(['Screenshots', 'Two-way status sync', 'Reply sync']);
+    await expect(page.getByRole('button', { name: 'Suggest an integration' })).toBeVisible();
     await expectNoAxeViolations(page);
 
     await available.getByRole('link', { name: 'Details about Slack', exact: true }).click();
     await expect(page).toHaveURL(`${baseURL}${overviewUrl}/slack`);
     await expect(page.getByRole('region', { name: 'Slack', exact: true })).toContainText('Not connected');
     await expect(page.getByRole('region', { name: 'Two-way status sync', exact: true })).toHaveCount(0);
+    // What it does, as on the public guide it links to; optional features say so until connected
+    const features = page.getByRole('region', { name: 'What it does', exact: true });
+    await expect(features.getByRole('list', { name: 'Slack features' }).getByRole('listitem')).toHaveCount(5);
+    await expect(features.getByRole('listitem').filter({ hasText: 'Reply sync' }).locator('[data-slot="badge"]')).toHaveText('Optional');
+    await expect(features.getByRole('link', { name: 'Guide to Slack' })).toHaveAttribute('href', '/integrations/slack');
     await expect(page.getByRole('navigation', { name: 'Project settings' }).getByRole('link', { name: 'Integrations' })).toHaveAttribute('aria-current', 'page');
     await page.getByRole('link', { name: 'All integrations', exact: true }).click();
     await expect(page).toHaveURL(`${baseURL}${overviewUrl}`);
