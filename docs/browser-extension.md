@@ -22,11 +22,26 @@ also checks that the content runtime has not been disposed.
 
 An explicit identity.launchWebAuthFlow opens first-party sign-in and consent. Registered clients
 have an exact https://<extension-id>.chromiumapp.org/uier callback. State and S256 PKCE bind a
-60-second one-use handoff. It creates a separate eight-hour, server-revocable extension session.
-There is no refresh token. Browser restart clears credentials and requires sign-in again.
+60-second one-use handoff. Updated packages request a renewable, server-revocable extension session:
+access tokens last 15 minutes, rotating refresh tokens extend a 30-day inactivity window, and a
+session ends after one year regardless of activity. Only the refresh credential and a local identity
+are persisted in API-scoped `chrome.storage.local`, restricted to `TRUSTED_CONTEXTS`; access tokens,
+active bindings, proofs and drafts stay in `storage.session`. Browser restart keeps sign-in but
+requires Start review again. A worker refresh is single-flight and persists a random attempt before
+sending it. An exact retry recovers the same successor after a lost response or worker suspension;
+reuse with another attempt revokes the session. Server records contain only credential/attempt
+hashes. Logout accepts a known refresh credential even after access expiry, revokes the session and
+clears both credential stores. Offline/temporary refresh failures retain the pending attempt for retry.
+Renewable consent uses `renewable=true` on the authorization request and binds it to the handoff;
+the exchange must opt in with `renewable: true`. Legacy packages that omit it retain their eight-hour, session-only sign-in; existing
+sessions are not silently upgraded. The updated package needs one sign-in to obtain refresh access.
 Project/site tokens last five minutes, renew through the worker, and recheck membership and the
 exact configured origin. Every request also rechecks the live session, membership and addresses.
-Embed cookies, OAuth/MCP credentials and embed CORS are unchanged.
+Embed cookies, OAuth/MCP credentials and embed CORS are unchanged. Refresh tokens authenticate only
+`POST /api/extension/refresh` (`clientId`, `refreshToken`, `attempt`) and session revocation, never
+review/project APIs. Refresh is limited to 120 attempts per session per hour; idle/absolute expiry,
+user existence and the client allowlist are checked server-side. Rotated hashes expire with their
+original 30-day token window; deleting a session stops its access and scoped tokens immediately.
 
 Verified writes reuse the review services and their five-minute origin/project/reviewer proof.
 The worker opens a packaged helper window containing the uier-origin /extension-verification
@@ -131,7 +146,9 @@ hosted verification**.
 
 Local acceptance covers real sign-in/consent, multiple project matches, worker transport, strict-CSP
 posting/reload, viewport screenshot retrieval/canvas preview, proof renewal, replies, resolve/reopen,
-repeated activation, worker shutdown/restart, draft recovery, committed-but-lost write retries,
+repeated activation, worker shutdown/restart, browser restart with retained sign-in and cleared
+activation/drafts, access renewal without cookies, committed-but-lost refresh recovery, concurrent
+refresh/logout, draft recovery, committed-but-lost write retries,
 same-document project switching, Exit/restart, SPA history, cross-origin deactivation, sign-out,
 embed coexistence with a different project, text/area anchors, screenshot redaction, safe inactive-tab
 capture failure, omitted API cookies and light/dark popup accessibility.

@@ -35,7 +35,7 @@ The single purpose is reviewing configured uier project sites by leaving on-page
 | --- | --- |
 | `activeTab` | Temporary access after the reviewer explicitly opens the action; injects the review layer and captures only the reviewed visible tab. Same-origin continuation ends on Exit, tab closure or origin change. |
 | `scripting` | Injects the locally bundled toolbar into the top frame's isolated world. No remote executable code. |
-| `storage` | Trusted extension session storage holds separate sign-in credentials, active bindings, verification proofs and bounded text/anchor drafts. No images in drafts. Browser restart clears them. |
+| `storage` | Trusted local storage persists the separate refresh credential and pending renewal attempt. Access credentials, active bindings, verification proofs and bounded text/anchor drafts use trusted session storage and clear on browser restart. No images in drafts. |
 | `identity` | Explicit first-party sign-in and consent using the exact extension callback, state and PKCE. |
 | `https://uier.io/*` host | Worker API requests and the extension-owned first-party browser-verification frame. Does not grant access to every reviewed site. |
 
@@ -59,8 +59,10 @@ choose what to send and can remove images. Data uses the project's existing auth
 retention rules. The extension does not sell data, use it for advertising, collect browser history
 or read unrelated tabs/cookies. Do not make retention promises beyond the public policy.
 
-Credentials, bindings, proofs and unsent text/anchor drafts stay in trusted extension session storage;
-images stay outside persistent drafts. Sign-out clears local private data and revokes the separate
+The refresh credential stays in trusted extension local storage to retain sign-in across restarts,
+with 30-day inactivity and one-year absolute limits. Access credentials, bindings, proofs and unsent
+text/anchor drafts stay in trusted session storage; images stay outside persistent drafts.
+Sign-out clears local private data and revokes the separate
 server session. Network transport goes to uier over HTTPS. The helper obtains BotID verification on
 uier after explicit sign-in, independent of the reviewed page's CSP.
 

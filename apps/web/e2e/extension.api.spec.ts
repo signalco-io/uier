@@ -12,6 +12,7 @@ import { assertVerifiedWrite } from '../src/lib/review/verification';
 import { signToken } from '../src/lib/app/tokens';
 import { memberId, workspacePk } from '../src/lib/app/model';
 import { actorAuthorId, assertCanUseComments } from '../src/lib/review/actor';
+import { refreshExtensionSession, revokeExtensionSession, extensionAccessSeconds, extensionIdleSeconds, extensionAbsoluteSeconds } from '../src/lib/extension/sessions';
 
 const clientId = 'abcdefghijklmnopabcdefghijklmnop';
 const redirectUri = `https://${clientId}.chromiumapp.org/uier`;
@@ -19,14 +20,14 @@ const original = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_EXTENSION_CLIENT_IDS
 test.beforeAll(() => { process.env.UIER_LOCAL = '1'; process.env.UIER_EXTENSION_CLIENT_IDS = clientId; });
 test.afterAll(() => { for (const [key, value] of Object.entries(original)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
 const random = () => randomBytes(32).toString('base64url');
-async function fixture() {
+async function fixture(renewable = false) {
     const user = await findOrCreateUser(`${randomUUID()}@example.test`);
     const member = await ensureOwnWorkspace(user);
     const context = { user, member, workspace: { id: member.workspaceId }, isAdmin: true } as AppContext;
     const project = await createProject(context, { name: 'Extension project', urls: ['https://reviewed.example'] });
     const verifier = random(), state = random();
     const challenge = createHash('sha256').update(verifier).digest('base64url');
-    const authorization = { clientId, redirectUri, state, challenge };
+    const authorization = { clientId, redirectUri, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}) };
     const callback = new URL(await issueExtensionCode(user.id, authorization));
     const exchange = { clientId, redirectUri, code: callback.searchParams.get('code'), verifier };
     return { user, project, authorization, callback, exchange };
@@ -34,6 +35,115 @@ async function fixture() {
 const request = (path: string, token?: string, body?: unknown) => new Request(`https://uier.io/api/extension/${path}`, {
     method: body === undefined ? 'GET' : 'POST', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body)
 });
+async function renewableFixture() {
+    const f = await fixture(true);
+    const credentials = await exchangeExtensionCode({ ...f.exchange, renewable: true });
+    if (!('refreshToken' in credentials)) throw new Error('Expected renewable extension credentials');
+    return { ...f, credentials };
+}
+
+test('renewable sessions use short access, recover the same rotation and renew after access expiry', async () => {
+    const f = await renewableFixture();
+    expect(f.credentials.expiresAt - Date.now()).toBeLessThanOrEqual(extensionAccessSeconds * 1000);
+    expect(f.credentials.refreshExpiresAt - Date.now()).toBeGreaterThan((extensionIdleSeconds - 5) * 1000);
+    const session = await extensionSession(request('projects', f.credentials.token));
+    const scoped = await (await createScope(request('scope', f.credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+    await expect(extensionSession(request('projects', f.credentials.refreshToken))).rejects.toMatchObject({ status: 401 });
+    await expect(extensionReviewContext(request('review/info', f.credentials.refreshToken))).rejects.toMatchObject({ status: 401 });
+    const input = { clientId, refreshToken: f.credentials.refreshToken, attempt: random() };
+    const [first, concurrent] = await Promise.all([refreshExtensionSession(input), refreshExtensionSession(input)]);
+    expect(first.refreshToken).not.toBe(f.credentials.refreshToken);
+    expect(concurrent.refreshToken).toBe(first.refreshToken);
+    const retained = await getAppStore().query<any>({ type: 'extension-refresh-token', pk: session.pk });
+    expect(JSON.stringify(retained)).not.toContain(f.credentials.refreshToken);
+    expect(JSON.stringify(retained)).not.toContain(first.refreshToken);
+    expect(JSON.stringify(retained)).not.toContain(input.attempt);
+    const now = Date.now;
+    try {
+        const later = now() + 2 * 24 * 3600 * 1000;
+        Date.now = () => later;
+        await expect(extensionSession(request('projects', first.token))).rejects.toMatchObject({ status: 401 });
+        // A delayed/lost response can still recover, without extending the inactivity deadline.
+        const recovered = await refreshExtensionSession(input);
+        expect(recovered.refreshToken).toBe(first.refreshToken);
+        expect(recovered.refreshExpiresAt).toBe(first.refreshExpiresAt);
+        const next = await refreshExtensionSession({ clientId, refreshToken: recovered.refreshToken, attempt: random() });
+        expect(next.refreshExpiresAt).toBeGreaterThan(first.refreshExpiresAt);
+        expect((await extensionSession(request('projects', next.token))).userId).toBe(f.user.id);
+        await expect(refreshExtensionSession(input)).rejects.toMatchObject({ status: 401 });
+        // A delayed receipt from an earlier rotation does not revoke its successor.
+        await extensionSession(request('projects', next.token));
+        await revokeExtensionSession(request('session', next.refreshToken));
+        await expect(extensionSession(request('projects', next.token))).rejects.toMatchObject({ status: 401 });
+        await expect(refreshExtensionSession({ clientId, refreshToken: next.refreshToken, attempt: random() })).rejects.toMatchObject({ status: 401 });
+    } finally { Date.now = now; }
+    await expect(extensionReviewContext(request('review/info', scoped.token))).rejects.toMatchObject({ status: 401 });
+});
+
+test('refresh replay with a new attempt revokes access and scopes; wrong clients cannot revoke', async () => {
+    const f = await renewableFixture();
+    const input = { clientId, refreshToken: f.credentials.refreshToken, attempt: random() };
+    process.env.UIER_EXTENSION_CLIENT_IDS = `${clientId},${'a'.repeat(32)}`;
+    try {
+        await expect(refreshExtensionSession({ ...input, clientId: 'a'.repeat(32) })).rejects.toMatchObject({ status: 401 });
+    } finally { process.env.UIER_EXTENSION_CLIENT_IDS = clientId; }
+    const scoped = await (await createScope(request('scope', f.credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+    const next = await refreshExtensionSession(input);
+    await expect(refreshExtensionSession({ ...input, attempt: random() })).rejects.toMatchObject({ status: 401 });
+    await expect(extensionSession(request('projects', next.token))).rejects.toMatchObject({ status: 401 });
+    await expect(extensionReviewContext(request('review/info', scoped.token))).rejects.toMatchObject({ status: 401 });
+});
+
+test('renewal expires after 30 idle days or one year even with regular use', async () => {
+    const idle = await renewableFixture(), active = await renewableFixture();
+    const start = Date.now(), now = Date.now;
+    let current = active.credentials;
+    try {
+        let time = start;
+        Date.now = () => time;
+        time = start + (extensionIdleSeconds + 1) * 1000;
+        await expect(refreshExtensionSession({ clientId, refreshToken: idle.credentials.refreshToken, attempt: random() })).rejects.toMatchObject({ status: 401 });
+        for (let day = 20; day <= 360; day += 20) {
+            time = start + day * 24 * 3600 * 1000;
+            current = await refreshExtensionSession({ clientId, refreshToken: current.refreshToken, attempt: random() });
+        }
+        expect(current.refreshExpiresAt).toBeLessThanOrEqual(start + extensionAbsoluteSeconds * 1000);
+        time = start + extensionAbsoluteSeconds * 1000 + 1;
+        await expect(refreshExtensionSession({ clientId, refreshToken: current.refreshToken, attempt: random() })).rejects.toMatchObject({ status: 401 });
+    } finally { Date.now = now; }
+});
+
+test('logout after access expiry, removed clients/users and forged refresh credentials fail closed', async () => {
+    const f = await renewableFixture();
+    const input = { clientId, refreshToken: f.credentials.refreshToken, attempt: random() };
+    await expect(refreshExtensionSession({ ...input, refreshToken: input.refreshToken.slice(0, -43) + random() })).rejects.toMatchObject({ status: 401 });
+    process.env.UIER_EXTENSION_CLIENT_IDS = '';
+    try { await expect(refreshExtensionSession(input)).rejects.toMatchObject({ status: 401 }); }
+    finally { process.env.UIER_EXTENSION_CLIENT_IDS = clientId; }
+    const now = Date.now;
+    try {
+        const later = now() + 3600 * 1000;
+        Date.now = () => later;
+        await revokeExtensionSession(request('session', input.refreshToken));
+        await expect(refreshExtensionSession(input)).rejects.toMatchObject({ status: 401 });
+    } finally { Date.now = now; }
+    const removed = await renewableFixture();
+    await getAppStore().delete(removed.user.pk, removed.user.id);
+    await expect(refreshExtensionSession({ clientId, refreshToken: removed.credentials.refreshToken, attempt: random() })).rejects.toMatchObject({ status: 401 });
+});
+
+test('concurrent refresh and logout cannot recreate a revoked session', async () => {
+    const f = await renewableFixture();
+    const results = await Promise.allSettled([
+        refreshExtensionSession({ clientId, refreshToken: f.credentials.refreshToken, attempt: random() }),
+        revokeExtensionSession(request('session', f.credentials.refreshToken))
+    ]);
+    expect(results[1].status).toBe('fulfilled');
+    if (results[0].status === 'fulfilled')
+        await expect(extensionSession(request('projects', results[0].value.token))).rejects.toMatchObject({ status: 401 });
+    await expect(extensionSession(request('projects', f.credentials.token))).rejects.toMatchObject({ status: 401 });
+});
+
 test('exact callback, client registration, state, PKCE and atomic one-use handoff', async () => {
     const f = await fixture();
     expect(f.callback.searchParams.get('state')).toBe(f.authorization.state);
@@ -41,10 +151,12 @@ test('exact callback, client registration, state, PKCE and atomic one-use handof
         expect(() => validateAuthorization({ ...f.authorization, ...override })).toThrow();
     await expect(exchangeExtensionCode({ ...f.exchange, verifier: random() })).rejects.toThrow();
     await expect(exchangeExtensionCode({ ...f.exchange, redirectUri: `${redirectUri}?evil=1` })).rejects.toThrow();
+    await expect(exchangeExtensionCode({ ...f.exchange, renewable: true })).rejects.toThrow();
     const results = await Promise.allSettled([exchangeExtensionCode(f.exchange), exchangeExtensionCode(f.exchange)]);
     expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
     const winner = results.find(r => r.status === 'fulfilled') as PromiseFulfilledResult<{ token: string }>;
     expect((await extensionSession(request('projects', winner.value.token))).userId).toBe(f.user.id);
+    expect(winner.value).not.toHaveProperty('refreshToken');
     // An app/embed/MCP purpose never authenticates the extension API.
     for (const purpose of ['session', 'review', 'mcp-access'])
         await expect(extensionSession(request('projects', signToken(purpose, { uid: f.user.id }, 60)))).rejects.toThrow();

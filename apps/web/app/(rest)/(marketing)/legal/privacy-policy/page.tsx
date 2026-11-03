@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="2 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="3 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -30,12 +30,18 @@ export default function PrivacyPolicyPage() {
                 the visible viewport for feedback evidence and requests no browser history or cookie access.
             </p>
             <p>
-                Extension credentials, active tabs and unsent text drafts stay in extension session
-                storage, separate from the reviewed site. Drafts expire after seven days or when the
+                The extension stores its refresh credential and pending renewal attempt in restricted
+                extension local storage to keep you signed in across browser restarts. Access credentials,
+                active tabs and unsent text drafts stay in extension session storage, separate from the
+                reviewed site. Drafts expire after seven days or when the
                 browser session ends, whichever comes first. Images are never stored in drafts.
-                Sign-out clears this storage and revokes the server session. The server keeps a
-                separate extension session for up to eight hours and one-use sign-in handoffs for
-                up to 60 seconds. Browser verification uses BotID on uier, with cookies omitted.
+                Sign-out clears both credential stores and revokes the server session. Access credentials
+                last 15 minutes; renewal rotates the refresh credential. The separate server session ends
+                after 30 days without renewal or one year after sign-in. The server stores only hashes of
+                refresh credentials and renewal attempts; rotated records expire with their original
+                token window, at most 30 days. One-use sign-in handoffs last up to 60 seconds. Older
+                sessions keep their eight-hour limit until you sign in again with an updated package.
+                Browser verification uses BotID on uier, with cookies omitted.
                 The extension has no public store listing yet.
             </p>
 
