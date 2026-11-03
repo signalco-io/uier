@@ -39,9 +39,10 @@ animation frames. They stay within 512 KB and 4096 px per side. Deleting feedbac
 scheduled cleanup retries failed deletes once unreferenced images are older than an hour. See
 [screenshot storage](docs/screenshot-storage.md) for the storage and cleanup contract.
 
-The [desktop browser extension](docs/browser-extension.md) is an unreleased implementation for
-signed-in members reviewing sites without an embed. Hosted verification and store publication are
-still required before it is available to reviewers.
+The [desktop browser extension](docs/browser-extension.md) lets signed-in members review sites
+without an embed. Version 0.1.1 is available as an unlisted beta and passed store-installed Chrome
+and Edge acceptance. Public rollout waits for the first automatic upgrade and post-update checks;
+see the [release receipts](docs/browser-extension-release.md).
 
 ## Run locally
 
