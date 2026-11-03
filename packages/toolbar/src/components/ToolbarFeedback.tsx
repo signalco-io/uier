@@ -17,7 +17,7 @@ import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
 import { ScreenshotDisclosure } from './ScreenshotDisclosure';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
-import { captureCommentScreenshot } from '../screenshot';
+import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { floatingShadowClassName } from './@types/Comments';
 
 type FeedbackKind = 'feedback' | 'bug';
@@ -60,6 +60,16 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             onOpen?.();
         } else {
             create.reset();
+        }
+    };
+
+    // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
+    const handleOmittedChange = (omitted: boolean) => {
+        setOmitScreenshot(omitted);
+        if (omitted && cancelCommentScreenshot(screenshot)) {
+            setScreenshot(undefined);
+        } else if (!omitted && !screenshot) {
+            setScreenshot(captureCommentScreenshot({ type: 'page' }, rootElement));
         }
     };
 
@@ -141,7 +151,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 autoFocus
                 error={create.error}
                 onSubmit={handleSubmit} />
-            <ScreenshotDisclosure page screenshot={screenshot} omitted={omitScreenshot} onOmittedChange={setOmitScreenshot} />
+            <ScreenshotDisclosure page screenshot={screenshot} omitted={omitScreenshot} onOmittedChange={handleOmittedChange} />
         </Popper>
     );
 }

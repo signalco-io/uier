@@ -171,7 +171,8 @@ test('blocked browser storage retains a working composer and reports the recover
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     const draft = await startPoint(page);
     await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Still send my feedback');
-    await expect(draft.getByRole('status')).toContainText('Keep this page open');
+    // Beside the screenshot status (#323)
+    await expect(draft.getByRole('status').filter({ hasText: 'Keep this page open' })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.locator('[data-uier-comment="new"]').click();
     await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Still send my feedback');

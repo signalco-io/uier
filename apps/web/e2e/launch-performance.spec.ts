@@ -69,6 +69,40 @@ test('many missing and ambiguous text anchors share an index and never search ag
     } finally { await guest.context.close(); }
 });
 
+/**
+ * Marks the final screenshot encoder (`capture-encoded`, not the library's 1×1 WebP probe), every
+ * click (`click`, at the event's timestamp) and Chromium long tasks (`observed-long-task`),
+ * without replacing capture or its returned bytes.
+ */
+async function observeCapture(page: Page) {
+    await page.addInitScript(() => {
+        const encoded = (type: string | undefined, width: number) => {
+            if ((type === 'image/webp' || type === 'image/jpeg') && width > 1) performance.mark('capture-encoded');
+        };
+        const toDataURL = HTMLCanvasElement.prototype.toDataURL;
+        HTMLCanvasElement.prototype.toDataURL = function (type, quality) {
+            const result = toDataURL.call(this, type, quality);
+            encoded(type, this.width);
+            return result;
+        };
+        const toBlob = HTMLCanvasElement.prototype.toBlob;
+        HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+            const width = this.width;
+            toBlob.call(this, (blob) => {
+                encoded(type, width);
+                callback(blob);
+            }, type, quality);
+        };
+        addEventListener('click', event => performance.mark('click', { startTime: event.timeStamp }), true);
+        if (PerformanceObserver.supportedEntryTypes.includes('longtask')) {
+            new PerformanceObserver(list => {
+                for (const entry of list.getEntries())
+                    performance.measure('observed-long-task', { start: entry.startTime, duration: entry.duration });
+            }).observe({ type: 'longtask', buffered: true });
+        }
+    });
+}
+
 async function hostClicks(page: Page) {
     const start = await page.evaluate(() => performance.getEntriesByName('host-click-to-frame').length);
     // The mobile inbox visually covers the page. Use trusted keyboard activation so this
@@ -111,21 +145,7 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
             completedRequests.push(request.sizes().then(sizes => ({ path: `${url.hostname}${url.pathname}${url.search}`,
                 method: request.method(), sizes, timing: request.timing() })));
     });
-    await guest.page.addInitScript(() => {
-        const toDataURL = HTMLCanvasElement.prototype.toDataURL;
-        HTMLCanvasElement.prototype.toDataURL = function (type, quality) {
-            const result = toDataURL.call(this, type, quality);
-            // Observe the real final encoder without replacing capture or its returned bytes.
-            if (type === 'image/webp' || type === 'image/jpeg') performance.mark('capture-encoded');
-            return result;
-        };
-        if (PerformanceObserver.supportedEntryTypes.includes('longtask')) {
-            new PerformanceObserver(list => {
-                for (const entry of list.getEntries())
-                    performance.measure('observed-long-task', { start: entry.startTime, duration: entry.duration });
-            }).observe({ type: 'longtask', buffered: true });
-        }
-    });
+    await observeCapture(guest.page);
     try {
         const source = await readFile(new URL('../../../packages/toolbar/dist/index.js', import.meta.url));
         const bundle = { raw: source.length, gzip: gzipSync(source).length, brotli: brotliCompressSync(source).length };
@@ -207,4 +227,78 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
             expect(Math.max(...samples)).toBeLessThan(250);
         expect(Math.max(0, ...longTasksMs)).toBeLessThan(250);
     } finally { await guest.context.close(); }
+});
+
+test('feedback on a long page paints its composer first and captures in short tasks, also on a slower CPU', async ({ page, browser }, testInfo) => {
+    await signIn(page, uniqueEmail('capture-budget'));
+    const projectId = await createProject(page, { urls: [site.origin()], name: 'Capture budgets' });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const guest = await newVisitor(browser, testInfo);
+    await observeCapture(guest.page);
+    const cdp = await guest.page.context().newCDPSession(guest.page);
+    const samples: { sections: number; cpu: number; elements: number; firstFrameMs: number; encodedMs: number;
+        longTasksMs: number[]; longestTaskAfterFrameMs: number; blockingMs: number }[] = [];
+    try {
+        // The short page, then a page like a real long one (250 sections, over 1,000 elements), also at 4× slower CPU
+        for (const { sections, cpu } of [{ sections: 0, cpu: 1 }, { sections: 250, cpu: 1 }, { sections: 250, cpu: 4 }]) {
+            await guest.page.goto(`${site.origin()}/${projectId}/pricing?sections=${sections}&toolbar-code=${projectId}`);
+            await expect(toolbar(guest.page)).toBeVisible();
+            // Content above and below the window, under the sticky header
+            const elements = await guest.page.evaluate(() => {
+                window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) / 2);
+                // The composer's first frame: the next animation frame after its text box is added
+                const root = document.querySelector('#uier-toolbar')!.shadowRoot!;
+                const observer = new MutationObserver(() => {
+                    if (!root.querySelector('[role=dialog] textarea')) return;
+                    observer.disconnect();
+                    requestAnimationFrame(() => performance.mark('composer-frame'));
+                });
+                observer.observe(root, { subtree: true, childList: true });
+                return document.body.querySelectorAll('*').length;
+            });
+            await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpu });
+            try {
+                await guest.page.getByRole('button', { name: 'Send feedback', exact: true }).click();
+                await guest.page.waitForFunction(() => performance.getEntriesByName('composer-frame').length > 0
+                    && performance.getEntriesByName('capture-encoded').length > 0, undefined, { timeout: 30_000 });
+                const sample = await guest.page.evaluate(async () => {
+                    // Long-task entries arrive after their task
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                    const clickAt = performance.getEntriesByName('click').at(-1)!.startTime;
+                    const frameAt = performance.getEntriesByName('composer-frame')[0]!.startTime;
+                    const encodedAt = performance.getEntriesByName('capture-encoded')[0]!.startTime;
+                    const tasks = performance.getEntriesByName('observed-long-task')
+                        .filter(task => task.startTime + task.duration > clickAt && task.startTime < encodedAt);
+                    return { firstFrameMs: frameAt - clickAt, encodedMs: encodedAt - clickAt,
+                        longTasksMs: tasks.map(task => task.duration),
+                        longestTaskAfterFrameMs: Math.max(0, ...tasks.filter(task => task.startTime >= frameAt).map(task => task.duration)),
+                        // Total blocking time from the click to the encoded screenshot
+                        blockingMs: tasks.reduce((total, task) => total + Math.max(0, task.duration - 50), 0) };
+                });
+                samples.push({ sections, cpu, elements, ...sample });
+            } finally {
+                await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+            }
+            await guest.page.keyboard.press('Escape');
+        }
+    } finally { await guest.context.close(); }
+
+    const metricsPath = testInfo.outputPath('capture-performance.json');
+    await writeFile(metricsPath, JSON.stringify({ profile: testInfo.project.name, browser: browser.version(), samples }, null, 2));
+    await testInfo.attach('capture-performance.json', { path: metricsPath, contentType: 'application/json' });
+    console.info('Capture performance', JSON.stringify({ profile: testInfo.project.name, samples }));
+    const [short, long, slow] = samples as [typeof samples[0], typeof samples[0], typeof samples[0]];
+    expect(long.elements).toBeGreaterThan(1_000);
+    // The composer does not wait for the copy of the page: it opens as fast as on the short page.
+    // Capture was 360-420 ms before the composer at normal CPU, 1.6-1.9 s at 4× (#319).
+    expect(long.firstFrameMs).toBeLessThan(100);
+    expect(long.firstFrameMs).toBeLessThan(short.firstFrameMs + 50);
+    expect(slow.firstFrameMs).toBeLessThan(500);
+    // Then the copy is made in short tasks: no task of capture blocks the page for long
+    expect(long.longestTaskAfterFrameMs).toBeLessThan(100);
+    expect(slow.longestTaskAfterFrameMs).toBeLessThan(250);
+    expect(long.blockingMs).toBeLessThan(150);
+    expect(slow.blockingMs).toBeLessThan(500);
+    // And it still finishes: a loose guard, the slow sample takes about half a second locally
+    for (const sample of samples) expect(sample.encodedMs).toBeLessThan(5_000);
 });

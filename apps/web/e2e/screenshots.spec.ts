@@ -83,7 +83,10 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
     const canceled = await startComment(page, 'Discard this feedback.', page.getByRole('heading', { level: 1 }));
     await canceled.getByRole('button', { name: 'Discard' }).click();
     expect(await savedComments(page)).toHaveLength(0);
-    await page.evaluate(() => { HTMLCanvasElement.prototype.toDataURL = () => { throw new Error('Capture unavailable'); }; });
+    await page.evaluate(() => {
+        HTMLCanvasElement.prototype.toDataURL = () => { throw new Error('Capture unavailable'); };
+        HTMLCanvasElement.prototype.toBlob = () => { throw new Error('Capture unavailable'); };
+    });
     const draft = await startComment(page, 'Keep the feedback if capture fails.', page.getByRole('heading', { level: 1 }));
     await expect(draft.getByRole('status').filter({ hasText: 'The screenshot could not be taken. Only the text will be sent.' })).toBeVisible();
     await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveCount(0);
@@ -244,6 +247,44 @@ test('screenshots: the composer says while one is taken, and Omit screenshot pos
     await expect(next.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
     await next.getByRole('button', { name: 'Post comment' }).click();
     await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
+    await context.close();
+});
+
+test('screenshots: Omit screenshot stops one being taken, and attaching it again takes a new one', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    // Hold the capture before it copies the page (it inlines the page's font files first), and count the final encodings
+    await page.evaluate(() => {
+        const original = window.fetch;
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        const state = { release, encoded: 0 };
+        Object.assign(window, { capture: state });
+        window.fetch = (input, init) => /\.woff2?(?:$|\?)/.test(String(input instanceof Request ? input.url : input))
+            ? held.then(() => original(input, init)) : original(input, init);
+        const toBlob = HTMLCanvasElement.prototype.toBlob;
+        HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+            if (this.width > 1) state.encoded++;
+            toBlob.call(this, callback, type, quality);
+        };
+    });
+    const capture = () => page.evaluate(() => (window as unknown as { capture: { release: () => void; encoded: number } }).capture);
+    const draft = await startComment(page, 'Text only after all.', page.getByRole('heading', { level: 1 }));
+    await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot...' })).toBeVisible();
+    await draft.getByRole('button', { name: 'Omit screenshot' }).click();
+    await expect(draft.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
+    await page.evaluate(() => (window as unknown as { capture: { release: () => void } }).capture.release());
+    // Stopped: the page is not drawn or encoded once the fonts arrive (that takes well under a second)
+    await page.waitForTimeout(1_000);
+    expect((await capture()).encoded).toBe(0);
+
+    // Attached after all: a new screenshot, of the page as it is now
+    await draft.getByRole('button', { name: 'Omit screenshot' }).click();
+    await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
+    expect((await capture()).encoded).toBe(1);
+    const body = nextCreatedComment(page);
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    expect((await body).screenshot).toMatch(/^data:image\/(webp|jpeg);base64,/);
     await context.close();
 });
 

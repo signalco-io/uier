@@ -7,7 +7,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Pin, pinLabel } from '@uier/brand';
 import { newLocalId, useComments } from '../hooks/useComments';
 import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
-import { captureCommentScreenshot } from '../screenshot';
+import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
@@ -104,7 +104,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const { rects: placementRects } = useCommentPlacement(position);
     const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
-    const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> }>();
+    const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> | undefined }>();
     useEffect(() => {
         if (creating) setCapture({
             device: props.draft.device ?? getDeviceInfo(),
@@ -112,6 +112,15 @@ export function CommentBubble(props: CommentBubbleProps) {
         });
     }, [creating, position, rootElement, props.draft]);
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
+    // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
+    const handleOmittedChange = (omitted: boolean) => {
+        setOmitScreenshot(omitted);
+        if (omitted && cancelCommentScreenshot(capture?.screenshot)) {
+            setCapture(current => current && { ...current, screenshot: undefined });
+        } else if (!omitted && capture && !capture.screenshot) {
+            setCapture({ ...capture, screenshot: captureCommentScreenshot(position, rootElement) });
+        }
+    };
     const mutation = creating ? create : reply;
     // A deleted first item ("Comment deleted") is not a message, nor is one still on its way
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted && !item.pending).length ?? 0;
@@ -306,7 +315,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         error={mutation.error ?? props.draft?.sendError}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
-                    {creating && <ScreenshotDisclosure screenshot={capture?.screenshot} omitted={omitScreenshot} onOmittedChange={setOmitScreenshot} />}
+                    {creating && <ScreenshotDisclosure screenshot={capture?.screenshot} omitted={omitScreenshot} onOmittedChange={handleOmittedChange} />}
                 </div>}
                 {rewriting && selectedText && (
                     <div className="shrink-0">

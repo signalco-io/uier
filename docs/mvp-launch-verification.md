@@ -23,6 +23,7 @@ Issues #91/#92 and the other after-MVP work do not block this gate.
 | Guest, invited, comments off, revoked member and private comments | `project-review.spec.ts`, `users.spec.ts`, `editing-context.api.spec.ts` use real server permission checks, including screenshot access | Rerun after all dependencies merge; check fresh caches and notification delivery cannot expose newly hidden content |
 | Keyboard, accessible names, axe, light/dark, reduced motion and host styles | `launch.spec.ts`, `showcase.spec.ts`, `embed.spec.ts`; launch screenshots are written to each test's result directory | Manual VoiceOver/NVDA reading order/announcements; physical touch target usability |
 | Inactive/busy bundle, requests and host interactions | `launch-performance.spec.ts`, 100 real API-created threads (80 on this page, 20 elsewhere; 25 tiny saved images) | Repeat on hosted HTTPS with production refresh and capture; constrained CPU/network, sustained idle/background, realistic large images/DOM and larger projects |
+| Feedback opening and capture on a long page | `launch-performance.spec.ts`, 250 sections (1,010 elements) under a sticky header and a fixed badge, scrolled to the middle, at normal and 4× slower CPU | Real long pages with large images and web fonts; physical low-end devices |
 | Local and hosted checks, docs and dependency evidence | Required commands below; dependency receipts below | Record this PR's CI/preview and merge, then final merged dependency checks and hosted acceptance before closing #90 or checking #77 |
 
 ## Browser and environment scope
@@ -86,6 +87,16 @@ styles and fonts load only when the review UI is needed; the loader still has a 
   click delay and asynchronous work; it is not main-thread blocking time. A zero overlap count must
   not be described as a concurrent capture interaction measurement. Chromium long-task samples cover
   work of at least 50 ms; an empty list means none was observed, not zero JavaScript work.
+
+- Feedback capture (#319) is measured separately, in `capture-performance.json`: the short page, then
+  `?sections=250` (1,010 elements) at normal and 4× slower CPU (Chromium CDP throttling). Each sample
+  records **first frame** (click event to the animation frame after the composer's text box is added),
+  **encoder completion** (click to the final WebP/JPEG encoding, not the 1×1 WebP probe) and **blocking
+  time** (long tasks from the click to the encoding, each beyond 50 ms) as separate metrics. On the long
+  page the first frame must be under **100 ms** at normal CPU and within 50 ms of the short page's, under
+  **500 ms** at 4×; no long task after the first frame may reach **100 ms** (normal) or **250 ms** (4×);
+  blocking time stays under **150 ms** / **500 ms**, and every capture finishes within **5 s**. These keep
+  several times the local headroom and fail on the previous capture.
 
 The release record must preserve the actual JSON measurements and limitations with the tested
 revision. Repeat measurements after merged feature changes before accepting the launch gate.
@@ -183,3 +194,28 @@ The other activity/inbox tests exercise filtered lists, sequential 200+5 request
 partial etag failures, retained retry cursors, guest/member access, private visibility, queued-digest
 suppression and light/dark accessibility. The page picker keeps a 144 px minimum beside the new
 action on narrow screens.
+
+## Responsive feedback capture, November 3, 2026 (#319)
+
+Capture used to copy the whole page (`document.documentElement`, every element's computed styles)
+in the click that opened the composer, so the composer waited for it. A CPU profile of the long page
+attributed 267 of about 400 ms to the library's copy, 215 ms of it reading every element's computed
+styles. Capture now reads the window, scroll and scrolled elements at the click, copies after the
+composer's first frame in pieces of about 8 ms, leaves out blocks more than a window's size from the
+window, and encodes with `toBlob`. Omit screenshot stops a capture still being taken.
+
+Local Chromium 156 production builds, three samples per profile, `?sections=250` scrolled to the
+middle. Before is `main` at `1917219`.
+
+| Profile | CPU | First frame (before → after) | Encoder completion | Longest task | Blocking time |
+| --- | --- | --- | --- | --- | --- |
+| Desktop Chromium | 1× | 324–328 → 15–16 ms | 360–366 → 125–127 ms | 318–323 → none ≥ 50 ms | 268–273 → 0 ms |
+| Desktop Chromium | 4× | 1,322–1,392 → 30–34 ms | 1,473–1,542 → 417–441 ms | 1,299–1,368 → 60–73 ms | 1,322–1,391 → 10–23 ms |
+| Pixel 5 / Chromium | 1× | 330–331 → 13–16 ms | 380–382 → 137–140 ms | 323–324 → none ≥ 50 ms | 273–274 → 0 ms |
+| Pixel 5 / Chromium | 4× | 1,302–1,374 → 30–32 ms | 1,503–1,574 → 434–440 ms | 1,280–1,352 → 61–65 ms | 1,349–1,424 → 11–15 ms |
+
+The remaining 60–73 ms task at 4× is React rendering the opened composer in the toolbar; the CPU
+profile shows no capture work in it.
+Captures of the long page (desktop and mobile; top, middle and bottom; `html-scroll` and `body-hidden`
+layouts, borderless cards whose margins collapse through them, a grid) were pixel-identical to the
+previous capture's.
