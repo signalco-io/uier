@@ -457,4 +457,7 @@ backend login after the CLI identity check, before preview metadata reads or the
 Pulumi 3.273.0 uses Azure Identity for Go 1.14.0, which supports
 [selecting a credential by name](https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity@v1.14.0#DefaultAzureCredential).
 The existing environment-specific OIDC principals, role scopes and protected resources are unchanged.
-CI preview and production deployment must verify the selection against the real backend.
+[CI preview 41624855044](https://github.com/signalco-io/uier/actions/runs/41624855044) and
+[production deployment 41625585259](https://github.com/signalco-io/uier/actions/runs/41625585259)
+verified backend login with the selected credential and each reported **108 resources unchanged**.
+The production web deployment then succeeded. No infrastructure apply ran locally.

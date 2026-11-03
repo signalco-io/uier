@@ -4,7 +4,7 @@ The desktop Manifest V3 extension is an additional installation path for signed-
 tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.2 is published in the
 [Chrome Web Store](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
 Both native browsers automatically upgraded from the installed 0.1.1 baseline and passed
-post-update acceptance. Public visibility is approved; the app's installation-link deployment remains pending;
+post-update acceptance. Public visibility and the app's installation link are live;
 see [the latest receipt](browser-extension-release.md#automatic-upgrade-receipt--3-november-2026).
 
 ## Design record
@@ -133,9 +133,9 @@ also succeeded. The later [native store-installed receipt](browser-extension-rel
 records acceptance of the published 0.1.1 package. The later automatic-upgrade receipt records
 the real store-delivered 0.1.2 upgrade and post-update acceptance in both browsers.
 
-The app now offers script and extension setup, including onboarding and review-link guidance.
-The extension tab explains its pending availability without a fake store link. The released script
-remains the default. A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
+The app offers script and extension setup, including onboarding and review-link guidance.
+The extension tab links to the verified official store item. The script remains the default.
+A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
 `UIER_EXTENSION_STORE_ID` also occurs in `UIER_EXTENSION_CLIENT_IDS`, and owners have completed
 the hosted and publication gates. Feedback activity is labelled as feedback, never embed-installation proof.
 
@@ -180,7 +180,8 @@ async-upload reconciliation path; keep its fail-closed behavior and dashboard re
 Store publication, native acceptance and the automatic 0.1.1 → 0.1.2 upgrade are complete. Both
 browsers report the stable item ID and Chrome Web Store source; the old unpacked copies are
 disabled. The publisher account and public visibility are verified. Production configuration enables
-the app installation link and registers only the stable client. The remaining gates are a successful
-CI deployment, verification of the displayed link and deployed allowlist readback.
+the app installation link and registers only the stable client. [Deployment 41625585259](https://github.com/signalco-io/uier/actions/runs/41625585259)
+succeeded. The live guide's link opens the official 0.1.2 listing, and hosted verification's CSP
+contains only the stable store ID. The #268 desktop Chrome/Edge delivery gates are complete.
 
-Do not close #268 until its hosted, store and release-automation completion criteria are evidenced.
+Future releases retain the protected workflow, tested artifact, hosted acceptance and installed-update gates.
