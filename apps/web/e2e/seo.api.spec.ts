@@ -3,6 +3,7 @@ import { brand } from '@uier/brand';
 import { integrationCatalog } from '../src/lib/integrations/catalog';
 
 const publicPaths = [
+    '/guides', '/guides/client-website-reviews', '/guides/nextjs',
     '/', '/brand', '/features/feedback-triage', '/features/fix-verification', '/integrations',
     ...Object.keys(integrationCatalog).map(provider => `/integrations/${provider}`),
     '/legal/acceptable-use-policy', '/legal/cookie-policy', '/legal/privacy-policy',
@@ -59,6 +60,31 @@ test('the sitemap contains public pages and excludes assets and noindex flows', 
     }
     expect(pages.map(url => new URL(url).href).sort())
         .toEqual(publicPaths.map(path => new URL(path, brand.url).href).sort());
+});
+
+test('the homepage identifies the website and its actual publisher with connected JSON-LD', async ({ request }) => {
+    const html = await (await request.get('/')).text();
+    const documents = [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
+        .map(match => JSON.parse(match[1]!) as { '@graph': Record<string, unknown>[] });
+    const graph = documents.flatMap(doc => doc['@graph'] ?? [doc]);
+    const website = graph.find(doc => doc['@type'] === 'WebSite');
+    const publisher = graph.find(doc => doc['@type'] === 'Organization');
+    expect(website).toMatchObject({ name: brand.name, url: brand.url, publisher: { '@id': `${brand.parent.url}/#organization` } });
+    expect(publisher).toMatchObject({ '@id': `${brand.parent.url}/#organization`, name: brand.parent.name, url: brand.parent.url });
+    expect(meta(html, 'msvalidate.01')).toBe('16CF0F06FF0F10896508557122F1DA5C');
+});
+
+test('IndexNow publishes proof and a manifest of static public pages only', async ({ request }) => {
+    const response = await request.get('/search-index.json');
+    expect(response.status()).toBe(200);
+    const manifest = await response.json();
+    expect(manifest).toMatchObject({ version: 1, revision: expect.stringMatching(/^[a-f0-9]{40}$/) });
+    expect(manifest.pages.map((page: { url: string }) => page.url).sort()).toEqual(publicPaths.filter(path => path !== '/status').map(path => new URL(path, brand.url).href).sort());
+    for (const page of manifest.pages) expect(page.hash).toMatch(/^[a-f0-9]{64}$/);
+    const key = '82a627b9c3ebc96ec72d4bb73ed020b2';
+    const proof = await request.get(`/${key}.txt`);
+    expect(proof.status()).toBe(200);
+    expect((await proof.text()).trim()).toBe(key);
 });
 
 test('non-search pages expose noindex and robots.txt permits reading it', async ({ request }) => {

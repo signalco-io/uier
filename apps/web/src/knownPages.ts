@@ -1,5 +1,8 @@
 export const KnownPages = {
     Landing: '/',
+    Guides: '/guides',
+    ClientReviewGuide: '/guides/client-website-reviews',
+    NextJsGuide: '/guides/nextjs',
     HowItWorks: '/#how-it-works',
     Features: '/#features',
     GetStarted: '/#get-started',

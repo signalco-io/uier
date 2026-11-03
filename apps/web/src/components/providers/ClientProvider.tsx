@@ -1,6 +1,5 @@
 'use client';
 
-import { Analytics } from '@vercel/analytics/react';
 import { DevReviewToolbarScript } from '../toolbar/DevReviewToolbarScript';
 import { PropsWithChildren, useEffect } from 'react';
 import { ThemeProvider, useTheme } from 'next-themes';
@@ -45,7 +44,6 @@ export function ClientProvider({children, nonce}: PropsWithChildren<{ nonce?: st
                 <ThemedNotificationsContainer />
                 <DocumentPolicyBoundary />
                 {children}
-                <Analytics />
                 {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
             </QueryClientProvider>
         </ThemeProvider>
