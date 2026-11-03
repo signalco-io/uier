@@ -59,7 +59,7 @@ same shape people click on every day.
   (`MARK_PATH` in `src/brand.ts`, `<Mark />` in `src/Mark.tsx`).
 - One colour, no gradient, no outline, no shadow. Ink (#0A0A0A) on light, white on dark.
 - Never rotate or flip it: the sharp corner points up-left.
-- The product pin is the same shape on a 32 grid with a 2 px white ring and the thread count
+- The product pin is the same shape on a 32 grid with a 2 px white ring and the issue number
   inside (`PIN_PATH`); that is the only place the mark gets a ring.
 
 ### The wordmark is just the name
@@ -220,7 +220,11 @@ The toolbar, pins and inbox sidebar are what the product *is*, and they follow t
 2. **Threads follow the system theme.** The comment popover is paper in light mode and surface
    black in dark mode, because people read and type in it.
 
-A pin is the mark on a 32 grid, ink fill, 2 px white ring, the thread count in white 600 inside.
+A pin is the mark on a 32 grid, ink fill, 2 px white ring, the issue number in white 600 inside:
+the same `#12` the thread, the inbox and the app show, so a pin people mention can always be found.
+It never changes when replies come in. From the first reply, the message count sits on the top-right
+corner as a small white badge with ink text and outline, so it never reads as the number. Three or
+more digits get a smaller size to stay inside the pin. The pin's name says both: "Comment #12, 3 messages".
 A commented text range gets the blue 20 % tint. A commented area gets a dashed blue outline, with
 the same tint while its thread is open. The inbox shows the unread count as a blue pill.
 

@@ -270,6 +270,10 @@ error boundary, so one bad comment never breaks the toolbar.
 - Feedback and bug reports: the megaphone opens a dialog to choose feedback (heart) or a bug report (bug) and
   describe it. It is saved as a comment of that `kind` about the whole page (`position: { type: 'page' }`):
   no pin, but it is counted and listed in the inbox like any thread.
+- Pins show the thread's number (`#12`, as in the thread, the inbox and the app), which replies never change.
+  From the first reply, a small white badge on the pin's corner counts the messages; the pin's name says both
+  ("Comment #12, 3 messages", with ", done" for a resolved thread kept open). Old comments without a number
+  have an empty pin (the badge still counts replies), as do drafts and comments still sending.
 - Point comments: the + button starts point mode (a pin cursor and an instruction above the pill, Esc
   cancels). The element under the pointer gets a dashed accent outline, drawn by the toolbar over it (the
   page's own styles are not touched, and the toolbar's controls are never outlined); a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press

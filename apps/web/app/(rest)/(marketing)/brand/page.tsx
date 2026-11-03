@@ -286,10 +286,10 @@ export default function BrandPage() {
                     <div className="flex flex-col gap-6">
                         <ToolbarIllustration />
                         <div className="flex items-center gap-5">
-                            <Pin count={1} />
-                            <Pin count={2} />
-                            <Pin count={12} />
-                            <span className="text-sm text-muted-foreground">The pin: the mark on a 32 grid, ink fill, 2 px white ring, thread count inside.</span>
+                            <Pin number={1} />
+                            <Pin number={6} messages={3} />
+                            <Pin number={128} messages={12} />
+                            <span className="text-sm text-muted-foreground">The pin: the mark on a 32 grid, ink fill, 2 px white ring, the issue number inside. From the first reply, a white badge counts the messages.</span>
                         </div>
                         <p className="max-w-[560px] text-sm leading-relaxed text-muted-foreground">
                             Run the web app and the toolbar locally (<code className="font-mono">pnpm dev</code>) and open this page with <code className="font-mono">?review=true</code> to see the real thing on top of it.

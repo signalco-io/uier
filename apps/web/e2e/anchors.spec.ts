@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import {
     animationsFinished,
     commentBubble,
+    commentBubbles,
     isolatedOrigin,
     newVisitor,
     openLanding,
@@ -359,7 +360,9 @@ test('text that moved is found again; text that is gone stays reachable in the i
     await expectHighlightOnText(page, 'leaving comments directly');
     await expect(page.locator('[data-uier-highlight]')).not.toHaveCount(0);
 
-    await expect(page.getByRole('button', { name: 'Comment, 1 message', exact: true })).toHaveCount(1);
+    // Only the moved text's pin (#1)
+    await expect(commentBubbles(page)).toHaveCount(1);
+    await expect(commentBubble(page, 1, 1)).toBeVisible();
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     const gone = sidebar.getByRole('article').filter({ hasText: 'Gone words' });

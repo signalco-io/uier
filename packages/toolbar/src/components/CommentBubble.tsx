@@ -4,6 +4,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
+import { Pin, pinLabel } from '@uier/brand';
 import { newLocalId, useComments } from '../hooks/useComments';
 import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { captureCommentScreenshot } from '../screenshot';
@@ -13,15 +14,16 @@ import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
-import { CommentIcon } from './CommentIcon';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { toolbarAnchorPrefix } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
-// Bubble (CommentIcon) half size and its minimal distance from the left and right window edges
+// Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
+// @uier/brand) and its minimal distance from the left and right window edges
 const bubbleHalfSize = 16;
+const bubbleBadgeOverhang = 5;
 const bubbleWindowMargin = 4;
 
 /**
@@ -35,7 +37,7 @@ function bubbleLeft(rect: DOMRect | undefined) {
     const left = (rect?.right ?? 0) + 16;
     const halfHitArea = window.matchMedia('(pointer: coarse)').matches ? 22 : bubbleHalfSize;
     const min = halfHitArea + bubbleWindowMargin;
-    const max = document.documentElement.clientWidth - halfHitArea - bubbleWindowMargin;
+    const max = document.documentElement.clientWidth - Math.max(halfHitArea, bubbleHalfSize + bubbleBadgeOverhang) - bubbleWindowMargin;
     return max > min ? Math.min(Math.max(left, min), max) : left;
 }
 
@@ -223,16 +225,18 @@ export function CommentBubble(props: CommentBubbleProps) {
                         ref={triggerRef}
                         type="button"
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
+                        // The same number as the thread header, the inbox and the app ("Comment #6, 3 messages")
                         aria-label={creating
                             ? newLabel
                             : sending
                                 ? 'Comment, sending'
-                                : `Comment, ${messagesCount} ${messagesCount === 1 ? 'message' : 'messages'}`}
+                                : pinLabel({ number: commentItem.number, messages: messagesCount, done: commentItem.resolved })}
                         onFocus={handleFocus}
                         className={cx(
-                            'fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            'group fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            // A hovered or focused pin comes in front of the pins it overlaps
                             position.type === 'point' && position.selector.startsWith(toolbarAnchorPrefix)
-                                ? 'z-[55] hover:z-[56]' : 'z-[48] hover:z-[49]',
+                                ? 'z-[55] hover:z-[56] focus-visible:z-[56]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
                             sending && 'opacity-70',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className
@@ -243,12 +247,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                             transform: 'translate(-50%, -50%)',
                             willChange: 'left, top'
                         }}>
-                        <CommentIcon aria-hidden="true" className="hover:scale-110 hover:brightness-75" />
-                        <span
+                        {/* The thread's number, the one people quote; the message count is the badge */}
+                        <Pin
                             aria-hidden="true"
-                            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums text-white">
-                            {creating || sending ? '' : messagesCount}
-                        </span>
+                            number={creating || sending ? undefined : commentItem.number}
+                            messages={creating || sending ? undefined : messagesCount}
+                            style={{ display: 'block' }}
+                            className="group-hover:scale-110 group-hover:brightness-75" />
                     </button>
                 )}
                 aria-label={creating ? newLabel : sending ? 'Sending comment' : 'Comment thread'}

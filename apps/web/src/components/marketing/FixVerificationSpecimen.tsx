@@ -19,7 +19,7 @@ export function FixVerificationSpecimen() {
                             <span key={day} className="relative flex justify-between border-b py-1.5 tabular-nums">
                                 <span>{day}</span>
                                 <span className="text-muted-foreground">{time}</span>
-                                {day === 'Sunday' && <Pin count={1} size={24} className="absolute left-[64%] top-[55%]" />}
+                                {day === 'Sunday' && <Pin number={21} messages={2} size={24} className="absolute left-[64%] top-[55%]" />}
                             </span>
                         ))}
                     </div>

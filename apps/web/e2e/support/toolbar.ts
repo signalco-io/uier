@@ -5,9 +5,11 @@ import type { Browser, BrowserContext, Locator, Page, TestInfo } from '@playwrig
 
 export const toolbar = (page: Page) => page.getByRole('group', { name: 'uier feedback toolbar' });
 export const showcaseHint = (page: Page) => page.getByRole('region', { name: 'Try uier on this page' });
-export const commentBubbles = (page: Page) => page.getByRole('button', { name: /^Comment, \d+ messages?$/ });
-export const commentBubble = (page: Page, messages: number) =>
-    page.getByRole('button', { name: `Comment, ${messages} ${messages === 1 ? 'message' : 'messages'}`, exact: true });
+/** Saved comments' pins: "Comment #6, 3 messages" (no number on old comments, ", done" once resolved) */
+export const commentBubbles = (page: Page) => page.getByRole('button', { name: /^Comment(?: #\d+)?, \d+ messages?(?:, done)?$/ });
+/** An open comment's pin by its message count, and its number when given */
+export const commentBubble = (page: Page, messages: number, number?: number) =>
+    page.getByRole('button', { name: new RegExp(`^Comment${number === undefined ? '(?: #\\d+)?' : ` #${number}`}, ${messages} ${messages === 1 ? 'message' : 'messages'}$`) });
 /** Waits for the element's animations (a popover fading in) to finish, e.g. before an axe check */
 export async function animationsFinished(locator: Locator) {
     await locator.evaluate(async (element) => {

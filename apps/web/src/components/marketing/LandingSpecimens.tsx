@@ -52,12 +52,12 @@ export function PinnedSpecimen() {
                                 className={cx('relative flex justify-between border-b py-1.5 tabular-nums', day === 'Sunday' && 'rounded-sm border-transparent outline-2 outline-offset-2 outline-dashed outline-[hsl(var(--brand-accent))]')}>
                                 <span>{day}</span>
                                 <span className="text-muted-foreground">{time}</span>
-                                {day === 'Sunday' && <Pin count={2} size={26} className="absolute left-[64%] top-[55%]" />}
+                                {day === 'Sunday' && <Pin number={7} messages={2} size={26} className="absolute left-[64%] top-[55%]" />}
                             </span>
                         ))}
                     </div>
                     <span className="mt-5 text-sm text-muted-foreground">
-                        Book online or <span className="relative rounded-[3px] bg-[hsl(var(--brand-selection))] text-foreground">call us<Pin count={1} size={22} className="absolute left-full top-full -ml-1 -mt-1" /></span>.
+                        Book online or <span className="relative rounded-[3px] bg-[hsl(var(--brand-selection))] text-foreground">call us<Pin number={8} size={22} className="absolute left-full top-full -ml-1 -mt-1" /></span>.
                     </span>
                 </div>
                 <div className={cx('hidden w-56 shrink-0 flex-col gap-2.5 rounded-xl border bg-popover p-3.5 text-popover-foreground sm:flex', floating)}>
@@ -86,7 +86,7 @@ export function ContextSpecimen() {
             <div className="flex w-full max-w-[280px] flex-col overflow-hidden rounded-xl border bg-background">
                 <div className="relative flex h-24 items-center justify-center border-b bg-muted/50">
                     <span className="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">Book a table</span>
-                    <Pin count={1} size={20} className="absolute left-[60%] top-[52%]" />
+                    <Pin number={5} size={20} className="absolute left-[60%] top-[52%]" />
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 p-3.5 text-xs">
                     {details.map(([label, value]) => (
@@ -132,13 +132,13 @@ export function InboxSpecimen() {
     const groups = [
         {
             label: 'This page',
-            threads: [{ count: 2, text: 'The prices here are from last year.', meta: '/menu · 2h', unread: true }]
+            threads: [{ number: 9, count: 2, text: 'The prices here are from last year.', meta: '/menu · 2h', unread: true }]
         },
         {
             label: 'Other pages',
             threads: [
-                { count: 1, text: 'Opening hours are cut off on mobile.', meta: '/contact · 1d', unread: true },
-                { count: 3, text: 'Can the map open in the maps app?', meta: '/contact · 3d', done: true }
+                { number: 6, count: 1, text: 'Opening hours are cut off on mobile.', meta: '/contact · 1d', unread: true },
+                { number: 4, count: 3, text: 'Can the map open in the maps app?', meta: '/contact · 3d', done: true }
             ]
         }
     ];
@@ -164,7 +164,7 @@ export function InboxSpecimen() {
                         <span className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">{group.label}</span>
                         {group.threads.map(thread => (
                             <div key={thread.text} className="flex items-center gap-3 rounded-xl px-2 py-2">
-                                <Pin count={thread.count} size={24} className="shrink-0" />
+                                <Pin number={thread.number} messages={thread.count} size={24} className="shrink-0" />
                                 <span className="flex min-w-0 flex-1 flex-col">
                                     <span className="truncate text-[13px]">{thread.text}</span>
                                     <span className="font-mono text-[11px] text-muted-foreground">{thread.meta}</span>

@@ -15,7 +15,7 @@ both consume it, and [uier.io/brand](https://uier.io/brand) renders from it.
 | `src/brand.ts` | `brand` constants (name, tagline, copy, links, contact addresses, hex mirrors, radii, fonts), `BRAND_URL` (the site, for bundles that need only the link), `MARK_PATH`, `PIN_PATH`, `GEIST_FONTS_PATH` | metadata, manifest, OG image, footer, toolbar |
 | `src/Mark.tsx` | `<Mark />`, the mark as inline SVG in `currentColor` | nav, footer, brand page |
 | `src/Logo.tsx` | `<Logo />`, mark + wordmark lockup (inline styles, shadow-DOM safe) | nav, footer, brand page |
-| `src/Pin.tsx` | `<Pin count />`, the product pin with a white ring and thread count | landing, brand page |
+| `src/Pin.tsx` | `<Pin number messages />`, the product pin with a white ring, the issue number and the message count badge; `pinLabel` for its accessible name | toolbar pins, landing, brand page |
 | `assets/` | `mark.svg`, `mark-white.svg`, `logo.svg`, `logo-white.svg`, `favicon.svg` (adaptive) | README, external use, `apps/web/public/favicon.svg` |
 | `scripts/render-icons.mjs` | renders the PNG icon set into `apps/web/public` with sharp | `pnpm -C packages/brand icons` |
 
