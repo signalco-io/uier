@@ -1,6 +1,6 @@
 # Extension releases
 
-Publisher bootstrap is configured; version 0.1.1 is submitted for review as an unlisted beta.
+Publisher bootstrap is configured; version 0.1.1 is published as an unlisted beta.
 Public availability remains disabled until the remaining release gates pass.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
@@ -119,11 +119,23 @@ submitted it for review. The store dashboard independently shows **Pending revie
   `CWS_STATUS_MONITOR_ENABLED=false` keeps the optional schedule disabled; the shared environment
   still requires review for status jobs. Do not describe it as unattended monitoring.
 
-Submission is not publication. Google publisher verification and extension review remain pending.
-After approval, install the store package in Chrome and Edge, repeat acceptance and demonstrate
-a real automatic installed-version upgrade before enabling the public store link. Keep #268 open
-and `UIER_EXTENSION_AVAILABLE` disabled until those receipts exist. The temporary development
-client remains registered for the acceptance window and must then be removed.
+This receipt records submission, not the later publication. The following status receipt supersedes
+its pending-review state.
+
+## First publication receipt — 3 November 2026
+
+[Read-only status run 41614192130](https://github.com/signalco-io/uier/actions/runs/41614192130)
+succeeded with a fresh Google token and updated the retained 0.1.1 journal to `published`. The
+publisher dashboard independently shows **Published - unlisted**, and the
+[official installation page](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj)
+shows version 0.1.1 with installation controls in Chrome and Edge.
+
+Install the store package in Chrome and Edge, repeat acceptance and demonstrate a real automatic
+installed-version upgrade before enabling the public store link. Version 0.1.2 advances the package
+version for that update and includes the intervening changes already merged to main; its protected
+tag and submission must follow validation and baseline installation. Keep #268 open and
+`UIER_EXTENSION_AVAILABLE` disabled until those receipts exist. The temporary development client
+remains registered for the acceptance window and must then be removed.
 
 ## Build, dry-run and submit
 

@@ -1,10 +1,10 @@
 {
   "name": "@uier/extension",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
-  "description": "Unreleased uier desktop browser extension runtime spike",
+  "description": "uier desktop browser extension for configured project sites",
   "engines": {
     "node": "24.x"
   },
