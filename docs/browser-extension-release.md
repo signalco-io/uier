@@ -1,6 +1,7 @@
 # Extension releases
 
-Publisher bootstrap is configured; version 0.1.1 is published as an unlisted beta.
+Publisher bootstrap is configured; version 0.1.1 is published as an unlisted beta and has passed
+native Chrome/Edge store-installed acceptance. Version 0.1.2 is submitted for review.
 Public availability remains disabled until the remaining release gates pass.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
@@ -130,12 +131,40 @@ publisher dashboard independently shows **Published - unlisted**, and the
 [official installation page](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj)
 shows version 0.1.1 with installation controls in Chrome and Edge.
 
-Install the store package in Chrome and Edge, repeat acceptance and demonstrate a real automatic
-installed-version upgrade before enabling the public store link. Version 0.1.2 advances the package
-version for that update and includes the intervening changes already merged to main; its protected
-tag and submission must follow validation and baseline installation. Keep #268 open and
-`UIER_EXTENSION_AVAILABLE` disabled until those receipts exist. The temporary development client
-remains registered for the acceptance window and must then be removed.
+## Installed acceptance and first update — 3 November 2026
+
+After owner approval of both installation permission prompts, native Chrome 156 and Edge 156 on
+macOS installed the official store item. Both extension-detail pages report version 0.1.1, ID
+`kplfcfnpeljpkbcjgpaefpmggipfpemj` and **Chrome Web Store** source. The old unpacked development
+copies are disabled. The publisher settings independently show **Verified account**.
+
+Both store-installed packages completed first-party sign-in, exact-origin project selection and
+Start review on `https://uier.io/extension-demo.html`. Using only the isolated acceptance project,
+they saved comments, restored feedback after reload, retrieved and expanded screenshots, replied,
+resolved and reopened. The page's strict CSP denies scripts, connections, frames, images, fonts
+and styles. These runs used normal cookie settings; the earlier blocked-third-party-cookie receipt
+remains separate evidence. Exit review removed activation in both browsers, preserving the store
+installations as the upgrade baseline.
+
+[PR #362](https://github.com/signalco-io/uier/pull/362) passed CI OK and merged the 0.1.2 version
+advance. [Protected release run 41616201637](https://github.com/signalco-io/uier/actions/runs/41616201637)
+built, tested, uploaded and submitted that update after baseline acceptance:
+
+- Tag: `extension-v0.1.2`; source: `58b84ad458932cdde273f2d03e48c08e959bb8d7`.
+- ZIP SHA-256: `c403e2eb79e707035157809e9f6270fe08b718b6e02d54dac68d8ff6d2dbbd13`.
+- The clean, unkeyed package retains the four permissions and sole `https://uier.io/*` host grant.
+- The draft GitHub release retains its immutable artifacts and `submitted-for-review` journal;
+  the publisher dashboard independently shows **Pending review**.
+- [Read-only status run 41617355011](https://github.com/signalco-io/uier/actions/runs/41617355011)
+  succeeded with a fresh Google token and independently confirmed the matching target version.
+
+Google must approve 0.1.2 before the installed browsers can receive it. Record an actual automatic
+upgrade and repeat acceptance in Chrome and Edge before changing store visibility to public and
+enabling the app's store link. Do not count a reinstall or a locally loaded ZIP as an upgrade.
+Chrome checks automatically on startup and periodically; see
+[the update lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/extensions-update-lifecycle).
+Keep #268 open and `UIER_EXTENSION_AVAILABLE` disabled until those receipts exist. The temporary
+development client remains registered for the acceptance window and must then be removed.
 
 ## Build, dry-run and submit
 
