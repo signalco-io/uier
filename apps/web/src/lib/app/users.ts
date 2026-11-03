@@ -50,7 +50,8 @@ export async function findOrCreateUserWithStatus(email: string): Promise<{ user:
             email,
             name: defaultName(email),
             createdAt: now,
-            updatedAt: now
+            updatedAt: now,
+            acquisition: { version: 1, milestones: {}, delivered: [] }
         };
         user.pk = userPk(user.id);
 

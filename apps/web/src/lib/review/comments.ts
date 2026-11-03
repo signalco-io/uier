@@ -1,3 +1,4 @@
+import { markAcquisitionMilestone } from '../acquisition/server';
 import { ordinaryVerificationStatus } from '../comments/verificationState';
 import { commentPriority, priorities, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from './commentRevision';
@@ -247,9 +248,13 @@ export async function createProjectComment(request: Request, project: DbProject,
         comment.screenshot = screenshotInfo(screenshot);
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
     await refreshMutationActor(project, actor);
-    if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
-    await createWithScreenshot(store, recorded, screenshot);
-    return recorded;
+    let saved = recorded;
+    if (attempt)
+        saved = visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
+    else
+        await createWithScreenshot(store, recorded, screenshot);
+    if (project.id !== PUBLIC_PROJECT_ID) await markAcquisitionMilestone(project.createdBy, 'first_review');
+    return saved;
 }
 
 /** The screenshot of a comment the actor can see */

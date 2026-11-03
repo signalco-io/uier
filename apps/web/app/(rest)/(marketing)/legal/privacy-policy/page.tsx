@@ -470,9 +470,24 @@ export default function PrivacyPolicyPage() {
 
             <h3>Analytics</h3>
             <p>
-                We count page views with Vercel Web Analytics. It uses no cookies and stores nothing in your
-                browser. Vercel discards the hash it uses to recognise a visit after 24 hours, and we only see
+                We count page views with Vercel Web Analytics. The analytics service uses no cookies. Vercel
+                discards the hash it uses to recognise a visit after 24 hours, and we see
                 totals: pages, referrers, countries, browsers, operating systems and device types.
+            </p>
+            <p>
+                We also measure public visits and whether new accounts sign in, create their first project and
+                receive their first comment on a project. Your browser holds coarse arrival labels, such as
+                search, AI search or referral and a recognised source, in memory and passes those labels in
+                links from public pages to the app. This adds no cookies, browser storage or visitor identifier.
+                A new account can retain those labels and
+                the first milestone dates with its account record. Existing accounts are not backfilled.
+            </p>
+            <p>
+                Custom events sent to Vercel contain only the milestone and coarse source labels. They contain no account, project or comment identifiers, email addresses,
+                feedback, screenshots, search terms or arbitrary campaign text. We remove query strings and
+                fragments from analytics page URLs and group app pages under <code>/app</code>. Do Not Track
+                and Global Privacy Control disable browser analytics collection. Measurements are best effort;
+                a first review can appear after its owner next opens or focuses the app.
             </p>
 
             <h3>Toolbar fonts and sign-in links</h3>
@@ -552,6 +567,7 @@ export default function PrivacyPolicyPage() {
                 <li>Passkeys: until you remove them on your Account page, or with your account. Passkey challenges: at most five minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>
+                <li>New-account source labels and milestone dates: with the account until account erasure. Aggregate analytics event totals contain no account identifiers.</li>
                 <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>
             </ul>
 

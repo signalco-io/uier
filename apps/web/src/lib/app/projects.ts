@@ -11,6 +11,7 @@ import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProjec
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 import { ensureProjectPublicId, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 import { createProjectWithClient, ensureProjectClient } from './clients';
+import { markAcquisitionMilestone } from '../acquisition/server';
 
 export { projectClientNameSchema } from './clients';
 
@@ -199,7 +200,9 @@ export async function createProject(context: AppContext, { name, urls, clientNam
             createdAt: now,
             updatedAt: now
         };
-        return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
+        const created = await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
+        await markAcquisitionMilestone(context.user.id, 'first_project');
+        return created;
     }
     throw new Error('Could not create a unique project code');
 }

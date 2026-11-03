@@ -1,6 +1,6 @@
 {
     "$schema": "https://turborepo.com/schema.json",
-    "globalDependencies": [".browserslistrc"],
+    "globalDependencies": [".browserslistrc", ".github/scripts/search-index.mjs", ".github/indexnow.json"],
     "tasks": {
         "build": {
             "dependsOn": ["^build"],
@@ -11,11 +11,12 @@
                 "dist/**",
                 "public/sitemap*.xml",
                 "public/robots.txt",
+                "public/search-index.json",
                 "public/toolbar.js",
                 "public/toolbar-fonts/**",
                 "public/toolbar/**"
             ],
-            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "UIER_TOOLBAR_RETAIN_FROM"]
+            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "UIER_TOOLBAR_RETAIN_FROM", "GITHUB_SHA"]
         },
         "typecheck": {
             "dependsOn": ["^build"],

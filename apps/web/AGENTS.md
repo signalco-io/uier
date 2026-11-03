@@ -134,6 +134,22 @@ form, support/setup links and accessibility.
 
 ## Search indexing
 
+The public `/guides` index links client review and Next.js setup guides. Use the existing
+`ContentPage` components, snippet generator, metadata and social-card helpers; add public routes
+to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
+signalco publisher. Preserve the homepage Bing verification meta tag after setup.
+`search-index.mjs` generates the public static-page manifest after the sitemap; the production
+workflow submits only its changed public URLs through IndexNow. See
+[search and acquisition](../../docs/search-and-acquisition.md) for safeguards and recovery.
+
+`src/lib/acquisition` records new-account milestones in the existing user document; legacy accounts
+are not backfilled. Business writes must succeed independently of telemetry. `AcquisitionAnalytics`
+keeps coarse labels in memory, carries them in public-to-app links, strips private analytics URLs
+and respects Do Not Track/GPC. It adds no browser storage.
+Only the authenticated same-origin `/api/acquisition` can claim its user's pending stages.
+Never add identifiers, feedback, arbitrary campaign text or raw referrers to event properties.
+Keep the privacy disclosure aligned and test authorization, concurrency and URL redaction.
+
 Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
 description. Canonicals and Open Graph URLs point to the production URL without query parameters;
 never put a homepage canonical in the root layout, where other pages would inherit it.

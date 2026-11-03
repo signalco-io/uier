@@ -8,6 +8,7 @@ import { reviewSsoCookie, REVIEW_SSO_COOKIE_NAME, reviewSsoCookieOptions } from 
 import { SIGN_IN_REQUEST_COOKIE_NAME } from './signInCookie';
 import { GOOGLE_SIGN_IN_COOKIE_NAME } from './google/cookie';
 import { MICROSOFT_SIGN_IN_COOKIE_NAME } from './microsoft/cookie';
+import { markAcquisitionMilestone } from '../acquisition/server';
 
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from './sessionIdentity';
 
@@ -44,6 +45,7 @@ export async function startSession(userId: string, method: SignInMethod) {
         jar.set(cookieNames.signInRequest.legacy, '', appCookieOptions(0));
     const companion = reviewSsoCookie(token);
     if (companion) jar.set(companion);
+    await markAcquisitionMilestone(userId, 'sign_in');
 }
 
 export async function endSession() {

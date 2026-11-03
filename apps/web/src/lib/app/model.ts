@@ -1,5 +1,6 @@
 import type { PageStatePolicy } from '@uier/toolbar/page-state';
 import type { ClientColor, ClientIcon } from './clientAppearance';
+import type { AcquisitionState } from '../acquisition/types';
 
 // Documents of the `app` container (partition key `/pk`). Ids and partition keys are set by the
 // server only. Related documents share a partition: a workspace with its members and projects.
@@ -24,6 +25,8 @@ export type DbUser = AppDoc & {
     name: string;
     createdAt: string;
     updatedAt: string;
+    /** New-account acquisition cohort. Only coarse labels and activation dates, never feedback or referrer URLs. */
+    acquisition?: AcquisitionState;
 };
 
 /** Unique email -> user (the id is the normalized email, so a second user with it can't be created) */

@@ -48,6 +48,7 @@ jobs:
               - ".github/workflows/vercel-deploy_reusable.yml"
               - ".github/workflows/notifications.yml"
               - ".github/vercel-project.json"
+              - ".github/indexnow.json"
               - ".github/scripts/**"
             extension:
               - "apps/extension/**"
@@ -107,7 +108,7 @@ jobs:
       - name: Validate deployment artifact boundaries
         run: |
           python3 .github/scripts/test_prebuilt.py
-          node --test .github/scripts/package_prebuilt.test.mjs
+          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs
 
       - name: Package the standalone worker
         run: node apps/web/scripts/build-notifications.mjs

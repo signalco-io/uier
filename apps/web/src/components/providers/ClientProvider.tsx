@@ -1,12 +1,14 @@
 'use client';
 
 import { Analytics } from '@vercel/analytics/react';
+import { attributionLink } from '@/src/lib/acquisition/types';
 import { DevReviewToolbarScript } from '../toolbar/DevReviewToolbarScript';
 import { PropsWithChildren, useEffect } from 'react';
 import { ThemeProvider, useTheme } from 'next-themes';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NotificationsContainer } from '@signalco/ui-notifications';
+import { AcquisitionProvider, AcquisitionVisitAnalytics, acquisitionEnabled, useAcquisitionAttribution, redactAnalyticsEvent } from '../marketing/AcquisitionAnalytics';
 
 const queryClient = new QueryClient();
 
@@ -17,6 +19,7 @@ function ThemedNotificationsContainer() {
 
 /** CSP and COOP belong to the document; Next client navigation cannot replace them. */
 function DocumentPolicyBoundary() {
+    const getAttribution = useAcquisitionAttribution();
     useEffect(() => {
         const appPath = (path: string) => path === '/app' || path.startsWith('/app/');
         const navigate = (event: MouseEvent) => {
@@ -29,11 +32,12 @@ function DocumentPolicyBoundary() {
             if (target.origin !== location.origin || appPath(target.pathname) === appPath(location.pathname))
                 return;
             event.preventDefault();
-            location.assign(target.href);
+            location.assign(!appPath(location.pathname) && acquisitionEnabled()
+                ? attributionLink(target, getAttribution()).href : target.href);
         };
         document.addEventListener('click', navigate, true);
         return () => document.removeEventListener('click', navigate, true);
-    }, []);
+    }, [getAttribution]);
     return null;
 }
 
@@ -41,12 +45,15 @@ export function ClientProvider({children, nonce}: PropsWithChildren<{ nonce?: st
     return (
         <ThemeProvider attribute="class" nonce={nonce}>
             <QueryClientProvider client={queryClient}>
-                <ReactQueryDevtools initialIsOpen={false} />
-                <ThemedNotificationsContainer />
-                <DocumentPolicyBoundary />
-                {children}
-                <Analytics />
-                {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
+                <AcquisitionProvider>
+                    <ReactQueryDevtools initialIsOpen={false} />
+                    <ThemedNotificationsContainer />
+                    <DocumentPolicyBoundary />
+                    {children}
+                    <AcquisitionVisitAnalytics />
+                    <Analytics beforeSend={redactAnalyticsEvent} />
+                    {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
+                </AcquisitionProvider>
             </QueryClientProvider>
         </ThemeProvider>
     );

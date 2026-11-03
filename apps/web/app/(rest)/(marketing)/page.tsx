@@ -1,4 +1,5 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
+import { SiteStructuredData } from '@/src/components/marketing/SiteStructuredData';
 import type { ReactNode } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -18,7 +19,10 @@ import {
 } from '../../../src/components/marketing/LandingSpecimens';
 import { KnownPages } from '../../../src/knownPages';
 
-export const metadata = publicPageMetadata('/');
+export const metadata = {
+    ...publicPageMetadata('/'),
+    verification: { other: { 'msvalidate.01': '16CF0F06FF0F10896508557122F1DA5C' } }
+};
 
 // Copy and layout follow packages/brand/BRAND.md ("Marketing and metadata"): the tagline is the
 // headline, the review layer is shown on the page itself instead of a screenshot. Every claim
@@ -82,6 +86,7 @@ export default function LandingPage() {
     return (
         // The footer comes from the marketing layout, which also keeps the end of the page clear of the toolbar
         <main>
+            <SiteStructuredData />
             {/* The cover: the headline beside the how-it-works scene. The description stays a direct
                 child of the first column (e2e tests select it as main>section>div>p) */}
             <section className="grid grid-cols-1 items-center gap-12 py-12 md:py-20 lg:grid-cols-2 lg:gap-16 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
