@@ -14,6 +14,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
+import { ScreenshotDisclosure } from './ScreenshotDisclosure';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { captureCommentScreenshot } from '../screenshot';
@@ -44,7 +45,9 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const drafts = useDrafts();
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
-    const screenshot = useRef<Promise<string | undefined>>(undefined);
+    const [screenshot, setScreenshot] = useState<Promise<string | undefined>>();
+    // Per feedback: back to the automatic screenshot once it is sent
+    const [omitScreenshot, setOmitScreenshot] = useState(false);
     const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
     const [kind, setKind] = useState<FeedbackKind>(() => (drafts.details(`${feedbackDraftKey}:bug`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:feedback`)?.updatedAt ?? 0) ? 'bug' : 'feedback');
     const selected = kinds.find(k => k.value === kind) ?? kinds[0]!;
@@ -53,7 +56,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         setOpen(next);
         if (next) {
             device.current = getDeviceInfo();
-            screenshot.current = captureCommentScreenshot({ type: 'page' }, rootElement);
+            setScreenshot(captureCommentScreenshot({ type: 'page' }, rootElement));
             onOpen?.();
         } else {
             create.reset();
@@ -80,10 +83,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             text,
             mentions,
             device: device.current,
-            screenshot: screenshot.current
+            screenshot: omitScreenshot ? undefined : screenshot
         });
         handleOpenChange(false);
         await sending;
+        setOmitScreenshot(false);
         announce(selected.sent);
     };
 
@@ -137,6 +141,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 autoFocus
                 error={create.error}
                 onSubmit={handleSubmit} />
+            <ScreenshotDisclosure page screenshot={screenshot} omitted={omitScreenshot} onOmittedChange={setOmitScreenshot} />
         </Popper>
     );
 }
