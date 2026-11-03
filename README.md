@@ -40,9 +40,9 @@ scheduled cleanup retries failed deletes once unreferenced images are older than
 [screenshot storage](docs/screenshot-storage.md) for the storage and cleanup contract.
 
 The [desktop browser extension](docs/browser-extension.md) lets signed-in members review sites
-without an embed. Version 0.1.1 is available as an unlisted beta and passed store-installed Chrome
-and Edge acceptance. Public rollout waits for the first automatic upgrade and post-update checks;
-see the [release receipts](docs/browser-extension-release.md).
+without an embed. Version 0.1.2 is available as an unlisted beta and passed automatic-upgrade and
+post-update acceptance in Chrome and Edge. See the [release receipts](docs/browser-extension-release.md)
+for public visibility and the app installation-link rollout.
 
 ## Run locally
 

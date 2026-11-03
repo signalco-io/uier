@@ -1,11 +1,11 @@
 # Browser extension
 
 The desktop Manifest V3 extension is an additional installation path for signed-in project members,
-tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.1 is published as an
+tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.2 is published as an
 [unlisted Chrome Web Store beta](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
-Both native browsers passed store-installed acceptance. Version 0.1.2 is submitted for review as
-the first installed update; its upgrade and post-update acceptance remain pending.
-Keep public availability disabled until store and installed-upgrade acceptance are recorded.
+Both native browsers automatically upgraded from the installed 0.1.1 baseline and passed
+post-update acceptance. Public visibility and the app's installation-link rollout remain pending;
+see [the latest receipt](browser-extension-release.md#automatic-upgrade-receipt--3-november-2026).
 
 ## Design record
 
@@ -130,8 +130,8 @@ site exceptions. These runs used no loopback API proxy, local BotID mode or veri
 
 The real hosted design gate has evidence. The [first protected submission](browser-extension-release.md#first-submission-receipt--3-november-2026)
 also succeeded. The later [native store-installed receipt](browser-extension-release.md#installed-acceptance-and-first-update--3-november-2026)
-records acceptance of the published 0.1.1 package. An actual automatic browser upgrade and
-post-update acceptance remain separate gates.
+records acceptance of the published 0.1.1 package. The later automatic-upgrade receipt records
+the real store-delivered 0.1.2 upgrade and post-update acceptance in both browsers.
 
 The app now offers script and extension setup, including onboarding and review-link guidance.
 The extension tab explains its pending availability without a fake store link. The released script
@@ -177,15 +177,10 @@ immutable package. The [submission receipt](browser-extension-release.md#first-s
 records its source, checksum and review status. This successful upload does not exercise the
 async-upload reconciliation path; keep its fail-closed behavior and dashboard recovery rules.
 
-The first store review and native store-installed acceptance are complete. Both browsers report
-0.1.1, the stable item ID and Chrome Web Store source; the old unpacked copies are disabled.
-The publisher dashboard now shows a verified account. Remaining gates are:
-
-- Google review of 0.1.2, already uploaded and submitted through the protected workflow.
-- A real automatic 0.1.1 → 0.1.2 installed upgrade in Chrome and Edge, followed by post-update
-  sign-in/review acceptance. Package tests cannot replace those receipts.
-- Public store visibility and the verified installation link in the app, followed by removal of
-  the temporary development client from the hosted allowlist. Public availability stays disabled
-  until the upgrade gates pass.
+Store publication, native acceptance and the automatic 0.1.1 → 0.1.2 upgrade are complete. Both
+browsers report the stable item ID and Chrome Web Store source; the old unpacked copies are
+disabled. The publisher account is verified. Remaining rollout gates are public store visibility,
+the verified installation link in the app and deployed readback of the stable-client-only allowlist.
+Keep the app availability flag disabled until that public visibility is confirmed.
 
 Do not close #268 until its hosted, store and release-automation completion criteria are evidenced.

@@ -1,7 +1,7 @@
 # Extension releases
 
-Publisher bootstrap is configured; version 0.1.1 is published as an unlisted beta and has passed
-native Chrome/Edge store-installed acceptance. Version 0.1.2 is submitted for review.
+Version 0.1.2 is published as an unlisted beta. Native Chrome and Edge automatically upgraded
+from 0.1.1 and passed post-update acceptance. Public visibility and the app-link rollout remain pending.
 Public availability remains disabled until the remaining release gates pass.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
@@ -158,13 +158,35 @@ built, tested, uploaded and submitted that update after baseline acceptance:
 - [Read-only status run 41617355011](https://github.com/signalco-io/uier/actions/runs/41617355011)
   succeeded with a fresh Google token and independently confirmed the matching target version.
 
-Google must approve 0.1.2 before the installed browsers can receive it. Record an actual automatic
-upgrade and repeat acceptance in Chrome and Edge before changing store visibility to public and
-enabling the app's store link. Do not count a reinstall or a locally loaded ZIP as an upgrade.
-Chrome checks automatically on startup and periodically; see
-[the update lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/extensions-update-lifecycle).
-Keep #268 open and `UIER_EXTENSION_AVAILABLE` disabled until those receipts exist. The temporary
-development client remains registered for the acceptance window and must then be removed.
+This submission receipt records the initial pending state. The following receipt supersedes it.
+
+## Automatic upgrade receipt — 3 November 2026
+
+[Fresh status run 41618951081](https://github.com/signalco-io/uier/actions/runs/41618951081)
+confirmed that 0.1.2 passed review and updated its durable journal to `published`.
+After owner-approved normal browser restarts with tabs restored, Chrome 156 and Edge 156 first
+reported the installed 0.1.1 baseline and then changed to 0.1.2. Both retained the stable ID and
+**Chrome Web Store** source. No reinstall, local package or manual update button was used.
+This exercised the browser's normal startup update path; see
+[Chrome's update lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/extensions-update-lifecycle).
+
+After separate owner approval of the longer renewable sign-in, both upgraded packages completed
+first-party sign-in and repeated isolated production review on the strict-CSP HTTPS demo: post,
+reload/restoration, screenshot retrieval/expansion (visually checked), reply, resolve and reopen.
+The new screenshot disclosure was visible before posting. Exit review removed activation in both
+browsers. These native runs use real hosted verification, without local mode or an API proxy.
+
+The public visibility change was submitted separately. Google's first attempt rejected the
+homepage and privacy-policy URLs with connection timeouts. Their stored HTTPS URLs are correct;
+independent GET/HEAD checks returned HTTP 200 in under a second, including crawler user agents,
+and Google Public DNS resolved the production address. Saving the verified declarations and
+retrying succeeded: the dashboard confirmed submission and now shows **Pending review**.
+Automatic publication is enabled for the requested unlisted-to-public transition.
+
+Production Vercel configuration now registers only the stable store client and sets the actual
+`UIER_EXTENSION_STORE_ID`. The availability flag remains unset. Public store confirmation, a CI
+deployment with the installation link enabled and deployed allowlist readback remain the final
+rollout gates. Keep #268 open until they are recorded. The old unpacked copies remain disabled.
 
 ## Build, dry-run and submit
 
