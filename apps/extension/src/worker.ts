@@ -1,5 +1,5 @@
 import { parseWorkerMessage, type CaptureRegion } from './protocol';
-import { apiOrigin, type Binding, type Session, type Result, sessionKey, random, reviewable } from './environment';
+import { apiOrigin, type Binding, type Session, type Credentials, type RefreshSession, type Result, sessionKey, refreshKey, random, reviewable } from './environment';
 import { extensionOperation } from '@uier/toolbar/extension-contract';
 
 // Never expose worker-owned credentials or private drafts to content-script storage APIs.
@@ -12,12 +12,62 @@ let signingOut = false;
 let activationRevision = 0;
 chrome.tabs.onActivated.addListener(() => { activationRevision++; });
 const bindingKey = (tabId: number) => `binding:${tabId}`;
-const session = async () => {
+// Serialize credential writes with sign-out. Network calls never hold this queue.
+let authWrites = Promise.resolve();
+function writeAuth(operation: () => Promise<void>) {
+    const write = authWrites.then(operation);
+    authWrites = write.catch(() => {});
+    return write;
+}
+function assertAuthEpoch(epoch: number) {
+    if (signingOut || epoch !== authEpoch) throw new Error('This sign-in has ended.');
+}
+async function saveCredentials(credentials: Credentials, id: string, epoch: number) {
+    await writeAuth(async () => {
+        assertAuthEpoch(epoch);
+        if (credentials.refreshToken && credentials.refreshExpiresAt) {
+            await chrome.storage.local.set({ [refreshKey]: { id, refreshToken: credentials.refreshToken, refreshExpiresAt: credentials.refreshExpiresAt } satisfies RefreshSession });
+        }
+        await chrome.storage.session.set({ [sessionKey]: { id, token: credentials.token, expiresAt: credentials.expiresAt } satisfies Session });
+    });
+}
+let refreshing: Promise<Session> | undefined;
+async function currentSession(): Promise<Session> {
     if (signingOut) throw new Error('Sign-out is in progress.');
+    const epoch = authEpoch;
     const value = (await chrome.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
-    if (!value || value.expiresAt <= Date.now()) throw new Error('Sign in to uier again.');
-    return value;
-};
+    assertAuthEpoch(epoch);
+    if (value && value.expiresAt > Date.now() + 60_000) return value;
+    const retained = (await chrome.storage.local.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+    assertAuthEpoch(epoch);
+    if (!retained || retained.refreshExpiresAt <= Date.now()) {
+        if (value && value.expiresAt > Date.now()) return value;
+        throw new Error('Sign in to uier again.');
+    }
+    const attempt = retained.attempt ?? random();
+    // Persist before sending, so worker suspension or a lost response retries the same rotation.
+    await writeAuth(async () => {
+        assertAuthEpoch(epoch);
+        await chrome.storage.local.set({ [refreshKey]: { ...retained, attempt } });
+    });
+    const response = await api('refresh', undefined, 'POST', { clientId: chrome.runtime.id, refreshToken: retained.refreshToken, attempt });
+    assertAuthEpoch(epoch);
+    if (response.status === 401) {
+        await signOut().catch(() => {});
+        throw new Error('Sign in to uier again.');
+    }
+    const credentials = await json<Credentials>(response);
+    await saveCredentials(credentials, retained.id, epoch);
+    return { id: retained.id, token: credentials.token, expiresAt: credentials.expiresAt };
+}
+function session() {
+    if (!refreshing) {
+        const pending = currentSession();
+        refreshing = pending;
+        void pending.finally(() => { if (refreshing === pending) refreshing = undefined; }).catch(() => {});
+    }
+    return refreshing;
+}
 async function api(path: string, token?: string, method = 'GET', body?: unknown, proof?: string): Promise<Response> {
     return fetch(`${apiOrigin}/api/extension/${path}`, {
         method, credentials: 'omit', redirect: 'error', cache: 'no-store',
@@ -63,31 +113,48 @@ async function scope(binding: Binding) {
     return binding.scope!;
 }
 async function signIn() {
+    const epoch = authEpoch;
     const verifier = random(), state = random();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const redirectUri = chrome.identity.getRedirectURL('uier');
-    const query = new URLSearchParams({ clientId: chrome.runtime.id, redirectUri, state, challenge });
+    const query = new URLSearchParams({ clientId: chrome.runtime.id, redirectUri, state, challenge, renewable: 'true' });
     const result = await chrome.identity.launchWebAuthFlow({ url: `${apiOrigin}/app/extension?${query}`, interactive: true });
     if (!result) throw new Error('Sign-in was cancelled.');
     const url = new URL(result);
     if (url.origin + url.pathname !== redirectUri || url.hash || url.searchParams.get('state') !== state) throw new Error('Invalid sign-in callback.');
-    const credentials = await json<Session>(await api('token', undefined, 'POST', { clientId: chrome.runtime.id, redirectUri, code: url.searchParams.get('code'), verifier }));
+    const credentials = await json<Credentials>(await api('token', undefined, 'POST', { clientId: chrome.runtime.id, redirectUri, code: url.searchParams.get('code'), verifier, renewable: true }));
+    assertAuthEpoch(epoch);
     // Switching accounts retires all old proofs, private data and active tabs first.
     await signOut().catch(() => {});
-    await chrome.storage.session.set({ [sessionKey]: { ...credentials, id: random() } });
+    await saveCredentials(credentials, random(), epoch + 1);
 }
-async function signOut() {
-    const previous = (await chrome.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
+let signOutTask: Promise<void> | undefined;
+function signOut() {
+    if (!signOutTask) {
+        const pending = clearSession();
+        signOutTask = pending;
+        void pending.finally(() => { if (signOutTask === pending) signOutTask = undefined; }).catch(() => {});
+    }
+    return signOutTask;
+}
+async function clearSession() {
     authEpoch++; signingOut = true;
+    refreshing = undefined;
     try {
-        if (previous) {
-            const response = await api('session', previous.token, 'DELETE');
+        await authWrites;
+        const retained = (await chrome.storage.local.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+        const previous = (await chrome.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
+        if (retained || previous) {
+            const response = await api('session', retained?.refreshToken ?? previous!.token, 'DELETE');
             if (!response.ok && response.status !== 401) throw new Error('Browser data was cleared, but server sign-out was not confirmed.');
         }
     } finally {
         const values = await chrome.storage.session.get(null);
-        await chrome.storage.session.clear();
+        await writeAuth(async () => {
+            await chrome.storage.local.remove(refreshKey);
+            await chrome.storage.session.clear();
+        });
         await Promise.all(Object.keys(values).filter(key => key.startsWith('binding:')).map(key =>
             chrome.tabs.sendMessage(Number(key.slice(8)), { type: 'dispose' }).catch(() => {})));
         signingOut = false;
@@ -187,7 +254,11 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
         if (msg.type === 'sign-out') return signOut();
         if (msg.type === 'state') {
             let signedIn = false;
-            try { await session(); signedIn = true; } catch { /* Signed out. */ }
+            try { await session(); signedIn = true; } catch (error) {
+                // A temporary refresh failure must offer retry rather than another interactive login.
+                const retained = (await chrome.storage.local.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+                if (retained && retained.refreshExpiresAt > Date.now()) throw error;
+            }
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!signedIn || !tab?.id || !reviewable(tab.url)) return { signedIn, restricted: !reviewable(tab?.url) };
             const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: new URL(tab.url!).origin })}`, (await session()).token));

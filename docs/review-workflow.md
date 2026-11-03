@@ -256,7 +256,13 @@ by signing in. Account sign-out remains in the app's account menu.
 
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
 ([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
-Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
+Under the text box, `ScreenshotDisclosure` says what will happen: "Taking a screenshot...", then "A screenshot of this
+part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
+be taken. Only the text will be sent." Its **Omit screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
+a button with `aria-pressed`) sends that one comment without the `screenshot` field, so the API stores no image;
+the status then reads "No screenshot will be attached." The choice is per comment: it stays with an open or
+returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with the automatic
+screenshot again. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
 image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
 capture. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.
 
@@ -329,7 +335,8 @@ the earlier text back into the editor while retaining the newer text separately.
 
 Images and device details are never persisted with drafts. Automatic capture is refreshed on
 reopen/reload, using the restored anchor and the current page/viewport. Capture uses the resolved anchor
-when available; failed capture never blocks text. Composers show no image preview.
+when available; failed capture never blocks text. Composers show no image preview, only the
+capture status and the per-comment Omit screenshot choice, which is not stored in browser storage.
 Saved screenshots keep their expandable thumbnail behavior.
 
 Create/reply requests from the toolbar and app reply actions carry a random `idempotencyKey`, kept with the draft.

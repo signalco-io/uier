@@ -2,7 +2,9 @@
 
 Read ../../docs/browser-extension.md before changes. This is an unreleased runtime spike, not a
 published extension. Do not claim hosted BotID acceptance from local-mode tests or enable rollout
-before the gate is recorded. Store bootstrap remains owner work; release/status automation is implemented but disabled by default.
+before the gate is recorded. Hosted acceptance and the first unlisted submission are recorded in
+the docs; Google review and installed-upgrade acceptance remain pending. Protected release writes
+are enabled, while the optional status schedule remains disabled.
 Read ../../docs/browser-extension-release.md before touching publishing.
 
 Build bundles shared toolbar source through @uier/toolbar/extension. Configure adapters before
@@ -10,6 +12,10 @@ loading runtime; never inject a remote script or use page globals for credential
 is forbidden. The only cross-world protocol is secret-free toolbar coexistence.
 
 worker.ts is the sole credential owner. storage.session and local access stay TRUSTED_CONTEXTS.
+Only the API-scoped refresh credential/local identity/pending attempt persist in storage.local.
+Access lasts 15 minutes; refresh rotates with 30-day inactivity and one-year absolute limits.
+Persist the attempt before refresh; exact retries recover the same successor. Keep refresh writes
+single-flight and fenced against sign-out. Bindings, proofs and drafts remain session-only.
 Validate sender extension ID, top frame, browser document ID, current tab URL and the active binding
 for every content operation. Keep the shared extension-contract allowlist closed. No arbitrary URL,
 method, headers or bearer from a content message. API credentials and verification proofs never

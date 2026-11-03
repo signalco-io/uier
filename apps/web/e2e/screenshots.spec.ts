@@ -51,7 +51,9 @@ test('screenshots: capture automatically, stay out of the composer and expand fr
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     const draft = await startComment(page, 'The headline says it well.', page.getByRole('heading', { level: 1 }));
-    await expect(draft.getByRole('button', { name: /screenshot/i })).toHaveCount(0);
+    // Said in words (#323), never previewed
+    await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
+    await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
     await expect(draft.getByRole('img')).toHaveCount(0);
     // Submit immediately: the form awaits the capture rather than racing it.
     await draft.getByRole('button', { name: 'Post comment' }).click();
@@ -83,6 +85,8 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
     expect(await savedComments(page)).toHaveLength(0);
     await page.evaluate(() => { HTMLCanvasElement.prototype.toDataURL = () => { throw new Error('Capture unavailable'); }; });
     const draft = await startComment(page, 'Keep the feedback if capture fails.', page.getByRole('heading', { level: 1 }));
+    await expect(draft.getByRole('status').filter({ hasText: 'The screenshot could not be taken. Only the text will be sent.' })).toBeVisible();
+    await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveCount(0);
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     await expect(thread.getByText('Keep the feedback if capture fails.')).toBeVisible();
@@ -187,5 +191,84 @@ test('screenshots: feedback is about the page, its screenshot is the window with
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
 
+    await context.close();
+});
+
+/** The request body of the next new comment */
+function nextCreatedComment(page: Page) {
+    return page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/comments')
+        .then(request => request.postDataJSON() as { text: string; screenshot?: string });
+}
+
+test('screenshots: the composer says while one is taken, and Omit screenshot posts only the text', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    // The narrowest supported phone layout
+    if (testInfo.project.use.isMobile) await page.setViewportSize({ width: 390, height: 844 });
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    // Hold the capture: it inlines the page's font files before drawing (src/screenshot.ts)
+    await page.evaluate(() => {
+        const original = window.fetch;
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        Object.assign(window, { releaseCapture: release });
+        window.fetch = (input, init) => /\.woff2?(?:$|\?)/.test(String(input instanceof Request ? input.url : input))
+            ? held.then(() => original(input, init)) : original(input, init);
+    });
+    const draft = await startComment(page, 'Send this without an image.', page.getByRole('heading', { level: 1 }));
+    await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot...' })).toBeVisible();
+    await page.evaluate(() => (window as unknown as { releaseCapture: () => void }).releaseCapture());
+    const disclosure = draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' });
+    await expect(disclosure).toBeVisible();
+
+    // A real toggle, reached and used with the keyboard
+    const omit = draft.getByRole('button', { name: 'Omit screenshot' });
+    await omit.focus();
+    await page.keyboard.press('Space');
+    await expect(omit).toHaveAttribute('aria-pressed', 'true');
+    await expect(draft.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
+    await expect(draft.getByRole('img')).toHaveCount(0);
+    const box = await omit.boundingBox();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(await page.evaluate(() => document.documentElement.clientWidth));
+    await expectNoAxeViolations(page);
+
+    const body = nextCreatedComment(page);
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    expect(await body).not.toHaveProperty('screenshot');
+    const thread = page.getByRole('dialog', { name: 'Comment thread' });
+    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
+    expect((await savedComment(page, 'Send this without an image.')).screenshot).toBeUndefined();
+    await page.keyboard.press('Escape');
+
+    // Per comment: the next one has its screenshot again
+    const next = await startComment(page, 'This one keeps its screenshot.', page.getByRole('heading', { level: 1 }));
+    await expect(next.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await next.getByRole('button', { name: 'Post comment' }).click();
+    await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
+    await context.close();
+});
+
+test('screenshots: feedback can be sent without the screenshot of the visible page', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    if (testInfo.project.use.isMobile) await page.setViewportSize({ width: 390, height: 844 });
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    await page.getByRole('button', { name: 'Send feedback' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    await dialog.getByRole('textbox').fill('Text only, please.');
+    await expect(dialog.getByRole('status').filter({ hasText: 'A screenshot of the visible page will be attached.' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Omit screenshot' }).click();
+    await expect(dialog.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
+    const omit = await dialog.getByRole('button', { name: 'Omit screenshot' }).boundingBox();
+    const panel = await dialog.boundingBox();
+    expect(omit!.x + omit!.width).toBeLessThanOrEqual(panel!.x + panel!.width);
+
+    const body = nextCreatedComment(page);
+    await dialog.getByRole('button', { name: 'Send feedback' }).click();
+    expect(await body).not.toHaveProperty('screenshot');
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    expect((await savedComment(page, 'Text only, please.')).screenshot).toBeUndefined();
+
+    // Sent: the next feedback has its screenshot again
+    await page.getByRole('button', { name: 'Send feedback' }).click();
+    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
     await context.close();
 });

@@ -181,6 +181,8 @@ export type CommentDraft = {
     kind?: 'comment' | 'rewrite';
     /** Started when the feedback began; retained through collapse and awaited before posting. */
     screenshot?: Promise<string | undefined>;
+    /** The reviewer chose to send only the text (kept in memory, like the capture) */
+    omitScreenshot?: boolean;
     /** Why it was not posted: the draft is back on the page with its text (see CommentComposer) */
     sendError?: unknown;
 }

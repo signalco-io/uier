@@ -18,6 +18,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { toolbarAnchorPrefix } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
+import { ScreenshotDisclosure } from './ScreenshotDisclosure';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (CommentIcon) half size and its minimal distance from the left and right window edges
@@ -69,8 +70,8 @@ type CommentBubbleProps = {
     onCreated?: (localId: string) => void;
     /** The API saved it */
     onSaved?: (localId: string, commentId: string) => void;
-    /** Sending failed: the draft (its text is back) should be on the page again */
-    onSendFailed?: (error: unknown) => void;
+    /** Sending failed: the draft (its text is back, and the choice to omit its screenshot) should be on the page again */
+    onSendFailed?: (error: unknown, omitScreenshot: boolean) => void;
     onCanceled?: () => void;
     className?: string;
 } & (
@@ -101,13 +102,14 @@ export function CommentBubble(props: CommentBubbleProps) {
     const { rects: placementRects } = useCommentPlacement(position);
     const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
-    const capture = useRef<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> } | undefined>(undefined);
+    const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> }>();
     useEffect(() => {
-        if (creating) capture.current = {
+        if (creating) setCapture({
             device: props.draft.device ?? getDeviceInfo(),
             screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement)
-        };
+        });
     }, [creating, position, rootElement, props.draft]);
+    const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
     const mutation = creating ? create : reply;
     // A deleted first item ("Comment deleted") is not a message, nor is one still on its way
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted && !item.pending).length ?? 0;
@@ -133,8 +135,8 @@ export function CommentBubble(props: CommentBubbleProps) {
             mentions,
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
-            device: capture.current?.device ?? getDeviceInfo(),
-            screenshot: capture.current?.screenshot
+            device: capture?.device ?? getDeviceInfo(),
+            screenshot: omitScreenshot ? undefined : capture?.screenshot
         });
         // The draft pin makes way for the comment's, shown at once
         onCreated?.(localId);
@@ -143,7 +145,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             saved = await posting;
         } catch (error) {
             // After the composer has put the text back
-            window.setTimeout(() => onSendFailed?.(error), 0);
+            window.setTimeout(() => onSendFailed?.(error, omitScreenshot), 0);
             throw error;
         }
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
@@ -159,7 +161,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         return () => onOpenStateChange(openStateId, false);
     }, [openStateId, open, onOpenStateChange]);
     const handleOpenChange = (open: boolean) => {
-        if (open && creating) capture.current = { device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) };
+        if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
         if (!open) {
             mutation.reset();
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
@@ -299,6 +301,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         error={mutation.error ?? props.draft?.sendError}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
+                    {creating && <ScreenshotDisclosure screenshot={capture?.screenshot} omitted={omitScreenshot} onOmittedChange={setOmitScreenshot} />}
                 </div>}
                 {rewriting && selectedText && (
                     <div className="shrink-0">

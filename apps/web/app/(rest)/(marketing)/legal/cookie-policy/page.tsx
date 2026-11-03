@@ -143,7 +143,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="2 November 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="3 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
@@ -220,11 +220,14 @@ export default function CookiePolicyPage() {
 
             <h2>Browser extension development preview</h2>
             <p>
-                The unreleased desktop extension keeps its separate sign-in credentials, active-tab
-                bindings, browser-verification proofs and text drafts in extension session storage.
-                Reviewed sites cannot read this storage. Browser restart clears it; sign-out also
-                revokes the server session. Credentials last at most eight hours, site credentials
-                and verification proofs five minutes. The verification helper omits cookies.
+                The unreleased desktop extension keeps its refresh credential and pending renewal
+                attempt in restricted extension local storage. This retains sign-in across browser
+                restarts, with a 30-day inactivity limit and a one-year maximum. Access credentials
+                last 15 minutes. Active-tab bindings, browser-verification proofs, text drafts and access
+                credentials use extension session storage and clear on browser restart. Reviewed sites
+                cannot read either store. Sign-out clears credentials and revokes the server session.
+                Older sessions keep their eight-hour limit until you sign in again with an updated package. Site credentials
+                and verification proofs last five minutes. The verification helper omits cookies.
                 The extension does not read the app&rsquo;s HttpOnly session cookie or browser cookies.
             </p>
 

@@ -19,8 +19,8 @@ localhost. Open the extension, sign in to uier, choose a matching project and st
 script installation or security-header changes are needed on the reviewed site.
 
 Comments stay pinned to elements, selected text or areas. Reply, resolve and reopen threads with
-the project's existing access rules. Screenshots capture only the visible viewport and can be
-removed before sending. Review continues on reload and same-origin navigation in the active tab.
+the project's existing access rules. Screenshots are captured automatically within the visible
+viewport. Authors can redact or replace saved screenshots. Review continues on reload and same-origin navigation in the active tab.
 Exit review stops it; a different origin requires another explicit start.
 
 Each reviewer needs the desktop extension in Chrome or Edge and access to a project containing the
@@ -35,7 +35,7 @@ The single purpose is reviewing configured uier project sites by leaving on-page
 | --- | --- |
 | `activeTab` | Temporary access after the reviewer explicitly opens the action; injects the review layer and captures only the reviewed visible tab. Same-origin continuation ends on Exit, tab closure or origin change. |
 | `scripting` | Injects the locally bundled toolbar into the top frame's isolated world. No remote executable code. |
-| `storage` | Trusted extension session storage holds separate sign-in credentials, active bindings, verification proofs and bounded text/anchor drafts. No images in drafts. Browser restart clears them. |
+| `storage` | Trusted local storage persists the separate refresh credential and pending renewal attempt. Access credentials, active bindings, verification proofs and bounded text/anchor drafts use trusted session storage and clear on browser restart. No images in drafts. |
 | `identity` | Explicit first-party sign-in and consent using the exact extension callback, state and PKCE. |
 | `https://uier.io/*` host | Worker API requests and the extension-owned first-party browser-verification frame. Does not grant access to every reviewed site. |
 
@@ -54,13 +54,15 @@ functionality and compliant data use. Do not describe this hosted frame as local
 Confirm the current store form's categories against actual behavior and the public policies. Do not
 claim that the extension collects no data. It handles account identity; the site origin for matching
 on action open; reviewed page URLs, selected text/anchors and context; submitted comments/replies;
-and optional screenshots. Signed-in/private sites may contain sensitive information: reviewers
-choose what to send and can remove images. Data uses the project's existing authorization and
+and automatic screenshots. Signed-in/private sites may contain sensitive information: reviewers
+choose where to leave feedback, and authors can redact or replace saved images. Data uses the project's existing authorization and
 retention rules. The extension does not sell data, use it for advertising, collect browser history
 or read unrelated tabs/cookies. Do not make retention promises beyond the public policy.
 
-Credentials, bindings, proofs and unsent text/anchor drafts stay in trusted extension session storage;
-images stay outside persistent drafts. Sign-out clears local private data and revokes the separate
+The refresh credential stays in trusted extension local storage to retain sign-in across restarts,
+with 30-day inactivity and one-year absolute limits. Access credentials, bindings, proofs and unsent
+text/anchor drafts stay in trusted session storage; images stay outside persistent drafts.
+Sign-out clears local private data and revokes the separate
 server session. Network transport goes to uier over HTTPS. The helper obtains BotID verification on
 uier after explicit sign-in, independent of the reviewed page's CSP.
 
