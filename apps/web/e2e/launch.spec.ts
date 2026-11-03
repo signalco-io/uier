@@ -75,7 +75,9 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await draft.getByRole('textbox', { name: 'Your name' }).fill('Ana Launch');
         await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Explain the annual price.');
         await expect(draft.getByRole('img')).toHaveCount(0);
-        await expect(draft.getByRole('button', { name: /screenshot/i })).toHaveCount(0);
+        // A first-time guest is told an image will be attached, and may omit it (#323)
+        await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
+        await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
         const saved = await post(guest.page, () => draft.getByRole('button', { name: 'Post comment' }).click(), publicId);
         expect(saved.screenshot?.width).toBeGreaterThan(0);
         await expectSavedImage(guest.page);

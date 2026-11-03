@@ -1,8 +1,9 @@
 # Browser extension
 
-The desktop Manifest V3 extension is an **unreleased implementation** for [#268](https://github.com/signalco-io/uier/issues/268).
-It is an additional installation path for signed-in project members. It is not available in a store.
-Do not enable production distribution until the hosted verification gate below has passed.
+The desktop Manifest V3 extension is an additional installation path for signed-in project members,
+tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.1 is submitted for Chrome
+Web Store review as an unlisted beta; it is not yet available to install from the store.
+Keep public availability disabled until store and installed-upgrade acceptance are recorded.
 
 ## Design record
 
@@ -22,11 +23,26 @@ also checks that the content runtime has not been disposed.
 
 An explicit identity.launchWebAuthFlow opens first-party sign-in and consent. Registered clients
 have an exact https://<extension-id>.chromiumapp.org/uier callback. State and S256 PKCE bind a
-60-second one-use handoff. It creates a separate eight-hour, server-revocable extension session.
-There is no refresh token. Browser restart clears credentials and requires sign-in again.
+60-second one-use handoff. Updated packages request a renewable, server-revocable extension session:
+access tokens last 15 minutes, rotating refresh tokens extend a 30-day inactivity window, and a
+session ends after one year regardless of activity. Only the refresh credential and a local identity
+are persisted in API-scoped `chrome.storage.local`, restricted to `TRUSTED_CONTEXTS`; access tokens,
+active bindings, proofs and drafts stay in `storage.session`. Browser restart keeps sign-in but
+requires Start review again. A worker refresh is single-flight and persists a random attempt before
+sending it. An exact retry recovers the same successor after a lost response or worker suspension;
+reuse with another attempt revokes the session. Server records contain only credential/attempt
+hashes. Logout accepts a known refresh credential even after access expiry, revokes the session and
+clears both credential stores. Offline/temporary refresh failures retain the pending attempt for retry.
+Renewable consent uses `renewable=true` on the authorization request and binds it to the handoff;
+the exchange must opt in with `renewable: true`. Legacy packages that omit it retain their eight-hour, session-only sign-in; existing
+sessions are not silently upgraded. The updated package needs one sign-in to obtain refresh access.
 Project/site tokens last five minutes, renew through the worker, and recheck membership and the
 exact configured origin. Every request also rechecks the live session, membership and addresses.
-Embed cookies, OAuth/MCP credentials and embed CORS are unchanged.
+Embed cookies, OAuth/MCP credentials and embed CORS are unchanged. Refresh tokens authenticate only
+`POST /api/extension/refresh` (`clientId`, `refreshToken`, `attempt`) and session revocation, never
+review/project APIs. Refresh is limited to 120 attempts per session per hour; idle/absolute expiry,
+user existence and the client allowlist are checked server-side. Rotated hashes expire with their
+original 30-day token window; deleting a session stops its access and scoped tokens immediately.
 
 Verified writes reuse the review services and their five-minute origin/project/reviewer proof.
 The worker opens a packaged helper window containing the uier-origin /extension-verification
@@ -104,10 +120,15 @@ site exceptions. These runs used no loopback API proxy, local BotID mode or veri
   original page with no toolbar; explicit Start review was required. Edge also verified valid
   same-origin Back continuation. The package regression asserts actual cached-document identity
   for both cases and fails against the previous runtime.
+- Chrome also saved feedback on a fictional cookie-authenticated page, a separately configured
+  localhost staging origin and a same-origin SPA route. Both browsers then saved feedback on
+  [the controlled HTTPS reviewer demo](https://uier.io/extension-demo.html), whose CSP also denies
+  scripts, connections, frames, images, fonts and styles. Chrome retrieved and expanded its saved
+  screenshot after reloading that page. All feedback used the isolated acceptance project.
 
-The real hosted design gate has evidence. Store submission, review outcome, installed package
-acceptance and an actual automatic browser upgrade are separate remaining gates; this test build
-is not a store installation. Keep public availability disabled until those receipts exist.
+The real hosted design gate has evidence. The [first protected submission](browser-extension-release.md#first-submission-receipt--3-november-2026)
+also succeeded. Review outcome, installed-package acceptance and an actual automatic browser
+upgrade remain separate gates; this test build is not a store installation.
 
 The app now offers script and extension setup, including onboarding and review-link guidance.
 The extension tab explains its pending availability without a fake store link. The released script
@@ -131,7 +152,9 @@ hosted verification**.
 
 Local acceptance covers real sign-in/consent, multiple project matches, worker transport, strict-CSP
 posting/reload, viewport screenshot retrieval/canvas preview, proof renewal, replies, resolve/reopen,
-repeated activation, worker shutdown/restart, draft recovery, committed-but-lost write retries,
+repeated activation, worker shutdown/restart, browser restart with retained sign-in and cleared
+activation/drafts, access renewal without cookies, committed-but-lost refresh recovery, concurrent
+refresh/logout, draft recovery, committed-but-lost write retries,
 same-document project switching, Exit/restart, SPA history, cross-origin deactivation, sign-out,
 embed coexistence with a different project, text/area anchors, screenshot redaction, safe inactive-tab
 capture failure, omitted API cookies and light/dark popup accessibility.
@@ -146,20 +169,20 @@ and bounded status workflows, Google OIDC/service-account configuration, API v2 
 support and forward-fix recovery. The [listing worksheet](browser-extension-listing.md) supplies copy,
 permission/disclosure drafts and reproducible brand artwork. None enables public rollout.
 
-Remaining gates need owner-controlled external setup and real browser/store evidence:
+The protected 0.1.1 upload and submission succeeded, using keyless Google federation and a retained
+immutable package. The [submission receipt](browser-extension-release.md#first-submission-receipt--3-november-2026)
+records its source, checksum and review status. This successful upload does not exercise the
+async-upload reconciliation path; keep its fail-closed behavior and dashboard recovery rules.
+
+Remaining gates need Google review and real installed browser/store evidence:
 
 - Complete pending publisher verification, store review and the live URL. The draft item, listing
   artwork, privacy certifications and isolated self-service reviewer instructions are configured;
   two-step verification and registration are complete.
-- Live upload/version behavior validation (including async upload version limits). GitHub
-  environment/tag protection, restricted Google federation, publisher access and the actual
-  read-only OIDC/store API bootstrap have passed;
-  the [bootstrap receipt](browser-extension-release.md#bootstrap-receipt--2-november-2026) records
-  the identifiers and remaining configuration.
 - Complete the remaining release matrix, including installed-package Chrome/Edge acceptance.
   The hosted receipt above proves the core BotID/cookie-independent transport flow; focused package
   and API tests retain authorization, screenshot, accessibility and lifecycle coverage.
-- One real automatic store update, review/status tracking and installed browser upgrade; then enable
+- One real automatic store update and installed browser upgrade; then enable
   the verified live installation link. Local tests cannot replace these receipts.
 
 Do not close #268 until its hosted, store and release-automation completion criteria are evidenced.

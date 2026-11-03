@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { extensionHandler, extensionApiOrigin } from '@/src/lib/extension/http';
-import { exchangeExtensionCode, extensionSession, readScope } from '@/src/lib/extension/auth';
+import { exchangeExtensionCode, readScope } from '@/src/lib/extension/auth';
+import { refreshExtensionSession, revokeExtensionSession } from '@/src/lib/extension/sessions';
 import { extensionReviewContext, matchingProjects, createScope } from '@/src/lib/extension/review';
-import { getAppStore } from '@/src/lib/app/store';
 import { signToken } from '@/src/lib/app/tokens';
 import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
 import { assertNotBot } from '@/src/lib/comments/botProtection';
@@ -13,11 +13,12 @@ const handler = extensionHandler(async request => {
     const operation = new URL(request.url).pathname.split('/').at(-1);
     if (operation === 'token' && request.method === 'POST')
         return Response.json(await exchangeExtensionCode(await parseJsonBody(request, z.unknown())));
+    if (operation === 'refresh' && request.method === 'POST')
+        return Response.json(await refreshExtensionSession(await parseJsonBody(request, z.unknown())));
     if (operation === 'projects' && request.method === 'GET') return matchingProjects(request);
     if (operation === 'scope' && request.method === 'POST') return createScope(request);
     if (operation === 'session' && request.method === 'DELETE') {
-        const session = await extensionSession(request);
-        await getAppStore().delete(session.pk, session.id);
+        await revokeExtensionSession(request);
         return new Response(null, { status: 204 });
     }
     if (operation === 'verification' && request.method === 'POST') {

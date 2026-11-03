@@ -314,7 +314,9 @@ error boundary, so one bad comment never breaks the toolbar.
   Revision checks reject stale choices; access/selector/page/project/origin checks run on the server.
   Cross-page migration and automatic AI relocation are not supported.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
-  There is no camera button or preview while writing. Posting waits for that capture attempt (up to 15 seconds);
+  There is no camera button or preview while writing. A line under the text box says that a screenshot will be
+  attached (or that it is being taken, or could not be taken), with an **Omit screenshot** toggle to post only the
+  text: no image is sent for that comment. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and
   discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.

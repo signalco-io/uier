@@ -18,7 +18,9 @@ export default async function ExtensionConsent({ searchParams }: { searchParams:
         <Logo />
         <h1 className="text-xl font-semibold">Sign in to the uier extension</h1>
         <p>Continue as {context.user.name}. The extension can review configured sites in projects you can access.</p>
-        <p className="text-sm text-muted-foreground">Only sites where you choose Start review are activated. Sign-in ends after eight hours or when you restart your browser.</p>
+        <p className="text-sm text-muted-foreground">Only sites where you choose Start review are activated. {input.renewable === 'true'
+            ? 'Stay signed in across browser restarts. Sign-in ends after 30 days without use or after one year.'
+            : 'Sign-in ends after eight hours or when you restart your browser.'}</p>
         <form action={approve}><Button type="submit">Sign in to uier</Button></form>
     </main>;
 }
