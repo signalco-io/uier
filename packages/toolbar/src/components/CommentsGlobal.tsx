@@ -28,6 +28,7 @@ import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
 import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
+import { activeModalDialog, isInActiveModal } from '../modalLayer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength, isCommentArea } from './@types/Comments';
@@ -250,9 +251,10 @@ export function CommentsGlobal({
 
     /** Keyboard path: pin a new comment to the focused page element (or the main content) */
     const startDraftOnFocusedElement = (element?: Element | null) => {
-        const target = element?.isConnected && element !== document.body && element !== document.documentElement
+        const modal = activeModalDialog();
+        const target = element?.isConnected && element !== document.body && element !== document.documentElement && isInActiveModal(element)
             ? element
-            : document.querySelector('main') ?? document.body;
+            : modal ?? document.querySelector('main') ?? document.body;
         setCreatingCommentPoint(false);
         startDraft(centerPoint(target));
     };

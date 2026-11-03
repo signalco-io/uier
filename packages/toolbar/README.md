@@ -212,6 +212,18 @@ how-it-works scene this way.
 <div data-uier-decorative aria-hidden="true" style="min-height: 380px">…</div>
 ```
 
+### Modal dialogs
+
+Native modal dialogs (`dialog.showModal()`) can be reviewed while they are open. The page behind a
+modal is inert, so while one is open the toolbar moves into it and shows above it: reviewers can pin
+elements, draw areas and comment on selected text in the dialog. Pins show for the dialog's content
+only, and leave when it closes. Escape first closes what the review has open (point mode, a composer,
+a thread); Escape in the toolbar never closes the dialog, and Escape in the dialog itself works as the
+page intends. When the dialog closes, the toolbar returns to `<body>` and the dialog restores the
+page's focus as usual. Clicks on the toolbar do not reach the dialog, so a page that closes its dialog on
+a click outside its box keeps it open. Non-modal dialogs (`dialog.show()`) and script modals built from
+`aria-modal` elements leave the toolbar where it is.
+
 ## Comments API
 
 `src/hooks/useComments.tsx` calls `<apiUrl>/api/comments` with `credentials: 'include'`; the API identifies
@@ -407,6 +419,8 @@ Unassignment targets the previous assignee, subject to the same rules.
   assistive technologies, accessibility checks and end-to-end tests can reach it; the page's own scripts
   and styles can't change it by accident either way). Everything, popovers included, renders inside it and
   the toolbar adds no styles to the page (`apps/web/e2e/embed.spec.ts` checks a reviewed site's computed styles).
+  While a native modal dialog is open, `src/modalLayer.ts` moves the host into it as a manual popover
+  (top layer, above the modal; `:host([popover])` in `src/styles/toolbar-theme.css` gives it no box of its own).
 - Styles are compiled with Tailwind CSS v4 (`src/index.css`, `postcss.config.mjs`) and inlined into
   `dist/review.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`). The complete
   JavaScript literal is JSON-encoded and parsed before publication. Every review shadow root adopts
