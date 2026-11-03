@@ -90,8 +90,9 @@ export default function PrivacyPolicyPage() {
                 <li>
                     a screenshot of the part of the page the comment is about, when capture succeeds. Capture starts
                     automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
-                    include what is visible in that part of the page. The image is sent only when you post the feedback;
-                    discarding an unsent comment saves no image. Replies keep the original screenshot. On saved feedback,
+                    include what is visible in that part of the page. The comment box says that a screenshot will be
+                    attached; choose Omit screenshot before posting to send only the text, and no image is sent. The
+                    image is sent only when you post the feedback; discarding an unsent comment saves no image. Replies keep the original screenshot. On saved feedback,
                     its author or a workspace admin can supply an uploaded or pasted image, or save a redacted replacement.
                     We read clipboard images only when you choose Paste image or paste an image into saved feedback.
                     Every image is decoded and re-encoded on our server before storage. We keep only the first frame
