@@ -53,6 +53,10 @@ it cannot reuse the deployment identity's subject. None requires reviewers or a 
 for exact subjects, scopes and live verification. Reusable callers explicitly name allowed secrets; the target job environment overrides their values.
 Previews pass empty integration/Anthropic slots and receive no production integration credentials.
 
+The Pulumi workflow selects `AZURE_TOKEN_CREDENTIALS=AzureCLICredential` for backend and Key Vault
+authentication after verifying the Azure CLI OIDC identity. This avoids host metadata credentials
+on non-Azure runners. An explicit backend-login check runs before the Pulumi action; keep it keyless.
+
 Vercel resources use the explicit team ID from `src/vercelScope.ts`. Do not restore provider-level
 `vercel:team`: its team-wide metadata read is incompatible with project-scoped tokens.
 

@@ -51,6 +51,9 @@ jobs:
       # released together; keep this equal to @pulumi/pulumi in infra/package.json (Renovate groups them).
       # renovate: datasource=npm depName=@pulumi/pulumi
       PULUMI_VERSION: "3.273.0"
+      # State and Key Vault use the verified Azure CLI OIDC session, regardless of runner host.
+      # A non-Azure metadata endpoint can stop DefaultAzureCredential before its CLI fallback.
+      AZURE_TOKEN_CREDENTIALS: AzureCLICredential
     # No job-level `defaults.run.working-directory: infra`: the first step runs before checkout,
     # when infra/ does not exist yet, so each step that needs infra/ sets it itself.
     steps:
@@ -132,6 +135,11 @@ jobs:
           actual_client="$(az account show --query user.name -o tsv)"
           [ "$actual_client" = "$EXPECTED_CLIENT" ] || { echo "::error::Unexpected Azure identity"; exit 1; }
           echo "Azure environment OIDC identity verified."
+
+      - name: Verify state backend authentication
+        env:
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+        run: pulumi login azblob://states --non-interactive
 
       - name: Preserve optional production variables for the preview
         if: inputs.command == 'preview'
