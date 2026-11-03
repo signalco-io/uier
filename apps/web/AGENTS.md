@@ -488,6 +488,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - `@uier/toolbar/page-state` is the shared pure URL contract. Projects opt in through `ProjectPageStateForm`; the
   review API filters submitted paths using that policy and marks new records `pageStateVersion: 1`. Store queries
   match v1 keys exactly; the legacy query-string prefix fallback must never merge v1 views into a base page.
+  `sourcePath` keeps the page's trailing slashes for links: `newSourcePath` stores it only for the same page key,
+  and every navigable link (app cards, member redirects, reproduction, notifications, Copy issue) goes through
+  `commentSourcePath`, which falls back to the key. Never group, query or authorize by it.
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
   is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.

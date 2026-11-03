@@ -31,6 +31,14 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
   `CommentsBootstrapper` into a `<div data-uier-root>` inside it. `mount.ts` tracks the actual host
   with a window symbol, including helpers that cross its shadow boundary; never use an id as the
   duplicate-mount guard. Clear only this instance's marker on exit.
+- `modalLayer.ts` keeps the host usable in native modal dialogs: while one is open (`:modal`, watched
+  through the `open` attribute) the host is the dialog's last child and a manual popover shown after it,
+  so it is in the modal's subtree (not inert) and in the top layer above it. A top-layer popover outside
+  the modal stays inert, and no z-index helps. `:host([popover])` gives the host no box and no transform:
+  Lightning CSS merges `translate`/`scale`/`rotate: none` into a transform that is not `none`, which
+  would hold every fixed box, so keep only `transform: none`. Point mode, areas, the keyboard path and pins use
+  `isInActiveModal` (the inert page has no pins or anchors). Escape inside the host and clicks on it do not
+  reach the dialog; the dialog restores focus itself on close. Non-modal and `aria-modal` dialogs are unchanged.
 - Styles: Tailwind v4 (`src/index.css`) with the signalco minimal theme preset and
   **`@uier/brand/tokens.css`**. The tokens use `:root, :host`, so they apply inside the shadow
   root (`:root` alone would not). The `[data-uier-root]` container gets the `dark` class when the
@@ -86,7 +94,7 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 | `project/verification.ts` | cross-origin writes get a BotID proof through the API's `/review-verification` frame (no cookies); checks message origin and source, caches the proof in memory for under five minutes, fails closed |
 | `project/backgroundSession.ts` | silent member sign-in through `/review-session`; exact frame/origin/nonce checks, one three-second attempt per page, no popups or storage-access prompts. Sign-out opt-out and tab Exit review take precedence; only authorized members auto-open without a link |
 | `project/installationCheck.ts` | explicit `uier-check` nonce flow: public configuration/status reports to the install page, bounded lifetime, browser CSP evidence, read API and verification proof; never posts a test comment or sends tokens in a diagnostic report |
-| `pageState.ts`, `hooks/usePagePath.tsx` | shared browser/server canonical identity (pathname by default; approved query fields and optional hash routes), the names of other selectable query fields sent with new project comments for the settings suggestions (`pageQueryKeys`), SPA history/hash subscriptions with cleanup and a fallback; exported as `@uier/toolbar/page-state` |
+| `pageState.ts`, `hooks/usePagePath.tsx` | shared browser/server canonical identity (pathname by default; approved query fields and optional hash routes), `sourcePagePath`/`storedSourcePath` (the same filtering with trailing slashes kept, for links only, never a key), the names of other selectable query fields sent with new project comments for the settings suggestions (`pageQueryKeys`), SPA history/hash subscriptions with cleanup and a fallback; exported as `@uier/toolbar/page-state` |
 | `hooks/useCommentItemRects.tsx` | resolves positions to rectangles and pin placements; offsets are verified, then a lazy whitespace-free page index is shared by every comment, with one record per text node. Exact/restored/missing/ambiguous results persist until the DOM version changes; geometry/visibility is remeasured on layout frames. No pin for missing/ambiguous/hidden anchors; never throws |
 | `hooks/useLayoutVersion.ts` | shared geometry version for scroll (capture), resize, size and DOM changes; separate DOM evidence version for anchor/index invalidation, including observer restarts |
 | `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | shared pointer/touch handles, visible viewport bounds, toolbar position and reusable panel docking; versioned browser-local preferences and keyboard alternatives |
@@ -173,7 +181,8 @@ text. Drafts are local to each browser origin and expire after seven days.
   script tag, the React component, the notices and their Exit review) is in
   `apps/web/e2e/project-review.spec.ts`; pins and highlights after a reload, a scroll and a resize
   are in `apps/web/e2e/anchors.spec.ts`; composer keyboard hints, the saved-draft cue and Resume draft are in
-  `apps/web/e2e/composer-hints.spec.ts` (desktop and mobile). Also check the add-comment, reply, resolve and inbox
+  `apps/web/e2e/composer-hints.spec.ts` (desktop and mobile); native modal dialogs (the reviewed site's
+  `?host-dialog`) are in `apps/web/e2e/modal-dialog.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.
 
 Assignment uses `CommentAssignment` and the shared review service. `useParticipants` fetches

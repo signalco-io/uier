@@ -212,6 +212,18 @@ how-it-works scene this way.
 <div data-uier-decorative aria-hidden="true" style="min-height: 380px">…</div>
 ```
 
+### Modal dialogs
+
+Native modal dialogs (`dialog.showModal()`) can be reviewed while they are open. The page behind a
+modal is inert, so while one is open the toolbar moves into it and shows above it: reviewers can pin
+elements, draw areas and comment on selected text in the dialog. Pins show for the dialog's content
+only, and leave when it closes. Escape first closes what the review has open (point mode, a composer,
+a thread); Escape in the toolbar never closes the dialog, and Escape in the dialog itself works as the
+page intends. When the dialog closes, the toolbar returns to `<body>` and the dialog restores the
+page's focus as usual. Clicks on the toolbar do not reach the dialog, so a page that closes its dialog on
+a click outside its box keeps it open. Non-modal dialogs (`dialog.show()`) and script modals built from
+`aria-modal` elements leave the toolbar where it is.
+
 ## Comments API
 
 `src/hooks/useComments.tsx` calls `<apiUrl>/api/comments` with `credentials: 'include'`; the API identifies
@@ -220,7 +232,9 @@ unresolved comments of the page (`?path=` is `location.pathname` without a trail
 in a review the inbox also lists the site's other pages (`?scope=site`). Project settings can opt in to meaningful
 query fields and `#/...` / `#!/...` routes. The shared `src/pageState.ts` contract filters reserved/credential and
 tracking fields, bounds values and produces the same canonical page key in the browser and API. Older records keep
-pathname identity; v1 view records never use the legacy query-prefix fallback. Routing settings do not rewrite old
+pathname identity; v1 view records never use the legacy query-prefix fallback. New comments also send `sourcePath`,
+the same filtered page with its trailing slashes (`/plans/`), so Copy link and the inbox's Open on link return to
+the address a slash-sensitive site serves; comments without one link to their key. Routing settings do not rewrite old
 feedback. Direct links to an earlier view setting restore the URL and show its saved details in the inbox.
 Only the author of a comment can resolve, reopen, edit or delete it, and only the author of a reply can edit or delete
 that reply (the API returns `isMine` / `author.isMe`; project members also receive explicit edit/delete permissions,
@@ -407,6 +421,8 @@ Unassignment targets the previous assignee, subject to the same rules.
   assistive technologies, accessibility checks and end-to-end tests can reach it; the page's own scripts
   and styles can't change it by accident either way). Everything, popovers included, renders inside it and
   the toolbar adds no styles to the page (`apps/web/e2e/embed.spec.ts` checks a reviewed site's computed styles).
+  While a native modal dialog is open, `src/modalLayer.ts` moves the host into it as a manual popover
+  (top layer, above the modal; `:host([popover])` in `src/styles/toolbar-theme.css` gives it no box of its own).
 - Styles are compiled with Tailwind CSS v4 (`src/index.css`, `postcss.config.mjs`) and inlined into
   `dist/review.js` at build time (see `tsup.config.ts`, placeholder `__uier_toolbar_css__`). The complete
   JavaScript literal is JSON-encoded and parsed before publication. Every review shadow root adopts

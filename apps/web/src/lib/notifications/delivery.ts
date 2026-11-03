@@ -1,6 +1,6 @@
 import { threadRecordTtl } from '../comments/retention';
 import { feedbackSource } from '../app/environments';
-import { commentPath } from '../comments/dto';
+import { commentSourcePath } from '../comments/dto';
 import { randomUUID } from 'node:crypto';
 import type { AppDoc, DbProject } from '../app/model';
 import { getAppStore, updateDoc } from '../app/store';
@@ -135,7 +135,7 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
     const unsubscribeUrl = `${baseUrl}${KnownPages.NotificationUnsubscribe}?token=${encodeURIComponent(token)}`;
     let url = delivery.userId ? `${baseUrl}${KnownPageLinks.project(project.id)}?environment=${source.environment}` : manageUrl;
     if (source.available && source.origin) {
-        const page = new URL(commentPath(comment), source.origin);
+        const page = new URL(commentSourcePath(comment), source.origin);
         if (page.origin !== source.origin) throw new Error('Invalid notification page origin');
         if (delivery.userId) url = `${baseUrl}${KnownPageLinks.projectReview(project.id, page.toString(), comment.id)}`;
         else {

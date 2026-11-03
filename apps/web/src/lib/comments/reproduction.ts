@@ -1,5 +1,5 @@
 import type { DbComment } from '../db/schema';
-import { commentPath } from './dto';
+import { commentSourcePath } from './dto';
 
 /** Explicit member-only fields. Page links contain only stored approved state, never a raw URL or user agent. */
 export type ReproductionContext = {
@@ -28,7 +28,7 @@ export function toReproductionContext(comment: DbComment, allowedOrigins: readon
     let url: string | undefined;
     try {
         if (comment.origin && allowedOrigins.includes(comment.origin) && comment.path.startsWith('/') && !comment.path.startsWith('//') && !comment.path.includes('\\')) {
-            const page = new URL(commentPath(comment), comment.origin);
+            const page = new URL(commentSourcePath(comment), comment.origin);
             if (['http:', 'https:'].includes(page.protocol) && page.origin === comment.origin && !page.username && !page.password)
                 url = page.href;
         }

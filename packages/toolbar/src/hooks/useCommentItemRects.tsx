@@ -5,6 +5,7 @@ import { CommentItemPosition, CommentPoint, CommentSelection, isCommentArea } fr
 import { getDomVersion, useLayoutVersion } from './useLayoutVersion';
 import { queryAnchorElements } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
+import { isInActiveModal } from '../modalLayer';
 
 /** Selection text limit of the comments API; longer selections are stored cut to this length */
 export const selectionTextMaxLength = 2000;
@@ -222,10 +223,12 @@ export function resolveTextRange(position: CommentSelection): Range | null {
 
 /**
  * Whether the element is shown. Content of a closed `<details>` (and `content-visibility:
- * hidden`) still has layout boxes, but nothing should be pinned to it while it is hidden.
+ * hidden`) still has layout boxes, but nothing should be pinned to it while it is hidden. While a
+ * modal dialog is open the rest of the page is inert behind its backdrop: only the modal has pins.
  */
 function isShown(element: Element | null | undefined) {
-    return Boolean(element) && (typeof element!.checkVisibility !== 'function' || element!.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
+    return Boolean(element) && isInActiveModal(element!)
+        && (typeof element!.checkVisibility !== 'function' || element!.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
 }
 
 /** Line boxes of the range, when its text is shown */
