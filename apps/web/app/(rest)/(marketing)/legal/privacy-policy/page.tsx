@@ -470,9 +470,8 @@ export default function PrivacyPolicyPage() {
 
             <h3>Analytics</h3>
             <p>
-                We count page views with Vercel Web Analytics. It uses no cookies and stores nothing in your
-                browser. Vercel discards the hash it uses to recognise a visit after 24 hours, and we only see
-                totals: pages, referrers, countries, browsers, operating systems and device types.
+                Vercel Web Analytics collection is disabled for this project. We do not currently collect
+                page-view or acquisition events through it.
             </p>
 
             <h3>Toolbar fonts and sign-in links</h3>
@@ -552,7 +551,7 @@ export default function PrivacyPolicyPage() {
                 <li>Passkeys: until you remove them on your Account page, or with your account. Passkey challenges: at most five minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>
-                <li>Analytics: Vercel discards the visit hash after 24 hours; the totals remain.</li>
+                <li>Vercel Web Analytics collection is currently disabled.</li>
             </ul>
 
             <h2>Your rights</h2>

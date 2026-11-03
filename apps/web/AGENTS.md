@@ -134,6 +134,14 @@ form, support/setup links and accessibility.
 
 ## Search indexing
 
+The public `/guides` index links client review and Next.js setup guides. Use the existing
+`ContentPage` components, snippet generator, metadata and social-card helpers; add public routes
+to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
+signalco publisher. Preserve the homepage Bing verification meta tag after setup.
+`search-index.mjs` generates the public static-page manifest after the sitemap; the production
+workflow submits only its changed public URLs through IndexNow. See
+[search discovery](../../docs/search-discovery.md) for safeguards and recovery.
+
 Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
 description. Canonicals and Open Graph URLs point to the production URL without query parameters;
 never put a homepage canonical in the root layout, where other pages would inherit it.
@@ -232,8 +240,8 @@ Only those two exact paths are frameable; case variants get deny/`frame-ancestor
 Public pages deliberately retain static rendering and `script-src 'unsafe-inline'`: their generated
 Next bootstrap and theme scripts vary by build. We do not apply request nonces to cached HTML.
 Keep providers in the marketing/app layouts so a root `headers()` call does not turn the public site
-dynamic. `@vercel/analytics` 2.0.1 uses same-origin `/_vercel/insights/script.js` in production;
-only development permits `va.vercel-scripts.com`. Vercel toolbar/frame/Pusher hosts apply only to
+dynamic. Vercel Web Analytics collection is disabled by the owner (3 November 2026); `ClientProvider` does
+not inject its SDK. The existing analytics CSP sources remain available for a future explicit setup. Vercel toolbar/frame/Pusher hosts apply only to
 `UIER_DEPLOYMENT_ENV=preview` (set at build time). Clipboard permissions are left alone.
 COOP is `same-origin` on public pages and `same-origin-allow-popups` across the app, including
 `/app/review`: the installation check retains its WindowProxy when the popup redirects cross-origin.

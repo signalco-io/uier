@@ -54,6 +54,9 @@ jobs:
           UIER_TOOLBAR_RETAIN_FROM: https://uier.io
           TURBO_FORCE: "true"
         run: |
+          if [ "$PRODUCTION" = "true" ]; then
+            node .github/scripts/search-index.mjs capture indexnow-before.json
+          fi
           mkdir -p .vercel
           cp .github/vercel-project.json .vercel/project.json
           if [ "$PRODUCTION" = "true" ]; then
@@ -63,6 +66,15 @@ jobs:
           fi
           node .github/scripts/package_prebuilt.mjs
           tar -czf prebuilt.tar.gz .vercel/output
+      - name: Save public search baseline
+        if: inputs.production
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: indexnow-before-${{ github.run_id }}
+          path: indexnow-before.json
+          overwrite: true
+          retention-days: 1
+          if-no-files-found: error
       - name: Upload prebuilt output only
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
