@@ -1,7 +1,7 @@
 # Extension releases
 
-Version 0.1.2 is published as an unlisted beta. Native Chrome and Edge automatically upgraded
-from 0.1.1 and passed post-update acceptance. Public visibility and the app-link rollout remain pending.
+Version 0.1.2 is published publicly. Native Chrome and Edge automatically upgraded from 0.1.1
+and passed post-update acceptance. Production app-link deployment and readback remain pending.
 Public availability remains disabled until the remaining release gates pass.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
@@ -183,10 +183,17 @@ and Google Public DNS resolved the production address. Saving the verified decla
 retrying succeeded: the dashboard confirmed submission and now shows **Pending review**.
 Automatic publication is enabled for the requested unlisted-to-public transition.
 
+The visibility review then completed; the dashboard now shows **Published - public**.
+
 Production Vercel configuration now registers only the stable store client and sets the actual
-`UIER_EXTENSION_STORE_ID`. The availability flag remains unset. Public store confirmation, a CI
-deployment with the installation link enabled and deployed allowlist readback remain the final
-rollout gates. Keep #268 open until they are recorded. The old unpacked copies remain disabled.
+`UIER_EXTENSION_STORE_ID`, with `UIER_EXTENSION_AVAILABLE=1`. Deployment
+[41623637790](https://github.com/signalco-io/uier/actions/runs/41623637790) stopped during backend login
+before any infrastructure apply or web deployment: Azure OIDC succeeded, but the SDK credential
+chain stopped at the AWS-hosted runner's metadata endpoint. The workflow now explicitly selects
+the verified Azure CLI credential and checks backend login before running the Pulumi action.
+A successful CI deployment, displayed installation-link check and deployed stable-client-only
+allowlist readback remain the final rollout gates. Keep #268 open until they are recorded.
+The old unpacked copies remain disabled.
 
 ## Build, dry-run and submit
 

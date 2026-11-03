@@ -1,8 +1,8 @@
 # uier browser extension
 
-Manifest V3 extension for desktop Chrome and Edge. Version 0.1.2 is published as an unlisted beta.
+Manifest V3 extension for desktop Chrome and Edge. Version 0.1.2 is published in the Chrome Web Store.
 Both native browsers automatically upgraded from 0.1.1 and passed post-update acceptance.
-The release runbook records the remaining public-visibility and app-link rollout.
+The release runbook records the app installation-link rollout.
 The [design and hosted gate](../../docs/browser-extension.md) records security boundaries, local
 loading and remaining publication work. Licensed AGPL-3.0-only; shared toolbar/brand remain MIT.
 

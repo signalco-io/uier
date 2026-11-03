@@ -1,10 +1,10 @@
 # Browser extension
 
 The desktop Manifest V3 extension is an additional installation path for signed-in project members,
-tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.2 is published as an
-[unlisted Chrome Web Store beta](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
+tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.2 is published in the
+[Chrome Web Store](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
 Both native browsers automatically upgraded from the installed 0.1.1 baseline and passed
-post-update acceptance. Public visibility and the app's installation-link rollout remain pending;
+post-update acceptance. Public visibility is approved; the app's installation-link deployment remains pending;
 see [the latest receipt](browser-extension-release.md#automatic-upgrade-receipt--3-november-2026).
 
 ## Design record
@@ -179,8 +179,8 @@ async-upload reconciliation path; keep its fail-closed behavior and dashboard re
 
 Store publication, native acceptance and the automatic 0.1.1 → 0.1.2 upgrade are complete. Both
 browsers report the stable item ID and Chrome Web Store source; the old unpacked copies are
-disabled. The publisher account is verified. Remaining rollout gates are public store visibility,
-the verified installation link in the app and deployed readback of the stable-client-only allowlist.
-Keep the app availability flag disabled until that public visibility is confirmed.
+disabled. The publisher account and public visibility are verified. Production configuration enables
+the app installation link and registers only the stable client. The remaining gates are a successful
+CI deployment, verification of the displayed link and deployed allowlist readback.
 
 Do not close #268 until its hosted, store and release-automation completion criteria are evidenced.

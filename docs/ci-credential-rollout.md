@@ -444,3 +444,17 @@ wording remains true; the README and operations guide additionally record the li
 References: [GitHub secure workflow use](https://docs.github.com/en/actions/reference/security/secure-use),
 [Cosmos DB data-plane RBAC](https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-connect-role-based-access-control),
 [Renovate action digest pins](https://docs.renovatebot.com/presets-helpers/#helperspingithubactiondigests).
+
+## State backend credential selection — 3 November 2026
+
+[Deployment 41623637790](https://github.com/signalco-io/uier/actions/runs/41623637790) authenticated
+the production Azure OIDC identity successfully, then failed during state-backend login before
+any infrastructure apply. On its AWS-hosted runner, `DefaultAzureCredential` stopped at the
+metadata endpoint's HTTP 401 instead of reaching the Azure CLI session.
+
+The reusable Pulumi workflow now sets `AZURE_TOKEN_CREDENTIALS=AzureCLICredential` and verifies
+backend login after the CLI identity check, before preview metadata reads or the Pulumi action.
+Pulumi 3.273.0 uses Azure Identity for Go 1.14.0, which supports
+[selecting a credential by name](https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity@v1.14.0#DefaultAzureCredential).
+The existing environment-specific OIDC principals, role scopes and protected resources are unchanged.
+CI preview and production deployment must verify the selection against the real backend.
