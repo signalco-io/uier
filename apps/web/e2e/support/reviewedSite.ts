@@ -50,6 +50,23 @@ const layouts: Record<string, string> = {
     'body-hidden': 'html, body { height: 100%; } body { margin: 0 16px; overflow-x: hidden; }'
 };
 
+/** `?sections=<n>` (at most 1,000): a longer page, like a real one, under a sticky header with a fixed badge (#319) */
+const longPageCss = `
+    .site-header { position: sticky; top: 0; z-index: 1; display: flex; gap: 12px; padding: 8px 16px; background: rgb(250, 236, 180); }
+    .site-badge { position: fixed; right: 16px; bottom: 16px; padding: 4px 8px; border-radius: 4px; background: rgb(190, 30, 60); color: rgb(255, 255, 255); }
+    .card { margin: 12px 0; padding: 12px 16px; border: 1px solid rgb(210, 210, 220); border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
+    .card h2 { margin: 0 0 4px; font-size: 18px; }
+    .card h2::before { content: '§ '; color: rgb(120, 120, 140); }
+    .card p { margin: 0; }`;
+
+function sectionCount(url: URL) {
+    return Math.min(1_000, Math.max(0, Number.parseInt(url.searchParams.get('sections') ?? '', 10) || 0));
+}
+
+function longPage(count: number) {
+    return Array.from({ length: count }, (_, i) => `<section class="card" id="section-${i + 1}"><h2>Plan section ${i + 1}</h2><p>Details of this part of the plan, with <a href="#section-${i + 1}">a link to it</a>.</p></section>`).join('');
+}
+
 export async function startReviewedSite(apiBaseUrl: string) {
     const csp = [
         'default-src \'self\'',
@@ -61,6 +78,7 @@ export async function startReviewedSite(apiBaseUrl: string) {
         if (url.pathname === '/host.css') {
             response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
             response.end(`${layouts[url.searchParams.get('layout') ?? ''] ?? ''}
+                ${sectionCount(url) ? longPageCss : ''}
                 ${url.searchParams.has('host-dialog') ? `
                     dialog { transform: translateY(0); overflow: hidden; }
                     ::backdrop { background: rgba(0, 0, 0, 0.4); }
@@ -129,6 +147,7 @@ export async function startReviewedSite(apiBaseUrl: string) {
         // `?layout=html-scroll` or `?layout=body-hidden`: a long page with CSS that makes a copy of the
         // page clip itself (`<html>` or `<body>` as a scroll box), and a lazy image below the window
         const layout = layouts[url.searchParams.get('layout') ?? ''];
+        const sections = sectionCount(url);
         const policy = label === 'blocked-connect' ? csp.replace(/connect-src [^;]+/, "connect-src 'self'")
             : label === 'blocked-frame' ? csp.replace(/frame-src [^;]+/, "frame-src 'self'") : csp;
         response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': policy });
@@ -140,6 +159,7 @@ export async function startReviewedSite(apiBaseUrl: string) {
     <link rel="stylesheet" href="/host.css?${url.searchParams.toString()}">
 </head>
 <body>
+    ${sections ? '<header class="site-header"><strong>Reviewed site</strong><a href="#plans">Plans</a><a href="#docs">Docs</a></header>' : ''}
     <main>
         <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
         <p>A page on a site under review. Every plan includes the toolbar.</p>
@@ -154,7 +174,9 @@ export async function startReviewedSite(apiBaseUrl: string) {
         <script src="/host-dialog.js" defer></script>` : ''}
         ${layout ? Array.from({ length: 40 }, (_, i) => `<p id="row-${i + 1}">Row ${i + 1}: every plan includes the toolbar, and this row is here to make the page long.</p>`).join('') : ''}
         ${layout ? '<img loading="lazy" src="/lazy-image.png" width="40" height="40" alt="">' : ''}
+        ${longPage(sections)}
     </main>
+    ${sections ? '<div class="site-badge">Beta</div>' : ''}
     ${embed}
 </body>
 </html>`);

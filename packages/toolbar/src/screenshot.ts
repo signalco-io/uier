@@ -11,6 +11,11 @@ import { runtimeAdapters } from './adapters';
  * keep their scroll. Then the region around the comment is cut out and encoded (WebP, else JPEG)
  * under the API's limits.
  *
+ * The window, its scroll and what is scrolled inside it are read when the reviewer asks for the
+ * composer; the copy is made after the composer has been painted, in short pieces of work that let
+ * the page handle input in between (#319). The content of blocks far from the window is left out:
+ * nothing of it can be seen, and the copy keeps their boxes.
+ *
  * What can't be drawn this way: images and fonts from other sites that don't allow it (CORS),
  * `<canvas>`, video and iframes. They show as empty space.
  */
@@ -44,6 +49,8 @@ const maxSide = 2400;
 const maxScale = 2;
 /** Marks elements scrolled inside the page while their copy is made */
 const scrollAttribute = 'data-uier-screenshot-scroll';
+/** The longest piece of capture work before the page gets to handle input again, in milliseconds */
+const sliceMs = 8;
 
 /** The window without its scrollbars (in quirks mode `<html>` is as tall as the page; `<body>` is the window) */
 function windowSize() {
@@ -291,6 +298,29 @@ export function encodeScreenshot(source: HTMLCanvasElement): CapturedScreenshot 
     throw new Error('The screenshot is too large');
 }
 
+function canvasBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+    return new Promise<Blob | null>(resolve => canvas.toBlob(resolve, type, quality));
+}
+
+/** Like `encodeScreenshot`, with the browser encoding outside the page's main thread (`toBlob`) */
+async function encodeScreenshotInBackground(source: HTMLCanvasElement, signal?: AbortSignal): Promise<CapturedScreenshot> {
+    let canvas = source;
+    for (let attempt = 0; attempt < 6; attempt++) {
+        for (const quality of [0.85, 0.7, 0.55]) {
+            let blob = await canvasBlob(canvas, 'image/webp', quality);
+            if (blob?.type !== 'image/webp') {
+                blob = await canvasBlob(canvas, 'image/jpeg', quality);
+            }
+            signal?.throwIfAborted();
+            if (blob && blob.size <= maxBytes) {
+                return { dataUrl: await readAsDataUrl(blob), width: canvas.width, height: canvas.height };
+            }
+        }
+        canvas = resized(canvas, 0.75);
+    }
+    throw new Error('The screenshot is too large');
+}
+
 function resized(source: HTMLCanvasElement, factor: number) {
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(source.width * factor));
@@ -299,21 +329,151 @@ function resized(source: HTMLCanvasElement, factor: number) {
     return canvas;
 }
 
+/** After the next frame (the composer that started the capture) is painted; soon, when the tab is hidden */
+function afterNextPaint() {
+    return new Promise<void>((resolve) => {
+        requestAnimationFrame(() => setTimeout(resolve, 0));
+        setTimeout(resolve, 100);
+    });
+}
+
+/** Gives the page a turn: its input, rendering and other tasks run before the capture goes on */
+function yieldToPage() {
+    const scheduler = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+    if (scheduler?.yield) {
+        return scheduler.yield();
+    }
+    // Not `setTimeout`: repeated, it waits at least 4 ms each time
+    return new Promise<void>((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = () => {
+            channel.port1.close();
+            resolve();
+        };
+        channel.port2.postMessage(null);
+    });
+}
+
+/** Called between pieces of work: yields once the current piece has taken `sliceMs`, and stops a cancelled capture */
+function timeSlices(signal: AbortSignal | undefined) {
+    let started = performance.now();
+    return async () => {
+        signal?.throwIfAborted();
+        if (performance.now() - started < sliceMs) {
+            return;
+        }
+        await yieldToPage();
+        signal?.throwIfAborted();
+        started = performance.now();
+    };
+}
+
+/** Displays whose size in the copy is their own (`width` and `height`), whatever is in them */
+const blockDisplays = new Set(['block', 'flow-root', 'list-item', 'flex', 'grid', 'table']);
+/** Displays whose block children are laid out one after the other, each below the one before */
+const flowDisplays = new Set(['block', 'flow-root', 'list-item']);
+
+/**
+ * What the copy can leave out of an element far from the window: all of it below the window in a
+ * block's flow (nothing before it moves), or its content (the copy keeps every element's `width`
+ * and `height`, so a block keeps its size). Above the window a first child's top margin that
+ * collapses through the block would move everything after it.
+ */
+function leaveOutOf(element: Element, rect: DOMRect, windowBottom: number): 'element' | 'content' | undefined {
+    if (!(element instanceof HTMLElement)) {
+        return undefined;
+    }
+    const style = getComputedStyle(element);
+    if (!blockDisplays.has(style.display)) {
+        return undefined;
+    }
+    const parent = element.parentElement && getComputedStyle(element.parentElement);
+    if (rect.top > windowBottom) {
+        // Not in columns, which balance their content
+        return parent && flowDisplays.has(parent.display) && parent.columnCount === 'auto' && parent.columnWidth === 'auto'
+            ? 'element'
+            : (element.firstChild ? 'content' : undefined);
+    }
+    const ownTop = (style.display !== 'block' && style.display !== 'list-item')
+        || parseFloat(style.paddingTop) > 0 || parseFloat(style.borderTopWidth) > 0
+        || !['visible', 'clip'].includes(style.overflowY) || style.float !== 'none'
+        || style.position === 'absolute' || style.position === 'fixed'
+        || /flex|grid/.test(parent?.display ?? '');
+    return ownTop && element.firstChild ? 'content' : undefined;
+}
+
+/**
+ * The page's elements the copy can leave out, or whose content it can: they and everything in them
+ * are more than a window's width or height away from it (an element's box holds what is in it,
+ * unless it is positioned, transformed or overflows: then that content has its own box, measured too).
+ * A sticky element is kept wherever it is, with all of it: the copy places it again.
+ */
+function farFromWindow(view: { width: number; height: number }) {
+    const near = { left: -view.width, top: -view.height, right: 2 * view.width, bottom: 2 * view.height };
+    const rects = new Map<Element, DOMRect>();
+    const far = { elements: new Set<Element>(), content: new Set<Element>() };
+    const collect = (element: Element) => {
+        const leaveOut = leaveOutOf(element, rects.get(element)!, near.bottom);
+        if (leaveOut === 'element') {
+            far.elements.add(element);
+        } else if (leaveOut === 'content') {
+            far.content.add(element);
+        } else {
+            for (const child of element.children) collect(child);
+        }
+    };
+    // Whether the element or anything in it is near the window. A shadow root's content isn't
+    // measured, nor a sticky element's: it is all kept.
+    const visit = (element: Element): boolean => {
+        const rect = element.getBoundingClientRect();
+        rects.set(element, rect);
+        if (element.shadowRoot || getComputedStyle(element).position === 'sticky') {
+            return true;
+        }
+        let isNear = rect.right >= near.left && rect.left <= near.right && rect.bottom >= near.top && rect.top <= near.bottom;
+        const farChildren: Element[] = [];
+        for (const child of element.children) {
+            if (visit(child)) {
+                isNear = true;
+            } else {
+                farChildren.push(child);
+            }
+        }
+        if (isNear) {
+            farChildren.forEach(collect);
+        }
+        return isNear;
+    };
+    if (document.body) {
+        visit(document.body);
+    }
+    return far;
+}
+
 /**
  * A screenshot of a region of the window. Page feedback excludes the toolbar host; comments
  * reviewing uier's own controls include its review surfaces, without annotations or instructions.
  */
-export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false): Promise<CapturedScreenshot> {
+export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false, signal?: AbortSignal): Promise<CapturedScreenshot> {
     if (runtimeAdapters()) return runtimeAdapters()!.capture(region);
     // As the page is now, like the region (measured just before)
     const view = windowSize();
     const scroll = { x: window.scrollX, y: window.scrollY };
     const scale = Math.min(window.devicePixelRatio || 1, maxScale);
     const reviewRoot = includeToolbar ? getToolbarHost()?.shadowRoot : undefined;
-    const cssText = await fontFaceCss();
     const unmark = markScrolledElements(includeToolbar);
     let page: HTMLCanvasElement;
     try {
+        await afterNextPaint();
+        const slice = timeSlices(signal);
+        await slice();
+        // Measured again only if the page did not scroll meanwhile (otherwise all of it is copied)
+        const far = window.scrollX === scroll.x && window.scrollY === scroll.y
+            ? farFromWindow(view)
+            : { elements: new Set<Element>(), content: new Set<Element>() };
+        await slice();
+        const cssText = await fontFaceCss();
+        await slice();
         const context = await createContext(document.documentElement, {
             width: view.width,
             height: view.height,
@@ -327,7 +487,9 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
                     || (reviewRoot && node.getRootNode() === reviewRoot
                         && !node.matches('style,[data-uier-root]') && !node.closest(toolbarReviewSurfaces)
                         && !node.querySelector(toolbarReviewSurfaces))))
-                && !node.parentElement?.closest('[data-uier-decorative]'),
+                && !node.parentElement?.closest('[data-uier-decorative]')
+                && !far.elements.has(node as Element)
+                && !(node.parentElement && far.content.has(node.parentElement)),
             // The scroll position as a margin, not a transform: fixed and sticky elements stay put.
             // `<html>` is not the page's root in the copy: its overflow would clip it.
             style: { marginTop: `${-scroll.y}px`, marginLeft: `${-scroll.x}px`, overflow: 'visible' },
@@ -335,15 +497,32 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             // The library first waits for every image and video of the page to load: not long, as
             // lazy images below the window never do
             timeout: 1_000,
-            onCloneEachNode: restoreScroll
+            onCloneEachNode: async (cloned) => {
+                restoreScroll(cloned);
+                await slice();
+            },
+            onCloneNode: slice,
+            onEmbedNode: slice,
+            onCreateForeignObjectSvg: slice
         });
         // Then images are fetched to be drawn: that may take longer
         context.timeout = 10_000;
+        // The library reads elements' default styles in a frame it fills with `srcdoc`: loaded
+        // between two pieces of work, that replaces the frame's document (without a `<body>` at
+        // first). This one keeps its first, empty document.
+        const sandbox = document.createElement('iframe');
+        sandbox.setAttribute('data-uier-capture-exclude', '');
+        sandbox.setAttribute('aria-hidden', 'true');
+        sandbox.tabIndex = -1;
+        Object.assign(sandbox.style, { position: 'fixed', width: '0', height: '0', border: '0', visibility: 'hidden' });
+        document.body.appendChild(sandbox);
+        context.sandbox = sandbox;
         try {
             page = await domToCanvas(context);
         } finally {
             destroyContext(context);
         }
+        await slice();
     } finally {
         unmark();
     }
@@ -357,23 +536,45 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
         page,
         region.left * scale, region.top * scale, region.width * scale, region.height * scale,
         0, 0, crop.width, crop.height);
-    return encodeScreenshot(crop);
+    return encodeScreenshotInBackground(crop, signal);
 }
 
+const runningCaptures = new WeakMap<Promise<string | undefined>, AbortController>();
+
 /** Start once from the feedback event, keep the promise with the draft, and never block text on failure. */
-export async function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined): Promise<string | undefined> {
-    let timeout: number | undefined;
-    try {
-        const includeToolbar = Boolean(toolbarReviewTarget(resolveAnchorElement(position)));
-        const capture = captureScreenshot(commentRegion(position), includeToolbar ? null : toolbarHost(rootElement), includeToolbar);
-        return await Promise.race([
-            capture.then(image => image.dataUrl),
-            new Promise<undefined>(resolve => { timeout = window.setTimeout(resolve, 15_000); })
-        ]);
-    } catch (error) {
-        console.warn('uier: Automatic screenshot capture failed', error);
-        return undefined;
-    } finally {
-        clearTimeout(timeout);
-    }
+export function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined): Promise<string | undefined> {
+    const controller = new AbortController();
+    const capture = (async () => {
+        let timeout: number | undefined;
+        try {
+            const includeToolbar = Boolean(toolbarReviewTarget(resolveAnchorElement(position)));
+            const image = captureScreenshot(commentRegion(position), includeToolbar ? null : toolbarHost(rootElement), includeToolbar, controller.signal);
+            return await Promise.race([
+                image.then(image => image.dataUrl),
+                new Promise<undefined>(resolve => { timeout = window.setTimeout(resolve, 15_000); })
+            ]);
+        } catch (error) {
+            if (!controller.signal.aborted) {
+                console.warn('uier: Automatic screenshot capture failed', error);
+            }
+            return undefined;
+        } finally {
+            clearTimeout(timeout);
+            // Timed out: the rest of the work stops too
+            controller.abort();
+        }
+    })();
+    runningCaptures.set(capture, controller);
+    void capture.then(() => runningCaptures.delete(capture));
+    return capture;
+}
+
+/**
+ * Stops a capture that is still being taken (Omit screenshot): its work ends at the next piece,
+ * and it resolves `undefined`. Returns whether it was still being taken.
+ */
+export function cancelCommentScreenshot(capture: Promise<string | undefined> | undefined) {
+    const controller = capture && runningCaptures.get(capture);
+    controller?.abort();
+    return Boolean(controller);
 }

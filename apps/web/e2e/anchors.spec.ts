@@ -30,7 +30,10 @@ async function openFaqAnswer(page: Page) {
 /** Viewport box of `text` on the page */
 async function textBox(page: Page, text: string): Promise<Box> {
     return await page.evaluate((text) => {
-        const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+        const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT, {
+            // Visible text only: a structured-data `<script>` in `<main>` can repeat the same words
+            acceptNode: node => node.parentElement?.closest('script,style,template') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
             const index = node.textContent?.indexOf(text) ?? -1;
             if (index >= 0) {
@@ -87,7 +90,9 @@ async function expectPinAt(page: Page, pin: Locator, anchor: PinAnchor) {
         const expected = await page.evaluate((anchor) => {
             let rects: DOMRect[] = [];
             if ('text' in anchor) {
-                const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+                const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT, {
+                    acceptNode: node => node.parentElement?.closest('script,style,template') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+                });
                 for (let node = walker.nextNode(); node && !rects.length; node = walker.nextNode()) {
                     const index = node.textContent?.indexOf(anchor.text) ?? -1;
                     if (index >= 0) {

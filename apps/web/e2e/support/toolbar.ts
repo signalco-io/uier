@@ -105,7 +105,10 @@ export async function addToolbarScript(page: Page) {
 /** Selects `text` in the page (inside one text node) like a reviewer would */
 export async function selectText(page: Page, text: string) {
     await page.evaluate((text) => {
-        const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+        // Visible text only: a structured-data `<script>` in `<main>` can repeat the same words
+        const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT, {
+            acceptNode: node => node.parentElement?.closest('script,style,template') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
             const index = node.textContent?.indexOf(text) ?? -1;
             if (index >= 0) {

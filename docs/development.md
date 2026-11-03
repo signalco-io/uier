@@ -272,8 +272,8 @@ feedback reopening. The review UI stays in a separate content-addressed script.
 The [MVP launch evidence matrix](mvp-launch-verification.md) maps the combined review flow to
 coverage and records pending hosted/physical-device checks. `launch.spec.ts` adds owner/guest review,
 canonical routes, capture and recovery checks; `launch-performance.spec.ts` records a 100-thread inbox,
-loader/request budgets and host interaction timings, plus a 40-text-anchor search/index budget across
-scroll, resize and DOM changes. Optional Firefox/WebKit projects run the portable
+loader/request budgets and host interaction timings, a 40-text-anchor search/index budget across
+scroll, resize and DOM changes, and feedback capture on a 250-section page at normal and 4× slower CPU. Optional Firefox/WebKit projects run the portable
 launch flow with `PLAYWRIGHT_CROSS_BROWSER=1`; see the matrix for commands and engine limitations.
 
 The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwright.config.ts)):

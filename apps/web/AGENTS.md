@@ -687,7 +687,8 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
   visitor requests and opens the appropriate install guide; configured load failures retain retry.
 - `e2e/launch.spec.ts` combines installation, owner/guest discussion, routes, capture, recovery and
   keyboard movement. `PLAYWRIGHT_CROSS_BROWSER=1` adds focused Firefox/WebKit launch projects;
-  install those engines first. `launch-performance.spec.ts` attaches the 100-thread measurements.
+  install those engines first. `launch-performance.spec.ts` attaches the 100-thread and long-page capture measurements
+  (`?sections=<n>` on the reviewed site, `e2e/support/reviewedSite.ts`).
   Keep `docs/mvp-launch-verification.md` honest about pending dependency, hosted and physical-device
   evidence; passing local fixtures alone must not close the launch gate.
 - Locally the comments API keeps comments in memory; `COSMOSDB_CONNECTION_STRING` in `.env.local`
