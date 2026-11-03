@@ -6,7 +6,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Down, Drag, Inbox, Info } from '@signalco/ui-icons';
+import { Down, Drag, Edit, Inbox, Info } from '@signalco/ui-icons';
 import { Mark } from '@uier/brand';
 import type { ToolbarMode } from '../config';
 import { CommentIcon } from './CommentIcon';
@@ -39,6 +39,8 @@ type CommentToolbarProps = {
     /** `fromKeyboard` is set when the button was activated with the keyboard (Enter or Space) */
     onAddPointComment: (fromKeyboard: boolean) => void;
     onCancelPointComment: () => void;
+    /** A draft pin with text is closed: "Resume draft", above the pill, opens it again */
+    onResumeDraft?: () => void;
     /** Whether the inbox sidebar is open (the Inbox button opens and closes it) */
     sidebarOpen?: boolean;
     onToggleSidebar: () => void;
@@ -64,7 +66,7 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onToggleSidebar, onFeedbackOpen,
+    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
 }: CommentToolbarProps) {
     const navRef = useRef<HTMLElement>(null);
@@ -122,6 +124,22 @@ export function CommentToolbar({
                     </p>
                 )}
             </div>
+            {/* Beside the instruction's place, not in the pill: the pill keeps its width */}
+            {onResumeDraft && !creatingPointComment && !collapsed && (
+                <div
+                    style={movement.instructionStyle}
+                    data-uier-capture-exclude=""
+                    className={cx('fixed w-max -translate-x-1/2', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
+                    <Button
+                        size="sm"
+                        variant="outlined"
+                        className="rounded-full bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                        startDecorator={<Edit size={16} aria-hidden="true" />}
+                        onClick={onResumeDraft}>
+                        Resume draft
+                    </Button>
+                </div>
+            )}
             <nav
                 id="uier-feedback-toolbar"
                 ref={navRef}

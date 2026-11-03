@@ -325,8 +325,15 @@ error boundary, so one bad comment never breaks the toolbar.
   details** for the same fields as text. Guests and public viewers never get the browser, OS, capture time or
   copy. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
-- The text box grows with the text; Enter posts, Shift+Enter adds a new line. Unsent text is kept when the
-  popover closes (a new comment stays as a draft pin until it is posted or discarded).
+- The text box grows with the text; Enter posts, Shift+Enter adds a new line. Under every composer (new comment,
+  rewrite, reply, edit, feedback; members and guests) the line "Shift+Enter for a new line" says so, in the app's
+  words. It shows only where a mouse or trackpad is present (`any-pointer: fine`): a phone's on-screen Enter key
+  sends and has no Shift, so there the textarea's `enterkeyhint` labels that key Send (Done for edits) instead.
+  Unsent text is kept when the popover closes (a new comment stays as a draft pin until it is posted or discarded).
+  A composer that opens with such kept text says "Draft saved in this browser" under its box (only from the start,
+  so nothing appears or moves while typing; not while sending, after an error, or when storage is unavailable).
+  While a new comment or rewrite draft pin is closed, **Resume draft** appears above the pill: it scrolls the pin
+  into view when needed and opens its composer with the text (the latest draft when there are two).
   Comments, replies and feedback are sent in the background: the form empties at once and the comment or reply
   shows straight away (a pending pin reads "Comment, sending" and counts only saved messages; its thread opens
   once it is saved, and replies to it wait for its id). The text stays with the draft until the send settles, so

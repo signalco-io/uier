@@ -63,6 +63,7 @@ type CommentBubbleProps = {
     /** Keep a recovered draft reachable beside saved pins on the same element. */
     draftPinOffset?: number;
     onAutoOpened?: () => void;
+    /** With the comment's id, or a draft's key (see hooks/useDrafts.tsx) */
     onOpenStateChange?: (commentId: string, open: boolean) => void;
     /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
     onCreated?: (localId: string) => void;
@@ -150,12 +151,13 @@ export function CommentBubble(props: CommentBubbleProps) {
     };
 
     const [open, setOpen] = useState(creating && !props.initiallyClosed);
-    const savedId = commentItem?.id;
+    // A saved comment's id, or a draft's key
+    const openStateId = commentItem?.id ?? draftKey;
     useEffect(() => {
-        if (!savedId || !onOpenStateChange) return;
-        onOpenStateChange(savedId, open);
-        return () => onOpenStateChange(savedId, false);
-    }, [savedId, open, onOpenStateChange]);
+        if (!onOpenStateChange) return;
+        onOpenStateChange(openStateId, open);
+        return () => onOpenStateChange(openStateId, false);
+    }, [openStateId, open, onOpenStateChange]);
     const handleOpenChange = (open: boolean) => {
         if (open && creating) capture.current = { device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) };
         if (!open) {

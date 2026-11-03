@@ -17,6 +17,7 @@ import { useAnnounce } from './Announcer';
 import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 import { useProjectViewer } from '../project/ProjectGate';
 import { getGuestName, setGuestName } from '../project/projectSession';
+import { ComposerFooter, useKeyboardHint } from './ComposerFooter';
 
 /** Longest guest name the review API accepts */
 const guestNameMaxLength = 80;
@@ -80,12 +81,20 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
     const counterId = useId();
+    const footerId = useId();
     const drafts = useDrafts();
     const announce = useAnnounce();
     const text = useSyncExternalStore(
         listener => drafts.subscribe(draftKey, listener),
         () => drafts.get(draftKey) ?? initialText ?? '');
     const [storageAvailable, setStorageAvailable] = useState(drafts.available);
+    // Opened with text kept from earlier (not a rewrite's untouched selected text, nor an edit's
+    // original): it says the draft is saved. Only from the start, so nothing appears while typing.
+    const [restored] = useState(() => {
+        const saved = drafts.get(draftKey)?.trim();
+        return Boolean(saved) && saved !== quote?.trim() && saved !== initialText?.trim();
+    });
+    const keyboardHint = useKeyboardHint();
     const trimmedText = text.trim();
     const mentions = useSyncExternalStore(
         listener => drafts.subscribe(draftKey, listener),
@@ -116,6 +125,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     // Editing waits for the save; new comments, replies and feedback never block the form
     const instant = !onCancel;
     const busy = !instant && (pending || submitting || sharedPending);
+    const draftSaved = restored && storageAvailable && trimmedText.length > 0 && error == null && !busy && !sharedPending;
+    const hasFooter = keyboardHint || draftSaved;
 
     const setText = (value: string) => {
         const next = moveMentions(text, value, mentions).map(({ userId, start, end }) => ({ userId, start, end }));
@@ -327,7 +338,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     readOnly={busy}
                     placeholder={placeholder}
                     aria-label={label}
-                    aria-describedby={showCounter || isMember ? counterId : undefined}
+                    aria-describedby={[showCounter || isMember ? counterId : '', hasFooter ? footerId : ''].filter(Boolean).join(' ') || undefined}
+                    enterKeyHint={onCancel ? 'done' : 'send'}
                     autoComplete="off"
                     className={cx(
                         'block w-full resize-none overflow-y-auto rounded-t-lg border-0 bg-transparent px-3 pb-1 pt-2.5 text-sm text-foreground',
@@ -382,6 +394,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     </Row>
                 </Row>
                 </div>
+                <ComposerFooter id={footerId} keyboardHint={keyboardHint} submitVerb={onCancel ? 'save' : 'send'} draftSaved={draftSaved} />
                 {showSuggestions && <div id={listId} role="listbox" aria-label="Mention people" className="max-h-48 overflow-y-auto rounded-xl border p-1">
                     {suggestions.map((person, index) => <Button key={person.id} id={`${listId}-${index}`} role="option" aria-selected={index === selectedIndex}
                         variant="plain" size="sm" className={cx('min-h-11 w-full justify-start', index === selectedIndex && 'bg-muted')}
