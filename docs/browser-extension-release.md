@@ -1,6 +1,7 @@
 # Extension releases
 
-Publisher bootstrap is configured; production distribution remains disabled until the release gates pass.
+Publisher bootstrap is configured; version 0.1.1 is submitted for review as an unlisted beta.
+Public availability remains disabled until the remaining release gates pass.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
 
@@ -48,7 +49,9 @@ Chrome Web Store; native Edge Add-ons is a separate follow-up.
 
 ## Bootstrap receipt — 2 November 2026
 
-The GitHub, Google Cloud and publisher configuration has been read back:
+The following records the initial configuration before the first submission. The later submission
+receipt below supersedes its draft state and disabled publishing flag.
+The GitHub, Google Cloud and publisher configuration was read back:
 
 - `extension-production` (environment ID `26068248854`) permits only the `main` branch and
   `extension-v*` tags. Release jobs require `AleksandarDev`'s review. Self-review remains allowed:
@@ -92,6 +95,35 @@ they contain no shared password or customer account. No store submission or real
 issuance/renewal is evidenced by this configuration receipt. The shared environment's
 review requirement also applies to manual/status runs; scheduled monitoring must not be described
 as unattended until that approval behavior has been addressed.
+
+## First submission receipt — 3 November 2026
+
+[Protected release run 41548857499](https://github.com/signalco-io/uier/actions/runs/41548857499)
+succeeded. After the hosted acceptance and read-only bootstrap gates passed, the owner-reviewed
+`extension-production` job obtained a short-lived Google token, uploaded the tested package and
+submitted it for review. The store dashboard independently shows **Pending review**.
+
+- Protected tag: `extension-v0.1.1`; source: `3d000bb929a301bd69c428091b74d1ed75c7f8d6`.
+- ZIP SHA-256: `67e419f7e26d30a8921d53aa83c50c8949bc902be1c9babadb2c0bcee514d116`.
+- Item: `kplfcfnpeljpkbcjgpaefpmggipfpemj`; distribution: **unlisted**.
+- The draft GitHub release retains the immutable ZIP, checksum, source metadata and
+  `uier-extension-0.1.1.store.json` journal with phase `submitted-for-review`.
+- [Read-only status run 41551213896](https://github.com/signalco-io/uier/actions/runs/41551213896)
+  used a fresh Google token and independently confirmed that phase, updating the same journal.
+- Every non-manifest resource matches the native 0.1.1 hosted test build byte for byte. Only the
+  test manifest adds the development key; the submitted ZIP is unkeyed.
+- The listing accurately describes automatic viewport screenshots and redaction/replacement
+  after saving. Reviewer instructions use the isolated self-service project flow and controlled
+  `https://uier.io/extension-demo.html` page, without shared credentials or customer data.
+- `CWS_PUBLISHING_ENABLED=true` now permits protected, reviewed releases. Repository
+  `CWS_STATUS_MONITOR_ENABLED=false` keeps the optional schedule disabled; the shared environment
+  still requires review for status jobs. Do not describe it as unattended monitoring.
+
+Submission is not publication. Google publisher verification and extension review remain pending.
+After approval, install the store package in Chrome and Edge, repeat acceptance and demonstrate
+a real automatic installed-version upgrade before enabling the public store link. Keep #268 open
+and `UIER_EXTENSION_AVAILABLE` disabled until those receipts exist. The temporary development
+client remains registered for the acceptance window and must then be removed.
 
 ## Build, dry-run and submit
 
