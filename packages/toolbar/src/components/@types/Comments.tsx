@@ -134,7 +134,10 @@ export type CommentItem = {
     notifications?: { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
     activity?: CommentActivity;
     id: string;
+    /** The page key: comments on `/plans` and `/plans/` share it */
     path: string;
+    /** The page as it was addressed when that is not `path` (`/plans/`): where links open */
+    sourcePath?: string;
     position: CommentItemPosition;
     anchorContext?: { original: CommentItemPosition; previous: CommentItemPosition; revision: string; changedAt: string; changes: number };
     /** Public id, numbered per site (`#12`); missing on old comments */

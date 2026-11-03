@@ -19,10 +19,10 @@ export function pageStatePolicy(value?: Partial<PageStatePolicy> | null): PageSt
     };
 }
 
-function pathPart(path: string) {
+function pathPart(path: string, keepSlash: boolean) {
     if (!path.startsWith('/') || path.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(path)) return '/';
     try {
-        const normalized = new URL(path, 'https://page-state.invalid').pathname.replace(/\/+$/, '');
+        const normalized = new URL(path, 'https://page-state.invalid').pathname.replace(/\/+$/, keepSlash ? '/' : '');
         return (normalized || '/').replace(/%[a-f\d]{2}/gi, escape => escape.toUpperCase());
     } catch { return '/'; }
 }
@@ -51,22 +51,34 @@ function queryPart(params: URLSearchParams, policy: PageStatePolicy) {
     return query ? `?${query}` : '';
 }
 
-/** A canonical relative URL: sorted approved query values and optional #/ or #!/ routes. */
-export function pagePath(input: string, value?: Partial<PageStatePolicy> | null) {
+function pageState(input: string, value: Partial<PageStatePolicy> | null | undefined, keepSlash: boolean) {
     const policy = pageStatePolicy(value);
     if (!input.startsWith('/') || input.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(input)) return '/';
     const url = new URL(input, 'https://page-state.invalid');
-    const pathname = pathPart(url.pathname);
+    const pathname = pathPart(url.pathname, keepSlash);
     let hash = '';
     if (policy.hashRouting && /^#!?\//.test(url.hash)) {
         const route = url.hash.replace(/^#!/, '#').slice(1).split('#', 1)[0]!;
         if (!route.startsWith('//') && !route.includes('\\')) {
             const routed = new URL(route, 'https://page-state.invalid');
-            if (safeHashPath(routed.pathname)) hash = `${url.hash.startsWith('#!/') ? '#!' : '#'}${pathPart(routed.pathname)}${queryPart(routed.searchParams, policy)}`;
+            if (safeHashPath(routed.pathname)) hash = `${url.hash.startsWith('#!/') ? '#!' : '#'}${pathPart(routed.pathname, keepSlash)}${queryPart(routed.searchParams, policy)}`;
         }
     }
     const result = `${pathname}${queryPart(url.searchParams, policy)}${hash}`;
     return result.length <= maxPageKeyLength ? result : pathname;
+}
+
+/** A canonical relative URL: sorted approved query values and optional #/ or #!/ routes. */
+export function pagePath(input: string, value?: Partial<PageStatePolicy> | null) {
+    return pageState(input, value, false);
+}
+
+/**
+ * The page to link to: {@link pagePath}'s filtered state with the trailing slashes the page had
+ * (`/plans/`), because some sites serve only one of `/plans` and `/plans/`. Never a page key.
+ */
+export function sourcePagePath(input: string, value?: Partial<PageStatePolicy> | null) {
+    return pageState(input, value, true);
 }
 
 /**
@@ -85,15 +97,31 @@ export function pageQueryKeys(input: string) {
     } catch { return []; }
 }
 
+/** Every state a stored v1 path carries; it was filtered when the comment was created. */
+function storedView(input: string, keepSlash: boolean) {
+    try {
+        const url = new URL(input, 'https://page-state.invalid');
+        const hashQuery = url.hash.includes('?') ? url.hash.slice(url.hash.indexOf('?') + 1) : '';
+        return pageState(input, { queryParameters: [...url.searchParams.keys(), ...new URLSearchParams(hashQuery).keys()], hashRouting: true }, keepSlash);
+    } catch { return '/'; }
+}
+
 /** Records marked v1 were filtered at creation. Preserve their approved view after policy changes. */
 export function storedPagePath(input: string, version?: number) {
     if (version !== 1) {
         if (!input.startsWith('/') || input.startsWith('//') || input.includes('\\')) return '/';
         return input.split(/[?#]/, 1)[0]!.replace(/\/+$/, '') || '/';
     }
-    try {
-        const url = new URL(input, 'https://page-state.invalid');
-        const hashQuery = url.hash.includes('?') ? url.hash.slice(url.hash.indexOf('?') + 1) : '';
-        return pagePath(input, { queryParameters: [...url.searchParams.keys(), ...new URLSearchParams(hashQuery).keys()], hashRouting: true });
-    } catch { return '/'; }
+    return storedView(input, false);
+}
+
+/**
+ * Where a comment's links go: its recorded {@link sourcePagePath} when that is the same page as
+ * `key` (its stored page path), else `key` itself (comments saved before source paths were kept).
+ * Filtered again, so a source path can only add trailing slashes to the key.
+ */
+export function storedSourcePath(key: string, source: unknown) {
+    if (typeof source !== 'string') return key;
+    const path = storedView(source, true);
+    return storedView(path, false) === key ? path : key;
 }

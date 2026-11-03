@@ -13,7 +13,7 @@ export const GET = commentsApiHandler<{ id: string }>(async (context, { id }) =>
     if (!stored) throw apiErrors.notFound();
     const dto = await toPublicCommentDto(stored.comment, context);
     const base = await appBaseUrl();
-    const page = new URL(dto.path, base);
+    const page = new URL(dto.sourcePath ?? dto.path, base);
     const link = new URL(page);
     link.searchParams.set('review', 'true');
     link.searchParams.set('uier-comment', dto.id);

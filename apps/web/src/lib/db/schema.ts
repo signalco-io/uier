@@ -121,6 +121,11 @@ export type DbComment = {
     path: string;
     pageStateVersion?: 1;
     /**
+     * The same page as `path` as it was addressed, with its trailing slashes (`/plans/` for `/plans`):
+     * what links open. Only when it differs from `path`; missing on older comments (links use `path`).
+     */
+    sourcePath?: string;
+    /**
      * Project comments: names (no values) of other non-sensitive query fields on the page when it was
      * posted. Only for the page state suggestions in settings; never in a comment DTO.
      */

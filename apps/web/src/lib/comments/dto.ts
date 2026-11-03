@@ -1,6 +1,6 @@
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
-import { storedPagePath } from '@uier/toolbar/page-state';
+import { pagePath, sourcePagePath, storedPagePath, storedSourcePath, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { displayName } from './visitor';
 import { MAX_LIST_RESPONSE_BYTES } from './limits';
 
@@ -29,7 +29,10 @@ export type CommentDto = {
     priority: CommentPriority;
     activity?: import('./activity').ReadActivity;
     id: string;
+    /** The page key: comments on `/plans` and `/plans/` share it */
     path: string;
+    /** Where links to the comment go when that is not `path` itself (`/plans/`) */
+    sourcePath?: string;
     position: DbCommentPosition;
     anchorContext?: DbComment['anchorContext'];
     /** Public id, numbered per domain (`#12`); missing on old comments */
@@ -65,6 +68,21 @@ function optionalString(value: unknown) {
 /** The stored view contract remains stable; old comments retain pathname-only links. */
 export function commentPath(comment: Pick<DbComment, 'path' | 'pageStateVersion'>) {
     return storedPagePath(optionalString(comment.path) ?? '/', comment.pageStateVersion);
+}
+
+/** The page links open: the recorded source path of the same page, else {@link commentPath}. */
+export function commentSourcePath(comment: Pick<DbComment, 'path' | 'pageStateVersion' | 'sourcePath'>) {
+    return storedSourcePath(commentPath(comment), comment.sourcePath);
+}
+
+/**
+ * The source path to store with a new comment on page key `path`: the toolbar's `sourcePath`
+ * filtered with the same policy, only when it is the same page and not `path` itself.
+ */
+export function newSourcePath(path: string, sourcePath: string | undefined, policy?: Partial<PageStatePolicy> | null) {
+    if (sourcePath === undefined) return undefined;
+    const source = sourcePagePath(sourcePath, policy);
+    return source !== path && pagePath(source, policy) === path ? source : undefined;
 }
 
 /** Copies only the known position fields (old documents may contain anything) */
@@ -154,10 +172,13 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
 
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const authorId = optionalString(comment.authorId);
+    const path = commentPath(comment);
+    const sourcePath = commentSourcePath(comment);
 
     return {
         id: comment.id,
-        path: commentPath(comment),
+        path,
+        ...(sourcePath !== path ? { sourcePath } : {}),
         position,
         ...(comment.anchorContext ? { anchorContext: {
             original: toPositionDto(comment.anchorContext.original) ?? position,
