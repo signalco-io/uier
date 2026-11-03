@@ -516,9 +516,13 @@ test('a thread keeps its replies and status; Copy link opens it', async ({ brows
     await expect(sidebar.getByText('The heading could use a subtitle.')).toBeVisible();
     expect(new URL(page.url()).search).toBe('');
 
-    // Reopened, the link opens the thread on its pin
+    // Reopened, the link opens the thread on its pin. The status shows at once, but its write
+    // leaves after the BotID check on uier.io's own pages: navigate once it is saved.
+    const reopened = page.waitForResponse(response => new URL(response.url()).pathname === `/api/comments/${created.body.id}`
+        && response.request().method() === 'PATCH');
     await sidebar.getByRole('button', { name: 'Reopen' }).click();
     await expect(commentBubble(page, 2)).toBeVisible();
+    expect((await reopened).status()).toBe(200);
     await page.goto(link);
     await expect(openThread(page)).toContainText('Status: Open');
     await expect(openThread(page).getByText('Seconded.')).toBeVisible();
