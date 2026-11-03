@@ -16,26 +16,42 @@ export async function packageApiProxy(directory: string) {
     const spki = createHash('sha256').update(new X509Certificate(certificate).publicKey.export({ type: 'spki', format: 'der' })).digest('base64');
     const requests: { path: string; hasCookie: boolean }[] = [];
     let dropWrite = false;
+    let dropRefresh = false;
+    let heldRefresh: { received: () => void; release: Promise<void> } | undefined;
     const server = createServer({ key: privateKey, cert: certificate }, (incoming, response) => {
         if (!['uier.io', 'uier.io:443'].includes(incoming.headers.host ?? '')) { response.writeHead(421).end(); return; }
         requests.push({ path: incoming.url ?? '', hasCookie: Boolean(incoming.headers.cookie) });
-        const drop = dropWrite && incoming.method === 'POST' && incoming.url === '/api/extension/review/comments';
-        if (drop) dropWrite = false;
+        const write = dropWrite && incoming.method === 'POST' && incoming.url === '/api/extension/review/comments';
+        const refresh = dropRefresh && incoming.method === 'POST' && incoming.url === '/api/extension/refresh';
+        const drop = write || refresh;
+        if (write) dropWrite = false;
+        if (refresh) dropRefresh = false;
+        const hold = incoming.url === '/api/extension/refresh' ? heldRefresh : undefined;
+        if (hold) heldRefresh = undefined;
         const upstream = request({ hostname: '127.0.0.1', port, path: incoming.url, method: incoming.method,
             headers: { ...incoming.headers, host: 'uier.io', 'x-forwarded-proto': 'https' } }, result => {
             if (drop) {
                 result.resume(); result.on('end', () => {
-                    response.writeHead(201, { 'Content-Type': 'application/json', 'Content-Length': '1000000' });
+                    response.writeHead(result.statusCode ?? 200, { 'Content-Type': 'application/json', 'Content-Length': '1000000' });
                     response.write('{'); setImmediate(() => response.destroy());
                 }); return;
             }
-            response.writeHead(result.statusCode ?? 502, result.headers); result.pipe(response);
+            const forward = () => { response.writeHead(result.statusCode ?? 502, result.headers); result.pipe(response); };
+            if (hold) { hold.received(); void hold.release.then(forward); }
+            else forward();
         });
         upstream.setTimeout(30_000, () => upstream.destroy());
         upstream.on('error', () => { if (!response.headersSent) response.writeHead(502); response.end(); });
         incoming.pipe(upstream);
     });
     await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
-    return { requests, dropNextReviewWrite: () => { dropWrite = true; }, port: (server.address() as AddressInfo).port, spki,
+    return { requests, dropNextReviewWrite: () => { dropWrite = true; }, dropNextRefreshResponse: () => { dropRefresh = true; }, port: (server.address() as AddressInfo).port, spki,
+        holdNextRefreshResponse() {
+            let received!: () => void, release!: () => void;
+            const ready = new Promise<void>(resolve => { received = resolve; });
+            const wait = new Promise<void>(resolve => { release = resolve; });
+            heldRefresh = { received, release: wait };
+            return { ready, release };
+        },
         close: async () => { server.closeAllConnections(); await new Promise<void>(done => server.close(() => done())); } };
 }

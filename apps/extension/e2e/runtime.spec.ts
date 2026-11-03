@@ -22,14 +22,17 @@ const server = createServer((req, res) => {
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'");
     res.end('<!doctype html><html lang="en"><title>Strict CSP</title><main><h1>Review this page</h1><p>No embed or page scripts.</p><a href="/next">Next page</a></main></html>');
 });
+async function launchContext() {
+    const launched = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 }, baseURL: apiBase, ignoreDefaultArgs: ['--disable-back-forward-cache'], args: [...(proxy ? [`--host-resolver-rules=MAP uier.io 127.0.0.1:${proxy.port}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`, `--ignore-certificate-errors-spki-list=${proxy.spki}`] : []), '--enable-unsafe-extension-debugging', `--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`] });
+    launched.setDefaultTimeout(10_000);
+    return launched;
+}
 test.beforeAll(async () => {
     await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     profile = await mkdtemp(resolve(tmpdir(), 'uier-extension-'));
-    const path = extensionPath;
     if (productionPackage) proxy = await packageApiProxy(profile);
-    context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 }, baseURL: apiBase, ignoreDefaultArgs: ['--disable-back-forward-cache'], args: [...(proxy ? [`--host-resolver-rules=MAP uier.io 127.0.0.1:${proxy.port}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`, `--ignore-certificate-errors-spki-list=${proxy.spki}`] : []), '--enable-unsafe-extension-debugging', `--disable-extensions-except=${path}`, `--load-extension=${path}`] });
-    context.setDefaultTimeout(10_000);
+    context = await launchContext();
 
 });
 test.afterAll(async () => { await context?.close(); await proxy?.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(profile, { recursive: true, force: true }); });
@@ -50,6 +53,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const auth = await login;
     await auth.waitForLoadState();
     if (new URL(auth.url()).pathname.startsWith('/app/sign-in')) await signIn(auth, email, { from: auth.url() });
+    await expect(auth.getByText('Stay signed in across browser restarts.', { exact: false })).toBeVisible();
     await auth.getByRole('button', { name: 'Sign in to uier' }).click();
     await expect(popup.getByRole('button', { name: 'Sign out' })).toBeVisible();
     for (const colorScheme of ['light', 'dark'] as const) {
@@ -70,6 +74,27 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     expect(target).toBeTruthy();
     await browserCdp.send('Extensions.triggerAction', { id, targetId: target!.targetId });
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+    expect(await worker.evaluate(async () => {
+        const values = await chrome.storage.local.get(null);
+        const refresh = Object.entries(values).find(([key]) => key.startsWith('extension-refresh-v1:'))?.[1] as Record<string, unknown>;
+        return Object.keys(refresh).sort();
+    })).toEqual(['id', 'refreshExpiresAt', 'refreshToken']);
+    // Expired access renews without web cookies or interactive login. Packaged acceptance also
+    // loses a committed refresh response and checks that the saved attempt recovers it.
+    await context.clearCookies();
+    await worker.evaluate(async () => {
+        const stored = await chrome.storage.session.get('extension-session-v1');
+        await chrome.storage.session.set({ 'extension-session-v1': { ...(stored['extension-session-v1'] as object), expiresAt: 0 } });
+    });
+    if (proxy) {
+        proxy.dropNextRefreshResponse();
+        expect((await popup.evaluate(() => chrome.runtime.sendMessage({ type: 'state' }))).ok).toBe(false);
+        expect(await worker.evaluate(async () => Object.values(await chrome.storage.local.get(null)).some((value: any) => Boolean(value?.attempt)))).toBe(true);
+    }
+    const renewed = await popup.evaluate(() => Promise.all([
+        chrome.runtime.sendMessage({ type: 'state' }), chrome.runtime.sendMessage({ type: 'state' })
+    ]));
+    expect(renewed.every(result => result.ok && result.value.signedIn)).toBe(true);
     // The browser action popup is inspected through its extension document; no fake browser API.
     const pages = context.pages();
     const actionPopup = pages.find(p => p.url() === `chrome-extension://${id}/popup.html` && p !== popup) ?? popup;
@@ -259,7 +284,36 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
 
     if (proxy) expect(proxy.requests.filter(request => request.path.startsWith('/api/extension/')).every(request => !request.hasCookie)).toBe(true);
-    await actionPopup.evaluate(async () => { await chrome.runtime.sendMessage({ type: 'sign-out' }); });
-    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
-    expect(await worker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual([]);
+    // A real browser restart retains only the refresh credential. No site reactivates itself.
+    await context.close();
+    context = await launchContext();
+    const resumedWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual([]);
+    const resumedSite = await context.newPage();
+    await resumedSite.goto(origin);
+    await expect(resumedSite.locator('#uier-toolbar')).toHaveCount(0);
+    const resumedPopup = await context.newPage();
+    await resumedPopup.goto(`chrome-extension://${id}/popup.html`);
+    await expect(resumedPopup.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual(['extension-session-v1']);
+    if (proxy) {
+        // A renewal committed on the server must not restore credentials after concurrent logout.
+        const held = proxy.holdNextRefreshResponse();
+        await resumedWorker.evaluate(async () => {
+            const stored = await chrome.storage.session.get('extension-session-v1');
+            await chrome.storage.session.set({ 'extension-session-v1': { ...(stored['extension-session-v1'] as object), expiresAt: 0 } });
+        });
+        const renewal = resumedPopup.evaluate(() => chrome.runtime.sendMessage({ type: 'state' }));
+        await held.ready;
+        const logout = await resumedPopup.evaluate(() => Promise.all([
+            chrome.runtime.sendMessage({ type: 'sign-out' }), chrome.runtime.sendMessage({ type: 'sign-out' })
+        ]));
+        expect(logout.every(result => result.ok)).toBe(true);
+        held.release();
+        expect((await renewal).ok).toBe(true); // State reports signed out after the fenced response.
+        await resumedPopup.reload();
+    } else await resumedPopup.getByRole('button', { name: 'Sign out' }).click();
+    await expect(resumedPopup.getByRole('button', { name: 'Sign in to uier' })).toBeVisible();
+    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual([]);
+    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.local.get(null)).filter(key => key.startsWith('extension-refresh-v1:')))).toEqual([]);
 });

@@ -1061,8 +1061,12 @@ are CORS-readable. `cspSources` allows the API origin for both `style-src` and `
 
 ## Browser extension runtime spike
 
-`src/lib/extension` and `/api/extension` use separate revocable eight-hour sessions and five-minute
-project/exact-origin credentials. UIER_EXTENSION_CLIENT_IDS is an explicit allowlist; disabled by
+`src/lib/extension` and `/api/extension` use separate revocable sessions: updated packages request
+`renewable: true` for 15-minute access, rotating refresh with 30-day inactivity and one-year absolute
+limits. Legacy packages retain eight-hour sessions. Refresh uses atomic session/token replacement,
+hashed credentials and persisted attempt hashes: exact retries return the same derived successor,
+different-attempt reuse revokes the session. Known refresh credentials can revoke after access expiry.
+Project/exact-origin credentials last five minutes. UIER_EXTENSION_CLIENT_IDS is an explicit allowlist; disabled by
 default. It grants transport/registration only, never identity or BotID bypass. Recheck current
 membership, session and addresses before calling shared review services. Keep embed CORS unchanged.
 `/app/extension` is explicit consent after first-party sign-in. `/extension-verification` is a
