@@ -1,4 +1,4 @@
-import { UierToolbar } from '@uier/toolbar/react';
+import { openUierFeedback, UierToolbar } from '@uier/toolbar/react';
 
 /**
  * - `showcase`: always mounted, anyone can leave public feedback (every public page)
@@ -25,4 +25,13 @@ export const toolbarScriptSrc = isDevelopment
  */
 export function ToolbarScript({ mode }: { mode: ToolbarMode }) {
     return <UierToolbar src={toolbarScriptSrc} mode={mode} />;
+}
+
+/**
+ * Opens the feedback form of uier's own toolbar on this page (the showcase on public pages; in the
+ * app it mounts the toolbar first). Feedback goes to this app's API, also in development, where
+ * the toolbar script comes from its own server. Call it from a click handler.
+ */
+export function openToolbarFeedback() {
+    openUierFeedback({ src: toolbarScriptSrc, apiUrl: window.location.origin });
 }

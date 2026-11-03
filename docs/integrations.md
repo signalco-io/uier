@@ -16,6 +16,14 @@ deployment configuration is valid:
 | [Slack](slack-integration-plan.md) | Bounded channel notifications | Implemented; rotating bot credentials, distribution approval and hosted acceptance required |
 | [Azure DevOps](azure-devops-integration-plan.md) | Work item mirror with optional two-way status | Implemented; Microsoft Entra app registration and hosted acceptance required |
 
+Each provider's features and configurable settings live in `apps/web/src/lib/integrations/catalog.ts`.
+The public guide (`/integrations/<provider>`) and the project's page for the provider in the app
+(**What it does**, with On or Off for two-way status sync and reply sync) render the same list, and the
+API suite checks that its sync features match each adapter's `supportsStatusSync` and
+`supportsReplySync`. Change the catalog with the adapter. Suggestions for new integrations arrive as
+toolbar feedback: public on `/integrations` (the showcase project), private to the person and the uier
+team from the app's Integrations settings.
+
 An admin must connect a provider and explicitly save its destination before delivery starts.
 Connections are independent: a project can use all five services. The provider's own permissions
 control access to its copies. See [setup and manual tasks](integration-setup.md) and

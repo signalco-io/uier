@@ -78,6 +78,10 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await twoWay.getByRole('button', { name: 'Save two-way status sync' }).click();
     await expect(twoWay).toContainText('Two-way status sync is saved.');
     await page.reload(); await expect(toggle).toBeChecked();
+    // What it does says which optional features are on for this connection
+    const feature = (title: string) => page.getByRole('region', { name: 'What it does', exact: true }).getByRole('listitem').filter({ hasText: title }).locator('[data-slot="badge"]');
+    await expect(feature('Two-way status sync')).toHaveText('On');
+    await expect(feature('Reply sync')).toHaveText('Off');
     const replies = page.getByRole('region', { name: 'Reply sync', exact: true });
     const replyToggle = replies.getByRole('checkbox', { name: 'Sync replies in both directions' });
     await expect(replyToggle).not.toBeChecked(); await replyToggle.check();

@@ -56,12 +56,14 @@ separate provider decisions.
 
 ## Public materials
 
-The public [integration index](https://uier.io/integrations) links to setup, permissions, limitations,
+The public [integration index](https://uier.io/integrations) shows each provider's logo and optional
+features, the rules every integration shares, and a suggestion form that opens the showcase toolbar's
+feedback dialog. It links to features, configurable settings, setup, permissions, limitations,
 privacy/disconnect and support details for [Notion](https://uier.io/integrations/notion),
-[GitHub](https://uier.io/integrations/github), [Linear](https://uier.io/integrations/linear) and
-[Slack](https://uier.io/integrations/slack). Verify these URLs after the materials are deployed before
-using them in a submission. Install buttons start at `/app`; OAuth begins only after the admin
-chooses a project in its Settings.
+[GitHub](https://uier.io/integrations/github), [Linear](https://uier.io/integrations/linear),
+[Azure DevOps](https://uier.io/integrations/azure-devops) and [Slack](https://uier.io/integrations/slack).
+Verify these URLs after the materials are deployed before using them in a submission. Install buttons
+start at `/app`; OAuth begins only after the admin chooses a project in its Settings.
 
 [PR #223](https://github.com/signalco-io/uier/pull/223) merged these materials as
 `bc65831c3032bba05e643cb5d31358ea4ea1ce82`. CI passed and

@@ -14,6 +14,8 @@ import { Badge } from '@/src/components/ui/badge';
 import { buttonVariants } from '@/src/components/ui/button';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { IntegrationLogo } from '@/src/components/app/integrations/IntegrationLogo';
+import { SuggestIntegration } from '@/src/components/app/integrations/SuggestIntegration';
+import { integrationCatalog } from '@/src/lib/integrations/catalog';
 import { azureDevOpsStatus, gitHubStatus, integrationConnectHref, linearStatus, notionStatus, projectIntegrations,
     slackStatus } from '@/src/components/app/integrations/projectIntegrations';
 import { configurableProject } from '../settingsContext';
@@ -70,6 +72,10 @@ export default async function ProjectIntegrationsSettingsPage({ params }: PagePr
                                     <h3 id={`${provider}-card-title`} className="m-0 text-sm font-semibold">{name}</h3>
                                     <p className="m-0 text-sm text-muted-foreground">{summary}</p>
                                 </div>
+                                {/* The optional features of its public page and its own page (IntegrationFeatures) */}
+                                <ul aria-label={`Optional for ${name}`} className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                                    {integrationCatalog[provider].features.filter(feature => feature.optional).map(feature => <li key={feature.key}><Badge variant="outline">{feature.title}</Badge></li>)}
+                                </ul>
                                 <div className="flex flex-wrap gap-2">
                                     {states[provider].configured && <a href={integrationConnectHref(provider, project.id)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                                             <ArrowUpRight data-icon="inline-start" />Connect<span className="sr-only"> {name}</span>
@@ -80,6 +86,7 @@ export default async function ProjectIntegrationsSettingsPage({ params }: PagePr
                         ))}
                     </ul>
                     : <p className="m-0 text-sm text-muted-foreground">Every integration is connected to this project.</p>}
+                <SuggestIntegration />
             </section>
             {connected.length > 0 && <section aria-labelledby="connected-integrations-title" className="flex flex-col gap-4">
                 <h2 id="connected-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">Connected</h2>

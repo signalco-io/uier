@@ -23,6 +23,7 @@ import { getIntegrationConnection } from '@/src/lib/integrations/connection';
 import { configuredIntegrationAdapters } from '@/src/lib/integrations/registry';
 import { TwoWaySync } from '@/src/components/app/integrations/TwoWaySync';
 import { ReplySync } from '@/src/components/app/integrations/ReplySync';
+import { IntegrationFeatures } from '@/src/components/app/integrations/IntegrationFeatures';
 import { getAppStore } from '@/src/lib/app/store';
 import type { SlackGrant } from '@/src/lib/integrations/slack/model';
 import { slackReplyScopes } from '@/src/lib/integrations/slack/config';
@@ -34,8 +35,8 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
 }
 
 /**
- * One service's connection: its destination, sync controls and privacy limits. The connect and callback
- * routes come back here with their outcome (`?github=connected`).
+ * One service's connection: its destination, sync controls and privacy limits, then what it does (the
+ * features of its public page). The connect and callback routes come back here with their outcome (`?github=connected`).
  */
 export default async function ProjectIntegrationSettingsPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>) {
     const { projectId, provider } = await params;
@@ -61,6 +62,7 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
                 needsMapping={needsMapping} />}
             {connection && adapter?.supportsReplySync && <ReplySync key={`replies:${connection.id}`} projectId={project.id} provider={provider}
                 enabled={connection.replySync?.enabled === true} canEnable={adapter.isConfigured() && connection.status === 'connected'} needsPermissions={needsReplyPermissions} />}
+            <IntegrationFeatures provider={provider} connection={connection} />
         </>
     );
 }
