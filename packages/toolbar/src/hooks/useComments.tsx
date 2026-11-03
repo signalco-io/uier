@@ -11,7 +11,7 @@ import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
 import { getCommentsErrorMessage } from '../components/CommentsErrorMessage';
 import { showErrorToast } from '../components/Toaster';
-import { pageQueryKeys, pagePath } from '../pageState';
+import { pageQueryKeys, pagePath, sourcePagePath, type PageStatePolicy } from '../pageState';
 import { getToolbarHost } from '../mount';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
@@ -145,10 +145,18 @@ function queryKeys(path: string) {
     return keys.length ? keys : undefined;
 }
 
-async function createComment(path: string, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
+/** The page as it is addressed (`/plans/` for `/plans`), filtered like its key, while the page is still the comment's view */
+function sourcePath(path: string, policy: PageStatePolicy) {
+    const current = `${location.pathname}${location.search}${location.hash}`;
+    if (pagePath(current, policy) !== path) return undefined;
+    const source = sourcePagePath(current, policy);
+    return source !== path ? source : undefined;
+}
+
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, position, kind, text, mentions, quotedText, device, screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, device, screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 
@@ -247,7 +255,7 @@ export function useComments(refreshOnMount = false): {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
     const drafts = useDrafts();
-    const { currentEnvironment, draftScope } = useProjectViewer();
+    const { currentEnvironment, draftScope, pageState } = useProjectViewer();
     const queryKey = commentsQueryKey(path, currentEnvironment, draftScope);
 
     const query = useQuery({
@@ -287,7 +295,7 @@ export function useComments(refreshOnMount = false): {
             const key = input.kind === 'rewrite' ? newRewriteDraftKey : input.kind === 'feedback' || input.kind === 'bug' ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
             // The same content is the same attempt (a retry the API can recognize), whatever its local id
             const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, ...content } = input;
-            return createComment(path, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content })) });
+            return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content })) });
         },
         onMutate: (input: CreateCommentInput) => {
             const comment = optimisticComment(path, input, authorName());

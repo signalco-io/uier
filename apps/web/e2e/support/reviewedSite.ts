@@ -96,6 +96,12 @@ export async function startReviewedSite(apiBaseUrl: string) {
             return;
         }
         const [, pathProject = '', ...pagePath] = url.pathname.split('/');
+        // `strict-slash.localhost` serves pages only at their trailing-slash address: `/<code>/plans/`, not `/<code>/plans`
+        if (label === 'strict-slash' && pagePath.length && !url.pathname.endsWith('/')) {
+            response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            response.end('Not found');
+            return;
+        }
         // The project of /<code>/<page>; on other pages the review link's code (a project's main site)
         const projectId = pathProject || url.searchParams.get('toolbar-code') || '';
         const embed = label === 'missing-script' ? '' : label === 'wrong-project' ? embedScript(apiBaseUrl, 'zzzzzzzzzzzz')

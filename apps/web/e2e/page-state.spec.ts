@@ -38,6 +38,8 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await expectNoAxeViolations(page);
     const viewA = `${basePath}?category=a&tab=overview#/catalog?tab=summary`;
     const viewB = `${basePath}?category=b&tab=overview#/catalog?tab=summary`;
+    // Links keep the trailing slashes the page was opened with
+    const sourceA = `${basePath}/?category=a&tab=overview#/catalog/?tab=summary`;
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}${basePath}/?tab=overview&category=a&utm_source=tracking&token=secret#/catalog/?tab=summary`)}`);
     await expect(commentBubbles(page)).toHaveCount(0);
     const draft = await startComment(page);
@@ -46,6 +48,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const savedA = await (await posted).json();
     expect(savedA.path).toBe(viewA);
+    expect(savedA.sourcePath).toBe(sourceA);
     expect(JSON.stringify(savedA)).not.toMatch(/utm_source|token=secret/);
     await openThread(page).getByRole('textbox', { name: 'Reply', exact: true }).fill('Unsent reply A');
     await page.keyboard.press('Escape');
@@ -82,7 +85,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     await chooseInboxPages(page, /^All pages/);
-    const linkA = inbox.getByRole('link', { name: `Open on ${viewA}`, exact: true });
+    const linkA = inbox.getByRole('link', { name: `Open on ${sourceA}`, exact: true });
     const href = await linkA.getAttribute('href');
     expect(href).toContain(`uier-comment=${savedA.id}`);
     expect(href).not.toMatch(/utm_source|token=secret|token=hidden/);
@@ -101,7 +104,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     const cardA = page.getByRole('article').filter({ hasText: 'Feedback for view A' });
     await expect(cardA.getByRole('link', { name: new RegExp('category=a') })).toHaveAttribute('href', new RegExp('category%3Da|category=a'));
     await cardA.getByRole('button', { name: /^Device:/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Device and browser' }).getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${viewA}`);
+    await expect(page.getByRole('dialog', { name: 'Device and browser' }).getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${sourceA}`);
     // Removing routing fields does not reassign old feedback; direct links retain its saved details.
     await page.goto(`/app/projects/${projectId}/settings/review`);
     await settings.getByLabel('Meaningful query fields').fill('');
@@ -112,6 +115,53 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await page.goto(href!);
     await expect(page.getByRole('complementary', { name: 'Comments' })).toContainText('Feedback for view A');
     await expect(page.getByRole('complementary', { name: 'Comments' })).not.toContainText('Feedback for view B');
+});
+
+test('a slash-sensitive site: inbox, Copy link and the app open the page as it was addressed', async ({ page, context, request }) => {
+    const origin = site.origin('strict-slash');
+    await signIn(page, uniqueEmail('trailing-slash'));
+    const projectId = await createProject(page, { urls: [origin], name: 'Trailing slashes' });
+    const plans = `/${projectId}/plans/`;
+    expect((await request.get(`${origin}${plans}`)).status()).toBe(200);
+    expect((await request.get(`${origin}/${projectId}/plans`)).status()).toBe(404);
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${origin}${plans}`)}`);
+    const draft = await startComment(page);
+    await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Plans need a yearly price');
+    const posted = page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments` && response.request().method() === 'POST');
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    const saved = await (await posted).json();
+    expect(saved).toMatchObject({ path: `/${projectId}/plans`, sourcePath: plans });
+
+    // Copy link opens the thread on the page that exists
+    await openThread(page).getByRole('button', { name: 'Copy link' }).click();
+    const link = new URL(await page.evaluate(async () => await navigator.clipboard.readText()));
+    expect(`${link.origin}${link.pathname}`).toBe(`${origin}${plans}`);
+    expect(link.searchParams.get('uier-comment')).toBe(saved.id);
+    await page.keyboard.press('Escape');
+
+    // The inbox on another page links back to the same address
+    expect((await page.goto(`${origin}/${projectId}/pricing/`))!.status()).toBe(200);
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    await chooseInboxPages(page, /^All pages/);
+    const openOn = page.getByRole('complementary', { name: 'Comments' }).getByRole('link', { name: `Open on ${plans}`, exact: true });
+    const navigated = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === plans);
+    await openOn.click();
+    expect((await navigated).status()).toBe(200);
+    await expect(openThread(page)).toContainText('Plans need a yearly price');
+    expect((await page.goto(link.href))!.status()).toBe(200);
+    await expect(openThread(page)).toContainText('Plans need a yearly price');
+
+    // The app's Open on link signs in on the reviewed site at the same address
+    await page.goto(`/app/projects/${projectId}`);
+    const card = page.getByRole('article').filter({ hasText: 'Plans need a yearly price' });
+    const appLink = card.getByRole('link', { name: `Open on ${new URL(origin).host}${plans}`, exact: true });
+    const reviewed = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).origin === origin);
+    await page.goto((await appLink.getAttribute('href'))!);
+    const landed = await reviewed;
+    expect(landed.status()).toBe(200);
+    expect(new URL(landed.url()).pathname).toBe(plans);
+    await expect(openThread(page)).toContainText('Plans need a yearly price');
 });
 
 test('page-state settings reject sensitive fields and keep the attempted configuration', async ({ page }) => {

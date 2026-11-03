@@ -111,7 +111,7 @@ function OtherPage({ comment }: { comment: CommentItem }) {
                 className="flex min-w-0 items-center gap-1.5 rounded-md p-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
                 <span className="sr-only">Open on </span>
                 <File size={14} aria-hidden="true" className="shrink-0" />
-                <span className="truncate font-mono">{comment.path}</span>
+                <span className="truncate font-mono">{comment.sourcePath ?? comment.path}</span>
                 <ArrowUpRight size={14} aria-hidden="true" className="shrink-0" />
             </a>
         </CardFooter>

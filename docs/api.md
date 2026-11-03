@@ -226,13 +226,13 @@ uier's own controls outside comment targeting.
 [`apps/web/app/api/comments`](../apps/web/app/api/comments), implemented in
 [`apps/web/src/lib/comments`](../apps/web/src/lib/comments). JSON in and out; comments are partitioned by the
 public project (`project:uier00000001`, the Cosmos DB partition key `domain`) and stored per page path (without query string and
-trailing slash).
+trailing slash). `sourcePath` is the same page as it was addressed, for links (see **Source paths** below).
 
 | Request | Body | Response |
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
 | `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
-| `POST /api/comments` | `{ path, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
+| `POST /api/comments` | `{ path, sourcePath?, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
@@ -308,6 +308,15 @@ New project records have `pageStateVersion: 1`; their `path` is the canonical vi
 queries, caches, inbox groups, app links and durable drafts. SPA push/replace, back/forward and hash changes update
 the view without carrying placement controls or draft text onto another view. Old pathname records stay on the base
 page and in the site inbox. The old query-string fallback applies only to legacy records, never to v1 views.
+**Source paths.** The page key drops trailing slashes, so comments on `/plans` and `/plans/` share a page. Some
+sites serve only one of the two, so new comments also send `sourcePath`: the page as it is addressed, filtered
+with exactly the same policy (`sourcePagePath` in `pageState.ts`), keeping only its trailing slashes. The API
+filters it again, stores it only when it is the same page as `path` and differs from it, and drops it otherwise;
+an absolute or protocol-relative value, a backslash or a control character returns `400`. Responses include
+`sourcePath` only when it differs from `path`. Copy link, the inbox's Open on link, the app's Open on link and
+member redirects, Copy issue page links, reproduction links and notification links use it on the stored, authorized
+origin. Older comments have none and keep linking to `path`; a stored value that no longer matches its page key is ignored.
+
 There is no bulk migration. Changing settings does not rewrite stored feedback: old view links still restore the
 website URL and show saved details in the inbox if the current routing policy no longer identifies that view.
 Drafts recover across reload and navigation; see [Draft recovery and submission retries](review-workflow.md#draft-recovery-and-submission-retries).

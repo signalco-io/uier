@@ -5,6 +5,7 @@ import { environmentFilter, type FeedbackSource } from './environments';
 import type { ReadActivity } from '../comments/activity';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { projectCommentRouting } from './projectCommentRouting';
+import { commentSourcePath } from '../comments/dto';
 import { loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
@@ -57,7 +58,7 @@ export type ProjectCommentView = {
     following?: boolean;
     activity?: ReadActivity;
     id: string;
-    /** The page it was left on: origin and path */
+    /** The page it was left on, as it was addressed (`/plans/`): origin and source path */
     url: string;
     path: string;
     /** Public id, numbered per project (`#12`, as in the toolbar); missing on older comments */
@@ -115,7 +116,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         source,
         activity,
         id: comment.id,
-        url: `${origin}${path === '/' ? '/' : path}`,
+        url: `${origin}${commentSourcePath(comment)}`,
         path,
         number: Number.isInteger(comment.number) ? comment.number : undefined,
         screenshot: comment.screenshot

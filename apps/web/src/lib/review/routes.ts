@@ -15,6 +15,7 @@ import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema,
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
+import { newSourcePath } from '../comments/dto';
 import { projectOrigins, projectReviewOrigin } from '../app/projects';
 import { KnownPageLinks } from '../../knownPages';
 import { actorAuthorId, assertWriter, exchangeReviewCode, guestNameSchema, type ProjectActor } from './actor';
@@ -99,7 +100,9 @@ export async function createReviewComment(context: ReviewApiContext) {
     const origin = projectReviewOrigin(project, request, siteOrigin)!;
     const approved = pageStatePolicy(project.pageState).queryParameters;
     const queryKeys = input.queryKeys?.filter(key => !approved.includes(key));
-    const comment = await createProjectComment(request, project, actor, { ...input, path: pagePath(input.path, project.pageState), pageStateVersion: 1, authorName, origin, queryKeys });
+    const path = pagePath(input.path, project.pageState);
+    const sourcePath = newSourcePath(path, input.sourcePath, project.pageState);
+    const comment = await createProjectComment(request, project, actor, { ...input, path, sourcePath, pageStateVersion: 1, authorName, origin, queryKeys });
     return await commentResponse(context, comment, 201);
 }
 

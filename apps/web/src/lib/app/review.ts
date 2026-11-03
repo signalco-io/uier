@@ -1,6 +1,6 @@
 import { ApiError } from '../comments/http';
 import { getProjectComment } from '../review/comments';
-import { commentPath } from '../comments/dto';
+import { commentSourcePath } from '../comments/dto';
 import { feedbackSource } from './environments';
 import type { AppContext } from './context';
 import type { DbMember } from './model';
@@ -40,7 +40,7 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
         if (!commentIdPattern.test(commentId)) return null;
         const comment = await getProjectComment(project, actor, commentId).catch(error => { if (error instanceof ApiError && error.status === 404) return null; throw error; });
         if (!comment || !feedbackSource(project, comment.origin).available) return null;
-        url = `${comment.origin}${commentPath(comment)}`;
+        url = `${comment.origin}${commentSourcePath(comment)}`;
     }
     if (requestedUrl && !commentId) {
         try {

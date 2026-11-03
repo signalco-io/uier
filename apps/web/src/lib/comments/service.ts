@@ -10,7 +10,7 @@ import type { EditThreadItemInput } from './validation';
 import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbCommentScreenshot, type DbScreenshot, type DbThreadItem } from '../db/schema';
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
-import { toCommentDto, withinListResponseSize, type CommentDto } from './dto';
+import { newSourcePath, toCommentDto, withinListResponseSize, type CommentDto } from './dto';
 import { authorNames } from './authorNames';
 import { isLocalRuntime } from './environment';
 import { ApiError, apiErrors, writerId, type CommentsApiContext } from './http';
@@ -265,6 +265,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
 
     const now = nowIso();
+    const sourcePath = newSourcePath(input.path, input.sourcePath);
     const firstItem: DbThreadItem = {
         id: `item_${nanoid()}`,
         text: input.text,
@@ -279,6 +280,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         ...(isPrivateAppFeedback({ domain: context.domain, path: input.path }) ? { private: true } : {}),
         ...(context.origin ? { origin: context.origin } : {}),
         path: input.path,
+        ...(sourcePath ? { sourcePath } : {}),
         position: input.position,
         number: await store.nextCommentNumber(context.domain),
         kind: input.kind,
