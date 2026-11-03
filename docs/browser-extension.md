@@ -1,8 +1,8 @@
 # Browser extension
 
 The desktop Manifest V3 extension is an additional installation path for signed-in project members,
-tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.1 is submitted for Chrome
-Web Store review as an unlisted beta; it is not yet available to install from the store.
+tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.1 is published as an
+[unlisted Chrome Web Store beta](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
 Keep public availability disabled until store and installed-upgrade acceptance are recorded.
 
 ## Design record
@@ -176,9 +176,9 @@ async-upload reconciliation path; keep its fail-closed behavior and dashboard re
 
 Remaining gates need Google review and real installed browser/store evidence:
 
-- Complete pending publisher verification, store review and the live URL. The draft item, listing
-  artwork, privacy certifications and isolated self-service reviewer instructions are configured;
-  two-step verification and registration are complete.
+- The first store review is complete: 0.1.1 is published unlisted, and its official installation
+  link works. The listing, privacy certifications and isolated reviewer instructions are saved.
+  Further updates still require Google review before browsers can install them.
 - Complete the remaining release matrix, including installed-package Chrome/Edge acceptance.
   The hosted receipt above proves the core BotID/cookie-independent transport flow; focused package
   and API tests retain authorization, screenshot, accessibility and lifecycle coverage.
