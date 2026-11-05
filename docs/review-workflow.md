@@ -71,8 +71,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     to the review setup. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
   - Comments `/app/projects/<code>`: the project's **comments**, as a
-    list or a board (Open / Ready for review / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
-    (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Ready for review, Done and All, with
+    list or a board (Open / Ready to verify / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
+    (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Ready to verify, Done and All, with
     counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot
     (clicking it marks the comment read) and assignee (their avatar or, while unassigned, the user icon, named by its tooltip; a menu of people for those who can assign) with the actions
     (Done or Reopen, Copy issue, and More with Copy link, Follow thread and, once read, Mark as unread) on one row, then the first and last
@@ -153,7 +153,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 
 ### Page and comment responsiveness
 
-The app filters loaded comments immediately when switching Open/Ready for review/Done/All, List/Board, people,
+The app filters loaded comments immediately when switching Open/Ready to verify/Done/All, List/Board, people,
 pages or unread. These choices stay in the URL and work with Back, Forward and reload. Changing
 environment or author still loads a fresh authorized list from the server. Settings links show
 navigation feedback, and General renders its forms before usage totals finish loading.
@@ -571,7 +571,7 @@ priority, including Normal on a legacy thread, adds neither. Priority does not c
 List and Board have explicit checkboxes, an indeterminate shown-results checkbox, selected count,
 Clear selection, assignment/unassignment, priority, Mark selected as done and Reopen selected.
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
-visible order (Open, Ready for review, then Done on Board). Changing a project, environment, author, filter or view
+visible order (Open, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view
 clears selection. Threads arriving later never join a running batch. Replies and their drafts remain
 scoped independently of selection and filtering.
 
@@ -598,12 +598,14 @@ permissions. Update it in the same pull request when they change.
 ## Fix verification
 
 Verification is optional for each thread. A project member can request a fix check, add a short
-summary and fix link, and choose an eligible reviewer. The original author is the default when
+summary and fix link, and choose an eligible reviewer. In the app the request starts from the
+status menu's Ready to verify; in the toolbar from Request verification. Both forms submit with
+Request verification and, when nobody else can check the fix, say so instead of an empty list. The original author is the default when
 that identity still has access. A requester cannot choose or independently confirm themselves.
 Missing authors require an eligible member selection; no identity is silently substituted.
 
-Ready for review remains unresolved and is included in Open counts. Its dedicated filter shows
-pending checks. Board columns are exclusive: Open, Ready for review, Done. Replies, priority,
+Ready to verify remains unresolved and is included in Open counts. Its dedicated filter shows
+pending checks. Board columns are exclusive: Open, Ready to verify, Done. Replies, priority,
 search and selection continue to work in all three states. Changes do not acknowledge unread
 activity. Saving shows pending feedback; failures preserve the entered details and retry identity.
 

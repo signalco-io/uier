@@ -36,7 +36,8 @@ const feedbackFilters = z.object({
     projectId, ...page,
     search: z.string().max(200).default(''),
     priority: z.enum(priorities).optional(),
-    status: z.enum(['all', 'open', 'ready', 'resolved']).default('all'),
+    status: z.enum(['all', 'open', 'ready', 'resolved']).default('all')
+        .describe('open: not done (Ready to verify included); ready: Ready to verify, a fix check is pending; resolved: Done.'),
     path: reviewPathSchema.optional(),
     environment: z.string().min(1).max(512).optional(),
     anchorType: z.enum(['point', 'text', 'page']).optional(),
@@ -167,7 +168,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const saved = await setProjectCommentResolved(project, actor, input.commentId, input.resolved, key(identity, input.idempotencyKey));
         return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved) });
     }));
-    server.registerTool('request_feedback_verification', { description: `Request a human-approved fix check from the original author or another eligible member. Ready projects as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
+    server.registerTool('request_feedback_verification', { description: `Request a human-approved fix check from the original author or another eligible member. The thread becomes Ready to verify, which still counts as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
         ...write, expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),
         summary: z.string().trim().max(500).optional(), fixUrl: z.string().trim().max(2048).optional()
     }, annotations: writeAnnotations }, input => safely(async () => {

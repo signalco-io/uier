@@ -49,15 +49,16 @@ test('with nobody else to check a fix, the request form says so and offers an in
     await thread.getByRole('button', { name: 'Request verification', exact: true }).click();
     const toolbarForm = thread.getByRole('form', { name: 'Request verification' });
     await expect(toolbarForm).toContainText('Nobody else can check this fix yet.');
-    await expect(toolbarForm.getByRole('button', { name: 'Request check', exact: true })).toHaveAccessibleDescription(/Nobody else can check this fix yet\./);
+    await expect(toolbarForm.getByRole('button', { name: 'Request verification', exact: true })).toHaveAccessibleDescription(/Nobody else can check this fix yet\./);
 
     await page.goto(`/app/projects/${projectId}`);
     const card = page.getByRole('article', { name: 'Comment by you' });
-    await card.getByRole('button', { name: 'Request verification', exact: true }).click();
+    await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Ready to verify', exact: true }).click();
     const form = card.getByRole('form', { name: 'Request verification' });
     await expect(form).toContainText('Nobody else can check this fix yet.');
     await expect(form.getByRole('button', { name: 'Invite', exact: true })).toBeVisible();
-    const submit = form.getByRole('button', { name: 'Request check', exact: true });
+    const submit = form.getByRole('button', { name: 'Request verification', exact: true });
     await expect(submit).toBeDisabled();
     await expect(submit).toHaveAccessibleDescription(/Nobody else can check this fix yet\./);
 });

@@ -6,7 +6,7 @@ import { Avatar, floating } from './LandingSpecimens';
 // landing's specimens it is hidden from assistive technologies, the example content is an imaginary
 // restaurant site, and the labels are the ones the thread shows (packages/toolbar CommentVerification).
 
-/** The fixed spot on the example page, and its thread: Ready for review, with the reviewer's two choices */
+/** The fixed spot on the example page, and its thread: Ready to verify, with the reviewer's two choices */
 export function FixVerificationSpecimen() {
     const hours = [['Monday to Friday', '12–23'], ['Saturday', '12–24'], ['Sunday', '12–22']];
     return (
@@ -28,7 +28,7 @@ export function FixVerificationSpecimen() {
                     <div className="flex items-center gap-2 px-3.5 pt-3">
                         <span className="inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium">
                             <span className="size-1.5 rounded-full bg-[hsl(var(--brand-accent))]" />
-                            Ready for review
+                            Ready to verify
                         </span>
                         <span className="font-mono text-xs text-muted-foreground">#21</span>
                     </div>
@@ -41,7 +41,7 @@ export function FixVerificationSpecimen() {
                         <span className="text-[13px] leading-5">We open on Sundays since May. Can this say 12–22?</span>
                     </div>
                     <div className="flex flex-col gap-2.5 border-t px-3.5 py-3 text-[13px] leading-5">
-                        <span className="text-muted-foreground">Ready for review. Requested by Leo for Mia at 6 May 2026, 14:05 UTC.</span>
+                        <span className="text-muted-foreground">Ready to verify. Requested by Leo for Mia at 6 May 2026, 14:05 UTC.</span>
                         <span>Sunday hours updated on staging.</span>
                         <span className="self-start underline underline-offset-2">Open fix link</span>
                         <span className="flex flex-wrap gap-1.5 pt-1">

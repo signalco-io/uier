@@ -34,7 +34,7 @@ export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
 
 const statuses = [
     { value: 'unresolved', label: 'Open' },
-    { value: 'ready', label: 'Ready for review' },
+    { value: 'ready', label: 'Ready to verify' },
     { value: 'resolved', label: 'Done' },
     { value: 'all', label: 'All' }
 ] as const;
