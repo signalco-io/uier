@@ -2,7 +2,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, createProject, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { commentBubble, newVisitor, toolbar } from './support/toolbar';
 
@@ -147,7 +147,9 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     // Commenters' settings open at their own project emails; the sections that set up the project are not theirs
     await commenter.page.goto(`/app/projects/${alpha}/settings`);
     await expect(commenter.page).toHaveURL(new RegExp(`/app/projects/${alpha}/settings/notifications$`));
-    await expect(commenter.page.getByRole('region', { name: 'Email notifications' }).getByRole('button', { name: 'Mute project emails' })).toBeVisible();
+    await expect(commenter.page.getByRole('region', { name: 'Email notifications' }).getByRole('switch', { name: 'Emails from this project' })).toBeChecked();
+    // The project's email content is the admins' setting
+    await expect(commenter.page.getByRole('region', { name: 'Email content' })).toHaveCount(0);
     await expect(commenter.page.getByRole('navigation', { name: 'Project settings' }).getByRole('link')).toHaveText(['Installation', 'Notifications']);
     await expect(commenter.page.getByRole('region', { name: 'General' })).toHaveCount(0);
     for (const section of ['review', 'environments', 'people', 'integrations', 'integrations/github', 'danger-zone'])
@@ -210,7 +212,7 @@ test('an invited admin gets every project, the users and the settings', async ({
     await expect(personProjects.getByRole('link', { name: 'Beta' })).toBeVisible();
     await expect((await appNavigation(person.page)).getByRole('link', { name: 'Users' })).toBeVisible();
     await person.page.goto(`/app/projects/${beta}/settings/review`);
-    await expect(person.page.getByRole('region', { name: 'Who can comment' })).toBeVisible();
+    await expect(person.page.getByRole('region', { name: 'Review', exact: true }).getByRole('radiogroup', { name: 'Who can comment' })).toBeVisible();
     expect((await person.page.request.get(`/app/review/${alpha}`, { maxRedirects: 0 })).status()).toBe(307);
 
     await page.goto('/app/users');
@@ -317,11 +319,12 @@ test('public staff cannot open Users, invite, create projects or edit public set
     const ownProject = await createProject(page, { urls: ['https://staff-personal.example'], name: 'Staff personal project' });
     // Capture a real settings action to prove the server rejects it in the public workspace.
     await page.goto(`/app/projects/${ownProject}/settings`);
+    await hydrated(page.getByRole('region', { name: 'General', exact: true }).locator('form'));
     await page.getByRole('region', { name: 'General', exact: true }).getByLabel('Project name').fill('Personal project renamed');
     const save = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await page.getByRole('region', { name: 'General', exact: true }).getByRole('button', { name: 'Save', exact: true }).click();
     const saved = await save;
-    await expect(page.getByRole('status')).toHaveText('The name is saved.');
+    await expect(page.getByRole('status')).toHaveText('Saved.');
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
@@ -336,9 +339,9 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await expect(page).toHaveURL(/\/app\/projects$/);
     await page.goto('/app/projects/uier00000001/settings');
     await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Who can comment', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Review', exact: true })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'General', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Turn on comment excerpts', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('switch', { name: 'Include comment excerpts', exact: true })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
     const denied = await page.request.post(saved.url(), {
         headers: { 'Next-Action': saved.headers()['next-action']!, 'Content-Type': saved.headers()['content-type']!, Origin: new URL(saved.url()).origin },

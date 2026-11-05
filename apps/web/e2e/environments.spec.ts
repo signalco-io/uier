@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { chooseInboxPages, commentBubbles, inboxPages } from './support/toolbar';
@@ -27,14 +27,19 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     }
     const settingsUrl = `/app/projects/${projectId}/settings/environments`;
     await page.goto(settingsUrl);
-    const settings = page.getByRole('region', { name: 'Environments', exact: true });
-    await settings.getByLabel(`Environment label for ${production}`, { exact: true }).fill('Production');
-    await settings.getByLabel(`Environment label for ${staging}`, { exact: true }).fill('Staging');
-    await settings.getByLabel(`Environment label for ${alias}`, { exact: true }).fill('Live alias');
+    // One table: each address with its label and the addresses it shares feedback with
+    const settings = page.getByRole('region', { name: 'Site addresses', exact: true });
+    const host = (origin: string) => origin.replace(/^https?:\/\//, '');
+    await expect(settings.getByLabel('Main site address')).toHaveValue(host(production));
+    await hydrated(settings.locator('form'));
+    await settings.getByLabel(`Label for ${host(production)}`, { exact: true }).fill('Production');
+    await settings.getByLabel(`Label for ${host(staging)}`, { exact: true }).fill('Staging');
+    await settings.getByLabel(`Label for ${host(alias)}`, { exact: true }).fill('Live alias');
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings.getByRole('status')).toContainText('The environments are saved.');
+    await expect(settings.getByRole('status')).toContainText('Saved.');
     await page.reload();
-    await expect(settings.getByLabel(`Environment label for ${staging}`, { exact: true })).toHaveValue('Staging');
+    await expect(settings.getByLabel(`Label for ${host(staging)}`, { exact: true })).toHaveValue('Staging');
+    await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText('No other address');
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}`);
     // One control for where: the environment, then the page
@@ -90,10 +95,16 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(page.getByRole('dialog').filter({ hasText: 'Staging feedback' })).toBeVisible();
 
     await page.goto(settingsUrl);
-    await settings.getByLabel(`Alias group for ${production}`, { exact: true }).fill('Live');
-    await settings.getByLabel(`Alias group for ${alias}`, { exact: true }).fill('Live');
+    await hydrated(settings.locator('form'));
+    await settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true }).click();
+    await page.getByRole('option', { name: host(production), exact: true }).click();
+    // Sharing goes both ways
+    await expect(settings.getByRole('combobox', { name: `${host(production)} shares feedback with`, exact: true })).toContainText(host(alias));
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings.getByRole('status')).toContainText('The environments are saved.');
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await page.reload();
+    await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText(host(production));
+    await expect(settings.getByRole('combobox', { name: `${host(staging)} shares feedback with`, exact: true })).toContainText('No other address');
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
     await expect(commentBubbles(page)).toHaveCount(2);
     await page.getByRole('button', { name: /^Inbox/ }).click();
@@ -104,10 +115,12 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}/wrong`)}&comment=${ids[1]}`);
     await expect(page).toHaveURL(new RegExp(`staging\\.localhost.*${path}`));
     await page.goto(settingsUrl);
-    const addresses = page.getByRole('region', { name: 'Site addresses', exact: true });
-    await addresses.getByLabel('Address 2', { exact: true }).fill('');
-    await addresses.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(addresses.getByRole('status')).toContainText('The addresses are saved.');
+    await hydrated(settings.locator('form'));
+    await settings.getByRole('button', { name: 'Remove address 2', exact: true }).click();
+    await expect(settings.getByLabel(`Label for ${host(staging)}`, { exact: true })).toHaveCount(0);
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText(host(production));
     await page.goto(`/app/projects/${projectId}?environment=removed`);
     const history = page.getByRole('article');
     await expect(history).toHaveCount(1); await expect(history).toContainText('Staging feedback');

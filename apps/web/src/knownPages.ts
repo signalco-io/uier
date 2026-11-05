@@ -65,7 +65,7 @@ export const KnownPages = {
 export type ProjectSettingsSection = 'review' | 'environments' | 'installation' | 'people' | 'integrations' | 'notifications' | 'danger-zone';
 
 /** The sections of the account, each its own page under it (General is the account page itself) */
-export type AccountSection = 'sign-in' | 'coding-agents';
+export type AccountSection = 'sign-in' | 'notifications' | 'coding-agents';
 
 /** Pages with a parameter */
 export const KnownPageLinks = {

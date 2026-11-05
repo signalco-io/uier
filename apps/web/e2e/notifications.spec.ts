@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { projectPublicId, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, hydrated, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { commentBubble, newVisitor, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
@@ -60,10 +60,18 @@ test('guest comments without email, then separately verifies and revokes reply n
     } finally { await guest.context.close(); }
 
     await page.goto(`/app/projects/${projectId}/settings/notifications`);
-    await page.getByRole('button', { name: 'Mute project emails', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
+    const emails = page.getByRole('switch', { name: 'Emails from this project', exact: true });
+    await expect(emails).toBeChecked();
+    await hydrated(emails);
+    const muted = page.waitForResponse(response => response.request().method() === 'POST' && Boolean(response.request().headers()['next-action']));
+    await emails.click();
+    await expect(emails).not.toBeChecked();
+    await muted;
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Unmute project emails' })).toBeVisible();
+    await expect(emails).not.toBeChecked();
+    // The account lists the same setting with every other project's
+    await page.goto('/app/account/notifications');
+    await expect(page.getByRole('switch', { name: 'Emails from Notification review', exact: true })).not.toBeChecked();
     await page.goto(`/app/projects/${projectId}`);
     const article = page.getByRole('article', { name: 'Comment by Ana notifications' });
     // Following is in the comment's More actions menu
@@ -81,29 +89,32 @@ test('admins control excerpts in both themes; commenters see saved state and can
     await signIn(page, uniqueEmail('excerpt-admin'));
     const projectId = await createProject(page, { urls: [site.origin()], name: 'Excerpt policy' });
     await page.goto(`/app/projects/${projectId}/settings/notifications`);
-    const emails = page.getByRole('region', { name: 'Email notifications' });
-    const checkbox = emails.getByRole('checkbox', { name: 'Include comment excerpts' });
-    await expect(checkbox).not.toBeChecked();
-    await expect(emails).toContainText('every recipient, verified guests included');
+    // The project's setting has its own card, apart from the admin's own emails
+    const content = page.getByRole('region', { name: 'Email content' });
+    const excerpts = content.getByRole('switch', { name: 'Include comment excerpts' });
+    await expect(excerpts).not.toBeChecked();
+    await expect(content).toContainText('every recipient, verified guests included');
+    await expect(page.getByRole('region', { name: 'Email notifications' }).getByRole('switch')).toHaveCount(1);
     for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
         await page.reload();
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
-        await checkbox.focus();
-        await page.keyboard.press('Space');
-        await expect(checkbox).toBeChecked();
+        // A switch saves at once
+        await hydrated(excerpts);
         const saveRequest = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
-        await emails.getByRole('button', { name: 'Save', exact: true }).click();
+        await excerpts.focus();
+        await page.keyboard.press('Space');
+        await expect(excerpts).toBeChecked();
         const actionRequest = await saveRequest;
-        await expect(emails.getByRole('status')).toContainText('The email setting is saved.');
+        await expect(content.getByRole('status')).toContainText('The email setting is saved.');
         await page.reload();
-        await expect(checkbox).toBeChecked();
+        await expect(excerpts).toBeChecked();
         await page.evaluate(async () => {
             getComputedStyle(document.body).color;
             await Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished));
         });
         await expectNoAxeViolations(page);
-        await emails.screenshot({ path: testInfo.outputPath(`email-excerpts-${colorScheme}.png`) });
+        await content.screenshot({ path: testInfo.outputPath(`email-excerpts-${colorScheme}.png`) });
         // Replay this valid admin action as a commenter below. It must fail on the server.
         if (colorScheme === 'dark') {
             // Settings has the project header invite (in who can comment), without the empty-feedback invite CTA.
@@ -118,10 +129,11 @@ test('admins control excerpts in both themes; commenters see saved state and can
                 await person.page.getByRole('button', { name: 'Accept invitation' }).click();
                 await expect(person.page).toHaveURL(new RegExp(`toolbar-code=${await projectPublicId(page, projectId)}`));
                 await person.page.goto(`/app/projects/${projectId}/settings/notifications`);
+                // Commenters set only their own emails and learn what the emails carry
                 const personEmails = person.page.getByRole('region', { name: 'Email notifications' });
-                await expect(personEmails).toContainText('Comment excerpts are on.');
-                await expect(personEmails.getByRole('checkbox')).toHaveCount(0);
-                await expect(personEmails.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+                await expect(personEmails).toContainText('These emails include short comment excerpts.');
+                await expect(person.page.getByRole('switch', { name: 'Include comment excerpts' })).toHaveCount(0);
+                await expect(person.page.getByRole('region', { name: 'Email content' })).toHaveCount(0);
                 const response = await person.page.request.post(actionRequest.url(), { headers: {
                     'next-action': actionRequest.headers()['next-action']!,
                     'content-type': actionRequest.headers()['content-type']!,
@@ -131,14 +143,18 @@ test('admins control excerpts in both themes; commenters see saved state and can
                 for (const commenterTheme of ['light', 'dark'] as const) {
                     await person.page.emulateMedia({ colorScheme: commenterTheme });
                     await person.page.reload();
-                    await expect(personEmails).toContainText('Comment excerpts are on.');
+                    await expect(personEmails).toContainText('These emails include short comment excerpts.');
                     await expectNoAxeViolations(person.page);
                 }
             } finally { await person.context.close(); }
         } else {
-            await checkbox.uncheck();
-            await emails.getByRole('button', { name: 'Save', exact: true }).click();
-            await expect(emails.getByRole('status')).toContainText('The email setting is saved.');
+            await hydrated(excerpts);
+            const saved = page.waitForResponse(response => response.request().method() === 'POST' && Boolean(response.request().headers()['next-action']));
+            await excerpts.click();
+            await expect(excerpts).not.toBeChecked();
+            await saved;
+            await page.reload();
+            await expect(excerpts).not.toBeChecked();
         }
     }
 });

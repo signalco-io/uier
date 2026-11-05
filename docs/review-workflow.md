@@ -86,14 +86,17 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Reports check the window, origin and a temporary nonce; no tokens, reviewer identity or page content are reported.
   - Settings `/app/projects/<code>/settings`: one page per section, listed beside it (above it on small
     screens). Everyone sees **Installation** (`/settings/installation`, the install guide) and **Notifications**
-    (`/settings/notifications`), where they mute or unmute their own project emails; for them the settings open
-    at Notifications. Admins also have **General** (the settings page itself: name, optional client name and
-    usage: comments, open, done, replies, pages, people with access), **Review** (who can comment: invited
-    people, anyone with the link, or comments off; the review brief; meaningful page-state fields),
-    **Environments** (addresses and environment labels), **People and teams**, **Integrations** (each
+    (`/settings/notifications`), where they turn their own project emails on or off (Account → Notifications
+    lists every project); for them the settings open at Notifications. Admins also have **General** (the settings
+    page itself: name, optional client name and usage: comments, open, done, replies, pages, people with access),
+    **Review** (who can comment: invited people, anyone with the link, or comments off; the review brief; under
+    Advanced, meaningful page-state fields), **Environments** (one table of the site addresses, each with its label
+    and the addresses it shares feedback with), a second card on Notifications for comment excerpts in emails,
+    **People and teams**, **Integrations** (each
     provider's connection; connect and callback routes return to `/settings/integrations`) and **Danger zone**,
     which marks the project as done or reopens it, and deletes it after the admin types its name
-    ([project deletion](project-deletion.md)). Admin-only sections answer 404 for everyone else.
+    ([project deletion](project-deletion.md)). Admin-only sections answer 404 for everyone else. Each page
+    has one Save, off until something changed; switches save at once.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<publicId>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
@@ -480,14 +483,16 @@ migration or AI relocation is provided.
 
 ## Feedback environments
 
-Project settings → Environments labels each configured **origin** (scheme, host and port).
-Addresses with different paths on one origin share an environment. Different origins are isolated
-by default, including older unlabeled projects: their origin is the label. Admins can set an
-identical, case-sensitive alias group on equivalent origins to share feedback for matching canonical
-page views. A label alone never groups addresses. Grouping changes the view; it does not copy or
-migrate comments, change permission checks, or rewrite their source origins.
+Project settings → Environments is one table of the site addresses. Each configured **origin** (scheme, host
+and port) has a label; addresses with different paths on one origin share an environment and follow the first
+one's label. Different origins are isolated by default, including older unlabeled projects: their origin is the
+label. Admins choose which addresses an address **shares feedback with**, for equivalent origins such as
+`example.com` and `www.example.com`: they share feedback for matching canonical page views. Sharing is stored as
+an explicit group on each origin (a saved group keeps its name; a new one is named after its first address's
+label or host). A label alone never groups addresses. Grouping changes the view; it does not copy or migrate
+comments, change permission checks, or rewrite their source origins.
 
-The toolbar's pins follow the current environment or explicit alias group. Its inbox picks the environment
+The toolbar's pins follow the current environment or explicit shared group. Its inbox picks the environment
 in the same location picker as its pages (All environments by default). Counts/unread and bounded lists use the
 same server-side scope. Selecting another environment changes the inbox, while new feedback is
 still recorded on the site being reviewed. The filter is saved on that site for the API, project

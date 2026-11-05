@@ -6,10 +6,13 @@ import { z } from 'zod';
 import { KnownPageLinks } from '../../../knownPages';
 import { actionResult, UserFacingError, type ActionState } from '../../../lib/app/actionResult';
 import { appContextOrThrow } from '../../../lib/app/context';
+import { pageStatePolicy } from '@uier/toolbar/page-state';
 import {
     createProject,
     defaultProjectName,
     getProject,
+    getVisibleProject,
+    normalizeSiteUrl,
     projectAccessModes,
     projectClientNameSchema,
     projectBriefSchema,
@@ -20,35 +23,29 @@ import {
     type ProjectUpdate
 } from '../../../lib/app/projects';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
-import { configuredEnvironments } from '../../../lib/app/environments';
-import { setProjectClient } from '../../../lib/app/clients';
+import { loadClients, projectClient, setProjectClient } from '../../../lib/app/clients';
+import { MAX_PROJECT_URLS } from '../../../lib/app/limits';
 import { parseActionInput } from '../../../lib/app/validation';
-import { deleteProjectActionSchema, projectStatusActionSchema } from './actionSchemas';
+import { appActor } from '../../../lib/app/projectComments';
+import { assertMutableProject } from '../../../lib/comments/publicProjectPolicy';
+import { ApiError } from '../../../lib/comments/http';
+import { setProjectMuted } from '../../../lib/notifications/preferences';
+import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActionSchema } from './actionSchemas';
 import { deleteProject } from '../../../lib/app/projectDeletion';
 
+/** One origin's environment: a label, and the group of addresses it shares feedback with */
 const environmentSchema = z.array(z.object({
     origin: z.string().max(512),
     label: z.string().trim().max(60),
-    group: z.string().trim().max(60).regex(/^[\p{L}\p{N} ._-]*$/u, 'Use letters, numbers, spaces, dots, dashes or underscores for an alias group.')
+    group: z.string().trim().max(60).regex(/^[\p{L}\p{N} ._-]*$/u, 'Use letters, numbers, spaces, dots, dashes or underscores for a shared group.')
 })).max(20);
 
-export async function updateProjectEnvironmentsAction(_: ActionState, formData: FormData): Promise<ActionState> {
-    return actionResult(async () => {
-        const { context, project } = await adminProject(formData.get('projectId'));
-        const input = environmentSchema.parse(JSON.parse(String(formData.get('environments') ?? '[]')));
-        const origins = configuredEnvironments(project).map(item => item.origin);
-        if (input.length !== origins.length || new Set(input.map(item => item.origin)).size !== origins.length || input.some(item => !origins.includes(item.origin)))
-            throw new UserFacingError('The site addresses changed. Reload settings before saving environments.');
-        await updateProject(context.workspace.id, project.id, { environments: input.map(item => ({ ...item, label: item.label || item.origin, group: item.group || undefined })) });
-        revalidatePath('/app', 'layout');
-    }, 'The environments are saved.');
-}
-
-/** Every non-empty `url` field of the form */
-function formUrls(formData: FormData) {
-    return formData.getAll('url')
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
-}
+/** The rows of the site addresses table: the address as typed, its label and its shared group */
+const siteRowsSchema = z.array(z.object({
+    url: z.string().max(4096),
+    label: z.string().max(4096),
+    group: z.string().max(4096)
+})).max(MAX_PROJECT_URLS * 2);
 
 /** A project of the current workspace, for its admins */
 async function adminProject(projectId: unknown) {
@@ -63,6 +60,12 @@ async function saveProject(projectId: unknown, update: ProjectUpdate) {
     const { context, project } = await adminProject(projectId);
     await updateProject(context.workspace.id, project.id, update);
     revalidatePath('/app', 'layout');
+}
+
+/** Every non-empty `url` field of the form */
+function formUrls(formData: FormData) {
+    return formData.getAll('url')
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
 }
 
 export async function createProjectAction(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -81,39 +84,68 @@ export async function createProjectAction(_: ActionState, formData: FormData): P
     redirect(KnownPageLinks.projectInstall(result.data.id, { onboarding: true }));
 }
 
-export async function updateProjectNameAction(_: ActionState, formData: FormData): Promise<ActionState> {
+/** General: the name and the client, one save. Both are checked before either is written. */
+export async function updateProjectGeneralAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
-        await saveProject(formData.get('projectId'), { name: projectNameSchema.parse(formData.get('name') ?? '') });
-    }, 'The name is saved.');
-}
-
-export async function updateProjectClientNameAction(_: ActionState, formData: FormData): Promise<ActionState> {
-    return await actionResult(async () => {
+        const name = projectNameSchema.parse(formData.get('name') ?? '');
         const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
         const { context, project } = await adminProject(formData.get('projectId'));
-        await setProjectClient(context, project.id, clientName);
+        assertMutableProject(context.workspace.id, project.id);
+        if (name !== project.name)
+            await updateProject(context.workspace.id, project.id, { name });
+        if (clientName !== projectClient(project, await loadClients(context.workspace.id))?.name)
+            await setProjectClient(context, project.id, clientName);
         revalidatePath('/app', 'layout');
-    }, 'The client name is saved.');
-}
-
-export async function updateProjectBriefAction(_: ActionState, formData: FormData): Promise<ActionState> {
-    return await actionResult(async () => {
-        await saveProject(formData.get('projectId'), { brief: projectBriefSchema.parse(formData.get('brief') ?? '') });
-    }, 'The review brief is saved.');
-}
-
-export async function updateProjectUrlsAction(_: ActionState, formData: FormData): Promise<ActionState> {
-    return await actionResult(async () => {
-        await saveProject(formData.get('projectId'), { urls: projectUrlsSchema.parse(formUrls(formData)) });
-    }, 'The addresses are saved.');
+    }, 'Saved.');
 }
 
 const accessSchema = z.enum(projectAccessModes as [ProjectAccess, ...ProjectAccess[]], 'Choose who can comment.');
 
-export async function updateProjectAccessAction(_: ActionState, formData: FormData): Promise<ActionState> {
+/** Review: who can comment, the brief and the page state, one save; only what changed is written */
+export async function updateProjectReviewAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
-        await saveProject(formData.get('projectId'), { access: accessSchema.parse(formData.get('access')) });
-    }, 'Saved. The toolbar follows the new setting on the next page load.');
+        const access = accessSchema.parse(formData.get('access'));
+        const brief = projectBriefSchema.parse(formData.get('brief') ?? '');
+        const pageState = projectPageStateSchema.parse({
+            queryParameters: String(formData.get('queryParameters') ?? '').split(/[,\s]+/).filter(Boolean),
+            hashRouting: formData.get('hashRouting') === 'true'
+        });
+        const { context, project } = await adminProject(formData.get('projectId'));
+        assertMutableProject(context.workspace.id, project.id);
+        const update: ProjectUpdate = {};
+        if (access !== project.access)
+            update.access = access;
+        if (brief !== (project.brief || undefined))
+            update.brief = brief;
+        if (JSON.stringify(pageState) !== JSON.stringify(pageStatePolicy(project.pageState)))
+            update.pageState = pageState;
+        if (Object.keys(update).length > 0)
+            await updateProject(context.workspace.id, project.id, update);
+        revalidatePath('/app', 'layout');
+    }, 'Saved. The toolbar uses the new settings on its next page load.');
+}
+
+/**
+ * Environments: the site addresses with each origin's label and the addresses it shares feedback
+ * with, one save. Addresses on the same origin share its label and group (the first row's).
+ */
+export async function updateProjectSitesAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        const rows = siteRowsSchema.parse(JSON.parse(String(formData.get('sites') ?? '[]')))
+            .filter(row => row.url.trim().length > 0);
+        const urls = projectUrlsSchema.parse(rows.map(row => row.url));
+        const byOrigin = new Map<string, { origin: string; label: string; group: string }>();
+        for (const row of rows) {
+            const origin = new URL(normalizeSiteUrl(row.url)!).origin;
+            if (!byOrigin.has(origin))
+                byOrigin.set(origin, { origin, label: row.label, group: row.group });
+        }
+        const environments = environmentSchema.parse([...byOrigin.values()]);
+        await saveProject(formData.get('projectId'), {
+            urls,
+            environments: environments.map(item => ({ ...item, label: item.label || item.origin, group: item.group || undefined }))
+        });
+    }, 'Saved.');
 }
 
 export async function setProjectStatusAction(projectId: string, status: ProjectStatus): Promise<ActionState> {
@@ -134,19 +166,28 @@ export async function deleteProjectAction(projectId: string, confirmation: strin
     return result;
 }
 
-export async function updateProjectPageStateAction(_: ActionState, formData: FormData): Promise<ActionState> {
-    return await actionResult(async () => {
-        const pageState = projectPageStateSchema.parse({
-            queryParameters: String(formData.get('queryParameters') ?? '').split(/[,\s]+/).filter(Boolean),
-            hashRouting: formData.get('hashRouting') === 'true'
-        });
-        await saveProject(formData.get('projectId'), { pageState });
-    }, 'Saved. New reviews use these page fields on the next page load.');
-}
-
 export async function updateProjectEmailExcerptsAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
         const enabled = z.enum(['true', 'false']).parse(formData.get('emailCommentExcerpts')) === 'true';
         await saveProject(formData.get('projectId'), { emailCommentExcerpts: enabled });
     }, 'The email setting is saved.');
+}
+
+/** A person's own emails from a project (everyone who can see it): muting stops all of them */
+export async function setProjectEmailsMutedAction(projectId: string, muted: boolean): Promise<ActionState> {
+    return await actionResult(async () => {
+        const input = parseActionInput(projectEmailsActionSchema, { projectId, muted });
+        const context = await appContextOrThrow();
+        const project = await getVisibleProject(context, input.projectId);
+        if (!project)
+            throw new UserFacingError('This project no longer exists.');
+        try {
+            await setProjectMuted(project, appActor(context), input.muted);
+        } catch (error) {
+            if (error instanceof ApiError)
+                throw new UserFacingError(error.message);
+            throw error;
+        }
+        revalidatePath('/app', 'layout');
+    });
 }

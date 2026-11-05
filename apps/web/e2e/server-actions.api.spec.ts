@@ -8,7 +8,7 @@ import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema
     filterAuthorActionSchema, notificationActionSchema, privateCommentActionSchema, readCommentActionSchema,
     readCommentsActionSchema, replyCommentActionSchema, resolveCommentActionSchema } from '../src/components/app/comments/actionSchemas';
 import { removeMemberActionSchema, revokeInvitationActionSchema } from '../src/components/app/users/actionSchemas';
-import { deleteProjectActionSchema, projectStatusActionSchema } from '../src/components/app/projects/actionSchemas';
+import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActionSchema } from '../src/components/app/projects/actionSchemas';
 import { switchWorkspaceActionSchema } from '../src/components/app/shell/actionSchemas';
 import { revokeCredentialActionSchema } from '../src/lib/mcp/actionSchemas';
 import { getAppStore } from '../src/lib/app/store';
@@ -35,6 +35,7 @@ test('positional action schemas validate every argument before it is used', () =
         [revokeInvitationActionSchema, { invitationId: 'invitation_valid' }],
         [projectStatusActionSchema, { projectId: thread.projectId, status: 'done' }],
         [deleteProjectActionSchema, { projectId: thread.projectId, confirmation: 'Project name' }],
+        [projectEmailsActionSchema, { projectId: thread.projectId, muted: true }],
         [switchWorkspaceActionSchema, { workspaceId: 'w_u_alex_2' }],
         [revokeCredentialActionSchema, { id: 'a'.repeat(64) }]
     ];
@@ -55,6 +56,7 @@ test('positional action schemas validate every argument before it is used', () =
         expect(resolveCommentActionSchema.safeParse({ ...thread, resolved: value }).success).toBe(false);
         expect(privateCommentActionSchema.safeParse({ ...thread, isPrivate: value }).success).toBe(false);
         expect(notificationActionSchema.safeParse({ projectId: thread.projectId, enabled: value }).success).toBe(false);
+        expect(projectEmailsActionSchema.safeParse({ projectId: thread.projectId, muted: value }).success).toBe(false);
     }
     for (const value of ['', 'bad/id#', null, 123]) {
         expect(commentActionSchema.safeParse({ ...thread, commentId: value }).success).toBe(false);

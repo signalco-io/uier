@@ -368,9 +368,29 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
+- **One save per settings page.** General (name and client), Review (who can comment, the brief and, in a collapsed
+  Advanced section, the page state) and Environments (the site addresses table) are each one form in one card
+  (`ProjectSettingsForms.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
+  `updateProjectSitesAction`) that parses every field with the existing schemas before writing, checks the admin role
+  (`adminProject`) and the public project (`assertMutableProject`), and writes only what changed. The card footer is
+  `SaveFooter` (`components/app/SettingsSave.tsx`): "Unsaved changes", Discard and a Save that stays off until
+  something changed; `useSettingsDraft` compares the draft with the saved values and starts over from the server's
+  values after a save. Long cards pass `stickyFooter` to `Section`, so Save stays in reach. Switches save at once
+  (project emails, comment excerpts); radios and text wait for Save. Account's Profile uses the same footer.
+- **Environments** is one table, `ProjectSitesForm`: each address with its label and the addresses it shares feedback
+  with (a group of origins, stored as the environment's `group`; the UI never names groups). `siteRows.ts` holds the pure
+  rules (`e2e/site-rows.api.spec.ts`): addresses show without their default scheme (`typedAddress`), addresses on one
+  origin follow the first one's label and sharing, sharing goes both ways, groups of one site are dropped, and a group
+  keeps the name it was saved with (environment filters link to it) or is named after its first row's label or host.
+  The table is a card per address below the `@xl` container width.
+- **Notifications** (project settings) has two cards: Email notifications (everyone: their own project emails, a switch;
+  commenters also read whether emails carry excerpts) and Email content (admins only: Include comment excerpts, the
+  unchanged `updateProjectEmailExcerptsAction`). `setProjectEmailsMutedAction` mutes through `setProjectMuted` and
+  revalidates the app; Account → Notifications lists every visible project of the workspace with the same switch.
 - **Account** (`account/`) uses the same `SettingsLayout` and `Section` cards: General (the account page
-  itself: profile, appearance, workspace access), Sign-in (Google, Microsoft, passkeys, sign out) and Coding
-  agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
+  itself: profile, appearance, workspace access, which lists only what is set: role, then relationship and teams when
+  there are any, then projects), Sign-in (Google, Microsoft, passkeys, sign out), Notifications (each project's emails)
+  and Coding agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
   linking outcomes land on Sign-in, and the breadcrumbs end with the section. A change to `SettingsLayout`
   applies to both settings.
 - Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
@@ -495,7 +515,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - Reproduction context is allowlisted by `src/lib/comments/reproduction.ts`: only authorized project members
   get it in the review DTO or app cards. Public/guest `device` DTOs stay limited to size and viewport. Capture time
   and viewport belong to the original feedback start; page links validate the project's origin and retain only stored approved page state.
-- `@uier/toolbar/page-state` is the shared pure URL contract. Projects opt in through `ProjectPageStateForm`; the
+- `@uier/toolbar/page-state` is the shared pure URL contract. Projects opt in through Review → Advanced (`ProjectReviewForm`); the
   review API filters submitted paths using that policy and marks new records `pageStateVersion: 1`. Store queries
   match v1 keys exactly; the legacy query-string prefix fallback must never merge v1 views into a base page.
   `sourcePath` keeps the page's trailing slashes for links: `newSourcePath` stores it only for the same page key,
@@ -783,7 +803,7 @@ Retain the original and immediately previous position plus change time/count in 
 actor identifiers. DTOs allowlist its fields. It follows comment visibility and retention; no image or
 message is replaced. Keep the privacy policy and toolbar guide aligned with this context.
 
-- `src/lib/app/environments.ts` owns origin labels, explicit alias groups and historical-source
+- `src/lib/app/environments.ts` owns origin labels, explicit shared groups (Settings → Environments, "Shares feedback with") and historical-source
   fallback. Apply `environmentFilter` before storage limits and before activity/unread selection;
   Cosmos and memory stores share `repo/originFilter.ts`. Do not infer missing origins or retarget
   removed sources. App direct-comment redirects load the authorized stored thread and retain its

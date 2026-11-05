@@ -8,5 +8,6 @@ import type { SettingsSection } from '../SettingsLayout';
 export const accountSections: SettingsSection<AccountSection>[] = [
     { label: 'General' },
     { section: 'sign-in', label: 'Sign-in' },
+    { section: 'notifications', label: 'Notifications' },
     { section: 'coding-agents', label: 'Coding agents' }
 ];
