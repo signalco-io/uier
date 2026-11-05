@@ -47,6 +47,18 @@ test('admins manage team-only external access, preview overlapping grants and ar
     await dialog.getByRole('button', { name: 'Send invitation' }).click();
     const invitation = await dialog.getByRole('link', { name: 'Open the invitation link' }).getAttribute('href');
     await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+
+    // The workspace's Activity tab says what happened in sentences, never raw events or ids
+    await page.goto('/app/workspace/activity');
+    const changes = page.getByRole('list', { name: 'Access changes' });
+    await expect(changes).toContainText('created the team Product review.');
+    await expect(changes).toContainText('changed the projects of Product review.');
+    await expect(changes).toContainText('Added Alpha team project.');
+    await expect(changes).toContainText(`invited ${email} to the Product review team.`);
+    await expect(changes).not.toContainText('invitation.created');
+    await expect(changes).not.toContainText('invitation_');
+    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Activity' })).toHaveAttribute('aria-current', 'page');
+    await expectNoAxeViolations(page);
     const reviewer = await newVisitor(browser, testInfo);
     try {
         await reviewer.page.goto(invitation!);
@@ -55,6 +67,7 @@ test('admins manage team-only external access, preview overlapping grants and ar
         await expect(reviewer.page.getByRole('main')).toContainText('Alpha team project');
         expect((await reviewer.page.goto(`/app/projects/${beta}`))?.status()).toBe(404);
         expect((await reviewer.page.goto('/app/teams'))?.status()).toBe(404);
+        expect((await reviewer.page.goto('/app/workspace/activity'))?.status()).toBe(404);
         await reviewer.page.goto('/app/account');
         await expect(reviewer.page.getByRole('region', { name: 'Your workspace access' })).toContainText(
             'Product review'
@@ -94,6 +107,8 @@ test('project people and teams show access as badges, with unavailable removals 
     await signIn(page, uniqueEmail('project-access-admin'));
     const project = await createProject(page, { name: 'Badge access project', urls: ['https://badges.example'] });
     await page.goto('/app/teams');
+    // A team of people already in the workspace is its own, clearly named flow
+    await expect(page.getByRole('button', { name: 'Group existing people' })).toBeVisible();
     await page.getByRole('button', { name: 'Create team', exact: true }).first().click();
     await page.getByRole('dialog').getByLabel('Team name').fill('Design review');
     await page.getByRole('dialog').getByRole('button', { name: 'Save team' }).click();
@@ -117,14 +132,20 @@ test('project people and teams show access as badges, with unavailable removals 
     // The admin has workspace-wide access: Remove stays in place, disabled, and says why
     const people = section.getByRole('list', { name: /People with access/ });
     await expect(people.getByRole('listitem')).toHaveCount(1);
-    await expect(people).toContainText('Admin');
-    await expect(people).toContainText('All projects');
+    // Icons in the chips, not letters that read as part of their labels
+    await expect(people.locator('[data-slot="badge"]')).toHaveText(['Admin', 'All projects']);
     const remove = people.getByRole('button', { name: /Remove .*'s access/ });
     await expect(remove).toHaveAttribute('aria-disabled', 'true');
     // Base UI tooltips are visual only: the reason is also the button's description
     await expect(remove).toHaveAccessibleDescription('Workspace admins can review every project.');
     await remove.hover();
     await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Workspace admins can review every project.');
+
+    // Invite from here starts with this project chosen
+    await section.getByRole('button', { name: 'Invite', exact: true }).click();
+    await expect(dialog.getByRole('checkbox', { name: 'Badge access project', exact: true })).toBeChecked();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).not.toBeVisible();
 
     await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
     await expectNoAxeViolations(page);

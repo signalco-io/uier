@@ -3,8 +3,8 @@ import type { AppContext } from '@/src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 
 /**
- * The tabs of the workspace area. Its admins manage the people, teams and settings; everyone sees the
- * clients of the projects they can review. uier's own workspace has no people or settings to manage.
+ * The tabs of the workspace area. Its admins manage the people, teams and settings and see who changed
+ * access (Activity); everyone sees the clients of the projects they can review. uier's own workspace has no people or settings to manage.
  */
 export function workspaceTabs(context: AppContext) {
     const manages = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
@@ -14,6 +14,9 @@ export function workspaceTabs(context: AppContext) {
             { href: KnownPages.AppTeams, label: 'Teams' }
         ] : [],
         { href: KnownPages.AppClients, label: 'Clients' },
-        ...manages ? [{ href: KnownPages.AppSettings, label: 'Settings' }] : []
+        ...manages ? [
+            { href: KnownPages.AppActivity, label: 'Activity' },
+            { href: KnownPages.AppSettings, label: 'Settings' }
+        ] : []
     ];
 }

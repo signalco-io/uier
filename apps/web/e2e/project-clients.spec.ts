@@ -78,6 +78,42 @@ test('clients show in the sidebar and on their page, and new projects pick an ex
     await expect(page.getByRole('combobox', { name: 'Client', exact: true })).toContainText('Acme Studio');
 });
 
+test('admins add a client on the Clients tab for the projects they choose', async ({ page }) => {
+    await signIn(page, uniqueEmail('clients-add'));
+    await createProject(page, { urls: ['shop.example.com'], name: 'Shop site' });
+    await createProject(page, { urls: ['blog.example.com'], name: 'Blog site', clientName: 'Old client' });
+    await createProject(page, { urls: ['docs.example.com'], name: 'Docs site' });
+    await page.goto('/app/workspace/clients');
+    await page.getByRole('button', { name: 'Add client' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toHaveAccessibleName('Add client');
+    // Nothing to add until a project is chosen; a project with a client says which
+    await expect(dialog.getByRole('button', { name: 'Add client' })).toBeDisabled();
+    await expect(dialog.getByRole('checkbox', { name: /^Blog site Client: Old client$/ })).not.toBeChecked();
+    await dialog.getByLabel('Client name').fill('Acme Studio');
+    await dialog.getByRole('checkbox', { name: 'Shop site', exact: true }).click();
+    await dialog.getByRole('checkbox', { name: /^Blog site/ }).click();
+    await dialog.getByLabel('Description (optional)').fill('Retail sites.');
+    await expectNoAxeViolations(page);
+    await dialog.getByRole('button', { name: 'Add client' }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByText('Acme Studio is added.')).toBeVisible();
+
+    const clients = page.getByRole('list', { name: 'Clients' }).getByRole('listitem');
+    await expect(clients).toHaveCount(1);
+    await expect(clients).toContainText('Acme Studio');
+    await expect(clients).toContainText('Retail sites.');
+    await expect(clients).toContainText('Shop site');
+    await expect(clients).toContainText('Blog site');
+
+    // A name in use is refused in the dialog
+    await page.getByRole('button', { name: 'Add client' }).click();
+    await dialog.getByLabel('Client name').fill('acme studio');
+    await dialog.getByRole('checkbox', { name: 'Docs site', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Add client' }).click();
+    await expect(dialog.getByRole('alert')).toContainText('A client with this name already exists.');
+});
+
 test('admins rename a client and set its description, icon and colour; every project follows', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('client-edit'));
     const first = await createProject(page, { urls: ['first.acme.example.com'], name: 'Acme first', clientName: 'Acme' });

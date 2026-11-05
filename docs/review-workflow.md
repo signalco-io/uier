@@ -110,8 +110,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;
     Exit review suppresses automatic opening in that tab. Pending one-use codes survive host redirects
     in session storage for at most ten minutes and are removed after exchange or definitive rejection.
-- **Workspace** (`/app/workspace`): the sidebar's Workspace opens one area with tabs for Users, Teams, Clients
-  and Settings (admins), or Clients alone for everyone else. The earlier addresses (`/app/users`, `/app/teams`,
+- **Workspace** (`/app/workspace`): the sidebar's Workspace opens one area with tabs for Users, Teams, Clients,
+  Activity (who changed access, as sentences) and Settings (admins), or Clients alone for everyone else. The earlier addresses (`/app/users`, `/app/teams`,
   `/app/clients`, `/app/settings`) redirect to their tab.
 - **Clients** (`/app/workspace/clients`): the clients of the projects the member can see, each with its tile (an icon
   or its first letter, on its colour), description, projects and how many are active or done. A client
@@ -121,13 +121,20 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   to it, so a rename shows on every project at once. Names stay unique in the workspace: a rename to
   another client's name is refused while that client has projects. A client with no projects left is no
   longer shown; a project that names it again gets it back with its details, and a rename can take its name.
+  Admins also add a client there (Add client): its name, the projects it is for (each moves to it from any
+  client it had) and an optional description. A name another client with projects uses, in any letter case,
+  is refused.
 - **Users** (`/app/workspace/users`, admins only): the people in the workspace with their role (admin or commenter)
-  and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
+  and the projects they review, and the pending invitations. Once there are more than eight people and
+  invitations, filters show for what tells them apart: project (`?project=`), relationship, team and state. Admins
   remove people (the last admin stays), including the person who created the workspace, and revoke
   invitations. A removed member's review token stops working at once, because the review API checks the
   membership on every request.
-  - Invite (a dialog from the users page, a project's header (in who can comment) or its card menu): the email, the role and,
-    for commenters, the selected projects or all projects. The email links to `/app/invitation?token=` (single use, 7 days,
+  - Invite (a dialog from the users page, a team, a project's header (in who can comment), its People and teams
+    settings or its card menu): the email, the role, for commenters the selected projects or all projects, the teams,
+    and under More options the relationship label. The project it starts from, or the workspace's only project, is
+    already chosen. The dialog never shows or copies the invitation link where email is sent: the link signs in
+    as the invited address, so only that inbox may have it (locally and on previews the page shows it instead). The email links to `/app/invitation?token=` (single use, 7 days,
     stored only as a SHA-256 hash; 50 invitations per workspace per day). Inviting the same address again
     replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
     in (their account is created on first use), adds them to the workspace and opens the project's review

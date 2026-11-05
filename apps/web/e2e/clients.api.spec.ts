@@ -6,6 +6,7 @@ import { createProject, getProject, listProjects, listVisibleProjects } from '..
 import { getAppStore } from '../src/lib/app/store';
 import {
     clientNames,
+    createClient,
     getClient,
     loadClients,
     projectClient,
@@ -119,6 +120,39 @@ test('concurrent renames to one name and concurrent new clients stay consistent'
     expect(new Set(ids).size).toBe(1);
     const named = [...(await loadClients(context.workspace.id)).values()].filter(client => client.name === 'Brand new');
     expect(named).toHaveLength(1);
+});
+
+test('admins add a client for chosen projects, which move to it; taken names and other workspaces are refused', async () => {
+    const context = await adminContext('clients-create');
+    const plain = await createProject(context, { name: 'plain', urls: ['https://plain.example.com'] });
+    const moved = await createProject(context, { name: 'moved', urls: ['https://moved.example.com'], clientName: 'Northwind' });
+    const left = await createProject(context, { name: 'left', urls: ['https://left.example.com'] });
+
+    const created = await createClient(context, { name: '  Acme   Studio ', description: ' Retail sites. ' }, [plain.id, moved.id]);
+    expect(created).toEqual({ id: expect.stringMatching(/^client_[A-Za-z0-9_-]{21}$/), name: 'Acme Studio', description: 'Retail sites.' });
+    expect((await clientOf(context, plain.id))?.id).toBe(created.id);
+    expect((await clientOf(context, moved.id))?.id).toBe(created.id);
+    expect(await clientOf(context, left.id)).toBeUndefined();
+    // Northwind has no projects left, so it is no longer listed
+    expect(clientNames(await listProjects(context.workspace.id), await loadClients(context.workspace.id))).toEqual(['Acme Studio']);
+
+    // A name in use is refused (case and spacing do not matter), and nothing changes
+    await expect(createClient(context, { name: 'acme studio' }, [left.id])).rejects.toThrow('A client with this name already exists.');
+    expect(await clientOf(context, left.id)).toBeUndefined();
+    // A client needs a project of this workspace
+    const other = await adminContext('clients-create-other');
+    const foreign = await createProject(other, { name: 'foreign', urls: ['https://foreign.example.com'] });
+    await expect(createClient(context, { name: 'Elsewhere' }, [foreign.id])).rejects.toThrow('Choose the projects this client is for.');
+    await expect(createClient(context, { name: 'Nothing' }, [])).rejects.toThrow('Choose the projects this client is for.');
+    expect(await clientOf(other, foreign.id)).toBeUndefined();
+    await expect(createClient(context, { name: '   ' }, [left.id])).rejects.toThrow();
+
+    // An unused name comes back with its details, as when a project names it again
+    const again = await createClient(context, { name: 'Northwind' }, [left.id]);
+    expect(again.id).toBe(moved.clientId);
+    // Only admins add clients
+    const commenter = await commenterContext(context, [left.id]);
+    await expect(createClient(commenter, { name: 'Taken over' }, [left.id])).rejects.toThrow('Only admins can do this.');
 });
 
 test('only admins change clients, with validated input', async () => {

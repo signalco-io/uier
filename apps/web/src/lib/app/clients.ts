@@ -240,3 +240,36 @@ export async function updateClient(context: AppContext, clientId: string, detail
     }
     throw new Error(`Client ${clientId} changed too often while saving`);
 }
+
+/**
+ * A new client for existing projects (admins, the Clients tab). A client shows only through its projects,
+ * so it starts with at least one; each chosen project moves to it from any client it had. A name that
+ * another client with projects uses is refused, so a new client never takes over another one's details.
+ */
+export async function createClient(context: AppContext, details: { name: string; description?: string }, projectIds: string[], store: AppStore = getAppStore()) {
+    if (!context.isAdmin)
+        throw new UserFacingError('Only admins can do this.');
+    assertMutableWorkspace(context.workspace.id);
+    const { name, description } = clientDetailsSchema.parse(details);
+    const workspaceId = context.workspace.id;
+    const pk = workspacePk(workspaceId);
+    // Older projects find their client by name; move them first, as a rename does
+    const projects = await Promise.all((await store.query<DbProject>({ type: 'project', pk })).map(project => ensureProjectClient(project, store)));
+    const chosen = projects.filter(project => projectIds.includes(project.id));
+    if (!chosen.length)
+        throw new UserFacingError('Choose the projects this client is for.');
+
+    // Names are unique as written; here a different case is also taken, since it is almost always the same client
+    const clients = await loadClients(workspaceId, store);
+    const key = name.toLowerCase();
+    if (projects.some(project => project.clientId && clients.get(project.clientId)?.name.toLowerCase() === key))
+        throw new UserFacingError('A client with this name already exists. Edit it, or choose another name.');
+
+    for (const project of chosen)
+        await assignProjectClient(store, project, name, context.user.id);
+    const client = await clientNamed(store, workspaceId, name, context.user.id);
+    // A client without projects keeps its details for when a project names it again; a new description replaces its own
+    return description === undefined || description === client.doc.description
+        ? clientSummary(client.doc)
+        : await updateClient(context, client.doc.id, { name, description, icon: client.doc.icon, color: client.doc.color }, store);
+}

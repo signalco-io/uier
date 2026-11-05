@@ -82,6 +82,9 @@ function ListSection({ id, title, count, description, children }: {
     );
 }
 
+/** More people and invitations than this together, and the list shows its filters */
+const FILTER_FROM = 8;
+
 export default async function UsersPage({ searchParams }: PageProps<'/app/workspace/users'>) {
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
@@ -98,6 +101,18 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
         (!project || hasProjectAccess(access, subject, { id: project, workspaceId: context.workspace.id }))
         && (typeof relationship !== 'string' || relationship === 'all' || (subject.relationship ?? 'unspecified') === relationship)
         && (typeof team !== 'string' || team === 'all' || subject.teamIds?.includes(team));
+    // Filters help once the list is long, and only those that tell people apart: a short list is read at a glance.
+    // A filter that is set stays, so it can be cleared.
+    const set = (value: unknown) => typeof value === 'string' && value !== 'all';
+    const relationships = new Set([...members.map(({ member }) => member.relationship), ...invitations.map(invitation => invitation.relationship)]
+        .map(value => value ?? 'unspecified'));
+    const long = members.length + invitations.length > FILTER_FROM;
+    const filters = ([
+        ['project', projects.length > 1, project],
+        ['relationship', relationships.size > 1, relationship],
+        ['team', access.teams.length > 0, team],
+        ['state', members.length > 0 && invitations.length > 0, state]
+    ] as const).filter(([, useful, value]) => set(value) || (long && useful)).map(([filter]) => filter);
     const shownMembers = state === 'pending' ? [] : members.filter(({ member }) => matches(member));
     const shownInvitations = state === 'accepted' ? [] : invitations.filter(matches);
     const data = { access, projects, people: members.filter(person => person.user).map(({ member, name }) => ({ member, name })), revision: context.workspace.accessRevision ?? 0 };
@@ -125,7 +140,12 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
                         <InviteButton projectId={project} />
                     </>
                 )}>
-                <div className="flex flex-wrap gap-3"><ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} /><UsersFilters teams={access.teams.map(({ id, name }) => ({ id, name }))} /></div>
+                {filters.length > 0 && (
+                    <div className="flex flex-wrap gap-3">
+                        {filters.includes('project') && <ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} />}
+                        <UsersFilters teams={access.teams.map(({ id, name }) => ({ id, name }))} show={filters.filter(filter => filter !== 'project')} />
+                    </div>
+                )}
             </WorkspaceTabHeader>
             <div className="flex flex-col gap-10">
                 <ListSection
