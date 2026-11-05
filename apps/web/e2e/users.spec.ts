@@ -143,7 +143,14 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(clients.getByRole('button', { name: /^Edit / })).toHaveCount(0);
     await commenter.page.goto('/app/projects');
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
-    await expect(commenter.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Users' })).toHaveCount(0);
+    // Their workspace area has the clients of their projects only: no users, teams or settings
+    const commenterWorkspace = (await appNavigation(commenter.page)).getByRole('link', { name: 'Workspace', exact: true });
+    await expect(commenterWorkspace).toHaveAttribute('href', '/app/workspace/clients');
+    await commenter.page.goto('/app/workspace');
+    await expect(commenter.page).toHaveURL(/\/app\/workspace\/clients$/);
+    await expect(commenter.page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Clients']);
+    expect((await commenter.page.goto('/app/workspace/teams'))?.status()).toBe(404);
+    await commenter.page.goto('/app/projects');
     // Commenters' settings open at their own project emails; the sections that set up the project are not theirs
     await commenter.page.goto(`/app/projects/${alpha}/settings`);
     await expect(commenter.page).toHaveURL(new RegExp(`/app/projects/${alpha}/settings/notifications$`));
@@ -208,7 +215,7 @@ test('an invited admin gets every project, the users and the settings', async ({
     const personProjects = person.page.getByRole('list', { name: 'Active projects' });
     await expect(personProjects.getByRole('link', { name: 'Alpha' })).toBeVisible();
     await expect(personProjects.getByRole('link', { name: 'Beta' })).toBeVisible();
-    await expect((await appNavigation(person.page)).getByRole('link', { name: 'Users' })).toBeVisible();
+    await expect((await appNavigation(person.page)).getByRole('link', { name: 'Workspace', exact: true })).toHaveAttribute('href', '/app/workspace/users');
     await person.page.goto(`/app/projects/${beta}/settings/review`);
     await expect(person.page.getByRole('region', { name: 'Who can comment' })).toBeVisible();
     expect((await person.page.request.get(`/app/review/${alpha}`, { maxRedirects: 0 })).status()).toBe(307);
@@ -328,7 +335,7 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
     await page.goto('/app/projects/uier00000001');
     let nav = await appNavigation(page);
-    await expect(nav.getByRole('link', { name: 'Users', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Create project', exact: true })).toHaveCount(0);
     await page.goto('/app/users');
     await expect(page).toHaveURL(/\/app\/projects$/);
@@ -361,5 +368,5 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await page.goto(`/app/projects/${ownProject}/settings`);
     await expect(page.getByRole('region', { name: 'General', exact: true })).toBeVisible();
     nav = await appNavigation(page);
-    await expect(nav.getByRole('link', { name: 'Users', exact: true })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Workspace', exact: true })).toBeVisible();
 });

@@ -6,22 +6,18 @@ import { animationsFinished, newVisitor } from './support/toolbar';
 test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('clients-page'));
     await createProject(page, { urls: ['plain.example.com'], name: 'Plain site' });
-    // No project has a client yet: no Clients section, and the admin sections sit at the bottom of the navigation
+    // The workspace area sits at the bottom of the navigation; its Clients tab is empty until a project has a client
     let navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link', { name: 'Clients' })).toHaveCount(0);
-    await expect(navigation.getByRole('link').last()).toHaveAccessibleName('Users');
+    await expect(navigation.getByRole('link').last()).toHaveAccessibleName('Workspace');
     await closeAppNavigation(page);
+    // The old address opens the Clients tab of the workspace area
     await page.goto('/app/clients');
+    await expect(page).toHaveURL(/\/app\/workspace\/clients$/);
+    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Clients' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText('No clients yet', { exact: true })).toBeVisible();
     await expectNoAxeViolations(page);
 
     await createProject(page, { urls: ['acme.example.com'], name: 'Acme site', clientName: 'Acme Studio' });
-    navigation = await appNavigation(page);
-    const links = navigation.getByRole('link');
-    await expect(links.nth(-3)).toHaveAccessibleName('Clients');
-    await expect(links.nth(-2)).toHaveAccessibleName('Teams');
-    await expect(links.last()).toHaveAccessibleName('Users');
-    await closeAppNavigation(page);
 
     // The same input suggests the existing clients and takes a new name
     await page.goto('/app/projects/new');

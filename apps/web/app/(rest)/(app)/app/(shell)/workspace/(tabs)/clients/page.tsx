@@ -10,7 +10,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadClients, projectClients } from '@/src/lib/app/clients';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
-import { PageHeader } from '@/src/components/app/PageHeader';
+import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { ClientEditDialog } from '@/src/components/app/clients/ClientEditDialog';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 
@@ -33,9 +33,7 @@ export default async function ClientsPage() {
 
     return (
         <>
-            <PageHeader
-                title="Clients"
-                description="Who your projects are for. Set a project's client when you create it or in its settings." />
+            <WorkspaceTabHeader description="Who your projects are for. Set a project's client when you create it or in its settings." />
             {clients.length ? (
                 <Card className="gap-0 py-0">
                     <ItemGroup aria-label="Clients" className="gap-0 divide-y">

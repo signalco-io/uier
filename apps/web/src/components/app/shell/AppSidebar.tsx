@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BriefcaseIcon, LayoutGridIcon, PlusIcon, UserIcon, UsersIcon } from 'lucide-react';
+import { Building2Icon, LayoutGridIcon, PlusIcon, type LucideIcon } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -21,7 +21,6 @@ import {
 } from '@/src/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
-import { cn } from '@/src/lib/utils';
 import { ProjectMark } from '../projects/ProjectMark';
 import { AccountMenu } from './AccountMenu';
 import { FeedbackButton } from './FeedbackButton';
@@ -34,19 +33,10 @@ function isCurrent(pathname: string, href: string) {
 }
 
 /** An icon link in the active projects header, named by a tooltip */
-function GroupLinkAction({ href, label, current = false, className, children }: {
-    href: string;
-    label: string;
-    current?: boolean;
-    className?: string;
-    children: ReactNode;
-}) {
+function GroupLinkAction({ href, label, children }: { href: string; label: string; children: ReactNode }) {
     return (
         <Tooltip>
-            <TooltipTrigger render={<SidebarGroupAction
-                data-active={current}
-                className={cn('data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground', className)}
-                render={<Link href={href} aria-current={current ? 'page' : undefined} />} />}>
+            <TooltipTrigger render={<SidebarGroupAction render={<Link href={href} />} />}>
                 {children}
                 <span className="sr-only">{label}</span>
             </TooltipTrigger>
@@ -55,11 +45,22 @@ function GroupLinkAction({ href, label, current = false, className, children }: 
     );
 }
 
+/** A top-level page of the app: its icon and name, current on it and the pages below it */
+function NavItem({ href, label, icon: Icon, current }: { href: string; label: string; icon: LucideIcon; current: boolean }) {
+    return (
+        <SidebarMenuItem>
+            <SidebarMenuButton isActive={current} tooltip={label} render={<Link href={href} aria-current={current ? 'page' : undefined} />}>
+                <Icon />
+                <span>{label}</span>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
+    );
+}
+
 /**
- * The app's navigation: the workspace (its menu has the workspace settings), the active projects for
- * quick switching (their header links to every project), then at the bottom the sections (clients,
- * teams, users), feedback on the app and the signed-in person. Collapses to icons on desktop and
- * opens as a sheet on small screens.
+ * The app's navigation: the workspace switcher, Projects, the active projects for quick switching,
+ * then at the bottom the workspace area (users, teams, clients and settings in tabs), feedback on the
+ * app and the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
  */
 export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, projects, hasClients }: {
     isAdmin: boolean;
@@ -68,24 +69,18 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
     currentWorkspaceId: string;
     /** Active projects, newest first */
     projects: SidebarProject[];
-    /** Whether a project the person can see has a client (Clients shows only then) */
+    /** Whether a project the person can see has a client (the workspace area shows its clients then) */
     hasClients: boolean;
 }) {
     const pathname = usePathname();
     // On small screens the sidebar is a sheet: close it once a link has opened its page
     const { setOpenMobile } = useSidebar();
     useEffect(() => setOpenMobile(false), [pathname, setOpenMobile]);
-    // A listed project is current in its own entry; All projects covers the list and every other project page
+    // A listed project is current in its own entry; Projects covers the list and every other project page
     const inListedProject = projects.some(project => isCurrent(pathname, KnownPageLinks.project(project.id)));
-    const allProjectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
-    // Clients first: the admin sections keep their place above feedback whether or not Clients shows
-    const sections = [
-        ...hasClients ? [{ href: KnownPages.AppClients, label: 'Clients', icon: BriefcaseIcon }] : [],
-        ...isAdmin ? [
-            { href: KnownPages.AppTeams, label: 'Teams', icon: UsersIcon },
-            { href: KnownPages.AppUsers, label: 'Users', icon: UserIcon }
-        ] : []
-    ].map(section => ({ ...section, current: isCurrent(pathname, section.href) }));
+    const projectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
+    // Admins manage the workspace's people and settings; everyone else sees the clients of their projects
+    const workspaceHref = isAdmin ? KnownPages.AppUsers : hasClients ? KnownPages.AppClients : undefined;
 
     return (
         <Sidebar variant="inset" collapsible="icon">
@@ -94,15 +89,16 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
             </SidebarHeader>
             <SidebarContent>
                 <nav aria-label="App" className="contents">
+                    {/* The app's own pages (Projects, and later the person's own work) */}
+                    <SidebarGroup>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                <NavItem href={KnownPages.AppProjects} label="Projects" icon={LayoutGridIcon} current={projectsCurrent} />
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
                     <SidebarGroup>
                         <SidebarGroupLabel>Active projects</SidebarGroupLabel>
-                        <GroupLinkAction
-                            href={KnownPages.AppProjects}
-                            label="All projects"
-                            current={allProjectsCurrent}
-                            className={isAdmin && projects.length ? 'right-10' : undefined}>
-                            <LayoutGridIcon />
-                        </GroupLinkAction>
                         {/* Without active projects, "Create a project" is in the list itself */}
                         {isAdmin && projects.length > 0 && (
                             <GroupLinkAction href={KnownPages.AppNewProject} label="Create project">
@@ -111,13 +107,6 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                         )}
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                {/* The header and its links hide when the sidebar is collapsed to icons */}
-                                <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-                                    <SidebarMenuButton isActive={allProjectsCurrent} tooltip="All projects" render={<Link href={KnownPages.AppProjects} aria-current={allProjectsCurrent ? 'page' : undefined} />}>
-                                        <LayoutGridIcon />
-                                        <span>All projects</span>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
                                 {projects.map(project => {
                                     const href = KnownPageLinks.project(project.id);
                                     const current = isCurrent(pathname, href);
@@ -144,19 +133,12 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                             )}
                         </SidebarGroupContent>
                     </SidebarGroup>
-                    {sections.length > 0 && (
+                    {workspaceHref && (
                         // At the bottom, right above feedback and the account
                         <SidebarGroup className="mt-auto">
                             <SidebarGroupContent>
                                 <SidebarMenu>
-                                    {sections.map(section => (
-                                        <SidebarMenuItem key={section.href}>
-                                            <SidebarMenuButton isActive={section.current} tooltip={section.label} render={<Link href={section.href} aria-current={section.current ? 'page' : undefined} />}>
-                                                <section.icon />
-                                                <span>{section.label}</span>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    ))}
+                                    <NavItem href={workspaceHref} label="Workspace" icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} />
                                 </SidebarMenu>
                             </SidebarGroupContent>
                         </SidebarGroup>

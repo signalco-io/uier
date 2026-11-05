@@ -193,7 +193,7 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
     await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Set up reviews');
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
     await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');
@@ -394,9 +394,9 @@ test('the sidebar has the sections, the active projects and the account', async 
     const projectId = await createProject(page, { urls: ['sidebar.example.com'], name: 'Sidebar site' });
 
     const navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link', { name: 'All projects' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Projects', exact: true })).toHaveAttribute('href', '/app/projects');
     await expect(navigation.getByRole('link', { name: 'Create project' })).toBeVisible();
-    await expect(navigation.getByRole('link', { name: 'Users' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveAttribute('href', '/app/workspace/users');
     await navigation.getByRole('link', { name: 'Sidebar site' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
     // Small screens close the sheet after a link
@@ -424,14 +424,16 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await signIn(page, email);
     await createProject(page, { urls: ['workspace.example.com'], name: 'Workspace site' });
 
-    // The workspace menu at the top of the sidebar opens the settings
+    // The workspace menu at the top of the sidebar opens the settings, a tab of the workspace area
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
-    await expect(page).toHaveURL(/\/app\/settings$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Workspace settings' })).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/workspace\/settings$/);
+    await expect(page.getByRole('heading', { level: 1, name: email })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Users', 'Teams', 'Clients', 'Settings']);
+    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Workspace settings · uier');
-    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Workspace settings');
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Settings');
 
     // A new workspace is named after its creator's email until an admin renames it
     const name = page.getByLabel('Workspace name');
@@ -441,26 +443,28 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await expect(page.getByRole('status').filter({ hasText: 'The workspace name is saved.' })).toBeVisible();
     await expectNoAxeViolations(page);
 
-    // The sidebar shows the new name; the settings are only in the workspace menu
+    // The sidebar and the area's header show the new name; the sidebar's Workspace opens the area
     const navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link', { name: 'Workspace settings' })).toHaveCount(0);
+    await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Acme studio');
     await closeAppNavigation(page);
     await page.reload();
     await expect(page.getByLabel('Workspace name')).toHaveValue('Acme studio');
 
-    // In the uier workspace everyone joins as a commenter: no settings link, and the page is not there
+    // Everyone joins uier's workspace to send feedback on the app: the menu keeps it apart from their own
+    // workspaces, under its own name. There it has no settings link, and the page is not there.
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toBeVisible();
-    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toHaveCount(0);
+    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     const commenterNavigation = await appNavigation(page);
-    await expect(commenterNavigation.getByRole('link', { name: 'Workspace settings' })).toHaveCount(0);
+    await expect(commenterNavigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await expect(page.getByRole('menuitem', { name: /uier.*Commenter/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
     await page.keyboard.press('Escape');
+    // The old address of the settings goes to the area, which sends commenters to the projects
     await page.goto('/app/settings');
     await expect(page).toHaveURL(/\/app\/projects$/);
 });
@@ -559,7 +563,7 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await page.goto('/app/projects');
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' }))
         .toHaveAttribute('href', '/app/projects/uier00000001');
     await page.goto('/app/projects/uier00000001');
@@ -770,7 +774,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
         await signIn(commenter.page, uniqueEmail('no-author-filter'), { from: new URL('/app/sign-in', page.url()).href });
         await appNavigation(commenter.page);
         await commenter.page.getByRole('button', { name: /^Workspace:/ }).click();
-        await commenter.page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+        await commenter.page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
         await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
         await commenter.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
         const otherCard = commenter.page.getByRole('article').filter({ hasText: `Unrelated author ${key}` });
