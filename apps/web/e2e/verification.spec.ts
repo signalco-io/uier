@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
 import { backToComments, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, toolbar, threadOptions } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -135,13 +135,14 @@ test('members request and cancel from the toolbar using the existing participant
     await expect(toolbar(page)).toBeVisible();
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
-    await inbox.getByRole('button', { name: 'Request verification', exact: true }).click();
+    // Request verification is in Thread options; the form opens in the thread
+    await (await threadOptions(page, inbox.getByRole('article'))).getByRole('button', { name: 'Request verification', exact: true }).click();
     await expect(inbox.getByRole('textbox', { name: 'Fix summary', exact: true })).toBeFocused();
     await inbox.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Ready to check on the reviewed site');
     await inbox.getByRole('form', { name: 'Request verification' }).getByRole('button', { name: 'Request verification', exact: true }).click();
     await expect(inbox.getByRole('button', { name: 'Done without verification', exact: true })).toBeVisible();
     await expect(inbox.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
-    await expect(inbox.getByRole('button', { name: 'Request a new check', exact: true })).toBeFocused();
+    await expect(inbox.getByRole('button', { name: 'Thread options', exact: true })).toBeFocused();
     const bounds = (await inbox.getByRole('article').boundingBox())!;
     for (const button of await inbox.getByRole('article').getByRole('button').all()) {
         const box = await button.boundingBox();

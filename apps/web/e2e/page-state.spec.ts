@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, pageStateSettings, setProjectAccess, signIn, uniqueEmail, commentRows, openComment } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { chooseInboxPages, commentBubbles, openThread } from './support/toolbar';
+import { chooseInboxPages, commentBubbles, openThread, copyFromThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -134,7 +134,7 @@ test('a slash-sensitive site: inbox, Copy link and the app open the page as it w
     expect(saved).toMatchObject({ path: `/${projectId}/plans`, sourcePath: plans });
 
     // Copy link opens the thread on the page that exists
-    await openThread(page).getByRole('button', { name: 'Copy link' }).click();
+    await copyFromThread(page, openThread(page), 'Copy link');
     const link = new URL(await page.evaluate(async () => await navigator.clipboard.readText()));
     expect(`${link.origin}${link.pathname}`).toBe(`${origin}${plans}`);
     expect(link.searchParams.get('uier-comment')).toBe(saved.id);

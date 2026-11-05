@@ -1,6 +1,7 @@
 'use client';
 
 import { useContext } from 'react';
+import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -24,8 +25,9 @@ export function ToolbarProfile() {
     const name = query.data?.name;
     const signedIn = Boolean(query.data?.member && name);
 
+    const tip = useIconTooltip(signedIn ? `Signed in as ${name}` : 'Profile');
     return (
-        <Popper
+        <>{tip.tooltip}<Popper
             container={container}
             side="top"
             sideOffset={12}
@@ -35,7 +37,7 @@ export function ToolbarProfile() {
                 <IconButton
                     variant="plain"
                     className="rounded-full"
-                    title={signedIn ? `Signed in as ${name}` : 'Profile'}
+                    {...tip.triggerProps}
                     aria-label="Profile">
                     {signedIn
                         ? <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(name!)}</Avatar>
@@ -57,6 +59,6 @@ export function ToolbarProfile() {
                             : 'You have not commented yet. Your first comment or reply gives you a guest name.'}
                 </Typography>
             </Stack>
-        </Popper>
+        </Popper></>
     );
 }

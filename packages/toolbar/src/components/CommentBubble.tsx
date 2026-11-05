@@ -294,7 +294,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             aria-label="Messages"
                             role="group"
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                            <CommentThread commentItem={commentItem} reading={open} />
+                            <CommentThread commentItem={commentItem} reading={open} onPage />
                         </div>
                         {!commentItem.pending && <Divider className="shrink-0" />}
                     </>

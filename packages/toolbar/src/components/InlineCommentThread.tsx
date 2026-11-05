@@ -43,7 +43,7 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
 
     return container && createPortal(
         <section aria-label="Headline comment thread" className="overflow-hidden rounded-xl border bg-card text-card-foreground">
-            <CommentThread commentItem={comment} />
+            <CommentThread commentItem={comment} onPage />
             <Divider />
             <CommentComposer
                 label="Reply to the headline" placeholder="Reply..." submitLabel="Post reply"

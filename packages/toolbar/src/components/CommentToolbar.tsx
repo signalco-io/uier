@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Ref, useEffect, useRef } from 'react';
+import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -152,17 +153,18 @@ export function CommentToolbar({
                     aria-label="uier feedback toolbar"
                     className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', !collapsed && 'overflow-x-auto')}>
                     {!collapsed && (
-                        <IconButton ref={moveRef} variant="plain" className="shrink-0 rounded-full" aria-label="Move toolbar"
-                            title="Drag to move. Use arrow keys to move; Home resets position."
-                            {...movement.handle} onKeyDown={movement.onKeyDown}><Drag /></IconButton>
+                        <IconTooltip label="Drag to move. Arrow keys move it; Home resets it.">
+                            <IconButton ref={moveRef} variant="plain" className="shrink-0 rounded-full" aria-label="Move toolbar"
+                                {...movement.handle} onKeyDown={movement.onKeyDown}><Drag /></IconButton>
+                        </IconTooltip>
                     )}
                     {collapsed ? (
                         // No separate handle: the mark itself drags the pill, a click expands it
+                        <IconTooltip label="Expand toolbar. Drag to move.">
                         <IconButton
                             ref={expandButtonRef}
                             variant="plain"
                             className="relative rounded-full"
-                            title="Expand toolbar. Drag to move."
                             aria-label={commentsLabel ? `Expand toolbar, ${commentsLabel}` : 'Expand toolbar'}
                             {...movement.handle}
                             style={{ touchAction: 'none', cursor: movement.dragging ? 'grabbing' : undefined }}
@@ -171,11 +173,12 @@ export function CommentToolbar({
                             <Mark size={20} />
                             {badge}
                         </IconButton>
+                        </IconTooltip>
                     ) : (
                         <Row>
+                            <IconTooltip label="Add comment">
                             <IconButton
                                 ref={addButtonRef}
-                                title="Add comment"
                                 aria-label="Add comment"
                                 aria-pressed={creatingPointComment}
                                 // Pressed: white on the black pill (21:1), not a faint tint
@@ -184,43 +187,47 @@ export function CommentToolbar({
                                 onClick={handleAddClick}>
                                 <CommentIcon icon="add" size={24} variant="outlined" aria-hidden="true" />
                             </IconButton>
+                            </IconTooltip>
                             <ToolbarFeedback onOpen={onFeedbackOpen} openRequested={feedbackRequested} onOpenRequestHandled={onFeedbackRequestHandled} />
+                            <IconTooltip label="Inbox">
                             <IconButton
                                 ref={inboxButtonRef}
                                 variant="plain"
                                 className="relative rounded-full"
                                 aria-expanded={sidebarOpen}
                                 onClick={onToggleSidebar}
-                                title="Inbox"
                                 aria-label={commentsLabel ? `Inbox, ${commentsLabel}` : 'Inbox'}>
                                 <Inbox />
                                 {badge}
                             </IconButton>
+                            </IconTooltip>
                             {showAbout && (
+                                <IconTooltip label="About uier">
                                 <IconButton
                                     ref={hintButtonRef}
                                     variant={hintOpen ? 'soft' : 'plain'}
                                     className="rounded-full"
                                     onClick={onToggleHint}
-                                    title="About uier"
                                     aria-label="About uier"
                                     aria-expanded={hintOpen}
                                     aria-controls={hintOpen ? hintId : undefined}>
                                     <Info />
                                 </IconButton>
+                                </IconTooltip>
                             )}
                             <Divider orientation="vertical" className="mx-1 h-6" />
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined} />
+                            <IconTooltip label="Collapse toolbar">
                             <IconButton
                                 ref={collapseButtonRef}
                                 variant="plain"
                                 className="rounded-full"
-                                title="Collapse toolbar"
                                 aria-label="Collapse toolbar"
                                 onClick={() => handleCollapsedChange(true)}>
                                 <Down />
                             </IconButton>
+                            </IconTooltip>
                         </Row>
                     )}
                 </div>

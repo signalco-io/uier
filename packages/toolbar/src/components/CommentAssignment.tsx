@@ -1,6 +1,4 @@
-import type { RefObject } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { cx } from '@signalco/ui-primitives/cx';
 import { User } from '@signalco/ui-icons';
@@ -9,6 +7,7 @@ import { useComments } from '../hooks/useComments';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
 import type { CommentItem } from './@types/Comments';
+import { useIconTooltip } from './IconTooltip';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
 export function assignedText(comment: CommentItem) {
@@ -24,34 +23,19 @@ function AssigneeAvatar({ comment }: { comment: CommentItem }) {
 
 /**
  * Who the thread is assigned to, in its header after the status (the app's comment card): the
- * assignee's avatar or the user icon, named by its tooltip. For members who can assign it is the
- * button that opens `CommentAssigneeOptions`; others only see an assignee that is set.
+ * assignee's avatar, named by its tooltip. Assigning is in Thread options, which opens
+ * `CommentAssigneeOptions` under the header.
  */
-export function CommentAssignee({ comment, open, onToggle, triggerRef, className }: {
-    comment: CommentItem;
-    open: boolean;
-    onToggle: () => void;
-    triggerRef: RefObject<HTMLButtonElement | null>;
-    className?: string;
-}) {
+export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
     const assigned = assignedText(comment);
-    if (comment.permissions?.assign) {
-        return (
-            <IconButton ref={triggerRef} size="xs" variant="plain" aria-expanded={open}
-                className={cx(className, 'shrink-0 p-0')}
-                title={assigned}
-                aria-label={`${assigned}. Change assignee`}
-                onClick={onToggle}>
-                <AssigneeAvatar comment={comment} />
-            </IconButton>
-        );
-    }
+    const { triggerProps, tooltip } = useIconTooltip(assigned);
     if (!comment.assignee) return null;
-    return (
-        <span role="img" title={assigned} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center', className)}>
+    return <>
+        <span role="img" tabIndex={-1} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center', className)} {...triggerProps}>
             <AssigneeAvatar comment={comment} />
         </span>
-    );
+        {tooltip}
+    </>;
 }
 
 /** The people to assign the thread to, under its header while `CommentAssignee` is open; refreshed each time it opens */

@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Copy } from '@signalco/ui-icons';
+import { Popper } from '@signalco/ui-primitives/Popper';
+import { Stack } from '@signalco/ui-primitives/Stack';
+import { cx } from '@signalco/ui-primitives/cx';
+import { Copy, FileText, Link } from '@signalco/ui-icons';
+import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { floatingShadowClassName } from './@types/Comments';
+import { useIconTooltip } from './IconTooltip';
 import type { FeedbackExport } from '../feedbackContext';
 import { apiRequest, required, currentReviewerRevision } from '../hooks/api';
 import { commentUrl } from '../hooks/useComments';
@@ -38,14 +44,57 @@ export function useCopyIssue(commentId: string) {
     return { pending, error, manual, copied, copy, close: () => setManual(undefined) };
 }
 
-export function CopyIssueButton({ state, className }: { state: ReturnType<typeof useCopyIssue>; className?: string }) {
+/**
+ * One Copy menu for the two things people copy, each saying what it is: the issue (Markdown for an
+ * issue tracker or a coding tool) and the link (opens this page at the thread). "Issue copied." shows
+ * under the button for two seconds; the shared announcer reports it to screen readers once.
+ */
+export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
+    state: ReturnType<typeof useCopyIssue>;
+    className?: string;
+    linkAvailable: boolean;
+    onCopyLink: () => void;
+}) {
+    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const [open, setOpen] = useState(false);
+    const issueRef = useRef<HTMLButtonElement>(null);
+    const { triggerProps, tooltip } = useIconTooltip('Copy issue or link');
+    const contentProps = { onOpenAutoFocus: (event: Event) => { event.preventDefault(); issueRef.current?.focus(); } };
     return <span className="relative inline-flex shrink-0">
-        <IconButton size="xs" variant="plain" className={className}
-            title="Copy issue" aria-label="Copy issue" aria-busy={state.pending}
-            disabled={state.pending} onClick={state.copy}>
-            <Copy size={16} />
-        </IconButton>
-        {/* The shared announcer reports success to screen readers once. */}
+        <Popper
+            container={rootElement}
+            open={open}
+            onOpenChange={setOpen}
+            align="end"
+            aria-label="Copy"
+            className={cx('z-[70] w-64 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName)}
+            trigger={(
+                <IconButton size="xs" variant="plain" className={className} aria-label="Copy" aria-busy={state.pending}
+                    disabled={state.pending} {...triggerProps}>
+                    <Copy size={16} />
+                </IconButton>
+            )}
+            {...contentProps}>
+            <Stack>
+                <Button ref={issueRef} variant="plain" size="sm" fullWidth className="h-auto items-start justify-start py-1.5 text-left"
+                    startDecorator={<FileText size={16} className="mt-0.5" />}
+                    onClick={() => { setOpen(false); void state.copy(); }}>
+                    <span className="flex flex-col whitespace-normal">
+                        Copy issue
+                        <span className="text-xs font-normal text-muted-foreground">Markdown with the thread, page and browser, for an issue or a coding tool</span>
+                    </span>
+                </Button>
+                <Button variant="plain" size="sm" fullWidth className="h-auto items-start justify-start py-1.5 text-left" disabled={!linkAvailable}
+                    startDecorator={<Link size={16} className="mt-0.5" />}
+                    onClick={() => { setOpen(false); onCopyLink(); }}>
+                    <span className="flex flex-col whitespace-normal">
+                        Copy link
+                        <span className="text-xs font-normal text-muted-foreground">{linkAvailable ? 'Opens this page at the thread' : 'The original source is unavailable'}</span>
+                    </span>
+                </Button>
+            </Stack>
+        </Popper>
+        {tooltip}
         {state.copied && <span aria-hidden="true"
             className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm animate-in fade-in-0 slide-in-from-top-2 duration-150 ease-out">
             Issue copied.

@@ -1,18 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
-import {
-    addToolbarScript,
-    animationsFinished,
-    commentBubble,
-    commentBubbles,
-    isolatedOrigin,
-    newVisitor,
-    openLanding,
-    openThread,
-    showcaseHint,
-    toolbar
-} from './support/toolbar';
+import { addToolbarScript, animationsFinished, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, showcaseHint, toolbar, copyFromThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // The landing page runs the uier toolbar in showcase mode: anonymous visitors leave public feedback.
@@ -150,7 +139,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await expect(visitorThread.getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(0);
     // Anyone can copy a link to it
-    await expect(visitorThread.getByRole('button', { name: 'Copy link' })).toBeVisible();
+    await expect(visitorThread.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
 
     const reply = visitorThread.getByRole('textbox', { name: 'Reply' });
     await reply.fill('Agreed, +1');
@@ -493,7 +482,7 @@ test('a thread keeps its replies and status; Copy link opens it', async ({ brows
     await expect(page.getByRole('status').filter({ hasText: 'Reply posted' })).toBeAttached();
 
     // Copy link: the page with the comment's id
-    await thread.getByRole('button', { name: 'Copy link' }).click();
+    await copyFromThread(page, thread, 'Copy link');
     await expect(page.getByRole('status').filter({ hasText: 'Link copied' })).toBeAttached();
     const link = await page.evaluate(async () => await navigator.clipboard.readText());
     expect(link).toBe(`${origin}/?uier-comment=${created.body.id}`);
