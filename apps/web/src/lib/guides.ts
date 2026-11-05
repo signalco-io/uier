@@ -11,6 +11,12 @@ export const guides = {
         path: '/guides/nextjs',
         section: 'Guides'
     },
+    browserExtension: {
+        title: 'Set up the browser extension',
+        description: 'Install the uier extension in Chrome or Edge, sign in and review a project site that does not have the script.',
+        path: '/guides/browser-extension',
+        section: 'Guides'
+    },
     index: {
         title: 'Guides',
         description: 'Practical guides for installing uier and reviewing a live website with your team or client.',

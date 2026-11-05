@@ -143,7 +143,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="3 November 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="5 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
@@ -218,9 +218,9 @@ export default function CookiePolicyPage() {
                 on other sites last until they expire or you sign out in those toolbars.
             </p>
 
-            <h2>Browser extension development preview</h2>
+            <h2>Browser extension</h2>
             <p>
-                The unreleased desktop extension keeps its refresh credential and pending renewal
+                The desktop browser extension keeps its refresh credential and pending renewal
                 attempt in restricted extension local storage. This retains sign-in across browser
                 restarts, with a 30-day inactivity limit and a one-year maximum. Access credentials
                 last 15 minutes. Active-tab bindings, browser-verification proofs, text drafts and access

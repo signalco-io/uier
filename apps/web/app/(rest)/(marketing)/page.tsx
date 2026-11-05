@@ -162,6 +162,9 @@ export default function LandingPage() {
                                 <li key={platform} className="inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium">{platform}</li>
                             ))}
                         </ul>
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                            Cannot change the site? Signed-in reviewers can use the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink> in desktop Chrome or Edge.
+                        </p>
                         <Button variant="solid" href={KnownPages.App} className="mt-auto self-start">Create a project</Button>
                     </div>
                 </div>
