@@ -6,9 +6,10 @@ import { displayedVerification, readyForReview, verificationDescription } from '
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Textarea } from '@/src/components/ui/textarea';
-import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
+import { InviteButton } from '../users/InviteDialog';
 import { commentParticipantsAction, verificationCommentAction } from './actions';
 
 export function VerificationControl({ projectId, userId, comment }: { projectId: string; userId: string; comment: ProjectCommentView }) {
@@ -16,7 +17,8 @@ export function VerificationControl({ projectId, userId, comment }: { projectId:
     const v = displayedVerification(comment);
     const ready = readyForReview(comment);
     const [open, setOpen] = useState(false);
-    const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
+    // Who can check the fix, loaded when the form opens (undefined while loading)
+    const [people, setPeople] = useState<{ id: string; name: string }[]>();
     const [reviewer, setReviewer] = useState(p?.defaultReviewer ? 'author' : '');
     const [summary, setSummary] = useState('');
     const [fixUrl, setFixUrl] = useState('');
@@ -49,7 +51,9 @@ export function VerificationControl({ projectId, userId, comment }: { projectId:
         } catch { setError('Could not save verification. Your details are kept. Try again.'); }
     });
     const options = [...(p?.defaultReviewer ? [{ value: 'author', label: 'Original author' }] : []),
-        ...people.filter(person => person.id !== userId).map(person => ({ value: person.id, label: person.name }))];
+        ...(people ?? []).filter(person => person.id !== userId).map(person => ({ value: person.id, label: person.name }))];
+    // Nobody but you can check it: say so instead of an empty list
+    const noReviewers = people !== undefined && !options.length;
     return <section aria-label="Fix verification" className="flex flex-col gap-2">
         {v && <div className="flex flex-col gap-1 text-sm">
             <p className="m-0 whitespace-pre-wrap break-words">{verificationDescription(v)}</p>
@@ -61,8 +65,9 @@ export function VerificationControl({ projectId, userId, comment }: { projectId:
                 onClick={async () => {
                     setOpen(!open);
                     if (!open) {
+                        setPeople(undefined);
                         const result = await commentParticipantsAction(projectId, comment.id);
-                        if (result?.ok) setPeople(result.data); else setError(result?.error ?? 'Could not load reviewers.');
+                        if (result?.ok) setPeople(result.data); else { setPeople([]); setError(result?.error ?? 'Could not load reviewers.'); }
                     }
                 }}>{v?.outcome === 'pending' ? 'Request a new check' : 'Request verification'}</Button>}
             {ready && p?.respond && <>
@@ -79,13 +84,26 @@ export function VerificationControl({ projectId, userId, comment }: { projectId:
             <FieldGroup>
                 <Field><FieldLabel htmlFor={`${id}-summary`}>Fix summary</FieldLabel><Textarea ref={first} id={`${id}-summary`} maxLength={500} value={summary} onChange={e => setSummary(e.target.value)} disabled={pending} /></Field>
                 <Field><FieldLabel htmlFor={`${id}-link`}>Fix link (optional)</FieldLabel><Input className="pointer-coarse:min-h-11" id={`${id}-link`} type="url" maxLength={2048} value={fixUrl} onChange={e => setFixUrl(e.target.value)} disabled={pending} /></Field>
-                <Field><FieldLabel htmlFor={`${id}-reviewer`}>Reviewer</FieldLabel>
-                    <Select items={options} value={reviewer} onValueChange={value => setReviewer(value ?? '')} disabled={pending}>
-                        <SelectTrigger className="pointer-coarse:min-h-11" id={`${id}-reviewer`}><SelectValue placeholder="Choose a reviewer" /></SelectTrigger>
-                        <SelectContent><SelectGroup>{options.map(option => <SelectItem className="pointer-coarse:min-h-11" key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent>
-                    </Select>
-                </Field>
-                <div className="flex gap-2"><Button type="submit" disabled={pending || !reviewer} className="pointer-coarse:min-h-11">Request check</Button>
+                {noReviewers ? (
+                    <Field>
+                        <FieldTitle>Reviewer</FieldTitle>
+                        <FieldDescription id={`${id}-reviewer-help`}>
+                            Nobody else can check this fix yet. The reviewer needs access to this project, and it can&apos;t be you.
+                        </FieldDescription>
+                        <InviteButton projectId={projectId} variant="outline" className="self-start pointer-coarse:min-h-11" />
+                    </Field>
+                ) : (
+                    <Field><FieldLabel htmlFor={`${id}-reviewer`}>Reviewer</FieldLabel>
+                        <Select items={options} value={reviewer} onValueChange={value => setReviewer(value ?? '')} disabled={pending || people === undefined}>
+                            <SelectTrigger className="pointer-coarse:min-h-11" id={`${id}-reviewer`} aria-describedby={`${id}-reviewer-help`}>
+                                <SelectValue placeholder={people === undefined ? 'Loading reviewers…' : 'Choose a reviewer'} />
+                            </SelectTrigger>
+                            <SelectContent><SelectGroup>{options.map(option => <SelectItem className="pointer-coarse:min-h-11" key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent>
+                        </Select>
+                        <FieldDescription id={`${id}-reviewer-help`}>The reviewer confirms the fix or says it still needs work.{!reviewer && ' Choose one to send the request.'}</FieldDescription>
+                    </Field>
+                )}
+                <div className="flex gap-2"><Button type="submit" disabled={pending || !reviewer} aria-describedby={reviewer ? undefined : `${id}-reviewer-help`} className="pointer-coarse:min-h-11">Request check</Button>
                     <Button variant="ghost" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => { setOpen(false); trigger.current?.focus(); }}>Close</Button></div>
             </FieldGroup>
         </form>}

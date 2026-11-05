@@ -18,8 +18,11 @@ const maxLength = 1000;
 type Participant = { id: string; name: string };
 
 /** Mounted only for the card whose Reply action was opened. */
-export function ReplyComposer({ projectId, userId, comment, onClose }: {
-    projectId: string; userId: string; comment: ProjectCommentView; onClose: () => void;
+export function ReplyComposer({ projectId, userId, userName, comment, onClose }: {
+    projectId: string; userId: string;
+    /** The signed-in user's name, for the pending reply's avatar (the reply itself reads "You") */
+    userName?: string;
+    comment: ProjectCommentView; onClose: () => void;
 }) {
     const drafts = useMemo(() => createDraftStore([typeof location === 'undefined' ? '' : location.origin, 'app', projectId, userId, comment.id]), [projectId, userId, comment.id]);
     const key = 'reply';
@@ -100,7 +103,7 @@ export function ReplyComposer({ projectId, userId, comment, onClose }: {
             let saved = false;
             try {
                 await drafts.run(key, async () => {
-                    update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: 'You', isMe: true }, text: input.text,
+                    update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: userName ?? 'You', isMe: true }, text: input.text,
                         createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true }, previousReplyIds: comment.replies.map(item => item.id) });
                     const result = await replyCommentAction({ ...input, idempotencyKey });
                     if (!result?.ok) throw new Error(result?.error ?? 'Could not post the reply. Try again.');

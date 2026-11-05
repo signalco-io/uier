@@ -31,6 +31,9 @@ export function CommentVerification({ comment }: { comment: CommentItem }) {
         if (restoreFocus && !verification.isPending) { trigger.current?.focus(); setRestoreFocus(false); }
     }, [restoreFocus, verification.isPending]);
     if (!p?.request && !p?.respond && !p?.override && !p?.cancel && !v) return null;
+    const reviewers = people.data?.filter(person => person.id !== p?.selfId) ?? [];
+    // Nobody but you can check it: say so instead of an empty choice
+    const noReviewers = !p?.defaultReviewer && !people.isLoading && !people.error && !reviewers.length;
     async function send(action: 'request' | 'confirm' | 'reject' | 'cancel', override = false) {
         const surface = section.current?.getRootNode() as Document | ShadowRoot | undefined;
         const fallback = surface?.querySelector<HTMLButtonElement>('[aria-label="Show comments"] button[aria-pressed="true"]')
@@ -60,12 +63,17 @@ export function CommentVerification({ comment }: { comment: CommentItem }) {
         {open && <form ref={form} aria-label="Request verification" className="flex flex-col gap-2" onSubmit={event => { event.preventDefault(); void send('request'); }}>
             <Input id={`${id}-summary`} label="Fix summary" maxLength={500} value={summary} onChange={event => setSummary(event.target.value)} disabled={verification.isPending} />
             <Input id={`${id}-link`} type="url" label="Fix link (optional)" maxLength={2048} value={fixUrl} onChange={event => setFixUrl(event.target.value)} disabled={verification.isPending} />
-            <div role="group" aria-label="Reviewer" className="flex flex-wrap gap-1">
-                {p?.defaultReviewer && <Button size="sm" variant="outlined" aria-pressed={reviewer === 'author'} onClick={() => setReviewer('author')}>Original author</Button>}
-                {people.data?.filter(person => person.id !== p?.selfId).map(person => <Button key={person.id} size="sm" variant="outlined" aria-pressed={reviewer === person.id} onClick={() => setReviewer(person.id)}>{person.name}</Button>)}
-            </div>
+            {noReviewers ? (
+                <p id={`${id}-reviewer-help`} className="m-0 text-muted-foreground">Nobody else can check this fix yet. The reviewer needs access to this project, and it can&apos;t be you.</p>
+            ) : <>
+                <div role="group" aria-label="Reviewer" className="flex flex-wrap gap-1">
+                    {p?.defaultReviewer && <Button size="sm" variant="outlined" aria-pressed={reviewer === 'author'} onClick={() => setReviewer('author')}>Original author</Button>}
+                    {reviewers.map(person => <Button key={person.id} size="sm" variant="outlined" aria-pressed={reviewer === person.id} onClick={() => setReviewer(person.id)}>{person.name}</Button>)}
+                </div>
+                {!reviewer && <p id={`${id}-reviewer-help`} className="m-0 text-muted-foreground">{people.isLoading && !p?.defaultReviewer ? 'Loading reviewers…' : 'Choose a reviewer to send the request.'}</p>}
+            </>}
             <CommentsErrorMessage error={people.error} />
-            <div className="flex gap-1"><Button size="sm" type="submit" disabled={verification.isPending || !reviewer}>Request check</Button>
+            <div className="flex gap-1"><Button size="sm" type="submit" disabled={verification.isPending || !reviewer} aria-describedby={reviewer ? undefined : `${id}-reviewer-help`}>Request check</Button>
                 <Button size="sm" variant="plain" disabled={verification.isPending} onClick={() => { setOpen(false); trigger.current?.focus(); }}>Close</Button></div>
         </form>}
         {verification.isPending && <p role="status" className="m-0">Saving verification…</p>}

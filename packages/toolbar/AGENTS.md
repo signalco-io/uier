@@ -181,7 +181,10 @@ text. Drafts are local to each browser origin and expire after seven days.
   script tag, the React component, the notices and their Exit review) is in
   `apps/web/e2e/project-review.spec.ts`; pins and highlights after a reload, a scroll and a resize
   are in `apps/web/e2e/anchors.spec.ts`; composer keyboard hints, the saved-draft cue and Resume draft are in
-  `apps/web/e2e/composer-hints.spec.ts` (desktop and mobile); native modal dialogs (the reviewed site's
+  `apps/web/e2e/composer-hints.spec.ts` (desktop and mobile); Add comment after or over an open thread
+starting its own pin (never a reply) is in `apps/web/e2e/new-comment-after-thread.spec.ts`, and a member's
+toolbar comment matching the app (pin number, avatar, follow state, no-reviewer request form) in
+`apps/web/e2e/toolbar-app-parity.spec.ts`; native modal dialogs (the reviewed site's
   `?host-dialog`) are in `apps/web/e2e/modal-dialog.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.
 
