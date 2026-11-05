@@ -107,7 +107,9 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
             row?.focus({ preventScroll: true });
             row?.scrollIntoView({ block: 'center' });
         }
-    });
+        // Only when the open thread changes; the width is read then
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [openId]);
 
     return (
         <div className="grid grid-cols-1 items-start gap-4 @4xl/comments:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] @6xl/comments:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">

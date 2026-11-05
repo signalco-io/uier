@@ -100,6 +100,15 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
+    // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
+    // closed, so it cannot reopen later when the scope changes back
+    const openId = openComment.openId;
+    useEffect(() => {
+        if (!openId || comments.some(comment => comment.id === openId)) return;
+        const url = new URL(window.location.href);
+        url.searchParams.delete('comment');
+        window.history.replaceState(null, '', url);
+    }, [openId, comments]);
     const installText = query.environment === 'all'
         ? 'Set up reviews and open a review link to leave the first comment.'
         : 'This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.';

@@ -2,7 +2,7 @@
 
 import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
 import { useRef, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { KanbanIcon, ListFilterIcon, ListIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { Badge } from '@/src/components/ui/badge';
@@ -60,10 +60,10 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
     const [filtersOpen, setFiltersOpen] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
-    const searchParams = useSearchParams();
 
     const go = (changes: Record<string, string | undefined>) => {
-        const params = new URLSearchParams(searchParams.toString());
+        // The address as it is now: the open thread and history moves change it outside React too
+        const params = new URLSearchParams(window.location.search);
         if (search) params.set('q', search); else params.delete('q');
         for (const [name, value] of Object.entries(changes)) {
             if (value === undefined) params.delete(name);

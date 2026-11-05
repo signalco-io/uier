@@ -889,6 +889,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
     await backToComments(page);
     await expect(row('Replied by target')).toHaveCount(0); // No remaining participation by that author.
     await page.getByRole('button', { name: /^Clear author filter:/ }).click();
+    await backToComments(page);
     await expect(row('Replied by target')).toBeVisible();
     await expect((await open('Replied by target')).getByText(`Target reply ${key}`)).toHaveCount(0);
     await backToComments(page);
@@ -1002,6 +1003,7 @@ test('reply from list and board with mentions, keyboard input and local drafts',
             // Flush the new theme so its colour transitions have started before waiting for them
             await page.evaluate(() => getComputedStyle(document.body).color);
             await animationsFinished(page.locator('body'));
+            await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
             await expectNoAxeViolations(page);
             await page.screenshot({ path: testInfo.outputPath(`app-reply-${colorScheme}.png`) });
         }
