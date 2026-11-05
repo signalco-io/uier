@@ -4,6 +4,7 @@ Connect a coding tool to the feedback you choose. The endpoint is `https://uier.
 local or preview origin while testing). It uses the
 [official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server)
 with stateless JSON responses. For the shared feedback packet, see [Feedback context](feedback-context.md).
+The public overview of what an agent can do is [uier.io/features/ai](https://uier.io/features/ai).
 
 A coding tool connects in one of two ways:
 

@@ -9,6 +9,7 @@ import { CheckList, InlineLink, SectionHeading } from '../../../src/components/m
 import { HowItWorks } from '../../../src/components/marketing/HowItWorks';
 import { LandingPricing } from '../../../src/components/marketing/LandingPricing';
 import { LandingFaq } from '../../../src/components/marketing/LandingFaq';
+import { AgentSpecimen } from '../../../src/components/marketing/AiSpecimens';
 import {
     ContextSpecimen,
     EnvironmentsSpecimen,
@@ -28,7 +29,7 @@ export const metadata = {
 // headline, the review layer is shown on the page itself instead of a screenshot. Every claim
 // describes what the toolbar and the app do today; check packages/toolbar and src/lib before adding one.
 
-const features: { title: string; text: string; visual: ReactNode; wide?: boolean }[] = [
+const features: { title: string; text: ReactNode; visual: ReactNode; wide?: boolean }[] = [
     {
         title: 'Pinned to the element, or to the words',
         text: 'Click anything to pin a comment to it, or select a sentence and comment on just that. Pins follow the element when the page scrolls, resizes or reloads.',
@@ -52,8 +53,14 @@ const features: { title: string; text: string; visual: ReactNode; wide?: boolean
         wide: true
     },
     {
-        title: 'Hand it to a developer, or an agent',
-        text: 'Copy a thread as a Markdown issue with the page, the anchor and the browser details. AI agents read feedback through the MCP connector, with the access you give them.',
+        title: 'Let your coding agent fix it',
+        text: <>Connect Claude Code, Codex or Cursor through the MCP connector. Your agent reads each thread with its page, anchor and screenshot, and replies or marks it done when you approve. More on <InlineLink href={KnownPages.Ai}>AI in {brand.name}</InlineLink>.</>,
+        visual: <AgentSpecimen />,
+        wide: true
+    },
+    {
+        title: 'Hand it to a developer',
+        text: 'Copy a thread as a Markdown issue with the page, the anchor and the browser details, ready for your issue tracker.',
         visual: <HandoffSpecimen />
     },
     {
@@ -65,7 +72,7 @@ const features: { title: string; text: string; visual: ReactNode; wide?: boolean
 
 const details: ReactNode[] = [
     <>Search, priority and <InlineLink href={KnownPages.FeedbackTriage}>bulk triage</InlineLink> in the app</>,
-    'Rewrite suggestions for selected text',
+    <><InlineLink href={`${KnownPages.Ai}#rewrite-suggestions`}>AI rewrite suggestions</InlineLink> for selected text</>,
     'Feedback and bug reports without a pin',
     'Replace a screenshot or cover private details',
     'Drafts kept in your browser for seven days',
@@ -124,9 +131,9 @@ export default function LandingPage() {
                             </div>
                         </div>
                     ))}
-                    <div className="flex flex-col gap-5 rounded-2xl border p-6 md:col-span-2 lg:col-span-1">
+                    <div className="flex flex-col gap-5 rounded-2xl border p-6 md:col-span-2">
                         <h3 className="text-base font-semibold">And the details</h3>
-                        <CheckList items={details} />
+                        <CheckList items={details} columns={2} />
                     </div>
                 </div>
             </section>

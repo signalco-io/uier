@@ -15,7 +15,7 @@ was left from, with a screenshot when capture succeeds.
 | Review with other people | Workspaces, projects, teams, invitations and optional guest review links |
 | Follow the work | Replies, assignees, unread activity and a list or board for feedback |
 | Check a fix | Ready for review and verification by an eligible reviewer |
-| Bring context to a coding tool | Copy issue and an authenticated [MCP connection](docs/mcp.md) |
+| Bring context to a coding tool | Copy issue and an authenticated [MCP connection](docs/mcp.md) ([overview](https://uier.io/features/ai)) |
 
 ## Pricing
 

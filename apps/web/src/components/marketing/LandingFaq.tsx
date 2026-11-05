@@ -29,7 +29,7 @@ const questions: Question[] = [
     },
     {
         question: 'Can developers and AI agents use the feedback?',
-        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the priority, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector. Claude Code signs in through your browser; other tools use an access token from your account settings. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time.</>
+        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the priority, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector. Claude Code signs in through your browser; other tools use an access token from your account settings. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time. <InlineLink href={KnownPages.Ai}>AI features</InlineLink> explains the setup and what an agent can do.</>
     },
     {
         question: 'Can the reviewer confirm that a fix works?',

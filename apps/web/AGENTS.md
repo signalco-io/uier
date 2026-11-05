@@ -10,7 +10,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `feedback-triage`, `fix-verification`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
@@ -189,7 +189,7 @@ public page to its `publicPaths` (and to `e2e/seo.api.spec.ts`).
 ## Feature pages
 
 `/features/<feature>` pages describe one shipped workflow each, with the shared marketing building
-blocks, a static specimen built from the tokens (`TriageSpecimen`, `FixVerificationSpecimen`),
+blocks, a static specimen built from the tokens (`TriageSpecimen`, `FixVerificationSpecimen`, `AiSpecimens`),
 `publicPageMetadata` with their own path and a page card with the section Features
 ([social cards](#social-cards-and-link-previews)). Page-level questions use `FaqPanel` from `LandingFaq`.
 There is no `/features` index; any other slug is a real 404. Publish a feature page only once the
@@ -209,6 +209,16 @@ without reviewer confirmation" (`@uier/toolbar/verification` labels). It links t
 links to the triage page for the latter), a connected service's closure and MCP status; change it
 with the verification controls and `src/lib/review/fixVerification.ts`.
 `e2e/fix-verification-page.spec.ts` covers its copy, links, responsive layout and accessibility.
+
+`/features/ai` covers the MCP connector for coding tools and rewrite suggestions. It offers only the
+clients Account offers (`mcp/clients.ts`: Claude Code with browser sign-in, Codex and Cursor with an
+access token), the operation labels of `components/app/mcp/scopes.ts`, the prompts of
+`mcp/workflows.ts` and what the connector cannot do; change it with them and with
+[docs/mcp.md](../../docs/mcp.md). Approval of each write happens in the coding tool, never in uier, and
+MCP never confirms a fix. Its rewrite section follows the toolbar's labels and the privacy policy's
+"Rewrite suggestions". The landing links it from the "Let your coding agent fix it" tile (`AgentSpecimen`),
+the rewrite line of the details and the coding-agent question. `e2e/ai-page.spec.ts` covers its copy,
+links and accessibility; `e2e/feature-pages.api.spec.ts` its metadata and social card.
 
 ## Footer
 
