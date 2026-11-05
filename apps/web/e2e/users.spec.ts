@@ -144,7 +144,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.goto('/app/projects');
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
     // Their workspace area has the clients of their projects only: no users, teams or settings
-    const commenterWorkspace = commenter.page.getByRole('navigation', { name: 'App' }).getByRole('link', { name: 'Workspace', exact: true });
+    const commenterWorkspace = (await appNavigation(commenter.page)).getByRole('link', { name: 'Workspace', exact: true });
     await expect(commenterWorkspace).toHaveAttribute('href', '/app/workspace/clients');
     await commenter.page.goto('/app/workspace');
     await expect(commenter.page).toHaveURL(/\/app\/workspace\/clients$/);
