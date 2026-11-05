@@ -100,13 +100,36 @@ export async function fillClientName(field: Locator, value: string) {
 
 export type ProjectAccessLabel = 'Invited people' | 'Anyone with the link' | 'Comments off';
 
-/** Sets who can comment on a project, from its settings */
+/**
+ * Waits until React has hydrated the element, so it responds. Settings forms need it before the first
+ * change: their Save stays off until React sees one.
+ */
+export async function hydrated(locator: Locator) {
+    await expect.poll(() => locator.evaluate(element => Object.keys(element).some(key => key.startsWith('__reactProps$')))).toBe(true);
+}
+
+/** Sets who can comment on a project, from its Review settings (Save is off while nothing changed) */
 export async function setProjectAccess(page: Page, projectId: string, label: ProjectAccessLabel) {
     await page.goto(`/app/projects/${projectId}/settings/review`);
-    const access = page.getByRole('region', { name: 'Who can comment' });
-    await access.getByRole('radio', { name: label }).click();
-    await access.getByRole('button', { name: 'Save' }).click();
-    await expect(access.getByRole('status')).toContainText('Saved.');
+    const review = page.getByRole('region', { name: 'Review', exact: true });
+    const option = review.getByRole('radio', { name: label });
+    if (await option.isChecked())
+        return;
+    await hydrated(review.locator('form'));
+    await option.click();
+    await review.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(review.getByRole('status')).toContainText('Saved.');
+}
+
+/** The Review settings with Advanced open, where the page state is */
+export async function pageStateSettings(page: Page) {
+    const review = page.getByRole('region', { name: 'Review', exact: true });
+    const field = review.getByLabel('Meaningful query fields');
+    await hydrated(review.locator('form'));
+    if (!await field.isVisible())
+        await review.getByRole('button', { name: 'Advanced', exact: true }).click();
+    await expect(field).toBeVisible();
+    return review;
 }
 
 /** Opens the invite dialog from the project header: Invite is in the popover of who can comment */

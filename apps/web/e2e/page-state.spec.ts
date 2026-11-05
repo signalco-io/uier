@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, pageStateSettings, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { chooseInboxPages, commentBubbles, openThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
@@ -28,7 +28,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     } });
     expect(old.status()).toBe(201);
     await page.goto(`/app/projects/${projectId}/settings/review`);
-    const settings = page.getByRole('region', { name: 'Page state' });
+    const settings = await pageStateSettings(page);
     await settings.getByLabel('Meaningful query fields').fill('category, tab');
     await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
@@ -168,7 +168,7 @@ test('page-state settings reject sensitive fields and keep the attempted configu
     await signIn(page, uniqueEmail('state-settings'));
     const projectId = await createProject(page, { urls: [site.origin()] });
     await page.goto(`/app/projects/${projectId}/settings/review`);
-    const settings = page.getByRole('region', { name: 'Page state' });
+    const settings = await pageStateSettings(page);
     await settings.getByLabel('Meaningful query fields').fill('category, session_token');
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('alert')).toContainText('credential');
@@ -188,7 +188,7 @@ test('settings suggest query fields seen in recent comments', async ({ page }) =
     expect(response.request().postDataJSON().queryKeys).toEqual(['sort']);
     expect(JSON.stringify(await response.json())).not.toContain('queryKeys');
     await page.goto(`/app/projects/${projectId}/settings/review`);
-    const settings = page.getByRole('region', { name: 'Page state' });
+    const settings = await pageStateSettings(page);
     const suggestions = settings.getByRole('group', { name: 'Query fields seen in recent comments' });
     await expect(suggestions.getByRole('button')).toHaveText(['sort']);
     await suggestions.getByRole('button', { name: 'sort' }).click();

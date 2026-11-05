@@ -72,7 +72,7 @@ export const onboardingSteps = ['script', 'check', 'invite'] as const;
 export type OnboardingStep = typeof onboardingSteps[number];
 
 /** The sections of the account, each its own page under it (General is the account page itself) */
-export type AccountSection = 'sign-in' | 'coding-agents';
+export type AccountSection = 'sign-in' | 'notifications' | 'coding-agents';
 
 /** Pages with a parameter */
 export const KnownPageLinks = {

@@ -9,18 +9,34 @@ export const metadata: Metadata = {
     title: 'Account'
 };
 
+const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
+
 /** General: the name, the theme and the person's access in the selected workspace */
 export default async function AccountPage() {
     const context = await requireAppContext();
     const [projects, access] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
+    const teams = access.teams.filter(team => context.member.teamIds?.includes(team.id)).map(team => team.name);
+    // Only what is set: no relationship or teams leave their rows out
+    const rows = [
+        { label: 'Role', value: context.member.role === 'admin' ? 'Workspace admin' : 'Commenter' },
+        { label: 'Relationship', value: context.member.relationship ? relationshipLabels[context.member.relationship] : undefined },
+        { label: 'Teams', value: teams.join(', ') || undefined },
+        { label: 'Projects', value: projects.map(project => project.name).join(', ') || 'None yet' }
+    ].filter((row): row is { label: string; value: string } => Boolean(row.value));
+
     return (
         <>
             <AccountForm name={context.user.name} />
             <AppearanceSection />
-            <Section id="my-access" title="Your workspace access" description="Your teams and projects in the selected workspace.">
-                <p className="m-0 text-sm">{context.member.role === 'admin' ? 'Workspace admin' : 'Commenter'} · {context.member.relationship ?? 'Unspecified'}</p>
-                <p className="m-0 text-sm">Teams: {access.teams.filter(team => context.member.teamIds?.includes(team.id)).map(team => team.name).join(', ') || 'None'}</p>
-                <p className="m-0 text-sm">Projects: {projects.map(project => project.name).join(', ') || 'None'}</p>
+            <Section id="my-access" title="Your workspace access" description={`Your role, teams and projects in ${context.workspace.name}.`}>
+                <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
+                    {rows.map(row => (
+                        <div key={row.label} className="contents">
+                            <dt className="text-muted-foreground">{row.label}</dt>
+                            <dd className="m-0 break-words">{row.value}</dd>
+                        </div>
+                    ))}
+                </dl>
             </Section>
         </>
     );

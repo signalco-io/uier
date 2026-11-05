@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { appNavigation, closeAppNavigation, createProject, fillClientName, signIn, uniqueEmail } from './support/app';
+import { appNavigation, closeAppNavigation, createProject, fillClientName, hydrated, signIn, uniqueEmail } from './support/app';
 import { animationsFinished, newVisitor } from './support/toolbar';
 
 test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
@@ -141,7 +141,7 @@ test('admins rename a client and set its description, icon and colour; every pro
     await expect(page.getByRole('combobox', { name: 'Client', exact: true })).toContainText('Acme Studio');
     await page.goto(`/app/projects/${first}/settings`);
     await expect(page.getByText('Client: Acme Studio', { exact: true })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Client', exact: true }).getByLabel('Client name (optional)')).toHaveValue('Acme Studio');
+    await expect(page.getByRole('region', { name: 'General', exact: true }).getByLabel('Client name (optional)')).toHaveValue('Acme Studio');
     await expectNoAxeViolations(page);
 });
 
@@ -166,22 +166,25 @@ test('client names validate, normalize, persist in details and can be cleared', 
     await expect(page.getByText('Client: North & South', { exact: true })).toBeVisible();
 
     await page.goto(`/app/projects/${projectId}/settings`);
-    const client = page.getByRole('region', { name: 'Client', exact: true });
+    const client = page.getByRole('region', { name: 'General', exact: true });
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('North & South');
     await client.getByLabel('Client name (optional)').evaluate(element => element.removeAttribute('maxlength'));
+    await hydrated(client.locator('form'));
     await fillClientName(client.getByLabel('Client name (optional)'), 'x'.repeat(81));
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('alert')).toHaveText('Use at most 80 characters for the client name.');
     await page.reload();
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('North & South');
+    await hydrated(client.locator('form'));
     await fillClientName(client.getByLabel('Client name (optional)'), 'A'.repeat(80));
     await client.getByRole('button', { name: 'Save' }).click();
-    await expect(client.getByRole('status')).toHaveText('The client name is saved.');
+    await expect(client.getByRole('status')).toHaveText('Saved.');
     await page.reload();
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('A'.repeat(80));
+    await hydrated(client.locator('form'));
     await fillClientName(client.getByLabel('Client name (optional)'), '  New   client  ');
     await client.getByRole('button', { name: 'Save' }).click();
-    await expect(client.getByRole('status')).toHaveText('The client name is saved.');
+    await expect(client.getByRole('status')).toHaveText('Saved.');
     await page.reload();
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('New client');
     await expect(page.getByText('Client: New client', { exact: true })).toBeVisible();
@@ -193,9 +196,10 @@ test('client names validate, normalize, persist in details and can be cleared', 
     await expectNoAxeViolations(page);
     await client.screenshot({ path: testInfo.outputPath('client-settings-dark.png') });
 
+    await hydrated(client.locator('form'));
     await fillClientName(client.getByLabel('Client name (optional)'), '   ');
     await client.getByRole('button', { name: 'Save' }).click();
-    await expect(client.getByRole('status')).toHaveText('The client name is saved.');
+    await expect(client.getByRole('status')).toHaveText('Saved.');
     await page.reload();
     await expect(client.getByLabel('Client name (optional)')).toHaveValue('');
     await expect(page.getByText(/^Client: /)).toHaveCount(0);
@@ -278,9 +282,10 @@ test('client names and updates stay in the current workspace and out of guest DT
     await other.page.keyboard.press('Escape');
     expect((await other.page.request.get(`/app/projects/${projectId}`)).status()).toBe(404);
     await other.page.goto(`/app/projects/${otherId}/settings`);
-    const client = other.page.getByRole('region', { name: 'Client', exact: true });
+    const client = other.page.getByRole('region', { name: 'General', exact: true });
     // An admin of a different workspace cannot use a known project id to update it.
     await client.locator('input[name="projectId"]').evaluate((element, id) => { (element as HTMLInputElement).value = id; }, projectId);
+    await hydrated(client.locator('form'));
     await fillClientName(client.getByLabel('Client name (optional)'), 'Unauthorized change');
     await client.getByRole('button', { name: 'Save' }).click();
     await expect(client.getByRole('alert')).toHaveText('This project no longer exists.');

@@ -29,20 +29,24 @@ export function PageHeader({ title, description, actions, children, className }:
 
 /**
  * A titled card of a page (settings, account): a region named by its heading (BRAND.md "h3" at
- * 16 px for cards). `footer` sits under a divider, for a form's message and its button.
+ * 16 px for cards). `footer` sits under a divider, for a form's message and its button; with
+ * `stickyFooter` it stays at the bottom of the window while the card is longer than the window, so a
+ * long form's Save is always in reach.
  */
-export function Section({ title, description, children, actions, footer, id, className }: {
+export function Section({ title, description, children, actions, footer, stickyFooter = false, id, className }: {
     title: ReactNode;
     description?: ReactNode;
     actions?: ReactNode;
     children?: ReactNode;
     footer?: ReactNode;
+    stickyFooter?: boolean;
     id?: string;
     className?: string;
 }) {
     const headingId = id ? `${id}-title` : undefined;
     return (
-        <Card id={id} role="region" aria-labelledby={headingId} className={cn('scroll-mt-6', className)}>
+        // A sticky footer needs a card that does not clip (a clipping card would be its scroll container)
+        <Card id={id} role="region" aria-labelledby={headingId} className={cn('scroll-mt-6', stickyFooter && 'overflow-visible', className)}>
             <CardHeader>
                 <CardTitle>
                     <h2 id={headingId} className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{title}</h2>
@@ -51,7 +55,13 @@ export function Section({ title, description, children, actions, footer, id, cla
                 {actions && <CardAction>{actions}</CardAction>}
             </CardHeader>
             {children && <CardContent>{children}</CardContent>}
-            {footer && <CardFooter className="justify-end gap-3 border-t">{footer}</CardFooter>}
+            {footer && (
+                <CardFooter className={cn('justify-end gap-3 border-t',
+                    // The footer's band made opaque, so the form does not show through it while it sticks
+                    stickyFooter && 'sticky bottom-0 z-10 [.border-t]:bg-[color-mix(in_srgb,hsl(var(--muted))_60%,hsl(var(--card)))] dark:[.border-t]:bg-background')}>
+                    {footer}
+                </CardFooter>
+            )}
         </Card>
     );
 }

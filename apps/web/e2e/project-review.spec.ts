@@ -4,7 +4,7 @@ import type { Browser, Locator, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { hydrated, pageStateSettings, projectPublicId, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, showcaseHint, animationsFinished, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { pngImage } from './support/images';
 
@@ -147,7 +147,7 @@ test('invited people only: a review link signs members in, everyone else is aske
 test('invited sign-in shares only approved page state and loads Geist solely from the API origin', async ({ page, browser, baseURL }, testInfo) => {
     const projectId = await ownerWithProject(page);
     await page.goto(`/app/projects/${projectId}/settings/review`);
-    const settings = page.getByRole('region', { name: 'Page state' });
+    const settings = await pageStateSettings(page);
     await settings.getByLabel('Meaningful query fields').fill('plan');
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status')).toContainText('Saved.');
@@ -180,14 +180,16 @@ test('a schemeless localhost address opens an HTTP review and accepts feedback o
     const projectId = await createProject(page, { urls: [`localhost:${sitePort}`], name: 'Local development' });
     await page.goto(`/app/projects/${projectId}/settings/environments`);
     const addresses = page.getByRole('region', { name: 'Site addresses' });
-    await expect(addresses.getByLabel('Main site address')).toHaveValue(origin);
+    // Shown as typed: HTTP is the default scheme of a local address
+    await expect(addresses.getByLabel('Main site address')).toHaveValue(`localhost:${sitePort}`);
+    await hydrated(addresses.locator('form'));
 
     // Saving a local path keeps its HTTP scheme after a reload.
     await addresses.getByLabel('Main site address').fill(`localhost:${sitePort}/${projectId}/pricing/`);
     await addresses.getByRole('button', { name: 'Save' }).click();
-    await expect(addresses.getByRole('status')).toHaveText('The addresses are saved.');
+    await expect(addresses.getByRole('status')).toHaveText('Saved.');
     await page.reload();
-    await expect(addresses.getByLabel('Main site address')).toHaveValue(`${origin}/${projectId}/pricing`);
+    await expect(addresses.getByLabel('Main site address')).toHaveValue(`localhost:${sitePort}/${projectId}/pricing`);
 
     const apiPath = `/api/review/${projectId}`;
     const allowed = await page.request.get(apiPath, { headers: { Origin: origin } });
@@ -1027,10 +1029,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const first = await ownerWithProject(page);
         const brief = '<b>Review pricing</b>\n[Checkout](https://example.com)\nhttps://example.com';
         await page.goto(`/app/projects/${first}/settings/review`);
-        const settings = page.getByRole('region', { name: 'Review brief', exact: true });
-        await settings.getByLabel('Review instructions').fill(brief);
+        const settings = page.getByRole('region', { name: 'Review', exact: true });
+        await hydrated(settings.locator('form'));
+        await settings.getByLabel('Review brief').fill(brief);
         await settings.getByRole('button', { name: 'Save' }).click();
-        await expect(settings.getByRole('status')).toContainText('The review brief is saved.');
+        await expect(settings.getByRole('status')).toContainText('Saved.');
         const signedOutInfo = await request.get(`/api/review/${first}`, { headers: { Origin: siteOrigin() } });
         expect((await signedOutInfo.json()).project).not.toHaveProperty('brief');
 

@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState, useId, useRef, useState, useTransition, type FormEvent } from 'react';
+import { startTransition, useActionState, useId, useOptimistic, useRef, useState, useTransition, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { PlusIcon } from 'lucide-react';
+import { ChevronRightIcon, PlusIcon, XIcon } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -17,165 +18,316 @@ import {
 } from '@/src/components/ui/alert-dialog';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from '@/src/components/ui/field';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Input } from '@/src/components/ui/input';
 import { RadioGroup } from '@/src/components/ui/radio-group';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
+import { Switch } from '@/src/components/ui/switch';
 import { KnownPages } from '../../../knownPages';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { destructiveTextClassName, Section } from '../PageHeader';
-import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
+import { SaveFooter, useSettingsDraft } from '../SettingsSave';
+import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from '../../../lib/app/limits';
 import type { ProjectAccess, ProjectStatus } from '../../../lib/app/model';
+import type { ProjectEnvironment } from '../../../lib/app/environments';
 import { ClientNameInput } from './ClientNameInput';
-import { UrlListInput } from './UrlListInput';
-import { AccessIcon, projectAccessLabels } from './projectLabels';
-import { updateProjectBriefAction, setProjectStatusAction, updateProjectAccessAction, updateProjectClientNameAction, updateProjectNameAction, updateProjectUrlsAction } from './actions';
-import { deleteProjectAction, updateProjectEmailExcerptsAction, updateProjectEnvironmentsAction, updateProjectPageStateAction } from './actions';
-import { updateNotificationAction } from '../comments/notificationActions';
+import { AccessIcon, displayUrl, projectAccessLabels } from './projectLabels';
+import { hasSchemelessLocal, sameSiteAs, savedSiteRows, shareOptions, sharedWith, shareWith, siteRowsPayload, type SiteRow } from './siteRows';
+import {
+    deleteProjectAction,
+    setProjectEmailsMutedAction,
+    setProjectStatusAction,
+    updateProjectEmailExcerptsAction,
+    updateProjectGeneralAction,
+    updateProjectReviewAction,
+    updateProjectSitesAction
+} from './actions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
 
-/** The footer of a settings card: the outcome on the left, the submit button (of the form `formId`) on the right */
-function SaveFooter({ formId, state, pending }: { formId: string; state: Parameters<typeof FormMessage>[0]['state']; pending: boolean }) {
-    return (
-        <>
-            <FormMessage state={state} className="mr-auto" />
-            <Button type="submit" form={formId} disabled={pending}>
-                {pending && <Spinner data-icon="inline-start" />}
-                Save
-            </Button>
-        </>
-    );
-}
+/** React resets a form after its action; the fields here are controlled, so keep what they show */
+const keepValues = (event: FormEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+};
 
-export function ProjectNameForm({ projectId, name }: { projectId: string; name: string }) {
+/** General: the project's name and its client, one save */
+export function ProjectGeneralForm({ projectId, name, clientName, clients }: { projectId: string; name: string; clientName?: string; clients: string[] }) {
     const formId = useId();
-    const [state, formAction, pending] = useActionState(updateProjectNameAction, null);
-    const [value, setValue] = useState(name);
+    const [state, formAction, pending] = useActionState(updateProjectGeneralAction, null);
+    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '' }, state);
     return (
         <Section
             id="general"
             title="General"
-            description="The name shows in the app and in invitations."
-            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-            <form id={formId} action={formAction}>
+            footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
+            <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="projectId" value={projectId} />
-                <Field>
-                    <FieldLabel htmlFor={`${formId}-name`}>Project name</FieldLabel>
-                    <Input
-                        id={`${formId}-name`}
-                        name="name"
-                        value={value}
-                        onChange={(event) => setValue(event.target.value)}
-                        required
-                        maxLength={MAX_PROJECT_NAME_LENGTH}
-                        className="max-w-md" />
-                </Field>
+                <FieldGroup>
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-name`}>Project name</FieldLabel>
+                        <Input
+                            id={`${formId}-name`}
+                            name="name"
+                            value={draft.name}
+                            onChange={(event) => update(current => ({ ...current, name: event.target.value }))}
+                            required
+                            maxLength={MAX_PROJECT_NAME_LENGTH}
+                            className="max-w-md" />
+                        <FieldDescription>Shown in the app and in invitations.</FieldDescription>
+                    </Field>
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-client`}>Client name (optional)</FieldLabel>
+                        <ClientNameInput id={`${formId}-client`} value={draft.clientName}
+                            onValueChange={value => update(current => ({ ...current, clientName: value }))} clients={clients} className="max-w-md" />
+                        <FieldDescription>
+                            Who the project is for. Edit a client&apos;s name, icon and colour on <Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">Clients</Link>.
+                        </FieldDescription>
+                    </Field>
+                </FieldGroup>
             </form>
         </Section>
     );
 }
 
-/** The client name, suggesting the existing `clients` */
-export function ProjectClientNameForm({ projectId, clientName, clients }: { projectId: string; clientName?: string; clients: string[] }) {
+/** Review: who can comment, the brief and, under Advanced, the page state; one save */
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions }: {
+    projectId: string;
+    access: ProjectAccess;
+    brief?: string;
+    policy?: PageStatePolicy;
+    suggestions: QueryFieldSuggestion[];
+}) {
     const formId = useId();
-    const [state, formAction, pending] = useActionState(updateProjectClientNameAction, null);
-    const [value, setValue] = useState(clientName ?? '');
-    return (
-        <Section id="client" title="Client"
-            description={<>An optional name for the client this project is for. Leave it blank to remove it. Rename a client or change its icon and colour on the <Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">Clients page</Link>.</>}
-            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-            <form id={formId} action={formAction}>
-                <input type="hidden" name="projectId" value={projectId} />
-                <Field>
-                    <FieldLabel htmlFor={`${formId}-client`}>Client name (optional)</FieldLabel>
-                    <ClientNameInput id={`${formId}-client`} value={value} onValueChange={setValue} clients={clients} className="max-w-md" />
-                </Field>
-            </form>
-        </Section>
-    );
-}
+    const [state, formAction, pending] = useActionState(updateProjectReviewAction, null);
+    const saved = pageStatePolicy(policy);
+    const { draft, dirty, update, discard } = useSettingsDraft({
+        access,
+        brief: brief ?? '',
+        queryParameters: saved.queryParameters.join(', '),
+        hashRouting: saved.hashRouting
+    }, state);
+    const entered = draft.queryParameters.split(/[,\s]+/).filter(Boolean);
+    const available = suggestions.filter(suggestion => !entered.includes(suggestion.key));
+    // Open while the page state is set up, so what applies is in sight
+    const [advanced, setAdvanced] = useState(saved.queryParameters.length > 0 || saved.hashRouting);
 
-export function ProjectBriefForm({ projectId, brief, access }: { projectId: string; brief?: string; access: ProjectAccess }) {
-    const formId = useId();
-    const [state, action, pending] = useActionState(updateProjectBriefAction, null);
-    const [value, setValue] = useState(brief ?? '');
-    return <Section id="brief" title="Review brief" description="Tell reviewers what to review. Plain text only. Leave it blank to remove it."
-        footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-        <form id={formId} action={action}>
-            <input type="hidden" name="projectId" value={projectId} />
-            <Field>
-                <FieldLabel htmlFor={`${formId}-brief`}>Review instructions</FieldLabel>
-                <Textarea id={`${formId}-brief`} name="brief" value={value} onChange={event => setValue(event.target.value)} maxLength={MAX_PROJECT_BRIEF_LENGTH} rows={5} aria-describedby={`${formId}-readers`} />
-                <FieldDescription id={`${formId}-readers`}>
-                    {access === 'disabled' ? 'The brief is hidden from reviewers while comments are off.' : access === 'invited' ? 'Only invited people who can comment can read this brief.' : 'Anyone with the review link who can comment can read this brief.'} Up to {MAX_PROJECT_BRIEF_LENGTH} characters.
-                </FieldDescription>
-            </Field>
-        </form>
-    </Section>;
-}
-
-export function ProjectAccessForm({ projectId, access }: { projectId: string; access: ProjectAccess }) {
-    const formId = useId();
-    const [state, formAction, pending] = useActionState(updateProjectAccessAction, null);
-    const [value, setValue] = useState<ProjectAccess>(access);
     return (
         <Section
-            id="access"
-            title="Who can comment"
-            description="Who can see and leave comments with the toolbar on your site."
-            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-            <form id={formId} action={formAction}>
+            id="review"
+            title="Review"
+            stickyFooter
+            footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
+            <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="projectId" value={projectId} />
-                <input type="hidden" name="access" value={value} />
-                <RadioGroup value={value} onValueChange={(next) => setValue(next as ProjectAccess)} aria-label="Who can comment">
-                    {(['invited', 'guests', 'disabled'] as const).map(option => (
-                        <ChoiceCard
-                            key={option}
-                            id={`${formId}-${option}`}
-                            value={option}
-                            title={projectAccessLabels[option].label}
-                            description={projectAccessLabels[option].description}
-                            icon={<AccessIcon access={option} aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />} />
-                    ))}
-                </RadioGroup>
+                <input type="hidden" name="access" value={draft.access} />
+                <input type="hidden" name="queryParameters" value={draft.queryParameters} />
+                <input type="hidden" name="hashRouting" value={String(draft.hashRouting)} />
+                <FieldGroup>
+                    <FieldSet>
+                        <FieldLegend variant="label">Who can comment</FieldLegend>
+                        <FieldDescription>Who can see and leave comments with the toolbar on your site.</FieldDescription>
+                        <RadioGroup value={draft.access} onValueChange={(next) => update(current => ({ ...current, access: next as ProjectAccess }))} aria-label="Who can comment">
+                            {(['invited', 'guests', 'disabled'] as const).map(option => (
+                                <ChoiceCard
+                                    key={option}
+                                    id={`${formId}-${option}`}
+                                    value={option}
+                                    title={projectAccessLabels[option].label}
+                                    description={projectAccessLabels[option].description}
+                                    icon={<AccessIcon access={option} aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />} />
+                            ))}
+                        </RadioGroup>
+                    </FieldSet>
+                    <FieldSeparator />
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-brief`}>Review brief</FieldLabel>
+                        <Textarea id={`${formId}-brief`} name="brief" value={draft.brief} onChange={event => update(current => ({ ...current, brief: event.target.value }))}
+                            maxLength={MAX_PROJECT_BRIEF_LENGTH} rows={5} placeholder="What should reviewers look at?" aria-describedby={`${formId}-readers`} />
+                        <FieldDescription id={`${formId}-readers`}>
+                            {draft.access === 'disabled'
+                                ? 'Hidden while comments are off.'
+                                : draft.access === 'invited' ? 'Invited people read it in the toolbar.' : 'Anyone with the review link reads it in the toolbar.'}
+                            {' '}Plain text, up to {MAX_PROJECT_BRIEF_LENGTH} characters.
+                        </FieldDescription>
+                    </Field>
+                    <FieldSeparator />
+                    <Collapsible open={advanced} onOpenChange={setAdvanced} className="flex flex-col gap-4">
+                        <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
+                            <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/advanced:rotate-90" />
+                            Advanced
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                            <FieldSet>
+                                <FieldLegend variant="label">Page state</FieldLegend>
+                                <FieldDescription>Comments belong to the page path. Add the parts of the address that change what is on the page, so comments stay with that view.</FieldDescription>
+                                <FieldGroup>
+                                    <Field>
+                                        <FieldLabel htmlFor={`${formId}-query`}>Meaningful query fields</FieldLabel>
+                                        <Input id={`${formId}-query`} value={draft.queryParameters} onChange={event => update(current => ({ ...current, queryParameters: event.target.value }))}
+                                            placeholder="category, sort, tab" className="font-mono text-[13px] md:text-[13px]" />
+                                        <FieldDescription>Up to 12 names, separated by commas. Tracking, identity and credential fields are left out, and so are values that look like emails, URLs or tokens.</FieldDescription>
+                                        {available.length > 0 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Query fields seen in recent comments">
+                                            <span className="text-sm text-muted-foreground">Seen in recent comments:</span>
+                                            {available.map(suggestion => <Button key={suggestion.key} variant="outline" size="xs"
+                                                title={`On ${suggestion.comments} recent ${suggestion.comments === 1 ? 'comment' : 'comments'}`}
+                                                onClick={() => update(current => ({ ...current, queryParameters: [...entered, suggestion.key].join(', ') }))}>
+                                                <PlusIcon data-icon="inline-start" /><span className="font-mono">{suggestion.key}</span>
+                                            </Button>)}
+                                        </div>}
+                                    </Field>
+                                    <Field orientation="horizontal">
+                                        <Checkbox id={`${formId}-hash`} checked={draft.hashRouting} onCheckedChange={value => update(current => ({ ...current, hashRouting: value === true }))} />
+                                        <FieldLabel htmlFor={`${formId}-hash`}>Use hash routes (#/page or #!/page)</FieldLabel>
+                                    </Field>
+                                </FieldGroup>
+                            </FieldSet>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </FieldGroup>
             </form>
         </Section>
     );
 }
 
-export function ProjectUrlsForm({ projectId, urls }: { projectId: string; urls: string[] }) {
+/** The columns of the site addresses table: address, label, shared with, remove */
+const siteColumns = '@xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.25fr)_2.25rem]';
+
+/**
+ * Environments: the site addresses as one table. Each address has a label and the other addresses
+ * it shares feedback with; addresses on one origin are one site and share both. One save.
+ */
+export function ProjectSitesForm({ projectId, urls, environments }: { projectId: string; urls: string[]; environments: ProjectEnvironment[] }) {
     const formId = useId();
-    const [state, formAction, pending] = useActionState(updateProjectUrlsAction, null);
+    const [state, formAction, pending] = useActionState(updateProjectSitesAction, null);
+    const { draft: rows, dirty, update, discard } = useSettingsDraft(savedSiteRows(urls, environments), state);
+    const setRow = (index: number, change: Partial<SiteRow>) => update(current => current.map((row, i) => i === index ? { ...row, ...change } : row));
+    const name = (row: SiteRow, index: number) => row.url.trim() ? displayUrl(row.url.trim()) : `address ${index + 1}`;
+
+    const addRow = () => {
+        // The new row is rendered at once, so focus can move into its address field
+        flushSync(() => update(current => [...current, { url: '', label: '', group: null }]));
+        const fields = document.getElementById(formId)?.querySelectorAll<HTMLInputElement>('input[inputmode="url"]');
+        fields?.[fields.length - 1]?.focus();
+    };
+    const removeRow = (index: number) => update(current => shareWith(current, index, null).filter((_, i) => i !== index));
+
     return (
         <Section
             id="addresses"
             title="Site addresses"
-            description="The main site first, then staging or preview addresses. The toolbar works only on these."
-            footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-            <form id={formId} action={formAction}>
+            description="The toolbar works only on these addresses, the main site first. Each site keeps its own feedback unless it shares it."
+            stickyFooter
+            footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
+            <form id={formId} action={formAction} onResetCapture={keepValues} className="flex flex-col gap-4">
                 <input type="hidden" name="projectId" value={projectId} />
-                {/* Remounted with the saved (normalized) addresses */}
-                <UrlListInput key={urls.join(' ')} defaultUrls={urls} hideLegend />
+                <input type="hidden" name="sites" value={JSON.stringify(siteRowsPayload(rows, environments))} />
+                {/* A table where the card is wide enough, otherwise a card per address */}
+                <div className="@container flex flex-col gap-3">
+                    <div aria-hidden="true" className={`hidden gap-2 text-sm font-medium @xl:grid ${siteColumns}`}>
+                        <span>Address</span>
+                        <span>Label</span>
+                        <span>Shares feedback with</span>
+                    </div>
+                    {rows.map((row, index) => {
+                        const sameSite = sameSiteAs(rows, index);
+                        const options = shareOptions(rows, index);
+                        const shared = sharedWith(rows, index);
+                        // From the rows, not the Select's value: right after a row is removed that value can still be an old index
+                        const sharedLabel = shared[0] === undefined
+                            ? 'No other address'
+                            : `${displayUrl(rows[shared[0]]!.url.trim())}${shared.length > 1 ? ` and ${shared.length - 1} more` : ''}`;
+                        return (
+                            // Stacked on small screens, with the column names over the fields
+                            <div key={index} className={`grid grid-cols-[minmax(0,1fr)_2.25rem] gap-x-2 gap-y-3 rounded-lg border p-3 @xl:items-center @xl:gap-y-0 @xl:rounded-none @xl:border-0 @xl:p-0 ${siteColumns}`}>
+                                <div className="flex min-w-0 flex-col gap-1.5">
+                                    <label htmlFor={`${formId}-url-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">Address</label>
+                                    <Input
+                                        id={`${formId}-url-${index}`}
+                                        aria-label={index === 0 ? 'Main site address' : `Address ${index + 1}`}
+                                        value={row.url}
+                                        onChange={event => setRow(index, { url: event.target.value })}
+                                        required={index === 0}
+                                        inputMode="url"
+                                        autoComplete="url"
+                                        spellCheck={false}
+                                        placeholder={index === 0 ? 'example.com' : 'staging.example.com'}
+                                        className="font-mono text-[13px] md:text-[13px]" />
+                                </div>
+                                <div className="col-start-2 row-start-1 self-end @xl:col-start-4">
+                                    {index > 0
+                                        ? <Button variant="ghost" size="icon" aria-label={`Remove address ${index + 1}`} onClick={() => removeRow(index)}><XIcon /></Button>
+                                        : <span aria-hidden="true" className="block size-9" />}
+                                </div>
+                                {sameSite >= 0 ? (
+                                    <p className="col-span-2 m-0 text-sm text-muted-foreground @xl:col-span-2 @xl:col-start-2 @xl:row-start-1">
+                                        Same site as {displayUrl(rows[sameSite]!.url.trim())}, with its label and feedback.
+                                    </p>
+                                ) : (
+                                    <>
+                                        <div className="col-span-2 flex min-w-0 flex-col gap-1.5 @xl:col-span-1 @xl:col-start-2 @xl:row-start-1">
+                                            <label htmlFor={`${formId}-label-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">Label</label>
+                                            <Input
+                                                id={`${formId}-label-${index}`}
+                                                aria-label={`Label for ${name(row, index)}`}
+                                                value={row.label}
+                                                maxLength={60}
+                                                onChange={event => setRow(index, { label: event.target.value })}
+                                                placeholder={index === 0 ? 'Production' : 'Staging'} />
+                                        </div>
+                                        <div className="col-span-2 flex min-w-0 flex-col gap-1.5 @xl:col-span-1 @xl:col-start-3 @xl:row-start-1">
+                                            <label htmlFor={`${formId}-share-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">Shares feedback with</label>
+                                            <Select
+                                                value={shared[0] === undefined ? 'none' : String(shared[0])}
+                                                onValueChange={value => update(current => shareWith(current, index, value && value !== 'none' ? Number(value) : null))}
+                                                disabled={options.length === 0}>
+                                                <SelectTrigger id={`${formId}-share-${index}`} aria-label={`${name(row, index)} shares feedback with`} className="w-full">
+                                                    <SelectValue>{sharedLabel}</SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectGroup>
+                                                        <SelectItem value="none">No other address</SelectItem>
+                                                        {options.map(({ row: option, other }) => (
+                                                            <SelectItem key={other} value={String(other)}>{displayUrl(option.url.trim())}</SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+                {rows.length < MAX_PROJECT_URLS && (
+                    <Button variant="outline" size="sm" className="self-start" onClick={addRow}>
+                        <PlusIcon data-icon="inline-start" />
+                        Add address
+                    </Button>
+                )}
+                <div className="flex flex-col gap-1">
+                    {hasSchemelessLocal(rows) && <FieldDescription>Local addresses use HTTP by default. Include https:// for local HTTPS.</FieldDescription>}
+                    <FieldDescription>Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.</FieldDescription>
+                </div>
             </form>
         </Section>
     );
 }
 
 export function ProjectStatusButton({ projectId, status }: { projectId: string; status: ProjectStatus }) {
-    const router = useRouter();
     const [pending, startTransition] = useTransition();
     const next: ProjectStatus = status === 'done' ? 'active' : 'done';
 
+    // The action revalidates the app, which brings the new status
     const handleClick = () => startTransition(async () => {
         const result = await setProjectStatusAction(projectId, next);
-        if (result && !result.ok) {
+        if (result && !result.ok)
             toast.error(result.error);
-            return;
-        }
-        router.refresh();
     });
 
     return (
@@ -245,107 +397,58 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
     );
 }
 
-/** The person's own emails from the project: muting stops all of them, also of threads they follow */
-export function ProjectEmailsButton({ projectId, muted }: { projectId: string; muted: boolean }) {
-    const router = useRouter();
+/**
+ * A person's own emails from a project, on or off at once (off mutes the project: no emails, also
+ * not for threads they follow). Labelled by `label`, or named `ariaLabel` beside other text.
+ */
+export function ProjectEmailsSwitch({ projectId, muted, label, ariaLabel }: { projectId: string; muted: boolean; label?: string; ariaLabel?: string }) {
+    const id = useId();
+    const [optimisticMuted, setOptimisticMuted] = useOptimistic(muted);
     const [pending, startTransition] = useTransition();
 
-    const handleClick = () => startTransition(async () => {
-        const result = await updateNotificationAction(projectId, undefined, !muted);
-        if (result && !result.ok) {
+    // The action revalidates the app; until then the switch shows the new setting
+    const handleChange = (on: boolean) => startTransition(async () => {
+        setOptimisticMuted(!on);
+        const result = await setProjectEmailsMutedAction(projectId, !on);
+        if (result && !result.ok)
             toast.error(result.error);
-            return;
-        }
-        router.refresh();
+    });
+
+    const control = <Switch id={id} checked={!optimisticMuted} onCheckedChange={handleChange} disabled={pending} aria-label={ariaLabel} />;
+    return label
+        ? (
+            <Field orientation="horizontal" className="w-auto">
+                {control}
+                <FieldLabel htmlFor={id}>{label}</FieldLabel>
+            </Field>
+        )
+        : control;
+}
+
+/** Whether project emails carry comment excerpts, on or off at once; the server action requires an admin */
+export function ProjectEmailExcerptsSwitch({ projectId, enabled }: { projectId: string; enabled: boolean }) {
+    const id = useId();
+    const [state, action, pending] = useActionState(updateProjectEmailExcerptsAction, null);
+    const [optimistic, setOptimistic] = useOptimistic(enabled);
+
+    const handleChange = (on: boolean) => startTransition(() => {
+        setOptimistic(on);
+        const formData = new FormData();
+        formData.set('projectId', projectId);
+        formData.set('emailCommentExcerpts', String(on));
+        action(formData);
     });
 
     return (
-        <Button variant="outline" disabled={pending} onClick={handleClick}>
-            {pending && <Spinner data-icon="inline-start" />}
-            {muted ? 'Unmute project emails' : 'Mute project emails'}
-        </Button>
-    );
-}
-
-export function ProjectPageStateForm({ projectId, policy, suggestions }: { projectId: string; policy?: PageStatePolicy; suggestions: QueryFieldSuggestion[] }) {
-    const initial = pageStatePolicy(policy);
-    const formId = useId();
-    const [query, setQuery] = useState(initial.queryParameters.join(', '));
-    const entered = query.split(/[,\s]+/).filter(Boolean);
-    const available = suggestions.filter(suggestion => !entered.includes(suggestion.key));
-    const [hash, setHash] = useState(initial.hashRouting);
-    const [state, action, pending] = useActionState(updateProjectPageStateAction, null);
-    return <Section id="page-state" title="Page state" description="Keep comments with the view being reviewed. By default, only the page path matters."
-        footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-        <form id={formId} action={action} onResetCapture={event => { event.preventDefault(); event.stopPropagation(); }}>
-            <input type="hidden" name="projectId" value={projectId} />
-            <input type="hidden" name="hashRouting" value={String(hash)} />
-            <FieldGroup>
-                <Field>
-                    <FieldLabel htmlFor={`${formId}-query`}>Meaningful query fields</FieldLabel>
-                    <Input id={`${formId}-query`} name="queryParameters" value={query} onChange={event => setQuery(event.target.value)} placeholder="category, sort, tab" />
-                    <FieldDescription>Up to 12 names, separated by commas. Tracking, identity and credential fields are excluded. Use short route values; emails, URLs and token-like values are not saved.</FieldDescription>
-                    {available.length > 0 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Query fields seen in recent comments">
-                        <span className="text-sm text-muted-foreground">Seen in recent comments:</span>
-                        {available.map(suggestion => <Button key={suggestion.key} type="button" variant="outline" size="xs"
-                            title={`On ${suggestion.comments} recent ${suggestion.comments === 1 ? 'comment' : 'comments'}`}
-                            onClick={() => setQuery([...entered, suggestion.key].join(', '))}>
-                            <PlusIcon data-icon="inline-start" /><span className="font-mono">{suggestion.key}</span>
-                        </Button>)}
-                    </div>}
-                </Field>
-                <Field orientation="horizontal">
-                    <Checkbox id={`${formId}-hash`} checked={hash} onCheckedChange={value => setHash(value === true)} />
-                    <FieldLabel htmlFor={`${formId}-hash`}>Use hash routes (#/page or #!/page)</FieldLabel>
-                </Field>
-            </FieldGroup>
-        </form>
-    </Section>;
-}
-
-
-export function ProjectEnvironmentsForm({ projectId, environments }: { projectId: string; environments: import('../../../lib/app/environments').ProjectEnvironment[] }) {
-    const formId = useId();
-    const [values, setValues] = useState(environments.map(item => ({ ...item, label: item.label === item.origin ? '' : item.label, group: item.group ?? '' })));
-    const [state, action, pending] = useActionState(updateProjectEnvironmentsAction, null);
-    return <Section id="environments" title="Environments" description="Each origin has separate feedback. Use the same alias group only for equivalent sites that should share feedback."
-        footer={<SaveFooter formId={formId} state={state} pending={pending} />}>
-        <form id={formId} action={action} onResetCapture={event => { event.preventDefault(); event.stopPropagation(); }}>
-            <input type="hidden" name="projectId" value={projectId} />
-            <input type="hidden" name="environments" value={JSON.stringify(values)} />
-            <FieldGroup>
-                {values.map((item, index) => <fieldset key={item.origin} className="flex flex-col gap-3 rounded-xl border p-4">
-                    <legend className="max-w-full truncate px-1 font-mono text-xs">{item.origin}</legend>
-                    <Field><FieldLabel htmlFor={`${formId}-${index}-label`}>Environment label for {item.origin}</FieldLabel>
-                        <Input id={`${formId}-${index}-label`} value={item.label} maxLength={60} onChange={event => setValues(current => current.map((value, i) => i === index ? { ...value, label: event.target.value } : value))} placeholder="Production, staging or preview" /></Field>
-                    <Field><FieldLabel htmlFor={`${formId}-${index}-group`}>Alias group for {item.origin}</FieldLabel>
-                        <Input id={`${formId}-${index}-group`} value={item.group} maxLength={60} onChange={event => setValues(current => current.map((value, i) => i === index ? { ...value, group: event.target.value } : value))} placeholder="Leave empty to isolate" /></Field>
-                </fieldset>)}
-                <FieldDescription>Addresses on the same origin share feedback. Grouped aliases share matching page views. Original sources and links stay unchanged. Removed addresses and feedback without a recorded source remain in the history filters.</FieldDescription>
-            </FieldGroup>
-        </form>
-    </Section>;
-}
-
-/** Project email content policy; the server action independently requires an admin. */
-export function ProjectEmailExcerptsForm({ projectId, enabled }: { projectId: string; enabled: boolean }) {
-    const formId = useId();
-    const [value, setValue] = useState(enabled);
-    const [state, action, pending] = useActionState(updateProjectEmailExcerptsAction, null);
-    return <form id={formId} action={action} className="flex flex-col gap-4"
-        onResetCapture={event => { event.preventDefault(); event.stopPropagation(); }}>
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="emailCommentExcerpts" value={String(value)} />
         <FieldGroup>
             <Field orientation="horizontal">
-                <Checkbox id={`${formId}-excerpts`} checked={value} onCheckedChange={checked => setValue(checked === true)}
-                    aria-describedby={`${formId}-description`} />
+                <Switch id={id} checked={optimistic} onCheckedChange={handleChange} disabled={pending} aria-describedby={`${id}-description`} />
                 <FieldContent>
-                    <FieldLabel htmlFor={`${formId}-excerpts`}>Include comment excerpts</FieldLabel>
-                    <FieldDescription id={`${formId}-description`}>Short comment excerpts go to every recipient, verified guests included. Off by default. Only workspace admins can change this.</FieldDescription>
+                    <FieldLabel htmlFor={id}>Include comment excerpts</FieldLabel>
+                    <FieldDescription id={`${id}-description`}>Up to 160 characters of each comment, sent to every recipient, verified guests included. Off by default.</FieldDescription>
                 </FieldContent>
             </Field>
+            <FormMessage state={state} />
         </FieldGroup>
-        <div className="flex items-center justify-end gap-3"><SaveFooter formId={formId} state={state} pending={pending} /></div>
-    </form>;
+    );
 }

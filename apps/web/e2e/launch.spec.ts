@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { pageStateSettings, projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
@@ -153,8 +153,8 @@ test.describe('dark theme and reduced motion', () => {
         const origin = siteOrigin(testInfo);
         await signIn(page, uniqueEmail('launch-routes'));
         const projectId = await createProject(page, { urls: [origin], name: 'Launch routes' });
-        const settings = page.getByRole('region', { name: 'Page state' });
         await page.goto(`/app/projects/${projectId}/settings/review`);
+        const settings = await pageStateSettings(page);
         await settings.getByLabel('Meaningful query fields').fill('tab');
         await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
         await settings.getByRole('button', { name: 'Save', exact: true }).click();

@@ -5,7 +5,8 @@ retain access to it. Members automatically follow threads they
 post in; any authorized member can follow or unfollow a thread explicitly. Replies and
 resolve/reopen activity go to followers. A project mute stops all its notification emails
 for that member, including targeted activity. The actor never receives their own activity.
-The toolbar and app expose follow/unfollow and project mute/unmute.
+The toolbar and app expose follow/unfollow and project mute/unmute (in the app: the project's Notifications
+settings and Account → Notifications, which lists every project).
 
 Guests can still comment using just a name. After posting, a separate **Email me replies**
 control requests an address. A confirmation email expires in 24 hours and requires an explicit
@@ -100,8 +101,9 @@ Control/format/line separator characters become spaces and whitespace collapses.
 and paths are plain text, never generated links; `layoutEmail` HTML-escapes them.
 
 Comment text stays out of digests by default. **Include comment excerpts**, in project settings
-under **Email notifications**, is off for new and older projects. Only workspace admins can save
-it (the server action calls `adminProject`); commenters can see its state. Enabling it sends excerpts
+under Notifications → **Email content**, is off for new and older projects. Only workspace admins see and
+save it (the server action calls `adminProject`); while it is on, commenters read that their emails include
+excerpts. Enabling it sends excerpts
 to every recipient, verified guests included. With it on, a comment/reply/mention event with an
 `itemId` may include up to 160 Unicode code points of that item's current plain text. Excerpts
 never appear in subjects. Deleted items, older events without an item id, status and assignment
