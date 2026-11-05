@@ -87,7 +87,6 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                    <DropdownMenuLabel className="max-w-72 whitespace-normal text-xs font-normal text-muted-foreground">On sites without the script, each signed-in reviewer needs the browser extension. Check its availability in review setup.</DropdownMenuLabel>
                     <DropdownMenuItem render={<a href={KnownPageLinks.projectInstall(projectId)} />}>Review setup</DropdownMenuItem>
                 </DropdownMenuGroup>
             </DropdownMenuContent>

@@ -5,7 +5,7 @@ belong to several teams. The workspace remains the data boundary; client labels 
 
 ## Everyday use
 
-Workspace admins open **Teams** in the sidebar. The directory searches normalized names and
+Workspace admins open **Workspace** in the sidebar, then its **Teams** tab. The directory searches normalized names and
 paginates active or archived teams on the server, 20 at a time. Team details contain People,
 Projects and Activity. Names are whitespace-normalized, case-insensitively unique and reserved
 while archived. Descriptions are plain text. New teams start with no people or projects.

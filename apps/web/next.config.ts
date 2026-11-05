@@ -69,7 +69,15 @@ const nextConfig: NextConfig = {
         }];
     },
     async redirects() {
-        return [{ source: '/security.txt', destination: '/.well-known/security.txt', permanent: true }];
+        return [
+            { source: '/security.txt', destination: '/.well-known/security.txt', permanent: true },
+            // The workspace's pages moved into one area with tabs (/app/workspace); old links keep working
+            ...['users', 'users/:id', 'teams', 'teams/:id', 'clients', 'settings'].map(path => ({
+                source: `/app/${path}`,
+                destination: `/app/workspace/${path}`,
+                permanent: true
+            }))
+        ];
     },
     async rewrites() {
         // OAuth discovery for the MCP endpoint (src/lib/mcp/oauth). Only the path-specific protected

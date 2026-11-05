@@ -1,11 +1,10 @@
 import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
-import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
 import { clientSummary, getClient } from '@/src/lib/app/clients';
 import { PageHeader } from '@/src/components/app/PageHeader';
-import { ProjectSettingsLink } from '@/src/components/app/projects/ProjectSettingsLink';
+import { ProjectTabs } from '@/src/components/app/projects/ProjectTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
@@ -13,7 +12,7 @@ import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
 
-/** A project: its name, review actions (Open review lists every address) and settings, above its comments, settings or install guide */
+/** A project: its name, review actions (Open review lists every address) and tabs, above its comments, install guide or settings */
 export default async function ProjectLayout({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
     const { projectId } = await params;
     const context = await requireAppContext();
@@ -52,13 +51,9 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                         )}
                     </span>
                 )}
-                actions={(
-                    <>
-                        <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />
-                        {/* Settings (and the install guide from there) instead of tabs: the comments are the project's page */}
-                        <ProjectSettingsLink href={KnownPageLinks.projectSettings(project.id)} />
-                    </>
-                )} />
+                actions={<ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />}>
+                <ProjectTabs projectId={project.id} />
+            </PageHeader>
             <div className="flex flex-col gap-6">
                 {children}
             </div>

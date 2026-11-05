@@ -20,11 +20,20 @@ type Crumb = { label: string; href: string };
 
 const projectPages: Record<string, string> = { install: 'Install', settings: 'Settings' };
 
+/** The workspace area's tabs, and what one of their own pages is (a team, a person) */
+const workspacePages: Record<string, { label: string; href: string; item?: string }> = {
+    users: { label: 'Users', href: KnownPages.AppUsers, item: 'Person' },
+    teams: { label: 'Teams', href: KnownPages.AppTeams, item: 'Team' },
+    clients: { label: 'Clients', href: KnownPages.AppClients },
+    settings: { label: 'Settings', href: KnownPages.AppSettings }
+};
+
 /**
  * Where the current page sits: `/app/projects/<id>/settings` -> Projects / <project> / Settings, and a
  * settings section after that (`/settings/integrations` -> ... / Settings / Integrations) and a connected
  * service's page under Integrations (`/settings/integrations/github` -> ... / Integrations / GitHub);
- * an account section the same way (`/app/account/sign-in` -> Account / Sign-in)
+ * an account section the same way (`/app/account/sign-in` -> Account / Sign-in), and the workspace area
+ * by its tabs (`/app/workspace/teams/<id>` -> Workspace / Teams / Team)
  */
 function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[] {
     const [, , section, id, page, subpage, detail] = pathname.split('/');
@@ -46,19 +55,20 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
             ? [root, project, settings, { label: settingsSection.label, href: KnownPageLinks.projectSettings(id, 'integrations') }, { label: integrationLabels[detail], href: pathname }]
             : [root, project, settings, { label: settingsSection.label, href: pathname }];
     }
-    if (section === 'teams')
-        return [{ label: 'Teams', href: KnownPages.AppTeams }, ...(id ? [{ label: 'Team', href: pathname }] : [])];
-    if (section === 'users')
-        return [{ label: 'Users', href: KnownPages.AppUsers }];
-    if (section === 'clients')
-        return [{ label: 'Clients', href: KnownPages.AppClients }];
+    if (section === 'workspace') {
+        // The workspace area: its tab, then a team's or a person's own page (`/app/workspace/teams/<id>`)
+        const root = { label: 'Workspace', href: KnownPages.AppWorkspace };
+        const tab = id ? workspacePages[id] : undefined;
+        if (!tab)
+            return [root];
+        const tabCrumb = { label: tab.label, href: tab.href };
+        return page && tab.item ? [root, tabCrumb, { label: tab.item, href: pathname }] : [root, tabCrumb];
+    }
     if (section === 'account') {
         const root = { label: 'Account', href: KnownPages.AppAccount };
         const accountSection = id ? accountSections.find(item => item.section === id) : undefined;
         return accountSection ? [root, { label: accountSection.label, href: pathname }] : [root];
     }
-    if (section === 'settings')
-        return [{ label: 'Workspace settings', href: KnownPages.AppSettings }];
     if (section === 'github' && id === 'error')
         return [{ label: 'GitHub connection', href: KnownPages.AppGitHubError }];
     return [];

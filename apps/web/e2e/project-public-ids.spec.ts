@@ -46,7 +46,7 @@ test('the predictable showcase id cannot be used as a public review code', async
     await page.goto('/app/projects');
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' })).toBeVisible();
     await page.goto('/app/projects/uier00000001/install');
     // The showcase's site already sends comments: the guide is behind its connected status

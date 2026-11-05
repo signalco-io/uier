@@ -19,7 +19,7 @@ import { hasProjectAccess, loadWorkspaceAccess } from '@/src/lib/app/access';
 import { BulkTeamForm } from '@/src/components/app/teams/AccessForms';
 import { UsersFilters } from '@/src/components/app/teams/UsersFilters';
 import type { ProjectsAccess } from '@/src/lib/app/model';
-import { PageHeader } from '@/src/components/app/PageHeader';
+import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { initials } from '@/src/components/app/initials';
 import { ProjectFilter } from '@/src/components/app/users/ProjectFilter';
@@ -82,7 +82,7 @@ function ListSection({ id, title, count, description, children }: {
     );
 }
 
-export default async function UsersPage({ searchParams }: PageProps<'/app/users'>) {
+export default async function UsersPage({ searchParams }: PageProps<'/app/workspace/users'>) {
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
     const { project: projectParam, relationship, team, state } = await searchParams;
@@ -105,8 +105,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
 
     return (
         <>
-            <PageHeader
-                title="Users"
+            <WorkspaceTabHeader
                 description="The people who review the projects in this workspace."
                 actions={(
                     <>
@@ -127,7 +126,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/users'
                     </>
                 )}>
                 <div className="flex flex-wrap gap-3"><ProjectFilter projects={projects.map(({ id, name }) => ({ id, name }))} value={project} /><UsersFilters teams={access.teams.map(({ id, name }) => ({ id, name }))} /></div>
-            </PageHeader>
+            </WorkspaceTabHeader>
             <div className="flex flex-col gap-10">
                 <ListSection
                     id="members"
