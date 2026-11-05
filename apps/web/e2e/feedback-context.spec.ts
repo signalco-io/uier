@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
+import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, toolbar, copyFromThread } from './support/toolbar';
 import { createProject, openComment, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 
@@ -19,8 +19,9 @@ async function clipboard(page: import('@playwright/test').Page) {
 async function copyWithConfirmation(page: Page, thread: Locator, testInfo: TestInfo, screenshot: string) {
     await animationsFinished(thread);
     const originalHeight = (await thread.boundingBox())!.height;
-    const button = thread.getByRole('button', { name: 'Copy issue', exact: true });
-    await button.click();
+    // Copy issue is in the Copy menu; the confirmation shows under the Copy button
+    const button = thread.getByRole('button', { name: 'Copy', exact: true });
+    await copyFromThread(page, thread, 'Copy issue');
     const confirmation = button.locator('..').getByText('Issue copied.', { exact: true });
     await expect(confirmation).toBeVisible();
     await animationsFinished(confirmation);
@@ -59,7 +60,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             .getByRole('article', { name: `Comment #${saved.number}`, exact: true });
         await copyWithConfirmation(page, thread, testInfo, `inbox-copy-success-${colorScheme}.png`);
         await page.evaluate(() => { (window as unknown as { rejectClipboard: boolean }).rejectClipboard = true; });
-        await thread.getByRole('button', { name: 'Copy issue', exact: true }).click();
+        await copyFromThread(page, thread, 'Copy issue');
         const manual = thread.getByRole('textbox', { name: 'Issue Markdown' });
         await expect(manual).toHaveValue(copied);
         await expect(thread.getByText('Issue copied.', { exact: true })).toHaveCount(0);
@@ -69,7 +70,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.screenshot({ path: testInfo.outputPath(`toolbar-copy-${colorScheme}.png`) });
         await thread.getByRole('button', { name: 'Close copy text' }).click();
         await page.evaluate(async id => { await fetch(`/api/comments/${id}`, { method: 'DELETE' }); }, saved.id);
-        await thread.getByRole('button', { name: 'Copy issue', exact: true }).click();
+        await copyFromThread(page, thread, 'Copy issue');
         await expect(thread.getByRole('alert')).toContainText('This comment no longer exists');
         await expect(thread.getByRole('textbox', { name: 'Issue Markdown' })).toHaveCount(0);
         await context.close();
@@ -90,7 +91,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Please fix this heading');
             await page.getByRole('button', { name: 'Post comment', exact: true }).click();
             const thread = openThread(page);
-            await thread.getByRole('button', { name: 'Copy issue', exact: true }).click();
+            await copyFromThread(page, thread, 'Copy issue');
             await expect(thread).toContainText('Issue copied.');
             const copied = await page.evaluate(() => (window as unknown as { copiedIssue: string }).copiedIssue);
             expect(copied).toContain('Original browser context');

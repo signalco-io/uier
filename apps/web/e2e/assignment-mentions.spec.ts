@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
-import { openThread, toolbar } from './support/toolbar';
+import { openThread, toolbar, threadOptions } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -43,10 +43,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.getByRole('button', { name: 'Post comment', exact: true }).click();
         const thread = openThread(page);
         await expect(thread).toContainText(`Please review @${name}`);
-        await thread.getByRole('button', { name: 'Change assignee' }).click();
+        // Assigning is in Thread options; the people open under the header
+        await (await threadOptions(page, thread)).getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
         await thread.getByRole('group', { name: 'Assign thread' }).getByRole('button', { name, exact: true }).click();
-        // The assignee is an avatar: its tooltip and accessible name say who it is
-        await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
+        // The assignee is an avatar beside the status: its tooltip and accessible name say who it is
+        await expect(thread.getByRole('img', { name: 'Assigned to you', exact: true })).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath(`assigned-thread-${colorScheme}.png`) });
         const appPage = await page.context().newPage();
         await appPage.goto(`/app/projects/${projectId}`);
@@ -55,7 +56,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expectNoAxeViolations(page);
         await page.reload();
         await page.locator('[data-uier-comment]').click();
-        await expect(openThread(page).getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
+        await expect(openThread(page).getByRole('img', { name: 'Assigned to you', exact: true })).toBeVisible();
         await expect(openThread(page)).toContainText(`Please review @${name}`);
         await page.keyboard.press('Escape');
         await page.getByRole('button', { name: /^Inbox/ }).click();
@@ -65,11 +66,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('missing');
         await expect(inbox.getByRole('article')).toHaveCount(0);
         await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('');
-        await inbox.getByRole('button', { name: 'Change assignee' }).click();
+        await (await threadOptions(page, inbox.getByRole('article'))).getByRole('button', { name: 'Assigned to you. Change assignee', exact: true }).click();
         await inbox.getByRole('button', { name: 'Unassign', exact: true }).click();
         await expect(inbox.getByRole('article')).toHaveCount(0);
         await inbox.getByRole('button', { name: 'Assigned to me', exact: true }).click();
-        await expect(inbox.getByRole('button', { name: 'Unassigned. Change assignee', exact: true })).toBeVisible();
+        await expect(inbox.getByRole('article')).toHaveCount(1);
+        await expect(inbox.getByRole('img', { name: /^Assigned to / })).toHaveCount(0);
         // The app consumes the same saved assignment and selected mention text.
         await page.goto(`/app/projects/${projectId}`);
         const card = await openComment(page, /^Comment/);

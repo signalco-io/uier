@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { IconTooltip } from '../IconTooltip';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -22,9 +23,11 @@ export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
                 </Row>
                 <Row>
                     {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>Review brief</Button>}
-                    <IconButton onClick={onClose} variant="plain" title="Close sidebar" aria-label="Close sidebar" autoFocus>
-                        <PanelRightClose />
-                    </IconButton>
+                    <IconTooltip label="Close sidebar">
+                        <IconButton onClick={onClose} variant="plain" aria-label="Close sidebar" autoFocus>
+                            <PanelRightClose />
+                        </IconButton>
+                    </IconTooltip>
                 </Row>
             </Row>
             {brief && briefOpen && <section aria-label="Review brief" className="mt-3 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</section>}

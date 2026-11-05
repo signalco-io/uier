@@ -21,8 +21,8 @@ export async function animationsFinished(locator: Locator) {
 
 /** The toolbar shown for selected page text */
 export const selectionToolbar = (page: Page) => page.getByRole('toolbar', { name: 'Selected text' });
-/** Comment thread popover (only one is open at a time) */
-export const openThread = (page: Page) => page.getByRole('dialog');
+/** Comment thread popover (only one is open at a time); not the Copy and Thread options menus in its header */
+export const openThread = (page: Page) => page.getByRole('dialog', { name: /^(?!Copy$|Thread options$)/ });
 
 /** The open inbox's location picker: the environment (in a project with several), then this page, all pages, sections and the other pages */
 export const inboxPages = (page: Page) => page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: /^(Pages|Environment and page):/ });
@@ -122,4 +122,21 @@ export async function selectText(page: Page, text: string) {
         }
         throw new Error(`"${text}" is not on the page`);
     }, text);
+}
+
+/** Opens a thread's Thread options (its triage and email controls: assign, priority, Request verification, follow, mute, Mark as unread) */
+export async function threadOptions(page: Page, thread: Locator) {
+    await thread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Thread options', exact: true });
+    await expect(menu).toBeVisible();
+    return menu;
+}
+
+/** Copy, in a thread's header: the issue (Markdown) or the link (opens the page at the thread) */
+export async function copyFromThread(page: Page, thread: Locator, what: 'Copy issue' | 'Copy link') {
+    await thread.getByRole('button', { name: 'Copy', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Copy', exact: true });
+    await expect(menu).toBeVisible();
+    await menu.getByRole('button', { name: new RegExp(`^${what}`) }).click();
+    await expect(menu).toHaveCount(0);
 }

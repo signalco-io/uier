@@ -1,19 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
-import {
-    addToolbarScript,
-    animationsFinished,
-    commentBubble,
-    commentBubbles,
-    isolatedOrigin,
-    newVisitor,
-    openLanding,
-    openThread,
-    selectText,
-    selectionToolbar,
-    toolbar
-} from './support/toolbar';
+import { addToolbarScript, animationsFinished, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // Review links, the review session and the toolbar's own controls (collapse, profile, options).
@@ -295,7 +283,7 @@ test('a comment link in a review carries the review link', async ({ browser }, t
     await page.reload();
     await addToolbarScript(page);
     await commentBubble(page, 1).click();
-    await openThread(page).getByRole('button', { name: 'Copy link' }).click();
+    await copyFromThread(page, openThread(page), 'Copy link');
     const link = await page.evaluate(async () => await navigator.clipboard.readText());
     expect(link).toBe(`${origin}/brand?toolbar-code=demo-project_1&uier-comment=${id}`);
 

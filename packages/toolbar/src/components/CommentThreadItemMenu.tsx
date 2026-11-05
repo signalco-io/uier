@@ -1,6 +1,7 @@
 'use client';
 
 import { useContext, useRef, useState, type Ref } from 'react';
+import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -66,8 +67,9 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
         }
     };
 
+    const tip = useIconTooltip('More options');
     return (
-        <Popper
+        <>{tip.tooltip}<Popper
             container={rootElement}
             open={open}
             onOpenChange={handleOpenChange}
@@ -80,7 +82,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     size="xs"
                     variant="plain"
                     className="size-6 text-muted-foreground hover:text-foreground"
-                    title="More options"
+                    {...tip.triggerProps}
                     aria-label={`More options for ${own ? 'your' : 'this'} ${kind}`}
                     disabled={disabled}>
                     <MoreHorizontal size={16} />
@@ -132,6 +134,6 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     )}
                 </Stack>
             )}
-        </Popper>
+        </Popper></>
     );
 }

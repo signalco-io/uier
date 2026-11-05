@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { backToComments, openReply, commentRowLink, commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { toolbar, animationsFinished } from './support/toolbar';
+import { toolbar, animationsFinished, threadOptions } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -201,13 +201,16 @@ test('member toolbar thread and inbox priorities persist and guests can only rea
     await toolbar(page).getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox).toContainText('Checkout button fails');
-    await inbox.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
-    await inbox.getByRole('button', { name: 'High', exact: true }).click();
-    await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
+    // Priority is in Thread options; a priority other than Normal shows beside the status
+    const options = await threadOptions(page, inbox.getByRole('article'));
+    await options.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
+    await options.getByRole('group', { name: 'Set priority' }).getByRole('button', { name: 'High', exact: true }).click();
+    await expect(inbox.getByRole('article')).toContainText('Priority: High');
     await page.reload();
     await expect(toolbar(page)).toBeVisible();
     await toolbar(page).getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
-    await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
+    await expect(inbox.getByRole('article')).toContainText('Priority: High');
+    await expect((await threadOptions(page, inbox.getByRole('article'))).getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
     const guest = await browser.newContext();
     try {
         const tab = await guest.newPage();

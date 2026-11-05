@@ -1,5 +1,4 @@
 import { CommentVerification } from './CommentVerification';
-import { CommentPriority } from './CommentPriority';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -13,12 +12,18 @@ import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
 import { useVisitor } from '../hooks/useVisitor';
 
-/** A thread: its first and last message, and "Show all" for the ones between */
-export function CommentThread({ commentItem, reading = false, children }: { commentItem: CommentItem; reading?: boolean; children?: ReactNode }) {
-    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} />{children}</DraftsProvider>;
+/**
+ * A thread: its first and last message, and "Show all" for the ones between. On the page (a pin's
+ * popover, `onPage`) it leaves out where it came from: that is the page it is on.
+ */
+export function CommentThread({ commentItem, reading = false, onPage = false, children }: { commentItem: CommentItem; reading?: boolean; onPage?: boolean; children?: ReactNode }) {
+    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} onPage={onPage} />{children}</DraftsProvider>;
 }
 
-function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; reading: boolean }) {
+function ThreadContents({ commentItem, reading, onPage }: { commentItem: CommentItem; reading: boolean; onPage: boolean }) {
+    // Request verification opens from Thread options; focus goes back there
+    const [verifying, setVerifying] = useState(false);
+    const optionsRef = useRef<HTMLButtonElement>(null);
     const read = useReadComment();
     const threadRef = useRef<HTMLDivElement>(null);
     const visitor = useVisitor().query.data;
@@ -69,12 +74,12 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
     const restComments = commentItem.thread.items.slice(1, -1);
     // Like the pin: a deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem.thread.items.filter(item => !item.deleted).length;
-    const source = commentItem.source && <span className="min-w-0 break-words">{sourceText(commentItem.source)}</span>;
+    const source = commentItem.source && (!onPage || !commentItem.source.available) && <span className="min-w-0 break-words">{sourceText(commentItem.source)}</span>;
 
     return (
         <Stack ref={threadRef} spacing={2} className="px-4 py-3">
-            <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)} />
-            <CommentPriority comment={commentItem} />
+            <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)}
+                onRequestVerification={() => setVerifying(true)} optionsRef={optionsRef} />
             {/* Where it came from */}
             {source && <div className="text-xs text-muted-foreground">{source}</div>}
             {/* The messages, one under the other like a chat; the avatars make the column */}
@@ -111,7 +116,7 @@ function ThreadContents({ commentItem, reading }: { commentItem: CommentItem; re
                         threadItem={threadLastItem} />
                 )}
             </Stack>
-            <CommentVerification comment={commentItem} />
+            <CommentVerification comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} />
             <CommentAnchorDetails comment={commentItem} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
             {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label="Connected services" className="flex flex-wrap gap-3 text-xs">

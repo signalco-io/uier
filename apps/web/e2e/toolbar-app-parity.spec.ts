@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, signIn, uniqueEmail, openComment } from './support/app';
-import { commentBubble, openThread } from './support/toolbar';
+import { commentBubble, openThread, threadOptions } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(baseURL!); });
@@ -27,7 +27,9 @@ test('a member\'s toolbar comment reads the same in the app: number, avatar and 
     const { projectId, reviewUrl } = await memberComment(page);
     // The pin on the reviewed site shows the thread's number, like the thread and the app
     await expect(commentBubble(page, 1, 1)).toHaveText('1');
-    await expect(openThread(page).getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
+    // Following is in Thread options
+    await expect((await threadOptions(page, openThread(page))).getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
 
     await page.goto(`/app/projects/${projectId}`);
     const card = await openComment(page, /^Comment/);
@@ -41,13 +43,13 @@ test('a member\'s toolbar comment reads the same in the app: number, avatar and 
 
     await page.goto(reviewUrl);
     await commentBubble(page, 1, 1).click();
-    await expect(openThread(page).getByRole('button', { name: 'Follow thread', exact: true })).toBeVisible();
+    await expect((await threadOptions(page, openThread(page))).getByRole('button', { name: 'Follow thread', exact: true })).toBeVisible();
 });
 
 test('with nobody else to check a fix, the request form says so and offers an invite', async ({ page }) => {
     const { projectId } = await memberComment(page);
     const thread = openThread(page);
-    await thread.getByRole('button', { name: 'Request verification', exact: true }).click();
+    await (await threadOptions(page, thread)).getByRole('button', { name: 'Request verification', exact: true }).click();
     const toolbarForm = thread.getByRole('form', { name: 'Request verification' });
     await expect(toolbarForm).toContainText('Nobody else can check this fix yet.');
     await expect(toolbarForm.getByRole('button', { name: 'Request verification', exact: true })).toHaveAccessibleDescription(/Nobody else can check this fix yet\./);

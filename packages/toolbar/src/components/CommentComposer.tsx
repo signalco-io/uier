@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore, type Ref } from 'react';
+import { IconTooltip } from './IconTooltip';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -381,16 +382,15 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         )}
                         {onCancel ? (
                             <Button type="submit" variant="solid" size="xs" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
-                        ) : <IconButton
+                        ) : <IconTooltip label={submitLabel}><IconButton
                             variant="solid"
                             size="xs"
                             type="submit"
                             className="size-7 rounded-md"
-                            title={submitLabel}
                             aria-label={submitLabel}
                             disabled={!trimmedText.length || busy || sharedPending}>
                             <Send size={14} />
-                        </IconButton>}
+                        </IconButton></IconTooltip>}
                     </Row>
                 </Row>
                 </div>

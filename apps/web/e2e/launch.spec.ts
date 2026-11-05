@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { pageStateSettings, projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
 
 // Integration evidence, not a substitute for the hosted/physical-device checklist in
 // docs/mvp-launch-verification.md. Local identity/email/BotID use the repository's test mode.
@@ -112,7 +112,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         // Exercise the actual Copy link fallback rather than constructing a parallel URL.
         await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true,
             value: { writeText: async () => { throw new Error('Clipboard unavailable'); } } }));
-        await thread(page).getByRole('button', { name: 'Copy link' }).click();
+        await copyFromThread(page, thread(page), 'Copy link');
         const directLink = await thread(page).locator('input[readonly]').inputValue();
         expect(new URL(directLink).searchParams.get('uier-comment')).toBe(saved.id);
         // Reply/status feedback is optimistic. The other reviewer must navigate after the

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { expectNoAxeViolations } from '../../web/e2e/accessibility';
-import { animationsFinished, commentBubble, openThread, selectText } from '../../web/e2e/support/toolbar';
+import { animationsFinished, commentBubble, openThread, selectText, threadOptions } from '../../web/e2e/support/toolbar';
 import { signIn, createProject, uniqueEmail } from '../../web/e2e/support/app';
 
 import { packageApiProxy } from './packageApi';
@@ -163,9 +163,11 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await inbox.getByRole('button', { name: 'Reopen', exact: true }).click();
     await expect(commentBubble(reviewed, 2)).toBeVisible();
     await inbox.getByRole('button', { name: /^Open/ }).click();
-    await inbox.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
-    await inbox.getByRole('button', { name: 'High', exact: true }).click();
-    await expect(inbox.getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
+    // Priority is in Thread options; a priority other than Normal shows beside the status
+    const options = await threadOptions(reviewed, inbox.getByRole('article'));
+    await options.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
+    await options.getByRole('group', { name: 'Set priority' }).getByRole('button', { name: 'High', exact: true }).click();
+    await expect(inbox.getByRole('article')).toContainText('Priority: High');
     await inbox.getByRole('button', { name: 'Close sidebar', exact: true }).click();
     await expect(inbox).toBeHidden();
     // Drafts recover across a real worker shutdown and page reload, with no image records.

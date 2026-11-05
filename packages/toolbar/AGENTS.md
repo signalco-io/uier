@@ -70,7 +70,7 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 | `components/ToolbarProfile.tsx`, `ToolbarOptions.tsx` | the profile (guest or account name; signed in, its button shows the account's initial like the app's avatar) and the options (reset moved toolbar, view project, exit review, sign out) popovers; on uier's own pages, account sign-out stays in the app's account menu. Options always ends with "Powered by uier", a link to uier.io (the toolbar runs on other people's sites) |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
 | `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, adopting the same constructed sheet in their shadow root, with cleanup; never auto-focus on load |
-| `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin (`<Pin />` from `@uier/brand`: the issue number inside, the message count as its corner badge from the first reply, the name "Comment #6, 3 messages") with its thread popover (bounded by the window, clear of the pill) and reply form; one thread layout for popover and inbox: `CommentThreadHeader.tsx` is one row (status, `#id`, the blue unread dot, a button that marks the thread read, the assignee from `CommentAssignment.tsx`: their avatar or the user icon while unassigned, its tooltip "Unassigned" / "Assigned to ...", a button that opens the people under the row for those who can assign; then icon actions with tooltips: Mark as done / Reopen, Copy issue, Copy link `?uier-comment=`, `src/review.ts`, and once read Thread options with Mark as unread, `CommentThreadMenu.tsx`), then the source on its own line; messages have an avatar column and no dividers. `CommentScreenshot` keeps the thumbnail alone: Upload image and Paste image are in its expanded view beside Redact screenshot (or beside "No screenshot"). The app's `CommentCard` follows the same layout, icons and words: change both together |
+| `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin (`<Pin />` from `@uier/brand`: the issue number inside, the message count as its corner badge from the first reply, the name "Comment #6, 3 messages") with its thread popover (bounded by the window, clear of the pill) and reply form; one thread layout for popover and inbox, so an opened thread shows its messages and reply box first: `CommentThreadHeader.tsx` is one line (status, `#id`, the blue unread dot that marks the thread read, a priority other than Normal, the assignee's avatar from `CommentAssignment.tsx` named by its tooltip; then Mark as done / Reopen for those who can resolve, Copy, a menu with Copy issue and Copy link `?uier-comment=` (`src/review.ts`), each described, and Thread options, `CommentThreadMenu.tsx`, with the triage and email controls each person may use: assign (the people open under the line), priority, Request verification, Follow / Unfollow thread, Mute project emails and, once read, Mark as unread; no menu when there is none). The source line shows in the inbox, and on the page only when the original source is unavailable; messages have an avatar column and no dividers. Icon buttons show their names with `IconTooltip` / `useIconTooltip` (hover after 300 ms, at once on keyboard focus; portaled into the shadow root's container with a fixed position, decorative, never on touch): use it instead of `title` for icon-only controls. `CommentScreenshot` keeps the thumbnail alone: Upload image and Paste image are in its expanded view beside Redact screenshot (or beside "No screenshot"). The app's `CommentCard` follows the same layout, icons and words: change both together |
 | `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins. The element is the topmost one whose own box holds the pointer, so a stretched link (`::after` over a row or card) does not hide the row's picture, summary or badges. A mouse or pen drag draws an area instead (`data-uier-drawing`; touch keeps scrolling): saved on the innermost element that holds it, as a point at its top-left corner with `widthNormal`/`heightNormal` (`isCommentArea`), so older toolbars still pin it; the click that ends a drag is ignored |
 | `components/CommentAreaHighlight.tsx` | the dashed accent outline of a commented area (`data-uier-area`), with the selection tint while its thread is open; it never takes clicks (the pin opens the thread). Areas resolve to their rectangle in `useCommentItemRects`, so the pin sits at the bottom-right corner and the screenshot is the area |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line, `enterKeyHint`) in one bordered box with its hint or counter and the send button, keeps drafts |
@@ -165,8 +165,8 @@ text. Drafts are local to each browser origin and expire after seven days.
 
 ## Working on it
 
-- Project threads expose `ThreadNotifications`: member follow/unfollow and project mute, or an
-  optional guest **Email me replies** flow after posting. Email is never a comment requirement.
+- Project threads expose member follow/unfollow and project mute in Thread options
+  (`useThreadNotificationActions`), and `ThreadNotifications`: the optional guest **Email me replies** flow after posting. Email is never a comment requirement.
   Subscription writes use the review API's existing identity, CORS and verification checks; guest
   addresses are verified by an explicit button on uier.io. Do not store addresses in browser storage.
 
@@ -289,16 +289,17 @@ shared retry/draft recovery behavior. Keep HTTP status parsing outside that tran
 ## Priority and matching
 
 `triage.ts` exports pure priority values/defaults and `matchesFeedbackSearch` for app/toolbar use.
-Missing priority means Normal, including pinned responses. `CommentPriority` shows a text label to
-guests and a UI-kit control only with `permissions.priority`; its failed intended value retains the
-submission key. The review API rechecks membership/private visibility and current public-project
+Missing priority means Normal, including pinned responses. The thread header shows a priority other
+than Normal to everyone; Thread options changes it only with `permissions.priority`, and a failed
+intended value retains the submission key. The review API rechecks membership/private visibility and current public-project
 staff policy. The control is shared by thread and inbox, with cache/activity invalidation through
 `useComments`. No toolbar bulk operations. Feedback packets include priority as additive context.
 
 ## Fix verification
 
 `verification.ts` is the pure public display contract, status helper and literal description.
-`CommentVerification` is shared by thread popovers and inbox cards, with signalco controls,
+`CommentVerification` is shared by thread popovers and inbox cards, with signalco controls (its
+Request verification form opens from Thread options, whose button gets the focus back),
 reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
 The status badge reads Ready to verify for pending unresolved requests; the ordinary action
 says Done without verification. Confirmation requires the server's current request revision.

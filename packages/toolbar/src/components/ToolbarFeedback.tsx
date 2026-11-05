@@ -1,6 +1,7 @@
 'use client';
 
 import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -101,8 +102,9 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         announce(selected.sent);
     };
 
+    const tip = useIconTooltip('Send feedback');
     return (
-        <Popper
+        <>{tip.tooltip}<Popper
             container={container}
             open={open}
             onOpenChange={handleOpenChange}
@@ -114,7 +116,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 <IconButton
                     variant="plain"
                     className="rounded-full"
-                    title="Send feedback"
+                    {...tip.triggerProps}
                     aria-label="Send feedback">
                     <Megaphone />
                 </IconButton>
@@ -152,6 +154,6 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 error={create.error}
                 onSubmit={handleSubmit} />
             <ScreenshotDisclosure page screenshot={screenshot} omitted={omitScreenshot} onOmittedChange={handleOmittedChange} />
-        </Popper>
+        </Popper></>
     );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useContext, useRef, useState } from 'react';
+import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -77,8 +78,9 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
 
     const hasActions = Boolean(projectUrl || onExitReview || canSignOut || onResetPosition);
 
+    const tip = useIconTooltip('Options');
     return (
-        <Popper
+        <>{tip.tooltip}<Popper
             container={container}
             open={open}
             onOpenChange={handleOpenChange}
@@ -91,7 +93,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                 <IconButton
                     variant="plain"
                     className="rounded-full"
-                    title="Options"
+                    {...tip.triggerProps}
                     aria-label="Options">
                     <MoreHorizontal />
                 </IconButton>
@@ -176,6 +178,6 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                     </Button>
                 </Stack>
             )}
-        </Popper>
+        </Popper></>
     );
 }
