@@ -14,16 +14,16 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="3 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="5 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
                 responsible for the data described here (&ldquo;we&rdquo;).
             </p>
 
-            <h2>Browser extension development preview</h2>
+            <h2>Browser extension</h2>
             <p>
-                If you use the unreleased desktop extension, it sends the current site origin to find
+                If you use the desktop browser extension, it sends the current site origin to find
                 projects you can access only when you open the extension. Start review activates that
                 tab. Submitted comments, selected text, anchors, reviewed page details and screenshots
                 use the same project access and retention rules described below. The extension captures
@@ -42,7 +42,6 @@ export default function PrivacyPolicyPage() {
                 token window, at most 30 days. One-use sign-in handoffs last up to 60 seconds. Older
                 sessions keep their eight-hour limit until you sign in again with an updated package.
                 Browser verification uses BotID on uier, with cookies omitted.
-                The extension has no public store listing yet.
             </p>
 
             <h2>In short</h2>

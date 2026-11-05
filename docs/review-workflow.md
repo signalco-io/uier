@@ -525,6 +525,8 @@ extension activation never records an installed script. Installation and onboard
 setup choices, with the script selected by default and an explicit pending-availability message for
 the extension. A real store link requires owner configuration after hosted verification, browser
 acceptance and store bootstrap. Each uninstrumented review-link recipient also needs the extension.
+The public `/browser-extension` page and `/guides/browser-extension` setup guide describe the
+published extension ([public pages](browser-extension.md#public-pages)).
 
 ## Search, priority and bulk triage
 

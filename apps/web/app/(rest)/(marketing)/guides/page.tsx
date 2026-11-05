@@ -9,7 +9,7 @@ export default function GuidesPage() {
         <PageHeader title={guides.index.title} lead={guides.index.description} />
         <PageSection id="start-with-your-site" title="Start with your site" wide>
             <Panel>
-                {[guides.clientReviews, guides.nextJs].map(guide => <Tile key={guide.path} title={guide.title}>
+                {[guides.clientReviews, guides.nextJs, guides.browserExtension].map(guide => <Tile key={guide.path} title={guide.title}>
                     <p>{guide.description}</p><InlineLink href={guide.path}>Read the guide</InlineLink>
                 </Tile>)}
             </Panel>

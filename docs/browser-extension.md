@@ -145,6 +145,20 @@ A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
 `UIER_EXTENSION_STORE_ID` also occurs in `UIER_EXTENSION_CLIENT_IDS`, and owners have completed
 the hosted and publication gates. Feedback activity is labelled as feedback, never embed-installation proof.
 
+### Public pages
+
+The public [`/browser-extension`](https://uier.io/browser-extension) page and the
+[`/guides/browser-extension`](https://uier.io/guides/browser-extension) setup guide (#308) describe
+the published 0.1.2 release in the words of the app's setup tab and the [listing worksheet](browser-extension-listing.md),
+claiming only what the receipts above record. The footer, the `/guides` index, the homepage's
+get-started card and two FAQ answers link them. They are static, and deploys build without the
+hosted settings, so `apps/web/src/lib/extension/release.ts` names the published store ID and the
+popup labels; the store button uses the same `chromeWebStoreUrl` as the app. When a release changes
+the store item, labels, permissions, sign-in or capture, update both pages and the privacy policy,
+cookie policy and security page's extension sections together; changed legal wording needs owner
+review and a new effective date. The setup guide lives with the other guides until the docs hub
+(#293) exists.
+
 Native Edge Add-ons, Firefox, Safari, mobile and anonymous extension access remain separate follow-ups.
 Extension API contract v1 must remain compatible for one year after its last supported release.
 A bad store release requires a higher numeric version containing a fix; installed versions cannot

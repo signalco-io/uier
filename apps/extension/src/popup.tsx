@@ -170,6 +170,7 @@ function Popup() {
     return <main className="flex w-[340px] flex-col bg-background text-foreground">
         <header className="flex items-center justify-between gap-2 border-b px-4 py-3">
             <Logo size={20} />
+            <span className="text-xs text-muted-foreground">Browser extension</span>
         </header>
         <div className="flex flex-col gap-4 p-4">{body}</div>
         {state?.signedIn && <footer className="flex items-center justify-between gap-2 border-t px-2 py-2">
