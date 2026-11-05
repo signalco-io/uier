@@ -19,7 +19,7 @@ function environmentId(item: ProjectEnvironment) {
 export function environmentOptions(project: Pick<DbProject, 'urls' | 'environments'>): EnvironmentOption[] {
     const options = new Map<string, string>();
     for (const item of configuredEnvironments(project))
-        options.set(environmentId(item), item.group ? `${item.group} (shared aliases)` : item.label);
+        options.set(environmentId(item), item.group ? `${item.group} (shared)` : item.label);
     return [...options].map(([id, label]) => ({ id, label }));
 }
 

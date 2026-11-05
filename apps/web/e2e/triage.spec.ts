@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, openReply, commentRowLink, commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { toolbar, animationsFinished } from './support/toolbar';
@@ -23,7 +23,7 @@ async function fixture(page: Page, request: APIRequestContext, count = 3) {
         expect(response.status()).toBe(201); comments.push(await response.json());
     }
     await page.goto(`/app/projects/${project}`);
-    await expect(page.getByRole('article')).toHaveCount(count);
+    await expect(commentRows(page)).toHaveCount(count);
     return { project, headers, comments };
 }
 const selected = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
@@ -33,42 +33,45 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     const { project, comments } = await fixture(page, request);
     const search = page.getByRole('searchbox', { name: 'Search feedback' });
     await search.fill('checkout');
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await selected(page, comments[0]!.number).check();
     await page.getByRole('combobox', { name: 'Assign selected', exact: true }).click();
     await page.getByRole('option').filter({ hasNotText: 'Unassign' }).first().click();
-    await expect(page.getByRole('article').getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
+    // The row shows the assignee's avatar and a priority other than Normal
+    await expect(commentRows(page).getByRole('img', { name: /^Assigned to / })).toBeVisible();
     await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await selected(page, comments[0]!.number).check();
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: 'Urgent', exact: true }).click();
-    await expect(page.getByRole('article').getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true })).toBeEnabled();
+    await expect(commentRows(page)).toContainText('Urgent');
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await selected(page, comments[0]!.number).check();
     await page.getByRole('button', { name: 'Mark selected as done', exact: true }).click();
-    await expect(page.getByRole('article')).toHaveCount(0);
+    await expect(commentRows(page)).toHaveCount(0);
     await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Board', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('article')).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('listitem')).toHaveCount(1);
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await selected(page, comments[0]!.number).check();
     await page.getByRole('button', { name: 'Reopen selected', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('article')).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await selected(page, comments[0]!.number).check();
     await page.getByRole('combobox', { name: 'Assign selected', exact: true }).click();
     await page.getByRole('option', { name: 'Unassign', exact: true }).click();
-    await expect(page.getByRole('article').getByRole('button', { name: 'Unassigned. Change assignee', exact: true })).toBeEnabled();
+    const openColumn = page.getByRole('region', { name: 'Open comments', exact: true });
+    await expect(openColumn.getByRole('img', { name: /^Assigned to / })).toHaveCount(0);
     await page.reload();
     await expect(search).toHaveValue('checkout');
-    await expect(page.getByRole('article').getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true })).toBeVisible();
+    await expect(openColumn).toContainText('Urgent');
+    await expect((await openComment(page, comments[0]!.number)).getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe(`/app/projects/${project}`);
 });
 
@@ -83,7 +86,7 @@ test('search covers replies, quotes, paths and numbers with local URL history an
     const search = page.getByRole('searchbox', { name: 'Search feedback' });
     for (const query of ['CARD declined', 'PAY NOW', `#${comments[0]!.number}`, `/${project}/pricing`]) {
         await search.fill(query);
-        await expect(page.getByRole('article')).toHaveCount(1);
+        await expect(commentRows(page)).toHaveCount(1);
         await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe(query);
     }
     await page.getByRole('button', { name: 'Board', exact: true }).click();
@@ -92,18 +95,19 @@ test('search covers replies, quotes, paths and numbers with local URL history an
     await expect(page.getByRole('button', { name: 'List', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.goForward();
     await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('combobox', { name: 'Priority filter', exact: true }).click();
+    await (await openCommentFilters(page)).getByRole('combobox', { name: 'Priority filter', exact: true }).click();
     await page.getByRole('option', { name: 'Urgent', exact: true }).click();
     await expect(page.getByText('No comments match these filters.', { exact: true })).toBeVisible();
     expect(requests).toEqual([]);
     await page.unroute(`**/app/projects/${project}?*`);
     await page.reload();
     await expect(search).toHaveValue(`/${project}/pricing`);
-    await expect(page.getByRole('combobox', { name: 'Priority filter', exact: true })).toContainText('Urgent');
+    await expect(page.getByRole('button', { name: 'Clear filter: Urgent priority', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
-    await expect(page.getByRole('article')).toHaveCount(3);
     await expect(search).toHaveValue('');
     await expect(search).toBeFocused();
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(commentRows(page)).toHaveCount(3);
     await page.goto(`/app/projects/${project}?q=${'x'.repeat(220)}`);
     await expect(search).toHaveValue('x'.repeat(200));
     await expect.poll(() => new URL(page.url()).searchParams.get('q')?.length).toBe(200);
@@ -125,7 +129,7 @@ test('selection resets on search and view changes, supports keyboard and announc
     await page.getByRole('checkbox', { name: 'Select shown results', exact: true }).check();
     await expect(first).toBeChecked();
     if (testInfo.project.name === 'Mobile Chrome') {
-        for (const control of [page.getByRole('combobox', { name: 'Priority filter', exact: true }), page.getByRole('combobox', { name: 'Prioritize selected' }), page.getByRole('button', { name: 'Mark selected as done', exact: true }), page.getByRole('article').getByRole('button', { name: 'Priority: Normal. Change priority', exact: true })]) expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        for (const control of [page.getByRole('button', { name: /^Filter ?\d*$/ }), page.getByRole('searchbox', { name: 'Search feedback' }), page.getByRole('combobox', { name: 'Prioritize selected' }), page.getByRole('button', { name: 'Mark selected as done', exact: true })]) expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
     await page.screenshot({ path: testInfo.outputPath('triage-selected.png') });
     await page.getByRole('button', { name: 'Clear selection', exact: true }).click();
@@ -150,7 +154,7 @@ test('pending batches update immediately, exclude new arrivals and survive scope
     });
     try {
         await page.getByRole('button', { name: 'Mark selected as done', exact: true }).click();
-        await expect(page.getByRole('article')).toHaveCount(0);
+        await expect(commentRows(page)).toHaveCount(0);
         await expect(page.getByText('Saving 3 threads', { exact: true })).toBeVisible();
         await expect.poll(() => posts).toBe(1);
         const arrival = await request.post(`/api/review/${project}/comments`, { headers, data: { path: `/${project}/pricing`, text: 'New checkout arrival', authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback' } });
@@ -158,8 +162,8 @@ test('pending batches update immediately, exclude new arrivals and survive scope
         await page.getByRole('searchbox', { name: 'Search feedback' }).fill('checkout');
         pending.release();
         await expect(page.getByText('3 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
-        await expect(page.getByRole('article')).toHaveCount(1);
-        await expect(page.getByRole('article')).toContainText('New checkout arrival');
+        await expect(commentRows(page)).toHaveCount(1);
+        await expect(commentRows(page)).toContainText('New checkout arrival');
         await expect(page.getByRole('checkbox', { name: /^Select comment #/ })).not.toBeChecked();
         const saved = await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json();
         expect(saved.filter((item: { resolved: boolean }) => item.resolved)).toHaveLength(comments.length);
@@ -178,7 +182,7 @@ test('failed batch responses roll back and retry the original operation without 
     });
     await page.getByRole('button', { name: 'Mark selected as done', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Retry failed threads', exact: true })).toBeVisible();
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
     await expect(selected(page, comments[0]!.number)).toBeChecked();
     const committed = await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json();
     expect(committed[0].resolved).toBe(true);
@@ -249,12 +253,12 @@ test('partial status batches retain stale visible threads for review and a new e
         pending.release();
         await expect(page.getByText('1 changed, 0 unchanged, 1 stale, 0 unavailable, 0 failed. Review stale threads before starting a new action.', { exact: true })).toBeVisible();
         await expect(page.getByRole('list', { name: 'Threads needing attention' })).toContainText(`#${comments[0]!.number}: Stale`);
-        await expect(page.getByRole('article')).toHaveCount(1);
+        await expect(commentRows(page)).toHaveCount(1);
         await expect(selected(page, comments[0]!.number)).toBeChecked();
         await expect(page.getByRole('button', { name: 'Mark selected as done', exact: true })).toBeEnabled();
         await page.getByRole('button', { name: 'Mark selected as done', exact: true }).click();
         await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
-        await expect(page.getByRole('article')).toHaveCount(0);
+        await expect(commentRows(page)).toHaveCount(0);
     } finally { pending.release(); await page.unrouteAll({ behavior: 'wait' }); }
 });
 
@@ -277,21 +281,21 @@ test('search and selection stay local at the capped 1000-thread window', async (
         }
     }));
     await page.reload();
-    await expect(page.getByRole('article')).toHaveCount(1000);
+    await expect(commentRows(page)).toHaveCount(1000);
     await expect(page.getByText('Search covers up to 1,000 recent threads', { exact: false })).toBeVisible();
     const requests: string[] = [];
     page.on('request', request => { if (new URL(request.url()).pathname === `/app/projects/${project}` && request.headers().rsc === '1' && !request.headers()['next-router-prefetch']) requests.push(request.url()); });
     await page.route(`**/app/projects/${project}?*`, route => route.request().method() === 'GET' ? route.abort() : route.continue());
     const start = Date.now();
     await page.getByRole('searchbox', { name: 'Search feedback' }).fill('feedback /window/999');
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
     const searchMs = Date.now() - start;
     expect(searchMs).toBeLessThan(2500);
     await page.getByRole('checkbox', { name: 'Select shown results', exact: true }).check();
     await expect(page.getByText('1 selected', { exact: true })).toBeVisible();
-    await page.getByRole('combobox', { name: 'Priority filter', exact: true }).click();
+    await (await openCommentFilters(page)).getByRole('combobox', { name: 'Priority filter', exact: true }).click();
     await page.getByRole('option', { name: 'Urgent', exact: true }).click();
-    await expect(page.getByRole('article')).toHaveCount(0);
+    await expect(commentRows(page)).toHaveCount(0);
     expect(requests).toEqual([]);
     await testInfo.attach('search-window-performance', { body: JSON.stringify({ threads: 1000, searchMs, serverRequests: requests.length }), contentType: 'application/json' });
 });
@@ -299,27 +303,31 @@ test('search and selection stay local at the capped 1000-thread window', async (
 
 test('search, selection and priority preserve reply drafts in their original thread after view changes and reload', async ({ page, request }) => {
     const { comments } = await fixture(page, request, 2);
-    const card = (number: number) => page.getByRole('article').filter({ has: selected(page, number) });
-    const original = card(comments[0]!.number);
     const draft = 'Draft for the checkout thread';
+    let original = await openComment(page, comments[0]!.number);
     await original.getByRole('button', { name: 'Reply', exact: true }).click();
     await original.getByRole('textbox', { name: 'Reply', exact: true }).fill(draft);
+    await backToComments(page);
     await page.getByRole('searchbox', { name: 'Search feedback' }).fill('Other');
-    await expect(original).toHaveCount(0);
+    await expect(commentRowLink(page, comments[0]!.number)).toHaveCount(0);
     await page.getByRole('checkbox', { name: 'Select shown results', exact: true }).check();
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: 'High', exact: true }).click();
     await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear search', exact: true }).click();
-    await original.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue(draft);
+    original = await openComment(page, comments[0]!.number);
+    await expect(await openReply(original)).toHaveValue(draft);
+    await backToComments(page);
+    // The board opens the same thread in a sheet
     await page.getByRole('button', { name: 'Board', exact: true }).click();
-    await original.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue(draft);
+    original = await openComment(page, comments[0]!.number);
+    await expect(await openReply(original)).toHaveValue(draft);
     await page.reload();
     await original.getByRole('button', { name: 'Reply', exact: true }).click();
     await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue(draft);
-    const other = card(comments[1]!.number);
+    await page.keyboard.press('Escape');
+    await expect(original).toBeHidden();
+    const other = await openComment(page, comments[1]!.number);
     await other.getByRole('button', { name: 'Reply', exact: true }).click();
     await expect(other.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
 });

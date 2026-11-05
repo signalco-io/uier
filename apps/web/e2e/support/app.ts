@@ -167,3 +167,57 @@ export async function closeAppNavigation(page: Page) {
         await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
 }
+
+/** The rows of a project's comments list (the inbox); each row's link opens its thread */
+export const commentRows = (page: Page) => page.getByRole('list', { name: 'Comments', exact: true }).getByRole('listitem');
+
+/**
+ * A row's link by its number ("Comment #3 ...") or its first line. Only row links count, so `/^Comment/`
+ * never matches the project's Comments tab.
+ */
+export function commentRowLink(scope: Page | Locator, row: number | string | RegExp) {
+    const rowLinks = scope.getByRole('link', { name: /^Comment #\d+/ });
+    return typeof row === 'number'
+        ? scope.getByRole('link', { name: new RegExp(`^Comment #${row}(?!\\d)`) })
+        : rowLinks.and(scope.getByRole('link', { name: row }));
+}
+
+/**
+ * Opens a thread from the comments list (or a board column) and returns it: the one `article`,
+ * beside the list on wide screens, in the list's place on a phone, in a sheet on the board.
+ */
+export async function openComment(page: Page, row: number | string | RegExp) {
+    await commentRowLink(page, row).first().click();
+    const thread = page.getByRole('article');
+    await expect(thread).toBeVisible();
+    if (typeof row === 'number') await expect(thread).toContainText(`Comment #${row}`);
+    return thread;
+}
+
+/** Opens the comments' Filter popover (priority, environment and page, people, unread) */
+export async function openCommentFilters(page: Page) {
+    await page.getByRole('button', { name: /^Filter ?\d*$/ }).click();
+    const filters = page.getByRole('dialog', { name: 'Filter comments' });
+    await expect(filters).toBeVisible();
+    return filters;
+}
+
+/** Every comment's row link on the page, in the list or on the board */
+export const allCommentRowLinks = (page: Page) => page.getByRole('link', { name: /^Comment(?: #\d+|:) / });
+
+/** Back to the list where the open thread took its place (a phone); nothing to do beside the list */
+export async function backToComments(page: Page) {
+    const back = page.getByRole('button', { name: 'Back to comments', exact: true });
+    const search = page.getByRole('searchbox', { name: 'Search feedback' });
+    await expect(back.or(search).first()).toBeVisible();
+    // A navigation (a filter) may close the thread on its own meanwhile
+    if (await back.isVisible()) await back.click({ timeout: 5000 }).catch(() => undefined);
+    await expect(search).toBeVisible();
+}
+
+/** The open thread's reply box: Reply opens it unless it is open already (it stays open through status changes) */
+export async function openReply(thread: Locator) {
+    const input = thread.getByRole('textbox', { name: 'Reply', exact: true });
+    if (!(await input.isVisible())) await thread.getByRole('button', { name: 'Reply', exact: true }).click();
+    return input;
+}

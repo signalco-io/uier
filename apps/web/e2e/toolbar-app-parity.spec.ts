@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { createProject, signIn, uniqueEmail, openComment } from './support/app';
 import { commentBubble, openThread } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -30,7 +30,8 @@ test('a member\'s toolbar comment reads the same in the app: number, avatar and 
     await expect(openThread(page).getByRole('button', { name: 'Unfollow thread', exact: true })).toBeVisible();
 
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article', { name: 'Comment by you' });
+    const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by you');
     await expect(card).toContainText('#1');
     // The avatar is the person's initial, not the Y of "You"
     await expect(card.locator('[data-slot="avatar-fallback"]').first()).toHaveText('M');
@@ -52,7 +53,8 @@ test('with nobody else to check a fix, the request form says so and offers an in
     await expect(toolbarForm.getByRole('button', { name: 'Request verification', exact: true })).toHaveAccessibleDescription(/Nobody else can check this fix yet\./);
 
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article', { name: 'Comment by you' });
+    const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by you');
     await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Ready to verify', exact: true }).click();
     const form = card.getByRole('form', { name: 'Request verification' });

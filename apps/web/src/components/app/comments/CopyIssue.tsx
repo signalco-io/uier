@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CopyIcon, XIcon } from 'lucide-react';
+import { CopyIcon, FileTextIcon, Link2Icon, XIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/src/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { Spinner } from '@/src/components/ui/spinner';
 import { copyIssueAction } from './actions';
-import { ThreadAction } from './ThreadAction';
 
 export function useCopyIssue(projectId: string, commentId: string) {
     const [pending, setPending] = useState(false);
@@ -28,24 +30,58 @@ export function useCopyIssue(projectId: string, commentId: string) {
             try {
                 await navigator.clipboard.writeText(result.data.markdown);
                 setCopied(true);
+                return true;
             } catch {
                 setError('Couldn’t copy. Select the Markdown below and copy it.');
                 setManual(result.data.markdown);
             }
         } catch { setError('Couldn’t prepare the issue. Check your connection and try again.'); }
         finally { setPending(false); }
+        return false;
     };
     return { pending, copied, error, manual, copy, close: () => { setManual(undefined); setError(''); } };
 }
 
-/** The toolbar's Copy issue: the same copy icon, next to Copy link; success shows under it */
-export function CopyIssueButton({ state }: { state: ReturnType<typeof useCopyIssue> }) {
+/**
+ * One Copy menu for the two things people copy, each saying what it is: the issue (Markdown for an
+ * issue tracker or a coding tool) and the link (opens the reviewed page at this comment). The issue's
+ * errors and manual fallback stay in the thread (`CopyIssueResult`).
+ */
+export function CopyMenu({ copyIssue, canCopyLink, onCopyLink }: {
+    copyIssue: ReturnType<typeof useCopyIssue>;
+    canCopyLink: boolean;
+    onCopyLink: () => void;
+}) {
     return <>
-        <ThreadAction label="Copy issue" notice={state.copied ? 'Issue copied.' : undefined}
-            busy={state.pending} disabled={state.pending} onClick={state.copy}>
-            {state.pending ? <Spinner /> : <CopyIcon aria-hidden="true" />}
-        </ThreadAction>
-        <span role="status" className="sr-only">{state.copied ? 'Issue copied.' : ''}</span>
+        <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="Copy" aria-busy={copyIssue.pending}
+                    className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />} />}>
+                    {copyIssue.pending ? <Spinner /> : <CopyIcon aria-hidden="true" />}
+                </TooltipTrigger>
+                <TooltipContent>Copy issue or link</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuGroup>
+                    <DropdownMenuItem disabled={copyIssue.pending} className="items-start"
+                        onClick={async () => { if (await copyIssue.copy()) toast.success('Issue copied.'); }}>
+                        <FileTextIcon className="mt-0.5" />
+                        <span className="flex flex-col">
+                            Copy issue
+                            <span className="text-xs text-muted-foreground">Markdown with the thread, page and browser, for an issue or a coding tool</span>
+                        </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={!canCopyLink} className="items-start" onClick={onCopyLink}>
+                        <Link2Icon className="mt-0.5" />
+                        <span className="flex flex-col">
+                            Copy link
+                            <span className="text-xs text-muted-foreground">{canCopyLink ? 'Opens the reviewed page at this comment' : 'The original source is unavailable'}</span>
+                        </span>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+        <span role="status" className="sr-only">{copyIssue.copied ? 'Issue copied.' : ''}</span>
     </>;
 }
 

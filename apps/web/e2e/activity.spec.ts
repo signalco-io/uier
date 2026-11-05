@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { allCommentRowLinks, commentRowLink, commentRows, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 async function foreground(page: Page) {
@@ -313,7 +313,8 @@ test('a member shares read state between the app and reviews on different config
         expect(posted.status()).toBe(201);
         const comment = await posted.json();
         await page.goto(`/app/projects/${projectId}`);
-        const card = page.getByRole('article', { name: 'Comment by Guest' });
+        const card = await openComment(page, 'Member inbox feedback');
+        await expect(card).toHaveAccessibleName('Comment by Guest');
         // The unread dot is the Mark as read button; Mark as unread is in More actions
         await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
         await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
@@ -335,8 +336,8 @@ test('a member shares read state between the app and reviews on different config
         await foreground(page);
         await expect(inbox(page)).toHaveAccessibleName('Inbox, 1 unread thread');
         await page.goto(`/app/projects/${projectId}?unread=true`);
-        await card.getByRole('button', { name: 'Mark as read' }).click();
-        await expect(card).toHaveCount(0);
+        await (await openComment(page, 'Member inbox feedback')).getByRole('button', { name: 'Mark as read' }).click();
+        await expect(commentRowLink(page, 'Member inbox feedback')).toHaveCount(0);
         const secondSite = `${site.origin('second-site')}/${projectId}/pricing`;
         await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(secondSite)}`);
         await expect(inbox(page)).toHaveAccessibleName('Inbox');
@@ -366,12 +367,13 @@ test('app bulk read follows environment, page and people filters in list and boa
             if (name === 'Selected') selectedId = (await saved.json()).id;
         }
         await page.goto(`/app/projects/${projectId}`);
-        const selected = page.getByRole('article', { name: 'Comment by Selected', exact: true });
-        await selected.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
+        const row = (name: string) => commentRowLink(page, `${name} feedback`);
+        await (await openComment(page, 'Selected feedback')).getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
         await page.getByRole('menuitem', { name: /^bulk-owner-/ }).click();
+        await expect(page.getByRole('button', { name: /^Assigned to you\. Change assignee$/ })).toBeVisible();
         const url = `/app/projects/${projectId}?unread=true&people=assigned&page=${encodeURIComponent(path)}`;
         await page.goto(url);
-        await expect(page.getByRole('article')).toHaveCount(1);
+        await expect(commentRows(page)).toHaveCount(1);
         for (const colorScheme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme });
             await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
@@ -387,9 +389,10 @@ test('app bulk read follows environment, page and people filters in list and boa
         });
         await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(page.getByText('Some threads could not be marked as read.', { exact: true })).toBeVisible();
-        await expect(selected).toBeVisible();
+        await expect(row('Selected')).toBeVisible();
         await page.getByRole('button', { name: 'Retry', exact: true }).click();
-        await expect(selected).toHaveCount(0);
+        await expect(row('Selected')).toHaveCount(0);
+        await expect(page.getByText('1 thread marked as read.', { exact: true })).toBeVisible();
         await request.post(`/api/review/${projectId}/comments/${selectedId}/replies`, { headers, data: { text: 'New selected reply', authorName: 'Selected' } });
         await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
         await inbox(page).click();
@@ -401,15 +404,15 @@ test('app bulk read follows environment, page and people filters in list and boa
         await expect(inbox(page)).toHaveAccessibleName('Inbox, 2 unread threads');
         await expect(reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
         await page.goto(`/app/projects/${projectId}?unread=true`);
-        await expect(page.getByRole('article')).toHaveCount(2);
-        await expect(page.getByRole('article', { name: 'Comment by Unassigned', exact: true })).toBeVisible();
-        await expect(page.getByRole('article', { name: 'Comment by Other page', exact: true })).toBeVisible();
+        await expect(commentRows(page)).toHaveCount(2);
+        await expect(row('Unassigned')).toBeVisible();
+        await expect(row('Other page')).toBeVisible();
         await page.goto(`/app/projects/${projectId}?unread=true&view=board&page=${encodeURIComponent(path)}`);
         await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
-        await expect(page.getByRole('article')).toHaveCount(0);
+        await expect(allCommentRowLinks(page)).toHaveCount(0);
         await page.goto(`/app/projects/${projectId}?unread=true&environment=all`);
-        await expect(page.getByRole('article')).toHaveCount(2);
-        await expect(page.getByRole('article', { name: 'Comment by Other environment', exact: true })).toBeVisible();
+        await expect(commentRows(page)).toHaveCount(2);
+        await expect(row('Other environment')).toBeVisible();
     } finally { await site.close(); }
 });
 

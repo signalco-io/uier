@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { appNavigation, createProject, projectPublicId, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { appNavigation, createProject, projectPublicId, setProjectAccess, signIn, uniqueEmail, commentRowLink } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -33,7 +33,7 @@ test('public ids work in embeds, guest writes, verification and member review re
         const created = await createdResponse;
         expect(created.status()).toBe(201);
         await page.reload();
-        await expect(page.getByText('Feedback via public id', { exact: true })).toBeVisible();
+        await expect(commentRowLink(page, 'Feedback via public id')).toBeVisible();
         const target = `${site.origin()}/${publicId}/pricing`;
         await page.goto(`/app/review/${id}?url=${encodeURIComponent(target)}`);
         await expect(page).toHaveURL(`${target}?toolbar-code=${publicId}`);

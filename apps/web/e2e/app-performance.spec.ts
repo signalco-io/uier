@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, toolbar } from './support/toolbar';
@@ -30,7 +30,7 @@ function gate() {
 test('comment filters work without server requests and survive history and reload', async ({ page, request }) => {
     const { project } = await fixture(page, request);
     await page.goto(`/app/projects/${project}`);
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
     const requests: string[] = [];
     page.on('request', request => {
         if (new URL(request.url()).pathname === `/app/projects/${project}` && request.headers().rsc === '1'
@@ -41,7 +41,7 @@ test('comment filters work without server requests and survive history and reloa
     await page.getByRole('button', { name: 'Done 0', exact: true }).click();
     await expect(page.getByText('Nothing done yet', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'All 1', exact: true }).click();
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Done comments', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'List', exact: true }).click();
@@ -50,21 +50,21 @@ test('comment filters work without server requests and survive history and reloa
     await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.goForward();
     await expect(page.getByRole('button', { name: 'List', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('combobox', { name: 'People', exact: true }).click();
+    await (await openCommentFilters(page)).getByRole('combobox', { name: 'People', exact: true }).click();
     await page.getByRole('option', { name: 'Assigned to me', exact: true }).click();
-    await expect(page.getByRole('article')).toHaveCount(0);
+    await expect(commentRows(page)).toHaveCount(0);
     expect(requests).toEqual([]);
     await page.unroute(`**/app/projects/${project}?*`);
     await page.reload();
-    await expect(page.getByRole('combobox', { name: 'People', exact: true })).toContainText('Assigned to me');
-    await expect(page.getByRole('article')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Clear filter: Assigned to me', exact: true })).toBeVisible();
+    await expect((await openCommentFilters(page)).getByRole('combobox', { name: 'People', exact: true })).toContainText('Assigned to me');
+    await expect(commentRows(page)).toHaveCount(0);
 });
 
 test('status, assignment, follow and read changes render before the server confirms and persist', async ({ page, request }) => {
-    const { project } = await fixture(page, request);
+    const { project, comment } = await fixture(page, request);
     await page.goto(`/app/projects/${project}?status=all`);
-    const card = page.getByRole('article');
-    await expect(card).toHaveCount(1);
+    const card = await openComment(page, comment.number);
     let pending = gate();
     let posts = 0;
     await page.route(`**/app/projects/${project}?*`, route => route.continue());
@@ -79,7 +79,8 @@ test('status, assignment, follow and read changes render before the server confi
         await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Done 1', exact: true })).toBeVisible();
+        // The status tabs update at once (behind the thread where it takes the whole width)
+        await expect(page.getByRole('button', { name: 'Done 1', exact: true, includeHidden: true })).toBeAttached();
         await expect.poll(() => posts).toBe(1);
         pending.release();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeEnabled();
@@ -114,10 +115,9 @@ test('status, assignment, follow and read changes render before the server confi
 });
 
 test('failed optimistic status changes restore the card and counts', async ({ page, request }) => {
-    const { project } = await fixture(page, request);
+    const { project, comment } = await fixture(page, request);
     await page.goto(`/app/projects/${project}?status=all`);
-    const card = page.getByRole('article');
-    await expect(card).toHaveCount(1);
+    const card = await openComment(page, comment.number);
     const pending = gate();
     await page.route(`**/app/projects/${project}*`, async route => {
         if (route.request().method() !== 'POST') return route.continue();
@@ -130,7 +130,8 @@ test('failed optimistic status changes restore the card and counts', async ({ pa
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
         pending.release();
         await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeEnabled();
-        await expect(page.getByRole('button', { name: 'Open 1', exact: true })).toBeVisible();
+        // The status tabs update at once (behind the thread where it takes the whole width)
+        await expect(page.getByRole('button', { name: 'Open 1', exact: true, includeHidden: true })).toBeAttached();
         await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
     } finally { pending.release(); }
 });
@@ -160,7 +161,10 @@ test('toolbar status changes appear during a delayed save and roll back on failu
 test('mark all as read clears the rendered unread snapshot before confirmation', async ({ page, request }) => {
     const { project } = await fixture(page, request);
     await page.goto(`/app/projects/${project}`);
-    await expect(page.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
+    // The row says it is unread, as does the count beside Mark all as read
+    const unreadRow = page.getByRole('link', { name: /, unread$/ });
+    await expect(unreadRow).toHaveCount(1);
+    await expect(page.getByText('· 1 unread')).toBeVisible();
     const pending = gate();
     await page.route(`**/app/projects/${project}*`, async route => {
         if (route.request().method() === 'POST') await pending.wait;
@@ -168,12 +172,12 @@ test('mark all as read clears the rendered unread snapshot before confirmation',
     });
     try {
         await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
-        await expect(page.getByRole('button', { name: 'Unread 0', exact: true })).toBeVisible();
+        await expect(unreadRow).toHaveCount(0);
+        await expect(page.getByText('· 1 unread')).toHaveCount(0);
         pending.release();
         await expect(page.getByText('1 thread marked as read.', { exact: true })).toBeVisible();
         await page.reload();
-        await expect(page.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
+        await expect(unreadRow).toHaveCount(0);
     } finally { pending.release(); }
 });
 

@@ -2,20 +2,18 @@
 
 import { PriorityControl } from './PriorityControl';
 import { useCommitCommentsSearch } from './CommentsSearchNavigation';
-import { SelectComment } from './TriageSelection';
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+    ArrowLeftIcon,
     ArrowUpRightIcon,
     BellIcon,
     BellOffIcon,
     BugIcon,
     CheckIcon,
     ChevronDownIcon,
-    FileIcon,
     HeartIcon,
-    Link2Icon,
     LockIcon,
     LockOpenIcon,
     MailIcon,
@@ -40,6 +38,7 @@ import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
+import { cn } from '@/src/lib/utils';
 import {
     Dialog,
     DialogClose,
@@ -70,11 +69,12 @@ import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
 import { CommentDevice } from './CommentDevice';
 import { updateNotificationAction } from './notificationActions';
-import { CopyIssueButton, CopyIssueResult, useCopyIssue } from './CopyIssue';
+import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
 import { integrationLabels, kindLabels } from './commentLabels';
 import { useCommentUpdate } from './CommentUpdates';
 import { VerificationControl } from './VerificationControl';
-import { readyForReview } from '@uier/toolbar/verification';
+import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
+import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { ReplyComposer } from './ReplyComposer';
 import {
     markCommentReadAction,
@@ -85,78 +85,15 @@ import {
     editCommentAction,
     setCommentAssigneeAction,
     setCommentPrivateAction,
-    setCommentResolvedAction,
-    verificationCommentAction
 } from './actions';
 
 export type AssigneeOption = { userId: string; name: string };
 
-/** A card leaving its list after Done or Reopen: the exit animation, and undoing it when the change fails */
-export type ResolveExit = { finished: Promise<void>; cancel: () => void };
+export type { ResolveExit } from './useStatusChange';
 
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
 const maxTextLength = 1000;
-
-export type CommentStatus = 'open' | 'ready' | 'done';
-
-export const commentStatusLabels: Record<CommentStatus, string> = { open: 'Open', ready: 'Ready to verify', done: 'Done' };
-
-export function commentStatus(comment: { resolved: boolean; verification?: ProjectCommentView['verification'] }): CommentStatus {
-    return comment.resolved ? 'done' : readyForReview(comment) ? 'ready' : 'open';
-}
-
-/** Open and Ready to verify: ink dot; done: green (BRAND.md, "Components": badges with a status dot). The toolbar's `CommentStatusBadge`. */
-export function StateDot({ status }: { status: CommentStatus }) {
-    return <span aria-hidden="true" className={status === 'done' ? 'size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 shrink-0 rounded-full bg-foreground'} />;
-}
-
-export function StateBadge({ status }: { status: CommentStatus }) {
-    return (
-        <Badge variant="outline" className="gap-1.5">
-            <StateDot status={status} />
-            <span className="sr-only">Status: </span>
-            {commentStatusLabels[status]}
-        </Badge>
-    );
-}
-
-/**
- * The status badge as a menu with the three statuses. Each is enabled when the person may move the
- * thread there: Open and Done with the resolve permission (Open from Ready to verify cancels the
- * check), Ready to verify with the request permission (it opens the Request verification form).
- */
-export function StateMenu({ status, allowed, disabled, onChange, triggerRef }: {
-    status: CommentStatus;
-    allowed: Record<CommentStatus, boolean>;
-    disabled: boolean;
-    onChange: (status: CommentStatus) => void;
-    triggerRef?: React.Ref<HTMLButtonElement>;
-}) {
-    const label = commentStatusLabels[status];
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${label}. Change status`}
-                    className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11" />}>
-                <StateDot status={status} />
-                {label}
-                <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-48">
-                <DropdownMenuGroup>
-                    {(['open', 'ready', 'done'] as const).map(option => (
-                        <DropdownMenuItem key={option} disabled={option !== status && !allowed[option]}
-                            onClick={() => (option !== status || option === 'ready') && allowed[option] && onChange(option)}>
-                            <StateDot status={option} />
-                            {option === 'done' && status === 'ready' ? 'Done without verification' : commentStatusLabels[option]}
-                            {option === status && <CheckIcon className="ml-auto" />}
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    );
-}
 
 /**
  * The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`).
@@ -240,7 +177,7 @@ function MessageText({ text, edited }: { text: string; edited: boolean }) {
  * who it is assigned to and actions (following the thread among them) on one row, then the messages,
  * the linked issues, and the page it was left on at the bottom
  */
-export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve }: {
+export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve, onBack, startVerifying = false, className }: {
     projectId: string;
     comment: ProjectCommentView;
     /** Review link that opens the page at this comment */
@@ -250,6 +187,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     userId: string;
     /** Done or Reopen takes the comment out of its list: starts its exit right away */
     onResolve?: (resolved: boolean) => ResolveExit;
+    /** Back to the list, where the thread takes the whole width (a phone): the button is shown only then */
+    onBack?: () => void;
+    /** Opens with the Request verification form (a card dropped on Ready to verify) */
+    startVerifying?: boolean;
+    className?: string;
 }) {
     const router = useRouter();
     const updateComment = useCommentUpdate();
@@ -262,18 +204,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const copyIssue = useCopyIssue(projectId, comment.id);
     const [confirmingReply, setConfirmingReply] = useState<string>();
-    const [expanded, setExpanded] = useState(false);
     // The Request verification form, opened from the status menu
-    const [verifying, setVerifying] = useState(false);
+    const [verifying, setVerifying] = useState(startVerifying);
     const statusTrigger = useRef<HTMLButtonElement>(null);
-    const firstRevealedRef = useRef<HTMLLIElement>(null);
     const { permissions, source } = comment;
-    const status = commentStatus(comment);
-    const verificationPermissions = comment.verificationPermissions;
-    const statusAllowed: Record<CommentStatus, boolean> = {
-        open: status === 'done' ? permissions.resolve : status === 'ready' && Boolean(verificationPermissions?.cancel),
-        ready: Boolean(verificationPermissions?.request),
-        done: status !== 'done' && permissions.resolve
+    const statusChange = useStatusChange(projectId, comment, {
+        onResolve,
+        onVerify: () => setVerifying(true)
+    });
+    const changeStatus = (next: CommentStatus) => {
+        if (next !== 'ready') setVerifying(false);
+        statusChange.change(next);
     };
     const author = comment.author.isMe ? 'You' : comment.author.name;
     const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
@@ -283,19 +224,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const assigned = comment.assignee
         ? `Assigned to ${comment.assignee.id === userId ? 'you' : comment.assignee.name}`
         : 'Unassigned';
-    // In the footer, after the page link: the environment's name; the address itself is in the link
+    // After the page link: the environment's name; the address itself is in the link
     const sourceText = source.available
         ? source.label !== source.origin ? source.label : undefined
         : `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''} · Original source unavailable`;
 
-    // First and last message; "Show all" for the ones between (the toolbar's thread)
-    const lastReply = comment.replies.at(-1);
-    const hiddenReplies = comment.replies.slice(0, -1);
-    const messagesCount = [!comment.deleted, ...comment.replies.map(reply => !reply.deleted)].filter(Boolean).length;
-    useEffect(() => {
-        if (expanded)
-            firstRevealedRef.current?.focus();
-    }, [expanded]);
 
     const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>) => startTransition(async () => {
         if (patch) updateComment({ id: comment.id, patch });
@@ -310,42 +243,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             toast.success(success);
         // The server action already revalidates this page and returns its fresh snapshot.
     });
-
-    const toggleResolved = () => startTransition(async () => {
-        const resolved = !comment.resolved;
-        const exit = onResolve?.(resolved);
-        // Start saving immediately, then move the card once its exit has played.
-        try {
-            const request = setCommentResolvedAction(projectId, comment.id, resolved)
-                .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
-            if (exit) await exit.finished;
-            startTransition(() => updateComment({ id: comment.id, patch: { resolved } }));
-            const result = await request;
-            if (result && !result.ok) {
-                exit?.cancel();
-                toast.error(result.error);
-            }
-        } catch {
-            exit?.cancel();
-            toast.error('Could not save the change. Try again.');
-        }
-    });
-
-    // Open from Ready to verify cancels the check; Ready to verify opens the request form
-    const changeStatus = (next: CommentStatus) => {
-        if (next === 'ready') {
-            setVerifying(true);
-            return;
-        }
-        setVerifying(false);
-        if (next === 'open' && status === 'ready') {
-            run(() => verificationCommentAction(projectId, comment.id, {
-                action: 'cancel', override: false, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
-            }), 'Verification request canceled.');
-            return;
-        }
-        toggleResolved();
-    };
 
     const filterAuthor = (itemId?: string) => startTransition(async () => {
         commitSearch();
@@ -414,18 +311,22 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         );
     };
 
+    const { anchor } = comment;
     return (
-        <Card role="article" aria-label={label} className="@container/comment gap-0 py-0">
-            <div className="flex flex-col gap-3 px-4 py-3">
-                {/* The toolbar's thread header: status, public id, unread dot (Mark as read) and who it is assigned to
-                    (an avatar; the tooltip names them), then the actions (on a line of their own in a narrow board column) */}
-                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <SelectComment comment={comment} />
-                        {Object.values(statusAllowed).some(Boolean)
-                            ? <StateMenu status={status} allowed={statusAllowed} disabled={pending} onChange={changeStatus} triggerRef={statusTrigger} />
-                            : <StateBadge status={status} />}
-                        <PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} />
+        <Card role="article" aria-label={label} className={cn('@container/comment gap-0 py-0', className)}>
+            <div className="flex flex-col gap-4 px-4 py-3">
+                {/* Status, public id and unread on the left; Copy and More actions on the right, on one line at any width */}
+                <div className="flex items-center gap-2">
+                    {onBack && (
+                        <Button variant="ghost" size="icon-sm" aria-label="Back to comments" onClick={onBack}
+                            className="-ml-2 shrink-0 @4xl/comments:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                            <ArrowLeftIcon />
+                        </Button>
+                    )}
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                        {Object.values(statusChange.allowed).some(Boolean)
+                            ? <StateMenu status={statusChange.status} allowed={statusChange.allowed} disabled={pending || statusChange.pending} onChange={changeStatus} triggerRef={statusTrigger} />
+                            : <StateBadge status={statusChange.status} />}
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 <span className="sr-only">Comment </span>#{comment.number}
@@ -442,61 +343,19 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 Private
                             </Badge>
                         )}
-                        {/* The list of people for those who can assign */}
-                        {permissions.assign ? (
-                            <DropdownMenu>
-                                <Tooltip>
-                                    <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`${assigned}. Change assignee`}
-                                        className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />} />}>
-                                        <AssigneeAvatar assignee={comment.assignee} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>{assigned}</TooltipContent>
-                                </Tooltip>
-                                <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
-                                    <DropdownMenuGroup>
-                                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
-                                        {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
-                                            <DropdownMenuItem
-                                                key={option.userId}
-                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
-                                                    { assignee: { id: option.userId, name: option.name } })}>
-                                                {option.name}
-                                                {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuGroup>
-                                    {comment.assignee && (
-                                        <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, null), undefined, { assignee: undefined })}>
-                                                Unassign
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        ) : (
-                            <Tooltip>
-                                <TooltipTrigger render={<span role="img" aria-label={assigned} className="inline-flex size-8 items-center justify-center text-muted-foreground" />}>
-                                    <AssigneeAvatar assignee={comment.assignee} />
-                                </TooltipTrigger>
-                                <TooltipContent>{assigned}</TooltipContent>
-                            </Tooltip>
-                        )}
                     </div>
-                    <div className="-mr-1.5 ml-auto flex shrink-0 items-center gap-0.5">
-                        <CopyIssueButton state={copyIssue} />
+                    <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">
+                        <CopyMenu copyIssue={copyIssue} canCopyLink={source.available} onCopyLink={copyLink} />
                         <DropdownMenu>
-                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
-                                    className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>
-                                {pending ? <Spinner /> : <MoreHorizontalIcon />}
-                            </DropdownMenuTrigger>
+                            <Tooltip>
+                                <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
+                                    className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />} />}>
+                                    {pending ? <Spinner /> : <MoreHorizontalIcon />}
+                                </TooltipTrigger>
+                                <TooltipContent>More actions</TooltipContent>
+                            </Tooltip>
                             <DropdownMenuContent align="end" className="min-w-48">
                                 <DropdownMenuGroup>
-                                    <DropdownMenuItem disabled={!source.available} onClick={copyLink}>
-                                        <Link2Icon />
-                                        {source.available ? 'Copy link' : 'Copy link (original source unavailable)'}
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                         onClick={() => run(
                                             () => updateNotificationAction(projectId, comment.id, !comment.following),
@@ -552,29 +411,97 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 </div>
                 <CopyIssueResult state={copyIssue} />
+
+                {/* What it is about and where: the element or text, the page (it opens the review there) and its environment */}
+                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 text-sm">
+                    <dt className="text-muted-foreground">On</dt>
+                    <dd className="m-0 min-w-0">
+                        <span className="break-words">{anchor.label}</span>
+                        {(anchor.type === 'element' || anchor.type === 'area') && (
+                            <code className="ml-2 font-mono text-xs break-all text-muted-foreground">{anchor.selector}</code>
+                        )}
+                        {anchor.type === 'text' && anchor.text && (
+                            <blockquote className="m-0 mt-1 line-clamp-4 border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
+                        )}
+                    </dd>
+                    <dt className="text-muted-foreground">Page</dt>
+                    <dd className="m-0 flex min-w-0 flex-wrap items-center gap-x-2">
+                        {source.available ? (
+                            <a href={reviewLink} target="_blank" rel="noopener"
+                                className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 text-sm underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
+                                <span className="sr-only">Open on </span>
+                                <span className="truncate font-mono text-xs">{comment.url.replace(/^https?:\/\//, '')}</span>
+                                <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                            </a>
+                        ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
+                        {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
+                    </dd>
+                    <dt className="text-muted-foreground">Priority</dt>
+                    <dd className="m-0"><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
+                    <dt className="text-muted-foreground">Assignee</dt>
+                    <dd className="m-0 min-w-0">
+                        {/* The list of people for those who can assign */}
+                        {permissions.assign ? (
+                            <DropdownMenu>
+                                <span className="flex min-w-0 items-center gap-1">
+                                    <AssigneeAvatar assignee={comment.assignee} />
+                                    {/* The visible name is part of the accessible name ("Assigned to you. Change assignee") */}
+                                    <DropdownMenuTrigger render={<Button variant="ghost" size="sm" disabled={pending} aria-label={`${assigned}. Change assignee`}
+                                        className="h-7 min-w-0 gap-2 px-1.5 font-normal pointer-coarse:min-h-11" />}>
+                                        <span className="truncate">{comment.assignee ? comment.assignee.id === userId ? 'You' : comment.assignee.name : 'Unassigned'}</span>
+                                        <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
+                                    </DropdownMenuTrigger>
+                                </span>
+                                <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
+                                        {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
+                                            <DropdownMenuItem
+                                                key={option.userId}
+                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
+                                                    { assignee: { id: option.userId, name: option.name } })}>
+                                                {option.name}
+                                                {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuGroup>
+                                    {comment.assignee && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, null), undefined, { assignee: undefined })}>
+                                                Unassign
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <span role="img" aria-label={assigned} className="inline-flex items-center gap-2">
+                                <AssigneeAvatar assignee={comment.assignee} />
+                                <span aria-hidden="true">{comment.assignee?.name ?? 'Unassigned'}</span>
+                            </span>
+                        )}
+                    </dd>
+                </dl>
+
                 <VerificationControl projectId={projectId} userId={userId} comment={comment}
                     formOpen={verifying} onFormOpenChange={setVerifying} returnFocus={statusTrigger} />
 
                 {/* The messages, one under the other like a chat */}
-                <ol className="m-0 flex list-none flex-col gap-2 p-0">
+                <ol className="m-0 flex list-none flex-col gap-3 border-t p-0 pt-4">
                     <li>
                         <Message author={comment.deleted ? 'Deleted' : author} avatarName={comment.author.name} createdAt={comment.createdAt}
                             meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
                             <KindLabel kind={comment.kind} />
-                            {comment.quotedText && (
-                                <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
-                                    {comment.quotedText}
-                                </blockquote>
-                            )}
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
                                 : <MessageText text={comment.displayText} edited={comment.edited} />}
                             {comment.screenshot && (
                                 <Dialog>
-                                    <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto w-24 self-start p-0" aria-label="Screenshot of the commented part of the page" />}>
+                                    <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label="Screenshot of the commented part of the page" />}>
                                         <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
                                             alt="Screenshot of the commented part of the page" loading="lazy"
-                                            className="block h-16 w-24 rounded-lg border object-contain" />
+                                            className="block h-auto max-h-56 w-auto max-w-full rounded-lg border object-contain" />
                                     </DialogTrigger>
                                     <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
                                         <DialogHeader><DialogTitle>Screenshot</DialogTitle></DialogHeader>
@@ -585,25 +512,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             )}
                         </Message>
                     </li>
-                    {expanded && hiddenReplies.map((item, index) => (
-                        <li key={item.id} ref={index === 0 ? firstRevealedRef : undefined} tabIndex={index === 0 ? -1 : undefined}
-                            className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            {reply(item)}
-                        </li>
-                    ))}
-                    {!expanded && hiddenReplies.length > 0 && (
-                        <li>
-                            <Button variant="ghost" size="xs" className="ml-7 text-muted-foreground" onClick={() => setExpanded(true)}>
-                                Show all {messagesCount} messages
-                            </Button>
-                        </li>
-                    )}
-                    {lastReply && <li>{reply(lastReply)}</li>}
+                    {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}
                 </ol>
 
                 {permissions.reply && (replying
                     ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => setReplying(true)}>Reply</Button>)}
+                    : <Button variant="outline" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => setReplying(true)}>Reply</Button>)}
 
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (
@@ -616,25 +530,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         ))}
                     </div>
                 ) : null}
-            </div>
-
-            {/* The page it was left on, like the toolbar inbox's card footer, and where it came from */}
-            <div className="flex min-w-0 items-center gap-2 border-t px-2 py-1">
-                {source.available ? (
-                    <a href={reviewLink} target="_blank" rel="noopener"
-                        className="flex min-w-0 items-center gap-1.5 rounded-md p-2 text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
-                        <span className="sr-only">Open on </span>
-                        <FileIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                        <span className="truncate font-mono">{comment.url.replace(/^https?:\/\//, '')}</span>
-                        <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                    </a>
-                ) : (
-                    <p className="m-0 flex min-w-0 items-center gap-1.5 p-2 text-xs text-muted-foreground">
-                        <FileIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                        <span className="truncate font-mono">{comment.path}</span>
-                    </p>
-                )}
-                {sourceText && <span className="ml-auto min-w-0 shrink-0 truncate pr-2 text-xs text-muted-foreground">{sourceText}</span>}
             </div>
 
             <Dialog open={editing} onOpenChange={setEditing}>

@@ -4,6 +4,7 @@ import { commentRevision } from '../review/commentRevision';
 import { environmentFilter, type FeedbackSource } from './environments';
 import type { ReadActivity } from '../comments/activity';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
+import { commentAnchor, type CommentAnchorView } from './commentAnchor';
 import { projectCommentRouting } from './projectCommentRouting';
 import { commentSourcePath } from '../comments/dto';
 import { loadReadSequences } from '../comments/readState';
@@ -67,6 +68,8 @@ export type ProjectCommentView = {
     screenshot?: { url: string; width: number; height: number };
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
+    /** What it was left on: an element, selected text (empty once the comment is deleted) or the whole page */
+    anchor: CommentAnchorView;
     device?: DbDeviceSize;
     reproduction: ReproductionContext;
     createdAt?: string;
@@ -98,6 +101,12 @@ function mentionText(item: import('../db/schema').DbThreadItem, participants: Ma
     return text;
 }
 
+function anchorView(comment: DbComment, first: import('../db/schema').DbThreadItem): CommentAnchorView {
+    const anchor = commentAnchor(comment.position, comment.kind, first.quotedText);
+    // A deleted comment keeps where it was, not the words it quoted
+    return anchor.type === 'text' && first.deletedAt ? { ...anchor, text: '' } : anchor;
+}
+
 function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
@@ -123,6 +132,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             ? { url: KnownPageLinks.projectCommentScreenshot(project.id, comment.id), width: comment.screenshot.width, height: comment.screenshot.height }
             : undefined,
         kind: comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment',
+        anchor: anchorView(comment, first),
         device: size && deviceSizes.includes(size) ? size : undefined,
         reproduction: toReproductionContext(comment, projectOrigins(project)),
         createdAt: comment.createdAt,
