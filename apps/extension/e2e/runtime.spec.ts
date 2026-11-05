@@ -48,6 +48,8 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const id = clientId;
     const popup = await context.newPage();
     await popup.goto(`chrome-extension://${id}/popup.html`);
+    await expect(popup.getByText('Browser extension', { exact: true })).toBeVisible();
+    await expect(popup.getByText('development preview', { exact: false })).toHaveCount(0);
     const login = context.waitForEvent('page');
     await popup.getByRole('button', { name: 'Sign in to uier' }).click();
     const auth = await login;

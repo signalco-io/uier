@@ -2,7 +2,8 @@
 
 Version 0.1.2 is published publicly. Native Chrome and Edge automatically upgraded from 0.1.1
 and passed post-update acceptance. The production installation link is live, and the deployed
-allowlist contains only the stable store client.
+allowlist contains only the stable store client. Version 0.1.3 is prepared on main: it drops the
+popup's development-preview label and needs its own protected tag, submission and review.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store; native Edge Add-ons is a separate follow-up.
 
