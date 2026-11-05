@@ -74,10 +74,23 @@ const nextConfig: NextConfig = {
     async rewrites() {
         // OAuth discovery for the MCP endpoint (src/lib/mcp/oauth). Only the path-specific protected
         // resource document exists: a root document would describe another resource (RFC 9728).
-        return [
+        const rewrites = [
             { source: '/.well-known/oauth-protected-resource/api/mcp', destination: '/api/oauth/metadata/protected-resource' },
             { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/metadata/authorization-server' }
         ];
+        if (process.env.NODE_ENV !== 'development')
+            return rewrites;
+        // `next dev`: the install snippet's /toolbar.js is the toolbar's watch build (localhost:4005,
+        // `pnpm dev`), never the ignored copy an earlier `pnpm build` left in public/. Its dev loader
+        // fetches ./review.js next to itself.
+        return {
+            beforeFiles: [
+                { source: '/toolbar.js', destination: 'http://localhost:4005/index.js' },
+                { source: '/review.js', destination: 'http://localhost:4005/review.js' }
+            ],
+            afterFiles: rewrites,
+            fallback: []
+        };
     },
 };
 
