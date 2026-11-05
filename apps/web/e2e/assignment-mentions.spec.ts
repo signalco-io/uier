@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
@@ -50,7 +50,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.screenshot({ path: testInfo.outputPath(`assigned-thread-${colorScheme}.png`) });
         const appPage = await page.context().newPage();
         await appPage.goto(`/app/projects/${projectId}`);
-        await expect(appPage.getByRole('article', { name: 'Comment by you' }).getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
+        await expect((await openComment(appPage, /^Comment/)).getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
         await appPage.close();
         await expectNoAxeViolations(page);
         await page.reload();
@@ -72,7 +72,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(inbox.getByRole('button', { name: 'Unassigned. Change assignee', exact: true })).toBeVisible();
         // The app consumes the same saved assignment and selected mention text.
         await page.goto(`/app/projects/${projectId}`);
-        const card = page.getByRole('article', { name: 'Comment by you' });
+        const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by you');
         await expect(card).toContainText(`Please review @${name}`);
         await expect(card.getByRole('button', { name: 'Unassigned. Change assignee', exact: true })).toBeVisible();
     });

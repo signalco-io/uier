@@ -4,7 +4,7 @@ import type { Browser, Locator, Page, TestInfo } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
-import { hydrated, pageStateSettings, projectPublicId, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { hydrated, pageStateSettings, projectPublicId, createProject, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, commentRows, openComment, openCommentFilters } from './support/app';
 import { chooseInboxPages, commentBubble, commentBubbles, newVisitor, showcaseHint, animationsFinished, openThread, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { pngImage } from './support/images';
 
@@ -137,7 +137,8 @@ test('invited people only: a review link signs members in, everyone else is aske
 
     // The comment in the app: page, device, author, state
     await page.goto(`/app/projects/${projectId}`);
-    const comment = page.getByRole('article', { name: 'Comment by you' });
+    const comment = await openComment(page, /^Comment/);
+    await expect(comment).toHaveAccessibleName('Comment by you');
     await expect(comment).toContainText('The yearly price is missing.');
     await expect(comment).toContainText(`reviewed.localhost:${sitePort}/${projectId}/pricing`);
     await expect(comment).toContainText(testInfo.project.name.startsWith('Mobile') ? 'Mobile' : 'Desktop');
@@ -207,7 +208,7 @@ test('a schemeless localhost address opens an HTTP review and accepts feedback o
     await page.reload();
     await expect(commentBubble(page, 1)).toBeVisible();
     await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('article', { name: 'Comment by you' })).toContainText('Feedback from localhost.');
+    await expect(await openComment(page, 'Feedback from localhost.')).toHaveAccessibleName('Comment by you');
 });
 
 test('guest mode: anyone with the link comments under their name', async ({ page, browser }, testInfo) => {
@@ -276,7 +277,8 @@ test('guest mode: anyone with the link comments under their name', async ({ page
 
     // The owner sees the guest's name in the app
     await page.goto(`/app/projects/${projectId}`);
-    const comment = page.getByRole('article', { name: 'Comment by Ana Guest' });
+    const comment = await openComment(page, /^Comment/);
+    await expect(comment).toHaveAccessibleName('Comment by Ana Guest');
     await expect(comment).toContainText('Can the button be bigger?');
     await expect(comment).toContainText('On mobile especially.');
 });
@@ -353,12 +355,14 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
 
     // The app shows it on the comment, and opens it full size
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article', { name: 'Comment by Dana' });
+    const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by Dana');
     const appImage = card.getByRole('img', { name: 'Screenshot of the commented part of the page' });
     await expect(appImage).toBeVisible();
     await expect.poll(async () => await appImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(comment!.screenshot!.width);
     const thumbnail = card.getByRole('button', { name: 'Screenshot of the commented part of the page' });
-    expect((await thumbnail.boundingBox())!.width).toBeLessThanOrEqual(100);
+    // The open thread shows it larger, inside the thread
+    expect((await thumbnail.boundingBox())!.width).toBeLessThanOrEqual((await card.boundingBox())!.width);
     await thumbnail.click();
     const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
     await expect(expanded.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
@@ -507,7 +511,8 @@ test('guest edits and original reproduction details persist; only members see an
     expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
 
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article', { name: 'Comment by Context reviewer' });
+    const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by Context reviewer');
     await expect(card).toContainText('Admin clarified the report. (edited)');
     await expect(card).toContainText('Corrected guest reply. (edited)');
     // The screen and browser icons by the time: hovering shows the original capture, a click keeps it open to copy
@@ -789,7 +794,8 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
 
     // The app shows it as a suggested rewrite of the quoted text
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article', { name: 'Comment by Dana' });
+    const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by Dana');
     await expect(card).toContainText('Suggested rewrite');
     await expect(card).toContainText('Every plan includes the toolbar.');
     await expect(card).toContainText('Second suggestion.');
@@ -862,7 +868,8 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
 
     // The app shows the same ids
     await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('article', { name: 'Comment by Dana' }).filter({ hasText: 'The pay button is hidden.' })).toContainText('Comment #2');
+    await expect(commentRowLink(page, 'The pay button is hidden.')).toHaveAccessibleName(/^Comment #2 /);
+    await expect(await openComment(page, 'The pay button is hidden.')).toContainText('Comment #2');
 });
 
 test('the app lists, filters and manages a project\'s comments', async ({ page, request }) => {
@@ -897,22 +904,28 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     };
     expect(await list(ana, about)).toHaveLength(1);
     // Guests resolve and delete only their own comments
-    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false, assign: false });
-    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true, assign: false });
+    expect((await list(ana, about))[0]!.permissions).toEqual({ resolve: false, delete: false, edit: false, assign: false, priority: false });
+    expect((await list(ben, about))[0]!.permissions).toEqual({ resolve: true, delete: true, edit: true, assign: false, priority: false });
 
     await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText('2 comments');
+    await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText(/^2 comments/);
     await expect(page).toHaveTitle('Reviewed site · uier');
-    const benCard = page.getByRole('article', { name: 'Comment by Ben' });
+    // A row says who, on what and where; it opens the thread
+    await expect(commentRows(page).filter({ hasText: 'Team photo is blurry.' })).toContainText(new RegExp(`Ben · .*Heading · .*${about}`));
+    const benCard = await openComment(page, 'Team photo is blurry.');
+    await expect(benCard).toHaveAccessibleName('Comment by Ben');
     await expect(benCard).toContainText('Mobile');
+    await expect(benCard).toContainText('body>main>h1');
     await expectNoAxeViolations(page);
 
-    // Filter by page (relative URLs)
-    await page.getByRole('button', { name: /^Environment and page:/ }).click();
+    // Filter by page (relative URLs), in Filter
+    await backToComments(page);
+    await (await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ }).click();
     await page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${about}\\s*,`) }).click();
     await expect(page).toHaveURL(new RegExp(`page=${encodeURIComponent(about)}`));
-    await expect(page.getByRole('article')).toHaveCount(1);
-    await expect(benCard).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(commentRows(page)).toHaveCount(1);
+    await openComment(page, 'Team photo is blurry.');
 
     // Make private (admins): Ana no longer sees Ben's comment, Ben does
     await benCard.getByRole('button', { name: /More actions/ }).click();
@@ -926,27 +939,31 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await page.getByRole('menuitem', { name: /^owner-/ }).click();
     await expect(benCard.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
     await page.goto(`/app/projects/${projectId}`);
-    await page.getByRole('combobox', { name: 'People' }).click();
+    const filters = await openCommentFilters(page);
+    await filters.getByRole('combobox', { name: 'People' }).click();
     await page.getByRole('option', { name: 'Assigned to me' }).click();
-    await expect(page.getByRole('article')).toHaveCount(1);
-    await expect(page.getByRole('article', { name: 'Comment by Ben' })).toBeVisible();
-    await page.getByRole('combobox', { name: 'People' }).click();
+    await expect(commentRows(page)).toHaveCount(1);
+    await expect(commentRowLink(page, 'Team photo is blurry.')).toBeVisible();
+    await filters.getByRole('combobox', { name: 'People' }).click();
     await page.getByRole('option', { name: 'Opened by me' }).click();
     await expect(page.getByText('No comments match these filters.')).toBeVisible();
 
-    // Board view: Open and Done columns; Done moves the comment
+    // Board view: Open, Ready to verify and Done columns; a card opens its thread in a sheet
     await page.goto(`/app/projects/${projectId}?view=board`);
     const open = page.getByRole('region', { name: 'Open comments' });
     const done = page.getByRole('region', { name: 'Done comments' });
-    await expect(open.getByRole('article')).toHaveCount(2);
+    await expect(open.getByRole('listitem')).toHaveCount(2);
     // The status badge is the menu that marks a comment done or reopens it
-    const setStatus = async (article: Locator, status: 'Open' | 'Done') => {
-        await article.getByRole('button', { name: /Change status$/ }).click();
-        await page.getByRole('menuitem', { name: status }).click();
+    const setStatus = async (text: string, status: 'Open' | 'Done') => {
+        const thread = await openComment(page, text);
+        await thread.getByRole('button', { name: /Change status$/ }).click();
+        await page.getByRole('menuitem', { name: status, exact: true }).click();
     };
-    await setStatus(open.getByRole('article', { name: 'Comment by Ana' }), 'Done');
-    await expect(done.getByRole('article', { name: 'Comment by Ana' })).toBeVisible();
-    await expect(open.getByRole('article')).toHaveCount(1);
+    await setStatus('Pricing needs a table.', 'Done');
+    await expect(page.getByRole('article').getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(done.getByRole('listitem').filter({ hasText: 'Pricing needs a table.' })).toBeVisible();
+    await expect(open.getByRole('listitem')).toHaveCount(1);
     await expect(page).toHaveTitle('Reviewed site · uier');
     await expectNoAxeViolations(page);
 
@@ -954,26 +971,26 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await page.goto(`/app/projects/${projectId}`);
     const status = page.getByRole('group', { name: 'Status' });
     await expect(status.getByRole('button', { name: 'Open 1' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('article')).toHaveCount(1);
-    await expect(page.getByRole('article', { name: 'Comment by Ana' })).toHaveCount(0);
+    await expect(commentRows(page)).toHaveCount(1);
+    await expect(commentRowLink(page, 'Pricing needs a table.')).toHaveCount(0);
     await status.getByRole('button', { name: 'Done 1' }).click();
     await expect(page).toHaveURL(/status=done/);
-    const doneAna = page.getByRole('article', { name: 'Comment by Ana' });
-    await setStatus(doneAna, 'Open');
-    await expect(doneAna).toHaveCount(0);
+    await setStatus('Pricing needs a table.', 'Open');
+    await backToComments(page);
+    await expect(commentRowLink(page, 'Pricing needs a table.')).toHaveCount(0);
     await expect(page.getByText('Nothing done yet')).toBeVisible();
     await status.getByRole('button', { name: 'Open 2' }).click();
-    const openAna = page.getByRole('article', { name: 'Comment by Ana' });
-    await setStatus(openAna, 'Done');
-    await expect(openAna).toHaveCount(0);
+    await setStatus('Pricing needs a table.', 'Done');
+    await backToComments(page);
+    await expect(commentRowLink(page, 'Pricing needs a table.')).toHaveCount(0);
     await expect(status.getByRole('button', { name: 'Done 1' })).toBeVisible();
     await status.getByRole('button', { name: 'All 2' }).click();
-    await expect(page.getByRole('article')).toHaveCount(2);
+    await expect(commentRows(page)).toHaveCount(2);
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}?view=board`);
 
     // Edit (admin) and link to comment
-    const anaCard = done.getByRole('article', { name: 'Comment by Ana' });
+    const anaCard = await openComment(page, 'Pricing needs a table.');
     await anaCard.getByRole('button', { name: /More actions/ }).click();
     await page.getByRole('menuitem', { name: 'Edit' }).click();
     await page.getByRole('dialog').getByRole('textbox', { name: 'Text' }).fill('Pricing needs a comparison table.');
@@ -985,7 +1002,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await anaCard.getByRole('button', { name: /More actions/ }).click();
     await page.getByRole('menuitem', { name: 'Delete' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click();
-    await expect(page.getByRole('article', { name: 'Comment by Ana' })).toHaveCount(0);
+    await expect(commentRowLink(page, 'Pricing needs')).toHaveCount(0);
+    await expect(anaCard).toHaveCount(0);
 
     // Usage in the settings
     await page.goto(`/app/projects/${projectId}/settings`);
@@ -1019,7 +1037,8 @@ test('feedback and bug reports from the toolbar reach the project', async ({ pag
     expect(unpinned.status()).toBe(400);
 
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article', { name: 'Comment by Dana' });
+    const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by Dana');
     await expect(card).toContainText('Bug report');
     await expect(card).toContainText('Pay button does nothing.');
 });

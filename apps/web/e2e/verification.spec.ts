@@ -1,8 +1,8 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { toolbar } from './support/toolbar';
+import { animationsFinished, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -34,7 +34,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         test.setTimeout(60_000);
         await page.emulateMedia({ colorScheme });
         const f = await fixture(page, request);
-        const card = page.getByRole('article');
+        const card = await openComment(page, 'Checkout needs a fix');
         // No standing button: the request starts from the status menu
         await expect(card.getByRole('button', { name: 'Request verification', exact: true })).toHaveCount(0);
         const form = await openRequestForm(page, card);
@@ -47,10 +47,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(card.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
         await expect(status).toBeFocused();
         await expect(card.getByRole('link', { name: 'Open fix link' })).toHaveAttribute('href', 'https://github.com/example/repo/pull/12');
+        await backToComments(page);
         await page.getByRole('button', { name: 'Board', exact: true }).click();
         const ready = page.getByRole('region', { name: 'Ready to verify comments', exact: true });
-        await expect(ready.getByRole('article')).toHaveCount(1);
-        await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('article')).toHaveCount(0);
+        await expect(ready.getByRole('listitem')).toHaveCount(1);
+        await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(0);
         await expectNoAxeViolations(page);
         const mobile = testInfo.project.name.startsWith('Mobile');
         const guestContext = await browser.newContext({ baseURL, viewport: page.viewportSize()!, isMobile: mobile, hasTouch: mobile, colorScheme });
@@ -71,9 +72,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
             expect((await rejected).status()).toBe(200);
             await expect(inbox.getByRole('article')).toHaveCount(0);
             await page.reload();
-            await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('article')).toHaveCount(1);
-            await (await openRequestForm(page, page.getByRole('article'))).getByRole('button', { name: 'Request verification', exact: true }).click();
-            await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true }).getByRole('article')).toHaveCount(1);
+            await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
+            const thread = await openComment(page, 'Checkout needs a fix');
+            await (await openRequestForm(page, thread)).getByRole('button', { name: 'Request verification', exact: true }).click();
+            await expect(thread.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true })).toBeVisible();
+            await page.keyboard.press('Escape');
+            await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true }).getByRole('listitem')).toHaveCount(1);
             await guest.reload();
             await guest.getByRole('button', { name: /^Inbox/ }).click();
             await inbox.getByRole('button', { name: /^Ready to verify/ }).click();
@@ -84,8 +88,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
             expect((await confirmed).status()).toBe(200);
             await expect(inbox.getByRole('article')).toHaveCount(0);
             await page.reload();
-            const done = page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('article');
+            await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('listitem')).toHaveCount(1);
+            const done = await openComment(page, 'Checkout needs a fix');
             await expect(done).toContainText('Fix confirmed by Original reviewer');
+            await animationsFinished(page.locator('body'));
             await page.screenshot({ path: testInfo.outputPath(`verification-${colorScheme}.png`) });
             await expectNoAxeViolations(page);
             await guest.reload();
@@ -98,24 +104,28 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
 test('ordinary Done and Reopen stay unconfirmed and retain replies, search and selection', async ({ page, request }) => {
     const f = await fixture(page, request);
-    const card = page.getByRole('article');
+    const card = await openComment(page, 'Checkout needs a fix');
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
     await card.getByRole('textbox', { name: 'Reply', exact: true }).fill('Retained reply draft');
     await (await openRequestForm(page, card)).getByRole('button', { name: 'Request verification', exact: true }).click();
     await card.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Done without verification', exact: true }).click();
+    await backToComments(page);
     await page.getByRole('button', { name: 'Board', exact: true }).click();
-    const done = page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('article');
+    const doneColumn = page.getByRole('region', { name: 'Done comments', exact: true });
+    await expect(doneColumn.getByRole('listitem')).toHaveCount(1);
+    const done = await openComment(page, 'Checkout needs a fix');
     await expect(done).toContainText('Done without reviewer confirmation');
     await expect(done.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
-    await done.getByRole('checkbox', { name: `Select comment #${f.comment.number}`, exact: true }).check();
+    await page.keyboard.press('Escape');
+    await doneColumn.getByRole('checkbox', { name: `Select comment #${f.comment.number}`, exact: true }).check();
     await page.getByRole('button', { name: 'Reopen selected', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('article')).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
     const search = page.getByRole('searchbox', { name: 'Search feedback' });
     await search.fill('Checkout');
-    await expect(page.getByRole('article')).toHaveCount(1);
-    await page.getByRole('article').getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(page.getByRole('article').getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Retained reply draft');
+    const reopened = await openComment(page, 'Checkout needs a fix');
+    await reopened.getByRole('button', { name: 'Reply', exact: true }).click();
+    await expect(reopened.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Retained reply draft');
 });
 
 test('members request and cancel from the toolbar using the existing participants and keyboard focus', async ({ page, request }) => {
@@ -144,7 +154,7 @@ test('members request and cancel from the toolbar using the existing participant
 
 test('the status menu lists all three statuses; Open from Ready to verify cancels the check', async ({ page, request }) => {
     await fixture(page, request);
-    const card = page.getByRole('article');
+    const card = await openComment(page, 'Checkout needs a fix');
     await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'Ready to verify', 'Done']);

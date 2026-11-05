@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { projectPublicId, createProject, hydrated, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, hydrated, openProjectInvite, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { commentBubble, newVisitor, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
@@ -73,7 +73,8 @@ test('guest comments without email, then separately verifies and revokes reply n
     await page.goto('/app/account/notifications');
     await expect(page.getByRole('switch', { name: 'Emails from Notification review', exact: true })).not.toBeChecked();
     await page.goto(`/app/projects/${projectId}`);
-    const article = page.getByRole('article', { name: 'Comment by Ana notifications' });
+    const article = await openComment(page, /^Comment/);
+    await expect(article).toHaveAccessibleName('Comment by Ana notifications');
     // Following is in the comment's More actions menu
     const moreActions = article.getByRole('button', { name: /^More actions for the comment/ });
     await moreActions.click();

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { createProject, hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, hydrated, setProjectAccess, signIn, uniqueEmail, commentRows, openComment, openCommentFilters } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { chooseInboxPages, commentBubbles, inboxPages } from './support/toolbar';
@@ -42,16 +42,17 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText('No other address');
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}`);
-    // One control for where: the environment, then the page
-    const where = page.getByRole('button', { name: /^Environment and page:/ });
+    // One control for where, in Filter: the environment, then the page
+    const where = (await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ });
     await expect(where).toContainText('All environments and pages');
-    await expect(page.getByRole('article')).toHaveCount(3);
+    await expect(commentRows(page)).toHaveCount(3);
     await where.click();
     await page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Production', exact: true }).click();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Clear filter: Production', exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('article')).toHaveCount(1);
+    await expect(commentRows(page)).toHaveCount(1);
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
     await expect(commentBubbles(page)).toHaveCount(1);
     await page.getByRole('button', { name: /^Inbox/ }).click();
@@ -122,8 +123,8 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(settings.getByRole('status')).toContainText('Saved.');
     await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText(host(production));
     await page.goto(`/app/projects/${projectId}?environment=removed`);
-    const history = page.getByRole('article');
-    await expect(history).toHaveCount(1); await expect(history).toContainText('Staging feedback');
+    await expect(commentRows(page)).toHaveCount(1);
+    const history = await openComment(page, 'Staging feedback');
     await expect(history).toContainText('Removed address');
     await expect(history.getByRole('link')).toHaveCount(0);
     await history.getByRole('button', { name: 'Reply', exact: true }).click();

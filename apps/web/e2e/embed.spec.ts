@@ -3,7 +3,7 @@ import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { toolbar } from './support/toolbar';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { expectNoAxeViolations } from './accessibility';
@@ -175,7 +175,8 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
 
     // The saved origin is the reviewed site; the API host never becomes the comment's site.
     await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('article', { name: 'Comment by Ana' })).toContainText(`${new URL(reviewedSiteOrigin).host}/pricing`);
+    await expect(await openComment(page, /^Comment/)).toHaveAccessibleName('Comment by Ana');
+    await expect(page.getByRole('article')).toContainText(`${new URL(reviewedSiteOrigin).host}/pricing`);
 
     const headers = await verifiedReviewHeaders(request, projectId, reviewedSiteOrigin);
     const data = { path: '/pricing', position: { type: 'page' }, kind: 'feedback', text: 'A direct request', authorName: 'Ana' };

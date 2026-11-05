@@ -2,7 +2,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, createProject, hydrated, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, commentBubble, newVisitor, toolbar } from './support/toolbar';
 
@@ -165,7 +165,8 @@ test('a commenter invited to one project reviews only that project', async ({ pa
 
     // Their own comment: edit and delete, but only admins make comments private
     await commenter.page.goto(`/app/projects/${alpha}`);
-    const card = commenter.page.getByRole('article', { name: 'Comment by you' });
+    const card = await openComment(commenter.page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by you');
     await card.getByRole('button', { name: /More actions/ }).click();
     await expect(commenter.page.getByRole('menuitem', { name: 'Edit' })).toBeVisible();
     await expect(commenter.page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();

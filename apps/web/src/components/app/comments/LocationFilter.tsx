@@ -51,7 +51,7 @@ function GroupLabel({ children }: { children: ReactNode }) {
  * on the right. Choosing an environment reloads the pages beside it. Pages can be searched; sections with
  * several pages (`/blog/*`) and a typed path match every page under it.
  */
-export function LocationFilter({ environment, environments, page, pages, onEnvironment, onPage }: {
+export function LocationFilter({ environment, environments, page, pages, onEnvironment, onPage, triggerClassName }: {
     environment?: string;
     environments: EnvironmentOption[];
     page?: string;
@@ -59,6 +59,7 @@ export function LocationFilter({ environment, environments, page, pages, onEnvir
     pages: PageCount[];
     onEnvironment: (value: string | undefined) => void;
     onPage: (value: string | undefined) => void;
+    triggerClassName?: string;
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -117,7 +118,7 @@ export function LocationFilter({ environment, environments, page, pages, onEnvir
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={`Environment and page: ${summary}`} className="max-w-80 min-w-36 justify-between font-normal" />}>
+            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={`Environment and page: ${summary}`} className={cn('max-w-80 min-w-36 justify-between font-normal pointer-coarse:min-h-11', triggerClassName)} />}>
                 {prefix !== undefined ? <FolderIcon data-icon="inline-start" className="text-muted-foreground" />
                     : page ? <FileIcon data-icon="inline-start" className="text-muted-foreground" />
                         : <GlobeIcon data-icon="inline-start" className="text-muted-foreground" />}

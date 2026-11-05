@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { pageStateSettings, projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { pageStateSettings, projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
@@ -95,7 +95,8 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await expect(thread(guest.page)).toContainText('Status: Open');
 
         await page.goto(`/app/projects/${projectId}`);
-        const card = page.getByRole('article', { name: 'Comment by Ana Launch' });
+        const card = await openComment(page, /^Comment/);
+    await expect(card).toHaveAccessibleName('Comment by Ana Launch');
         await expect(card).toContainText('Explain the annual price.');
         await expect(card.getByRole('img', { name: imageLabel })).toBeVisible();
         const directReview = await card.getByRole('link', { name: new RegExp(`${new URL(origin).host}/$`) }).getAttribute('href');

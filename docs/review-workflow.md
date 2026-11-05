@@ -81,17 +81,24 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Settings) above its pages. Open review lists every address (main site first) to review or visit, and links
     to the review setup. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
-  - Comments `/app/projects/<code>`: the project's **comments**, as a
-    list or a board (Open / Ready to verify / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
-    (environments on the left, that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it). The list shows open comments; its status filter (the toolbar inbox's Open, Ready to verify, Done and All, with
-    counts) shows closed ones. Done and Reopen fade a comment out of a list it no longer matches. Each comment is laid out like the toolbar's thread: its state, `#number`, unread dot
-    (clicking it marks the comment read) and assignee (their avatar or, while unassigned, the user icon, named by its tooltip; a menu of people for those who can assign) with the actions
-    (Done or Reopen, Copy issue, and More with Copy link, Follow thread and, once read, Mark as unread) on one row, then the first and last
-    message with Show all for the rest, the quiet Open in a connected service, and its page URL and source at
-    the bottom. Two icons after the first message's time show the screen size and browser it was left from;
+  - Comments `/app/projects/<code>`: the project's **comments**, as an inbox list or a board (Open / Ready to verify / Done).
+    Above them: search, one Filter button (priority; environment and page in one control, with environments on the left
+    and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
+    people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (the toolbar inbox's Open,
+    Ready to verify, Done and All, with counts). Filters in effect show under the bar, each with a clear button. Each
+    comment is a compact row: number, first line, author, what it was left on (an element in words such as "Link in
+    navigation", an area of one, the selected text, or the whole page), page path, then priority other than Normal,
+    status, the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
+    wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
+    or the browser's Back), and in a sheet on the board. Done and Reopen fade a row out of a list it no longer matches.
+    The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
+    Copy link, each described) and More (Follow thread and, once read, Mark as unread) on one line, then what it was
+    left on, its page link and source, priority and assignee (a menu of people for those who can assign), every
+    message, Reply and the quiet Open in a connected service. Two icons after the first message's time show the screen
+    size and browser it was left from;
     hovering or clicking them shows the viewport, pixel ratio, browser, OS, capture time and reviewed page,
     with Copy reproduction details for the same fields as text. The author or an admin edits and deletes it, and only admins make it
-    private. The Unread filter is the inbox's chip: a blue dot and count. Empty lists retain Install the script; invited-only projects
+    private. The list header shows the count and unread count beside Mark all as read. Empty lists retain Install the script; invited-only projects
     also offer admins Invite with the email sign-in explanation. Comments-off lists say so and link admins
     to Settings. Filtered lists keep Nothing here.
   - Install (Settings → Installation): the install guide with the script (which contains the public project code) and **Check installation**.
@@ -579,8 +586,9 @@ change priority or use bulk triage; those actions require staff there. A real pr
 one activity step and integration source intent, without a priority-only email. Setting the current
 priority, including Normal on a legacy thread, adds neither. Priority does not change list order.
 
-List and Board have explicit checkboxes, an indeterminate shown-results checkbox, selected count,
-Clear selection, assignment/unassignment, priority, Mark selected as done and Reopen selected.
+List and Board have explicit checkboxes, an indeterminate shown-results checkbox, and, once something is
+selected, the selected count, Clear selection, assignment/unassignment, priority, Mark selected as done and
+Reopen selected.
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
 visible order (Open, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view
 clears selection. Threads arriving later never join a running batch. Replies and their drafts remain

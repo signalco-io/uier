@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, pageStateSettings, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, pageStateSettings, setProjectAccess, signIn, uniqueEmail, commentRows, openComment } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { chooseInboxPages, commentBubbles, openThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
@@ -100,8 +100,8 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await commentBubbles(page).click();
     await expect(openThread(page)).toContainText('Path-only feedback');
     await page.goto(`/app/projects/${projectId}`);
-    await expect(page.getByRole('article')).toHaveCount(3);
-    const cardA = page.getByRole('article').filter({ hasText: 'Feedback for view A' });
+    await expect(commentRows(page)).toHaveCount(3);
+    const cardA = await openComment(page, 'Feedback for view A');
     await expect(cardA.getByRole('link', { name: new RegExp('category=a') })).toHaveAttribute('href', new RegExp('category%3Da|category=a'));
     await cardA.getByRole('button', { name: /^Device:/ }).click();
     await expect(page.getByRole('dialog', { name: 'Device and browser' }).getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${site.origin()}${sourceA}`);
@@ -154,7 +154,7 @@ test('a slash-sensitive site: inbox, Copy link and the app open the page as it w
 
     // The app's Open on link signs in on the reviewed site at the same address
     await page.goto(`/app/projects/${projectId}`);
-    const card = page.getByRole('article').filter({ hasText: 'Plans need a yearly price' });
+    const card = await openComment(page, 'Plans need a yearly price');
     const appLink = card.getByRole('link', { name: `Open on ${new URL(origin).host}${plans}`, exact: true });
     const reviewed = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).origin === origin);
     await page.goto((await appLink.getAttribute('href'))!);

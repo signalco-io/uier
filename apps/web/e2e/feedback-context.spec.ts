@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { animationsFinished, isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
-import { createProject, signIn, uniqueEmail } from './support/app';
+import { createProject, openComment, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 
 async function clipboard(page: import('@playwright/test').Page) {
@@ -97,27 +97,29 @@ for (const colorScheme of ['light', 'dark'] as const) {
             expect(copied).toContain('Saved screenshot');
             expect(copied).not.toContain('uier-token');
             await page.goto(`/app/projects/${projectId}`);
-            const card = page.getByRole('article', { name: 'Comment by you', exact: true });
+            const card = await openComment(page, 'Please fix this heading');
+            await expect(card).toHaveAccessibleName('Comment by you');
             await animationsFinished(card);
             const cardHeight = (await card.boundingBox())!.height;
-            const button = card.getByRole('button', { name: 'Copy issue', exact: true });
-            await button.click();
-            // The confirmation is the button's tooltip, under it; the card does not grow
-            const confirmation = page.locator('[data-slot="tooltip-content"]').filter({ hasText: 'Issue copied.' });
-            await expect(confirmation).toBeVisible();
+            // One Copy menu says what each copy is: the issue or the link
+            const copy = async () => {
+                await card.getByRole('button', { name: 'Copy', exact: true }).click();
+                const menu = page.getByRole('menu');
+                await expect(menu.getByRole('menuitem', { name: /^Copy link/ })).toContainText('Opens the reviewed page at this comment');
+                await menu.getByRole('menuitem', { name: /^Copy issue/ }).click();
+            };
+            await copy();
+            // A toast confirms it; the card does not grow
+            await expect(page.getByText('Issue copied.', { exact: true }).first()).toBeVisible();
             await expect(card.getByRole('status').filter({ hasText: 'Issue copied.' })).toBeAttached();
-            await animationsFinished(confirmation);
-            const buttonBox = (await button.boundingBox())!;
-            const confirmationBox = (await confirmation.boundingBox())!;
-            expect(confirmationBox.y).toBeGreaterThanOrEqual(buttonBox.y + buttonBox.height);
-            expect(confirmationBox.y - buttonBox.y - buttonBox.height).toBeLessThanOrEqual(16);
             expect((await card.boundingBox())!.height).toBeCloseTo(cardHeight, 0);
             await page.screenshot({ path: testInfo.outputPath(`app-copy-success-${colorScheme}.png`) });
             expect(await page.evaluate(() => (window as unknown as { copiedIssue: string }).copiedIssue)).toBe(copied);
-            await expect(confirmation).toBeHidden({ timeout: 4000 });
             await page.evaluate(() => { (window as unknown as { rejectClipboard: boolean }).rejectClipboard = true; });
-            await card.getByRole('button', { name: 'Copy issue', exact: true }).click();
+            await copy();
             await expect(card.getByRole('textbox', { name: 'Issue Markdown' })).toHaveValue(copied);
+            await expect(page.getByRole('menu')).toHaveCount(0);
+            await animationsFinished(page.locator('body'));
             await card.getByRole('textbox', { name: 'Issue Markdown' }).scrollIntoViewIfNeeded();
             await expectNoAxeViolations(page);
             await page.screenshot({ path: testInfo.outputPath(`app-copy-${colorScheme}.png`) });

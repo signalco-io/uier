@@ -1,7 +1,7 @@
 'use client';
 
 import { readyForReview } from '@uier/toolbar/verification';
-import { useEffect, useOptimistic, useState } from 'react';
+import { useEffect, useOptimistic, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
@@ -16,7 +16,8 @@ import { InviteButton } from '../users/InviteDialog';
 import type { AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
 import { pageMatches } from './pageFilter';
-import { CommentList } from './CommentList';
+import { CommentInbox, useOpenComment } from './CommentInbox';
+import { CommentBoard } from './CommentBoard';
 import type { AuthorFilter, StatusFilter } from './commentLabels';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
@@ -57,6 +58,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     installHref: string;
 }) {
     const searchParams = useSearchParams();
+    const containerRef = useRef<HTMLDivElement>(null);
+    const openComment = useOpenComment(containerRef);
     // Environment and author are authorized server scopes. Presentation filters only use
     // the already authorized snapshot and never need another database round trip.
     const urlKey = searchParams.toString();
@@ -158,29 +161,34 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         all: filtered.length
     };
     const board = query.view === 'board';
+    // Where the open thread takes the whole width, it takes the filters' place too
+    const threadOnly = Boolean(openComment.openId) && !board && comments.some(comment => comment.id === openComment.openId);
     const shown = board || query.status === 'all'
         ? filtered
         : filtered.filter(comment => query.status === 'ready' ? readyForReview(comment) : comment.resolved === (query.status === 'done'));
     const open = shown.filter(comment => !comment.resolved && !readyForReview(comment));
     const ready = shown.filter(readyForReview);
     const done = shown.filter(comment => comment.resolved);
+    const unreadShown = shown.filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
         <CommentsSearchNavigationProvider value={commitSearch}>
-        <div className="flex flex-col gap-4">
-            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
-                readAction={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}
-                summary={(
-                    <p role="status" className="m-0 text-sm text-muted-foreground tabular-nums">
-                        {shown.length === comments.length
-                            ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
-                            : `${shown.length} of ${comments.length} comments`}
-                    </p>
-                )} />
+        <div ref={containerRef} className="@container/comments flex flex-col gap-4">
+            <div className={cn('contents', threadOnly && '@max-4xl/comments:hidden')}>
+            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
-            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? [...open, ...ready, ...done] : shown} assignees={assignees}>
+            </div>
+            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? [...open, ...ready, ...done] : shown} assignees={assignees}
+                barClassName={cn(threadOnly && '@max-4xl/comments:hidden', !comments.length && 'hidden')}
+                summary={<>
+                    {shown.length === comments.length
+                        ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
+                        : `${shown.length} of ${comments.length} comments`}
+                    {unreadShown > 0 && <span className="text-[hsl(var(--brand-accent-text))]">{` · ${unreadShown} unread`}</span>}
+                </>}
+                actions={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>
@@ -207,23 +215,10 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-                    {[{ title: 'Open', items: open }, { title: 'Ready to verify', items: ready }, { title: 'Done', items: done }].map(column => (
-                        <section key={column.title} aria-label={`${column.title} comments`} className="flex flex-col gap-3 rounded-2xl border bg-muted/50 p-3">
-                            <h3 className="m-0 flex items-center gap-2 px-1 text-sm font-medium">
-                                <span aria-hidden="true" className={column.title === 'Done' ? 'size-1.5 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 rounded-full bg-foreground'} />
-                                {column.title}
-                                <span className="font-normal tabular-nums text-muted-foreground">{column.items.length}</span>
-                            </h3>
-                            {column.items.length
-                                ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
-                                : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Ready to verify' ? 'No checks requested.' : column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
-                        </section>
-                    ))}
-                </div>
+                <CommentBoard projectId={projectId} columns={{ open, ready, done }} allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
-                <CommentList projectId={projectId} comments={shown} assignees={assignees} userId={userId} label="Comments"
-                    keepsResolved={query.status === 'all'} />
+                <CommentInbox projectId={projectId} comments={shown} allComments={comments} assignees={assignees} userId={userId} label="Comments"
+                    keepsResolved={query.status === 'all'} openComment={openComment} />
             )}
             </TriageSelection>
         </div>

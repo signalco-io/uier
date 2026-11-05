@@ -1,7 +1,7 @@
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, openComment, openCommentFilters } from './support/app';
 import { pngImage } from './support/images';
 import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -682,8 +682,9 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
         .toHaveAttribute('href', '/app/projects/uier00000001');
     await page.goto('/app/projects/uier00000001');
     // This local feedback has a loopback origin, outside the public project's production environment.
-    await expect(page.getByRole('button', { name: /^Environment and page:/ })).toContainText('All environments and pages');
-    await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
+    await expect((await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ })).toContainText('All environments and pages');
+    await page.keyboard.press('Escape');
+    await expect(await openComment(page, text)).toHaveAccessibleName('Comment by you');
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Review', exact: true })).toHaveCount(0);
@@ -704,7 +705,7 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await staff.page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
     await expect(staff.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
     await staff.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
-    await expect(staff.page.getByRole('article').filter({ hasText: text })).toBeVisible();
+    await expect(commentRowLink(staff.page, text)).toBeVisible();
     await staff.context.close();
 
     // The same account in a fresh browser can still read and manage its earlier feedback.
@@ -856,20 +857,23 @@ test('staff moderate public feedback with opaque author filters, single-reply de
     await page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
     await page.goto('/app/projects/uier00000001?environment=all');
-    const card = (text: string) => page.getByRole('article').filter({ hasText: `${text} ${key}` });
-    await expect(card('Opened by target')).toBeVisible();
-    await expect(card('Unrelated author')).toBeVisible();
-    await card('Opened by target').getByRole('button', { name: /^More actions/ }).click();
+    // Rows in the list; a row opens its thread
+    const row = (text: string) => commentRowLink(page, `${text} ${key}`);
+    const open = (text: string) => openComment(page, `${text} ${key}`);
+    await expect(row('Opened by target')).toBeVisible();
+    await expect(row('Unrelated author')).toBeVisible();
+    await (await open('Opened by target')).getByRole('button', { name: /^More actions/ }).click();
     await page.getByRole('menuitem', { name: 'More from this author', exact: true }).click();
     await expect(page).toHaveURL(/author=[A-Za-z0-9_-]{43}/);
     expect(page.url()).not.toContain('user:');
-    await expect(card('Opened by target')).toBeVisible();
-    await expect(card('Replied by target')).toBeVisible();
-    await expect(card('Unrelated author')).toHaveCount(0);
+    await backToComments(page);
+    await expect(row('Opened by target')).toBeVisible();
+    await expect(row('Replied by target')).toBeVisible();
+    await expect(row('Unrelated author')).toHaveCount(0);
     const authorQuery = new URL(page.url()).searchParams.get('author');
     await page.reload();
-    await expect(card('Replied by target')).toBeVisible();
-    const replyActions = card('Replied by target').getByRole('button', { name: /^More actions for reply by/ });
+    await expect(row('Replied by target')).toBeVisible();
+    const replyActions = (await open('Replied by target')).getByRole('button', { name: /^More actions for reply by/ });
     await replyActions.click();
     await page.getByRole('menuitem', { name: 'Delete reply', exact: true }).click();
     const confirm = page.getByRole('alertdialog', { name: 'Delete this reply?' });
@@ -881,15 +885,18 @@ test('staff moderate public feedback with opaque author filters, single-reply de
         await expectNoAxeViolations(page);
     }
     await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
-    await expect(card('Replied by target')).toHaveCount(0); // No remaining participation by that author.
+    await backToComments(page);
+    await expect(row('Replied by target')).toHaveCount(0); // No remaining participation by that author.
     await page.getByRole('button', { name: /^Clear author filter:/ }).click();
-    await expect(card('Replied by target')).toBeVisible();
-    await expect(card('Replied by target').getByText(`Target reply ${key}`)).toHaveCount(0);
+    await expect(row('Replied by target')).toBeVisible();
+    await expect((await open('Replied by target')).getByText(`Target reply ${key}`)).toHaveCount(0);
+    await backToComments(page);
     expect((await page.request.get(`/app/projects/uier00000001/comments/${opened.id}/screenshot`)).status()).toBe(200);
-    await card('Opened by target').getByRole('button', { name: /^More actions/ }).click();
+    await (await open('Opened by target')).getByRole('button', { name: /^More actions/ }).click();
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
-    await expect(card('Opened by target')).toHaveCount(0);
+    await backToComments(page);
+    await expect(row('Opened by target')).toHaveCount(0);
     expect((await page.request.get(`/app/projects/uier00000001/comments/${opened.id}/screenshot`)).status()).toBe(404);
     expect((await guest.context.request.get(new URL(`/api/comments?path=/moderation-${key}`, page.url()).href)).ok()).toBe(true);
     const commenter = await newVisitor(browser, testInfo);
@@ -900,7 +907,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
         await commenter.page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
         await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
         await commenter.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
-        const otherCard = commenter.page.getByRole('article').filter({ hasText: `Unrelated author ${key}` });
+        const otherCard = await openComment(commenter.page, `Unrelated author ${key}`);
         await otherCard.getByRole('button', { name: /^More actions/ }).click();
         await expect(commenter.page.getByRole('menuitem', { name: 'More from this author', exact: true })).toHaveCount(0);
         await commenter.page.keyboard.press('Escape');
@@ -925,14 +932,17 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         expect(response.status()).toBe(201);
         const saved = await response.json();
         await page.goto(`/app/projects/${project}`);
-        const card = page.getByRole('article').filter({ hasText: 'Reply without finding a pin' });
         await expect(page.getByRole('textbox', { name: 'Reply', exact: true })).toHaveCount(0);
+        // The open thread: beside the list, in its place on a phone, in a sheet on the board
+        const card = await openComment(page, 'Reply without finding a pin');
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
         const input = card.getByRole('textbox', { name: 'Reply', exact: true });
         await expect(input).toBeFocused();
         await input.fill('Keep this draft');
         await card.getByRole('button', { name: 'Close reply' }).click();
+        await backToComments(page);
         await page.getByRole('button', { name: 'Board', exact: true }).click();
+        await openComment(page, 'Reply without finding a pin');
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
         await expect(input).toHaveValue('Keep this draft');
         await page.reload();
@@ -978,7 +988,7 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeEnabled();
-        await card.getByRole('button', { name: 'Reply', exact: true }).click();
+        // The open thread keeps its reply box and draft through the status change
         await expect(input).toHaveValue('New text while sending');
         await input.fill('Reply on a done thread');
         await input.press('Enter');
@@ -1015,7 +1025,7 @@ test('app replies retry a lost response once and reject forged or unauthorized a
             path: '/old-page', position: { type: 'page' }, kind: 'feedback', text: 'Retry thread', authorName: 'Guest'
         } })).json();
         await page.goto(`/app/projects/${project}`);
-        const card = page.getByRole('article');
+        const card = await openComment(page, 'Retry thread');
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
         const input = card.getByRole('textbox', { name: 'Reply', exact: true });
         await input.fill('Save once after response loss');

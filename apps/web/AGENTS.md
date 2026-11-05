@@ -409,25 +409,32 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   and Coding agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
   linking outcomes land on Sign-in, and the breadcrumbs end with the section. A change to `SettingsLayout`
   applies to both settings.
-- Comment cards (`comments/CommentCard.tsx`) are laid out like the toolbar's thread
-  (`packages/toolbar`, `CommentThread*.tsx`), with the same icons (Lucide `Copy`, `Link2`, `Mail`)
-  and words: state, `#number`, unread dot and the assignee (their avatar, or the user icon while unassigned; the tooltip
-  says "Unassigned" / "Assigned to ...") with the actions on one row
-  (`ThreadAction`: icon-only with a tooltip and accessible name). The unread dot is the Mark as read button
-  ("Unread. Mark as read"). The state badge is the status menu ("Status: Open.
-  Change status") with Open, Ready to verify and Done, each enabled by the person's permissions: Ready to
-  verify opens the Request verification form (`VerificationControl`, whose submit has the same name), Open
-  from Ready to verify cancels the check, and Done there reads Done without verification; Copy link, Follow thread / Unfollow thread and, once read, Mark as unread are in the More
-  actions menu. Then the first and last message with Show all, the quiet Open in ...,
-  and the page link in the footer, with the source's environment name (or why the original source is
-  unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's
-  header still has its icon Done/Reopen and Copy link: change both together where they match. The first
-  message's time is followed by `CommentDevice`: screen size and browser icons whose popover (hover or
-  click, `hoverPopoverTrigger` for Base UI's `openOnHover`, like the project header's access info) lists
-  the reproduction context and copies its text; the toolbar still shows one device icon with details
-  under the message. Copy issue confirms "Issue copied." in its tooltip under the button
-  (`ThreadAction`'s `notice`) for 2 seconds, as the toolbar does; its errors and manual clipboard
-  fallback stay in the body; pending actions show `Spinner`.
+- The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
+  first line, author, what it was left on, page path, then priority other than Normal, status other than Open,
+  the assignee's avatar, age and the unread dot) beside the open thread (`CommentCard.tsx`). The open thread is
+  in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
+  the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
+  the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
+  it. Each row is a link (it opens in a new tab too) with the selection box beside it. `CommentBoard.tsx` shows
+  Open, Ready to verify and Done as compact cards; a card opens its thread in a sheet. Switching List/Board
+  closes the open thread. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
+  from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole
+  page (no page title is stored).
+- The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
+  state, `#number` and the unread dot (the Mark as read button, "Unread. Mark as read") on the first line with
+  Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
+  Open. Change status") with Open, Ready to verify and Done, each enabled by the person's permissions: Ready to
+  verify opens the Request verification form (`VerificationControl`, whose submit has the same name), Open from
+  Ready to verify cancels the check, and Done there reads Done without verification. Copy is one menu with Copy
+  issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
+  fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
+  thread and, once read, Mark as unread are in More actions. Then On (what it was left on, with the selector or
+  the selected text), Page (the review link, "Open on ...", and the environment's name or why the original
+  source is unavailable), Priority and Assignee (the avatar and name, a menu for those who can assign), the
+  verification, every message, Reply and the quiet Open in .... The first message's time is followed by
+  `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
+  UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
+  text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.
 - `comments/ReplyComposer.tsx` is a lazy inline reply form in List and Board, using shadcn controls
   and pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
@@ -450,10 +457,14 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   guide. Its parts (`ScriptSnippet`, `PlatformSteps`, `InstallationCheck`) are exported for onboarding. The script
   is the only place the project code shows. Until `extensionDistribution()` says the extension is available, the
   browser extension tab is one line and the setup guide (`BrowserExtensionGuide`).
-- The comments' filter row: status tabs, Unread and Mark all as read, then one Environment and page control
-  (`LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
-  sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`) and People, then the
-  count and List/Board on the right. Choosing an environment keeps the panel open and reloads its pages.
+- The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
+  and page, People and Only unread; its badge counts the filters in effect) and List/Board, then the status tabs
+  (list only). Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
+  "Clear author filter: ..."). The list header (`TriageSelection`) has Select shown results, the count with
+  the unread count, and Mark all as read; the bulk actions appear only once something is selected.
+  `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
+  sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
+  keeps the panel open and reloads its pages.
 - `app/global.css` defines `--radius-sm/md/lg` (the preset's radii are JS values with no variables);
   shadcn's small buttons read `var(--radius-md)`.
 - **First run.** A new user (`findOrCreateUserWithStatus`) has `welcomePending`. Email sign-in without `next`
