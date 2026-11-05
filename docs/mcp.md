@@ -494,7 +494,8 @@ is added.
 Every `/api/mcp` request writes one `mcp_request` JSON event (version 1) to the hosting logs, so
 tools, prompts and resources can be improved from how clients actually use them: what they call,
 which calls fail and why, and how large the answers are. `apps/web/src/lib/mcp/telemetry.ts` builds
-the event and `mcpRequestEventSchema` is its contract. Events with an unexpected failure are written
+the event and `mcpRequestEventSchema` (in `telemetrySchema.ts`, re-exported by `telemetry.ts`) is its
+contract. Events with an unexpected failure are written
 at error level, all others at info level. Find them by filtering the logs on `"event":"mcp_request"`.
 
 The request part has the HTTP method and status, the duration, and an `outcome`:
@@ -542,6 +543,40 @@ Some starting points: `"error":"invalid_arguments"` with `issues` shows schema f
 wrong; `requestedName` shows tools and prompts clients expect; `missingScope` shows operations
 people did not grant; `itemErrors`, `remaining` and `bytes` show batches and answers that hit limits.
 
+### Daily report
+
+`scripts/mcp-report.mjs` summarizes one UTC day of one environment from a log export. Export the
+hosting logs as NDJSON before their retention expires, one JSON object per line: raw `mcp_request`
+events or Vercel JSON log objects whose `message` is an event. Other lines are skipped. Then run:
+
+```bash
+pnpm -C apps/web exec node scripts/mcp-report.mjs /absolute/path/mcp-logs.ndjson 2026-11-04 production
+```
+
+The environment is `production`, `preview`, `local` or `unknown`. The JSON report has:
+
+- `requests`: the request count, counts by `outcome`, `error` and `authentication`, `durationMs`
+  (p50, p95 and max) and the total of `omittedCalls`;
+- `connections`: how many distinct connection `ref` and account `user` references made requests, and
+  connection references by `kind`. The references themselves are not in the report;
+- `clients`: the client `name` and `version` pairs from `initialize`, most frequent first;
+- `calls`: one entry per `method` and `name` (the tool, prompt or resource, `null` for methods without
+  one, `unknown` for names we do not offer) with the call count, counts by `outcome`, `error` and
+  `missingScope`, the most frequent validation `issues` (`path` and `code`) and, when answers had a
+  `result`, `bytes` (median, p95 and max) and how many had `more`, a non-zero `remaining`, `truncated`
+  or `itemErrors` (with the item error codes summed);
+- `requestedNames` (tools and prompts clients asked for), `unknownArguments` (per tool) and
+  `serverErrors` (the `failure` class of `server_error` requests and calls, with the method and name);
+- `rejectedRecords` (`mcp_request` records that do not match `mcpRequestEventSchema`) and
+  `duplicateRecords` (the same event id exported twice, counted once).
+
+Lists hold the 20 most frequent entries (10 for `issues`); the counts behind them are complete.
+Records are validated with `mcpRequestEventSchema` and the report reads only the codes, registered
+names, client labels, counts and sizes the schema allows. It never prints raw log lines, event ids,
+connection or account references, or `failure` code locations, and its errors never quote the input.
+Percentiles are nearest rank. Platform log loss or sampling can leave gaps, so treat the counts as
+observed, not complete.
+
 New tools, prompts and resources are logged without extra work: `createFeedbackMcpServer` lets the
 request log watch every registration, which records its schema and runs its handler where
 `noteMcpError` can find the request. A handler's catch block calls `noteMcpError(error)` before it
@@ -563,6 +598,9 @@ revokes the app in Account and expects 401. The full suite adds cancel (`access_
 a consumed request, Use another account, the error page, a 375 px layout and light/dark axe checks.
 `e2e/mcpTelemetry.api.spec.ts` checks the request log: successful and failed calls, rejected and
 interrupted requests, unexpected failures and a failing log sink, and that no content or id is logged.
+`e2e/mcp-report.api.spec.ts` checks the daily report on fixture events: raw and Vercel lines,
+skipped, invalid and duplicate records, every aggregate, the command's output and errors, and that no
+content, id or reference reaches the report.
 This feature does not close the separate MVP launch audit #90.
 
 

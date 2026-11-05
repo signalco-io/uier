@@ -403,6 +403,18 @@ with the error class and code locations, never the message. [Request logs](mcp.m
 describes every field and what is never logged. Filter on `"event":"mcp_request"` and export before
 the hosting retention expires; no log drain is provisioned.
 
+To decide what to improve, summarize an NDJSON export (raw events or Vercel JSON log objects) for one
+UTC day and environment:
+
+```bash
+pnpm -C apps/web exec node scripts/mcp-report.mjs /absolute/path/mcp-logs.ndjson 2026-11-04 production
+```
+
+The JSON report counts requests and calls by outcome and error, per tool, prompt and resource, with
+validation issues, missing scopes, answer sizes, names and arguments clients expected, client
+versions, distinct connections and unexpected failure classes. It prints no raw log lines, ids or
+references. [Daily report](mcp.md#daily-report) describes each field.
+
 ## Rewrite usage and costs
 
 [Rewrite accounting and evaluation](rewrite-costs.md) documents the `rewrite_usage` server-log event,
