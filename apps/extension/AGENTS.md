@@ -26,6 +26,8 @@ security-header rewriting or offscreen permission. Screenshots check the active 
 after capture, leave the UI hidden until done, crop to viewport and preserve text on failure.
 
 Use shared brand assets/tokens and UI-kit controls. Runtime version comes from package.json.
+Popup/helper classes compile from src/popup.css (toolbar Tailwind setup, packaged Geist); primary
+actions are solid ink. Icons render from MARK_PATH in build.mjs; store art in store-assets.mjs.
 Run root typecheck/build/short tests before a PR, plus validate/package and the persistent Chromium
 suite after runtime changes. Test dist output, not source or a mocked extension API.
 

@@ -1,8 +1,12 @@
 import { build } from 'esbuild';
-import { readFile, writeFile, mkdir, cp, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, writeFile, mkdir, cp, rm, copyFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
 import sharp from 'sharp';
+import postcss from 'postcss';
+import tailwindcss from '@tailwindcss/postcss';
 import { createHash } from 'node:crypto';
+import { brand, MARK_PATH } from '../../../packages/brand/src/brand.ts';
 const test = process.argv.includes('--test');
 const hostedTest = process.argv.includes('--hosted-test');
 const root = resolve(import.meta.dirname, '..');
@@ -29,8 +33,17 @@ for (const [name, entry] of Object.entries({ worker: 'worker.ts', content: 'cont
         }); } }]
     });
 }
-await writeFile(resolve(dest, 'popup.css'), css);
-for (const page of ['popup', 'helper']) await writeFile(resolve(dest, `${page}.html`), `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>uier</title>${page === 'popup' ? '<link rel="stylesheet" href="popup.css">' : ''}</head><body><div id="root"></div><script src="${page}.js"></script></body></html>`);
+// Extension pages get their own sheet: the toolbar's Tailwind setup and brand tokens, plus the
+// classes used in src/, with Geist packaged next to it (no remote fonts or styles).
+const pageCss = resolve(root, 'src/popup.css');
+const compiled = await postcss([tailwindcss({ base: resolve(root, 'src'), optimize: { minify: true } })])
+    .process(await readFile(pageCss, 'utf8'), { from: pageCss, to: resolve(dest, 'popup.css') });
+await writeFile(resolve(dest, 'popup.css'), compiled.css);
+const geist = dirname(createRequire(import.meta.url).resolve('geist/font'));
+await mkdir(resolve(dest, 'fonts'));
+for (const [from, to] of [['fonts/geist-sans/Geist-Variable.woff2', 'geist.woff2'], ['fonts/geist-mono/GeistMono-Variable.woff2', 'geist-mono.woff2'], ['../LICENSE.txt', 'LICENSE.txt']])
+    await copyFile(resolve(geist, from), resolve(dest, 'fonts', to));
+for (const page of ['popup', 'helper']) await writeFile(resolve(dest, `${page}.html`), `<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>uier</title><link rel="stylesheet" href="popup.css"></head><body><div id="root" data-uier-root></div><script src="${page}.js"></script></body></html>`);
 const manifest = {
     manifest_version: 3, name: 'uier', version: pkg.version, minimum_chrome_version: '120',
     description: 'Review configured project sites with uier. Signed-in project membership required.',
@@ -47,9 +60,13 @@ if (test || hostedTest) {
     const id = hash.replace(/[0-9a-f]/g, n => String.fromCharCode(97 + parseInt(n, 16)));
     await writeFile(resolve(dest, 'development-id.txt'), id);
 }
+// The app icon (BRAND.md, "App icon") with its 22 % radius drawn in, because browsers do not mask
+// extension icons. The 128 px store/install icon keeps Chrome's 16 px transparent padding.
 await mkdir(resolve(dest, 'icons'));
-for (const size of [16, 32, 48, 128]) {
-    await sharp(resolve(root, '../web/public/apple-touch-icon.png')).resize(size, size).png().toFile(resolve(dest, `icons/${size}.png`));
+for (const [size, inset] of [[16, 0], [32, 0], [48, 0], [128, 16]]) {
+    const side = size - inset * 2, mark = side * 0.54, offset = inset + (side - mark) / 2 + side * 0.015;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect x="${inset}" y="${inset}" width="${side}" height="${side}" rx="${side * 0.22}" fill="${brand.colors.black}"/><g transform="translate(${offset} ${offset}) scale(${mark / 24})"><path fill="${brand.colors.paper}" d="${MARK_PATH}"/></g></svg>`;
+    await sharp(Buffer.from(svg), { density: 72 * 8 }).resize(size, size).png().toFile(resolve(dest, `icons/${size}.png`));
 }
 await writeFile(resolve(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 await cp(resolve(root, '../../LICENSE'), resolve(dest, 'LICENSE'));

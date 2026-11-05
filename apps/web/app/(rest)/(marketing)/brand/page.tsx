@@ -305,6 +305,7 @@ export default function BrandPage() {
                         <li><InlineLink href="/favicon.svg">favicon.svg</InlineLink> <span className="text-muted-foreground">· the bare mark, ink in light tabs and white in dark</span></li>
                         <li><InlineLink href="/apple-touch-icon.png">apple-touch-icon.png</InlineLink> <span className="text-muted-foreground">· black plate, white mark at 54 %</span></li>
                         <li><InlineLink href="/android-chrome-512x512.png">android-chrome-512x512.png</InlineLink> <span className="text-muted-foreground">· same plate, maskable</span></li>
+                        <li>Browser extension icons <span className="text-muted-foreground">· same plate with its 22 % radius drawn in; the 128 px store icon keeps 16 px of transparent padding</span></li>
                         <li><InlineLink href="/opengraph-image">opengraph-image</InlineLink> <span className="text-muted-foreground">· the 1200 × 630 social card, generated from the constants</span></li>
                         <li><InlineLink href={KnownPageLinks.socialCard('comment')}>og/comment</InlineLink> <span className="text-muted-foreground">· a link card; each public page also has its own card</span></li>
                         <li><InlineLink href="/manifest.webmanifest">manifest.webmanifest</InlineLink> <span className="text-muted-foreground">· name, icons and colours from the constants</span></li>
