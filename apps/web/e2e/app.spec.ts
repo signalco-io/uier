@@ -486,6 +486,8 @@ test('project settings sections save the name, comment access and addresses', as
     await addresses.getByLabel('Address 2', { exact: true }).fill('not a site');
     await addresses.getByRole('button', { name: 'Save' }).click();
     await expect(addresses.getByRole('alert')).toContainText('"not a site" is not a website address.');
+    // Save fades back in from its disabled look (transition-all); scan once it is opaque
+    await expect(addresses.getByRole('button', { name: 'Save' })).toHaveCSS('opacity', '1');
     await expectNoAxeViolations(page);
 
     await page.reload();
