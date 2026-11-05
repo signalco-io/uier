@@ -1,7 +1,7 @@
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, closeAppNavigation, createProject, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { pngImage } from './support/images';
 import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -351,11 +351,20 @@ test('project settings sections save the name, comment access and addresses', as
     await expect(sections.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
     await expectNoAxeViolations(page);
 
-    // Name
+    // Name and client, one save that waits for a change
     const general = page.getByRole('region', { name: 'General' });
+    const saveGeneral = general.getByRole('button', { name: 'Save' });
+    await expect(saveGeneral).toBeDisabled();
+    await hydrated(general.locator('form'));
     await general.getByLabel('Project name').fill('Marketing site');
-    await general.getByRole('button', { name: 'Save' }).click();
-    await expect(general.getByRole('status')).toHaveText('The name is saved.');
+    await expect(general).toContainText('Unsaved changes');
+    await general.getByRole('button', { name: 'Discard' }).click();
+    await expect(general.getByLabel('Project name')).toHaveValue('settings.example.com');
+    await expect(saveGeneral).toBeDisabled();
+    await general.getByLabel('Project name').fill('Marketing site');
+    await saveGeneral.click();
+    await expect(general.getByRole('status')).toHaveText('Saved.');
+    await expect(saveGeneral).toBeDisabled();
 
     // Who can comment, under Review
     await sections.getByRole('link', { name: 'Review' }).click();
@@ -363,24 +372,33 @@ test('project settings sections save the name, comment access and addresses', as
     await expect(page).toHaveTitle('Review · Project settings · uier');
     await expect(sections.getByRole('link', { name: 'Review' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Review');
-    const access = page.getByRole('region', { name: 'Who can comment' });
+    const access = page.getByRole('region', { name: 'Review', exact: true });
     await expect(access.getByRole('radio', { name: 'Invited people' })).toBeChecked();
+    // The page state is developer-level, under Advanced
+    await expect(access.getByLabel('Meaningful query fields')).toBeHidden();
     await setProjectAccess(page, projectId, 'Anyone with the link');
 
-    // Addresses, under Environments
+    // Addresses with their labels, under Environments
     await sections.getByRole('link', { name: 'Environments' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/environments$`));
     const addresses = page.getByRole('region', { name: 'Site addresses' });
+    await hydrated(addresses.locator('form'));
+    await addresses.getByRole('button', { name: 'Add address' }).click();
+    await expect(addresses.getByLabel('Address 2', { exact: true })).toBeFocused();
     await addresses.getByLabel('Address 2', { exact: true }).fill('localhost:3000/');
+    await addresses.getByLabel('Label for localhost:3000/', { exact: true }).fill('Local');
     await addresses.getByRole('button', { name: 'Save' }).click();
-    await expect(addresses.getByRole('status')).toHaveText('The addresses are saved.');
+    await expect(addresses.getByRole('status')).toHaveText('Saved.');
     await addresses.getByLabel('Address 2', { exact: true }).fill('not a site');
     await addresses.getByRole('button', { name: 'Save' }).click();
     await expect(addresses.getByRole('alert')).toContainText('"not a site" is not a website address.');
+    await expectNoAxeViolations(page);
 
     await page.reload();
-    await expect(addresses.getByLabel('Main site address')).toHaveValue('https://settings.example.com');
-    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('http://localhost:3000');
+    // Shown without the default scheme: HTTPS, or HTTP for a local address
+    await expect(addresses.getByLabel('Main site address')).toHaveValue('settings.example.com');
+    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveValue('localhost:3000');
+    await expect(addresses.getByLabel('Label for localhost:3000', { exact: true })).toHaveValue('Local');
     await sections.getByRole('link', { name: 'Review' }).click();
     await expect(access.getByRole('radio', { name: 'Anyone with the link' })).toBeChecked();
     // The new name in the header and the breadcrumbs, and on the projects page
@@ -572,7 +590,8 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await expect(page.getByRole('article', { name: 'Comment by you' }).filter({ hasText: text })).toBeVisible();
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Email notifications', exact: true })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Who can comment', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Review', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Email content', exact: true })).toHaveCount(0);
 
     const second = await newVisitor(browser, testInfo);
     await signIn(second.page, uniqueEmail('feedback-other'), { from: new URL('/app/sign-in', page.url()).href });
@@ -604,7 +623,9 @@ test('the account page saves the name and signs out', async ({ page }) => {
     await signIn(page, uniqueEmail('account'));
     await page.goto('/app/account');
     await expect(page.getByLabel('Name')).toHaveValue(/^account-/);
+    await hydrated(page.getByRole('region', { name: 'Profile' }).locator('form'));
     await page.getByLabel('Name').fill('Mia Reviewer');
+    await expect(page.getByRole('region', { name: 'Profile' })).toContainText('Unsaved changes');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('region', { name: 'Profile' }).getByRole('status')).toHaveText('Your name is saved.');
     await appNavigation(page);
@@ -615,7 +636,11 @@ test('the account page saves the name and signs out', async ({ page }) => {
 
     // The account's sections, like a project's settings: General is the account page itself
     const sections = page.getByRole('navigation', { name: 'Account' });
-    await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Coding agents']);
+    await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Notifications', 'Coding agents']);
+    // The workspace access leaves out what is not set: a new account has no relationship and no teams
+    const workspaceAccess = page.getByRole('region', { name: 'Your workspace access' });
+    await expect(workspaceAccess.locator('dt')).toHaveText(['Role', 'Projects']);
+    await expect(workspaceAccess).not.toContainText('Unspecified');
     await expect(sections.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('region', { name: 'Sign out' })).toHaveCount(0);
     await sections.getByRole('link', { name: 'Sign-in' }).click();
@@ -636,14 +661,15 @@ test('only admins save and clear the plain-text review brief, with server valida
     await signIn(page, uniqueEmail('brief-admin'));
     const project = await createProject(page, { urls: [new URL(page.url()).origin], name: 'Brief review' });
     await page.goto(`/app/projects/${project}/settings/review`);
-    const section = page.getByRole('region', { name: 'Review brief', exact: true });
-    const input = section.getByLabel('Review instructions');
-    await expect(section).toContainText('Only invited people who can comment can read this brief.');
+    const section = page.getByRole('region', { name: 'Review', exact: true });
+    const input = section.getByLabel('Review brief');
+    await expect(section).toContainText('Invited people read it in the toolbar.');
+    await hydrated(section.locator('form'));
     await input.fill('  Review pricing.\nThen checkout.  ');
     const savedRequest = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await section.getByRole('button', { name: 'Save' }).click();
     const actionRequest = await savedRequest;
-    await expect(section.getByRole('status')).toHaveText('The review brief is saved.');
+    await expect(section.getByRole('status')).toContainText('Saved.');
     await page.reload();
     await expect(input).toHaveValue('Review pricing.\nThen checkout.');
     // Bypass the browser maxLength: the action must enforce the shared server limit too.
@@ -670,7 +696,7 @@ test('only admins save and clear the plain-text review brief, with server valida
         // Wait for invitation acceptance and its cookies before inspecting settings.
         await member.page.goto(`/app/projects/${project}/settings`);
         await expect(member.page.getByRole('heading', { name: 'Settings', exact: true })).toBeAttached();
-        await expect(member.page.getByRole('region', { name: 'Review brief' })).toHaveCount(0);
+        await expect(member.page.getByRole('region', { name: 'Review', exact: true })).toHaveCount(0);
         const response = await member.page.request.post(actionRequest.url(), {
             headers: { 'Next-Action': actionRequest.headers()['next-action']!, 'Content-Type': actionRequest.headers()['content-type']!, Origin: new URL(actionRequest.url()).origin },
             data: Buffer.from(actionRequest.postDataBuffer()!.toString().replace('Review pricing.', 'Changed by member.'))
@@ -679,12 +705,13 @@ test('only admins save and clear the plain-text review brief, with server valida
     } finally { await member.context.close(); }
     await page.goto(`/app/projects/${project}/settings/review`);
     await expect(input).toHaveValue('Review pricing.\nThen checkout.');
+    await hydrated(section.locator('form'));
     // Clear the existing brief explicitly before exercising a whitespace-only submission.
     await input.clear();
     await input.fill(' \n ');
     await expect(input).toHaveValue(' \n ');
     await section.getByRole('button', { name: 'Save' }).click();
-    await expect(section.getByRole('status')).toHaveText('The review brief is saved.');
+    await expect(section.getByRole('status')).toContainText('Saved.');
     await page.reload();
     await expect(input).toHaveValue('');
 });

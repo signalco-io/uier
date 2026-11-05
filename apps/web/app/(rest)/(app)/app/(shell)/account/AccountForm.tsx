@@ -2,13 +2,11 @@
 
 import { useActionState, useEffect, useId, useState } from 'react';
 import { useTheme } from 'next-themes';
-import { Button } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
-import { Spinner } from '@/src/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
-import { FormMessage } from '@/src/components/app/FormMessage';
 import { Section } from '@/src/components/app/PageHeader';
+import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
 import { themeOptions } from '@/src/components/app/shell/AccountMenu';
 import { MAX_NAME_LENGTH } from '@/src/lib/app/limits';
 import { updateNameAction } from './actions';
@@ -16,28 +14,20 @@ import { updateNameAction } from './actions';
 export function AccountForm({ name }: { name: string }) {
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateNameAction, null);
-    const [value, setValue] = useState(name);
+    const { draft, dirty, update, discard } = useSettingsDraft(name, state);
     return (
         <Section
             id="profile"
             title="Profile"
-            footer={(
-                <>
-                    <FormMessage state={state} className="mr-auto" />
-                    <Button type="submit" form={formId} disabled={pending}>
-                        {pending && <Spinner data-icon="inline-start" />}
-                        Save
-                    </Button>
-                </>
-            )}>
+            footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction}>
                 <Field>
                     <FieldLabel htmlFor={`${formId}-name`}>Name</FieldLabel>
                     <Input
                         id={`${formId}-name`}
                         name="name"
-                        value={value}
-                        onChange={(event) => setValue(event.target.value)}
+                        value={draft}
+                        onChange={(event) => update(() => event.target.value)}
                         required
                         maxLength={MAX_NAME_LENGTH}
                         autoComplete="name"

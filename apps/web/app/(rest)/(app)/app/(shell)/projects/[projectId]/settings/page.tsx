@@ -11,7 +11,7 @@ import { loadProjectUsage } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
-import { ProjectClientNameForm, ProjectNameForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectGeneralForm } from '@/src/components/app/projects/ProjectSettingsForms';
 import { projectSettingsContext } from './settingsContext';
 
 export const metadata: Metadata = {
@@ -31,8 +31,7 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
 
     return (
         <>
-            <ProjectNameForm projectId={project.id} name={project.name} />
-            <ProjectClientNameForm projectId={project.id} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)} />
+            <ProjectGeneralForm projectId={project.id} name={project.name} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)} />
             <Suspense fallback={<AppPageLoading />}>
                 <ProjectUsageSection context={context} project={project} />
             </Suspense>
@@ -52,20 +51,20 @@ async function ProjectUsageSection({ context, project }: { context: AppContext; 
     ];
 
     return (
-            <Section
-                id="usage"
-                title="Usage"
-                description={usage.lastCommentAt
-                    ? <>Everything is included; nothing here is limited by a plan. Last comment <DateTime value={usage.lastCommentAt} />.</>
-                    : 'Everything is included; nothing here is limited by a plan.'}>
-                <dl className="m-0 grid grid-cols-2 overflow-hidden rounded-lg border sm:grid-cols-3">
-                    {usageRows.map(row => (
-                        <div key={row.label} className="-mr-px -mb-px flex flex-col gap-1 border-r border-b p-4">
-                            <dt className="text-sm text-muted-foreground">{row.label}</dt>
-                            <dd className="m-0 text-2xl font-semibold tracking-[-0.02em] tabular-nums">{row.value}</dd>
-                        </div>
-                    ))}
-                </dl>
-            </Section>
+        <Section
+            id="usage"
+            title="Usage"
+            description={usage.lastCommentAt
+                ? <>Nothing here is limited by a plan. Last comment <DateTime value={usage.lastCommentAt} />.</>
+                : 'Nothing here is limited by a plan.'}>
+            <dl className="m-0 grid grid-cols-2 overflow-hidden rounded-lg border sm:grid-cols-3">
+                {usageRows.map(row => (
+                    <div key={row.label} className="-mr-px -mb-px flex flex-col gap-1 border-r border-b p-4">
+                        <dt className="text-sm text-muted-foreground">{row.label}</dt>
+                        <dd className="m-0 text-2xl font-semibold tracking-[-0.02em] tabular-nums">{row.value}</dd>
+                    </div>
+                ))}
+            </dl>
+        </Section>
     );
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, pageStateSettings, setProjectAccess, signIn, uniqueEmail } from './support/app';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -13,7 +13,7 @@ test('authorized reviewer, project and canonical query/hash scopes survive SPA n
     const otherProject = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, otherProject, 'Anyone with the link');
     await page.goto(`/app/projects/${project}/settings/review`);
-    const settings = page.getByRole('region', { name: 'Page state' });
+    const settings = await pageStateSettings(page);
     await settings.getByLabel('Meaningful query fields').fill('tab');
     await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
