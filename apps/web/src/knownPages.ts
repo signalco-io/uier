@@ -33,6 +33,7 @@ export const KnownPages = {
     AppSignInGoogleLink: '/app/sign-in/google/link',
     AppWelcome: '/app/welcome',
     AppProjects: '/app/projects',
+    AppMyWork: '/app/my-work',
     AppReview: '/app/review',
     AppNewProject: '/app/projects/new',
     /** The workspace area: Users, Teams, Clients, Activity and Settings, each a tab */

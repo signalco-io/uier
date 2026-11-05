@@ -11,7 +11,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, My work, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
@@ -457,6 +457,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   guide. Its parts (`ScriptSnippet`, `PlatformSteps`, `InstallationCheck`) are exported for onboarding. The script
   is the only place the project code shows. Until `extensionDistribution()` says the extension is available, the
   browser extension tab is one line and the setup guide (`BrowserExtensionGuide`).
+- **My work** (`/app/my-work`, `lib/app/myWork.ts`, in the sidebar right after Projects) lists what needs the signed-in
+  member across the workspace's projects they can see: open threads assigned to them, open threads that mention them
+  (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to, newest first. It
+  reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
+  row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
   and page, People and Only unread; its badge counts the filters in effect) and List/Board, then the status tabs
   (list only). Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",

@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2Icon, LayoutGridIcon, PlusIcon, type LucideIcon } from 'lucide-react';
+import { Building2Icon, InboxIcon, LayoutGridIcon, PlusIcon, type LucideIcon } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -89,11 +89,12 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
             </SidebarHeader>
             <SidebarContent>
                 <nav aria-label="App" className="contents">
-                    {/* The app's own pages (Projects, and later the person's own work) */}
+                    {/* The app's own pages: Projects and the person's own work */}
                     <SidebarGroup>
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 <NavItem href={KnownPages.AppProjects} label="Projects" icon={LayoutGridIcon} current={projectsCurrent} />
+                                <NavItem href={KnownPages.AppMyWork} label="My work" icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} />
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>

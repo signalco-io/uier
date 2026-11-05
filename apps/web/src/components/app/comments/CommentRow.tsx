@@ -34,16 +34,19 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * who it is assigned to, status, age and unread. The whole row opens the thread (a link to
  * `?comment=<id>`, so it can also open in a new tab); the selection box sits beside the link.
  */
-export function CommentRow({ comment, href, selected, onOpen, card = false, actions }: {
+export function CommentRow({ comment, href, selected, onOpen, card = false, actions, project }: {
     comment: ProjectCommentView;
     href: string;
     /** Its thread is open (`opened`), or shown beside the list until another is chosen (`beside`, wide layouts only) */
     selected?: 'opened' | 'beside';
-    onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
+    /** Opens the thread in place; without it, the link navigates */
+    onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
     /** A board card: bordered, the meta on lines of its own; its link is not dragged on its own */
     card?: boolean;
     /** Controls above the link, at the end of the first line (the board card's Move to) */
     actions?: ReactNode;
+    /** The project's name, where rows of several projects are listed together (My work) */
+    project?: string;
 }) {
     const status = commentStatus(comment);
     const unread = Boolean(comment.activity?.unread);
@@ -81,6 +84,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
                         {KindIcon && <KindIcon aria-hidden="true" className="size-3.5 shrink-0" />}
                         <span className="truncate">
+                            {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span><span className="sr-only">, by </span></>}
                             {author}
                             <span aria-hidden="true"> · </span><span className="sr-only">, on </span>
                             {anchorSummary(comment)}
