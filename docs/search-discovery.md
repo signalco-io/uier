@@ -3,7 +3,8 @@
 Public content lives under `apps/web/app/(rest)/(marketing)`. The homepage publishes connected
 `WebSite` and publisher `Organization` JSON-LD from brand constants. The publisher is signalco;
 there is no invented local business, rating, customer count or uier social profile. The guides at
-`/guides/client-website-reviews` and `/guides/nextjs` describe shipped controls. The Next.js example
+`/guides/client-website-reviews`, `/guides/nextjs` and `/guides/browser-extension` describe shipped
+controls. The Next.js example
 uses the same `nextJsSnippet` generator as a project's installation guide.
 
 ## Search consoles

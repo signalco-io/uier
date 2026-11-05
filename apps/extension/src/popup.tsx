@@ -30,7 +30,7 @@ function Popup() {
     return <main className="flex flex-col gap-4 bg-background p-4 text-foreground" style={{ width: 340 }}>
         <Logo />
         <h1 className="sr-only">Review this site</h1>
-        <p className="m-0 text-sm text-muted-foreground">Browser extension · development preview</p>
+        <p className="m-0 text-sm text-muted-foreground">Browser extension</p>
         {error && <p role="alert">{error} <Button variant="outlined" onClick={() => run(refresh)}>Try again</Button></p>}
         {!state && !error && <p role="status">Connecting to uier.</p>}
         {state && !state.signedIn && <Button disabled={busy} onClick={() => run(() => message({ type: 'sign-in' }))}>Sign in to uier</Button>}

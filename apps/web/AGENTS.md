@@ -10,7 +10,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | --- | --- |
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
-| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
+| `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in and invitation pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
@@ -134,7 +134,7 @@ form, support/setup links and accessibility.
 
 ## Search indexing
 
-The public `/guides` index links client review and Next.js setup guides. Use the existing
+The public `/guides` index links the client review, Next.js and browser extension setup guides. Use the existing
 `ContentPage` components, snippet generator, metadata and social-card helpers; add public routes
 to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
 signalco publisher. Preserve the homepage Bing verification meta tag after setup.
@@ -1113,6 +1113,15 @@ marketing layout, embed, scripts or styles. Its exact-path proxy policy denies a
 loads. Keep it free of customer data and sign-in secrets; reviewers create their own isolated
 project. The API check preserves that boundary; the browser check scans its content directly
 because the ordinary public-page accessibility helper waits for a showcase toolbar.
+
+The public `/browser-extension` page and the `/guides/browser-extension` setup guide describe the
+published 0.1.2 extension. Their copy follows BrowserExtensionGuide, the listing worksheet, the
+popup (`apps/extension/src/popup.tsx`) and the receipts in `docs/browser-extension.md`; popup labels
+and the published store ID live in `src/lib/extension/release.ts` (static pages build without the
+hosted `UIER_EXTENSION_*` settings). The store button uses the same `chromeWebStoreUrl` as the app's
+link. Recheck both pages, and the legal pages' extension sections, when a release changes labels,
+permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
+`browser-extension.spec.ts` their content.
 
 
 ## App triage

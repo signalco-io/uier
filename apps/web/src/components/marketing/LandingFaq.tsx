@@ -17,11 +17,11 @@ const questions: Question[] = [
     },
     {
         question: `Can I use ${brand.name} on my own website?`,
-        answer: <>Yes. Create a project in the <InlineLink href={KnownPages.App}>{brand.name} app</InlineLink>, add one script tag to your site and open a review link. You choose who can comment: the people you invite, or anyone with the link.</>
+        answer: <>Yes. Create a project in the <InlineLink href={KnownPages.App}>{brand.name} app</InlineLink>, add one script tag to your site and open a review link. You choose who can comment: the people you invite, or anyone with the link. Signed-in reviewers can also use the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink> instead of the script.</>
     },
     {
         question: 'Does it work with my stack?',
-        answer: <>If you can add a script tag to the page, yes. The install guide in the app has steps for HTML, Next.js, React, WordPress, Webflow and Shopify, and lists the sources to allow if your site sends a Content-Security-Policy.</>
+        answer: <>If you can add a script tag to the page, yes. The install guide in the app has steps for HTML, Next.js, React, WordPress, Webflow and Shopify, and lists the sources to allow if your site sends a Content-Security-Policy. If you cannot change the site, project members and invited reviewers can review it in desktop Chrome or Edge with the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink>.</>
     },
     {
         question: 'How do I sort through a lot of feedback?',

@@ -3,8 +3,8 @@ import { brand } from '@uier/brand';
 import { integrationCatalog } from '../src/lib/integrations/catalog';
 
 const publicPaths = [
-    '/guides', '/guides/client-website-reviews', '/guides/nextjs',
-    '/', '/brand', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/integrations',
+    '/guides', '/guides/browser-extension', '/guides/client-website-reviews', '/guides/nextjs',
+    '/', '/brand', '/browser-extension', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/integrations',
     ...Object.keys(integrationCatalog).map(provider => `/integrations/${provider}`),
     '/legal/acceptable-use-policy', '/legal/cookie-policy', '/legal/privacy-policy',
     '/legal/sla', '/legal/terms-of-service', '/open-source', '/security', '/status'

@@ -18,6 +18,7 @@ export function SiteFooter() {
                         { label: 'Fix verification', href: KnownPages.FixVerification },
                         { label: 'AI features', href: KnownPages.Ai },
                         { label: 'Integrations', href: KnownPages.Integrations },
+                        { label: 'Browser extension', href: KnownPages.BrowserExtension },
                         { label: 'Pricing', href: KnownPages.Pricing },
                         { label: 'FAQ', href: KnownPages.Faq },
                         { label: 'Status', href: KnownPages.Status }

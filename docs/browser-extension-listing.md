@@ -1,9 +1,10 @@
 # Extension listing worksheet
 
-Prepared copy and artwork for owner review. This is not a published listing. Complete the account,
-reviewer access and disclosure forms in the [release runbook](browser-extension-release.md).
+Copy and artwork for the public [Chrome Web Store listing](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
+Change the dashboard and this worksheet together. Account, reviewer access and disclosure setup
+is recorded in the [release runbook](browser-extension-release.md).
 
-| Field | Draft |
+| Field | Listing |
 | --- | --- |
 | Name | uier |
 | Summary | Review configured project sites with uier. Signed-in project membership required. |
@@ -80,8 +81,8 @@ After `pnpm build`, `pnpm -C apps/extension package`, `pnpm -C apps/extension te
 store icon and 440×280 promotional tile in `listing/`; the persistent test retains an actual
 1280×800 runtime screenshot in `test-results/`. Extension icons are 16/32/48/128 px. CI retains these
 as artifacts; check the dashboard's current required sizes and visually review them before upload.
-Screenshots use a local fictional project, never customer pages. Replace development-preview popup
-imagery with a verified released build when publishing.
+Screenshots use a local fictional project, never customer pages. Take popup imagery from the
+verified build being published, so it matches the released copy.
 
 The controlled HTTPS reviewer page is `https://uier.io/extension-demo.html`: plain fictional content
 with no embed or executable page code, and a CSP that denies page resource loads. Reviewers sign

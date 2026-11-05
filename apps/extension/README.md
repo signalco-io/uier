@@ -19,8 +19,9 @@ From the repository root, use Node 24 and the pinned Corepack pnpm:
 - `pnpm -C apps/extension store:assets`: brand store icon and promotional tile.
 
 The [official Chrome Web Store item](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj)
-is available for beta acceptance. Production client registration and hosted BotID renewal are
-recorded in the release receipts, together with the actual automatic upgrade and native acceptance.
+is public. Production client registration and hosted BotID renewal are recorded in the release
+receipts, together with the actual automatic upgrade and native acceptance. Version 0.1.3 is
+prepared for the next protected release; it drops the popup's development-preview label.
 
 The [release runbook](../../docs/browser-extension-release.md) covers the implemented tag/dry-run
 and bounded status workflows, owner bootstrap and recovery. [Listing drafts](../../docs/browser-extension-listing.md)
