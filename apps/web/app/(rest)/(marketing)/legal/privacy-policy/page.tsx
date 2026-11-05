@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="3 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="5 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -423,6 +423,15 @@ export default function PrivacyPolicyPage() {
                 can recognize changes made through your coding tool. These records stay with the feedback.
                 Request counters expire after two minutes. Retry receipts contain hashes and feedback ids
                 and expire after 30 days.
+            </p>
+            <p>
+                To find failing requests and improve what coding tools can do, we record each coding tool request
+                in our hosting logs: the operation and the tool, prompt or resource it used, the outcome and error
+                codes, which arguments it gave with their sizes, numbers and fixed options (such as a status
+                filter), the size of the answer, the tool&rsquo;s own name and version, and keyed hashes of your
+                account and the connection. These records contain no feedback, replies, search text, page
+                addresses, names, email addresses, tokens or plain account, project or feedback ids.
+                They follow the hosting log retention settings.
             </p>
             <p>
                 The client you choose receives the feedback and any screenshots you authorize; its own terms and

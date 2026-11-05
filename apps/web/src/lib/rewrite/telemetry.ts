@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { deploymentEnvironment } from '../app/deployment';
+import { logEnvironment } from '../app/deployment';
 import { estimateTokens, knownModel, REWRITE_KNOWN_MODELS, REWRITE_PRICING, type TokenUsage } from './pricing';
 
 export const rewriteOutcomes = ['success', 'refusal', 'truncation', 'invalid_output', 'empty_output', 'filtered_out', 'timeout', 'provider_error'] as const;
@@ -80,10 +80,7 @@ export function rewriteEvent(input: {
         else if (!unsupportedPricing) { estimate += amount * (usage.inference_geo === 'us' ? 1.1 : 1); priced++; }
     }
     const known = limitations.length === 0 && priced > 0;
-    const environment = deploymentEnvironment();
-    return { event: 'rewrite_usage', version: 1, id: randomUUID(), timestamp: new Date().toISOString(),
-        environment: environment === 'production' || environment === 'preview' ? environment
-            : process.env.UIER_LOCAL === '1' || process.env.NODE_ENV === 'development' ? 'local' : 'unknown',
+    return { event: 'rewrite_usage', version: 1, id: randomUUID(), timestamp: new Date().toISOString(), environment: logEnvironment(),
         requestedModel: knownModel(input.requestedModel), returnedModel: knownModel(response.model), fallback,
         sdkAttempts: input.sdkAttempts, durationMs: Math.max(0, Math.round(input.durationMs)),
         stopReason: ['end_turn', 'refusal', 'max_tokens'].includes(String(response.stop_reason))

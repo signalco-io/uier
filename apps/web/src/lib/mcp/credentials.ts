@@ -142,8 +142,15 @@ export async function authenticateMcp(request: Request, issuer = new URL(request
         access: { kind: 'selected', workspaces: [{ workspaceId: credential.workspaceId, projects: credential.projectIds }] } };
 }
 
+/** A `forbidden` tool error that also tells the request log which operation was missing */
+export class McpScopeError extends ApiError {
+    constructor(readonly scope: McpScope) {
+        super(403, 'forbidden', `This connection needs ${scope}.`);
+    }
+}
+
 export function requireMcpScope(identity: McpIdentity, scope: McpScope) {
-    if (!identity.scopes.includes(scope)) throw apiErrors.forbidden(`This connection needs ${scope}.`);
+    if (!identity.scopes.includes(scope)) throw new McpScopeError(scope);
 }
 
 export async function mcpProject(identity: McpIdentity, projectId: string, scope: McpScope = 'feedback:read') {
