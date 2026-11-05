@@ -3,6 +3,11 @@ export function deploymentEnvironment(): 'production' | 'preview' | undefined {
     const value = process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV;
     return value === 'production' || value === 'preview' ? value : undefined;
 }
+
+/** The environment named in operational log events. */
+export function logEnvironment(): 'production' | 'preview' | 'local' | 'unknown' {
+    return deploymentEnvironment() ?? (process.env.UIER_LOCAL === '1' || process.env.NODE_ENV === 'development' ? 'local' : 'unknown');
+}
 import { brand } from '@uier/brand';
 
 

@@ -37,6 +37,8 @@ import { consume } from '../src/lib/comments/rateLimits';
 // Tests that take a `request` fixture reach the `next start` server, which has its own memory store.
 const base = 'http://127.0.0.1:6516';
 const resource = `${base}/api/mcp`;
+// Request events are covered by mcpTelemetry.api.spec.ts; keep them out of this suite's output.
+const quiet = () => {};
 const testEnv = {
     UIER_LOCAL: '1',
     UIER_COMMENTS_SECRET: 'mcp-oauth-test-secret-for-local-validation-only',
@@ -210,7 +212,7 @@ async function mcpRequest(value?: string, headers: Record<string, string> = {}) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...(value === undefined ? {} : { Authorization: `Bearer ${value}` }), ...headers },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'oauth-test', version: '1.0.0' } } })
-    }), base);
+    }), base, { emit: quiet });
 }
 
 const challenge = (error = false) => `Bearer realm="uier MCP", resource_metadata="${base}/.well-known/oauth-protected-resource/api/mcp", scope="feedback:read"${error ? ', error="invalid_token"' : ''}`;
@@ -219,7 +221,7 @@ async function connectMcp(accessToken: string) {
     const client = new Client({ name: 'oauth-connected-test', version: '1.0.0' });
     await client.connect(new StreamableHTTPClientTransport(new URL(resource), {
         requestInit: { headers: { Authorization: `Bearer ${accessToken}` } },
-        fetch: async (input, init) => handleMcp(new Request(input, init), base)
+        fetch: async (input, init) => handleMcp(new Request(input, init), base, { emit: quiet })
     }));
     return client;
 }
@@ -315,7 +317,7 @@ test('in process the challenge marks unknown, expired, revoked, refresh, code an
         expect(response.headers.get('cache-control')).toBe('private, no-store');
     }
     // A malformed header counts as a presented token.
-    const basic = await handleMcp(new Request(resource, { method: 'POST', headers: { Authorization: 'Basic dXNlcjpwYXNz' }, body: '{}' }), base);
+    const basic = await handleMcp(new Request(resource, { method: 'POST', headers: { Authorization: 'Basic dXNlcjpwYXNz' }, body: '{}' }), base, { emit: quiet });
     expect(basic.headers.get('www-authenticate')).toBe(challenge(true));
 
     const pk = connectionPk(user.id);
@@ -1027,7 +1029,7 @@ test('the 120 requests per minute cap is shared by manual credentials and OAuth 
     const app = await connectApp(a.user);
     const remaining = 60_000 - Date.now() % 60_000;
     if (remaining < 5000) await new Promise(resolve => setTimeout(resolve, remaining + 50));
-    const get = (value: string) => handleMcp(new Request(resource, { headers: { Authorization: `Bearer ${value}` } }), base);
+    const get = (value: string) => handleMcp(new Request(resource, { headers: { Authorization: `Bearer ${value}` } }), base, { emit: quiet });
     for (let i = 0; i < 120; i++) expect((await get(i % 2 ? secret : app.tokens.access_token)).status).toBe(405);
     const blocked = await get(app.tokens.access_token);
     expect(blocked.status).toBe(429);
@@ -1070,7 +1072,7 @@ async function inProcessFetch(input: string | URL | Request, init?: RequestInit)
         '/api/oauth/register': registerRoute,
         '/api/oauth/token': tokenRoute,
         '/api/oauth/revoke': revokeRoute,
-        '/api/mcp': value => handleMcp(value, base)
+        '/api/mcp': value => handleMcp(value, base, { emit: quiet })
     };
     return routes[pathname] ? await routes[pathname]!(request) : new Response(null, { status: 404 });
 }

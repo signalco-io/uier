@@ -394,6 +394,15 @@ an explicit empty secret value and leaves moderation unavailable until a staff l
 For an accidental operator delete, follow [Backups and restore](backups-and-restore.md#backups-and-restore). Never recover
 abuse, an author's deletion or content covered by an erasure request.
 
+## MCP request logs
+
+Every coding tool request to `/api/mcp` writes one `mcp_request` JSON event to the hosting logs:
+the tool, prompt or resource, the outcome and error codes, rejected argument fields, result sizes,
+the client's name and keyed connection references. Unexpected failures are logged at error level
+with the error class and code locations, never the message. [Request logs](mcp.md#request-logs)
+describes every field and what is never logged. Filter on `"event":"mcp_request"` and export before
+the hosting retention expires; no log drain is provisioned.
+
 ## Rewrite usage and costs
 
 [Rewrite accounting and evaluation](rewrite-costs.md) documents the `rewrite_usage` server-log event,
