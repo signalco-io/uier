@@ -59,12 +59,18 @@ export function InviteProvider({ projects, teams = [], children, enabled = true 
     );
 }
 
-/** The "Invite" button of the users page and a project's header */
-export function InviteButton({ projectId, teamId, variant = 'default', className }: { projectId?: string; teamId?: string; variant?: 'default' | 'outline'; className?: string }) {
+/** The "Invite" button of the users page, a team, a project's header and its people */
+export function InviteButton({ projectId, teamId, variant = 'default', size, className }: {
+    projectId?: string;
+    teamId?: string;
+    variant?: 'default' | 'outline';
+    size?: 'sm' | 'default';
+    className?: string;
+}) {
     const context = use(InviteContext);
     if (!context?.enabled) return null;
     return (
-        <Button variant={variant} className={className} onClick={() => context.open(projectId, teamId)}>
+        <Button variant={variant} size={size} className={className} onClick={() => context.open(projectId, teamId)}>
             <UserPlusIcon data-icon="inline-start" />
             Invite
         </Button>

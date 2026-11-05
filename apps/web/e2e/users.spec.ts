@@ -4,7 +4,7 @@ import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { projectPublicId, appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { commentBubble, newVisitor, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubble, newVisitor, toolbar } from './support/toolbar';
 
 // Users and invitations (issues #14 and #15): admins invite people by email as admins or as
 // commenters of selected projects; accepting signs them in and opens the project's review link.
@@ -180,9 +180,10 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenterRow).toContainText('Alpha');
     await expect(page.getByRole('list', { name: 'Invitations' })).toHaveCount(0);
 
-    await page.getByRole('combobox', { name: 'Project' }).click();
-    await page.getByRole('option', { name: 'Beta' }).click();
-    await expect(page).toHaveURL(new RegExp(`project=${beta}`));
+    // Two people need no filters; a project filter in the address (from a project's people) shows it
+    await expect(page.getByRole('combobox', { name: 'Project' })).toHaveCount(0);
+    await page.goto(`/app/users?project=${beta}`);
+    await expect(page.getByRole('combobox', { name: 'Project' })).toContainText('Beta');
     await expect(people.getByRole('listitem')).toHaveCount(1);
     await expect(commenterRow).toHaveCount(0);
     await page.getByRole('combobox', { name: 'Project' }).click();
@@ -267,6 +268,39 @@ test('a removed workspace creator is not added back to their workspace', async (
     await expect(people.getByRole('listitem')).toHaveCount(1);
     await expect(people).not.toContainText(creatorEmail);
     await person.context.close();
+});
+
+test('the invite dialog fits a laptop screen, starts with the only project and keeps the relationship under More options', async ({ page }, testInfo) => {
+    if (!testInfo.project.name.startsWith('Mobile'))
+        await page.setViewportSize({ width: 1280, height: 800 });
+    await signIn(page, uniqueEmail('invite-fit'));
+    await createProject(page, { urls: ['solo.example.com'], name: 'Solo site' });
+    await page.goto('/app/workspace/users');
+    // One person needs no filters
+    await expect(page.getByRole('combobox')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Invite', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toHaveAccessibleName('Invite someone');
+    await expect(dialog.getByRole('checkbox', { name: 'Solo site', exact: true })).toBeChecked();
+    await expect(dialog.getByRole('combobox', { name: 'Relationship' })).toHaveCount(0);
+    await animationsFinished(dialog);
+    if (!testInfo.project.name.startsWith('Mobile'))
+        expect(await dialog.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+    await dialog.getByRole('button', { name: 'More options' }).click();
+    await expect(dialog.getByRole('combobox', { name: 'Relationship' })).toContainText('External');
+    await expectNoAxeViolations(page);
+    const email = uniqueEmail('invite-fit-reviewer');
+    await dialog.getByLabel('Email').fill(email);
+    await dialog.getByRole('button', { name: 'Send invitation' }).click();
+    await expect(dialog.getByRole('status')).toContainText(`We emailed an invitation to ${email}`);
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(page.getByRole('list', { name: 'Invitations' })).toContainText('Solo site');
+
+    // A filter set in the address stays, so it can be cleared
+    await page.goto('/app/workspace/users?state=pending');
+    await expect(page.getByRole('combobox', { name: 'Invitation state' })).toContainText('Pending invitations');
+    await expect(page.getByRole('combobox')).toHaveCount(1);
 });
 
 test('invitations validate, replace earlier ones and can be revoked', async ({ page }) => {
