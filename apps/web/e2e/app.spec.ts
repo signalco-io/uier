@@ -872,6 +872,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
     await expect(row('Unrelated author')).toHaveCount(0);
     const authorQuery = new URL(page.url()).searchParams.get('author');
     await page.reload();
+    await backToComments(page);
     await expect(row('Replied by target')).toBeVisible();
     const replyActions = (await open('Replied by target')).getByRole('button', { name: /^More actions for reply by/ });
     await replyActions.click();
@@ -998,6 +999,8 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         for (const colorScheme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme });
             await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
+            // Flush the new theme so its colour transitions have started before waiting for them
+            await page.evaluate(() => getComputedStyle(document.body).color);
             await animationsFinished(page.locator('body'));
             await expectNoAxeViolations(page);
             await page.screenshot({ path: testInfo.outputPath(`app-reply-${colorScheme}.png`) });
