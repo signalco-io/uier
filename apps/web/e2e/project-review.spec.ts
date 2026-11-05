@@ -225,7 +225,7 @@ test('guest mode: anyone with the link comments under their name', async ({ page
             readText: async () => copied,
         } });
     });
-    for (const path of [`/app/projects/${projectId}/install?onboarding=1`, `/app/projects/${projectId}`]) {
+    for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`]) {
         await page.goto(path);
         if (path.endsWith(projectId))
             // The comments page keeps the guest links behind the access label in the header
@@ -586,7 +586,7 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Comments off');
 
-    for (const path of [`/app/projects/${projectId}/install?onboarding=1`, `/app/projects/${projectId}`]) {
+    for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`]) {
         await page.goto(path);
         const content = path.endsWith(projectId)
             ? page.locator('[data-slot="empty"]')

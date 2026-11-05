@@ -18,10 +18,25 @@ const failures: Record<string, Result> = {
     api_unreachable: { kind: 'inconclusive', message: 'The toolbar loaded, but the review API could not be reached. Check the project’s site addresses, connect-src and your connection, then retry.' }
 };
 
-/** Observes the actual site via a nonce-bound, source/origin-checked diagnostic handshake. */
-export function InstallationCheck({ projectId, publicId, urls }: { projectId: string; publicId: string; urls: string[] }) {
+export type InstallationResult = Result['kind'];
+
+/**
+ * Observes the actual site via a nonce-bound, source/origin-checked diagnostic handshake. `bare` leaves
+ * out its own box and heading (onboarding's step card has them); `onResultChange` hears every result.
+ */
+export function InstallationCheck({ projectId, publicId, urls, bare = false, onResultChange }: {
+    projectId: string;
+    publicId: string;
+    urls: string[];
+    bare?: boolean;
+    onResultChange?: (result: InstallationResult | undefined) => void;
+}) {
     const [address, setAddress] = useState(urls[0] ?? '');
-    const [result, setResult] = useState<Result>();
+    const [result, setStoredResult] = useState<Result>();
+    const setResult = (next: Result | undefined) => {
+        setStoredResult(next);
+        onResultChange?.(next?.kind);
+    };
     const popupRef = useRef<Window>(undefined);
     const cleanup = useRef<() => void>(() => undefined);
     useEffect(() => () => cleanup.current(), []);
@@ -65,28 +80,34 @@ export function InstallationCheck({ projectId, publicId, urls }: { projectId: st
     };
     const reviewLink = new URL(address);
     reviewLink.searchParams.set('toolbar-code', publicId);
+    const content = <>
+        <Field>
+            <FieldLabel htmlFor={`installation-${projectId}`}>Site to check</FieldLabel>
+            <Select value={address} onValueChange={next => { if (next === null) return; cleanup.current(); setAddress(next); setResult(undefined); }} disabled={checking}>
+                <SelectTrigger id={`installation-${projectId}`} className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectGroup>{urls.map(url => <SelectItem key={url} value={url}>{url}</SelectItem>)}</SelectGroup></SelectContent>
+            </Select>
+        </Field>
+        <div className="flex flex-wrap gap-2">
+            {/* Once confirmed, checking again is no longer the main thing to do */}
+            <Button type="button" variant={result?.kind === 'success' ? 'outline' : 'default'} onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? 'Checking installation...' : result ? 'Retry installation check' : 'Check installation'}</Button>
+            {checking && <Button type="button" variant="outline" onClick={() => {
+                popupRef.current?.close(); stop({ kind: 'inconclusive', message: 'Check canceled. Retry when the site is ready.' });
+            }}>Cancel check</Button>}
+        </div>
+        {result && <p role="status" aria-label="Installation result" data-result={result.kind} className="m-0 text-sm">{result.message}</p>}
+        {result?.kind === 'success' && <>
+            <a href={reviewLink.href} target="_blank" rel="noopener" className={buttonVariants({ variant: 'outline', className: 'self-start' })}>Open checked review</a>
+            <CopyBlock value={reviewLink.href} label="Copy checked review link" />
+        </>}
+    </>;
+    if (bare)
+        return <div className="flex flex-col gap-3">{content}</div>;
     return (
         <section aria-label="Check installation" className="flex flex-col gap-3 rounded-xl border p-4">
             <h3 className="m-0 text-sm font-medium">Check installation</h3>
             <p className="m-0 text-sm text-muted-foreground">Open the actual site to check its toolbar and connection. Owners install the script once. Reviewers need no extension.</p>
-            <Field>
-                <FieldLabel htmlFor={`installation-${projectId}`}>Site to check</FieldLabel>
-                <Select value={address} onValueChange={next => { if (next === null) return; cleanup.current(); setAddress(next); setResult(undefined); }} disabled={checking}>
-                    <SelectTrigger id={`installation-${projectId}`} className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup>{urls.map(url => <SelectItem key={url} value={url}>{url}</SelectItem>)}</SelectGroup></SelectContent>
-                </Select>
-            </Field>
-            <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? 'Checking installation...' : result ? 'Retry installation check' : 'Check installation'}</Button>
-                {checking && <Button type="button" variant="outline" onClick={() => {
-                    popupRef.current?.close(); stop({ kind: 'inconclusive', message: 'Check canceled. Retry when the site is ready.' });
-                }}>Cancel check</Button>}
-            </div>
-            {result && <p role="status" aria-label="Installation result" data-result={result.kind} className="m-0 text-sm">{result.message}</p>}
-            {result?.kind === 'success' && <>
-                <a href={reviewLink.href} target="_blank" rel="noopener" className={buttonVariants({ variant: 'outline' })}>Open checked review</a>
-                <CopyBlock value={reviewLink.href} label="Copy checked review link" />
-            </>}
+            {content}
         </section>
     );
 }

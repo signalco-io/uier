@@ -11,8 +11,8 @@ export const nameSchema = z.string().trim()
     .min(1, 'Enter your name.')
     .max(MAX_NAME_LENGTH, `Use at most ${MAX_NAME_LENGTH} characters.`);
 
-/** The part before the @, as the default display name */
-function defaultName(email: string) {
+/** The part before the @, as the default display name (the first-run step suggests a nicer one) */
+export function defaultName(email: string) {
     return email.split('@')[0]?.slice(0, MAX_NAME_LENGTH) || email;
 }
 
@@ -49,6 +49,7 @@ export async function findOrCreateUserWithStatus(email: string): Promise<{ user:
             pk: userPk(''),
             email,
             name: defaultName(email),
+            welcomePending: true,
             createdAt: now,
             updatedAt: now
         };
@@ -79,4 +80,11 @@ async function enrollUser(user: DbUser) {
 
 export async function updateUserName(userId: string, name: string) {
     return await updateDoc<DbUser>(userPk(userId), userId, user => ({ ...user, name, updatedAt: new Date().toISOString() }));
+}
+
+/** Ends the first-run step (confirmed or skipped), optionally with the confirmed name */
+export async function finishWelcome(userId: string, name?: string) {
+    return await updateDoc<DbUser>(userPk(userId), userId, ({ welcomePending: _, ...user }) => ({
+        ...user, ...(name === undefined ? {} : { name }), updatedAt: new Date().toISOString()
+    }));
 }

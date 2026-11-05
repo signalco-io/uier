@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
-import { projectPublicId, createProject, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, createProject, openOnboardingStep, signIn, uniqueEmail } from './support/app';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -10,6 +10,7 @@ test.afterAll(async () => { await site.close(); });
 async function setup(page: Page, label: string) {
     await signIn(page, uniqueEmail('installation'));
     const projectId = await createProject(page, { urls: [site.origin(label)], name: 'Installation check' });
+    await openOnboardingStep(page, projectId, 'check');
     return { projectId, check: page.getByRole('region', { name: 'Check installation' }) };
 }
 
@@ -48,7 +49,8 @@ for (const [label, message] of [
 
 test('a successful check does not carry over to another selected address', async ({ page }) => {
     await signIn(page, uniqueEmail('two-sites'));
-    await createProject(page, { urls: [site.origin('installed'), site.origin('missing-script')] });
+    const projectId = await createProject(page, { urls: [site.origin('installed'), site.origin('missing-script')] });
+    await openOnboardingStep(page, projectId, 'check');
     const check = page.getByRole('region', { name: 'Check installation' });
     const opened = page.waitForEvent('popup');
     await check.getByRole('button', { name: 'Check installation', exact: true }).click();

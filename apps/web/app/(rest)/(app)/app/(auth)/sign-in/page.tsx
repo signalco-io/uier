@@ -4,7 +4,6 @@ import { KnownPages } from '@/src/knownPages';
 import { getLastSignInMethod, getSessionUser } from '@/src/lib/app/session';
 import { safeNextPath } from '@/src/lib/app/signIn';
 import { appLinkMetadata, describeAppLink } from '@/src/lib/metadata';
-import { AuthCard } from '@/src/components/app/AuthCard';
 import { SignInForm } from './SignInForm';
 import { GoogleSignInButton, GoogleSignInProblem } from './GoogleSignIn';
 import { MicrosoftSignInButton, MicrosoftSignInProblem } from './MicrosoftSignIn';
@@ -25,17 +24,16 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/sign-
         redirect(nextPath ?? KnownPages.App);
     const lastUsed = await getLastSignInMethod();
 
+    // The form renders the card: once the email is sent, the code step has its own header
     return (
-        <AuthCard
-            title="Sign in"
-            description={<>Choose how to sign in.<br />New here? Signing in creates your account.</>}>
-            <GoogleSignInProblem outcome={google} />
-            <MicrosoftSignInProblem outcome={microsoft} />
-            <SignInForm next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
-                alternatives={<>
-                    <GoogleSignInButton next={nextPath} lastUsed={lastUsed === 'google'} />
-                    <MicrosoftSignInButton next={nextPath} lastUsed={lastUsed === 'microsoft'} />
-                </>} />
-        </AuthCard>
+        <SignInForm next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
+            problems={<>
+                <GoogleSignInProblem outcome={google} />
+                <MicrosoftSignInProblem outcome={microsoft} />
+            </>}
+            alternatives={<>
+                <GoogleSignInButton next={nextPath} lastUsed={lastUsed === 'google'} />
+                <MicrosoftSignInButton next={nextPath} lastUsed={lastUsed === 'microsoft'} />
+            </>} />
     );
 }

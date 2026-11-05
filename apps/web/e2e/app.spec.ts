@@ -32,6 +32,11 @@ test('a sign-in link works once', { tag: '@smoke' }, async ({ page, browser }) =
     await expect(field).toBeFocused();
     await field.fill(email);
     await page.getByRole('button', { name: 'Email me a sign-in code' }).click();
+    // The code step has its own header, and the code field is ready to type in
+    await expect(page.getByRole('heading', { level: 1, name: 'Check your email' })).toBeVisible();
+    await expect(page.getByRole('status')).toContainText(`We sent a code and a sign-in link to ${email}`);
+    await expect(page.getByText('Choose how to sign in.')).toHaveCount(0);
+    await expect(page.getByLabel('Sign-in code', { exact: true })).toBeFocused();
     const link = await page.getByRole('link', { name: 'Open the sign-in link' }).getAttribute('href');
     expect(link).toMatch(/^\/app\/sign-in\/confirm\?token=/);
 
@@ -39,7 +44,8 @@ test('a sign-in link works once', { tag: '@smoke' }, async ({ page, browser }) =
     await page.goto(link!);
     await page.goto(link!);
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    // A new account starts with its first-run step
+    await expect(page).toHaveURL(/\/app\/welcome$/);
 
     // A second browser can't use it again
     const other = await browser.newPage();
@@ -109,7 +115,7 @@ test('another browser with its own request for the same address cannot use the f
     }
     expect((await other.context.cookies()).some(cookie => cookie.name === 'uier_session')).toBe(false);
     await submitCode(page, first.code);
-    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    await expect(page).toHaveURL(/\/app\/welcome$/);
     await other.context.close();
 });
 
@@ -119,7 +125,7 @@ test('using the link in another browser invalidates the requesting page code', a
     const other = await newVisitor(browser, testInfo);
     await other.page.goto(new URL(link, page.url()).href);
     await other.page.getByRole('button', { name: 'Continue' }).click();
-    await expect(other.page).toHaveURL(/\/app\/projects\/new$/);
+    await expect(other.page).toHaveURL(/\/app\/welcome$/);
     await submitCode(page, code);
     await expect(page.locator('form').getByRole('alert')).toHaveText(codeError);
     await expectNoAxeViolations(page);
@@ -159,7 +165,7 @@ test('a newer request replaces the browser binding, including in an older tab', 
     await submitCode(page, first.code);
     await expect(page.locator('form').getByRole('alert')).toHaveText(codeError);
     await submitCode(newer, second.code);
-    await expect(newer).toHaveURL(/\/app\/projects\/new$/);
+    await expect(newer).toHaveURL(/\/app\/welcome$/);
     await newer.close();
 });
 
@@ -173,68 +179,139 @@ test('the sign-in form validates the address', async ({ page }) => {
     await expect(page.getByLabel('Email')).toHaveValue('not an email');
 });
 
-test('onboarding creates a project with its addresses and shows the install guide', async ({ page }) => {
+test('a new account confirms its name and its workspace name once', async ({ page }) => {
+    const email = uniqueEmail('maya.tester');
+    await signIn(page, email, { welcome: 'stay' });
+    await expect(page).toHaveURL(/\/app\/welcome$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Welcome to uier' })).toBeVisible();
+    await expect(page).toHaveTitle('Welcome · uier');
+    // Suggestions: the name from the email, the workspace from its domain
+    const suffix = email.split('@')[0]!.split('-')[1]!;
+    const name = page.getByLabel('Your name', { exact: true });
+    await expect(name).toHaveValue(`Maya Tester ${suffix.charAt(0).toUpperCase()}${suffix.slice(1)}`);
+    await expect(name).toBeFocused();
+    await expect(page.getByLabel('Workspace name', { exact: true })).toHaveValue('Example');
+    await expectNoAxeViolations(page);
+
+    // Both names are checked on the server before either is saved
+    await page.getByLabel('Workspace name', { exact: true }).fill(' ');
+    await page.locator('form').first().evaluate(form => form.setAttribute('novalidate', ''));
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.locator('form').getByRole('alert')).toHaveText('Enter a workspace name.');
+    await name.fill('Maya Tester');
+    await page.getByLabel('Workspace name', { exact: true }).fill('  Maya   studio ');
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    // Then onboarding, in the named workspace
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    await appNavigation(page);
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Maya studio');
+    await closeAppNavigation(page);
+    await page.goto('/app/account');
+    await expect(page.getByLabel('Name')).toHaveValue('Maya Tester');
+    // Only once
+    await page.goto('/app/welcome');
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+});
+
+test('skipping the first-run step keeps both names', async ({ page }) => {
+    const email = uniqueEmail('skipper');
+    await signIn(page, email, { welcome: 'stay' });
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+    await appNavigation(page);
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText(email);
+    await closeAppNavigation(page);
+    await page.goto('/app');
+    await expect(page).toHaveURL(/\/app\/projects\/new$/);
+});
+
+test('onboarding creates a project with its addresses and sets up reviews one step at a time', async ({ page }) => {
     await signIn(page, uniqueEmail());
     // A new user without projects starts onboarding
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Create a project' })).toBeVisible();
     await expect(page).toHaveTitle('Create project · uier');
-    // The onboarding progress: the site, review setup, then the first reviewer
+    // The onboarding progress: the site, the script, the check, then the first reviewer
     const progress = page.getByRole('list', { name: 'Onboarding progress' });
-    await expect(progress.getByRole('listitem')).toHaveCount(3);
-    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 3: Your site');
-    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 3: Set up reviews');
-    await expect(progress.getByRole('listitem').nth(2)).toContainText('Step 3 of 3: Invite a reviewer');
+    await expect(progress.getByRole('listitem')).toHaveCount(4);
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 1 of 4: Your site');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Step 2 of 4: Add the script');
+    await expect(progress.getByRole('listitem').nth(2)).toContainText('Step 3 of 4: Check installation');
+    await expect(progress.getByRole('listitem').nth(3)).toContainText('Step 4 of 4: Invite a reviewer');
+    // Nothing to go to before the project exists
+    await expect(progress.getByRole('link')).toHaveCount(0);
+    // The project name's placeholder is the name the main address gives it
+    await page.getByLabel('Main site address').fill('www.shop.example.com/');
+    await expect(page.getByLabel('Project name')).toHaveAttribute('placeholder', 'shop.example.com');
+    // Every address field is as wide as the first
+    await page.getByLabel('Address 2', { exact: true }).fill('staging.example.com');
+    const widths = await page.getByRole('group', { name: 'Site addresses' }).locator('[data-slot="input-group"]')
+        .evaluateAll(groups => groups.map(group => group.getBoundingClientRect().width));
+    expect(widths).toHaveLength(3);
+    expect(new Set(widths).size).toBe(1);
     await expectNoAxeViolations(page);
 
     const projectId = await createProject(page, { urls: ['www.example.com/', 'https://staging.example.com/app/'] });
+    const publicId = await projectPublicId(page, projectId);
 
-    // Install guide (the project's Install tab): the script with the project code, platform guidance and the CSP sources
+    // Step 2: the script, with the project code shown once (in the snippet), platform guidance and the CSP sources
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
-    await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
-    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Set up reviews');
+    await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 4: Your site (done)');
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 4: Add the script');
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
-    await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
-    await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');
-    await page.getByRole('button', { name: 'Advanced: pin this version', exact: true }).click();
-    await expect(page.getByText('integrity="sha384-').first()).toContainText('crossorigin="anonymous"');
-    await expect(page.getByText(/It gets fixes only when you update the snippet/).first()).toBeVisible();
-    await expect(page.getByText(/Paste it before the closing <\/body> tag/)).toBeVisible();
+    const scriptStep = page.getByRole('region', { name: 'Add the script' });
+    await expect(scriptStep.getByText(/Paste it before the closing <\/body> tag/)).toBeVisible();
+    await expect(scriptStep.getByText(`data-uier-project="${publicId}"`)).toBeVisible();
+    await expect(page.getByText(publicId)).toHaveCount(1);
+    await expect(scriptStep.getByText('/toolbar.js" data-uier-project=')).toContainText('defer></script>');
+    await scriptStep.getByRole('button', { name: 'Advanced: pin this version', exact: true }).click();
+    await expect(scriptStep.getByText('integrity="sha384-').first()).toContainText('crossorigin="anonymous"');
+    await expect(scriptStep.getByText(/It gets fixes only when you update the snippet/).first()).toBeVisible();
     for (const platform of ['HTML', 'Next.js', 'React', 'WordPress', 'Webflow', 'Shopify'])
-        await expect(page.getByRole('tab', { name: platform })).toBeVisible();
-    await page.getByRole('tab', { name: 'Next.js' }).click();
-    await expect(page.getByText('strategy="afterInteractive"')).toBeVisible();
-    await page.getByRole('button', { name: 'Advanced: pin the Next.js version', exact: true }).click();
-    await expect(page.getByRole('tabpanel', { name: 'Next.js' }).getByText('crossOrigin="anonymous"')).toContainText('integrity="sha384-');
-    await page.getByText('Advanced: security headers').click();
-    await expect(page.getByText(/in proxy\.ts \(middleware\.ts before Next\.js 16\)/)).toBeVisible();
-    await expect(page.getByText('connect-src http://')).toBeVisible();
-    await expect(page.getByText(/style-src http:\/\/localhost:\d+/)).toBeVisible();
+        await expect(scriptStep.getByRole('tab', { name: platform })).toBeVisible();
+    await scriptStep.getByRole('tab', { name: 'Next.js' }).click();
+    await expect(scriptStep.getByText('strategy="afterInteractive"')).toBeVisible();
+    await scriptStep.getByRole('button', { name: 'Advanced: pin the Next.js version', exact: true }).click();
+    await expect(scriptStep.getByRole('tabpanel', { name: 'Next.js' }).getByText('crossOrigin="anonymous"')).toContainText('integrity="sha384-');
+    await scriptStep.getByText('Advanced: security headers').click();
+    await expect(scriptStep.getByText(/in proxy\.ts \(middleware\.ts before Next\.js 16\)/)).toBeVisible();
+    await expect(scriptStep.getByText('connect-src http://')).toBeVisible();
+    await expect(scriptStep.getByText(/style-src http:\/\/localhost:\d+/)).toBeVisible();
     // Metadata is streamed after the content
     await expect(page).toHaveTitle('Install · uier');
-    // Installation methods are keyboard accessible; checking the embed is script-specific.
-    const scriptTab = page.getByRole('tab', { name: 'Install the script', exact: true });
-    await scriptTab.focus(); await page.keyboard.press('ArrowRight');
-    const extensionTab = page.getByRole('tab', { name: 'Use browser extension', exact: true });
-    await expect(extensionTab).toBeFocused(); await page.keyboard.press('Enter');
-    const extensionGuide = page.getByRole('region', { name: 'Browser extension setup' });
-    await expect(extensionGuide).toBeVisible();
-    await expect(extensionGuide).toContainText('The extension is not available yet');
-    await expect(page.getByRole('link', { name: 'Get the browser extension' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Check installation', exact: true })).toBeHidden();
+    // One primary action per step: Next. No Back before the script; Skip setup leaves onboarding.
+    await expect(scriptStep.getByRole('link', { name: 'Back' })).toHaveCount(0);
+    await expect(scriptStep.getByRole('link', { name: 'Skip setup' })).toHaveAttribute('href', `/app/projects/${projectId}`);
+    await expect(scriptStep.locator('.bg-primary')).toHaveText(['Next']);
     for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
         await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
         await expectNoAxeViolations(page);
     }
-    await extensionTab.focus(); await page.keyboard.press('ArrowLeft'); await page.keyboard.press('Enter');
-    await expect(scriptTab).toHaveAttribute('aria-selected', 'true');
 
+    // Step 3: the installation check is the primary action; Next waits for nothing
+    await scriptStep.getByRole('link', { name: 'Next', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install\\?onboarding=1&step=check$`));
+    await expect(progress.locator('[aria-current="step"]')).toContainText('Step 3 of 4: Check installation');
+    const checkStep = page.getByRole('region', { name: 'Check installation' });
+    await expect(checkStep.locator('.bg-primary')).toHaveText(['Check installation']);
+    await expectNoAxeViolations(page);
+    // The progress links back to every step after the site
+    await progress.getByRole('link', { name: 'Step 2 of 4: Add the script (done)' }).click();
+    await expect(page.getByRole('region', { name: 'Add the script' })).toBeVisible();
+    await progress.getByRole('link', { name: 'Step 4 of 4: Invite a reviewer' }).click();
+
+    // Step 4: invite a reviewer, then Finish opens the comments
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/install\\?onboarding=1&step=invite$`));
     const reviewerStep = page.getByRole('region', { name: 'Invite a reviewer' });
     await expect(reviewerStep).toContainText('Only people you invite can see and leave comments. They sign in with their email.');
+    await expect(reviewerStep).toContainText('Once the script is on your site, accepting the invitation opens it with the toolbar.');
+    await expect(reviewerStep).not.toContainText('Check availability in review setup');
     await expect(reviewerStep.locator('code')).toHaveCount(0);
+    await expect(reviewerStep.getByRole('link', { name: 'Skip setup' })).toHaveCount(0);
+    await expect(reviewerStep.getByRole('link', { name: 'Back' })).toHaveAttribute('href', `/app/projects/${projectId}/install?onboarding=1&step=check`);
     for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
         await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
@@ -249,7 +326,7 @@ test('onboarding creates a project with its addresses and shows the install guid
     }
 
     // The project, with both addresses normalized
-    await page.getByRole('link', { name: 'Go to the comments' }).click();
+    await reviewerStep.getByRole('link', { name: 'Finish' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(page).toHaveTitle('example.com · uier');
@@ -268,13 +345,30 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByRole('menu')).toBeHidden();
     await expectNoAxeViolations(page);
 
-    // The install guide, in Settings → Installation, is the plain guide without the onboarding progress
+    // The install guide, in Settings → Installation, is the whole guide on one page, without the onboarding progress
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await page.getByRole('navigation', { name: 'Project settings' }).getByRole('link', { name: 'Installation' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/installation$`));
     await expect(page.getByRole('heading', { name: 'Copy the script' })).toBeVisible();
+    await expect(page.getByText(publicId)).toHaveCount(1);
+    await expect(page.getByRole('region', { name: 'Check installation' })).toBeVisible();
     await expect(progress).toHaveCount(0);
     await expect(reviewerStep).toHaveCount(0);
+    // Installation methods are keyboard accessible; checking the embed is script-specific. Until the
+    // extension is in the store, its tab is one line and the setup guide.
+    const scriptTab = page.getByRole('tab', { name: 'Install the script', exact: true });
+    await scriptTab.focus(); await page.keyboard.press('ArrowRight');
+    const extensionTab = page.getByRole('tab', { name: 'Use browser extension', exact: true });
+    await expect(extensionTab).toBeFocused(); await page.keyboard.press('Enter');
+    const extensionGuide = page.getByRole('region', { name: 'Browser extension setup' });
+    await expect(extensionGuide).toContainText('The browser extension is not available yet. Use the script to review your site.');
+    await expect(extensionGuide.locator('p, li')).toHaveCount(1);
+    await expect(extensionGuide.getByRole('link', { name: 'Read the extension setup guide' })).toHaveAttribute('href', '/guides/browser-extension');
+    await expect(page.getByRole('link', { name: 'Get the browser extension' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Check installation', exact: true })).toBeHidden();
+    await expectNoAxeViolations(page);
+    await extensionTab.focus(); await page.keyboard.press('ArrowLeft'); await page.keyboard.press('Enter');
+    await expect(scriptTab).toHaveAttribute('aria-selected', 'true');
     // The guide's old address (the toolbar links there) opens it too
     await page.goto(`/app/projects/${projectId}/install`);
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/installation$`));

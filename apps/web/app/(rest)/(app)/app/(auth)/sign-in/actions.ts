@@ -56,7 +56,15 @@ export async function confirmSignInCodeAction(_: ActionState, formData: FormData
         return { ok: false, error: SIGN_IN_CODE_ERROR };
 
     await startSession(result.data.user.id, result.data.method);
-    redirect(result.data.next ?? KnownPages.App);
+    redirect(afterSignIn(result.data));
+}
+
+/**
+ * Where a confirmed sign-in continues: `next`, or the app, which a new account opens on its first-run
+ * step (straight there, without a detour through `/app`)
+ */
+function afterSignIn({ user, next }: { user: { welcomePending?: boolean }; next?: string }) {
+    return next ?? (user.welcomePending ? KnownPages.AppWelcome : KnownPages.App);
 }
 
 export async function confirmSignInAction(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -68,5 +76,5 @@ export async function confirmSignInAction(_: ActionState, formData: FormData): P
         return { ok: false, error: 'This link has expired or was already used. Ask for a new one.' };
 
     await startSession(result.data.user.id, result.data.method);
-    redirect(result.data.next ?? KnownPages.App);
+    redirect(afterSignIn(result.data));
 }

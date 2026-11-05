@@ -11,7 +11,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
@@ -447,15 +447,28 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   repeat the addresses. The install guide
   opens from the empty comments list and from Settings → Installation. It shows "Connected" with the latest
   comment's time once a comment came from one of the project's addresses, with the guide behind Show install
-  guide (onboarding always shows the guide).
+  guide. Its parts (`ScriptSnippet`, `PlatformSteps`, `InstallationCheck`) are exported for onboarding. The script
+  is the only place the project code shows. Until `extensionDistribution()` says the extension is available, the
+  browser extension tab is one line and the setup guide (`BrowserExtensionGuide`).
 - The comments' filter row: status tabs, Unread and Mark all as read, then one Environment and page control
   (`LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
   sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`) and People, then the
   count and List/Board on the right. Choosing an environment keeps the panel open and reloads its pages.
 - `app/global.css` defines `--radius-sm/md/lg` (the preset's radii are JS values with no variables);
   shadcn's small buttons read `var(--radius-md)`.
-- **Onboarding.** `OnboardingSteps` shows Your site, Add the script and Invite a reviewer. Only
-  `install?onboarding=1` adds `InviteReviewerStep` below the unchanged install guide. Invited-only projects
+- **First run.** A new user (`findOrCreateUserWithStatus`) has `welcomePending`. Email sign-in without `next`
+  goes straight to `/app/welcome` (`(auth)/welcome`), and `/app` sends there too while it is set. The step
+  suggests a name (`nameFromEmail`) and, for the workspace made for the account (`welcomeWorkspace`; none after an
+  invitation), a name from the email's domain unless it is webmail (`src/lib/app/welcome.ts`). Continue validates
+  both before saving (`renameWorkspace`, then `finishWelcome` with the name); Skip only clears the flag. Never
+  show it to existing accounts (they have no flag) and never rename a workspace the user did not get at sign-up.
+  `e2e/support/app.ts` `signIn()` skips it unless `{ welcome: 'stay' }`; `welcome.api.spec.ts` covers the rules.
+- **Onboarding.** `OnboardingSteps` shows Your site, Add the script, Check installation and Invite a reviewer;
+  once the project exists, every step after the site is a link. `install?onboarding=1` shows one step per
+  screen in an `OnboardingStepCard` (`&step=check` is `InstallationCheckStep`, `&step=invite` is
+  `InviteReviewerStep`) with Back, Skip setup (to the comments) and Next, Finish on the last step. Keep one
+  primary button per step: Next, Check installation until the site is confirmed, Invite for admins of an
+  invited-only project. Invited-only projects
   use the shell's `InviteButton` with `projectId`, gated by `context.isAdmin`; the empty comments list does
   the same. Guest projects reuse `GuestReviewLinks` for every configured address in order (main site first),
   in onboarding or the header's access popover (`ProjectAccessInfo`), never again in its empty state. Copy fields use
@@ -596,9 +609,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `PasskeySignIn` starts only once the field shows (`autofill`).
   `e2e/passkeys.api.spec.ts` covers the rules; `passkeys.spec.ts` uses Chromium's virtual authenticator on
   `localhost`, with the autofill stubbed off where a test clicks the button.
-- The sign-in card (`sign-in/SignInForm.tsx`) lists every option as the same outline `Button size="lg"` with
+- The sign-in card (`sign-in/SignInForm.tsx`, which renders the card itself) lists every option as the same outline `Button size="lg"` with
   only the method's name (Passkey, Google, Microsoft, then Email, the last resort) under "Choose how to sign
-  in."; each button's `aria-label` is "Sign in with ...", which the tests look up. The email option is a link
+  in."; once the email is sent, the card's header becomes "Check your email" (`SignInCodeStep`, a status) and
+  the code field is focused. Google and Microsoft linking keep their own header and show the status in the
+  card. Each button's `aria-label` is "Sign in with ...", which the tests look up. The email option is a link
   to `?with=email` that opens the email form in place (before hydration it navigates there); "Ask for a new
   email" uses the same URL. `app.spec.ts` checks the order and `e2e/support/app.ts` `openEmailSignIn` opens it.
   `startSession(userId, method)` also sets `__Host-uier_last_sign_in` (the method's name only, one year,
