@@ -171,9 +171,15 @@ export async function closeAppNavigation(page: Page) {
 /** The rows of a project's comments list (the inbox); each row's link opens its thread */
 export const commentRows = (page: Page) => page.getByRole('list', { name: 'Comments', exact: true }).getByRole('listitem');
 
-/** A row's link by its number ("Comment #3 ...") or its first line */
+/**
+ * A row's link by its number ("Comment #3 ...") or its first line. Only row links count, so `/^Comment/`
+ * never matches the project's Comments tab.
+ */
 export function commentRowLink(scope: Page | Locator, row: number | string | RegExp) {
-    return scope.getByRole('link', { name: typeof row === 'number' ? new RegExp(`^Comment #${row}(?!\\d)`) : row });
+    const rowLinks = scope.getByRole('link', { name: /^Comment #\d+/ });
+    return typeof row === 'number'
+        ? scope.getByRole('link', { name: new RegExp(`^Comment #${row}(?!\\d)`) })
+        : rowLinks.and(scope.getByRole('link', { name: row }));
 }
 
 /**
