@@ -193,7 +193,7 @@ test('onboarding creates a project with its addresses and shows the install guid
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(progress.getByRole('listitem').first()).toContainText('Step 1 of 3: Your site (done)');
     await expect(progress.locator('[aria-current="step"]')).toContainText('Step 2 of 3: Set up reviews');
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(await projectPublicId(page, projectId), { exact: true })).toBeVisible();
     await expect(page.getByText(`data-uier-project="${await projectPublicId(page, projectId)}"`).first()).toBeVisible();
     await expect(page.getByText('/toolbar.js" data-uier-project=').first()).toContainText('defer></script>');

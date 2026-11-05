@@ -5,7 +5,7 @@ import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Section } from '@/src/components/app/PageHeader';
@@ -67,8 +67,8 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                                 <CopyAccessToTeam data={data} />
                             </DialogContent>
                         </Dialog>
-                        {/* The empty active list has its own Create team */}
-                        {(teams.length > 0 || state === 'archived' || search) && <TeamEditor />}
+                        {/* Always here, never in the empty list: the dialog says "Open team" after the first team replaces that list */}
+                        <TeamEditor />
                     </>
                 )}>
                 <div className="flex flex-wrap items-center gap-3">
@@ -136,14 +136,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                                     ? 'Try another name, or look in the other tab.'
                                     : state === 'archived'
                                         ? 'Teams you archive move here. They grant no access until you restore them.'
-                                        : 'A team shares the projects you choose with a group of people. Create one, then add its people and projects.'}
+                                        : 'A team shares the projects you choose with a group of people. Create a team, then add its people and projects.'}
                             </EmptyDescription>
                         </EmptyHeader>
-                        {state === 'active' && !search && (
-                            <EmptyContent>
-                                <TeamEditor />
-                            </EmptyContent>
-                        )}
                     </Empty>
                 )}
                 <Section id="activity" title="Activity">

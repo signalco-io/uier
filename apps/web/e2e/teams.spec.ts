@@ -97,6 +97,9 @@ test('project people and teams show access as badges, with unavailable removals 
     await page.getByRole('button', { name: 'Create team', exact: true }).first().click();
     await page.getByRole('dialog').getByLabel('Team name').fill('Design review');
     await page.getByRole('dialog').getByRole('button', { name: 'Save team' }).click();
+    // The dialog stays open with Open team; closing it shows the new team in the list
+    await expect(page.getByRole('dialog').getByRole('link', { name: 'Open team' })).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('list', { name: 'Active teams' })).toContainText('Design review');
     await page.goto(`/app/projects/${project}/settings/people`);
     const section = page.getByRole('region', { name: 'People and teams' });
