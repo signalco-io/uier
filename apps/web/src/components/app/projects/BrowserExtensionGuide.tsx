@@ -1,6 +1,7 @@
 import { buttonVariants } from '@/src/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/src/components/ui/alert';
 import { extensionDistribution } from '@/src/lib/extension/distribution';
+import { guides } from '@/src/lib/guides';
 
 export function BrowserExtensionGuide() {
     const { storeUrl } = extensionDistribution();
@@ -17,5 +18,6 @@ export function BrowserExtensionGuide() {
         </ol>
         <p className="m-0 text-sm text-muted-foreground">Existing comment links open their thread after activation. Recipients also need the extension on a site without the script. Anonymous guest reviews use the script.</p>
         <p className="m-0 text-sm text-muted-foreground">No source or security-header changes are needed for the extension. Browser pages, extension stores, local files and cross-origin iframe contents are unsupported. Screenshots capture only the visible viewport.</p>
+        <a href={guides.browserExtension.path} target="_blank" rel="noopener noreferrer" className="self-start text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Read the extension setup guide</a>
     </section>;
 }

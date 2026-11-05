@@ -14,7 +14,7 @@ export default function ClientReviewGuide() {
         <PageSection id="prepare-the-review" title="Prepare the review" lead="Use a project for the site you want to review.">
             <ol className="flex list-decimal flex-col gap-4 pl-5 text-base leading-relaxed">
                 <li>Sign in and create a project. Add the production or preview addresses your client will use.</li>
-                <li>Open the project’s installation guide and add its script tag to the site. The <InlineLink href={guides.nextJs.path}>Next.js guide</InlineLink> covers the App Router.</li>
+                <li>Open the project’s installation guide and add its script tag to the site. The <InlineLink href={guides.nextJs.path}>Next.js guide</InlineLink> covers the App Router. If you cannot change the site, invite the client and have them use the <InlineLink href={guides.browserExtension.path}>browser extension</InlineLink> instead.</li>
                 <li>Run the installation check. Use the project’s people settings to invite the client, or deliberately allow guest feedback in its review settings.</li>
                 <li>Share a review link from the project. Ask the client to use that address for the review.</li>
             </ol>
