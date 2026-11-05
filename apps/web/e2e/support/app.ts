@@ -33,17 +33,31 @@ export async function requestSignInEmail(page: Page, email: string) {
     return { code: code!, link: link! };
 }
 
-/** Signs in with the browser-bound code and waits for the page after sign-in. */
-export async function signIn(page: Page, email: string, { from = '/app/sign-in' } = {}) {
+/**
+ * Signs in with the browser-bound code and waits for the page after sign-in. A new account's first visit
+ * to /app is the first-run step (name and workspace): `welcome: 'skip'` (the default) skips it, `'stay'`
+ * stays on it.
+ */
+export async function signIn(page: Page, email: string, { from = '/app/sign-in', welcome = 'skip' }: { from?: string; welcome?: 'skip' | 'stay' } = {}) {
     await page.goto(from);
     const { code } = await requestSignInEmail(page, email);
     await page.getByLabel('Sign-in code', { exact: true }).fill(code);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    // /app redirects again to onboarding or projects. Wait for the final page before a goto.
+    // /app redirects again to the first-run step, onboarding or projects. Wait for the final page before a goto.
     await page.waitForURL(url => url.pathname !== '/app' && !url.pathname.startsWith('/app/sign-in'));
+    if (welcome === 'skip')
+        await skipWelcome(page);
 }
 
-/** Creates a project from /app/projects/new and returns its code (the install page follows) */
+/** Skips the first-run step when the page is on it, and waits for the page after it */
+export async function skipWelcome(page: Page) {
+    if (new URL(page.url()).pathname !== '/app/welcome')
+        return;
+    await page.getByRole('button', { name: 'Skip', exact: true }).click();
+    await page.waitForURL(url => url.pathname !== '/app' && url.pathname !== '/app/welcome');
+}
+
+/** Creates a project from /app/projects/new and returns its id (onboarding's first step, the script, follows) */
 export async function createProject(page: Page, { urls, name, clientName }: { urls: string[]; name?: string; clientName?: string }) {
     await page.goto('/app/projects/new');
     const [main, ...others] = urls;
@@ -61,6 +75,11 @@ export async function createProject(page: Page, { urls, name, clientName }: { ur
     if (!projectId)
         throw new Error(`No project id in ${page.url()}`);
     return projectId;
+}
+
+/** Opens one step of a new project's onboarding (`check`: the installation check, `invite`: the first reviewer) */
+export async function openOnboardingStep(page: Page, projectId: string, step: 'script' | 'check' | 'invite') {
+    await page.goto(`/app/projects/${projectId}/install?onboarding=1${step === 'script' ? '' : `&step=${step}`}`);
 }
 
 /** The independent id shown in generated guest links and embeds (legacy codes still resolve). */

@@ -58,6 +58,8 @@ test('owner checks installation, shares a review, replies and resolves; the name
     await signIn(page, uniqueEmail('launch-owner'));
     const projectId = await createProject(page, { urls: [origin], name: 'Launch review' });
     const publicId = await projectPublicId(page, projectId);
+    // Onboarding: the script, then the installation check
+    await page.getByRole('region', { name: 'Add the script' }).getByRole('link', { name: 'Next', exact: true }).click();
     const check = page.getByRole('region', { name: 'Check installation' });
     const popupOpened = page.waitForEvent('popup');
     await check.getByRole('button', { name: 'Check installation', exact: true }).click();

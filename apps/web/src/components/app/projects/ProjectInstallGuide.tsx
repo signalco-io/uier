@@ -10,11 +10,11 @@ import { InstallationStatus } from './InstallationStatus';
 import { ReviewLinksMenu } from './ReviewLinksMenu';
 
 /**
- * A project's install guide (Settings → Installation, and the onboarding's second step). Comments from one
- * of the project's addresses show recent activity, not installation proof. The guide folds outside onboarding.
+ * A project's install guide (Settings → Installation; onboarding shows its parts one step at a time).
+ * Comments from one of the project's addresses show recent activity, not installation proof, and fold the guide.
  */
-export async function ProjectInstallGuide({ context, project, onboarding = false }: { context: AppContext; project: PublicProject; onboarding?: boolean }) {
-    const lastCommentAt = onboarding ? undefined : (await loadProjectComments(context, project))
+export async function ProjectInstallGuide({ context, project }: { context: AppContext; project: PublicProject }) {
+    const lastCommentAt = (await loadProjectComments(context, project))
         .filter(comment => comment.source.available)
         .map(comment => comment.createdAt).filter(Boolean).sort().at(-1);
 

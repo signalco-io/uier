@@ -31,6 +31,7 @@ export const KnownPages = {
     AppSignInGoogle: '/app/sign-in/google',
     AppSignInGoogleCallback: '/app/sign-in/google/callback',
     AppSignInGoogleLink: '/app/sign-in/google/link',
+    AppWelcome: '/app/welcome',
     AppProjects: '/app/projects',
     AppReview: '/app/review',
     AppNewProject: '/app/projects/new',
@@ -64,6 +65,10 @@ export const KnownPages = {
 /** The sections of a project's settings, each its own page under the settings (General is the settings page itself) */
 export type ProjectSettingsSection = 'review' | 'environments' | 'installation' | 'people' | 'integrations' | 'notifications' | 'danger-zone';
 
+/** The steps of a new project's setup after its site: the script, the installation check, the first reviewer */
+export const onboardingSteps = ['script', 'check', 'invite'] as const;
+export type OnboardingStep = typeof onboardingSteps[number];
+
 /** The sections of the account, each its own page under it (General is the account page itself) */
 export type AccountSection = 'sign-in' | 'coding-agents';
 
@@ -81,9 +86,12 @@ export const KnownPageLinks = {
     /** One connected service of a project (Settings → Integrations → its page); OAuth returns land here */
     projectIntegration: (projectId: string, provider: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/settings/integrations/${encodeURIComponent(provider)}`,
-    /** The install guide (Settings → Installation); `onboarding` is the install step of a project that was just created */
-    projectInstall: (projectId: string, { onboarding = false }: { onboarding?: boolean } = {}) => onboarding
-        ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1`
+    /**
+     * The install guide (Settings → Installation); `onboarding` is the setup of a project that was just
+     * created, one `step` at a time (the script first)
+     */
+    projectInstall: (projectId: string, { onboarding = false, step }: { onboarding?: boolean; step?: OnboardingStep } = {}) => onboarding
+        ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1${step && step !== 'script' ? `&step=${step}` : ''}`
         : `/app/projects/${encodeURIComponent(projectId)}/settings/installation`,
     /** The screenshot of a project comment (an image, for the signed-in app) */
     projectCommentScreenshot: (projectId: string, commentId: string) =>

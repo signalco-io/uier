@@ -2,9 +2,8 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import { XIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
 import { FieldDescription, FieldLegend, FieldSet } from '@/src/components/ui/field';
-import { Input } from '@/src/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/src/components/ui/input-group';
 import { cn } from '@/src/lib/utils';
 import { MAX_PROJECT_URLS } from '../../../lib/app/limits';
 
@@ -26,19 +25,25 @@ function withNextField(rows: { key: number; url: string }[]) {
  * The site addresses of a project as `url` form fields: one list, the main site first, then any
  * others (staging, preview). Typing in the last field adds an empty one under it for the next
  * address. Empty fields are ignored when the form is saved. The fields are controlled, so React's
- * reset after a form action never drops what was typed.
+ * reset after a form action never drops what was typed. `onUrlsChange` gets the typed addresses
+ * (the main site first) after every change.
  */
-export function UrlListInput({ defaultUrls = [], description, hideLegend = false }: {
+export function UrlListInput({ defaultUrls = [], description, hideLegend = false, onUrlsChange }: {
     defaultUrls?: string[];
     description?: ReactNode;
     /** When a heading around the list already says "Site addresses" (the legend stays for screen readers) */
     hideLegend?: boolean;
+    onUrlsChange?: (urls: string[]) => void;
 }) {
     const idPrefix = useId();
     const [rows, setRows] = useState(() => withNextField((defaultUrls.length ? defaultUrls : ['']).map((url, index) => ({ key: index, url }))));
 
-    const removeRow = (key: number) => setRows(current => withNextField(current.filter(row => row.key !== key)));
-    const setUrl = (key: number, url: string) => setRows(current => withNextField(current.map(row => row.key === key ? { ...row, url } : row)));
+    const update = (next: { key: number; url: string }[]) => {
+        setRows(next);
+        onUrlsChange?.(next.map(row => row.url));
+    };
+    const removeRow = (key: number) => update(withNextField(rows.filter(row => row.key !== key)));
+    const setUrl = (key: number, url: string) => update(withNextField(rows.map(row => row.key === key ? { ...row, url } : row)));
 
     return (
         <FieldSet className="gap-3">
@@ -46,8 +51,9 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
             {description && <FieldDescription>{description}</FieldDescription>}
             <div className="flex flex-col gap-2">
                 {rows.map((row, index) => (
-                    <div key={row.key} className="flex items-center gap-2">
-                        <Input
+                    // Every field is as wide as the first: the remove button sits inside the field
+                    <InputGroup key={row.key}>
+                        <InputGroupInput
                             id={`${idPrefix}-${row.key}`}
                             name="url"
                             aria-label={index === 0 ? 'Main site address' : `Address ${index + 1}`}
@@ -59,20 +65,18 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
                             spellCheck={false}
                             placeholder={index === 0 ? 'example.com' : 'staging.example.com (optional)'}
                             className="font-mono text-[13px] md:text-[13px]" />
-                        {index > 0 && (row.url || index < rows.length - 1 ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Remove address ${index + 1}`}
-                                onClick={() => removeRow(row.key)}>
-                                <XIcon />
-                            </Button>
-                        ) : (
-                            // The empty field for the next address lines up with the ones that have a remove button
-                            <span aria-hidden="true" className="size-9 shrink-0" />
-                        ))}
-                    </div>
+                        {/* Not on the main site, nor on the empty field for the next address */}
+                        {index > 0 && (row.url || index < rows.length - 1) && (
+                            <InputGroupAddon align="inline-end">
+                                <InputGroupButton
+                                    size="icon-xs"
+                                    aria-label={`Remove address ${index + 1}`}
+                                    onClick={() => removeRow(row.key)}>
+                                    <XIcon />
+                                </InputGroupButton>
+                            </InputGroupAddon>
+                        )}
+                    </InputGroup>
                 ))}
             </div>
             {/* Only once a local address is typed */}

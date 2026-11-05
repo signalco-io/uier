@@ -139,8 +139,9 @@ also succeeded. The later [native store-installed receipt](browser-extension-rel
 records acceptance of the published 0.1.1 package. The later automatic-upgrade receipt records
 the real store-delivered 0.1.2 upgrade and post-update acceptance in both browsers.
 
-The app offers script and extension setup, including onboarding and review-link guidance.
-The extension tab links to the verified official store item. The script remains the default.
+The app offers script and extension setup in Settings → Installation, with a line in onboarding.
+The extension tab links to the verified official store item; until then it is one line and a link to
+the setup guide. The script remains the default.
 A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
 `UIER_EXTENSION_STORE_ID` also occurs in `UIER_EXTENSION_CLIENT_IDS`, and owners have completed
 the hosted and publication gates. Feedback activity is labelled as feedback, never embed-installation proof.

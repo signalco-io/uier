@@ -109,12 +109,64 @@ function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Pla
     );
 }
 
+/** The script to copy (the one place the project's code shows), with the pinned version in Advanced */
+export function ScriptSnippet({ baseUrl, publicId }: { baseUrl: string; publicId: string }) {
+    return (
+        <div className="flex flex-col gap-3">
+            <CopyBlock value={embedScript(baseUrl, publicId)} label="Copy the script" />
+            <Advanced title="pin this version">
+                <p className="m-0 text-sm text-muted-foreground">
+                    This version includes an integrity check. It gets fixes only when you update the snippet.
+                    Pinned production bundles work with the review API for one year after their last release as the current version.
+                </p>
+                <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label="Copy the pinned script" />
+            </Advanced>
+        </div>
+    );
+}
+
+/** Where the script goes on the common platforms, each with its own snippet and CSP sources (in Advanced) */
+export function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; publicId: string }) {
+    return (
+        <Tabs defaultValue="html" className="gap-3">
+            <TabsList aria-label="Platform" className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
+                {platforms.map(platform => (
+                    <TabsTrigger key={platform.id} value={platform.id} className="flex-none">{platform.label}</TabsTrigger>
+                ))}
+            </TabsList>
+            {platforms.map(platform => (
+                <TabsContent key={platform.id} value={platform.id} className="flex flex-col gap-3">
+                    <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-sm">
+                        {platform.steps.map(step => <li key={step}>{step}</li>)}
+                    </ol>
+                    {platform.code && (<>
+                        <CopyBlock value={platform.code(baseUrl, publicId)} label={`Copy the ${platform.label} code`} />
+                        <Advanced title={`pin the ${platform.label} version`}>
+                            <p className="m-0 text-sm text-muted-foreground">It gets fixes only when you update the snippet.</p>
+                            <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={`Copy the pinned ${platform.label} code`} />
+                        </Advanced>
+                    </>)}
+                    <SecurityHeaders baseUrl={baseUrl} platform={platform} />
+                </TabsContent>
+            ))}
+        </Tabs>
+    );
+}
+
+/** What the script does, said once wherever it is offered */
+export function ScriptDescription() {
+    return <>
+        Paste it before the closing <code className="font-mono">&lt;/body&gt;</code> tag on every page you want to review.
+        It loads the toolbar only when a page is opened with a review link, so visitors never see it.
+    </>;
+}
+
 /**
- * Where and how to add the script on the common platforms (with the CSP sources, in Advanced), then
- * opening a review link (`reviewStep`)
+ * The install guide of Settings → Installation: the script or the browser extension. The script's steps
+ * are where and how to add it on the common platforms (with the CSP sources, in Advanced), then opening a
+ * review link (`reviewStep`) and checking the installation. Onboarding shows the same parts one step at a time.
  */
 export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }: { baseUrl: string; projectId: string; publicId: string; urls: string[]; reviewStep: ReactNode }) {
-    const script = embedScript(baseUrl, publicId);
     return (
         <Tabs defaultValue="script" className="gap-6">
             <TabsList aria-label="Review installation method">
@@ -125,47 +177,11 @@ export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }:
             <TabsContent value="script">
             <ol className="m-0 flex list-none flex-col p-0">
                 <Step number={1} title="Copy the script">
-                    <p className="m-0 text-sm text-muted-foreground">
-                        Paste it before the closing <code className="font-mono">&lt;/body&gt;</code> tag on every page you want to review.
-                        It loads the toolbar only when a page is opened with a review link
-                        (<code className="font-mono">?toolbar-code={publicId}</code>), so visitors never see it.
-                    </p>
-                    <CopyBlock value={script} label="Copy the script" />
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                        Project code
-                        <code className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[13px] text-foreground">{publicId}</code>
-                    </div>
-                    <Advanced title="pin this version">
-                        <p className="m-0 text-sm text-muted-foreground">
-                            This version includes an integrity check. It gets fixes only when you update the snippet.
-                            Pinned production bundles work with the review API for one year after their last release as the current version.
-                        </p>
-                        <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label="Copy the pinned script" />
-                    </Advanced>
+                    <p className="m-0 text-sm text-muted-foreground"><ScriptDescription /></p>
+                    <ScriptSnippet baseUrl={baseUrl} publicId={publicId} />
                 </Step>
                 <Step number={2} title="Add it to your site">
-                    <Tabs defaultValue="html" className="gap-3">
-                        <TabsList aria-label="Platform" className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
-                            {platforms.map(platform => (
-                                <TabsTrigger key={platform.id} value={platform.id} className="flex-none">{platform.label}</TabsTrigger>
-                            ))}
-                        </TabsList>
-                        {platforms.map(platform => (
-                            <TabsContent key={platform.id} value={platform.id} className="flex flex-col gap-3">
-                                <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-sm">
-                                    {platform.steps.map(step => <li key={step}>{step}</li>)}
-                                </ol>
-                                {platform.code && (<>
-                                    <CopyBlock value={platform.code(baseUrl, publicId)} label={`Copy the ${platform.label} code`} />
-                                    <Advanced title={`pin the ${platform.label} version`}>
-                                        <p className="m-0 text-sm text-muted-foreground">It gets fixes only when you update the snippet.</p>
-                                        <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={`Copy the pinned ${platform.label} code`} />
-                                    </Advanced>
-                                </>)}
-                                <SecurityHeaders baseUrl={baseUrl} platform={platform} />
-                            </TabsContent>
-                        ))}
-                    </Tabs>
+                    <PlatformSteps baseUrl={baseUrl} publicId={publicId} />
                 </Step>
                 <Step number={3} title="Open a review link" last>
                     <p className="m-0 text-sm text-muted-foreground">

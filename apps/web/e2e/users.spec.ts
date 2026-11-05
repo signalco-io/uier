@@ -109,7 +109,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenter.page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
     await expect(commenter.page.getByRole('list', { name: 'Guest links' })).toHaveCount(0);
     await expect(empty).not.toContainText('Only people you invite');
-    await commenter.page.goto(`/app/projects/${alpha}/install?onboarding=1`);
+    await commenter.page.goto(`/app/projects/${alpha}/install?onboarding=1&step=invite`);
     await expect(commenter.page.getByRole('region', { name: 'Invite a reviewer' }).getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
 
     // The link works once

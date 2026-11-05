@@ -22,6 +22,11 @@ export type DbUser = AppDoc & {
     email: string;
     /** Display name on comments; defaults to the part of the email before the @ */
     name: string;
+    /**
+     * Set on a new account until it confirms or skips the first-run step (`/app/welcome`: its name and
+     * its workspace's name). Accounts from before the step never had it.
+     */
+    welcomePending?: boolean;
     createdAt: string;
     updatedAt: string;
 };

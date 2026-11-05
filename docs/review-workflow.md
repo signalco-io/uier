@@ -29,14 +29,20 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   before comparison, with no window reset during the request. Rejected browser bindings do not count against
   another request. Sign-in emails remain limited to 5 per address and 20 per IP per hour, so new requests
   cannot bypass the email limits. Locally and on previews, the page shows both the link and code.
+  After the email is sent, the card shows "Check your email" with the address, and the code field is focused.
   The first sign-in creates the account. Opening the link shows a "Continue" button, because email scanners
-  open links before people do. The session is an HttpOnly `__Host-uier_session` cookie with a signed token (30 days;
+  open links before people do. A new account then sees one first-run step, `/app/welcome`: **Your name**
+  (suggested from the email: `maya.tester@example.test` becomes "Maya Tester") and, when the account got a
+  workspace of its own, **Workspace name** (the email's domain, "Example", or "Maya’s workspace" for webmail
+  such as Gmail or Outlook). **Continue** saves both, **Skip** keeps the defaults; either way the step does not
+  come back (`welcomePending` on the user). Sign-ins with `?next=` go straight there; `/app` shows the step on
+  the next visit. The session is an HttpOnly `__Host-uier_session` cookie with a signed token (30 days;
   the key is derived from the server secret, like guest names). Signed-out visits to an app page return there
   after signing in (`proxy.ts`, `?next=`), including the toolbar's project review link.
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
-  between them. A first workspace is named after its creator's email until an admin renames it in the
-  workspace settings. Create workspace in the same menu adds another one with the name typed there, makes its
+  between them. A first workspace is named after its creator's email until the first-run step or an admin
+  renames it (in the workspace settings). Create workspace in the same menu adds another one with the name typed there, makes its
   creator the admin and opens it to add its first project; one person can create up to 20 workspaces, the first
   one included. The workspace and its admin are created together, so a creator whom an admin removed is
   never added back by opening the app again: with no other workspace, they get a new, empty one of their own.
@@ -55,14 +61,18 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   scheme these use HTTP; other sites use HTTPS. Explicit `http://` or `https://` is preserved.
   The toolbar accepts only configured origins, including the scheme and port. Local sites
   open on the reviewer's own computer, so each reviewer needs the site running locally.
-  - Onboarding: `/app/projects/new` (the addresses), then the install guide `/app/projects/<code>/install?onboarding=1`
-    (the script, and on common platforms where to paste it and, in "Advanced", where the site's CSP is set and
-    the sources to add to it). Both pages show the three-step progress (Your site, Add the script, Invite a
-    reviewer). The install page starts at step 2 of 3 and adds the reviewer step below the guide: admins
-    invite people by email for invited-only projects; guest projects show a plain, copyable review link for
-    every address, main site first. Comments-off projects say so and link admins to Settings. The install
-    guide on its own (from the empty comments list or Settings → Installation; the old `/install` address without
-    `?onboarding=1` redirects there) has no progress or reviewer step.
+  - Onboarding: `/app/projects/new` (the addresses; the project name's placeholder is the name the main
+    address gives it), then one step per screen on `/app/projects/<code>/install?onboarding=1`: **Add the script**
+    (the script, the only place the project code shows, and on common platforms where to paste it and, in
+    "Advanced", where the site's CSP is set and the sources to add to it), **Check installation**
+    (`&step=check`) and **Invite a reviewer** (`&step=invite`): admins invite people by email for invited-only
+    projects; guest projects show a plain, copyable review link for every address, main site first.
+    Comments-off projects say so and link admins to Settings. Every step has one primary button: Next, Check
+    installation until the site is confirmed, or Invite. Back, Skip setup (to the comments) and the progress
+    (Your site, Add the script, Check installation, Invite a reviewer; every step after the site is a link)
+    move between them, and Finish opens the project's comments. The install guide on its own (from the empty
+    comments list or Settings → Installation; the old `/install` address without `?onboarding=1` redirects
+    there) is the whole guide on one page, without the progress or the reviewer step.
   - A project has a header (name, client, who can comment, Open review and a Settings button) above
     its comments. Open review lists every address (main site first) to review or visit. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
@@ -79,7 +89,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     private. The Unread filter is the inbox's chip: a blue dot and count. Empty lists retain Install the script; invited-only projects
     also offer admins Invite with the email sign-in explanation. Comments-off lists say so and link admins
     to Settings. Filtered lists keep Nothing here.
-  - Install `/app/projects/<code>/install`: the install guide with the public project code and **Check installation**.
+  - Install (Settings → Installation): the install guide with the script (which contains the public project code) and **Check installation**.
     The check opens the actual configured site, confirms the script's project/API, reads comments and obtains a
     browser-verification proof without posting a test comment. CSP failures are diagnosed where browser evidence
     exists; missing scripts, private/unreachable sites, changed origins and interrupted checks stay inconclusive.
@@ -521,9 +531,9 @@ The [desktop extension runtime spike](browser-extension.md) adds a signed-in rev
 an embed or changes to the site’s CSP. It is not published. Each reviewer must install it in their
 own browser, and the exact origin must already belong to an accessible project. Existing comment
 links are handled after Start review. Check installation continues to diagnose only the site embed;
-extension activation never records an installed script. Installation and onboarding offer both
-setup choices, with the script selected by default and an explicit pending-availability message for
-the extension. A real store link requires owner configuration after hosted verification, browser
+extension activation never records an installed script. Installation offers both setup choices,
+with the script selected by default; until the extension is available, its tab is one line and a link
+to the setup guide. Onboarding mentions the extension only once it is available. A real store link requires owner configuration after hosted verification, browser
 acceptance and store bootstrap. Each uninstrumented review-link recipient also needs the extension.
 The public `/browser-extension` page and `/guides/browser-extension` setup guide describe the
 published extension ([public pages](browser-extension.md#public-pages)).

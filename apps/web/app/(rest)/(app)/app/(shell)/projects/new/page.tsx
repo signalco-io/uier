@@ -24,7 +24,7 @@ export default async function NewProjectPage() {
         <div className="mx-auto flex w-full max-w-xl flex-col">
             <PageHeader
                 title="Create a project"
-                description="Tell uier which site you want to review. Next, choose how reviewers open it.">
+                description="Tell uier which site you want to review. Then add the script and invite a reviewer.">
                 <OnboardingSteps current={1} className="mt-2" />
             </PageHeader>
             <Card>
