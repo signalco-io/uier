@@ -237,6 +237,10 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                         const sameSite = sameSiteAs(rows, index);
                         const options = shareOptions(rows, index);
                         const shared = sharedWith(rows, index);
+                        // From the rows, not the Select's value: right after a row is removed that value can still be an old index
+                        const sharedLabel = shared[0] === undefined
+                            ? 'No other address'
+                            : `${displayUrl(rows[shared[0]]!.url.trim())}${shared.length > 1 ? ` and ${shared.length - 1} more` : ''}`;
                         return (
                             // Stacked on small screens, with the column names over the fields
                             <div key={index} className={`grid grid-cols-[minmax(0,1fr)_2.25rem] gap-x-2 gap-y-3 rounded-lg border p-3 @xl:items-center @xl:gap-y-0 @xl:rounded-none @xl:border-0 @xl:p-0 ${siteColumns}`}>
@@ -282,11 +286,7 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                                                 onValueChange={value => update(current => shareWith(current, index, value && value !== 'none' ? Number(value) : null))}
                                                 disabled={options.length === 0}>
                                                 <SelectTrigger id={`${formId}-share-${index}`} aria-label={`${name(row, index)} shares feedback with`} className="w-full">
-                                                    <SelectValue>
-                                                        {(value: string) => value !== 'none'
-                                                            ? `${displayUrl(rows[Number(value)]!.url.trim())}${shared.length > 1 ? ` and ${shared.length - 1} more` : ''}`
-                                                            : 'No other address'}
-                                                    </SelectValue>
+                                                    <SelectValue>{sharedLabel}</SelectValue>
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectGroup>
