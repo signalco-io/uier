@@ -8,7 +8,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
-import { listVisibleProjects } from '@/src/lib/app/projects';
+import { defaultProjectName, listVisibleProjects } from '@/src/lib/app/projects';
 import { loadClients, projectClient, projectClients } from '@/src/lib/app/clients';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { PageHeader } from '@/src/components/app/PageHeader';
@@ -23,6 +23,25 @@ import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/ap
 export const metadata: Metadata = {
     title: 'Projects'
 };
+
+/**
+ * The project's main address with how many more it has. A project named after its main address (the
+ * name a new project gets) says only how many addresses it has, so the card does not repeat the name.
+ */
+function ProjectAddresses({ name, urls }: { name: string; urls: string[] }) {
+    const main = displayUrl(urls[0] ?? '');
+    const more = urls.length - 1;
+    const same = (other: string) => other.toLowerCase() === name.trim().toLowerCase();
+    const named = Boolean(urls[0]) && (same(main) || same(defaultProjectName(urls[0]!)));
+    if (named)
+        return more > 0 ? <CardDescription>{urls.length} addresses</CardDescription> : null;
+    return (
+        <CardDescription className="truncate">
+            <span className="font-mono text-[13px]">{main}</span>
+            {more > 0 && ` and ${more} more`}
+        </CardDescription>
+    );
+}
 
 export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
     const context = await requireAppContext();
@@ -100,10 +119,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                     {project.name}
                                                 </Link>
                                             </CardTitle>
-                                            <CardDescription className="truncate font-mono text-[13px]">
-                                                {displayUrl(project.urls[0] ?? '')}
-                                                {project.urls.length > 1 && ` +${project.urls.length - 1}`}
-                                            </CardDescription>
+                                            <ProjectAddresses name={project.name} urls={project.urls} />
                                             {projectClientSummary && (
                                                 <CardDescription className="flex min-w-0 items-center gap-1.5">
                                                     <ClientMark client={projectClientSummary} />

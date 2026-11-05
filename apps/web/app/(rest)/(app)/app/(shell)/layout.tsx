@@ -25,11 +25,16 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
                     user={{ name: context.user.name, email: context.user.email }}
                     currentWorkspaceId={context.workspace.id}
-                    workspaces={context.memberships.map(({ workspace, member }) => ({
-                        id: workspace.id,
-                        name: workspace.name,
-                        role: member.role === 'admin' ? 'Admin' : 'Commenter'
-                    }))}
+                    workspaces={context.memberships.map(({ workspace, member }) => {
+                        // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it
+                        const feedback = workspace.id === PUBLIC_WORKSPACE_ID && member.role !== 'admin';
+                        return {
+                            id: workspace.id,
+                            name: feedback ? 'Feedback on uier' : workspace.name,
+                            role: feedback ? 'Sent with Give feedback' : member.role === 'admin' ? 'Admin' : 'Commenter',
+                            feedback
+                        };
+                    })}
                     projects={projects.filter(project => project.status !== 'done').map(({ id, name, urls }) => ({ id, name, url: urls[0] }))}
                     hasClients={projects.some(project => project.clientId)} />
                 {/* On wide screens the panel keeps its frame and scrolls inside it, like a desktop app */}

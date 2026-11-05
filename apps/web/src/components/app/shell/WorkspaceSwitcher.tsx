@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
+import { CheckIcon, ChevronsUpDownIcon, MegaphoneIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { Mark } from '@uier/brand/Mark';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -24,7 +24,17 @@ import { MAX_WORKSPACE_NAME_LENGTH } from '@/src/lib/app/limits';
 import { FormMessage } from '../FormMessage';
 import { createWorkspaceAction, switchWorkspaceAction } from './actions';
 
-export type WorkspaceOption = { id: string; name: string; role: string };
+export type WorkspaceOption = {
+    id: string;
+    name: string;
+    /** The person's role, or what the workspace is to them */
+    role: string;
+    /**
+     * uier's own workspace, which everyone joins to send feedback on the app: not a workspace the
+     * person works in, so the menu keeps it apart from theirs
+     */
+    feedback?: boolean;
+};
 
 /** The app icon: the mark on an ink plate (BRAND.md "App icon") */
 function AppIcon() {
@@ -81,7 +91,8 @@ function CreateWorkspaceForm() {
 
 /**
  * The current workspace at the top of the sidebar. Its menu switches workspaces, creates a new one,
- * and opens the workspace settings for admins (`canManage`).
+ * opens the workspace settings for admins (`canManage`) and, apart from the person's workspaces, the
+ * feedback they sent on uier (`feedback`).
  */
 export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = false }: {
     workspaces: WorkspaceOption[];
@@ -95,7 +106,11 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
     if (!current)
         return null;
 
-    const canSwitch = workspaces.length > 1;
+    const own = workspaces.filter(workspace => !workspace.feedback);
+    const feedback = workspaces.find(workspace => workspace.feedback);
+    // From the feedback workspace the list is the way back to the person's own
+    const canSwitch = own.length > 1 || (current.feedback && own.length > 0);
+    const switchTo = (workspaceId: string) => startTransition(() => switchWorkspaceAction(workspaceId));
     return (
         <SidebarMenu>
             <SidebarMenuItem>
@@ -115,10 +130,8 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                             <>
                                 <DropdownMenuGroup>
                                     <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-                                    {workspaces.map(workspace => (
-                                        <DropdownMenuItem
-                                            key={workspace.id}
-                                            onClick={() => startTransition(() => switchWorkspaceAction(workspace.id))}>
+                                    {own.map(workspace => (
+                                        <DropdownMenuItem key={workspace.id} onClick={() => switchTo(workspace.id)}>
                                             <span className="flex min-w-0 flex-1 flex-col">
                                                 <span className="truncate">{workspace.name}</span>
                                                 <span className="text-xs text-muted-foreground">{workspace.role}</span>
@@ -142,6 +155,21 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                 Create workspace
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
+                        {feedback && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuGroup>
+                                    <DropdownMenuItem onClick={() => switchTo(feedback.id)}>
+                                        <MegaphoneIcon />
+                                        <span className="flex min-w-0 flex-1 flex-col">
+                                            <span className="truncate">{feedback.name}</span>
+                                            <span className="text-xs text-muted-foreground">{feedback.role}</span>
+                                        </span>
+                                        {feedback.id === current.id && <CheckIcon className="ml-auto" />}
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <Dialog open={creating} onOpenChange={setCreating}>

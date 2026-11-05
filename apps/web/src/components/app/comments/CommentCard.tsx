@@ -179,8 +179,11 @@ function KindLabel({ kind }: { kind: DbCommentKind }) {
 }
 
 /** One message of the thread: the avatar makes the column, as in the toolbar's thread */
-function Message({ author, createdAt, meta, actions, children }: {
+function Message({ author, avatarName, createdAt, meta, actions, children }: {
+    /** As shown: "You" for your own messages */
     author: string;
+    /** The person's name, for the avatar's initial ("You" would make every own avatar a Y) */
+    avatarName: string;
     createdAt?: string;
     /** After the time: the screen and browser the comment was left from */
     meta?: ReactNode;
@@ -190,7 +193,7 @@ function Message({ author, createdAt, meta, actions, children }: {
     return (
         <div className="flex gap-2.5">
             <Avatar size="sm" aria-hidden="true" className="mt-0.5">
-                <AvatarFallback className="font-semibold text-foreground">{initials(author)}</AvatarFallback>
+                <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-h-7 items-center justify-between gap-2">
@@ -333,7 +336,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const reply = (item: ProjectCommentMessage) => {
         const name = item.author.isMe ? 'You' : item.author.name;
         return (
-            <Message author={name} createdAt={item.createdAt}
+            <Message author={name} avatarName={item.author.name} createdAt={item.createdAt}
                 actions={!item.deleted && (item.canDelete || item.canFilterAuthor) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
@@ -508,7 +511,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-2 p-0">
                     <li>
-                        <Message author={comment.deleted ? 'Deleted' : author} createdAt={comment.createdAt}
+                        <Message author={comment.deleted ? 'Deleted' : author} avatarName={comment.author.name} createdAt={comment.createdAt}
                             meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
                             <KindLabel kind={comment.kind} />
                             {comment.quotedText && (
@@ -552,7 +555,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 </ol>
 
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} comment={comment} onClose={() => setReplying(false)} />
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
                     : <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => setReplying(true)}>Reply</Button>)}
 
                 {/* The issues it is linked to, quiet as in the toolbar */}

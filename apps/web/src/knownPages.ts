@@ -35,12 +35,14 @@ export const KnownPages = {
     AppProjects: '/app/projects',
     AppReview: '/app/review',
     AppNewProject: '/app/projects/new',
-    AppUsers: '/app/users',
-    AppTeams: '/app/teams',
-    AppClients: '/app/clients',
+    /** The workspace area: Users, Teams, Clients and Settings, each a tab */
+    AppWorkspace: '/app/workspace',
+    AppUsers: '/app/workspace/users',
+    AppTeams: '/app/workspace/teams',
+    AppClients: '/app/workspace/clients',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
-    AppSettings: '/app/settings',
+    AppSettings: '/app/workspace/settings',
     AppNotionConnect: '/app/notion/connect',
     AppNotionCallback: '/app/notion/callback',
     AppGitHubConnect: '/app/github/connect',
@@ -75,8 +77,8 @@ export type AccountSection = 'sign-in' | 'coding-agents';
 /** Pages with a parameter */
 export const KnownPageLinks = {
     integration: (provider: string) => `/integrations/${encodeURIComponent(provider)}`,
-    team: (id: string) => `/app/teams/${encodeURIComponent(id)}`,
-    member: (id: string) => `/app/users/${encodeURIComponent(id)}`,
+    team: (id: string) => `/app/workspace/teams/${encodeURIComponent(id)}`,
+    member: (id: string) => `/app/workspace/users/${encodeURIComponent(id)}`,
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     /** The account: General, or one of its other sections */
     account: (section?: AccountSection) => `${KnownPages.AppAccount}${section ? `/${section}` : ''}`,

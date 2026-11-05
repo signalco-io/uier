@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: 'Person access' };
 const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
 
 /** Someone in the workspace: who they are, the projects they can review (and why), then their teams and direct access */
-export default async function PersonPage({ params }: PageProps<'/app/users/[userId]'>) {
+export default async function PersonPage({ params }: PageProps<'/app/workspace/users/[userId]'>) {
     const context = await requireTeamAdmin(),
         { userId } = await params;
     const data = await managementData(context),

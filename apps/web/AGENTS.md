@@ -11,11 +11,11 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/layout.tsx` | root layout: Geist via `next/font` (`geist` package), metadata and viewport from `@uier/brand`; app and marketing layouts own providers |
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
-| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, clients, teams, users, workspace settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
+| `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
-| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
+| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
@@ -346,14 +346,22 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   (`animationsFinished`) before pressing Escape or opening a submenu in it.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
-  settings, which has no sidebar entry of its own), active projects with
-  All projects and Create project icon links in their header, then at the bottom the sections (Clients when a
-  visible project has a client; Teams and Users for admins), Give feedback and the account menu), the inset
-  panel with the breadcrumbs (`AppBreadcrumbs`, from the path) and the one invite dialog
-  (`InviteProvider`; `InviteButton` and `useInvite()` open it). A project's header is
-  `projects/[projectId]/layout.tsx` (client, then who can comment, whose popover has Invite for admins; no tabs:
-  Settings is an icon button after Open review); its pages
-  render the comments, settings or onboarding install step under it.
+  settings), Projects (the projects index; the person's own work goes beside it), active projects with a
+  Create project icon link in their header, then at the bottom Workspace (admins; for everyone else only when a
+  visible project has a client), Give feedback and the account menu), the inset panel with the breadcrumbs
+  (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
+  `useInvite()` open it). uier's own workspace, which every account joins for Give feedback, is a
+  `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
+  named "Feedback on uier", never in the list of their workspaces. A project's header is
+  `projects/[projectId]/layout.tsx` (client, then who can comment, whose popover has Invite for admins, Open
+  review, then the `ProjectTabs`: Comments, Install (Settings → Installation and the onboarding install step) and
+  Settings (every other section)); its pages render the comments, install guide or settings under it.
+- **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
+  `workspaceTabs`): Users, Teams, Clients and Settings for admins, Clients only for everyone else and in the uier
+  workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
+  `workspace/users/[userId]`) are outside the `(tabs)` group, with their own header. The old addresses
+  (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
+  (`next.config.ts`). Each page keeps its own authorization: Users, Teams and Settings are admin-only as before.
 - **Project settings** are sections, each its own page under `settings/` (`settings/layout.tsx`): General (the
   settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
   Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
@@ -468,12 +476,12 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   in `clientAppearance.ts`; `ClientMark` draws the tile. More colours need new brand tokens first.
   Show clients only through visible projects: pages call `listVisibleProjects` first, then `loadClients`,
   and `projectClients` / `clientNames` / `projectClient` keep only clients those projects point to (the
-  Clients page, the sidebar link, the suggestions, the filter, cards and the project header). The filter
+  Clients tab, the sidebar's Workspace link, the suggestions, the filter, cards and the project header). The filter
   value is the client id (`?client=<id>` or `none`); old `name:<name>` links redirect to it. The client
   field (`ClientNameInput`) is free text that suggests existing clients: it is built on
   `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn has
   no autocomplete, and Combobox only takes one of its items). Admins edit a client in `ClientEditDialog`
-  on the Clients page (`updateClientAction`). Client data belongs to the signed-in app: `reviewProjectDto`
+  on the Clients tab (`updateClientAction`). Client data belongs to the signed-in app: `reviewProjectDto`
   (the review API's project) and MCP project lists never include it. `e2e/clients.api.spec.ts` covers
   rename, admin-only access, workspace isolation, migration and DTO exclusion; `project-clients.spec.ts`
   and `users.spec.ts` the UI.
@@ -630,7 +638,7 @@ event). Recheck admin/target/team ownership on retries. Member removal and invit
 use the same guard; acceptance consumes the workspace invitation atomically, not just its lookup
 token. Team archive clears projects and invalidates earlier team invitations; restore starts
 empty. Keep public-workspace safeguards and guest/private-thread distinctions. New app routes
-are `/app/teams`, `/app/teams/[teamId]`, `/app/users/[userId]`. Admin previews must reject stale
+are `/app/workspace/teams`, `/app/workspace/teams/[teamId]`, `/app/workspace/users/[userId]`. Admin previews must reject stale
 revisions. See [teams and access](../../docs/teams-and-access.md) for limits, history, erasure,
 Session-consistency limits, real preview Cosmos checks and rollback.
 
@@ -727,7 +735,9 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
 
 ## Toolbar in development
 
-`ClientProvider` loads http://localhost:4005/index.js in development only. Open any page with a
+`ClientProvider` loads http://localhost:4005/index.js in development only, and `next dev` rewrites
+`/toolbar.js` and `/review.js` to that watch build, so a locally reviewed site's install snippet never
+runs a stale `public/toolbar.js` from an earlier `pnpm build`. Open any page with a
 review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
 see the real toolbar on top of it. uier.io's public marketing layout embeds showcase mode on every page, using the same-origin cookie API
 backed by the static project `uier00000001`; feedback on `/app` pages (the sidebar's "Give feedback",

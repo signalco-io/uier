@@ -12,7 +12,7 @@ import { KnownPageLinks } from '@/src/knownPages';
 
 export const metadata: Metadata = { title: 'Team' };
 
-export default async function TeamPage({ params, searchParams }: PageProps<'/app/teams/[teamId]'>) {
+export default async function TeamPage({ params, searchParams }: PageProps<'/app/workspace/teams/[teamId]'>) {
     const context = await requireTeamAdmin(),
         { teamId } = await params;
     const team = (await getTeam(context.workspace.id, teamId))?.doc;

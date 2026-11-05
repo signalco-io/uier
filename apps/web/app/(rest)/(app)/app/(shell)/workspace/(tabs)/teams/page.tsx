@@ -5,10 +5,11 @@ import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
-import { PageHeader, Section } from '@/src/components/app/PageHeader';
+import { Section } from '@/src/components/app/PageHeader';
+import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { TeamEditor, CopyAccessToTeam } from '@/src/components/app/teams/AccessForms';
@@ -30,7 +31,7 @@ function countsText(people: number, invited: number, projects: number) {
 }
 
 /** The workspace's teams (active or archived, searchable), creating one, and the access history */
-export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'>) {
+export default async function TeamsPage({ searchParams }: PageProps<'/app/workspace/teams'>) {
     const context = await requireTeamAdmin(),
         query = await searchParams;
     const text = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : undefined);
@@ -51,8 +52,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
     const nextQuery = new URLSearchParams({ state, q: search ?? '', ...(next ? { after: next } : {}) });
     return (
         <>
-            <PageHeader
-                title="Teams"
+            <WorkspaceTabHeader
                 description="Share selected projects with a group of people. Archived teams grant no access."
                 actions={(
                     <>
@@ -67,8 +67,8 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                                 <CopyAccessToTeam data={data} />
                             </DialogContent>
                         </Dialog>
-                        {/* The empty active list has its own Create team */}
-                        {(teams.length > 0 || state === 'archived' || search) && <TeamEditor />}
+                        {/* Always here, never in the empty list: the dialog says "Open team" after the first team replaces that list */}
+                        <TeamEditor />
                     </>
                 )}>
                 <div className="flex flex-wrap items-center gap-3">
@@ -89,7 +89,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                         </InputGroup>
                     </form>
                 </div>
-            </PageHeader>
+            </WorkspaceTabHeader>
             <div className="flex flex-col gap-8">
                 {teams.length ? (
                     <div className="flex flex-col gap-3">
@@ -136,14 +136,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/teams'
                                     ? 'Try another name, or look in the other tab.'
                                     : state === 'archived'
                                         ? 'Teams you archive move here. They grant no access until you restore them.'
-                                        : 'A team shares the projects you choose with a group of people. Create one, then add its people and projects.'}
+                                        : 'A team shares the projects you choose with a group of people. Create a team, then add its people and projects.'}
                             </EmptyDescription>
                         </EmptyHeader>
-                        {state === 'active' && !search && (
-                            <EmptyContent>
-                                <TeamEditor />
-                            </EmptyContent>
-                        )}
                     </Empty>
                 )}
                 <Section id="activity" title="Activity">

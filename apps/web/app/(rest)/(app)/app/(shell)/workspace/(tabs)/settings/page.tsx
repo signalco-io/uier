@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
-import { PageHeader } from '@/src/components/app/PageHeader';
+import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { WorkspaceNameForm } from './WorkspaceNameForm';
@@ -18,7 +18,7 @@ export default async function WorkspaceSettingsPage() {
 
     return (
         <div className="flex max-w-3xl flex-col">
-            <PageHeader title="Workspace settings" description="Settings for everyone in this workspace." />
+            <WorkspaceTabHeader description="Settings for everyone in this workspace." />
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
             </div>

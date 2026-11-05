@@ -128,7 +128,7 @@ test('feedback on a customer project page exports its uier owner and needs a gra
 
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /uier.*Commenter/ }).click();
+    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true }))
         .toHaveAttribute('href', `/app/projects/${PUBLIC_PROJECT_ID}`);
     await closeAppNavigation(page);

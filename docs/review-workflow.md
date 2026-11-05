@@ -41,14 +41,18 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   after signing in (`proxy.ts`, `?next=`), including the toolbar's project review link.
 - **Workspaces**: every user gets a workspace of their own on first sign-in and is its admin. Projects and
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
-  between them. A first workspace is named after its creator's email until the first-run step or an admin
-  renames it (in the workspace settings). Create workspace in the same menu adds another one with the name typed there, makes its
+  between them. Every account also joins uier's own workspace, which keeps the feedback sent with Give
+  feedback; the menu lists it apart from the person's workspaces as "Feedback on uier". A first workspace is
+  named after its creator's email until the first-run step or an admin renames it (in the workspace settings).
+  Create workspace in the same menu adds another one with the name typed there, makes its
   creator the admin and opens it to add its first project; one person can create up to 20 workspaces, the first
   one included. The workspace and its admin are created together, so a creator whom an admin removed is
   never added back by opening the app again: with no other workspace, they get a new, empty one of their own.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
-  active or done projects as cards with their open comments, who can comment and review links.
+  active or done projects as cards with their open comments, who can comment and review links. A card
+  shows the main address under the name, or only how many addresses there are when the project is named
+  after its main address. Projects is the first link in the sidebar.
   An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
   in settings; the field suggests the existing clients as you type, and any other name adds a new one. It
   appears with the client's tile in project details and cards. The client filter sits beside Active/Done,
@@ -73,8 +77,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     move between them, and Finish opens the project's comments. The install guide on its own (from the empty
     comments list or Settings → Installation; the old `/install` address without `?onboarding=1` redirects
     there) is the whole guide on one page, without the progress or the reviewer step.
-  - A project has a header (name, client, who can comment, Open review and a Settings button) above
-    its comments. Open review lists every address (main site first) to review or visit. Hovering or clicking
+  - A project has a header (name, client, who can comment, Open review and the tabs Comments, Install and
+    Settings) above its pages. Open review lists every address (main site first) to review or visit, and links
+    to the review setup. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
   - Comments `/app/projects/<code>`: the project's **comments**, as a
     list or a board (Open / Ready for review / Done), filtered by people (all, assigned to me, opened by me) and by environment and page in one control
@@ -116,7 +121,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;
     Exit review suppresses automatic opening in that tab. Pending one-use codes survive host redirects
     in session storage for at most ten minutes and are removed after exchange or definitive rejection.
-- **Clients** (`/app/clients`): the clients of the projects the member can see, each with its tile (an icon
+- **Workspace** (`/app/workspace`): the sidebar's Workspace opens one area with tabs for Users, Teams, Clients
+  and Settings (admins), or Clients alone for everyone else. The earlier addresses (`/app/users`, `/app/teams`,
+  `/app/clients`, `/app/settings`) redirect to their tab.
+- **Clients** (`/app/workspace/clients`): the clients of the projects the member can see, each with its tile (an icon
   or its first letter, on its colour), description, projects and how many are active or done. A client
   opens the projects list filtered to it (its done projects when none is active). Admins edit a client
   there: its name, a short description (up to 280 characters), one of twelve icons and a colour from the
@@ -124,7 +132,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   to it, so a rename shows on every project at once. Names stay unique in the workspace: a rename to
   another client's name is refused while that client has projects. A client with no projects left is no
   longer shown; a project that names it again gets it back with its details, and a rename can take its name.
-- **Users** (`/app/users`, admins only): the people in the workspace with their role (admin or commenter)
+- **Users** (`/app/workspace/users`, admins only): the people in the workspace with their role (admin or commenter)
   and the projects they review, filtered by project (`?project=`), and the pending invitations. Admins
   remove people (the last admin stays), including the person who created the workspace, and revoke
   invitations. A removed member's review token stops working at once, because the review API checks the
@@ -135,9 +143,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     replaces the earlier invitation. Accepting takes a click, like signing in: it signs the invited person
     in (their account is created on first use), adds them to the workspace and opens the project's review
     link, or the projects when the invitation has no project.
-- **Workspace settings** (`/app/settings`, admins only): the workspace name (up to 80 characters, on one
+- **Workspace settings** (`/app/workspace/settings`, admins only): the workspace name (up to 80 characters, on one
   line), which everyone in the workspace sees in the workspace menu and when they connect a coding tool.
-  Admins open it from the workspace menu at the top of the sidebar. The uier
+  Admins open it from the Settings tab of the workspace area or the workspace menu at the top of the sidebar. The uier
   workspace that everyone joins for feedback on the app has no settings page.
 - **Account** (`/app/account`): sections like a project's settings. General has the name shown with
   comments, the theme (light, dark or system) and your workspace access; Sign-in (`/app/account/sign-in`)
