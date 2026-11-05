@@ -25,7 +25,7 @@ export function CommentStatusBadge({ done, ready }: { done: boolean; ready?: boo
                 aria-hidden="true"
                 className={cx('size-1.5 rounded-full', done ? 'bg-[hsl(var(--brand-success))]' : 'bg-foreground')} />
             <span className="sr-only">Status: </span>
-            {done ? 'Done' : ready ? 'Ready for review' : 'Open'}
+            {done ? 'Done' : ready ? 'Ready to verify' : 'Open'}
         </span>
     );
 }

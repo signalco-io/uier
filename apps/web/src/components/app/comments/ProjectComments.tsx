@@ -208,7 +208,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                 </Empty>
             ) : board ? (
                 <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-                    {[{ title: 'Open', items: open }, { title: 'Ready for review', items: ready }, { title: 'Done', items: done }].map(column => (
+                    {[{ title: 'Open', items: open }, { title: 'Ready to verify', items: ready }, { title: 'Done', items: done }].map(column => (
                         <section key={column.title} aria-label={`${column.title} comments`} className="flex flex-col gap-3 rounded-2xl border bg-muted/50 p-3">
                             <h3 className="m-0 flex items-center gap-2 px-1 text-sm font-medium">
                                 <span aria-hidden="true" className={column.title === 'Done' ? 'size-1.5 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 rounded-full bg-foreground'} />
@@ -217,7 +217,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                             </h3>
                             {column.items.length
                                 ? <CommentList projectId={projectId} comments={column.items} assignees={assignees} userId={userId} label={`${column.title} comments list`} />
-                                : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Ready for review' ? 'No checks requested.' : column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
+                                : <p className="m-0 px-1 pb-1 text-sm text-muted-foreground">{column.title === 'Ready to verify' ? 'No checks requested.' : column.title === 'Open' ? 'Nothing open.' : 'Nothing done yet.'}</p>}
                         </section>
                     ))}
                 </div>

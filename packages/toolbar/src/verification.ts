@@ -10,7 +10,7 @@ export function readyForReview(comment: { resolved?: boolean; verification?: { o
     return !comment.resolved && comment.verification?.outcome === 'pending';
 }
 export function feedbackStatus(comment: { resolved?: boolean; verification?: { outcome: VerificationOutcome } }) {
-    return comment.resolved ? 'Done' : readyForReview(comment) ? 'Ready for review' : 'Open';
+    return comment.resolved ? 'Done' : readyForReview(comment) ? 'Ready to verify' : 'Open';
 }
 function displayTime(value: string) {
     const date = new Date(value);
@@ -21,7 +21,7 @@ export function verificationDescription(v: VerificationDetails) {
     const decision = v.decision;
     const attribution = decision ? `${decision.actor} at ${displayTime(decision.at)}${decision.override ? ` (admin override for ${v.reviewer})` : ''}` : '';
     if (v.outcome === 'confirmed' && decision?.kind === 'confirm') return `Fix confirmed by ${attribution}.`;
-    const label = ({ pending: 'Ready for review', 'needs-work': 'Still needs work', canceled: 'Request canceled', unconfirmed: 'Done without reviewer confirmation', reopened: 'Reopened', unavailable: 'Reviewer unavailable', confirmed: 'Done' })[v.outcome];
+    const label = ({ pending: 'Ready to verify', 'needs-work': 'Still needs work', canceled: 'Request canceled', unconfirmed: 'Done without reviewer confirmation', reopened: 'Reopened', unavailable: 'Reviewer unavailable', confirmed: 'Done' })[v.outcome];
     return `${label}. ${requested}${decision ? ` ${decision.kind === 'confirm' ? 'Previous confirmation' : decision.kind === 'reject' ? 'Needs work decision' : 'Cancellation'} by ${attribution}${decision.kind === 'confirm' ? '; historical only' : ''}.` : ''}`;
 }
 

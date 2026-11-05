@@ -85,7 +85,7 @@ export default function FeedbackTriagePage() {
                     <Tile title="Mark selected as done">
                         <p>
                             Each thread becomes Done, as it would with its own Done button. This is ordinary completion, never a reviewer&rsquo;s
-                            confirmation: a thread that was Ready for review shows Done without reviewer confirmation.
+                            confirmation: a thread that was Ready to verify shows Done without reviewer confirmation.
                             {' '}<InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> is how a reviewer confirms a fix.
                         </p>
                     </Tile>
@@ -120,7 +120,7 @@ export default function FeedbackTriagePage() {
                         <p>Search and filters cover up to 1,000 of the most recent threads in the loaded environment. When there are more, the app says so: narrow the environment or the author to reach older feedback.</p>
                     </Tile>
                     <Tile title="50 threads per action">
-                        <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown: Open, Ready for review, then Done on the board. The rest stay as they are.</p>
+                        <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown: Open, Ready to verify, then Done on the board. The rest stay as they are.</p>
                     </Tile>
                     <Tile title="One project at a time">
                         <p>Search and actions cover the project you have open. There is no search across projects, and an action only reaches the threads you selected.</p>

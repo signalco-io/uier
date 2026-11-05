@@ -32,7 +32,7 @@ export type StatusFilter = 'open' | 'ready' | 'done' | 'all';
 /** The list's status filter: the toolbar inbox's tabs, in its order and words */
 export const statusFilterLabels: Record<StatusFilter, string> = {
     open: 'Open',
-    ready: 'Ready for review',
+    ready: 'Ready to verify',
     done: 'Done',
     all: 'All'
 };

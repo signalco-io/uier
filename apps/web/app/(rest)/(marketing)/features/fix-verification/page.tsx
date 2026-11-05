@@ -20,11 +20,11 @@ export const metadata = publicPageMetadata(KnownPages.FixVerification, {
 const steps = [
     {
         title: 'Request verification',
-        text: 'On a thread, add a short fix summary and an optional fix link, then choose the reviewer. The original author is suggested while they still have access.'
+        text: 'In the app, choose Ready to verify in a thread’s status menu; in the toolbar, choose Request verification. Add a short fix summary and an optional fix link, then choose the reviewer. The original author is suggested while they still have access.'
     },
     {
-        title: 'Ready for review',
-        text: 'The thread shows Ready for review in the app, on the page and in the toolbar inbox, and still counts as open. The reviewer gets an email under their usual notification settings.'
+        title: 'Ready to verify',
+        text: 'The thread shows Ready to verify in the app, on the page and in the toolbar inbox, and still counts as open. The reviewer gets an email under their usual notification settings.'
     },
     {
         title: 'Confirm fix or Still needs work',
@@ -33,7 +33,7 @@ const steps = [
 ];
 
 const actions: { action: string; who: string; result: string }[] = [
-    { action: 'Request verification', who: 'A project member who can see the thread', result: 'Ready for review. The thread counts as open, even if it was done.' },
+    { action: 'Request verification', who: 'A project member who can see the thread', result: 'Ready to verify. The thread counts as open, even if it was done.' },
     { action: 'Confirm fix', who: 'The requested reviewer', result: 'Done, with the reviewer’s name and the time.' },
     { action: 'Still needs work', who: 'The requested reviewer', result: 'Open, marked Still needs work. The next check is a new request.' },
     { action: 'Confirm fix as admin, Still needs work as admin', who: 'A workspace admin who is not the requester or the reviewer', result: 'The same result, labeled as an admin override for the reviewer.' },
@@ -66,7 +66,7 @@ const useCases = [
 const tryIt = [
     'Sign in and create a project for your site.',
     'Add the script tag, or open a review link, and leave feedback.',
-    'When a fix is ready, choose Request verification on the thread.'
+    'When a fix is ready, set the thread to Ready to verify and request verification.'
 ];
 
 const questions: Question[] = [
@@ -84,7 +84,7 @@ const questions: Question[] = [
     },
     {
         question: 'Does closing the issue in GitHub or Linear confirm the fix?',
-        answer: <>No. With two-way status sync, closing the issue in a <InlineLink href={KnownPages.Integrations}>connected service</InlineLink> marks the thread done without reviewer confirmation, and reopening it there reopens the thread. A thread that is ready for review shows as open there.</>
+        answer: <>No. With two-way status sync, closing the issue in a <InlineLink href={KnownPages.Integrations}>connected service</InlineLink> marks the thread done without reviewer confirmation, and reopening it there reopens the thread. A thread that is ready to verify shows as open there.</>
     },
     {
         question: 'Can an AI agent confirm a fix?',
@@ -173,11 +173,11 @@ export default function FixVerificationPage() {
                     <Tile title="Done without verification">
                         <p>
                             Marking threads done, one at a time or with <InlineLink href={KnownPages.FeedbackTriage}>bulk triage</InlineLink>, is ordinary
-                            completion, never a reviewer’s confirmation. A thread that was Ready for review shows Done without reviewer confirmation.
+                            completion, never a reviewer’s confirmation. A thread that was Ready to verify shows Done without reviewer confirmation.
                         </p>
                     </Tile>
                     <Tile title="Connected issue trackers">
-                        <p>With two-way status sync on, closing the issue in a connected service marks the thread done without confirmation. Ready for review shows there as open.</p>
+                        <p>With two-way status sync on, closing the issue in a connected service marks the thread done without confirmation. Ready to verify shows there as open.</p>
                     </Tile>
                     <Tile title="AI agents">
                         <p>An agent can request or cancel a check after you approve it. It cannot confirm a fix.</p>

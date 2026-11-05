@@ -84,7 +84,7 @@ anchor status.
 Version 1 packets add optional `verification`, using the authorized display-only projection:
 request id/revision, requester/reviewer names, requested time, bounded summary and allowed fix
 link, outcome, and latest decision name/time/kind/admin override. No stored actor ids or guest
-hashes are included. `status` remains `open` or `done`; Ready for review projects to `open`.
+hashes are included. `status` remains `open` or `done`; Ready to verify projects to `open`.
 A `confirmed` outcome with a confirm decision is the current confirmation claim. A retained
 confirm decision under `reopened` or `unconfirmed` is historical. Ordinary closure cannot create
 one. Deleted first messages redact the verification record with their author evidence.

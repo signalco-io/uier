@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
@@ -22,23 +22,33 @@ async function fixture(page: Page, request: APIRequestContext) {
     return { project, headers, comment };
 }
 
+/** Ready to verify in a card's status menu opens the Request verification form */
+async function openRequestForm(page: Page, card: Locator, from = 'Open') {
+    await card.getByRole('button', { name: `Status: ${from}. Change status`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Ready to verify', exact: true }).click();
+    return card.getByRole('form', { name: 'Request verification' });
+}
+
 for (const colorScheme of ['light', 'dark'] as const) {
     test(`request in app, original guest rejects and confirms in cross-origin inbox, with ${colorScheme} theme`, async ({ page, request, browser, baseURL }, testInfo) => {
         test.setTimeout(60_000);
         await page.emulateMedia({ colorScheme });
         const f = await fixture(page, request);
         const card = page.getByRole('article');
-        await card.getByRole('button', { name: 'Request verification', exact: true }).click();
-        await expect(card.getByRole('textbox', { name: 'Fix summary', exact: true })).toBeFocused();
-        await card.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Fixed the checkout handler');
-        await card.getByRole('textbox', { name: 'Fix link (optional)', exact: true }).fill('https://github.com/example/repo/pull/12');
-        await card.getByRole('button', { name: 'Request check', exact: true }).click();
-        await expect(card.getByRole('button', { name: 'Status: Ready for review. Change status', exact: true })).toBeVisible();
+        // No standing button: the request starts from the status menu
+        await expect(card.getByRole('button', { name: 'Request verification', exact: true })).toHaveCount(0);
+        const form = await openRequestForm(page, card);
+        await expect(form.getByRole('textbox', { name: 'Fix summary', exact: true })).toBeFocused();
+        await form.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Fixed the checkout handler');
+        await form.getByRole('textbox', { name: 'Fix link (optional)', exact: true }).fill('https://github.com/example/repo/pull/12');
+        await form.getByRole('button', { name: 'Request verification', exact: true }).click();
+        const status = card.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true });
+        await expect(status).toBeVisible();
         await expect(card.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
-        await expect(card.getByRole('button', { name: 'Request a new check', exact: true })).toBeFocused();
+        await expect(status).toBeFocused();
         await expect(card.getByRole('link', { name: 'Open fix link' })).toHaveAttribute('href', 'https://github.com/example/repo/pull/12');
         await page.getByRole('button', { name: 'Board', exact: true }).click();
-        const ready = page.getByRole('region', { name: 'Ready for review comments', exact: true });
+        const ready = page.getByRole('region', { name: 'Ready to verify comments', exact: true });
         await expect(ready.getByRole('article')).toHaveCount(1);
         await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('article')).toHaveCount(0);
         await expectNoAxeViolations(page);
@@ -51,8 +61,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect(toolbar(guest)).toBeVisible();
             await guest.getByRole('button', { name: /^Inbox/ }).click();
             const inbox = guest.getByRole('complementary', { name: 'Comments' });
-            await inbox.getByRole('button', { name: /^Ready for review/ }).click();
-            await expect(inbox.getByRole('button', { name: /^Ready for review/ })).toHaveAttribute('aria-pressed', 'true');
+            await inbox.getByRole('button', { name: /^Ready to verify/ }).click();
+            await expect(inbox.getByRole('button', { name: /^Ready to verify/ })).toHaveAttribute('aria-pressed', 'true');
             await expect(inbox.getByRole('article')).toHaveCount(1);
             await expectNoAxeViolations(guest);
             await guest.screenshot({ path: testInfo.outputPath(`verification-inbox-${colorScheme}.png`) });
@@ -62,11 +72,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect(inbox.getByRole('article')).toHaveCount(0);
             await page.reload();
             await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('article')).toHaveCount(1);
-            await page.getByRole('article').getByRole('button', { name: 'Request verification', exact: true }).click();
-            await page.getByRole('article').getByRole('button', { name: 'Request check', exact: true }).click();
+            await (await openRequestForm(page, page.getByRole('article'))).getByRole('button', { name: 'Request verification', exact: true }).click();
+            await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true }).getByRole('article')).toHaveCount(1);
             await guest.reload();
             await guest.getByRole('button', { name: /^Inbox/ }).click();
-            await inbox.getByRole('button', { name: /^Ready for review/ }).click();
+            await inbox.getByRole('button', { name: /^Ready to verify/ }).click();
             const confirm = inbox.getByRole('button', { name: 'Confirm fix', exact: true });
             await confirm.focus();
             const confirmed = guest.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/review/${f.project}/comments/${f.comment.id}/verification`);
@@ -91,9 +101,8 @@ test('ordinary Done and Reopen stay unconfirmed and retain replies, search and s
     const card = page.getByRole('article');
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
     await card.getByRole('textbox', { name: 'Reply', exact: true }).fill('Retained reply draft');
-    await card.getByRole('button', { name: 'Request verification', exact: true }).click();
-    await card.getByRole('button', { name: 'Request check', exact: true }).click();
-    await card.getByRole('button', { name: 'Status: Ready for review. Change status', exact: true }).click();
+    await (await openRequestForm(page, card)).getByRole('button', { name: 'Request verification', exact: true }).click();
+    await card.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Done without verification', exact: true }).click();
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     const done = page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('article');
@@ -119,7 +128,7 @@ test('members request and cancel from the toolbar using the existing participant
     await inbox.getByRole('button', { name: 'Request verification', exact: true }).click();
     await expect(inbox.getByRole('textbox', { name: 'Fix summary', exact: true })).toBeFocused();
     await inbox.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Ready to check on the reviewed site');
-    await inbox.getByRole('button', { name: 'Request check', exact: true }).click();
+    await inbox.getByRole('form', { name: 'Request verification' }).getByRole('button', { name: 'Request verification', exact: true }).click();
     await expect(inbox.getByRole('button', { name: 'Done without verification', exact: true })).toBeVisible();
     await expect(inbox.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
     await expect(inbox.getByRole('button', { name: 'Request a new check', exact: true })).toBeFocused();
@@ -131,4 +140,24 @@ test('members request and cancel from the toolbar using the existing participant
     await inbox.getByRole('button', { name: 'Cancel request', exact: true }).click();
     await expect(inbox.getByRole('article')).toContainText('Request canceled.');
     await expect(inbox.getByRole('button', { name: 'Mark as done', exact: true })).toBeVisible();
+});
+
+test('the status menu lists all three statuses; Open from Ready to verify cancels the check', async ({ page, request }) => {
+    await fixture(page, request);
+    const card = page.getByRole('article');
+    await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'Ready to verify', 'Done']);
+    await page.keyboard.press('Escape');
+    const form = await openRequestForm(page, card);
+    await form.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(form).toBeHidden();
+    await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeFocused();
+
+    await (await openRequestForm(page, card)).getByRole('button', { name: 'Request verification', exact: true }).click();
+    await card.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true }).click();
+    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'Ready to verify', 'Done without verification']);
+    await menu.getByRole('menuitem', { name: 'Open', exact: true }).click();
+    await expect(card).toContainText('Request canceled.');
+    await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
 });

@@ -414,8 +414,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   and words: state, `#number`, unread dot and the assignee (their avatar, or the user icon while unassigned; the tooltip
   says "Unassigned" / "Assigned to ...") with the actions on one row
   (`ThreadAction`: icon-only with a tooltip and accessible name). The unread dot is the Mark as read button
-  ("Unread. Mark as read"). For those who can resolve, the state badge is the Open/Done menu ("Status: Open.
-  Change status"); Copy link, Follow thread / Unfollow thread and, once read, Mark as unread are in the More
+  ("Unread. Mark as read"). The state badge is the status menu ("Status: Open.
+  Change status") with Open, Ready to verify and Done, each enabled by the person's permissions: Ready to
+  verify opens the Request verification form (`VerificationControl`, whose submit has the same name), Open
+  from Ready to verify cancels the check, and Done there reads Done without verification; Copy link, Follow thread / Unfollow thread and, once read, Mark as unread are in the More
   actions menu. Then the first and last message with Show all, the quiet Open in ...,
   and the page link in the footer, with the source's environment name (or why the original source is
   unavailable) at its right; an address that only repeats the link's origin is left out. The toolbar's

@@ -577,7 +577,7 @@ priority as context without changing provider-native priorities, labels or other
 
 ### Fix verification
 
-`list_feedback` adds `status: 'ready'` and display-only verification context. `get_feedback` and
+`list_feedback` adds `status: 'ready'` (Ready to verify: a pending fix check) and display-only verification context. `get_feedback` and
 batch reads include the same additive packet details as Copy issue. Their v1 `resolved` and
 Open/Done fields remain compatible; Ready is unresolved. Reads do not acknowledge activity.
 

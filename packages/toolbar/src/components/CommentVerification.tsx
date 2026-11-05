@@ -44,7 +44,10 @@ export function CommentVerification({ comment }: { comment: CommentItem }) {
         if (attempt.current?.value !== value) attempt.current = { value, key: newLocalId() };
         try {
             await verification.mutateAsync({ commentId: comment.id, input: { ...input, idempotencyKey: attempt.current.key } });
-            attempt.current = null; setOpen(false); setSummary(''); setFixUrl(''); if (trigger.current?.isConnected) setRestoreFocus(true); else fallback?.focus();
+            attempt.current = null; setOpen(false); setSummary(''); setFixUrl('');
+            // The trigger is back once the form closes; a thread that left the list gives it to the inbox
+            if (p?.request && action === 'request') setRestoreFocus(true);
+            else if (trigger.current?.isConnected) trigger.current.focus(); else fallback?.focus();
             announce('Verification saved');
         } catch { /* Keep details and submission identity for retry. */ }
     }
@@ -55,7 +58,8 @@ export function CommentVerification({ comment }: { comment: CommentItem }) {
             {v.fixUrl && <a className="self-start underline underline-offset-2" href={v.fixUrl} target="_blank" rel="noopener noreferrer">Open fix link</a>}
         </>}
         <div className="flex flex-wrap gap-1">
-            {p?.request && <Button ref={trigger} size="sm" variant="outlined" aria-expanded={open} disabled={verification.isPending} onClick={() => setOpen(!open)}>{v?.outcome === 'pending' ? 'Request a new check' : 'Request verification'}</Button>}
+            {/* The open form's submit is the one Request verification button */}
+            {p?.request && !open && <Button ref={trigger} size="sm" variant="outlined" disabled={verification.isPending} onClick={() => setOpen(true)}>{v?.outcome === 'pending' ? 'Request a new check' : 'Request verification'}</Button>}
             {ready && p?.respond && <><Button size="sm" disabled={verification.isPending} onClick={() => send('confirm')}>Confirm fix</Button><Button size="sm" variant="outlined" disabled={verification.isPending} onClick={() => send('reject')}>Still needs work</Button></>}
             {ready && p?.override && <><Button size="sm" variant="outlined" disabled={verification.isPending} onClick={() => send('confirm', true)}>Confirm fix as admin</Button><Button size="sm" variant="outlined" disabled={verification.isPending} onClick={() => send('reject', true)}>Still needs work as admin</Button></>}
             {ready && p?.cancel && <Button size="sm" variant="plain" disabled={verification.isPending} onClick={() => send('cancel')}>Cancel request</Button>}
@@ -73,8 +77,8 @@ export function CommentVerification({ comment }: { comment: CommentItem }) {
                 {!reviewer && <p id={`${id}-reviewer-help`} className="m-0 text-muted-foreground">{people.isLoading && !p?.defaultReviewer ? 'Loading reviewers…' : 'Choose a reviewer to send the request.'}</p>}
             </>}
             <CommentsErrorMessage error={people.error} />
-            <div className="flex gap-1"><Button size="sm" type="submit" disabled={verification.isPending || !reviewer} aria-describedby={reviewer ? undefined : `${id}-reviewer-help`}>Request check</Button>
-                <Button size="sm" variant="plain" disabled={verification.isPending} onClick={() => { setOpen(false); trigger.current?.focus(); }}>Close</Button></div>
+            <div className="flex gap-1"><Button size="sm" type="submit" disabled={verification.isPending || !reviewer} aria-describedby={reviewer ? undefined : `${id}-reviewer-help`}>Request verification</Button>
+                <Button size="sm" variant="plain" disabled={verification.isPending} onClick={() => { setOpen(false); setRestoreFocus(true); }}>Cancel</Button></div>
         </form>}
         {verification.isPending && <p role="status" className="m-0">Saving verification…</p>}
         <CommentsErrorMessage error={verification.error} />

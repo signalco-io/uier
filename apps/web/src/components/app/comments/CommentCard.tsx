@@ -85,7 +85,8 @@ import {
     editCommentAction,
     setCommentAssigneeAction,
     setCommentPrivateAction,
-    setCommentResolvedAction
+    setCommentResolvedAction,
+    verificationCommentAction
 } from './actions';
 
 export type AssigneeOption = { userId: string; name: string };
@@ -97,39 +98,58 @@ const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as
 
 const maxTextLength = 1000;
 
-/** Open: ink dot; done: green (BRAND.md, "Components": badges with a status dot). The toolbar's `CommentStatusBadge`. */
-function StateDot({ resolved }: { resolved: boolean }) {
-    return <span aria-hidden="true" className={resolved ? 'size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 shrink-0 rounded-full bg-foreground'} />;
+export type CommentStatus = 'open' | 'ready' | 'done';
+
+export const commentStatusLabels: Record<CommentStatus, string> = { open: 'Open', ready: 'Ready to verify', done: 'Done' };
+
+export function commentStatus(comment: { resolved: boolean; verification?: ProjectCommentView['verification'] }): CommentStatus {
+    return comment.resolved ? 'done' : readyForReview(comment) ? 'ready' : 'open';
 }
 
-function StateBadge({ resolved, ready }: { resolved: boolean; ready?: boolean }) {
+/** Open and Ready to verify: ink dot; done: green (BRAND.md, "Components": badges with a status dot). The toolbar's `CommentStatusBadge`. */
+export function StateDot({ status }: { status: CommentStatus }) {
+    return <span aria-hidden="true" className={status === 'done' ? 'size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 shrink-0 rounded-full bg-foreground'} />;
+}
+
+export function StateBadge({ status }: { status: CommentStatus }) {
     return (
         <Badge variant="outline" className="gap-1.5">
-            <StateDot resolved={resolved} />
+            <StateDot status={status} />
             <span className="sr-only">Status: </span>
-            {resolved ? 'Done' : ready ? 'Ready for review' : 'Open'}
+            {commentStatusLabels[status]}
         </Badge>
     );
 }
 
-/** The status badge as a menu, for those who can mark the comment done or reopen it */
-function StateMenu({ resolved, ready, disabled, onChange }: { resolved: boolean; ready?: boolean; disabled: boolean; onChange: () => void }) {
-    const state = resolved ? 'Done' : ready ? 'Ready for review' : 'Open';
+/**
+ * The status badge as a menu with the three statuses. Each is enabled when the person may move the
+ * thread there: Open and Done with the resolve permission (Open from Ready to verify cancels the
+ * check), Ready to verify with the request permission (it opens the Request verification form).
+ */
+export function StateMenu({ status, allowed, disabled, onChange, triggerRef }: {
+    status: CommentStatus;
+    allowed: Record<CommentStatus, boolean>;
+    disabled: boolean;
+    onChange: (status: CommentStatus) => void;
+    triggerRef?: React.Ref<HTMLButtonElement>;
+}) {
+    const label = commentStatusLabels[status];
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${state}. Change status`}
+            <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${label}. Change status`}
                     className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11" />}>
-                <StateDot resolved={resolved} />
-                {state}
+                <StateDot status={status} />
+                {label}
                 <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-36">
+            <DropdownMenuContent align="start" className="min-w-48">
                 <DropdownMenuGroup>
-                    {[false, true].map(option => (
-                        <DropdownMenuItem key={String(option)} onClick={() => option !== resolved && onChange()}>
-                            <StateDot resolved={option} />
-                            {option ? ready ? 'Done without verification' : 'Done' : 'Open'}
-                            {option === resolved && <CheckIcon className="ml-auto" />}
+                    {(['open', 'ready', 'done'] as const).map(option => (
+                        <DropdownMenuItem key={option} disabled={option !== status && !allowed[option]}
+                            onClick={() => (option !== status || option === 'ready') && allowed[option] && onChange(option)}>
+                            <StateDot status={option} />
+                            {option === 'done' && status === 'ready' ? 'Done without verification' : commentStatusLabels[option]}
+                            {option === status && <CheckIcon className="ml-auto" />}
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuGroup>
@@ -243,8 +263,18 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const copyIssue = useCopyIssue(projectId, comment.id);
     const [confirmingReply, setConfirmingReply] = useState<string>();
     const [expanded, setExpanded] = useState(false);
+    // The Request verification form, opened from the status menu
+    const [verifying, setVerifying] = useState(false);
+    const statusTrigger = useRef<HTMLButtonElement>(null);
     const firstRevealedRef = useRef<HTMLLIElement>(null);
     const { permissions, source } = comment;
+    const status = commentStatus(comment);
+    const verificationPermissions = comment.verificationPermissions;
+    const statusAllowed: Record<CommentStatus, boolean> = {
+        open: status === 'done' ? permissions.resolve : status === 'ready' && Boolean(verificationPermissions?.cancel),
+        ready: Boolean(verificationPermissions?.request),
+        done: status !== 'done' && permissions.resolve
+    };
     const author = comment.author.isMe ? 'You' : comment.author.name;
     const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
     const unread = Boolean(comment.activity?.unread);
@@ -300,6 +330,22 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             toast.error('Could not save the change. Try again.');
         }
     });
+
+    // Open from Ready to verify cancels the check; Ready to verify opens the request form
+    const changeStatus = (next: CommentStatus) => {
+        if (next === 'ready') {
+            setVerifying(true);
+            return;
+        }
+        setVerifying(false);
+        if (next === 'open' && status === 'ready') {
+            run(() => verificationCommentAction(projectId, comment.id, {
+                action: 'cancel', override: false, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
+            }), 'Verification request canceled.');
+            return;
+        }
+        toggleResolved();
+    };
 
     const filterAuthor = (itemId?: string) => startTransition(async () => {
         commitSearch();
@@ -376,9 +422,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <SelectComment comment={comment} />
-                        {permissions.resolve
-                            ? <StateMenu ready={readyForReview(comment)} resolved={comment.resolved} disabled={pending} onChange={toggleResolved} />
-                            : <StateBadge ready={readyForReview(comment)} resolved={comment.resolved} />}
+                        {Object.values(statusAllowed).some(Boolean)
+                            ? <StateMenu status={status} allowed={statusAllowed} disabled={pending} onChange={changeStatus} triggerRef={statusTrigger} />
+                            : <StateBadge status={status} />}
                         <PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} />
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
@@ -506,7 +552,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 </div>
                 <CopyIssueResult state={copyIssue} />
-                <VerificationControl projectId={projectId} userId={userId} comment={comment} />
+                <VerificationControl projectId={projectId} userId={userId} comment={comment}
+                    formOpen={verifying} onFormOpenChange={setVerifying} returnFocus={statusTrigger} />
 
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-2 p-0">

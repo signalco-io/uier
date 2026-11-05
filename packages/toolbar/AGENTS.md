@@ -300,7 +300,7 @@ staff policy. The control is shared by thread and inbox, with cache/activity inv
 `verification.ts` is the pure public display contract, status helper and literal description.
 `CommentVerification` is shared by thread popovers and inbox cards, with signalco controls,
 reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
-The status badge reads Ready for review for pending unresolved requests; the ordinary action
+The status badge reads Ready to verify for pending unresolved requests; the ordinary action
 says Done without verification. Confirmation requires the server's current request revision.
 Workflow mutations refresh all lists/activity, preserve failed details and never auto-acknowledge
 activity. Ready remains in Open counts, with its own filter. The extension contract adds the
