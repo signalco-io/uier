@@ -11,16 +11,19 @@ Projects and Activity. Names are whitespace-normalized, case-insensitively uniqu
 while archived. Descriptions are plain text. New teams start with no people or projects.
 
 Add accepted workspace members without sending another invitation. Bulk changes support up to
-50 people, save separately per person and report each result. The explicit **Create from existing
-access** helper creates a team from selected people/projects and keeps direct grants. Removing
+50 people, save separately per person and report each result. The explicit **Group existing
+people** helper creates a team from selected people/projects and keeps direct grants. Removing
 those direct grants requires a separate confirmed change in the person's detail.
 
 **Users** filters accepted people/pending invitations by team, project and Internal/External/
-Unspecified relationship. Open **Manage access** for a person's role, relationship, direct
+Unspecified relationship once the list has more than eight people and invitations, and only by what
+tells them apart (a filter set in the address always shows, so it can be cleared). The invite dialog
+keeps the relationship under **More options**, because it is a label without permissions. Open **Manage access** for a person's role, relationship, direct
 grants, teams and every effective project source. Older memberships display Unspecified; no
 email-domain inference is made. The relationship is per workspace and grants no permissions.
 
-Project settings keep **Who can comment** separate from **People and teams**. Share with or
+Project settings keep **Who can comment** separate from **People and teams**, which has **Invite**
+with the project already chosen. Share with or
 remove a team without copying people into direct access. A person with several grants appears
 once, with a badge for every current source: the workspace (Admin, All projects), the project
 (Direct) or a team. **Remove** previews both the direct grant and every granting team
@@ -126,7 +129,10 @@ payloads above 1,800,000 bytes, leaving space below Cosmos's 2 MB batch limit. P
 transactions normally contain three operations (workspace guard, member and event). The team
 mutation and before/after arrays remain well below the payload bound at the documented limits.
 
-History is admin-only and paginated on the server. Events include actor, server time, action,
+History is admin-only and paginated on the server. The workspace area's **Activity** tab and each
+team's page show it as sentences ("Maya invited client@example.com to Acme shop"): people, teams and
+projects by name, a pending invitation by its address and an accepted one by who accepted it. Ids
+that no longer resolve read as "someone", "a team" or "a deleted project", never as raw ids. Events include actor, server time, action,
 target ids and before/after access metadata; no credentials, tokens, comment text or screenshots.
 The privacy policy describes relationship data and 180-day retention. Deleting a project removes it
 from team, member and invitation grants through the same guard, in `project.deleted` events

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckIcon, UserIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import { CheckIcon, FolderIcon, FoldersIcon, ShieldIcon, UserIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import type { AppContext } from '@/src/lib/app/context';
 import type { DbProject } from '@/src/lib/app/model';
 import { projectAccessGrants, type ProjectAccessGrant } from '@/src/lib/app/access';
@@ -14,6 +14,7 @@ import { initials } from '../initials';
 import { ProjectMark } from '../projects/ProjectMark';
 import { managementData } from './management';
 import { ProjectTeamButton, RemoveProjectAccess } from './AccessForms';
+import { InviteButton } from '../users/InviteDialog';
 
 // The tile stays centred on the row (Item tops it when there is a description), as on the users list
 const centeredMedia = 'group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center';
@@ -38,35 +39,37 @@ function EmptyRow({ icon: Icon, children }: { icon: LucideIcon; children: string
     );
 }
 
-/** Why someone can review the project, by where the grant lives: the workspace, this project or a team */
+/**
+ * Why someone can review the project, by where the grant lives: the workspace (admin, every project),
+ * this project or a team. Icons, not tiles: a letter inside a chip reads as part of its label.
+ */
 function GrantBadge({ grant, project, workspace }: { grant: ProjectAccessGrant; project: DbProject; workspace: string }) {
-    const mark = 'size-3.5 rounded-[3px] text-[8px]';
     switch (grant.kind) {
         case 'admin':
             return (
                 <Badge variant="outline" title={`Admin of ${workspace}`}>
-                    <ProjectMark name={workspace} className={mark} />
+                    <ShieldIcon data-icon="inline-start" aria-hidden="true" />
                     Admin
                 </Badge>
             );
         case 'all':
             return (
                 <Badge variant="outline" title="Every project, including future ones">
-                    <ProjectMark name={workspace} className={mark} />
+                    <FoldersIcon data-icon="inline-start" aria-hidden="true" />
                     All projects
                 </Badge>
             );
         case 'direct':
             return (
                 <Badge variant="outline" title={`Added to ${project.name}`}>
-                    <ProjectMark name={project.name} url={project.urls[0]} className={mark} />
+                    <FolderIcon data-icon="inline-start" aria-hidden="true" />
                     Direct
                 </Badge>
             );
         case 'team':
             return (
                 <Badge variant="outline" render={<Link href={KnownPageLinks.team(grant.team.id)} title={`Through the team ${grant.team.name}`} />}>
-                    <UsersIcon aria-hidden="true" />
+                    <UsersIcon data-icon="inline-start" aria-hidden="true" />
                     {grant.team.name}
                 </Badge>
             );
@@ -84,11 +87,12 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
             id="people-and-teams"
             title="People and teams"
             actions={(
-                // Teams and people are managed for the whole workspace on their own pages; icons only on phones,
-                // so the title keeps its line
+                // Invite starts with this project chosen. Teams and people are managed for the whole workspace
+                // in its area; icons only on phones, so the title keeps its line
                 <div className="flex gap-2">
                     <Link href={KnownPages.AppTeams} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UsersIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage teams</span></Link>
                     <Link href={KnownPages.AppUsers} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UserIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage users</span></Link>
+                    <InviteButton projectId={project.id} size="sm" />
                 </div>
             )}
         >

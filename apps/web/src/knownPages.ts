@@ -34,11 +34,12 @@ export const KnownPages = {
     AppProjects: '/app/projects',
     AppReview: '/app/review',
     AppNewProject: '/app/projects/new',
-    /** The workspace area: Users, Teams, Clients and Settings, each a tab */
+    /** The workspace area: Users, Teams, Clients, Activity and Settings, each a tab */
     AppWorkspace: '/app/workspace',
     AppUsers: '/app/workspace/users',
     AppTeams: '/app/workspace/teams',
     AppClients: '/app/workspace/clients',
+    AppActivity: '/app/workspace/activity',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
     AppSettings: '/app/workspace/settings',

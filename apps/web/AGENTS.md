@@ -357,11 +357,19 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   review, then the `ProjectTabs`: Comments, Install (Settings → Installation and the onboarding install step) and
   Settings (every other section)); its pages render the comments, install guide or settings under it.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
-  `workspaceTabs`): Users, Teams, Clients and Settings for admins, Clients only for everyone else and in the uier
-  workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
+  `workspaceTabs`): Users, Teams, Clients, Activity and Settings for admins, Clients only for everyone else and in
+  the uier workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
   `workspace/users/[userId]`) are outside the `(tabs)` group, with their own header. The old addresses
   (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
-  (`next.config.ts`). Each page keeps its own authorization: Users, Teams and Settings are admin-only as before.
+  (`next.config.ts`). Each page keeps its own authorization: Users, Teams, Activity and Settings are admin-only.
+  Activity renders access events as sentences (`teams/activityText.ts`, pure, with names from
+  `teams/activityNames.ts`, which also looks up people who left, archived teams and who accepted an
+  invitation); never show raw actions, ids or before/after JSON. Users shows its filters only past
+  `FILTER_FROM` people and invitations, and only those that tell people apart. The invite dialog
+  (`InviteForm`) must fit an 800 px tall screen: role cards side by side, long lists scroll in their box,
+  and the relationship label is under More options. It starts with the project it was opened from, or
+  the only project (not when opened from a team). It never offers the invitation link where email is
+  sent: the link signs in as the invited address.
 - **Project settings** are sections, each its own page under `settings/` (`settings/layout.tsx`): General (the
   settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
   Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
@@ -488,7 +496,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   field (`ClientNameInput`) is free text that suggests existing clients: it is built on
   `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn has
   no autocomplete, and Combobox only takes one of its items). Admins edit a client in `ClientEditDialog`
-  on the Clients tab (`updateClientAction`). Client data belongs to the signed-in app: `reviewProjectDto`
+  on the Clients tab (`updateClientAction`) and add one there for chosen projects (`ClientCreateDialog`,
+  `createClient`: refuses a name another client with projects uses, in any case, and moves each project to it). Client data belongs to the signed-in app: `reviewProjectDto`
   (the review API's project) and MCP project lists never include it. `e2e/clients.api.spec.ts` covers
   rename, admin-only access, workspace isolation, migration and DTO exclusion; `project-clients.spec.ts`
   and `users.spec.ts` the UI.

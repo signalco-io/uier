@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
 import { BulkTeamForm, TeamEditor, TeamLifecycle, TeamProjectForm } from '@/src/components/app/teams/AccessForms';
 import { AccessActivity } from '@/src/components/app/teams/Activity';
+import { activityNames } from '@/src/components/app/teams/activityNames';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { getTeam, listAccessEvents } from '@/src/lib/app/teams';
@@ -23,6 +24,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/app
         listInvitations(context.workspace.id),
         listAccessEvents(context.workspace.id, typeof query.activity === 'string' ? query.activity : undefined, team.id)
     ]);
+    const names = await activityNames(context.workspace.id, history.events, data, invitations);
     const members = data.people.filter((person) => person.member.teamIds?.includes(team.id));
     const pending = invitations.filter((invitation) => invitation.teamIds?.includes(team.id));
     return (
@@ -79,10 +81,10 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/app
                 <Section id="lifecycle" title="Team state">
                     <TeamLifecycle team={team} data={data} />
                 </Section>
-                <Section id="activity" title="Activity">
+                <Section id="activity" title="Activity" description="Changes to this team and its people, kept for 180 days.">
                     <AccessActivity
                         events={history.events}
-                        names={new Map(data.people.map((person) => [person.member.userId, person.name]))}
+                        names={names}
                         next={
                             history.next
                                 ? `${KnownPageLinks.team(team.id)}?activity=${encodeURIComponent(history.next)}#activity`

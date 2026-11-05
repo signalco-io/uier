@@ -3,7 +3,10 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 
-export function UsersFilters({ teams }: { teams: { id: string; name: string }[] }) {
+export type UsersFilter = 'relationship' | 'team' | 'state';
+
+/** The users list's filters (`?relationship=`, `?team=`, `?state=`); the page shows only those with something to tell apart */
+export function UsersFilters({ teams, show }: { teams: { id: string; name: string }[]; show: UsersFilter[] }) {
     const params = useSearchParams(),
         pathname = usePathname(),
         router = useRouter();
@@ -29,7 +32,7 @@ export function UsersFilters({ teams }: { teams: { id: string; name: string }[] 
             ]
         }
     ];
-    return filters.map((filter) => (
+    return filters.filter(filter => show.includes(filter.key as UsersFilter)).map((filter) => (
         <Select
             key={filter.key}
             items={filter.options.map(option => ({ value: option.id, label: option.name }))}

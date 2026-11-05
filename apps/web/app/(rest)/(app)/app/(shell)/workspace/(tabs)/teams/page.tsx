@@ -8,14 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
-import { Section } from '@/src/components/app/PageHeader';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { TeamEditor, CopyAccessToTeam } from '@/src/components/app/teams/AccessForms';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
-import { AccessActivity } from '@/src/components/app/teams/Activity';
-import { listTeams, listAccessEvents } from '@/src/lib/app/teams';
+import { listTeams } from '@/src/lib/app/teams';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { KnownPages, KnownPageLinks } from '@/src/knownPages';
 
@@ -30,18 +28,17 @@ function countsText(people: number, invited: number, projects: number) {
     ].filter(Boolean).join(', ');
 }
 
-/** The workspace's teams (active or archived, searchable), creating one, and the access history */
+/** The workspace's teams (active or archived, searchable) and creating one; the access history is the Activity tab */
 export default async function TeamsPage({ searchParams }: PageProps<'/app/workspace/teams'>) {
     const context = await requireTeamAdmin(),
         query = await searchParams;
     const text = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : undefined);
     const state = text('state') === 'archived' ? 'archived' : 'active';
     const search = text('q')?.trim() || undefined;
-    const [{ teams, next }, data, invitations, history] = await Promise.all([
+    const [{ teams, next }, data, invitations] = await Promise.all([
         listTeams(context.workspace.id, { state, search, after: text('after') }),
         managementData(context),
-        listInvitations(context.workspace.id),
-        listAccessEvents(context.workspace.id, text('activity'))
+        listInvitations(context.workspace.id)
     ]);
     const stateHref = (value: 'active' | 'archived') => {
         const params = new URLSearchParams();
@@ -56,13 +53,13 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                 description="Share selected projects with a group of people. Archived teams grant no access."
                 actions={(
                     <>
-                        {/* A team from people and projects that already have access: an occasional, longer flow */}
+                        {/* A team of people already in the workspace, with its projects: an occasional, longer flow */}
                         <Dialog>
-                            <DialogTrigger render={<Button variant="outline" />}>From existing access</DialogTrigger>
+                            <DialogTrigger render={<Button variant="outline" />}>Group existing people</DialogTrigger>
                             <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
                                 <DialogHeader>
-                                    <DialogTitle>Create from existing access</DialogTitle>
-                                    <DialogDescription>Choose people and projects explicitly. Their existing direct grants stay.</DialogDescription>
+                                    <DialogTitle>Group existing people into a team</DialogTitle>
+                                    <DialogDescription>Choose people already in the workspace and the projects the team shares. Their own access stays.</DialogDescription>
                                 </DialogHeader>
                                 <CopyAccessToTeam data={data} />
                             </DialogContent>
@@ -141,17 +138,6 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                         </EmptyHeader>
                     </Empty>
                 )}
-                <Section id="activity" title="Activity">
-                    <AccessActivity
-                        events={history.events}
-                        names={new Map(data.people.map((person) => [person.member.userId, person.name]))}
-                        next={
-                            history.next
-                                ? `${KnownPages.AppTeams}?${new URLSearchParams({ state, activity: history.next })}#activity`
-                                : undefined
-                        }
-                    />
-                </Section>
             </div>
         </>
     );

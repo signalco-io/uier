@@ -448,7 +448,7 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
     await expect(page).toHaveURL(/\/app\/workspace\/settings$/);
     await expect(page.getByRole('heading', { level: 1, name: email })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Users', 'Teams', 'Clients', 'Settings']);
+    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Users', 'Teams', 'Clients', 'Activity', 'Settings']);
     await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Workspace settings · uier');
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Settings');

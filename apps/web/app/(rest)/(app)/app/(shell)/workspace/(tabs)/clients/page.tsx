@@ -8,10 +8,11 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
-import { loadClients, projectClients } from '@/src/lib/app/clients';
+import { loadClients, projectClient, projectClients } from '@/src/lib/app/clients';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { ClientEditDialog } from '@/src/components/app/clients/ClientEditDialog';
+import { ClientCreateDialog } from '@/src/components/app/clients/ClientCreateDialog';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 
 export const metadata: Metadata = {
@@ -29,11 +30,21 @@ export default async function ClientsPage() {
     const canEdit = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
     // Projects first: listing them moves older client names to client documents
     const projects = await listVisibleProjects(context);
-    const clients = projectClients(projects, await loadClients(context.workspace.id));
+    const clientDocs = await loadClients(context.workspace.id);
+    const clients = projectClients(projects, clientDocs);
 
     return (
         <>
-            <WorkspaceTabHeader description="Who your projects are for. Set a project's client when you create it or in its settings." />
+            <WorkspaceTabHeader
+                description="Who your projects are for. Add a client here, or set a project's client when you create it or in its settings."
+                actions={canEdit && projects.length > 0 && (
+                    <ClientCreateDialog projects={projects.map(project => ({
+                        id: project.id,
+                        name: project.name,
+                        done: project.status === 'done',
+                        client: projectClient(project, clientDocs)?.name
+                    }))} />
+                )} />
             {clients.length ? (
                 <Card className="gap-0 py-0">
                     <ItemGroup aria-label="Clients" className="gap-0 divide-y">
@@ -80,14 +91,21 @@ export default async function ClientsPage() {
                         </EmptyMedia>
                         <EmptyTitle>No clients yet</EmptyTitle>
                         <EmptyDescription>
-                            {context.isAdmin
-                                ? 'Add a client name to a project when you create it or in its settings.'
+                            {canEdit
+                                ? projects.length
+                                    ? 'Add a client for one or more projects. Everyone who can open one of them sees it.'
+                                    : 'Create a project first, then add the client it is for.'
                                 : 'Clients of the projects you are invited to show up here.'}
                         </EmptyDescription>
                     </EmptyHeader>
-                    <EmptyContent>
-                        <Link href={KnownPages.AppProjects} className={buttonVariants({ variant: 'outline' })}>Go to projects</Link>
-                    </EmptyContent>
+                    {/* Add client is above the list; without projects there is nothing to add a client to */}
+                    {(!canEdit || !projects.length) && (
+                        <EmptyContent>
+                            <Link href={canEdit ? KnownPages.AppNewProject : KnownPages.AppProjects} className={buttonVariants({ variant: 'outline' })}>
+                                {canEdit ? 'Create project' : 'Go to projects'}
+                            </Link>
+                        </EmptyContent>
+                    )}
                 </Empty>
             )}
         </>

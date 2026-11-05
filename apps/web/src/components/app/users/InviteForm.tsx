@@ -2,9 +2,10 @@
 
 import { useActionState, useId, useState } from 'react';
 import Link from 'next/link';
-import { MailCheckIcon } from 'lucide-react';
+import { ChevronRightIcon, MailCheckIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
 import { DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
@@ -19,13 +20,17 @@ type Role = 'commenter' | 'admin';
 type Access = 'selected' | 'all';
 
 const roles: { value: Role; label: string; description: string }[] = [
-    { value: 'commenter', label: 'Commenter', description: 'Reviews and comments on the projects you choose. Can\'t change settings or invite people.' },
-    { value: 'admin', label: 'Admin', description: 'Every project, its settings and the people in the workspace. Can make comments private.' }
+    { value: 'commenter', label: 'Commenter', description: 'Comments on the projects you choose. Can\'t change settings or invite people.' },
+    { value: 'admin', label: 'Admin', description: 'Every project, its settings and people. Can make comments private.' }
 ];
 
 const relationships = [{ value: 'external', label: 'External' }, { value: 'internal', label: 'Internal' }];
 
-/** The invite dialog's content: their email, the role and, for commenters, the projects they can review */
+/**
+ * The invite dialog's content: their email, the role, for commenters the projects they can review, the
+ * teams, and under More options the relationship label. The invitation link is never shown or copied
+ * where email is sent: it signs in as the invited address, so only that inbox may have it.
+ */
 export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, onDone, onInviteAnother }: {
     projects: { id: string; name: string }[];
     teams?: { id: string; name: string }[];
@@ -40,7 +45,10 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
     const [email, setEmail] = useState('');
     const [role, setRole] = useState<Role>('commenter');
     const [access, setAccess] = useState<Access>('selected');
-    const [selected, setSelected] = useState<string[]>(() => fromProjectId ? [fromProjectId] : []);
+    // The project the invitation started from, or the workspace's only project (not from a team: its projects are enough)
+    const [selected, setSelected] = useState<string[]>(() => fromProjectId
+        ? [fromProjectId]
+        : !fromTeamId && projects.length === 1 ? [projects[0]!.id] : []);
     const [relationship, setRelationship] = useState('external');
     const [selectedTeams, setSelectedTeams] = useState<string[]>(fromTeamId ? [fromTeamId] : []);
     const fromProject = projects.find(project => project.id === fromProjectId);
@@ -77,7 +85,7 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
         setSelected(current => checked ? [...new Set([...current, projectId])] : current.filter(other => other !== projectId));
 
     return (
-        <form action={formAction} className="flex flex-col gap-6">
+        <form action={formAction} className="flex flex-col gap-5">
             {fromProjectId && <input type="hidden" name="from" value={fromProjectId} />}
             <input type="hidden" name="role" value={role} />
             <input type="hidden" name="access" value={access} />
@@ -92,7 +100,7 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         : 'They get an email with a link that signs them in.'}
                 </DialogDescription>
             </DialogHeader>
-            <FieldGroup>
+            <FieldGroup className="gap-5">
                 <Field>
                     <FieldLabel htmlFor={`${id}-email`}>Email</FieldLabel>
                     <Input
@@ -105,25 +113,9 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         autoComplete="off"
                         placeholder="name@example.com" />
                 </Field>
-                <Field>
-                    <FieldLabel htmlFor={`${id}-relationship`}>Relationship</FieldLabel>
-                    <Select items={relationships} value={relationship} onValueChange={value => value !== null && setRelationship(value)}>
-                        <SelectTrigger id={`${id}-relationship`}><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectGroup>{relationships.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
-                    </Select>
-                    <FieldDescription>A workspace label. External reviewers have the same commenter permissions.</FieldDescription>
-                </Field>
-                {teams.length > 0 && <FieldSet><FieldLegend variant="label">Teams</FieldLegend>
-                    <FieldDescription>Teams and direct projects add together. Team access follows the team's current projects, including later changes.</FieldDescription>
-                    <FieldGroup className="gap-3">{teams.map(team => <Field key={team.id} orientation="horizontal">
-                        <Checkbox id={`${id}-${team.id}`} checked={selectedTeams.includes(team.id)} onCheckedChange={checked => setSelectedTeams(current => checked === true ? [...current, team.id] : current.filter(id => id !== team.id))} />
-                        <FieldLabel htmlFor={`${id}-${team.id}`}>{team.name}</FieldLabel>
-                    </Field>)}</FieldGroup>
-                </FieldSet>}
-                {(role === 'admin' || access === 'all') && <p className="text-sm text-destructive" role="status">This grants every project, including future projects{role === 'admin' ? ', and workspace administration' : ''}. Use selected teams and projects for restricted external access.</p>}
                 <FieldSet>
                     <FieldLegend variant="label">Role</FieldLegend>
-                    <RadioGroup value={role} onValueChange={(value) => setRole(value === 'admin' ? 'admin' : 'commenter')}>
+                    <RadioGroup value={role} onValueChange={(value) => setRole(value === 'admin' ? 'admin' : 'commenter')} className="grid gap-3 sm:grid-cols-2">
                         {roles.map(option => (
                             <ChoiceCard
                                 key={option.value}
@@ -152,8 +144,8 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         </RadioGroup>
                         {access === 'selected' && (
                             projects.length ? (
-                                <FieldGroup data-slot="checkbox-group" className="gap-3 rounded-lg border p-4">
-                                    <FieldDescription>Projects they can review</FieldDescription>
+                                // A long list scrolls inside its box, so the dialog keeps its buttons in view
+                                <FieldGroup data-slot="checkbox-group" role="group" aria-label="Projects they can review" className="max-h-40 gap-3 overflow-y-auto rounded-lg border p-3">
                                     {projects.map(project => (
                                         <Field key={project.id} orientation="horizontal">
                                             <Checkbox
@@ -170,6 +162,41 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         )}
                     </FieldSet>
                 )}
+                {(role === 'admin' || access === 'all') && <p className="m-0 text-sm text-destructive" role="status">This grants every project, including future projects{role === 'admin' ? ', and workspace administration' : ''}. Use selected teams and projects for restricted external access.</p>}
+                {teams.length > 0 && (
+                    <FieldSet>
+                        <FieldLegend variant="label">Teams</FieldLegend>
+                        <FieldDescription>They also review every project of the teams you choose, including projects added later.</FieldDescription>
+                        <FieldGroup data-slot="checkbox-group" className="max-h-32 gap-3 overflow-y-auto">
+                            {teams.map(team => (
+                                <Field key={team.id} orientation="horizontal">
+                                    <Checkbox
+                                        id={`${id}-${team.id}`}
+                                        checked={selectedTeams.includes(team.id)}
+                                        onCheckedChange={checked => setSelectedTeams(current => checked === true ? [...current, team.id] : current.filter(other => other !== team.id))} />
+                                    <FieldLabel htmlFor={`${id}-${team.id}`} className="font-normal">{team.name}</FieldLabel>
+                                </Field>
+                            ))}
+                        </FieldGroup>
+                    </FieldSet>
+                )}
+                {/* A label for the people list only: it changes no permission, so it waits behind More options */}
+                <Collapsible className="flex flex-col gap-3">
+                    <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/more h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
+                        <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/more:rotate-90" />
+                        More options
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <Field>
+                            <FieldLabel htmlFor={`${id}-relationship`}>Relationship</FieldLabel>
+                            <Select items={relationships} value={relationship} onValueChange={value => value !== null && setRelationship(value)}>
+                                <SelectTrigger id={`${id}-relationship`} className="w-40"><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectGroup>{relationships.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
+                            </Select>
+                            <FieldDescription>A label on the users list. It changes no permissions.</FieldDescription>
+                        </Field>
+                    </CollapsibleContent>
+                </Collapsible>
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
