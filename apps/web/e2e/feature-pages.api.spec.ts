@@ -37,6 +37,24 @@ test('feedback triage publishes its own canonical, description and social card',
     expect((await card.body()).byteLength).toBeGreaterThan(10_000);
 });
 
+test('the AI page publishes its own canonical, description and social card', async ({ request }) => {
+    const response = await request.get('/features/ai?utm_source=feature-test');
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    const canonical = `${brand.url}/features/ai`;
+    const links = [...html.matchAll(/<link\b[^>]*>/g)].map(match => match[0]).filter(tag => attribute(tag, 'rel') === 'canonical');
+    expect(links.map(tag => attribute(tag, 'href'))).toEqual([canonical]);
+    expect(meta(html, 'og:url')).toBe(canonical);
+    expect(meta(html, 'og:title')).toBe(`AI for website feedback · ${brand.name}`);
+    expect(meta(html, 'description')).toMatch(/Claude Code, Codex or Cursor/);
+    expect(meta(html, 'robots') ?? '').not.toMatch(/noindex/i);
+    const image = new URL(meta(html, 'og:image')!);
+    expect(image.pathname).toMatch(/^\/features\/ai\/opengraph-image/);
+    const card = await request.get(`${image.pathname}${image.search}`);
+    expect(card.status()).toBe(200);
+    expect(card.headers()['content-type']).toBe('image/png');
+});
+
 test('unpublished feature pages return a real 404', async ({ request }) => {
     for (const path of ['/features', '/features/unknown'])
         expect((await request.get(path)).status(), path).toBe(404);

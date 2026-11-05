@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 
 // Every public page shares the footer from the marketing layout
-const publicPages = ['/guides', '/guides/client-website-reviews', '/guides/nextjs', '/', '/brand', '/features/feedback-triage', '/features/fix-verification', '/legal/privacy-policy', '/security', '/open-source', '/status'];
+const publicPages = ['/guides', '/guides/client-website-reviews', '/guides/nextjs', '/', '/brand', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/legal/privacy-policy', '/security', '/open-source', '/status'];
 
 test('footer is on every public page', async ({ page }) => {
     for (const path of publicPages) {

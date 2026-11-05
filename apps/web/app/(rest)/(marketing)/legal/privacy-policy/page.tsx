@@ -424,6 +424,15 @@ export default function PrivacyPolicyPage() {
                 and expire after 30 days.
             </p>
             <p>
+                To find failing requests and improve what coding tools can do, we record each coding tool request
+                in our hosting logs: the operation and the tool, prompt or resource it used, the outcome and error
+                codes, which arguments it gave with their sizes, numbers and fixed options (such as a status
+                filter), the size of the answer, the tool&rsquo;s own name and version, and keyed hashes of your
+                account and the connection. These records contain no feedback, replies, search text, page
+                addresses, names, email addresses, tokens or plain account, project or feedback ids.
+                They follow the hosting log retention settings.
+            </p>
+            <p>
                 The client you choose receives the feedback and any screenshots you authorize; its own terms and
                 retention rules apply to copies it receives. You can revoke a connection or an access token in Account
                 at any time. Revocation prevents further access but cannot remove copies already received by that

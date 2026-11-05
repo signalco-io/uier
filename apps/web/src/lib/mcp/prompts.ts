@@ -4,6 +4,7 @@ import { mcpProject, type McpIdentity } from './credentials';
 import { ApiError } from '../comments/http';
 import { projectId, thread } from './schemas';
 import { feedbackWorkflows } from './workflows';
+import { noteMcpError } from './telemetry';
 
 export function registerFeedbackPrompts(server: McpServer, identity: McpIdentity) {
     for (const workflow of feedbackWorkflows(identity.scopes)) {
@@ -16,6 +17,7 @@ export function registerFeedbackPrompts(server: McpServer, identity: McpIdentity
             // Load the project even for a valid-looking id: a grant is not current membership.
             try { await mcpProject(identity, input.projectId); }
             catch (error) {
+                noteMcpError(error);
                 if (error instanceof ApiError) throw new McpError(ErrorCode.InvalidParams, `${error.code}: ${error.message}`);
                 throw new McpError(ErrorCode.InternalError, 'The operation failed.');
             }

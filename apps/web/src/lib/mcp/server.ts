@@ -20,6 +20,7 @@ import { projectId, commentId, thread } from './schemas';
 import { registerFeedbackPrompts } from './prompts';
 import { feedbackAccessGuidance, feedbackCitation, untrustedFeedback as untrusted } from './workflows';
 import { participantNames } from '../review/dto';
+import { noteMcpError, type McpRequestLog } from './telemetry';
 import { environmentFilter, environmentOptions } from '../app/environments';
 import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
@@ -57,9 +58,9 @@ function result(data: Record<string, unknown>) {
 async function safely(action: () => Promise<ReturnType<typeof result>>) {
     try { return await action(); }
     catch (error) {
+        noteMcpError(error);
         if (error instanceof ApiError) return { ...result({ error: error.code, message: error.message, ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}) }), isError: true };
         // No submitted feedback, token, stack or database details in errors.
-        console.error('[mcp] Tool failed');
         return { ...result({ error: 'server_error', message: 'The operation failed. Retry the same input and idempotency key.' }), isError: true };
     }
 }
@@ -69,8 +70,10 @@ function slice<T>(items: T[], cursor: number, limit: number) {
 // Keyed by the connection (credential or OAuth grant), never the access token, so retries survive a refresh.
 function key(identity: McpIdentity, value: string) { return sha256Hex(`mcp:${identity.connection.id}:${value}`); }
 
-export function createFeedbackMcpServer(identity: McpIdentity, request: Request, baseUrl: string) {
+/** `log` learns every registration below, so new tools, prompts and resources are logged too. */
+export function createFeedbackMcpServer(identity: McpIdentity, request: Request, baseUrl: string, log?: McpRequestLog) {
     const server = new McpServer({ name: 'uier', version: '1.0.0' }, { instructions: `${untrusted} ${feedbackAccessGuidance} ${feedbackCitation} This connector reads existing feedback and records approved replies, status and assignments. It does not edit code or deploy. Reading does not mark feedback read.` });
+    log?.watch(server);
     registerFeedbackPrompts(server, identity);
     const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.connection.name, connection: { kind: identity.connection.kind } };
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
@@ -196,9 +199,9 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             if (bytes.length > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
             return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: bytes.toString('base64') }] };
         } catch (error) {
+            noteMcpError(error);
             if (error instanceof ApiError) throw new McpError(ErrorCode.InvalidParams, `${error.code}: ${error.message}`);
             if (error instanceof z.ZodError) throw new McpError(ErrorCode.InvalidParams, 'Invalid resource arguments.');
-            console.error('[mcp] Resource failed');
             throw new McpError(ErrorCode.InternalError, 'The operation failed.');
         }
     });

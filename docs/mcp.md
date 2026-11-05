@@ -4,6 +4,7 @@ Connect a coding tool to the feedback you choose. The endpoint is `https://uier.
 local or preview origin while testing). It uses the
 [official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server)
 with stateless JSON responses. For the shared feedback packet, see [Feedback context](feedback-context.md).
+The public overview of what an agent can do is [uier.io/features/ai](https://uier.io/features/ai).
 
 A coding tool connects in one of two ways:
 
@@ -488,6 +489,64 @@ the same attribution and use existing unread and notification rules. Stored attr
 connection id (the connected app or the access token) and whether it was OAuth. No notification bypass
 is added.
 
+## Request logs
+
+Every `/api/mcp` request writes one `mcp_request` JSON event (version 1) to the hosting logs, so
+tools, prompts and resources can be improved from how clients actually use them: what they call,
+which calls fail and why, and how large the answers are. `apps/web/src/lib/mcp/telemetry.ts` builds
+the event and `mcpRequestEventSchema` is its contract. Events with an unexpected failure are written
+at error level, all others at info level. Find them by filtering the logs on `"event":"mcp_request"`.
+
+The request part has the HTTP method and status, the duration, and an `outcome`:
+
+| `outcome` | `error` |
+| --- | --- |
+| `handled` | none; the calls say how each message went |
+| `rejected` | `sign_in_required` (with `authentication`: `missing` or `invalid`), `forbidden` (before authentication: the Origin check), `rate_limited`, `method_not_allowed`, `invalid_request`, `too_large`, `transport_error` (the SDK refused the request, for example a missing `Accept`) |
+| `interrupted` | `timeout` or `cancelled` |
+| `failed` | `server_error`, with `failure` |
+
+It also has the protocol version, the client's own `name` and `version` (only on `initialize`) and,
+once a connection is authenticated, its `kind`, granted `scopes`, `access` (`all` or `selected`) and
+two keyed references: `ref` for the connection and `user` for the account. They are 16 hex digits of
+an HMAC with the server secret, so requests of one connection can be followed across events, and
+an operator who knows a connection id can find its requests, without the id in the logs.
+
+`calls` has one entry per JSON-RPC message (at most 10; `omittedCalls` counts the rest):
+
+- `method` and, for `tools/call`, `prompts/get` and `resources/read`, the registered `name`, or
+  `unknown` with `requestedName` when the client asked for a name we do not offer;
+- `outcome`: `success`, `tool_error` (an `isError` tool result), `error` (a JSON-RPC error, with
+  `rpcError`), `accepted` (a notification) or `unanswered` (no answer was sent, for example after a
+  timeout or a rejected request);
+- `error`: the tool error code (`not_found`, `forbidden`, `rate_limited`, `conflict`, `too_large`, ...),
+  `invalid_arguments`, `unknown_tool`, `unknown_prompt`, `unknown_resource`, `server_error` or a
+  JSON-RPC classification; `missingScope` when a connection lacks the operation, `reason` for limits;
+- `issues` for rejected arguments: the field and the validation code (`too_big`, `invalid_type`,
+  `invalid_format`, `unrecognized_keys`, ...) from the tool's or prompt's own schema;
+- `arguments` (fields the schema declares) and `unknownArguments` (other names the client sent).
+  Booleans, `null`, numbers in numeric fields and the fixed options a field declares (`status: "open"`,
+  `priority`, `assignee: "me"`) are kept; every other value is only its type and length;
+- `result`: `bytes` of the answer and, where the tool returns them, `items`, `more` (a `nextCursor`
+  follows), `remaining` (batch ids to retry), `truncated` and `itemErrors` (per-thread batch errors);
+- `failure` for unexpected errors: the error class, a status code if the error has one and up to five
+  code locations, never its message.
+
+The events never contain feedback, replies, search text, page addresses, screenshots, project,
+thread, workspace or account ids, connection or client-registration names, email addresses, tokens,
+request bodies or raw error messages. Logging is best effort: a failing log sink never changes or
+fails a response, and platform log loss or sampling can leave gaps. Events follow the hosting log
+retention; export them for longer analysis before it expires.
+
+Some starting points: `"error":"invalid_arguments"` with `issues` shows schema fields clients get
+wrong; `requestedName` shows tools and prompts clients expect; `missingScope` shows operations
+people did not grant; `itemErrors`, `remaining` and `bytes` show batches and answers that hit limits.
+
+New tools, prompts and resources are logged without extra work: `createFeedbackMcpServer` lets the
+request log watch every registration, which records its schema and runs its handler where
+`noteMcpError` can find the request. A handler's catch block calls `noteMcpError(error)` before it
+maps the error for the client. `e2e/mcpTelemetry.api.spec.ts` covers the events.
+
 ## Tests
 
 `e2e/mcp.api.spec.ts` uses the official SDK client for the read/fix/reply/status path and adversarial
@@ -502,6 +561,8 @@ authorization URL, chooses two workspaces and a write operation on the consent p
 exchanges the code, lists projects (including one created after approval) and replies, then
 revokes the app in Account and expects 401. The full suite adds cancel (`access_denied`), reuse of
 a consumed request, Use another account, the error page, a 375 px layout and light/dark axe checks.
+`e2e/mcpTelemetry.api.spec.ts` checks the request log: successful and failed calls, rejected and
+interrupted requests, unexpected failures and a failing log sink, and that no content or id is logged.
 This feature does not close the separate MVP launch audit #90.
 
 
