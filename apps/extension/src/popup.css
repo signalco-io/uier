@@ -1,0 +1,41 @@
+/*
+ * Extension pages (the popup and the verification helper). Same Tailwind setup, UI-kit classes and
+ * @uier/brand tokens as the toolbar, compiled with this folder as an extra source. Geist ships in the
+ * package (fonts/), so these pages never load anything remote. Rules: packages/brand/BRAND.md
+ */
+@import '../../../packages/toolbar/src/index.css';
+
+@source './';
+
+@font-face {
+    font-family: 'Geist';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: block;
+    src: url('./fonts/geist.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Geist Mono';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: block;
+    src: url('./fonts/geist-mono.woff2') format('woff2');
+}
+
+@layer base {
+    :root {
+        /* Mono means machine: the reviewed site's address */
+        --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+        color-scheme: light;
+    }
+
+    :root.dark {
+        color-scheme: dark;
+    }
+
+    body {
+        margin: 0;
+        background: hsl(var(--background));
+    }
+}

@@ -270,7 +270,10 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
   sign in) get the lockup and the kind of link beside a static piece of the review layer with
   placeholder bars, never real or example words. All are drawn by `apps/web/src/lib/social`.
 - App icon: black plate, radius 22 % of the side, white mark at 54 % nudged 1.5 % down and
-  right. Exported square (platforms apply their own masks). Favicon: the bare mark, ink in
+  right. Exported square (platforms apply their own masks). Browsers do not mask extension
+  icons, so the extension's 16/32/48 px icons draw the 22 % radius in, and its 128 px store icon
+  keeps the Chrome Web Store's 16 px of transparent padding around a 96 px plate (rendered by the
+  extension build from `MARK_PATH`). Favicon: the bare mark, ink in
   light tabs and white in dark through a `prefers-color-scheme` rule in `assets/favicon.svg`.
   PNG fallbacks come from `pnpm -C packages/brand icons`.
 - Manifest and browser UI colour: `#FFFFFF` light, `#000000` dark.

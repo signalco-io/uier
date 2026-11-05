@@ -78,7 +78,8 @@ certifications, and they are saved in the draft.
 
 After `pnpm build`, `pnpm -C apps/extension package`, `pnpm -C apps/extension test:package`, run
 `pnpm -C apps/extension store:assets`. The release directory contains the canonical brand 128 px
-store icon and 440×280 promotional tile in `listing/`; the persistent test retains an actual
+store icon (a 96 px rounded plate with 16 px padding) and the 440×280 promotional tile (the social
+card's lockup, tagline, address and pin/toolbar motif) in `listing/`; the persistent test retains an actual
 1280×800 runtime screenshot in `test-results/`. Extension icons are 16/32/48/128 px. CI retains these
 as artifacts; check the dashboard's current required sizes and visually review them before upload.
 Screenshots use a local fictional project, never customer pages. Take popup imagery from the

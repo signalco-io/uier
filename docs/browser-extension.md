@@ -12,6 +12,11 @@ see [the latest receipt](browser-extension-release.md#automatic-upgrade-receipt-
 The extension bundles the shared toolbar source and its constructed stylesheet. It runs in an
 isolated content-script world with explicit configuration; it never loads toolbar.js or a remote
 review runtime. Page CSP cannot control worker API transport. The toolbar uses the system font.
+The popup and verification helper are extension pages: their stylesheet (`src/popup.css`) is
+compiled from the toolbar's Tailwind setup and brand tokens, and Geist ships in the package
+(`fonts/`, with its license), so they load nothing remote. They follow the system theme. The popup
+shows the active tab's site, the matching projects, an active review with Exit review, and Open uier
+and Sign out. The 16/32/48 px icons are the rounded app icon; the 128 px icon keeps 16 px padding.
 
 Only activeTab, scripting, storage and identity are requested. The sole persistent host permission
 is the uier API. No cookies, history, all-sites grant, header rewriting or offscreen permission.
@@ -49,6 +54,7 @@ original 30-day token window; deleting a session stops its access and scoped tok
 Verified writes reuse the review services and their five-minute origin/project/reviewer proof.
 The worker opens a packaged helper window containing the uier-origin /extension-verification
 frame. The parent is an extension document, independent of the reviewed site's frame-src.
+The frame keeps the window's full size under a status card, so it runs like any visible frame.
 Only the registered extension origin can frame that document. The bridge validates source,
 origin and nonce; authentication uses a scoped header, with cookies omitted. BotID runs on uier
 and the server issues the usual proof only after assertNotBot. Closing or timing out the helper

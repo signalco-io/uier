@@ -21,20 +21,24 @@
     "store:assets": "node scripts/store-assets.mjs"
   },
   "dependencies": {
+    "@signalco/ui-icons": "0.2.2",
+    "@signalco/ui-primitives": "0.6.5",
     "@uier/brand": "workspace:*",
     "@uier/toolbar": "workspace:*",
-    "@signalco/ui-primitives": "0.6.5",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/chrome": "0.3.7",
+    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@types/node": "24.19.2",
     "esbuild": "0.28.2",
-    "typescript": "7.0.2",
-    "sharp": "0.35.5"
+    "geist": "1.9.0",
+    "postcss": "8.5.32",
+    "sharp": "0.35.5",
+    "typescript": "7.0.2"
   }
 }

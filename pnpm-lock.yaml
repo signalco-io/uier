@@ -172,6 +172,9 @@ importers:
 
   apps/extension:
     dependencies:
+      '@signalco/ui-icons':
+        specifier: 0.2.2
+        version: 0.2.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@signalco/ui-primitives':
         specifier: 0.6.5
         version: 0.6.5(next@16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss-animate@1.0.7(tailwindcss@4.3.3))(tailwindcss@4.3.3)
@@ -191,6 +194,9 @@ importers:
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
+      '@tailwindcss/postcss':
+        specifier: 4.3.3
+        version: 4.3.3
       '@types/chrome':
         specifier: 0.3.7
         version: 0.3.7
@@ -206,6 +212,12 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
+      geist:
+        specifier: 1.9.0
+        version: 1.9.0(next@16.4.3(@opentelemetry/api@1.10.0)(@playwright/test@1.64.1)(@types/node@24.19.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
+      postcss:
+        specifier: 8.5.32
+        version: 8.5.32
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@24.19.2)

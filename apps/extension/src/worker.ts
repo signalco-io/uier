@@ -261,8 +261,10 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             }
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!signedIn || !tab?.id || !reviewable(tab.url)) return { signedIn, restricted: !reviewable(tab?.url) };
-            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: new URL(tab.url!).origin })}`, (await session()).token));
-            return { ...result, signedIn, tabId: tab.id, binding: Boolean(await getBinding(tab.id)) };
+            const origin = new URL(tab.url!).origin;
+            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin })}`, (await session()).token));
+            const binding = await getBinding(tab.id);
+            return { ...result, signedIn, tabId: tab.id, origin, binding: Boolean(binding), reviewing: binding?.projectId };
         }
         if (msg.type === 'start' && Number.isInteger(msg.tabId) && typeof msg.projectId === 'string' && typeof msg.publicId === 'string') return start(msg.tabId, msg.projectId, msg.publicId);
         if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await chrome.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }

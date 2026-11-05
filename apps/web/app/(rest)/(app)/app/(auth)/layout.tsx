@@ -4,7 +4,7 @@ import { Logo } from '@uier/brand/Logo';
 import { Card } from '@/src/components/ui/card';
 import { KnownPages } from '@/src/knownPages';
 
-/** Signed-out pages (sign in, invitations): one card in the middle of the page */
+/** Pages outside the app shell (sign in, invitations, the browser extension's sign-in): one card in the middle of the page */
 export default function AuthLayout({ children }: PropsWithChildren) {
     return (
         <main className="flex min-h-svh flex-col items-center bg-muted/40 px-4 py-16 md:justify-center md:py-10">
