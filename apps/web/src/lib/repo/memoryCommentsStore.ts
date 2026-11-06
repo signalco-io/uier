@@ -76,6 +76,14 @@ function pathMatches(comment: DbComment, path: string) {
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
+        async listRealtime(domain) {
+            return [...domainEntries(domain).values()].flatMap(entry => {
+                const comment = commentOf(entry);
+                if (!comment) return [];
+                const { id, path, private: isPrivate, authorId } = comment;
+                return [{ id, domain, path, private: isPrivate, authorId, revision: String(entry.version) }];
+            });
+        },
         async listSyncPending(options = {}) {
             return [...state().domains.keys()].flatMap(domain => [...domainEntries(domain).values()])
                 .flatMap(entry => {

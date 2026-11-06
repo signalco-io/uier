@@ -352,6 +352,7 @@ test('app bulk read follows environment, page and people filters in list and boa
     try {
         await signIn(page, uniqueEmail('bulk-owner'));
         const production = site.origin(), staging = site.origin('staging');
+        const environment = encodeURIComponent(`origin:${production}`);
         const projectId = await createProject(page, { urls: [production, staging] });
         await setProjectAccess(page, projectId, 'Anyone with the link');
         const headers = await verifiedReviewHeaders(request, projectId, production);
@@ -371,7 +372,7 @@ test('app bulk read follows environment, page and people filters in list and boa
         await (await openComment(page, 'Selected feedback')).getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
         await page.getByRole('menuitem', { name: /^bulk-owner-/ }).click();
         await expect(page.getByRole('button', { name: /^Assigned to you\. Change assignee$/ })).toBeVisible();
-        const url = `/app/projects/${projectId}?unread=true&people=assigned&page=${encodeURIComponent(path)}`;
+        const url = `/app/projects/${projectId}?unread=true&people=assigned&page=${encodeURIComponent(path)}&environment=${environment}`;
         await page.goto(url);
         await expect(commentRows(page)).toHaveCount(1);
         for (const colorScheme of ['light', 'dark'] as const) {
@@ -401,13 +402,15 @@ test('app bulk read follows environment, page and people filters in list and boa
         await reviewInbox.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
         await expect(reviewInbox.getByRole('article')).toHaveCount(1);
         await reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true }).click();
-        await expect(inbox(page)).toHaveAccessibleName('Inbox, 2 unread threads');
+        // The toolbar defaults to all environments, so the staging thread counts here too.
+        await expect(inbox(page)).toHaveAccessibleName('Inbox, 3 unread threads');
         await expect(reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
-        await page.goto(`/app/projects/${projectId}?unread=true`);
+        // Default views include all environments; select production for these scoped assertions.
+        await page.goto(`/app/projects/${projectId}?unread=true&environment=${environment}`);
         await expect(commentRows(page)).toHaveCount(2);
         await expect(row('Unassigned')).toBeVisible();
         await expect(row('Other page')).toBeVisible();
-        await page.goto(`/app/projects/${projectId}?unread=true&view=board&page=${encodeURIComponent(path)}`);
+        await page.goto(`/app/projects/${projectId}?unread=true&view=board&page=${encodeURIComponent(path)}&environment=${environment}`);
         await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(allCommentRowLinks(page)).toHaveCount(0);
         await page.goto(`/app/projects/${projectId}?unread=true&environment=all`);

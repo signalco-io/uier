@@ -78,7 +78,7 @@ export default defineConfig(({ env }) => [{
     banner: { js: '\'use client\';' }
 }, {
     // Pure browser/server page identity contract; no React client boundary.
-    entry: { verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts' },
+    entry: { realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts' },
     format: ['esm'],
     platform: 'neutral'
 }]);

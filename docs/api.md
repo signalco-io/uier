@@ -3,6 +3,40 @@
 Routes, identity, storage and limits for the review and public comments APIs, plus how the
 website builds and serves the toolbar. See [MCP](mcp.md) for coding tool access.
 
+## Realtime comment changes
+
+The embedded toolbar and the app's project comment list/board use Vercel Functions WebSockets
+at `/api/realtime`. Fluid compute is enabled in `apps/web/vercel.json`; the function has a
+300-second limit and closes sessions after four minutes so clients can renew on every plan.
+
+`GET /api/review/<code>/realtime`, `GET /api/comments/realtime` and the member-only
+`GET /api/realtime/ticket?projectId=<internal id>` issue five-minute, purpose-separated signed
+tickets under their existing identity and CORS rules. The ticket is bound to the exact page origin,
+API origin, viewer and project/partition. It stays in memory and is sent as the first frame:
+`{"type":"subscribe","token":"..."}`. Never put a review/session token or realtime ticket in a URL.
+The socket accepts one subscription, with a five-second handshake deadline and 2 KiB frame limit.
+
+The server sends only `{"type":"ready"}` and `{"type":"comments.changed"}`. It rechecks current
+project/address/membership access and private-thread visibility before notifying. Message text,
+comment ids, counts, revisions and actor ids are never sent as events. A notification refetches
+the existing authorized HTTP projection; reconnect also refetches to cover missed changes.
+
+The initial cross-instance source polls compact Cosmos metadata (`id`, visibility and `_etag`)
+every two seconds while sockets are active. Concurrent subscriptions in one instance share the
+partition read. Creation, edits, replies, assignment, status, screenshots and hard deletion are
+detected regardless of which API, MCP or integration process committed them. This is metadata
+polling behind a WebSocket transport, not a durable event log or a delivery guarantee. Per-reviewer
+read cursors live separately and converge through safety reads. There is no additional provider,
+database schema migration, write-side publishing or credential to configure.
+
+`src/lib/realtime/source.ts` and `@uier/toolbar/realtime` separate change detection and browser
+subscription from the Vercel upgrade adapter. A later pub/sub provider can replace those boundaries.
+Measure Cosmos `comments.realtime` request charges and Function memory/connection usage before
+expanding the polling frequency or replacing the source; complete metadata scans grow with project
+size and authorization checks still run per socket. A reviewed site's CSP needs the API's explicit
+`wss://` origin in `connect-src` (`ws://` for local HTTP). New install snippets include it; existing
+sites that block sockets continue using adaptive HTTP refresh.
+
 ## Review API (a project's toolbar)
 
 A project's toolbar (`data-uier-project`, see the [toolbar README](../packages/toolbar/README.md)) runs on the

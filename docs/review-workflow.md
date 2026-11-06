@@ -444,6 +444,23 @@ counts. The Unread filter fetches unread content before applying those limits, s
 threads remain findable. Marking a batch read reveals the next batch. The inbox warns when content
 is omitted.
 
+### Realtime and fallback refresh
+
+On Vercel, an expanded, visible, online embedded review subscribes to comment changes over a
+WebSocket. The app's project list and board use the same subscription client. A notification
+refreshes authorized data in place; pending comments/replies, drafts, focus and open thread state
+are preserved. Reconnect subscribes first and then refetches, so changes during a deployment or
+network gap are recovered. It never marks comments read automatically.
+
+While connected, the toolbar keeps one safety round every 60 seconds. If WebSockets are blocked
+or unavailable, the adaptive 15/30/60-second cadence above applies. The app has a 30-second fallback
+and a 60-second safety refresh while connected. Hidden/offline views close their socket; collapsed
+reviews and unmounted pages unsubscribe. Reconnection uses exponential backoff with jitter.
+The packaged extension retains its brokered adaptive HTTP refresh in this first implementation.
+
+Changes are normally detected on the server's two-second metadata cadence plus the authorized
+HTTP round trip. This is not a latency guarantee. See the [realtime protocol and cost model](api.md#realtime-comment-changes).
+
 ### Polling request measurement
 
 On 2 November 2026, `activity.spec.ts` measured fixed 120-second windows with Playwright's clock,

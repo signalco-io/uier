@@ -25,6 +25,7 @@ import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
 import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
 import { MarkAllRead } from './MarkAllRead';
+import { RealtimeComments } from './RealtimeComments';
 
 
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string) {
@@ -183,6 +184,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
+        <RealtimeComments projectId={projectId} />
         <CommentsSearchNavigationProvider value={commitSearch}>
         <div ref={containerRef} className="@container/comments flex flex-col gap-4">
             <div className={cn('contents', threadOnly && '@max-4xl/comments:hidden')}>

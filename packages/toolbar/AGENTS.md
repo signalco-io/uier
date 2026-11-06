@@ -165,6 +165,12 @@ text. Drafts are local to each browser origin and expire after seven days.
 
 ## Working on it
 
+- `src/realtime.ts` is the small shared browser subscription client (`@uier/toolbar/realtime`).
+  `useCommentsRefresh` owns one socket per expanded review; events reuse its coalesced authorized
+  refresh. Keep the adaptive polling fallback, 60-second connected safety read, origin-bound ticket
+  in the first frame, visibility/offline cleanup and reconnect backoff. Packaged extensions retain
+  their HTTP broker path. See [realtime](../../docs/api.md#realtime-comment-changes).
+
 - Project threads expose member follow/unfollow and project mute in Thread options
   (`useThreadNotificationActions`), and `ThreadNotifications`: the optional guest **Email me replies** flow after posting. Email is never a comment requirement.
   Subscription writes use the review API's existing identity, CORS and verification checks; guest

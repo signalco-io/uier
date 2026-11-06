@@ -1,4 +1,5 @@
 import type { OriginFilter } from './originFilter';
+import type { RealtimeComment } from '../realtime/source';
 import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem } from '../db/schema';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
@@ -27,6 +28,8 @@ export function syncPendingPageLimit(options: SyncPendingOptions = {}) {
  * except the explicit worker discovery and orphan-image projections.
  */
 export type CommentsStore = {
+    /** Complete partition metadata for realtime detection, including hard deletions; no message text. */
+    listRealtime(domain: string): Promise<RealtimeComment[]>;
     /** Indexed syncKey page, including deletion intents: default 100, maximum 1000, ascending. */
     listSyncPending(options?: SyncPendingOptions): Promise<(DbComment | DbSyncTombstone)[]>;
     /** Delete + deletion intent in one partition transaction under the comment etag. */
