@@ -67,11 +67,11 @@ export function Panel({ as: Component = 'div', className, children }: PropsWithC
 }
 
 /** A titled cell of a Panel, with an optional `label` chip beside the title */
-export function Tile({ title, label, children }: PropsWithChildren<{ title: string; label?: string; }>) {
+export function Tile({ title, label, titleWeight = 'font-semibold', children }: PropsWithChildren<{ title: string; label?: string; titleWeight?: string; }>) {
     return (
         <div className="flex flex-col gap-2 p-6">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 className="text-base font-black">{title}</h3>
+                <h3 className={cx('text-base', titleWeight)}>{title}</h3>
                 {label && <Chip>{label}</Chip>}
             </div>
             <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">{children}</div>

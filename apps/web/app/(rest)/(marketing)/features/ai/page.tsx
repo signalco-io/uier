@@ -135,16 +135,16 @@ export default function AiPage() {
                 lead={<>Every tool uses one endpoint, <code className={code}>{endpoint}</code>. The setup for each is in the app, under Account → Coding agents.</>}>
                 <Panel className="md:grid-cols-2">
                     <div className="md:col-span-2">
-                        <Tile title="Claude Code" label="Signs in with your browser">
+                        <Tile title="Claude Code" label="Signs in with your browser" titleWeight="font-black">
                             <p>Add {brand.name} in your terminal, then run <code className={code}>/mcp</code>, choose {brand.name} and select Authenticate. {brand.name} opens in your browser, where you choose what the tool can reach and approve the connection.</p>
                             {/* Wraps instead of scrolling: a scrolling block would need its own keyboard focus */}
                             <pre className="whitespace-pre-wrap rounded-xl border bg-muted/50 px-4 py-3 font-mono text-xs text-foreground [overflow-wrap:anywhere]"><code>claude mcp add --transport http {brand.name} {endpoint}</code></pre>
                         </Tile>
                     </div>
-                    <Tile title="Codex" label="Access token">
+                    <Tile title="Codex" label="Access token" titleWeight="font-black">
                         <p>Create an access token in Account and add {brand.name} to <code className={code}>~/.codex/config.toml</code>. The token stays in the <code className={code}>UIER_MCP_TOKEN</code> environment variable, not in the file.</p>
                     </Tile>
-                    <Tile title="Cursor" label="Access token">
+                    <Tile title="Cursor" label="Access token" titleWeight="font-black">
                         <p>Add {brand.name} to <code className={code}>.cursor/mcp.json</code> with the token from the same environment variable.</p>
                     </Tile>
                 </Panel>
@@ -201,16 +201,16 @@ export default function AiPage() {
                 title="You stay in control"
                 lead="A connection works as your account, within the access you gave it.">
                 <Panel className="md:grid-cols-2">
-                    <Tile title="Never more than you can do">
+                    <Tile title="Never more than you can do" titleWeight="font-black">
                         <p>Your current permissions are checked on every request. If you lose access to a project or a private thread, so does the connection.</p>
                     </Tile>
-                    <Tile title="Only what you choose">
+                    <Tile title="Only what you choose" titleWeight="font-black">
                         <p>All your workspaces and projects, including new ones, or only the ones you pick. Consent is shown every time a tool connects.</p>
                     </Tile>
-                    <Tile title="Feedback is data, not instructions">
+                    <Tile title="Feedback is data, not instructions" titleWeight="font-black">
                         <p>The connector marks feedback as untrusted content and tells your agent to treat what reviewers wrote as text to read, not commands to follow.</p>
                     </Tile>
-                    <Tile title="Revoke at any time">
+                    <Tile title="Revoke at any time" titleWeight="font-black">
                         <p>Account → Coding agents lists your connections. Revoking one ends its access on the next request. It cannot take back what the tool already received.</p>
                     </Tile>
                 </Panel>
