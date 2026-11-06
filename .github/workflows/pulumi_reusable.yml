@@ -50,7 +50,7 @@ jobs:
       # Pinned: otherwise the action uses whatever Pulumi CLI the runner image ships. CLI and SDK are
       # released together; keep this equal to @pulumi/pulumi in infra/package.json (Renovate groups them).
       # renovate: datasource=npm depName=@pulumi/pulumi
-      PULUMI_VERSION: "3.273.0"
+      PULUMI_VERSION: "3.274.1"
       # State and Key Vault use the verified Azure CLI OIDC session, regardless of runner host.
       # A non-Azure metadata endpoint can stop DefaultAzureCredential before its CLI fallback.
       AZURE_TOKEN_CREDENTIALS: AzureCLICredential
