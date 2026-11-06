@@ -88,6 +88,8 @@ export type ProjectCommentView = {
     deleted: boolean;
     edited: boolean;
     replies: ProjectCommentMessage[];
+    /** A message (not deleted) mentions the signed-in member */
+    mentionsMe: boolean;
     canFilterAuthor: boolean;
     permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; reply: boolean; triage: boolean };
 };
@@ -148,6 +150,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         quotedText: first.deletedAt ? undefined : first.quotedText,
         deleted: Boolean(first.deletedAt),
         edited: Boolean(first.editedAt),
+        mentionsMe: actor.kind === 'member' && items.some(item => !item.deletedAt && Boolean(item.mentions?.some(mention => mention.userId === actor.userId))),
         canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(first.authorId ?? comment.authorId) && !first.deletedAt,
         replies: replies.map(reply => ({
             id: String(reply.id),

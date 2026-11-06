@@ -56,6 +56,8 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
             ? [root, project, settings, { label: settingsSection.label, href: KnownPageLinks.projectSettings(id, 'integrations') }, { label: integrationLabels[detail], href: pathname }]
             : [root, project, settings, { label: settingsSection.label, href: pathname }];
     }
+    if (section === 'my-work')
+        return [{ label: 'My work', href: KnownPages.AppMyWork }];
     if (section === 'workspace') {
         // The workspace area: its tab, then a team's or a person's own page (`/app/workspace/teams/<id>`)
         const root = { label: 'Workspace', href: KnownPages.AppWorkspace };
