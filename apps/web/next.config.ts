@@ -4,13 +4,19 @@ import { createSecureHeaders } from 'next-secure-headers';
 import { botIdHeaders } from './src/lib/botIdProxy';
 import { combineSecureHeaders } from './src/lib/secureHeaders';
 
+// `pnpm dev` serves the toolbar's watch build on the port after this app's (PORT, default 4004;
+// packages/toolbar `dev:serve`), so several checkouts can each run their own pair.
+const toolbarDevOrigin = `http://localhost:${Number(process.env.PORT || 4004) + 1}`;
+
 const nextConfig: NextConfig = {
     reactStrictMode: true,
-    // The deployment environment (production or preview), inlined at build time: the deploy
-    // workflow sets UIER_DEPLOYMENT_ENV for `vercel build` (the project exposes no Vercel system
-    // variables). Read it with `deploymentEnvironment()` (src/lib/app/request.ts).
     env: {
-        UIER_DEPLOYMENT_ENV: process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV || ''
+        // The deployment environment (production or preview), inlined at build time: the deploy
+        // workflow sets UIER_DEPLOYMENT_ENV for `vercel build` (the project exposes no Vercel system
+        // variables). Read it with `deploymentEnvironment()` (src/lib/app/request.ts).
+        UIER_DEPLOYMENT_ENV: process.env.UIER_DEPLOYMENT_ENV || process.env.VERCEL_ENV || '',
+        // Only used in `next dev`: the toolbar script tag (ToolbarScript.tsx) and the CSP (secureHeaders.ts).
+        UIER_TOOLBAR_DEV_ORIGIN: toolbarDevOrigin
     },
     reactCompiler: true,
     // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
@@ -88,13 +94,13 @@ const nextConfig: NextConfig = {
         ];
         if (process.env.NODE_ENV !== 'development')
             return rewrites;
-        // `next dev`: the install snippet's /toolbar.js is the toolbar's watch build (localhost:4005,
-        // `pnpm dev`), never the ignored copy an earlier `pnpm build` left in public/. Its dev loader
-        // fetches ./review.js next to itself.
+        // `next dev`: the install snippet's /toolbar.js is the toolbar's watch build (`pnpm dev`),
+        // never the ignored copy an earlier `pnpm build` left in public/. Its dev loader fetches
+        // ./review.js next to itself.
         return {
             beforeFiles: [
-                { source: '/toolbar.js', destination: 'http://localhost:4005/index.js' },
-                { source: '/review.js', destination: 'http://localhost:4005/review.js' }
+                { source: '/toolbar.js', destination: `${toolbarDevOrigin}/index.js` },
+                { source: '/review.js', destination: `${toolbarDevOrigin}/review.js` }
             ],
             afterFiles: rewrites,
             fallback: []

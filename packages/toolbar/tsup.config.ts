@@ -32,10 +32,10 @@ export default defineConfig(({ env }) => [{
         // NODE_ENV is still set by `--env`.
         'process.env': '{}',
         // Comments API used by src/hooks/useComments.tsx when it can not be derived from the
-        // toolbar script URL (src/config.ts). The dev build (`pnpm dev`, served from localhost:4005
-        // into the local web app) calls that app's API on localhost:4004 ('self' in its CSP);
-        // production builds fall back to uier.io.
-        __UIER_API_URL__: JSON.stringify(env?.NODE_ENV === 'development' ? 'http://localhost:4004' : 'https://uier.io'),
+        // toolbar script URL (src/config.ts). The dev build (`pnpm dev`, served on the port after the
+        // web app's into the local web app) calls that app's API on PORT, default 4004 ('self' in its
+        // CSP); production builds fall back to uier.io.
+        __UIER_API_URL__: JSON.stringify(env?.NODE_ENV === 'development' ? `http://localhost:${process.env.PORT || 4004}` : 'https://uier.io'),
         __UIER_DEV__: JSON.stringify(env?.NODE_ENV === 'development'),
         __UIER_REVIEW_PATH__: JSON.stringify('__uier_review_path__'),
         __UIER_REVIEW_INTEGRITY__: JSON.stringify('__uier_review_integrity__'),

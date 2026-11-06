@@ -10,10 +10,11 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
  * The toolbar bundle (packages/toolbar): `/toolbar.js` in production builds (copied by
- * scripts/copy-toolbar.mjs), the toolbar dev server's watch build in `next dev` (`pnpm dev`).
+ * scripts/copy-toolbar.mjs), the toolbar dev server's watch build in `next dev` (`pnpm dev`,
+ * the port after this app's; next.config.ts).
  */
 export const toolbarScriptSrc = isDevelopment
-    ? 'http://localhost:4005/index.js'
+    ? `${process.env.UIER_TOOLBAR_DEV_ORIGIN}/index.js`
     : '/toolbar.js';
 
 /**

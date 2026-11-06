@@ -58,7 +58,9 @@ pnpm dev
 ```
 
 Open [localhost:4004](http://localhost:4004). The toolbar builds and serves on port 4005 alongside
-the website. Use `localhost` for the app so the development toolbar reaches the local API.
+the website. Use `localhost` for the app so the development toolbar reaches the local API. To run
+another checkout at the same time, set `PORT` (for example `PORT=4104 pnpm dev`); see
+[several checkouts side by side](docs/development.md#several-checkouts-side-by-side).
 
 No database or email credentials are needed to get started. Local data stays in memory and resets
 when the server restarts. On the [sign-in page](http://localhost:4004/app/sign-in), enter any email
