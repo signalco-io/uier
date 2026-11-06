@@ -643,6 +643,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 
 ## Page and mutation responsiveness
 
+Project comment views mount `RealtimeComments`: native Vercel sockets notify, then refresh the
+authorized server snapshot in a transition. `src/lib/realtime` owns origin/viewer-bound tickets,
+current authorization and a shared, two-second compact Cosmos metadata source. Never broadcast
+comment bodies/ids or bypass private-thread visibility. Keep four-minute connection renewal,
+HTTP fallback, draft preservation and the provider boundaries. See [realtime](../../docs/api.md#realtime-comment-changes)
+and `e2e/realtime.api.spec.ts` / `e2e/realtime.spec.ts`. `vercel.json` enables Fluid compute.
+
 `projects.ts` and `members.ts` share repeated render reads through React `cache` (metadata,
 layouts and pages). `loadWorkspaceAccessForRender` shares the render's team snapshot; mutation
 retries must continue to use uncached `loadWorkspaceAccess`. Nothing caches access across requests.

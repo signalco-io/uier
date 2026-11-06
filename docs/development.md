@@ -57,6 +57,15 @@ Sites you review locally can use the install snippet as it is: in `next dev`, ht
 (and the `review.js` its loader fetches) is the watch build on port 4005, not the `public/toolbar.js` an
 earlier `pnpm build` left behind (`next.config.ts`).
 
+Realtime WebSocket upgrades use Vercel's native runtime. Ordinary `next dev`/`next start` keeps
+the toolbar's adaptive polling and the app's 30-second fallback. To exercise the actual Vercel
+upgrade locally use `vercel dev` with CLI 54.14.2 or newer and isolated local data settings; do not
+pull production credentials. The standard development command remains unchanged.
+`realtime.api.spec.ts` exercises the shared server session over real local WebSockets, including
+privacy and revocation. `realtime.spec.ts` substitutes only the platform upgrade using Playwright's
+WebSocket routing and exercises real tickets, writes and UI refreshes. Hosted native upgrades remain
+a separate deployment acceptance check. See the [protocol](api.md#realtime-comment-changes).
+
 - Every public page runs in **showcase** mode: always mounted. Only the landing page has the first-run hint
   and About uier; the other public pages, the app, reviews and embeds have neither. Feedback mode keeps
   its form focused.

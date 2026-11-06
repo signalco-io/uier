@@ -40,6 +40,10 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         return resources;
     }
     const store: CommentsStore = {
+        async listRealtime(domain) {
+            return queryAll('realtime', domain,
+                'SELECT c.id, c.domain, c.path, c.private, c.authorId, c._etag AS revision FROM c WHERE c.domain = @domain AND IS_STRING(c.path)', []);
+        },
         async listSyncPending(options = {}) {
             // No production outbox predates syncKey. Audit missing keys explicitly on adoption;
             // don't use a non-indexed fallback expression that requires fetching the full queue.

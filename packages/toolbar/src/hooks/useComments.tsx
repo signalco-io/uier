@@ -13,6 +13,8 @@ import { getCommentsErrorMessage } from '../components/CommentsErrorMessage';
 import { showErrorToast } from '../components/Toaster';
 import { pageQueryKeys, pagePath, sourcePagePath, type PageStatePolicy } from '../pageState';
 import { getToolbarHost } from '../mount';
+import { subscribeToComments, type RealtimeTicket } from '../realtime';
+import { runtimeAdapters } from '../adapters';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -551,6 +553,7 @@ export function useCommentsRefresh(expanded: boolean) {
     const { path } = useContext(CommentsBootstrapperContext);
     const { environment, currentEnvironment, draftScope } = useProjectViewer();
     useEffect(() => {
+        let realtimeConnected = false;
         let refreshing = false;
         let requested = false;
         let disposed = false;
@@ -559,6 +562,8 @@ export function useCommentsRefresh(expanded: boolean) {
         let lastStarted = lastActivity;
         const active = () => !disposed && expanded && document.visibilityState === 'visible' && navigator.onLine;
         const interval = () => {
+            // A slow safety read also catches per-reviewer read cursors and policy changes.
+            if (realtimeConnected) return 60_000;
             const idle = performance.now() - lastActivity;
             return idle >= 120_000 ? 60_000 : idle >= 60_000 ? 30_000 : 15_000;
         };
@@ -609,10 +614,23 @@ export function useCommentsRefresh(expanded: boolean) {
             // scrolling do not keep an otherwise inactive review awake.
             if (!active() || !event.composedPath().some(node => node === getToolbarHost()
                 || (node instanceof ShadowRoot && node.host.hasAttribute('data-uier-thread')))) return;
-            const wasIdle = interval() > 15_000;
+            const wasIdle = performance.now() - lastActivity >= 60_000;
             lastActivity = performance.now();
             if (wasIdle) void refresh();
         };
+        // Packaged extension clients keep their existing broker/polling path until their
+        // transport can explicitly own sockets; page CSP must never break their HTTP fallback.
+        const unsubscribe = expanded && !runtimeAdapters() ? subscribeToComments({
+            refreshOnForeground: false,
+            ticket: () => apiRequest<RealtimeTicket>(`${toolbarConfig.project
+                ? `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}` : `${toolbarConfig.apiUrl}/api/comments`}/realtime`),
+            changed: () => { void refresh(); },
+            connected: value => {
+                if (realtimeConnected === value) return;
+                realtimeConnected = value;
+                schedule();
+            }
+        }) : undefined;
         window.addEventListener('focus', foreground);
         window.addEventListener('online', foreground);
         window.addEventListener('offline', foreground);
@@ -624,6 +642,7 @@ export function useCommentsRefresh(expanded: boolean) {
         }
         return () => {
             disposed = true;
+            unsubscribe?.();
             clearTimer();
             window.removeEventListener('focus', foreground);
             window.removeEventListener('online', foreground);
