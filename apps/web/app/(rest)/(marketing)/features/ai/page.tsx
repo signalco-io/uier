@@ -189,7 +189,7 @@ export default function AiPage() {
                     {prompts.map(prompt => (
                         <li key={prompt.name} className="flex flex-col gap-1 p-6">
                             <span className="font-mono text-xs text-muted-foreground">{prompt.name}</span>
-                            <span className="text-base font-semibold">{prompt.title}</span>
+                            <span className="text-base font-extrabold">{prompt.title}</span>
                             <span className="text-sm leading-relaxed text-muted-foreground">{prompt.text}</span>
                         </li>
                     ))}
