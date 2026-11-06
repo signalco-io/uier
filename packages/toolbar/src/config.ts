@@ -111,8 +111,8 @@ export function readToolbarConfig(): ToolbarConfig {
 
     // Explicit configuration wins. Otherwise the API is served by the same origin as the
     // toolbar script (so a preview deployment's toolbar talks to that preview's API).
-    // The development build is served by the toolbar dev server (localhost:4005), which has
-    // no API, so it always uses the build-time URL (the local web app).
+    // The development build is served by the toolbar dev server (the port after the web app's),
+    // which has no API, so it always uses the build-time URL (the local web app).
     const explicitApiUrl = script?.dataset.uierApiUrl || windowConfig?.apiUrl;
     const apiUrl = explicitApiUrl
         || (__UIER_DEV__ ? undefined : getScriptOrigin(script))

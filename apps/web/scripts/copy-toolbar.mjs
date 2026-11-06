@@ -30,8 +30,8 @@ try {
 }
 
 // The toolbar's watch build (`pnpm dev`) writes a development bundle to the same file; it talks to
-// http://localhost:4004 and must never be deployed.
-if (readFileSync(source, 'utf8').includes('http://localhost:4004')) {
+// the local web app (http://localhost:<PORT>, default 4004) and must never be deployed.
+if (/http:\/\/localhost:\d+/.test(readFileSync(source, 'utf8'))) {
     fail(`${relative(appDir, source)} is a development build of the toolbar. Run \`pnpm build\` from the repository root to rebuild it for production.`);
 }
 

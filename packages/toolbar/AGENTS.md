@@ -177,7 +177,8 @@ text. Drafts are local to each browser origin and expire after seven days.
   addresses are verified by an explicit button on uier.io. Do not store addresses in browser storage.
 
 - `pnpm dev` at the repository root rebuilds on change and serves `dist/` on
-  http://localhost:4005; the web app loads it in development. Open
+  http://localhost:4005 (the port after `PORT`, whose web app API the dev build calls); the web app
+  loads it in development. Open
   http://localhost:4004/?review=true (or any page, e.g. `/brand?review=true`).
 - `pnpm -C packages/toolbar build` produces the production bundle; `pnpm typecheck` checks it.
 - End-to-end tests run the built toolbar on the landing page: `apps/web/e2e/showcase.spec.ts`

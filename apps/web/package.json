@@ -10,9 +10,9 @@
     "node": "24.x"
   },
   "scripts": {
-    "dev": "node scripts/copy-fonts.mjs && next dev -p 4004",
+    "dev": "node scripts/copy-fonts.mjs && next dev -p ${PORT:-4004}",
     "build": "node scripts/copy-toolbar.mjs && next build && next-sitemap --config next-sitemap.config.cjs && node ../../.github/scripts/search-index.mjs generate",
-    "start": "next start -p 4004",
+    "start": "next start -p ${PORT:-4004}",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "playwright test"
   },

@@ -60,7 +60,7 @@
     },
     "scripts": {
         "dev:build": "tsup --watch ./src --env.NODE_ENV development",
-        "dev:serve": "serve dist -l 4005",
+        "dev:serve": "serve dist --no-port-switching -l $((${PORT:-4004} + 1))",
         "dev": "pnpm run \"/^dev:.*/\"",
         "build": "tsup --minify --env.NODE_ENV production",
         "typecheck": "tsc --noEmit"

@@ -5,7 +5,8 @@
       "name": "web",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["exec", "turbo", "run", "dev", "--ui", "stream"],
-      "port": 4004
+      "port": 4004,
+      "autoPort": true
     }
   ]
 }

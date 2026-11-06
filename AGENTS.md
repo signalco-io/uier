@@ -54,7 +54,7 @@ When moving documentation, update relative links and links to section anchors ac
 | Command | What |
 | --- | --- |
 | `pnpm install` | install the workspace (`apps/*`, `packages/*`) |
-| `pnpm dev` | website on http://localhost:4004 and the toolbar watch build on http://localhost:4005 |
+| `pnpm dev` | website on http://localhost:4004 and the toolbar watch build on http://localhost:4005; `PORT=4104 pnpm dev` runs another worktree on 4104/4105 ([side by side](docs/development.md#several-checkouts-side-by-side)) |
 | `pnpm typecheck` | TypeScript in every package |
 | `pnpm build` | production build of the website and the toolbar |
 | `pnpm test` | All API tests and essential browser journeys against the built app (install the browser once: `pnpm -C apps/web exec playwright install --with-deps chromium`) |

@@ -57,10 +57,26 @@ Sites you review locally can use the install snippet as it is: in `next dev`, ht
 (and the `review.js` its loader fetches) is the watch build on port 4005, not the `public/toolbar.js` an
 earlier `pnpm build` left behind (`next.config.ts`).
 
+### Several checkouts side by side
+
+`PORT` moves the pair: the website listens on `PORT` (default 4004) and the toolbar on the port after
+it. The toolbar's watch build calls the API on `PORT`, and the website loads that toolbar and allows it
+in its CSP. Give each git worktree its own `PORT`, at least two apart so the pairs don't overlap:
+
+```bash
+PORT=4104 pnpm dev   # website on 4104, toolbar on 4105
+```
+
+Each checkout builds its own `.next/` and toolbar `dist/`, and local data stays in each server's memory,
+so the instances don't share comments or sign-ins. The toolbar server fails rather than switching
+ports when its port is taken. Google and Microsoft sign-in redirect only to the 4004 callbacks you
+registered, so on another port sign in with an email code.
+
 Coding agents in the Claude desktop app start the same servers from
-[`.claude/launch.json`](../.claude/launch.json) to preview the app on port 4004. It runs
-`turbo run dev --ui stream`, because the `--ui tui` in `pnpm dev` needs an interactive terminal.
-If the dev command or port changes, update that file too.
+[`.claude/launch.json`](../.claude/launch.json). It runs `turbo run dev --ui stream`, because the
+`--ui tui` in `pnpm dev` needs an interactive terminal. It prefers port 4004 with `autoPort`, so
+when another checkout already runs there, the preview gets a free port through `PORT` and the
+toolbar follows on the port after it. If the dev command or port changes, update that file too.
 
 Realtime WebSocket upgrades use Vercel's native runtime. Ordinary `next dev`/`next start` keeps
 the toolbar's adaptive polling and the app's 30-second fallback. To exercise the actual Vercel
@@ -152,7 +168,7 @@ Run from the repository root (each one runs the matching script in every package
 
 | Command | Description |
 | --- | --- |
-| `pnpm dev` | Run the website (port 4004) and the toolbar watch build + server (port 4005) |
+| `pnpm dev` | Run the website (port 4004) and the toolbar watch build + server (port 4005); `PORT` moves both ([side by side](#several-checkouts-side-by-side)) |
 | `pnpm build` | Production build of the toolbar, then the website (default `public/toolbar.js` loader, content-addressed loader/review scripts under `public/toolbar/` and archive manifest) |
 | `pnpm typecheck` | TypeScript checks |
 | `pnpm test` | All API tests and essential browser journeys against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
