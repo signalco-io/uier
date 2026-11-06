@@ -194,9 +194,6 @@ export default function AiPage() {
                         </li>
                     ))}
                 </Panel>
-                <p className="max-w-[720px] text-sm text-muted-foreground">
-                    Copy or download the <code className={code}>uier-feedback</code> skill in Account → Coding agents and save it in your tool&rsquo;s skills folder. The prompts and the skill cite each thread by its {brand.name} link in pull requests and commits.
-                </p>
             </PageSection>
 
             <PageSection
