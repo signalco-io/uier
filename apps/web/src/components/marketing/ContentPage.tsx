@@ -58,7 +58,7 @@ export function PageSection({ id, title, lead, wide, children }: PropsWithChildr
  */
 export function Panel({ as: Component = 'div', className, children }: PropsWithChildren<{ as?: 'div' | 'ul' | 'ol' | 'dl'; className?: string; }>) {
     return (
-        <div className="overflow-hidden rounded-2xl border shadow-sm">
+        <div className="overflow-hidden rounded-2xl border shadow-2xl">
             <Component className={cx('-mb-px -mr-px grid grid-cols-1 [&>*]:border-b [&>*]:border-r', className)}>
                 {children}
             </Component>
