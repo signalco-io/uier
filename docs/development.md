@@ -57,6 +57,11 @@ Sites you review locally can use the install snippet as it is: in `next dev`, ht
 (and the `review.js` its loader fetches) is the watch build on port 4005, not the `public/toolbar.js` an
 earlier `pnpm build` left behind (`next.config.ts`).
 
+Coding agents in the Claude desktop app start the same servers from
+[`.claude/launch.json`](../.claude/launch.json) to preview the app on port 4004. It runs
+`turbo run dev --ui stream`, because the `--ui tui` in `pnpm dev` needs an interactive terminal.
+If the dev command or port changes, update that file too.
+
 Realtime WebSocket upgrades use Vercel's native runtime. Ordinary `next dev`/`next start` keeps
 the toolbar's adaptive polling and the app's 30-second fallback. To exercise the actual Vercel
 upgrade locally use `vercel dev` with CLI 54.14.2 or newer and isolated local data settings; do not
