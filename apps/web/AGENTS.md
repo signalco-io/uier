@@ -1035,7 +1035,10 @@ counts, sizes and keyed connection/account references. Argument values are kept 
 `null`, numeric fields and options the schema declares; never log content, ids, names, tokens, URLs or
 error messages, and never let logging change or fail a response. `e2e/mcpTelemetry.api.spec.ts` covers
 it; the other MCP specs pass `{ emit: quiet }` to `handleMcp`. The privacy policy's "Coding tool access"
-describes these records: change it with what they contain.
+describes these records: change it with what they contain. The event contract,
+`mcpRequestEventSchema`, lives in `mcp/telemetrySchema.ts` (zod and scope names only) so
+`scripts/mcp-report.mjs` and `mcp/report.ts` can validate exported events without loading the server;
+`e2e/mcp-report.api.spec.ts` covers the [daily report](../../docs/mcp.md#daily-report).
 Access tokens remain bound to one workspace; connected apps reach the workspaces chosen at consent.
 Account guidance and `mcp/workflows.ts` explain where feedback about uier itself lives (the uier
 workspace's public-feedback project). Missing project grants stay `not_found` without exposing
