@@ -71,7 +71,7 @@ export function Tile({ title, label, children }: PropsWithChildren<{ title: stri
     return (
         <div className="flex flex-col gap-2 p-6">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 className="text-base font-semibold">{title}</h3>
+                <h3 className="text-base font-black">{title}</h3>
                 {label && <Chip>{label}</Chip>}
             </div>
             <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">{children}</div>
