@@ -121,6 +121,15 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
+        async listChangedSince(domain, since, limit) {
+            // `_ts` is the server's write time in seconds; one second earlier never skips a write.
+            const resources = await queryAll<Record<string, unknown> & { _ts: number }>(
+                'changedSince', domain,
+                'SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND c._ts >= @since ORDER BY c._ts ASC',
+                [{ name: '@since', value: Math.floor(since / 1000) }, { name: '@limit', value: Math.max(1, Math.min(1000, Math.trunc(limit))) }]);
+            return resources.filter(resource => isCommentDocument(resource))
+                .map(resource => ({ comment: withoutSystemProperties<DbComment>(resource), changedAt: resource._ts * 1000 }));
+        },
         async get(domain, id): Promise<StoredComment | null> {
             try {
                 const response = await cosmosPoint(() => getContainer().item(id, domain).read<Record<string, unknown>>(),

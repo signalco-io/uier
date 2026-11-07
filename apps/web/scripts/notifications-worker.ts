@@ -7,6 +7,7 @@ import { sweepProjectDeletions } from '../src/lib/app/projectDeletion';
 import { retryNotificationDelivery, runNotificationWorker } from '../src/lib/notifications/delivery';
 import { configuredAppBaseUrl } from '../src/lib/app/deployment';
 import { runIntegrationWorker } from '../src/lib/integrations/worker';
+import { runMcpEventWorker } from '../src/lib/mcp/events/delivery';
 
 process.env.UIER_COSMOS_WORKLOAD = 'scheduled';
 
@@ -77,4 +78,13 @@ if (process.env.UIER_WORKER_VERIFY_ONLY !== '1') {
     for (const provider of integrations.providers)
         console.info(`[${provider.provider}] Checked ${provider.checked} sync ledgers; ${provider.blocked} require review; ${provider.deferred} deferred for time.`);
     if (integrations.blocked) process.exitCode = 1;
+    // After integrations, so replies and status imported this run are delivered too. A subscriber's
+    // unreachable endpoint is its own problem: only an unexpected worker error fails the run.
+    try {
+        const events = await runMcpEventWorker(baseUrl, { deadline: Date.now() + 60_000 });
+        console.info(`[mcp-events] ${events.projects} projects: ${events.discovered} new deliveries, ${events.delivered} delivered, ${events.retrying} retrying, ${events.failed} failed, ${events.skipped} skipped; ${events.deferred} projects deferred.`);
+    } catch (error) {
+        console.error(`[mcp-events] Event delivery needs retry (${error instanceof Error ? error.name : 'Error'}).`);
+        process.exitCode = 1;
+    }
 }

@@ -114,7 +114,9 @@ function protocolError(method: McpCall['method'], name: string | undefined, erro
     if (method === 'prompts/get' && name === 'unknown') return 'unknown_prompt';
     if (method === 'resources/read' && name === 'unknown') return 'unknown_resource';
     if (typeof error.message === 'string' && error.message.startsWith('MCP error -32602: Invalid arguments for prompt')) return 'invalid_arguments';
-    return ({ [-32700]: 'parse_error', [-32600]: 'invalid_request', [-32601]: 'method_not_found', [-32602]: 'invalid_params' } as Record<number, string>)[Number(error.code)] ?? 'protocol_error';
+    return ({ [-32700]: 'parse_error', [-32600]: 'invalid_request', [-32601]: 'method_not_found', [-32602]: 'invalid_params',
+        // MCP event errors (events/protocol.ts)
+        [-32011]: 'not_found', [-32012]: 'forbidden', [-32013]: 'resource_exhausted', [-32014]: 'unsupported', [-32015]: 'callback_failed' } as Record<number, string>)[Number(error.code)] ?? 'protocol_error';
 }
 
 function resultSummary(method: McpCall['method'], result: ObjectValue): McpCall['result'] {
@@ -159,6 +161,7 @@ export class McpRequestLog {
     private readonly tools = new Map<string, Input>();
     private readonly prompts = new Map<string, Input>();
     private readonly resources = new Map<string, (uri: string) => boolean>();
+    private readonly events = new Set<string>();
     private readonly responses = new Map<RequestId, ObjectValue>();
     private readonly notes = new Map<RequestId, Note>();
     private messages: unknown[] = [];
@@ -175,12 +178,20 @@ export class McpRequestLog {
     rejected(error: unknown) { this.rejection ??= { error }; }
     note(id: RequestId, error: unknown) { if (!this.done && !this.notes.has(id)) this.notes.set(id, describeError(error)); }
 
-    /** Learns each registration's input schema and runs its handler where `noteMcpError` can find this request. */
-    watch(server: McpServer) {
-        const inContext = (callback: Callback): Callback => (...args) => {
+    /** Runs a request handler where `noteMcpError` can find the request it answers (its last argument carries the id). */
+    inRequest<A extends unknown[], R>(callback: (...args: A) => R): (...args: A) => R {
+        return (...args) => {
             const id = requestId(record(args.at(-1)).requestId);
             return id === undefined ? callback(...args) : calls.run({ log: this, id }, () => callback(...args));
         };
+    }
+
+    /** Event names `events/subscribe` and `events/unsubscribe` are logged by. */
+    watchEvents(names: readonly string[]) { for (const name of names) this.events.add(name); }
+
+    /** Learns each registration's input schema and runs its handler where `noteMcpError` can find this request. */
+    watch(server: McpServer) {
+        const inContext = (callback: Callback): Callback => this.inRequest(callback);
         const registerTool = server.registerTool.bind(server);
         server.registerTool = ((name: string, config: { inputSchema?: unknown }, callback: Callback) => {
             this.tools.set(name, inputOf(config.inputSchema));
@@ -267,6 +278,11 @@ export class McpRequestLog {
             else if (typeof params.name === 'string' && requestedNamePattern.test(params.name)) call.requestedName = params.name;
         }
         if (method === 'resources/read') call.name = this.resource(params.uri);
+        // The event name only: never the arguments, callback URL or secret.
+        if (method === 'events/subscribe' || method === 'events/unsubscribe') {
+            call.name = this.events.has(String(params.name)) ? String(params.name) : 'unknown';
+            if (call.name === 'unknown' && typeof params.name === 'string' && requestedNamePattern.test(params.name)) call.requestedName = params.name;
+        }
         const id = requestId(message.id);
         if (typeof message.method !== 'string' || id === undefined) {
             call.outcome = status < 400 ? 'accepted' : 'unanswered';

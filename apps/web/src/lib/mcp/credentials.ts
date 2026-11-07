@@ -8,7 +8,7 @@ import { getUser } from '../app/users';
 import { memberActor } from '../review/actor';
 import { ApiError, apiErrors } from '../comments/http';
 import { mcpScopes, type McpScope } from './scopes';
-import { accessCovers, grantedWorkspaceOf, type AgentAccess, type McpGrant } from './oauth/grants';
+import { accessCovers, grantedWorkspaceOf, isGrantActive, type AgentAccess, type McpGrant } from './oauth/grants';
 import { authenticateAccessToken, isAccessTokenFormat } from './oauth/tokens';
 import { mcpOauthEnabled } from './oauth/config';
 
@@ -140,6 +140,25 @@ export async function authenticateMcp(request: Request, issuer = new URL(request
     if (!credential || !user) throw new McpAuthenticationError(true);
     return { user, connection: { id: credential.id, kind: 'credential', name: credential.name }, scopes: credential.scopes,
         access: { kind: 'selected', workspaces: [{ workspaceId: credential.workspaceId, projects: credential.projectIds }] } };
+}
+
+/**
+ * The connection as it stands now, for work that runs after its request (MCP event delivery):
+ * a revoked, expired or replaced access token or connected app resolves to `null`. Both kinds
+ * live in the owner's `mcp-user:` partition under the connection id.
+ */
+export async function currentMcpConnection(userId: string, connectionId: string, kind: McpIdentity['connection']['kind']): Promise<McpIdentity | null> {
+    const doc = (await getAppStore().get<McpCredential | McpGrant>(credentialPk(userId), connectionId))?.doc;
+    if (!doc || doc.userId !== userId) return null;
+    if (kind === 'oauth') {
+        if (doc.type !== 'mcp-grant' || !mcpOauthEnabled() || !isGrantActive(doc)) return null;
+        const user = await getUser(userId);
+        return user ? { user, connection: { id: doc.id, kind: 'oauth', name: doc.name, clientId: doc.clientId }, scopes: doc.scopes, access: doc.access } : null;
+    }
+    if (doc.type !== 'mcp-credential' || Date.parse(doc.expiresAt) <= Date.now()) return null;
+    const user = await getUser(userId);
+    return user ? { user, connection: { id: doc.id, kind: 'credential', name: doc.name }, scopes: doc.scopes,
+        access: { kind: 'selected', workspaces: [{ workspaceId: doc.workspaceId, projects: doc.projectIds }] } } : null;
 }
 
 /** A `forbidden` tool error that also tells the request log which operation was missing */
