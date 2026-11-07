@@ -431,7 +431,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
   thread and, once read, Mark as unread are in More actions. Then On (what it was left on, with the selector or
   the selected text), Page (the review link, "Open on ...", and the environment's name or why the original
-  source is unavailable), Priority and Assignee (the avatar and name, a menu for those who can assign), the
+  source is unavailable), Priority and Assignee (a 20px avatar, empty and dashed while unassigned, and the name; a menu for those who can assign), the
   verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
