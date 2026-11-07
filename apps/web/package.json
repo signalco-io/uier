@@ -38,7 +38,7 @@
     "@uier/brand": "workspace:*",
     "@vercel/analytics": "2.0.1",
     "@vercel/functions": "3.10.0",
-    "@vercel/oidc": "4.0.5",
+    "@vercel/oidc": "4.0.7",
     "botid": "1.5.12",
     "class-variance-authority": "0.7.1",
     "cn": "0.5.1",
