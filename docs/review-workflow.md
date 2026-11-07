@@ -204,8 +204,9 @@ integration synchronization, and capture no screenshot.
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
-The assignee shows in the thread's header as their avatar (the user icon while unassigned),
-with a tooltip that names them. The app and toolbar use the same assignment service. Assigned
+The assignee shows in the toolbar thread's header as their avatar, with a tooltip that names
+them, and in the app's thread under Assignee as a small avatar and name (an empty dashed avatar
+while unassigned). The app and toolbar use the same assignment service. Assigned
 to me combines with page, status and search filters. Guests see the assignee's avatar and name
 but cannot change assignment or look up the participant directory. Removed members appear as Former member (no access);
 the assignment can be cleared or changed.
