@@ -186,7 +186,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         <CommentUpdatesProvider value={updateComment}>
         <RealtimeComments projectId={projectId} />
         <CommentsSearchNavigationProvider value={commitSearch}>
-        <div ref={containerRef} className="@container/comments flex flex-col gap-4">
+        {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs */}
+        <div ref={containerRef} className="@container/comments flex flex-col gap-2">
             <div className={cn('contents', threadOnly && '@max-4xl/comments:hidden')}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
