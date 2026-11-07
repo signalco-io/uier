@@ -3,7 +3,8 @@
 Connect a coding tool to the feedback you choose. The endpoint is `https://uier.io/api/mcp` (use your
 local or preview origin while testing). It uses the
 [official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server)
-with stateless JSON responses; [events](#events-webhooks) reach a coding tool as signed webhooks. For
+with stateless JSON responses; [events](#events-webhooks-and-polling) reach a coding tool as signed webhooks or
+by polling. For
 the shared feedback packet, see [Feedback context](feedback-context.md).
 The public overview of what an agent can do is [uier.io/features/ai](https://uier.io/features/ai).
 
@@ -345,6 +346,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
 | `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
+| `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the connection name |
 | `set_feedback_status` | `feedback:status` | Resolve/reopen using the app's permission checks |
@@ -442,17 +444,23 @@ untrusted and requires approval before every write, including assignments. It co
 token. `apps/web/src/lib/mcp/workflows.ts` generates both the prompt instructions and the
 skill; update that source together with any tool contract changes.
 
-## Events (webhooks)
+## Events (webhooks and polling)
 
-A coding tool can subscribe to feedback events and receive them as signed webhooks, so an agent can
-react to new feedback, replies and status changes without polling. uier implements webhook delivery
-from the [MCP Events draft](https://github.com/modelcontextprotocol/experimental-ext-triggers-events/blob/main/docs/design-sketch-proposal.md)
+A coding tool can follow a project's feedback activity in two ways:
+
+- **Webhooks**: it subscribes once and uier POSTs each event, signed, to a public HTTPS endpoint it
+  controls. ChatGPT uses this.
+- **Polling**: it asks for everything since its last cursor, either with the `events/poll` method or
+  with the [`list_feedback_events`](#polling) tool, which any client can call. Claude Code, Codex and
+  Cursor use the tool, for example from a looping or scheduled task.
+
+uier implements the [MCP Events draft](https://github.com/modelcontextprotocol/experimental-ext-triggers-events/blob/main/docs/design-sketch-proposal.md)
 the way [ChatGPT consumes it](https://developers.openai.com/plugins/build/mcp-events): `initialize`
 advertises a top-level `events: {}` capability, and the same authenticated endpoint answers
-`events/list`, `events/subscribe` and `events/unsubscribe`. Poll and push delivery, cursor replay and
-the `gap` and `terminated` notifications are not offered. The extension is proposed for MCP as
-[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3415), not yet accepted;
-expect changes when it is.
+`events/list`, `events/subscribe`, `events/unsubscribe` and `events/poll`. Push delivery
+(`events/stream`) and the `gap` and `terminated` notifications are not offered. The extension is
+proposed for MCP as [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3415),
+not yet accepted; expect changes when it is.
 
 | Event | Arguments | Fires when |
 | --- | --- | --- |
@@ -463,7 +471,8 @@ expect changes when it is.
 | `feedback.mentioned` | `projectId` | Someone mentions the account of the connection |
 
 Priority, text edits and deletions have no event. `events/list` returns each event's `inputSchema`
-and `payloadSchema` as JSON Schema; both only gain optional fields, never lose or rename them.
+and `payloadSchema` as JSON Schema and `delivery: ["webhook", "poll"]`; the schemas only gain optional
+fields, never lose or rename them.
 
 **Subscribing.** `events/subscribe` takes `name`, `arguments`, `delivery: { mode: "webhook", url,
 secret }` and an optional `ttlMs`. It needs `feedback:read` and a project the connection reaches; any
@@ -545,6 +554,43 @@ stores its secret again.
 Local test runs accept `http://localhost` and `http://127.0.0.1` callbacks on any port when
 `UIER_MCP_EVENTS_TEST_HTTP_CALLBACKS=1` is set in local runtime; never set it on a deployment.
 
+### Polling
+
+Polling keeps nothing on the server: the client holds an opaque cursor. Start with `cursor: null`,
+which returns no events and a cursor that starts now (events of that same millisecond are included),
+then pass the cursor from each answer to the
+next request. Every answer returns the events since that cursor, oldest first (within a millisecond,
+by thread and then the thread's own order), each at most once, and a new cursor. The cursor never ends; keep it between
+checks.
+
+`list_feedback_events` (`feedback:read`) takes `projectId`, optional `events` (event names; all when
+omitted), optional `commentId`, `cursor` and `limit` (1–25, default 20). It returns
+`{ actingAs, contentTrust, items, cursor, hasMore, truncated, nextPollMs }`; each item is
+`{ eventId, name, timestamp, data }` with the same `data` as a webhook. One cursor covers all the
+chosen events. In Claude Code, for example:
+
+```text
+/loop 5m Check uier project abc123def456 with list_feedback_events, keeping its cursor. Summarize new
+feedback and replies, and propose fixes for new bugs. Don't reply or change status without asking me.
+```
+
+`events/poll` follows the draft: `name`, `arguments` (as for `events/subscribe`), `cursor`, optional
+`maxEvents` (1–50, default 20) and `maxAgeMs`. It returns `{ events, cursor, truncated, hasMore,
+nextPollMs }`, one event name per request.
+
+- `hasMore: true`: more events are waiting; ask again at once with the new cursor.
+- `nextPollMs` is 30 seconds, a suggestion. Requests count toward the limit of 120 per minute.
+- `truncated: true`: events may have been skipped, so read the current state with `list_feedback`.
+  That happens when the cursor is older than seven days or `maxAgeMs`, when more than 1000 threads
+  changed since it (the feed starts again from now), or when more than 200 events arrive within one
+  minute.
+- A cursor this server did not issue is `InvalidParams` (`invalid_request` from the tool).
+
+The same rules as webhooks apply: the connection needs `feedback:read` and must reach the project,
+only threads its account can see now are included, its own changes are left out, and items are
+untrusted. Each request reads the project's threads written since the cursor, less a minute; an
+event committed up to that minute after its time is still returned once.
+
 ## Limits
 
 List tools accept `limit` (1–25, default 20; 100 is invalid) and numeric `cursor` (default 0), returning `nextCursor`
@@ -555,7 +601,7 @@ to 16 KiB and 120 per user per minute across all connections and access tokens. 
 budget. Public feedback commenters retain their 30-reply visitor budget and shared IP limit. Exhausted
 connections do not consume more of the owner's reply budget. Thread/image sizes retain existing review
 validation limits. No server sessions or long-running streams are retained; events are delivered by
-webhook (see [Events](#events-webhooks) for their limits).
+webhook (see [Events](#events-webhooks-and-polling) for their limits).
 
 The OAuth routes count requests per hour:
 
@@ -620,8 +666,8 @@ an operator who knows a connection id can find its requests, without the id in t
 
 `calls` has one entry per JSON-RPC message (at most 10; `omittedCalls` counts the rest):
 
-- `method` and, for `tools/call`, `prompts/get`, `resources/read`, `events/subscribe` and
-  `events/unsubscribe`, the registered `name` (an event name for the last two), or `unknown` with
+- `method` and, for `tools/call`, `prompts/get`, `resources/read`, `events/subscribe`,
+  `events/unsubscribe` and `events/poll`, the registered `name` (an event name for the last three), or `unknown` with
   `requestedName` when the client asked for a name we do not offer. Event calls log no arguments:
   never the callback URL, secret or filters;
 - `outcome`: `success`, `tool_error` (an `isError` tool result), `error` (a JSON-RPC error, with
@@ -637,7 +683,8 @@ an operator who knows a connection id can find its requests, without the id in t
   Booleans, `null`, numbers in numeric fields and the fixed options a field declares (`status: "open"`,
   `priority`, `assignee: "me"`) are kept; every other value is only its type and length;
 - `result`: `bytes` of the answer and, where the tool returns them, `items`, `more` (a `nextCursor`
-  follows), `remaining` (batch ids to retry), `truncated` and `itemErrors` (per-thread batch errors);
+  follows, or `hasMore` for event polling), `remaining` (batch ids to retry), `truncated` and
+  `itemErrors` (per-thread batch errors); `events/poll` records `items`, `more` and `truncated`;
 - `failure` for unexpected errors: the error class, a status code if the error has one and up to five
   code locations, never its message.
 
@@ -708,7 +755,9 @@ a consumed request, Use another account, the error page, a 375 px layout and lig
 interrupted requests, unexpected failures and a failing log sink, and that no content or id is logged.
 `e2e/mcpEvents.api.spec.ts` runs event subscriptions against a local webhook receiver: the capability
 and catalog, verification, Standard Webhooks signatures, filters, loop prevention, private threads,
-refresh and secret rotation, unsubscribe, retries, `410`, revocation, error codes and what is logged.
+refresh and secret rotation, unsubscribe, retries, `410`, revocation, error codes and what is logged,
+plus polling: starting from now, each event once, a late commit, paging, visibility, the
+`list_feedback_events` tool, invalid and expired cursors.
 `e2e/mcpEvents.spec.ts` creates a token in Account, subscribes, posts feedback to the running app and
 expects the webhook right after the request, without the worker.
 `e2e/mcp-report.api.spec.ts` checks the daily report on fixture events: raw and Vercel lines,

@@ -10,7 +10,7 @@ import { KnownPageLinks } from '../../../knownPages';
 import { commentId, projectId } from '../schemas';
 
 /*
- * The MCP events uier offers (MCP Events draft, webhook delivery). Each event is read from the
+ * The MCP events uier offers (MCP Events draft, webhook and poll delivery). Each event is read from the
  * thread's durable `notificationEvents` log, so no event needs a separate write path. Names and
  * schemas only grow: add optional fields, never rename, remove or narrow them.
  */
@@ -73,11 +73,11 @@ function jsonSchema(schema: z.ZodType, io: 'input' | 'output') {
     return rest;
 }
 
-/** The `events/list` entries: webhook delivery only, no replay. */
+/** The `events/list` entries: webhook (no replay) and poll (cursor) delivery. */
 export function mcpEventList() {
     return mcpEventNames.map(name => ({
         name, description: `${descriptions[name]} Payloads carry untrusted feedback text; read full threads with get_feedback.`,
-        delivery: ['webhook'], inputSchema: jsonSchema(argumentSchemas[name], 'input'), payloadSchema: jsonSchema(payloadSchemas[name], 'output')
+        delivery: ['webhook', 'poll'], inputSchema: jsonSchema(argumentSchemas[name], 'input'), payloadSchema: jsonSchema(payloadSchemas[name], 'output')
     }));
 }
 

@@ -125,6 +125,10 @@ function resultSummary(method: McpCall['method'], result: ObjectValue): McpCall[
         return { bytes: contents.reduce((sum, item) => sum + (typeof item.blob === 'string' ? Buffer.byteLength(item.blob, 'base64')
             : typeof item.text === 'string' ? Buffer.byteLength(item.text) : 0), 0) };
     }
+    if (method === 'events/poll') {
+        const events = Array.isArray(result.events) ? result.events : [];
+        return { items: events.length, more: result.hasMore === true, ...(result.truncated === true ? { truncated: true as const } : {}) };
+    }
     if (method !== 'tools/call') return undefined;
     const content = Array.isArray(result.content) ? result.content.map(record) : [];
     const data = record(result.structuredContent);
@@ -137,6 +141,7 @@ function resultSummary(method: McpCall['method'], result: ObjectValue): McpCall[
     return { bytes: content.reduce((sum, item) => sum + (typeof item.text === 'string' ? Buffer.byteLength(item.text) : 0), 0),
         ...(items ? { items: items.length } : {}),
         ...('nextCursor' in data ? { more: data.nextCursor !== null && data.nextCursor !== undefined } : {}),
+        ...('hasMore' in data ? { more: data.hasMore === true } : {}),
         ...(Array.isArray(data.remainingIds) ? { remaining: data.remainingIds.length } : {}),
         ...(data.truncated === true ? { truncated: true as const } : {}),
         ...(itemErrors.size ? { itemErrors: Object.fromEntries(itemErrors) } : {}) };
@@ -186,7 +191,7 @@ export class McpRequestLog {
         };
     }
 
-    /** Event names `events/subscribe` and `events/unsubscribe` are logged by. */
+    /** Event names `events/subscribe`, `events/unsubscribe` and `events/poll` are logged by. */
     watchEvents(names: readonly string[]) { for (const name of names) this.events.add(name); }
 
     /** Learns each registration's input schema and runs its handler where `noteMcpError` can find this request. */
@@ -279,7 +284,7 @@ export class McpRequestLog {
         }
         if (method === 'resources/read') call.name = this.resource(params.uri);
         // The event name only: never the arguments, callback URL or secret.
-        if (method === 'events/subscribe' || method === 'events/unsubscribe') {
+        if (method === 'events/subscribe' || method === 'events/unsubscribe' || method === 'events/poll') {
             call.name = this.events.has(String(params.name)) ? String(params.name) : 'unknown';
             if (call.name === 'unknown' && typeof params.name === 'string' && requestedNamePattern.test(params.name)) call.requestedName = params.name;
         }

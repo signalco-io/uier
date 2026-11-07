@@ -99,8 +99,10 @@ function grantedTtl(ttlMs: number | null | undefined) {
     return Math.max(MIN_TTL_MS, Math.min(MAX_TTL_MS, requested));
 }
 
-async function projectFor(identity: McpIdentity, projectId: string) {
-    try { return (await mcpProject(identity, projectId)).project; }
+/** The project and current member actor for an event request; any access failure is Forbidden. */
+export async function mcpEventProject(identity: McpIdentity, projectId: string) {
+    if (!identity.scopes.includes('feedback:read')) throw new McpEventsError('forbidden', 'This connection needs feedback:read.');
+    try { return await mcpProject(identity, projectId); }
     catch (error) {
         if (error instanceof ApiError && error.status === 403)
             throw new McpEventsError('forbidden', error.message);
@@ -147,8 +149,7 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
     if (!url) throw new McpEventsError('invalid', 'Use a public HTTPS callback URL on the default port, without credentials or a fragment.');
     if (!webhookSecretBytes(input.delivery.secret)) throw new McpEventsError('invalid', 'The secret must be whsec_ followed by the base64 of 24–64 random bytes.');
     const secret = input.delivery.secret as string;
-    if (!identity.scopes.includes('feedback:read')) throw new McpEventsError('forbidden', 'This connection needs feedback:read.');
-    const project = await projectFor(identity, args.projectId);
+    const { project } = await mcpEventProject(identity, args.projectId);
     const id = subscriptionId(identity.connection.id, url.href, input.name, args);
     const pk = eventsPk(project.id);
     const grant = grantedTtl(input.ttlMs);

@@ -31,6 +31,7 @@ test('the AI page explains the coding tool connection and rewrite suggestions', 
     const prompts = page.getByRole('region', { name: 'Prompts and a skill', exact: true });
     for (const prompt of ['triage-feedback', 'fix-feedback', 'report-back'])
         await expect(prompts.getByText(prompt, { exact: true })).toBeVisible();
+    await expect(prompts).toContainText('watch a project for new feedback, replies and status changes');
 
     await expect(main.getByRole('link', { name: 'Create a project' })).toHaveAttribute('href', '/app');
     await expect(main.getByRole('link', { name: 'main questions' })).toHaveAttribute('href', '/#faq');

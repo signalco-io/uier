@@ -432,6 +432,11 @@ export default function PrivacyPolicyPage() {
                 and check the connection&rsquo;s access and the feedback&rsquo;s visibility again before each delivery.
             </p>
             <p>
+                A coding tool can also ask for the same events itself, since the last position it kept. We
+                store nothing for that: the position stays with the tool and contains only times and short
+                event references.
+            </p>
+            <p>
                 Replies and activity record your identity and the connection&rsquo;s name and id, so other reviewers
                 can recognize changes made through your coding tool. These records stay with the feedback.
                 Request counters expire after two minutes. Retry receipts contain hashes and feedback ids
