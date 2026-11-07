@@ -331,6 +331,9 @@ test('onboarding creates a project with its addresses and sets up reviews one st
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(page).toHaveTitle('example.com · uier');
     await expect(page.getByText('No comments yet')).toBeVisible();
+    // Until the site sends a comment, the tabs offer the install guide; Settings is the header's cog
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Install']);
+    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings`);
     const empty = page.locator('[data-slot="empty"]');
     await expect(empty).toContainText('They sign in with their email.');
     await expect(empty.getByRole('button', { name: 'Invite', exact: true })).toBeVisible();
@@ -437,7 +440,11 @@ test('project settings sections save the name, comment access and addresses', as
     await page.goto(`/app/projects/${projectId}/settings`);
     await expect(page.getByRole('heading', { level: 1, name: 'settings.example.com' })).toBeVisible();
     // The header's Settings button is current (the breadcrumb ends at Settings too, as a disabled link)
-    await expect(page.getByRole('link', { name: 'Settings', exact: true, disabled: false })).toHaveAttribute('aria-current', 'page');
+    const settingsButton = page.getByRole('link', { name: 'Settings', exact: true, disabled: false });
+    await expect(settingsButton).toHaveAttribute('aria-current', 'page');
+    // An icon (the cog), named by its label and a tooltip
+    await settingsButton.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Settings');
     await expect(page).toHaveTitle('Project settings · uier');
     // Every section has its own page; General is the settings page itself
     const sections = page.getByRole('navigation', { name: 'Project settings' });
