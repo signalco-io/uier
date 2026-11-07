@@ -12,33 +12,49 @@
     "exports": {
         "./realtime": {
             "types": "./src/realtime.ts",
+            "development": "./dist-dev/realtime.js",
             "default": "./dist/realtime.js"
         },
-        ".": "./dist/index.js",
-        "./bundle": "./dist/bundle.json",
+        ".": {
+            "development": "./dist-dev/index.js",
+            "default": "./dist/index.js"
+        },
+        "./bundle": {
+            "development": "./dist-dev/bundle.json",
+            "default": "./dist/bundle.json"
+        },
         "./react": {
             "types": "./src/react.ts",
+            "development": "./dist-dev/react.js",
             "default": "./dist/react.js"
         },
-        "./index.css": "./dist/index.css",
+        "./index.css": {
+            "development": "./dist-dev/index.css",
+            "default": "./dist/index.css"
+        },
         "./screenshot-policy": {
             "types": "./src/screenshotPolicy.ts",
+            "development": "./dist-dev/screenshotPolicy.js",
             "default": "./dist/screenshotPolicy.js"
         },
         "./page-state": {
             "types": "./src/pageState.ts",
+            "development": "./dist-dev/pageState.js",
             "default": "./dist/pageState.js"
         },
         "./mentions": {
             "types": "./src/mentions.ts",
+            "development": "./dist-dev/mentions.js",
             "default": "./dist/mentions.js"
         },
         "./drafts": {
             "types": "./src/hooks/draftStorage.ts",
+            "development": "./dist-dev/draftStorage.js",
             "default": "./dist/draftStorage.js"
         },
         "./feedback-context": {
             "types": "./src/feedbackContext.ts",
+            "development": "./dist-dev/feedbackContext.js",
             "default": "./dist/feedbackContext.js"
         },
         "./extension": {
@@ -47,20 +63,23 @@
         },
         "./extension-contract": {
             "types": "./src/extensionContract.ts",
+            "development": "./dist-dev/extensionContract.js",
             "default": "./dist/extensionContract.js"
         },
         "./triage": {
             "types": "./src/triage.ts",
+            "development": "./dist-dev/triage.js",
             "default": "./dist/triage.js"
         },
         "./verification": {
             "types": "./src/verification.ts",
+            "development": "./dist-dev/verification.js",
             "default": "./dist/verification.js"
         }
     },
     "scripts": {
         "dev:build": "tsup --watch ./src --env.NODE_ENV development",
-        "dev:serve": "serve dist --no-port-switching -l $((${PORT:-4004} + 1))",
+        "dev:serve": "serve dist-dev --no-port-switching -l $((${PORT:-4004} + 1))",
         "dev": "pnpm run \"/^dev:.*/\"",
         "build": "tsup --minify --env.NODE_ENV production",
         "typecheck": "tsc --noEmit"
