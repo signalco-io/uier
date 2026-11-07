@@ -947,6 +947,21 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await filters.getByRole('combobox', { name: 'People' }).click();
     await page.getByRole('option', { name: 'Opened by me' }).click();
     await expect(page.getByText('No comments match these filters.')).toBeVisible();
+    // Unassigned: only threads with no assignee (MCP's assignee "unassigned"), in the URL, counted by status and the summary
+    await filters.getByRole('combobox', { name: 'People' }).click();
+    await page.getByRole('option', { name: 'Unassigned' }).click();
+    await expect(page).toHaveURL(/people=unassigned/);
+    await expect(commentRows(page)).toHaveCount(1);
+    await expect(commentRowLink(page, 'Pricing needs a table.')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Open 1' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText(/^1 of 2 comments/);
+    await expect(page.getByRole('button', { name: 'Clear filter: Unassigned' })).toBeVisible();
+    // It survives a reload and combines with search and page
+    await page.goto(`/app/projects/${projectId}?people=unassigned&q=photo`);
+    await expect(page.getByText('No comments match these filters.')).toBeVisible();
+    await page.goto(`/app/projects/${projectId}?people=unassigned&page=${encodeURIComponent(pricing)}`);
+    await expect(commentRows(page)).toHaveCount(1);
+    await expect(commentRowLink(page, 'Pricing needs a table.')).toBeVisible();
 
     // Board view: Open, Ready to verify and Done columns; a card opens its thread in a sheet
     await page.goto(`/app/projects/${projectId}?view=board`);

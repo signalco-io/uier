@@ -37,6 +37,8 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
             return false;
         if (query.people === 'assigned')
             return comment.assignee?.id === userId;
+        if (query.people === 'unassigned')
+            return !comment.assignee;
         if (query.people === 'mine')
             return comment.author.isMe;
         return true;
