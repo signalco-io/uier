@@ -15,7 +15,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
-| `src/components/app/` | app UI: `PageHeader`/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
+| `src/components/app/` | app UI: `PageHeader` (`media` sits left of the title and description together: a project's favicon, a person's avatar)/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
@@ -353,7 +353,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `useInvite()` open it). uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is
-  `projects/[projectId]/layout.tsx` (client, then who can comment, whose popover has Invite for admins, Open
+  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment, whose popover has Invite for admins, Open
   review, then the `ProjectTabs`: Comments, Install (Settings → Installation and the onboarding install step) and
   Settings (every other section)); its pages render the comments, install guide or settings under it.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,

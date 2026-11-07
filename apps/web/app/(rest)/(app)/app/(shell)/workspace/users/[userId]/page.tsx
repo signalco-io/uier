@@ -35,14 +35,12 @@ export default async function PersonPage({ params }: PageProps<'/app/workspace/u
     return (
         <>
             <PageHeader
-                title={(
-                    <span className="flex items-center gap-3">
-                        <Avatar aria-hidden="true" className="size-9">
-                            <AvatarFallback>{initials(person.name)}</AvatarFallback>
-                        </Avatar>
-                        <span className="min-w-0">{person.name}</span>
-                    </span>
+                media={(
+                    <Avatar aria-hidden="true" className="size-14">
+                        <AvatarFallback className="text-lg">{initials(person.name)}</AvatarFallback>
+                    </Avatar>
                 )}
+                title={person.name}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="font-mono text-[13px]">{member.email}</span>

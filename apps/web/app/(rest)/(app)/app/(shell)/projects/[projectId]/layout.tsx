@@ -24,12 +24,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     return (
         <>
             <PageHeader
-                title={(
-                    <span className="flex items-center gap-3">
-                        <ProjectMark name={project.name} url={project.urls[0]} className="size-8 rounded-lg text-sm [&>img]:p-1.5" />
-                        <span className="min-w-0">{project.name}</span>
-                    </span>
-                )}
+                media={<ProjectMark name={project.name} url={project.urls[0]} className="size-14 rounded-xl text-xl [&>img]:p-2.5" />}
+                title={project.name}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
                         {client && (
