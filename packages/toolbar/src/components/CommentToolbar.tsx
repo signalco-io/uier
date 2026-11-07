@@ -154,8 +154,11 @@ export function CommentToolbar({
                     className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', !collapsed && 'overflow-x-auto')}>
                     {!collapsed && (
                         <IconTooltip label="Drag to move. Arrow keys move it; Home resets it.">
-                            <IconButton ref={moveRef} variant="plain" className="shrink-0 rounded-full" aria-label="Move toolbar"
-                                {...movement.handle} onKeyDown={movement.onKeyDown}><Drag /></IconButton>
+                            {/* A quiet grip: muted and thinner than the 1.75 stroke (inline, since `svg.lucide` sets it in CSS) until hovered, focused or dragged */}
+                            <IconButton ref={moveRef} variant="plain"
+                                className={cx('shrink-0 rounded-full hover:text-foreground focus-visible:text-foreground', movement.dragging ? 'text-foreground' : 'text-muted-foreground')}
+                                aria-label="Move toolbar"
+                                {...movement.handle} onKeyDown={movement.onKeyDown}><Drag style={{ strokeWidth: 1.25 }} /></IconButton>
                         </IconTooltip>
                     )}
                     {collapsed ? (
