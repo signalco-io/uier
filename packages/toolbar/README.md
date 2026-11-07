@@ -447,5 +447,5 @@ Unassignment targets the previous assignee, subject to the same rules.
 ## Scripts
 
 - `pnpm build` - loader in `dist/index.js`, review UI in `dist/review.js` (CSS included), loader path/SRI in `dist/bundle.json`, and the React component in `dist/react.js`
-- `pnpm dev` - rebuild on change and serve `dist` on http://localhost:4005 (loaded by `apps/web` in development); with `PORT` set, on `PORT + 1`, calling the web app on `PORT`
+- `pnpm dev` - rebuild on change into `dist-dev` and serve it on http://localhost:4005 (loaded by `apps/web` in development, which imports the modules from `dist-dev` through the `development` export condition); with `PORT` set, on `PORT + 1`, calling the web app on `PORT`. Production builds keep `dist`, so typecheck, build and tests can run beside it
 - `pnpm typecheck` - type check with `tsc`
