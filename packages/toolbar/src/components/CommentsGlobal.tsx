@@ -30,6 +30,7 @@ import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { activeModalDialog, isInActiveModal } from '../modalLayer';
 import { getDeviceInfo } from './info/getDeviceInfo';
+import { isAddCommentShortcut, isLetterKeyTarget, useShortcutsEnabled } from '../shortcuts';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength, isCommentArea } from './@types/Comments';
 
@@ -218,6 +219,7 @@ export function CommentsGlobal({
     // The API lists at most this many comments; the page can have more
 
     const [creatingCommentPoint, setCreatingCommentPoint] = useState(false);
+    const shortcutsEnabled = useShortcutsEnabled();
 
     /** The visitor found the feature: the first-run hint is not needed anymore */
     const closeHintForUse = () => {
@@ -356,6 +358,34 @@ export function CommentsGlobal({
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     });
+
+    // C (`shortcuts.ts`): point mode starts or ends, like the + button with a pointer; with page text
+    // selected, the selection gets the comment. Bubble phase, so the page's own handling of the key
+    // (`preventDefault`) wins. The toolbar's dialogs (options, feedback, a thread) keep their keys.
+    const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
+        if (!isAddCommentShortcut(event) || isLetterKeyTarget(event) || reattaching) {
+            return;
+        }
+        const target = event.composedPath()[0];
+        if (target instanceof Element && isToolbarNode(target, rootElement) && target.closest('[role="dialog"], [role="alertdialog"]')) {
+            return;
+        }
+        event.preventDefault();
+        if (creatingCommentSelection) {
+            handleCreateComment('comment');
+            return;
+        }
+        closeHintForUse();
+        setCreatingCommentPoint(current => !current);
+    });
+    useEffect(() => {
+        if (collapsed || !shortcutsEnabled) {
+            return;
+        }
+        const listener = (event: KeyboardEvent) => handleShortcut(event);
+        window.addEventListener('keydown', listener);
+        return () => window.removeEventListener('keydown', listener);
+    }, [collapsed, shortcutsEnabled]);
 
     const handleSelectionChange = useEffectEvent(() => {
         // A collapsed toolbar leaves normal page selection alone, without review controls.

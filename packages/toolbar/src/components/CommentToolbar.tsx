@@ -17,6 +17,7 @@ import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
 import { useToolbarMovement } from '../hooks/useReviewMovement';
 import { canReviewToolbar } from '../toolbarReview';
+import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 
 type CommentToolbarProps = {
     mode: ToolbarMode;
@@ -74,6 +75,7 @@ export function CommentToolbar({
     const moveRef = useRef<HTMLButtonElement>(null);
     const movement = useToolbarMovement(navRef, onMoveStart);
     const resetPosition = () => { movement.reset(); requestAnimationFrame(() => moveRef.current?.focus()); };
+    const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount
@@ -176,10 +178,11 @@ export function CommentToolbar({
                         </IconTooltip>
                     ) : (
                         <Row>
-                            <IconTooltip label="Add comment">
+                            <IconTooltip label="Add comment" shortcut={shortcut}>
                             <IconButton
                                 ref={addButtonRef}
                                 aria-label="Add comment"
+                                aria-keyshortcuts={shortcut}
                                 aria-pressed={creatingPointComment}
                                 // Pressed: white on the black pill (21:1), not a faint tint
                                 variant={creatingPointComment ? 'solid' : 'plain'}

@@ -19,6 +19,8 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarConfig } from '../config';
+import { addCommentShortcut, setShortcutsEnabled, useShortcutsEnabled } from '../shortcuts';
+import { useKeyboardHint } from './ComposerFooter';
 
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -29,8 +31,9 @@ type ToolbarOptionsProps = {
 };
 
 /**
- * The toolbar's options: view the project, exit the review, sign out (only the ones that apply),
- * and always a link to uier.io, since the toolbar shows on other people's sites.
+ * The toolbar's options: turn the keyboard shortcut off or on, then view the project, exit the review,
+ * sign out (only the ones that apply), and always a link to uier.io, since the toolbar shows on other
+ * people's sites.
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
     const { rootElement, mode } = useContext(CommentsBootstrapperContext);
@@ -78,6 +81,16 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
 
     const hasActions = Boolean(projectUrl || onExitReview || canSignOut || onResetPosition);
 
+    // A one-letter shortcut can be turned off (WCAG 2.1.4): speech input or the page's own keys may need the letter
+    const shortcutsEnabled = useShortcutsEnabled();
+    // Where a keyboard is likely (the composer's hint uses the same check); always while it is off
+    const showShortcutSwitch = useKeyboardHint() || !shortcutsEnabled;
+    const handleToggleShortcuts = () => {
+        handleOpenChange(false);
+        setShortcutsEnabled(!shortcutsEnabled);
+        announce(shortcutsEnabled ? `Shortcut ${addCommentShortcut} turned off` : `Shortcut ${addCommentShortcut} turned on. Press ${addCommentShortcut} to add a comment.`);
+    };
+
     const tip = useIconTooltip('Options');
     return (
         <>{tip.tooltip}<Popper
@@ -121,6 +134,15 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                 </Stack>
             ) : (
                 <Stack>
+                    {showShortcutSwitch && <Button
+                        variant="plain"
+                        size="sm"
+                        fullWidth
+                        className="justify-start"
+                        onClick={handleToggleShortcuts}>
+                        {shortcutsEnabled ? 'Turn off shortcut' : 'Turn on shortcut'}{' '}
+                        <kbd className="ml-auto pl-3 font-mono font-normal text-muted-foreground">{addCommentShortcut}</kbd>
+                    </Button>}
                     {onResetPosition && (
                         <Button variant="plain" size="sm" className="justify-start" onClick={() => { handleOpenChange(false); onResetPosition(); }}>
                             Reset toolbar position
@@ -162,7 +184,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                             Sign out...
                         </Button>
                     )}
-                    {hasActions && <Divider className="my-1" />}
+                    {(hasActions || showShortcutSwitch) && <Divider className="my-1" />}
                     {/* The referrer (the reviewed site's origin) tells uier.io where people came from */}
                     <Button
                         variant="plain"
