@@ -51,8 +51,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
   active or done projects as cards with their open comments, who can comment and review links. A card
-  shows the main address under the name, or only how many addresses there are when the project is named
-  after its main address. Projects is the first link in the sidebar.
+  lays out its name like the project header: the favicon beside the name and the row under it, with the
+  client, then who can comment; the open comments and Open review sit at the bottom. Projects is the first
+  link in the sidebar.
   An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
   in settings; the field suggests the existing clients as you type, and any other name adds a new one. It
   appears with the client's tile in project details and cards. The client filter sits beside Active/Done,
