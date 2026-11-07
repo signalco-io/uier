@@ -25,7 +25,8 @@ export const integrationLabels: Record<string, string> = {
 /** Only an opaque server reference and a display name cross the client boundary. */
 export type AuthorFilter = { reference: string; name: string };
 
-export type PeopleFilter = 'all' | 'assigned' | 'mine';
+/** `unassigned`: threads with no assignee, as MCP `list_feedback`'s `assignee: "unassigned"` */
+export type PeopleFilter = 'all' | 'assigned' | 'unassigned' | 'mine';
 export type CommentsView = 'list' | 'board';
 export type StatusFilter = 'open' | 'ready' | 'done' | 'all';
 
@@ -40,5 +41,6 @@ export const statusFilterLabels: Record<StatusFilter, string> = {
 export const peopleFilterLabels: Record<PeopleFilter, string> = {
     all: 'Everyone',
     assigned: 'Assigned to me',
+    unassigned: 'Unassigned',
     mine: 'Opened by me'
 };

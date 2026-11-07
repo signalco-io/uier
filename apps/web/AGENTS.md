@@ -464,7 +464,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
   row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
-  and page, People and Only unread; its badge counts the filters in effect) and List/Board, then the status tabs
+  and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread; its badge counts the
+  filters in effect) and List/Board, then the status tabs
   (list only). Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The list header (`TriageSelection`) has Select shown results, the count with
   the unread count, and Mark all as read; the bulk actions appear only once something is selected.

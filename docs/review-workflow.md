@@ -593,7 +593,9 @@ to 200 characters and saved with debounced history replacement. Each whitespace-
 must appear literally, without case sensitivity, in the first message, a non-deleted reply or quote,
 the canonical page path or the public thread number (`#12`). Deleted text is excluded. Search,
 priority, status, people, page and unread filters combine locally; environment and staff-author
-changes still load a new server-authorized scope. Back/Forward, view changes and reload retain the
+changes still load a new server-authorized scope. People is Everyone, Assigned to me, Unassigned
+(`people=unassigned`: threads with no assignee, the same threads as MCP `list_feedback` with
+`assignee: "unassigned"`) or Opened by me. Back/Forward, view changes and reload retain the
 URL filters. Mark all as read snapshots only the final shown threads and their rendered cursors.
 
 Search covers at most 1,000 recent threads in the loaded environment/author scope. A notice appears
