@@ -195,7 +195,7 @@ export default function AiPage() {
                     ))}
                 </Panel>
                 <p className="max-w-[720px] text-sm text-muted-foreground">
-                    Copy or download the <code className={code}>uier-feedback</code> skill in Account → Coding agents and save it in your tool&rsquo;s skills folder. The prompts and the skill cite each thread by its {brand.name} link in pull requests and commits.
+                    Copy or download the <code className={code}>uier-feedback</code> skill in Account → Coding agents and save it in your tool&rsquo;s skills folder. The prompts and the skill cite each thread by its {brand.name} link in pull requests and commits. The skill also shows your agent how to watch a project for new feedback, replies and status changes from a looping or scheduled task.
                 </p>
             </PageSection>
 

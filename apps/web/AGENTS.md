@@ -1071,10 +1071,12 @@ registration, loopback listener) through sign-in, consent, approval, `list_proje
 revocation in Account (`@smoke`), plus cancel, request reuse, another account and the error page.
 This connector does not prove #90 launch acceptance.
 
-**Events (webhooks).** `src/lib/mcp/events/` implements MCP Events webhook delivery as ChatGPT
-consumes it ([docs/mcp.md#events-webhooks](../../docs/mcp.md#events-webhooks)): `protocol.ts` registers
-the top-level `events` capability and `events/list|subscribe|unsubscribe` and owns the error code
-table; `catalog.ts` the event names, argument/payload schemas (additive only) and the mapping from a
+**Events (webhooks and polling).** `src/lib/mcp/events/` implements MCP Events webhook and poll
+delivery as ChatGPT consumes it ([docs/mcp.md](../../docs/mcp.md#events-webhooks-and-polling)): `protocol.ts` registers
+the top-level `events` capability and `events/list|subscribe|unsubscribe|poll` and owns the error code
+table; `feed.ts` the stateless poll feed behind `events/poll` and the `list_feedback_events` tool (an
+opaque client-held cursor: watermark a minute behind, the start time, and short ids already returned
+since the watermark, so late commits arrive once; nothing stored per client); `catalog.ts` the event names, argument/payload schemas (additive only) and the mapping from a
 thread's `notificationEvents`; `subscriptions.ts` deterministic subscription ids, TTL grants, limits,
 endpoint verification and encrypted `whsec_` secrets; `webhook.ts` Standard Webhooks signing and the
 POST, which goes only to public HTTPS on the default port through `publicNetwork.ts` (the same

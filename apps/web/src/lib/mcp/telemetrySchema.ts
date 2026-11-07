@@ -11,7 +11,7 @@ export const methods = ['initialize', 'ping', 'tools/list', 'tools/call', 'promp
     'resources/templates/list', 'resources/read', 'resources/subscribe', 'resources/unsubscribe', 'completion/complete',
     'logging/setLevel', 'tasks/get', 'tasks/list', 'tasks/result', 'tasks/cancel', 'notifications/initialized',
     'notifications/cancelled', 'notifications/progress', 'notifications/roots/list_changed',
-    'events/list', 'events/subscribe', 'events/unsubscribe'] as const;
+    'events/list', 'events/subscribe', 'events/unsubscribe', 'events/poll'] as const;
 export const codePattern = /^[a-z][a-z_]{0,39}$/;
 export const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]{0,39}$/;
 export const requestedNamePattern = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
