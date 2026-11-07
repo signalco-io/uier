@@ -348,7 +348,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects with a
-  Create project icon link in their header, then at the bottom Workspace (admins; for everyone else only when a
+  Create project icon link and a sort menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu), the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). uier's own workspace, which every account joins for Give feedback, is a
@@ -357,6 +357,12 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment, whose popover has Invite for admins, Open
   review, then the `ProjectTabs`: Comments, Install (Settings → Installation and the onboarding install step) and
   Settings (every other section)); its pages render the comments, install guide or settings under it.
+- **Sidebar project order.** `lib/app/sidebarProjects.ts` gives each active project its client and its latest
+  activity: the newest `updatedAt`/`createdAt` of a thread the member can see (`listActivity` projection,
+  `canSeeComment`), or the project's creation. `lib/app/projectOrder.ts` (pure, shared by server render and
+  browser) sorts with a fixed `en` collator so both agree, and groups by client (clients ordered like their
+  projects, No client last). The choice is the HttpOnly `__Host-uier_project_order` cookie
+  (`saveProjectOrderAction`), read by the shell layout, so the first render is already in order.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `workspaceTabs`): Users, Teams, Clients, Activity and Settings for admins, Clients only for everyone else and in
   the uier workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,

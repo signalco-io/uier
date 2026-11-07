@@ -98,6 +98,13 @@ const items = [
         duration: 'One year'
     },
     {
+        name: '__Host-uier_project_order',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You sort or group the projects in the app’s sidebar',
+        purpose: 'Remembers how the sidebar lists your active projects: by recent activity or alphabetically, and whether they are grouped by client. Holds only that choice, with nothing about you.',
+        duration: 'One year'
+    },
+    {
         name: 'uier:showcase-hint-dismissed',
         type: 'Local storage',
         when: 'You close the “Try uier on this page” hint',
@@ -143,7 +150,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="5 November 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="8 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
