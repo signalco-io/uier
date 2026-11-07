@@ -220,10 +220,12 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expectNoAxeViolations(page);
     await page.keyboard.press('Escape');
     await expect(profile).toBeHidden();
-    // Nothing to sign out of yet, and the landing page has no review to exit: Options only links to uier.io
+    // Nothing to sign out of yet, and the landing page has no review to exit: Options links to
+    // uier.io, with the keyboard shortcut's switch where there is a keyboard
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
-    await expect(options(page).getByRole('button')).toHaveCount(0);
+    if (testInfo.project.use.hasTouch) await expect(options(page).getByRole('button')).toHaveCount(0);
+    else await expect(options(page).getByRole('button')).toHaveText(['Turn off shortcut C']);
     await page.keyboard.press('Escape');
     await expect(options(page)).toBeHidden();
 

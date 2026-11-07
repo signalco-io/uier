@@ -8,6 +8,7 @@ import { popoverWidth, popoverWindowMargin } from './@types/Comments';
 import { CommentIcon } from './CommentIcon';
 import { InkScope } from './InkScope';
 import { RewriteIcon } from './RewriteIcon';
+import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 
 type CommentSelectionPopoverProps = {
     rects: DOMRect[];
@@ -31,9 +32,11 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     }, []);
     const buttonsRef = useRef<(HTMLButtonElement | null)[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
+    // C comments on the selection too (CommentsGlobal)
+    const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const actions = [
-        { label: 'Add comment', icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate },
-        { label: 'Rewrite', icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite }
+        { label: 'Add comment', icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
+        { label: 'Rewrite', icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }
     ];
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -82,6 +85,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                             size="sm"
                             className="gap-1.5 rounded-full pl-2.5"
                             tabIndex={index === activeIndex ? 0 : -1}
+                            aria-keyshortcuts={action.shortcut}
                             onFocus={() => setActiveIndex(index)}
                             // Keep the page selection intact until its action has consumed it.
                             onPointerDown={event => event.preventDefault()}
