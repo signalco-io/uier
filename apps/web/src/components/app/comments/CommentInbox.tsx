@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { cn } from '@/src/lib/utils';
 import { KnownPageLinks } from '../../../knownPages';
@@ -61,6 +61,13 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * The list as an inbox: compact rows, and the open thread beside them (the first shown one until
  * another is chosen). Where there is no room for both, a row opens the thread in the list's place,
  * with Back to comments. A thread that Done or Reopen takes out of the list folds away first.
+ *
+ * ↓ and ↑ move to the next and the previous row and stop at the ends; from a row, Home and End move to
+ * the first and the last. Beside the list the row's thread opens, like a click; where the thread
+ * would take the list's place, the focus moves and Enter opens it. The keys work from the list, or
+ * from the page while nothing has the focus and the reader is not in the open thread (there they keep
+ * scrolling it), so never in a text field, a menu or a dialog. Only the current row's link and
+ * selection box are in the Tab order (a roving tab stop), so Tab goes on to the open thread.
  */
 export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keepsResolved, openComment }: {
     projectId: string;
@@ -78,10 +85,72 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     const { openId, hrefFor, open, close, sideBySide } = openComment;
     const opened = openId ? allComments.find(comment => comment.id === openId) : undefined;
     const selected = opened ?? comments[0];
+    const listRef = useRef<HTMLUListElement>(null);
     const detailRef = useRef<HTMLDivElement>(null);
     const [initial] = useState(() => new Set(comments.map(comment => comment.id)));
     // Comment id → the state it is leaving for; it stays hidden only while it has the other one
     const [leaving, setLeaving] = useState<Record<string, boolean>>({});
+    const isLeaving = (comment: ProjectCommentView) => comment.id in leaving && leaving[comment.id] !== comment.resolved;
+
+    // The row the keyboard is on: the one last focused or opened. It follows the open thread whenever
+    // that changes (a click, an arrow key, Back or Forward) and holds the list's one tab stop.
+    const [keyboard, setKeyboard] = useState({ openId, id: openId });
+    if (keyboard.openId !== openId) setKeyboard({ openId, id: openId ?? keyboard.id });
+    const listed = (id: string | undefined) => comments.find(comment => comment.id === id && !isLeaving(comment));
+    const current = listed(keyboard.id) ?? listed(opened?.id);
+    const tabStop = current ?? comments.find(comment => !isLeaving(comment));
+    // Where the current row was, so the keys go on from there once it has left the list (Done, a filter)
+    const lastIndex = useRef(0);
+    useEffect(() => {
+        const index = current ? comments.indexOf(current) : -1;
+        if (index >= 0) lastIndex.current = index;
+    });
+
+    const moveWithKeys = useEffectEvent((event: KeyboardEvent) => {
+        const list = listRef.current;
+        const { target, key } = event;
+        const step = key === 'ArrowDown' || key === 'Home' ? 1 : key === 'ArrowUp' || key === 'End' ? -1 : 0;
+        if (!step || !list || !(target instanceof Node) || event.defaultPrevented || event.isComposing
+            || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !list.checkVisibility()) return;
+        const inList = list.contains(target);
+        const onPage = (target === document.body || target === document.documentElement)
+            && !detailRef.current?.contains(document.getSelection()?.anchorNode ?? null);
+        const edge = key === 'Home' || key === 'End';
+        if (edge ? !inList : !inList && !onPage) return;
+        // The first row from `from` on, in the direction of `step`, that is not folding away
+        const walk = (from: number, step: number) => {
+            for (let index = from; index >= 0 && index < comments.length; index += step)
+                if (!isLeaving(comments[index]!)) return comments[index];
+        };
+        let next: ProjectCommentView | undefined;
+        if (edge) next = walk(step > 0 ? 0 : comments.length - 1, step);
+        else {
+            const row = inList && target instanceof Element ? target.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId : undefined;
+            const from = comments.findIndex(comment => comment.id === (row ?? current?.id));
+            if (from >= 0) next = walk(from + step, step);
+            // The open thread left the list: the row that took its place is next, the one above it previous
+            else if (opened) next = walk(step > 0 ? lastIndex.current : lastIndex.current - 1, step);
+            // Beside the list the first thread is shown until another is chosen
+            else next = sideBySide() ? walk(step, step) : walk(0, 1);
+        }
+        // At the first or the last row the keys do nothing, rather than scroll the page
+        event.preventDefault();
+        if (!next) return;
+        const row = list.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(next.id)}"]`);
+        // The same control in that row: its selection box from a selection box, otherwise its link
+        const fromBox = target instanceof Element && target.closest('[role="checkbox"]');
+        const control = (fromBox && row?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(next.id));
+        setKeyboard(state => ({ ...state, id: next.id }));
+        control?.focus({ preventScroll: true });
+        row?.scrollIntoView({ block: 'nearest' });
+        if (sideBySide()) open(next.id);
+    });
+    useEffect(() => {
+        // Bubble phase on the window, after the page's own handlers, so a key they used (`preventDefault`) stays theirs
+        const listener = (event: KeyboardEvent) => moveWithKeys(event);
+        window.addEventListener('keydown', listener);
+        return () => window.removeEventListener('keydown', listener);
+    }, []);
 
     const leave = (id: string, resolved: boolean): ResolveExit => {
         // The thread stays open while its row leaves; otherwise the next one would take its place
@@ -113,16 +182,21 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
 
     return (
         <div className="grid grid-cols-1 items-start gap-4 @4xl/comments:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] @6xl/comments:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
-            <ul aria-label={label} className={cn('m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-4xl/comments:hidden')}>
+            <ul ref={listRef} aria-label={label} className={cn('m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-4xl/comments:hidden')}
+                onFocus={event => {
+                    const id = event.target.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
+                    if (id) setKeyboard(state => state.id === id ? state : { ...state, id });
+                }}>
                 {comments.map(comment => {
-                    const isLeaving = comment.id in leaving && leaving[comment.id] !== comment.resolved;
+                    const leaves = isLeaving(comment);
                     return (
-                        <li key={comment.id} inert={isLeaving}
-                            className={cn('grid min-w-0 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none',
-                                isLeaving && 'grid-rows-[0fr] -translate-y-2 opacity-0',
+                        // Scroll margin: clear of the phone layout's sticky header when the keys bring a row into view
+                        <li key={comment.id} inert={leaves} data-comment-id={comment.id}
+                            className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none md:scroll-mt-1',
+                                leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0',
                                 !initial.has(comment.id) && 'animate-in fade-in slide-in-from-top-2 duration-150 ease-out motion-reduce:animate-none')}>
-                            <div className={cn('min-h-0', isLeaving && 'overflow-hidden')}>
-                                <CommentRow comment={comment} href={hrefFor(comment.id)}
+                            <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
+                                <CommentRow comment={comment} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
                                     selected={comment.id === opened?.id ? 'opened' : comment.id === selected?.id ? 'beside' : undefined}
                                     onOpen={event => open(comment.id, event)} />
                             </div>

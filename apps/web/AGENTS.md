@@ -416,7 +416,14 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Each row is a link (it opens in a new tab too) with the selection box beside it. `CommentBoard.tsx` shows
+  it. Each row is a link (it opens in a new tab too) with the selection box beside it. The list moves with the
+  keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
+  last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
+  Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
+  open thread (it keeps scrolling with them); never from text fields, menus or dialogs, and they leave a key the page
+  already handled (`defaultPrevented`). Only the current row's link and selection box are in the Tab order (a roving
+  tab stop: the row last focused or opened), so Tab goes on to the thread. `e2e/comment-keyboard.spec.ts` covers it;
+  the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, Ready to verify and Done as compact cards; a card opens its thread in a sheet. Switching List/Board
   closes the open thread. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
   from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole

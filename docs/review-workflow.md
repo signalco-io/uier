@@ -92,7 +92,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     navigation", an area of one, the selected text, or the whole page), page path, then priority other than Normal,
     status, the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
-    or the browser's Back), and in a sheet on the board. Done and Reopen fade a row out of a list it no longer matches.
+    or the browser's Back), and in a sheet on the board. In the list, ↓ and ↑ move to the next and the previous comment
+    (stopping at the ends) and open it beside the list; on a phone-sized layout they move the focus and Enter opens the
+    row. They do nothing while you type, in a menu or a dialog, or after you clicked into the open thread, where they
+    scroll it. Done and Reopen fade a row out of a list it no longer matches.
     The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
     Copy link, each described) and More (Follow thread and, once read, Mark as unread) on one line, then what it was
     left on, its page link and source, priority and assignee (a menu of people for those who can assign), every
