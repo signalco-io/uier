@@ -130,6 +130,16 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .slice(0, limit)
                 .map(clone);
         },
+        async listChangedSince(domain, since, limit) {
+            // Second precision, as Cosmos `_ts`; ordered by write within a second.
+            const floor = Math.floor(since / 1000) * 1000;
+            return [...domainEntries(domain).values()].flatMap(entry => {
+                const comment = commentOf(entry);
+                return comment && entry.modifiedAt >= floor ? [{ entry, comment }] : [];
+            }).sort((a, b) => a.entry.modifiedAt - b.entry.modifiedAt || a.entry.version - b.entry.version)
+                .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
+                .map(({ entry, comment }) => ({ comment: clone(comment), changedAt: Math.floor(entry.modifiedAt / 1000) * 1000 }));
+        },
         async listAll(domain, limit, originFilter, authorId) {
             return domainComments(domain)
                 .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId))

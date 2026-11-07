@@ -10,6 +10,7 @@ import { deleteProject, runProjectDeletion, sweepProjectDeletions, type ProjectD
 import { createMcpCredential, authenticateMcp, mcpProject } from '../src/lib/mcp/credentials';
 import { userPk as mcpUserPk, type McpGrant } from '../src/lib/mcp/oauth/grants';
 import { notificationPk } from '../src/lib/notifications/preferences';
+import { eventsPk as mcpEventsPk } from '../src/lib/mcp/events/subscriptions';
 import { discoverIntegrationSync } from '../src/lib/integrations/discovery';
 import { createWithScreenshot, screenshotInfo } from '../src/lib/comments/service';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
@@ -102,7 +103,13 @@ test('deleting a project removes its comments, images, public ids, grants and re
     const preference = { type: 'notification-preference', pk: notificationPk(doomed.id), id: `preference_${randomUUID()}`, projectId: doomed.id, muted: true };
     const read = { type: 'review-read', pk: `review-read:${randomUUID()}`, id: doomedThreads[2]!.id, domain: `project:${doomed.id}`, reviewerId: 'user:u_someone' };
     const keptPreference = { ...preference, pk: notificationPk(kept.id), projectId: kept.id };
-    for (const doc of [subscription, preference, read, keptPreference]) await store.create(doc);
+    // MCP event records: a subscription (callback URL, encrypted secret), the cursor and a delivery row
+    const eventSubscription = { type: 'mcp-event-subscription', pk: mcpEventsPk(doomed.id), id: `sub_${'a'.repeat(32)}`, projectId: doomed.id,
+        url: 'https://hooks.example.com/uier', secret: 'v1.e1.sealed' };
+    const eventCursor = { type: 'mcp-event-cursor', pk: mcpEventsPk(doomed.id), id: 'cursor', projectId: doomed.id, floor: 0 };
+    const eventDelivery = { type: 'mcp-event-delivery', pk: mcpEventsPk(doomed.id), id: `dlv_${randomUUID()}`, projectId: doomed.id, active: true };
+    const keptEventSubscription = { ...eventSubscription, pk: mcpEventsPk(kept.id), projectId: kept.id };
+    for (const doc of [subscription, preference, read, keptPreference, eventSubscription, eventCursor, eventDelivery, keptEventSubscription]) await store.create(doc);
 
     // A team and a direct grant over both projects, and invitations naming the project
     const now = Date.now();
@@ -168,8 +175,9 @@ test('deleting a project removes its comments, images, public ids, grants and re
     expect(await comments.getScreenshot(domain, doomedThreads[0]!.id)).toBeNull();
     expect(await comments.nextCommentNumber(domain)).toBe(1);
     await comments.deleteSequence(domain);
-    for (const doc of [subscription, preference, read, connection, notionGrant, ledger])
+    for (const doc of [subscription, preference, read, connection, notionGrant, ledger, eventSubscription, eventCursor, eventDelivery])
         expect(await store.get(doc.pk, doc.id), doc.type).toBeNull();
+    expect(await store.get(keptEventSubscription.pk, keptEventSubscription.id)).not.toBeNull();
     const cleanups = await store.query<{ type: 'thread-cleanup'; complete?: boolean } & import('../src/lib/app/model').AppDoc>({ type: 'thread-cleanup', where: { domain } });
     expect(cleanups.map(job => job.complete)).toEqual([true, true, true]);
 

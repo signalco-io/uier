@@ -22,6 +22,7 @@ import { deleteProjectThread, projectPartition } from '../review/comments';
 import { integrationProviders, type IntegrationProviderId } from '../integrations/model';
 import { notificationPk } from '../notifications/preferences';
 import { removeProjectFromMcpAccess } from '../mcp/credentials';
+import { eventsPk as mcpEventsPk } from '../mcp/events/subscriptions';
 
 /**
  * Identifier-only intent, saved before anything is deleted. A pending intent never expires: the
@@ -237,6 +238,9 @@ async function deleteProjectRecords(intent: ProjectDeletion, app: AppStore) {
     const notifications = notificationPk(intent.id);
     for (const type of ['notification-preference', 'notification-subscription', 'notification-delivery'])
         await remove(await app.query({ type, pk: notifications }));
+    // MCP event subscriptions (callback URLs, encrypted secrets), the discovery cursor and delivery rows
+    for (const type of ['mcp-event-subscription', 'mcp-event-cursor', 'mcp-event-delivery'])
+        await remove(await app.query({ type, pk: mcpEventsPk(intent.id) }));
     await remove(await app.query({ type: 'review-read', where: { domain: projectPartition(intent.id) } }));
     await remove(await app.query({ type: 'review-code', where: { projectId: intent.id } }));
     for (const type of ['comment-author', 'slack-test'])

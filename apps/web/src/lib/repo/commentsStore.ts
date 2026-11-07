@@ -44,6 +44,12 @@ export type CommentsStore = {
     listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string): Promise<DbComment[]>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
+    /**
+     * Comments of the partition last written at or after `since` (epoch milliseconds, compared at
+     * Cosmos `_ts` second precision), oldest write first, at most `limit` (1–1000). `changedAt`
+     * is that write time in milliseconds. MCP event discovery pages through it.
+     */
+    listChangedSince(domain: string, since: number, limit: number): Promise<{ comment: DbComment; changedAt: number }[]>;
     get(domain: string, id: string): Promise<StoredComment | null>;
     create(comment: DbComment): Promise<void>;
     getSubmission(domain: string, id: string): Promise<DbSubmission | null>;

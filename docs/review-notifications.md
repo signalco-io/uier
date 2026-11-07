@@ -28,6 +28,8 @@ identity but does not unsubscribe an already verified address; use its email uns
   same event and activity cursor with the idempotency receipt, so a lost response cannot duplicate
   an event. Legacy activity is not replayed.
 - Kinds are `comment`, `reply`, `resolved`, `reopened`, plus `mention` and `assignment` for #91.
+- [MCP event webhooks](mcp.md#events-webhooks) read the same events after the write (they add no
+  write path); a change to an event's fields or kinds changes those payloads too.
   Targeted events may include server-validated `user:<userId>` recipients. Their producer must
   advance the shared activity cursor and append the event inside the same etag-protected write.
   An event never grants access. Explicit unfollow and project mute still apply to targeted events.

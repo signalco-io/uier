@@ -23,7 +23,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | exact-path page security headers, request nonces and signed-out `/app/*` redirects (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
-| `app/api/mcp/`, `src/lib/mcp/` | the MCP connector: authentication (`credentials.ts`), tools (`server.ts`), prompts, client setup blocks ([MCP connector](#authenticated-mcp-connector)) |
+| `app/api/mcp/`, `src/lib/mcp/` | the MCP connector: authentication (`credentials.ts`), tools (`server.ts`), prompts, event webhooks (`events/`), client setup blocks ([MCP connector](#authenticated-mcp-connector)) |
+| `instrumentation.ts` | runs once per Node.js server: registers Next.js `after()` for library code (MCP event delivery after a change), so `src/lib` never imports `next/server` |
 | `app/api/oauth/`, `src/lib/mcp/oauth/` | uier's OAuth authorization server for `/api/mcp` only: authorize, token, register, revoke and the metadata routes that `next.config.ts` rewrites from `/.well-known/`; consent is `/app/connect/<requestId>` |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
@@ -730,6 +731,8 @@ pull is available. Refresh the snapshot after credential/crypto changes with
 `pnpm -C infra exec node scripts/configure-worker.mjs`; never replace app keys to repair a worker.
 Every run validates data scopes first; `verify_only` stops before writes or dispatch.
 `integrations_only` manual runs skip email and reject a simultaneous email retry.
+MCP event webhooks are swept after integrations on every run except `verify_only` (60 seconds); a
+subscriber's failing endpoint never fails a run, only an unexpected worker error does.
 GitHub Settings can reuse installations known to the current
 workspace, but fresh PKCE user authorization and repository administration checks remain required.
 Digest unsubscribe headers are persisted in `attempt.message.headers`; retries preserve them.
@@ -1067,6 +1070,28 @@ light/dark accessibility; `e2e/mcpOauth.spec.ts` runs the SDK client's OAuth flo
 registration, loopback listener) through sign-in, consent, approval, `list_projects`, a reply and
 revocation in Account (`@smoke`), plus cancel, request reuse, another account and the error page.
 This connector does not prove #90 launch acceptance.
+
+**Events (webhooks).** `src/lib/mcp/events/` implements MCP Events webhook delivery as ChatGPT
+consumes it ([docs/mcp.md#events-webhooks](../../docs/mcp.md#events-webhooks)): `protocol.ts` registers
+the top-level `events` capability and `events/list|subscribe|unsubscribe` and owns the error code
+table; `catalog.ts` the event names, argument/payload schemas (additive only) and the mapping from a
+thread's `notificationEvents`; `subscriptions.ts` deterministic subscription ids, TTL grants, limits,
+endpoint verification and encrypted `whsec_` secrets; `webhook.ts` Standard Webhooks signing and the
+POST, which goes only to public HTTPS on the default port through `publicNetwork.ts` (the same
+connection-time address check as OAuth metadata fetches), never follows redirects and reports fixed
+failure categories only; `delivery.ts` discovery from `listChangedSince` with a per-project cursor,
+deterministic delivery records, leased attempts with bounded retries, and `runMcpEventWorker`.
+Events never get their own write path: add an event kind to `notificationEvents` and map it in the
+catalog. Every attempt rechecks the connection (`currentMcpConnection`), `mcpProject` and
+`canSeeComment`; lost access deletes the subscription. Never deliver a connection's own changes
+back to it, never log callback URLs, secrets, arguments or payloads, and keep payloads minimal and
+marked untrusted. `review/comments.ts` calls `queueMcpEventDelivery` after `createProjectComment`,
+replies and `changeComment`; it runs only when `instrumentation.ts` registered `after()`, so API
+specs call `dispatchProjectEvents` themselves. The scheduled worker sweeps after integrations.
+`UIER_MCP_EVENTS_TEST_HTTP_CALLBACKS=1` admits `http://localhost` callbacks in local runtime only (the
+Playwright server sets it); never set it on a deployment. `e2e/mcpEvents.api.spec.ts` covers the
+contract with `e2e/support/webhookReceiver.ts`; `e2e/mcpEvents.spec.ts` proves delivery after a real
+request.
 
 `mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
 input. Keep these reference-only configurations aligned with the linked official docs and

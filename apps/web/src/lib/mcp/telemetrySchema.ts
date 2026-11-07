@@ -10,7 +10,8 @@ export const MAX_CALLS = 10;
 export const methods = ['initialize', 'ping', 'tools/list', 'tools/call', 'prompts/list', 'prompts/get', 'resources/list',
     'resources/templates/list', 'resources/read', 'resources/subscribe', 'resources/unsubscribe', 'completion/complete',
     'logging/setLevel', 'tasks/get', 'tasks/list', 'tasks/result', 'tasks/cancel', 'notifications/initialized',
-    'notifications/cancelled', 'notifications/progress', 'notifications/roots/list_changed'] as const;
+    'notifications/cancelled', 'notifications/progress', 'notifications/roots/list_changed',
+    'events/list', 'events/subscribe', 'events/unsubscribe'] as const;
 export const codePattern = /^[a-z][a-z_]{0,39}$/;
 export const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]{0,39}$/;
 export const requestedNamePattern = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
@@ -23,8 +24,8 @@ const argumentSchema = z.union([z.boolean(), z.number(), z.null(), z.string().ma
     z.object({ type: z.enum(['string', 'array', 'object', 'number']), length: count.optional() }).strict()]);
 const callSchema = z.object({
     method: z.enum([...methods, 'other']),
-    /** Registered tool, prompt or resource template; `unknown` when the client named another one */
-    name: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/).optional(),
+    /** Registered tool, prompt, resource template or event; `unknown` when the client named another one */
+    name: z.string().regex(/^[a-z][a-z0-9_.-]{0,63}$/).optional(),
     /** The name an `unknown` call asked for, when it looks like a tool or prompt name: what clients expect us to offer */
     requestedName: z.string().regex(requestedNamePattern).optional(),
     arguments: z.record(z.string().regex(identifierPattern), argumentSchema).optional(),

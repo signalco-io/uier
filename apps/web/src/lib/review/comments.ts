@@ -32,6 +32,7 @@ import { actorAuthorId, memberActor, refreshMutationActor, assertWriter, type Pr
 import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
+import { queueMcpEventDelivery } from '../mcp/events/trigger';
 
 /** Most comments the app loads for a project (all pages) */
 export const MAX_PROJECT_COMMENTS = 1000;
@@ -248,8 +249,13 @@ export async function createProjectComment(request: Request, project: DbProject,
         comment.screenshot = screenshotInfo(screenshot);
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
     await refreshMutationActor(project, actor);
-    if (attempt) return visibleOrThrow(await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined), actor);
+    if (attempt) {
+        const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined);
+        queueMcpEventDelivery(project.id);
+        return visibleOrThrow(saved, actor);
+    }
     await createWithScreenshot(store, recorded, screenshot);
+    queueMcpEventDelivery(project.id);
     return recorded;
 }
 
@@ -283,6 +289,12 @@ export async function enforceProjectRewriteLimits(request: Request, project: DbP
 }
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
+    const saved = await appendProjectReply(request, project, actor, id, input);
+    queueMcpEventDelivery(project.id);
+    return saved;
+}
+
+async function appendProjectReply(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
     await refreshMutationActor(project, actor, true);
     const authorId = actorAuthorId(actor);
     if (!authorId)
@@ -346,8 +358,10 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
         guard?.onResult?.(changed !== comment);
         return changed === comment ? comment : withSyncMark(project, comment, { ...changed, updatedAt: nowIso() });
     };
-    if (attempt) return commitChangeSubmission(store, attempt, id, authorize, apply, guard?.onResult);
-    return await updateComment(store, project, actor, id, apply);
+    const saved = attempt ? await commitChangeSubmission(store, attempt, id, authorize, apply, guard?.onResult)
+        : await updateComment(store, project, actor, id, apply);
+    queueMcpEventDelivery(project.id);
+    return saved;
 }
 
 /** Preconditions run inside every conditional-write attempt, after current authorization. Receipt replay skips them. */

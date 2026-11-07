@@ -47,6 +47,10 @@ const controls = [
         text: 'Coding tools sign in through uier’s own OAuth server, for the MCP endpoint only. PKCE is required, codes work once within 60 seconds, access tokens last one hour and refresh tokens change on every use. Only token hashes are stored. Revoking a connection in Account ends its access on the next request.'
     },
     {
+        title: 'Coding tool events',
+        text: 'Event webhooks go only to public HTTPS addresses that first answered a signed challenge. The address is checked on every connection and redirects are not followed. Each delivery is signed with the secret the tool supplied, which uier stores encrypted, and access and visibility are checked again first. A revoked connection receives nothing more.'
+    },
+    {
         title: 'Browser extension',
         text: `The desktop extension asks for temporary access to the tab you open it on, scripting, its own storage and sign-in. The only site it can reach on its own is ${brand.domain}; it cannot read cookies or history or change a site’s headers. Sign-in uses PKCE and a one-use handoff that expires within 60 seconds. Access tokens last 15 minutes, refresh tokens change on every use and only their hashes are stored. Credentials stay in extension storage the reviewed page cannot read, and every request rechecks membership and the site’s exact address.`
     },
