@@ -547,7 +547,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `transfer` while it runs and only the one the code names resolves (`isLiveProject`): any new read that takes the
   workspace from the person must use `getProject`/`listProjects` or check it. Everything that can refuse runs before
   anything is disconnected. A `project-transfer` intent makes it retryable (as the caller); `sweepProjectTransfers`
-  in the notifications worker finishes it after the switch or gives it up after 15 minutes before it. A new workspace-keyed record
+  in the notifications worker finishes it after the switch or gives it up after 15 minutes before it (a retry restarts
+  the 15 minutes; a give-up marks the intent abandoned before undoing anything). With the requester's account gone it
+  acts as `SYSTEM_ACTOR` (`accessMutations.ts`), which may only remove access. A new workspace-keyed record
   type that names a project must be handled by the transfer and [project transfer](../../docs/project-transfer.md);
   `e2e/project-transfer{,.api}.spec.ts` cover it.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,

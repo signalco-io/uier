@@ -1,11 +1,12 @@
 import { UserFacingError } from './actionErrors';
-import { mutateAccess, type AccessChange } from './accessMutations';
+import { mutateAccess, SYSTEM_ACTOR, type AccessChange } from './accessMutations';
 import type { AppContext } from './context';
 import { clientNamed, getClient, projectClientNameSchema } from './clients';
 import { hasProjectAccess, loadWorkspaceAccess } from './access';
 import {
     memberId,
     projectRefPk,
+    userPk,
     workspacePk,
     type AppDoc,
     type DbClient,
@@ -13,6 +14,7 @@ import {
     type DbMember,
     type DbProject,
     type DbProjectRef,
+    type DbUser,
     type DbWorkspace
 } from './model';
 import { isProjectId } from './projects';
@@ -59,7 +61,7 @@ export type ProjectTransfer = AppDoc & {
     requestedAt: string;
     complete?: boolean;
     completedAt?: string;
-    /** Interrupted before the switch and given up: the project stayed where it was */
+    /** Interrupted before the switch and given up (set first, then undone): the project stays where it was */
     abandoned?: boolean;
 };
 
@@ -183,9 +185,13 @@ async function claimProjectTransfer(project: DbProject, toWorkspaceId: string, r
             continue;
         const earlier = saved.doc;
         if (!earlier.complete) {
-            // A retry continues the earlier request
-            if (earlier.fromWorkspaceId === intent.fromWorkspaceId && earlier.toWorkspaceId === toWorkspaceId)
-                return earlier;
+            // A retry continues the earlier request as a running one, so the sweep leaves it alone
+            if (earlier.fromWorkspaceId === intent.fromWorkspaceId && earlier.toWorkspaceId === toWorkspaceId && !earlier.abandoned) {
+                const retried: ProjectTransfer = { ...earlier, requestedAt: intent.requestedAt };
+                if (await store.replace(retried, saved.etag) === 'ok')
+                    return retried;
+                continue;
+            }
             if (!await settleProjectTransfer(earlier, requestedBy, store))
                 throw new UserFacingError(busy);
             continue;
@@ -225,6 +231,8 @@ export async function runProjectTransfer(intent: ProjectTransfer, actorId: strin
         await removeProjectFromMcpAccess(to, id, store);
         // Settings saved meanwhile
         await refreshCopy(intent, store);
+        // Never point links at the new workspace once the transfer was given up meanwhile
+        await assertStillTransferring(intent, store);
         // Public ids first; a lookup that finds them ahead of the code follows the code
         await pointProjectPublicIds(id, to, store);
         await switchProjectCode(intent, store);
@@ -245,9 +253,9 @@ export async function settleProjectTransfer(intent: ProjectTransfer, actorId: st
         await finishTransfer(intent, actorId, store);
         return true;
     }
-    if (code === intent.fromWorkspaceId && running(intent))
-        return false;
     if (code === intent.fromWorkspaceId) {
+        if (!await claimAbandonment(intent, store))
+            return false;
         await pointProjectPublicIds(intent.id, intent.fromWorkspaceId, store);
         await removeProjectCopy(intent.toWorkspaceId, intent.id, actorId, 'project.transfer-abandoned', store);
         await unmarkProject(intent.fromWorkspaceId, intent, store);
@@ -260,15 +268,50 @@ export async function settleProjectTransfer(intent: ProjectTransfer, actorId: st
     return true;
 }
 
-/** Scheduled with project deletions: every transfer an interrupted request left, as its requester. */
+/**
+ * Scheduled with project deletions: every transfer an interrupted request left, as its requester, or as
+ * uier itself (`SYSTEM_ACTOR`) once the requester's account is gone. One failure never stops the rest.
+ */
 export async function sweepProjectTransfers(store: AppStore = getAppStore()) {
     let failed = 0;
     for (const intent of await store.query<ProjectTransfer>({ type: 'project-transfer', pk: transferPk })) {
         if (intent.complete) continue;
-        try { await settleProjectTransfer(intent, intent.requestedBy, store); }
+        try {
+            const requester = (await store.get<DbUser>(userPk(intent.requestedBy), intent.requestedBy))?.doc;
+            if (requester?.type !== 'user')
+                console.info('[projects] Settling a project transfer whose requester left, as uier');
+            await settleProjectTransfer(intent, requester?.type === 'user' ? intent.requestedBy : SYSTEM_ACTOR, store);
+        }
         catch { failed++; console.error('[projects] Scheduled project transfer needs retry'); }
     }
     return { failed };
+}
+
+/**
+ * Takes over a transfer that never switched over and is no longer running, before anything is undone:
+ * a retry that starts after this settles it first, and one still running stops before the switch.
+ * `false` while it may still be running.
+ */
+async function claimAbandonment(intent: ProjectTransfer, store: AppStore) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const stored = await store.get<ProjectTransfer>(transferPk, intent.id);
+        if (!stored || stored.doc.complete || stored.doc.abandoned)
+            return true;
+        if (stored.doc.fromWorkspaceId !== intent.fromWorkspaceId || stored.doc.toWorkspaceId !== intent.toWorkspaceId || running(stored.doc))
+            return false;
+        if (await store.replace({ ...stored.doc, abandoned: true }, stored.etag) === 'ok')
+            return true;
+    }
+    return false;
+}
+
+/** The transfer is still this one, still pending, and its copy is in the new workspace */
+async function assertStillTransferring({ id, fromWorkspaceId: from, toWorkspaceId: to }: ProjectTransfer, store: AppStore) {
+    const current = (await store.get<ProjectTransfer>(transferPk, id))?.doc;
+    const copy = (await store.get<DbProject>(workspacePk(to), id))?.doc;
+    if (!current || current.complete || current.abandoned || current.fromWorkspaceId !== from || current.toWorkspaceId !== to
+        || copy?.transfer?.from !== from || copy.transfer.to !== to)
+        throw new UserFacingError('The transfer was stopped before it finished. Try again.');
 }
 
 /** The old copy and its access go, then the new one is a plain project again */

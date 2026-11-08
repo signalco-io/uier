@@ -70,7 +70,7 @@ ordinary reads cost nothing extra and a marked one costs one point read. Every r
 workspace from the person checks it: `getProject` (and through it `getVisibleProject`, comment
 actions, the screenshot route, MCP credentials and grants, realtime tickets), `listProjects` (the
 sidebar, project lists, My work), team project grants, integration admin and the review API's write
-recheck. A public id lookup that lands on a marked copy follows the code. So the new workspace sees
+recheck. A public id lookup that lands on a marked copy, or on a workspace without the project, follows the code. So the new workspace sees
 nothing before the switch and the old one nothing after it, however a run is interrupted.
 
 ## Order
@@ -108,13 +108,19 @@ copy is no longer the project (Delete project and another transfer answer "This 
 exists"), and steps 7 and 8 are finished by:
 
 - the scheduled `Review notifications` worker (`sweepProjectTransfers`, after the project deletion
-  sweep), which settles every pending transfer;
+  sweep), which settles every pending transfer, as its requester or, once the requester's account is
+  gone, as uier itself (`SYSTEM_ACTOR`: it may only remove access, never act as an admin; Activity shows
+  "uier"); one that fails never stops the others;
 - a new transfer of the project, or its deletion, which settles the earlier one first.
 
-Settling finishes a transfer whose code already names the new workspace. One that never switched over
-and is older than 15 minutes is given up: its public ids point back to the old workspace, the copy in
-the new one is removed (`project.transfer-abandoned`, "ended an unfinished transfer of ..."), the old
-document's mark is cleared and the intent is marked complete and abandoned. Workspace-bound settings
+A retry restarts the 15 minutes, so the sweep leaves a running retry alone. Settling finishes a
+transfer whose code already names the new workspace. One that never switched over and is older than
+15 minutes is given up. The intent is marked abandoned first, under its version, so a retry that
+starts afterwards settles it before starting over, and a run still going stops before it points
+review links at the new workspace ("The transfer was stopped before it finished"). Then its public
+ids point back to the old workspace, the copy in the new one is removed (`project.transfer-abandoned`,
+"ended an unfinished transfer of ..."), the old document's mark is cleared and the intent is marked
+complete. Workspace-bound settings
 it already disconnected stay disconnected. One that may still be running is left alone, and project
 deletion refuses the project until it ends.
 
@@ -130,8 +136,9 @@ services, coding tools and webhooks left behind, the preview's counts, activity 
 back without old access, an interrupted transfer before the switch (the new workspace's admin and
 members see nothing, cannot grant it or mint tokens for it) and after it (the old workspace's
 commenter and admin see nothing and cannot mint tokens), refusal of deletion and a second transfer
-meanwhile, the sweep finishing one and giving another up, and a new transfer replacing an
-interrupted one. `e2e/notificationWorker.api.spec.ts` checks the worker runs the sweep.
+meanwhile, the sweep finishing one and giving another up, a new transfer replacing an interrupted
+one, a retry the sweep leaves alone, a run a give-up overtakes stopping before the links move, and the
+sweep settling transfers whose requester's account is gone. `e2e/notificationWorker.api.spec.ts` checks the worker runs the sweep.
 `e2e/project-transfer.spec.ts` (full suite, Desktop and Mobile Chrome) covers the Danger zone row
 without another workspace, the dialog, the typed name, the redirect into the new workspace, the
 unchanged public id and the old workspace without the project.

@@ -49,7 +49,8 @@ export function describeAccessEvent(event: DbAccessEvent, names: ActivityNames):
         return changed(before ?? [], after ?? [], project);
     };
     const { before, after, targetIds: [first, ...rest] } = event;
-    const actor = names.people.get(event.actorId) ?? 'Someone';
+    // A scheduled cleanup whose requester's account is gone acts as uier itself
+    const actor = event.actorId === 'system' ? 'uier' : names.people.get(event.actorId) ?? 'Someone';
     const done = (sentence: string, details: string[] = []) => ({ actor, text: sentence, details: details.filter(Boolean) });
 
     switch (event.action) {

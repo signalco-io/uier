@@ -54,11 +54,11 @@ export async function projectByPublicId(publicId: string, store: AppStore = getA
     const ref = (await store.get<DbProjectPublicRef>(publicRefPk(publicId), publicId))?.doc;
     if (ref?.type !== 'project-public-ref') return null;
     let project = (await store.get<DbProject>(`workspace:${ref.workspaceId}`, ref.projectId))?.doc;
-    if (project?.transfer) {
-        // Mid-transfer the public id and the code can name different workspaces: the code decides
+    if (!project || project.transfer) {
+        // Around a transfer the public id and the code can name different workspaces: the code decides
         const code = (await store.get<DbProjectRef>(projectRefPk(ref.projectId), ref.projectId))?.doc;
         if (code?.type !== 'project-ref') return null;
-        if (code.workspaceId !== project.workspaceId)
+        if (code.workspaceId !== ref.workspaceId)
             project = (await store.get<DbProject>(`workspace:${code.workspaceId}`, ref.projectId))?.doc;
     }
     return project?.type === 'project' && project.publicId === publicId ? project as PublicProject : null;

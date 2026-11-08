@@ -12,6 +12,7 @@ import {
     projectTransferPreview,
     projectTransferTargets,
     runProjectTransfer,
+    settleProjectTransfer,
     sweepProjectTransfers,
     transferProject,
     type ProjectTransfer
@@ -31,7 +32,9 @@ import { describeAccessEvent } from '../src/components/app/teams/activityText';
 import {
     memberId,
     projectRefPk,
+    userPk,
     workspacePk,
+    type AppDoc,
     type DbAccessEvent,
     type DbInvitation,
     type DbMember,
@@ -410,4 +413,104 @@ test('an interrupted transfer that a new one replaces is given up first', async 
     expect((await findProject(project.id))?.workspaceId).toBe(third.id);
     expect(await store.get(workspacePk(f.target.id), project.id)).toBeNull();
     expect(await store.get(workspacePk(f.source.id), project.id)).toBeNull();
+});
+
+/** An interrupted transfer to the fixture's target, as if its request ended an hour ago */
+async function interruptedLongAgo(f: Awaited<ReturnType<typeof fixture>>) {
+    const { store, project } = f;
+    const codeFails: AppStore = { ...store, async replace(doc, etag) {
+        if (doc.pk === projectRefPk(project.id)) throw new Error('Store unavailable');
+        return store.replace(doc, etag);
+    } };
+    await expect(transferProject(f.context, project.id, f.target.id, project.name, codeFails)).rejects.toThrow('Store unavailable');
+    await age(store, project.id);
+}
+
+async function age(store: AppStore, projectId: string) {
+    const pending = (await store.get<ProjectTransfer>('project-transfer', projectId))!;
+    await store.replace({ ...pending.doc, requestedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString() }, pending.etag);
+}
+
+test('a retry of an old interrupted transfer runs as a new request, so the sweep leaves it alone', async () => {
+    const f = await fixture();
+    const { store, project } = f;
+    await interruptedLongAgo(f);
+    // The sweep runs while the retry is about to switch the code
+    let swept = false;
+    const sweepMidway: AppStore = { ...store, async replace(doc, etag) {
+        if (doc.pk === projectRefPk(project.id) && !swept) {
+            swept = true;
+            expect(await sweepProjectTransfers(store)).toEqual({ failed: 0 });
+        }
+        return store.replace(doc, etag);
+    } };
+    await transferProject(f.context, project.id, f.target.id, project.name, sweepMidway);
+    expect(swept).toBe(true);
+    expect((await findProject(project.id))?.workspaceId).toBe(f.target.id);
+    expect((await projectByPublicId(project.publicId))?.workspaceId).toBe(f.target.id);
+    expect((await store.get<ProjectTransfer>('project-transfer', project.id))?.doc).toMatchObject({ complete: true });
+    expect((await store.get<ProjectTransfer>('project-transfer', project.id))?.doc.abandoned).toBeUndefined();
+});
+
+test('a run that a give-up overtakes stops before it points review links at the new workspace', async () => {
+    const f = await fixture();
+    const { store, project } = f;
+    await interruptedLongAgo(f);
+    // The retry is given up while it removes coding tool access (its own lease made old again)
+    let overtaken = false;
+    const giveUpMidway: AppStore = { ...store, async query(query) {
+        if (query.type === 'mcp-credential' && !overtaken) {
+            overtaken = true;
+            await age(store, project.id);
+            const pending = (await store.get<ProjectTransfer>('project-transfer', project.id))!.doc;
+            expect(await settleProjectTransfer(pending, f.admin.id, store)).toBe(true);
+        }
+        return store.query(query);
+    } };
+    await expect(transferProject(f.context, project.id, f.target.id, project.name, giveUpMidway))
+        .rejects.toThrow('The transfer was stopped before it finished. Try again.');
+    expect(overtaken).toBe(true);
+    expect((await findProject(project.id))?.workspaceId).toBe(f.source.id);
+    expect((await projectByPublicId(project.publicId))?.workspaceId).toBe(f.source.id);
+    expect(await store.get(workspacePk(f.target.id), project.id)).toBeNull();
+    expect((await getProject(f.source.id, project.id))?.transfer).toBeUndefined();
+    expect((await store.get<ProjectTransfer>('project-transfer', project.id))?.doc).toMatchObject({ complete: true, abandoned: true });
+    // Even a public id left naming a workspace without the project opens it where its code is
+    const ref = (await store.get<AppDoc & { workspaceId: string }>(`project-public:${project.publicId}`, project.publicId))!;
+    await store.replace({ ...ref.doc, workspaceId: f.target.id }, ref.etag);
+    expect((await findReviewProject(project.publicId))?.workspaceId).toBe(f.source.id);
+    // A new attempt goes through
+    await transferProject(f.context, project.id, f.target.id, project.name);
+    expect((await findProject(project.id))?.workspaceId).toBe(f.target.id);
+});
+
+test('the sweep settles a transfer whose requester\'s account is gone, as uier', async () => {
+    const f = await fixture();
+    const { store, project } = f;
+    const copyStays: AppStore = { ...store, async transact(operations) {
+        if (operations.some(operation => operation.kind === 'delete' && operation.id === project.id)) throw new Error('Store unavailable');
+        return store.transact(operations);
+    } };
+    await expect(transferProject(f.context, project.id, f.target.id, project.name, copyStays)).rejects.toThrow('Store unavailable');
+    // A second project's transfer is given up in the same run
+    const other = await createProject(f.context, { name: 'Second site', urls: ['https://second.example'] });
+    const codeFails: AppStore = { ...store, async replace(doc, etag) {
+        if (doc.pk === projectRefPk(other.id)) throw new Error('Store unavailable');
+        return store.replace(doc, etag);
+    } };
+    await expect(transferProject(f.context, other.id, f.target.id, other.name, codeFails)).rejects.toThrow('Store unavailable');
+    await age(store, other.id);
+    await store.delete(userPk(f.admin.id), f.admin.id);
+
+    expect(await sweepProjectTransfers()).toEqual({ failed: 0 });
+    expect(await store.get(workspacePk(f.source.id), project.id)).toBeNull();
+    expect((await getProject(f.target.id, project.id))?.transfer).toBeUndefined();
+    expect(await store.get(workspacePk(f.target.id), other.id)).toBeNull();
+    expect((await getProject(f.source.id, other.id))?.transfer).toBeUndefined();
+    for (const id of [project.id, other.id])
+        expect((await store.get<ProjectTransfer>('project-transfer', id))?.doc.complete).toBe(true);
+    const names = { people: new Map<string, string>(), invitations: new Map<string, string>(), teams: new Map<string, string>(), projects: new Map<string, string>() };
+    const out = (await accessEvents(store, f.source.id, project.id)).find(event => event.action === 'project.transferred-out')!;
+    expect(out.actorId).toBe('system');
+    expect(describeAccessEvent(out, names)).toMatchObject({ actor: 'uier', text: 'transferred Moving site to another workspace' });
 });

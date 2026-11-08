@@ -23,7 +23,14 @@ export type AccessChange = {
     after: Record<string, unknown>;
 };
 
-/** All permission mutations serialize through this workspace ETag, including accept/offboard. */
+/** The actor of access changes a scheduled job makes when no person is behind them any more */
+export const SYSTEM_ACTOR = 'system';
+
+/**
+ * All permission mutations serialize through this workspace ETag, including accept/offboard. The actor
+ * must be an existing account (and an admin, unless `admin: false`); only a scheduled cleanup that
+ * removes access may act as `SYSTEM_ACTOR`, never with `admin`.
+ */
 export async function mutateAccess(
     workspaceId: string,
     actorId: string,
@@ -35,15 +42,18 @@ export async function mutateAccess(
     }: { admin?: boolean; store?: AppStore; expectedRevision?: number } = {}
 ) {
     assertMutableWorkspace(workspaceId);
+    const system = actorId === SYSTEM_ACTOR;
+    if (system && admin)
+        throw new Error('The system actor cannot act as an admin');
     const pk = workspacePk(workspaceId);
     const eventId = `access_${Date.now()}_${nanoid()}`;
     for (let attempt = 0; attempt < 8; attempt++) {
         const workspace = await store.get<DbWorkspace>(pk, workspaceId);
-        const actor = (await store.get<DbMember>(pk, memberId(actorId)))?.doc;
-        const user = (await store.get<DbUser>(userPk(actorId), actorId))?.doc;
+        const actor = system ? undefined : (await store.get<DbMember>(pk, memberId(actorId)))?.doc;
+        const user = system ? undefined : (await store.get<DbUser>(userPk(actorId), actorId))?.doc;
         if (
             !workspace ||
-            !user ||
+            (!system && !user) ||
             (admin && (actor?.type !== 'member' || actor.workspaceId !== workspaceId || actor.role !== 'admin'))
         )
             throw new UserFacingError('This workspace is unavailable or your access changed.');
