@@ -24,6 +24,8 @@
         white-space: normal;
         word-spacing: normal;
         visibility: visible;
+        /* A page's modal menu or dialog sets `pointer-events: none` on <body> while it is open */
+        pointer-events: auto;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -47,9 +49,9 @@
     }
 }
 
-/* In the page's open modal dialog the host is a manual popover in the top layer (src/modalLayer.ts).
-   Without a box of its own, at the page's origin like in <body>, and clear of the page's styles for
-   dialogs, popovers and backdrops, so positions and the dialog's look stay the same. */
+/* In the page's open modal dialog, popover, menu or dialog the host is a manual popover in the top
+   layer (src/modalLayer.ts). Without a box of its own, at the page's origin like in <body>, and clear
+   of the page's styles for dialogs, popovers and backdrops, so positions and the layer's look stay the same. */
 :host([popover]) {
     display: block !important;
     position: absolute !important;

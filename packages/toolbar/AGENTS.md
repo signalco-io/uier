@@ -31,14 +31,26 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
   `CommentsBootstrapper` into a `<div data-uier-root>` inside it. `mount.ts` tracks the actual host
   with a window symbol, including helpers that cross its shadow boundary; never use an id as the
   duplicate-mount guard. Clear only this instance's marker on exit.
-- `modalLayer.ts` keeps the host usable in native modal dialogs: while one is open (`:modal`, watched
-  through the `open` attribute) the host is the dialog's last child and a manual popover shown after it,
-  so it is in the modal's subtree (not inert) and in the top layer above it. A top-layer popover outside
-  the modal stays inert, and no z-index helps. `:host([popover])` gives the host no box and no transform:
+- `modalLayer.ts` (`followPageLayers`) keeps the host in the page's topmost open layer: a native modal
+  dialog (`:modal`, watched through the `open` attribute), an auto popover (`toggle` events; it
+  leaves on `beforetoggle`, since a hidden ancestor hides the host; not `hint` tooltips), the popup that an
+  `[aria-expanded="true"]` trigger with `aria-haspopup` (or a select-only `role="combobox"`) names in
+  `aria-controls`, or an `[aria-modal="true"]` element. The host is the layer's last child and a manual popover
+  shown after it, so it is in the layer's subtree and in the top layer above it. For a modal that is what
+  keeps it usable (not inert; a top-layer popover outside the modal stays inert, and no z-index helps);
+  for the others it is what makes the page count the toolbar's presses and focus as inside (`contains`,
+  `composedPath()`, React's component tree, native light dismiss, focus traps). While in a layer the host
+  keeps its keys, input and clicks from the page (and takes `aria-hidden`/`inert` off itself): register
+  window `keydown` listeners with `listenToWindowKeydown`, which also gets the kept ones, and stop
+  path walks at the host (`isLetterKeyTarget`). Moving the host gives the toolbar's focus back; the followed layer and its ancestors are watched for
+  `class`/`style`/`hidden`, so a layer hidden by its classes does not hide the toolbar.
+  `:host([popover])` gives the host no box and no transform:
   Lightning CSS merges `translate`/`scale`/`rotate: none` into a transform that is not `none`, which
-  would hold every fixed box, so keep only `transform: none`. Point mode, areas, the keyboard path and pins use
-  `isInActiveModal` (the inert page has no pins or anchors). Escape inside the host and clicks on it do not
-  reach the dialog; the dialog restores focus itself on close. Non-modal and `aria-modal` dialogs are unchanged.
+  would hold every fixed box, so keep only `transform: none`. `[data-uier-root]` sets `pointer-events: auto`
+  against a modal menu's `body { pointer-events: none }`. Point mode, areas, the keyboard path and pins use
+  `isInActiveModal` (the inert page behind a native modal has no pins or anchors). Escape inside the host does not
+  reach the layer; the dialog restores focus itself on close. Non-modal dialogs, manual popovers,
+  disclosures and text-field suggestions are unchanged.
 - Styles: Tailwind v4 (`src/index.css`) with the signalco minimal theme preset and
   **`@uier/brand/tokens.css`**. The tokens use `:root, :host`, so they apply inside the shadow
   root (`:root` alone would not). The `[data-uier-root]` container gets the `dark` class when the
@@ -72,7 +84,7 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
 | `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, adopting the same constructed sheet in their shadow root, with cleanup; never auto-focus on load |
 | `components/CommentBubble.tsx`, `CommentThread*.tsx` | a pin (`<Pin />` from `@uier/brand`: the issue number inside, the message count as its corner badge from the first reply, the name "Comment #6, 3 messages") with its thread popover (bounded by the window, clear of the pill) and reply form; one thread layout for popover and inbox, so an opened thread shows its messages and reply box first: `CommentThreadHeader.tsx` is one line (status, `#id`, the blue unread dot that marks the thread read, a priority other than Normal, the assignee's avatar from `CommentAssignment.tsx` named by its tooltip; then Mark as done / Reopen for those who can resolve, Copy, a menu with Copy issue and Copy link `?uier-comment=` (`src/review.ts`), each described, and Thread options, `CommentThreadMenu.tsx`, with the triage and email controls each person may use: assign (the people open under the line), priority, Request verification, Follow / Unfollow thread, Mute project emails and, once read, Mark as unread; no menu when there is none). The source line shows in the inbox, and on the page only when the original source is unavailable; messages have an avatar column and no dividers. Icon buttons show their names with `IconTooltip` / `useIconTooltip` (hover after 300 ms, at once on keyboard focus; portaled into the shadow root's container with a fixed position, decorative, never on touch): use it instead of `title` for icon-only controls. `CommentScreenshot` keeps the thumbnail alone: Upload image and Paste image are in its expanded view beside Redact screenshot (or beside "No screenshot"). The app's `CommentCard` follows the same layout, icons and words: change both together |
-| `components/CommentPointOverlay.tsx` | point mode: the pin cursor, the outline of the element under the pointer, the click that pins. The element is the topmost one whose own box holds the pointer, so a stretched link (`::after` over a row or card) does not hide the row's picture, summary or badges. A mouse or pen drag draws an area instead (`data-uier-drawing`; touch keeps scrolling): saved on the innermost element that holds it, as a point at its top-left corner with `widthNormal`/`heightNormal` (`isCommentArea`), so older toolbars still pin it; the click that ends a drag is ignored |
+| `components/CommentPointOverlay.tsx` | point mode, without a cover over the page: presses that point at the page (`pointsAtPage`: outside the host; pins, highlights and frame shields; on uier's own pages the reviewable surfaces) are taken on the window in the capture phase, before any page listener, and cancelled (focus, selection, drags, links, controls; touch is not cancelled, so it scrolls). Menus, popovers and dialogs that close on a press outside stay open, and moves still reach the page, so hover menus stay open too. Frames get transparent shields (`data-uier-shield`), since their presses go to their own document. It draws the outline of the element under the pointer and an add-comment pin beside a mouse or pen pointer (`data-uier-pointer`; the page keeps its cursor). The element is the topmost one whose own box holds the pointer, so a stretched link (`::after` over a row or card) does not hide the row's picture, summary or badges. A mouse or pen drag draws an area instead (`data-uier-drawing`), also when it ends over the toolbar: saved on the innermost element that holds it, as a point at its top-left corner with `widthNormal`/`heightNormal` (`isCommentArea`), so older toolbars still pin it; the click that ends a drag is ignored |
 | `components/CommentAreaHighlight.tsx` | the dashed accent outline of a commented area (`data-uier-area`), with the selection tint while its thread is open; it never takes clicks (the pin opens the thread). Areas resolve to their rectangle in `useCommentItemRects`, so the pin sits at the bottom-right corner and the screenshot is the area |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line, `enterKeyHint`) in one bordered box with its hint or counter and the send button, keeps drafts |
 | `components/ComposerFooter.tsx` | the line under every composer: "Shift+Enter for a new line" (the app's wording; only with `any-pointer: fine`) and "Draft saved in this browser" for a composer that opened with kept text. It describes the text box; keep it free of claims beyond browser-local storage |
@@ -197,7 +209,8 @@ text. Drafts are local to each browser origin and expire after seven days.
 starting its own pin (never a reply) is in `apps/web/e2e/new-comment-after-thread.spec.ts`, and a member's
 toolbar comment matching the app (pin number, avatar, follow state, no-reviewer request form) in
 `apps/web/e2e/toolbar-app-parity.spec.ts`; native modal dialogs (the reviewed site's
-  `?host-dialog`) are in `apps/web/e2e/modal-dialog.spec.ts`. Also check the add-comment, reply, resolve and inbox
+  `?host-dialog`) are in `apps/web/e2e/modal-dialog.spec.ts`; a modal menu, popovers, hover menus and
+  frames (`?host-menus`) are in `apps/web/e2e/transient-ui.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.
 
 Assignment uses `CommentAssignment` and the shared review service. `useParticipants` fetches
