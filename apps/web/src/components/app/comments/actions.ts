@@ -25,7 +25,7 @@ import {
     replyToProjectComment,
     setProjectCommentAssignee,
     setProjectCommentPrivate,
-    setProjectCommentResolved,
+    setProjectCommentStatus,
     setProjectCommentPriority
 } from '../../../lib/review/comments';
 import { markThreadRead, markThreadUnread } from '../../../lib/comments/readState';
@@ -41,7 +41,7 @@ import { assertCanUseComments } from '../../../lib/review/actor';
 import { eligibleParticipants } from '../../../lib/review/participants';
 import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
     filterAuthorActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
-    replyCommentActionSchema, resolveCommentActionSchema } from './actionSchemas';
+    replyCommentActionSchema, statusCommentActionSchema } from './actionSchemas';
 
 /** Session/workspace authority and request metadata come only from the server request. */
 export async function replyCommentAction(input: import('zod').infer<typeof replyCommentActionSchema>) {
@@ -95,9 +95,10 @@ async function commentAction<T extends { projectId: string }>(schema: z.ZodType<
     });
 }
 
-export async function setCommentResolvedAction(projectId: string, commentId: string, resolved: boolean) {
-    return await commentAction(resolveCommentActionSchema, { projectId, commentId, resolved },
-        ({ project, actor }, input) => setProjectCommentResolved(project, actor, input.commentId, input.resolved));
+/** Open, In progress or Done, with the resolve permission (checked by the service) */
+export async function setCommentStatusAction(projectId: string, commentId: string, status: import('@uier/toolbar/verification').FeedbackStatusTarget) {
+    return await commentAction(statusCommentActionSchema, { projectId, commentId, status },
+        ({ project, actor }, input) => setProjectCommentStatus(project, actor, input.commentId, input.status));
 }
 
 export async function setCommentPrivateAction(projectId: string, commentId: string, isPrivate: boolean) {

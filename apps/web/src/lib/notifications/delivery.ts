@@ -30,7 +30,7 @@ const REVIEW_LIST_LIMIT = 20;
 export const COMPLETED_DELIVERY_TTL = 30 * 24 * 60 * 60;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
-export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'mention' | 'assignment' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; itemId?: string; assigneeId?: string | null };
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'progress-started' | 'progress-stopped' | 'mention' | 'assignment' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; itemId?: string; assigneeId?: string | null };
 
 export type NotificationDelivery = AppDoc & {
     type: 'notification-delivery'; projectId: string; threadId: string; actorId: string; userId?: string;

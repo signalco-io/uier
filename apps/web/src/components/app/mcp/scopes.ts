@@ -5,7 +5,7 @@ export const scopeOptions: readonly { scope: McpScope; label: string; descriptio
     { scope: 'feedback:read', label: 'Read feedback', description: 'List and read feedback threads. Reading does not mark them read.', write: false },
     { scope: 'screenshots:read', label: 'Read screenshots', description: 'Open the screenshots attached to feedback.', write: false },
     { scope: 'feedback:reply', label: 'Reply to feedback', description: 'Post replies as you, labeled with the connection name.', write: true },
-    { scope: 'feedback:status', label: 'Change status', description: 'Mark feedback done or open it again.', write: true },
+    { scope: 'feedback:status', label: 'Change status', description: 'Mark feedback in progress or done, or open it again.', write: true },
     { scope: 'feedback:assign', label: 'Assign feedback', description: 'Assign feedback to people who can see it.', write: true }
 ];
 

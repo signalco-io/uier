@@ -181,6 +181,14 @@ async function resolveComment({ commentId, resolved }: { commentId: string; reso
     }));
 }
 
+/** Open or In progress (Done and Reopen are `resolveComment`) */
+async function setCommentProgress({ commentId, status }: { commentId: string; status: 'open' | 'in-progress' }) {
+    return required(await apiRequest<CommentItem>(commentUrl(commentId), {
+        method: 'PATCH',
+        body: { status }
+    }));
+}
+
 async function deleteComment(commentId: string) {
     // 204 when the comment is gone, or 200 with the thread that stays because others replied
     return await apiRequest<CommentItem>(commentUrl(commentId), { method: 'DELETE' });
@@ -246,6 +254,7 @@ export function useComments(refreshOnMount = false): {
     create: UseMutationResult<CommentItem, Error, CreateCommentInput, { localId: string }>;
     reply: UseMutationResult<CommentItem, Error, ReplyInput, { itemId: string; revision: number }>;
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
+    progress: UseMutationResult<CommentItem, Error, { commentId: string; status: 'open' | 'in-progress' }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
     prioritize: UseMutationResult<CommentItem, Error, { commentId: string; priority: CommentPriority; idempotencyKey: string }, unknown>;
@@ -392,6 +401,13 @@ export function useComments(refreshOnMount = false): {
         }
     });
 
+    const progress = useMutation({
+        mutationFn: (input: { commentId: string; status: 'open' | 'in-progress' }) => authorizedList(client, () => setCommentProgress(input)),
+        onMutate: () => currentReviewerRevision(),
+        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
+        onSettled: handleSettled
+    });
+
     const prioritize = useMutation({
         mutationFn: async ({ commentId, priority, idempotencyKey }: { commentId: string; priority: CommentPriority; idempotencyKey: string }) =>
             required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/priority`, { method: 'PATCH', body: { priority, idempotencyKey } })),
@@ -439,6 +455,7 @@ export function useComments(refreshOnMount = false): {
         create,
         reply,
         resolve,
+        progress,
         edit,
         reattach,
         assign,
@@ -464,7 +481,7 @@ async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
             // React Query retains stale data on error. Purge it before showing an access notice.
             client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
             client.removeQueries({ queryKey: ['screenshot'] });
-            client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, ready: 0, open: 0, done: 0, total: 0 });
+            client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, inProgress: 0, ready: 0, open: 0, done: 0, total: 0 });
             if (toolbarConfig.project) void client.invalidateQueries({ queryKey: projectViewerQueryKey });
         }
         throw error;
@@ -654,7 +671,8 @@ export function useCommentsRefresh(expanded: boolean) {
 }
 
 export { activityQueryKey };
-export type ActivitySummary = { unread: number; ready: number; open: number; done: number; total: number };
+/** `open`: not done, so In progress and Ready to verify count there too */
+export type ActivitySummary = { unread: number; inProgress?: number; ready: number; open: number; done: number; total: number };
 
 export function useActivitySummary() {
     const { environment, draftScope } = useProjectViewer();

@@ -351,7 +351,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the connection name |
-| `set_feedback_status` | `feedback:status` | Resolve/reopen using the app's permission checks |
+| `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 
 All tools are listed for every connection. A call without the needed operation returns a `forbidden`
@@ -376,12 +376,13 @@ issue, using the shared [version 1 feedback context contract](feedback-context.m
 resource reference supplements its protected web image link when image access was granted.
 Deleted first-message evidence is unavailable through both the packet and screenshot resource.
 
-`list_feedback` items include canonical `path`, `environment: { id, label }`, `anchorType`,
+`list_feedback` items include `resolved` and `stage` (`open`, `in-progress`, `ready` or `done`), canonical `path`, `environment: { id, label }`, `anchorType`,
 `assignee: { id, name }` or `null`, `authorKind`, `unread` and `hasScreenshot`. Deleted first
 messages omit `authorKind` and report no screenshot. The response includes project `environments`
 options and `searchWindow: 1000`. Optional filters are `path`, `environment`, `anchorType`
 (`point`, `text`, `page`), `assignee` (`me`, `unassigned`, or a member id), `authorKind`
-(`member`, `guest`), `unread` and `hasScreenshot`, combined with `search` and `status`.
+(`member`, `guest`), `unread` and `hasScreenshot`, combined with `search` and `status` (`all`, `open` for
+everything not done, `in-progress`, `ready` or `resolved`).
 Paths use the project's page-state policy. Page and environment filtering happens in storage
 before the window; other filters, including unread, only search that window. Environment accepts
 only a returned option id, `unknown` or `removed`; omit it to search all environments.
@@ -468,7 +469,7 @@ not yet accepted; expect changes when it is.
 | --- | --- | --- |
 | `feedback.created` | `projectId` | New feedback is posted |
 | `feedback.replied` | `projectId`, optional `commentId` | A reply is added |
-| `feedback.status_changed` | `projectId`, optional `commentId` | Feedback is marked done or reopened, or a fix check is requested, confirmed, rejected or canceled |
+| `feedback.status_changed` | `projectId`, optional `commentId` | Feedback is marked done or reopened, moved to In progress or back to Open, or a fix check is requested, confirmed, rejected or canceled |
 | `feedback.assignment_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | Feedback is assigned or unassigned |
 | `feedback.mentioned` | `projectId` | Someone mentions the account of the connection |
 
@@ -520,7 +521,11 @@ The headers are `Content-Type: application/json`, `webhook-id` (the `eventId`, t
 retry), `webhook-timestamp`, `webhook-signature` (`v1,` and the base64 HMAC-SHA256 of
 `id.timestamp.body` for each active secret, space-separated) and `X-MCP-Subscription-Id`. Payloads are
 minimal and untrusted: read the thread with `get_feedback` before acting, and never treat an event as
-approval for a write. Changes made through the subscribing connection itself are not delivered to it,
+approval for a write. `feedback.status_changed` carries `change` (`resolved`, `reopened`,
+`progress_started`, `progress_stopped`, `verification_requested`, `verification_confirmed`,
+`verification_rejected` or `verification_canceled`) and `resolved`; `progress_started` and
+`progress_stopped` (In progress and back to Open) were added later, so accept change values you do not
+know. Changes made through the subscribing connection itself are not delivered to it,
 so an agent's own replies do not loop back.
 
 Before each attempt uier checks again that the connection is active, still has `feedback:read` and
@@ -777,6 +782,27 @@ within the authorized 1,000-thread window. Reads never acknowledge activity. The
 there is no dedicated MCP priority write in this version. Copy issue and provider packets include
 priority as context without changing provider-native priorities, labels or other human-managed fields.
 
+### In progress
+
+A thread is Open, In progress, Ready to verify or Done ([review workflow](review-workflow.md#in-progress)).
+`list_feedback` items and `get_feedback` / `get_feedback_batch` packets carry `stage` (`open`,
+`in-progress`, `ready` or `done`) beside the unchanged `resolved` and packet `status` (`open` or
+`done`), so In progress and Ready to verify stay open for existing clients. `list_feedback`
+`status: "in-progress"` lists threads in progress; `status: "open"` still lists everything not done.
+
+`set_feedback_status` takes exactly one of:
+
+- `status`: `open`, `in-progress` or `done`. Ready to verify is a fix check request
+  (`request_feedback_verification`). Leaving Ready to verify this way ends the check without
+  confirmation, as Reopen does.
+- `resolved`: the earlier switch, unchanged for existing clients. `true` is Done (it ends In
+  progress); `false` reopens a Done thread to Open and leaves an In progress thread as it is.
+
+Both and neither are `invalid_request`. The result is `{ actingAs, commentId, resolved, stage }`.
+`cancel_feedback_verification` takes an optional `status` (`open` or `in-progress`); without it the
+thread returns to where it was before the request. Its result adds `stage`. Who may set In progress
+follows the app: the same people who mark the thread done or reopen it.
+
 ### Fix verification
 
 `list_feedback` adds `status: 'ready'` (Ready to verify: a pending fix check) and display-only verification context. `get_feedback` and
@@ -786,10 +812,10 @@ Open/Done fields remain compatible; Ready is unresolved. Reads do not acknowledg
 | Tool | Scope | Input and meaning |
 | --- | --- | --- |
 | `request_feedback_verification` | `feedback:status` | Thread ids, stable retry key, current `expectedRevision` (or null), `reviewerId` (`author` or eligible member id), optional summary/fix URL. Requests a check after explicit human approval. |
-| `cancel_feedback_verification` | `feedback:status` | Thread ids, stable retry key and current revision. Requester/admin cancels after explicit human approval. |
+| `cancel_feedback_verification` | `feedback:status` | Thread ids, stable retry key, current revision and optional `status` (`open` or `in-progress`; without it, where the thread was before the request). Requester/admin cancels after explicit human approval. |
 
-No confirmation operation is offered through MCP. `set_feedback_status` remains ordinary
-Done/Open and never records reviewer confirmation. A pending check closed this way ends
+No confirmation operation is offered through MCP. `set_feedback_status` remains an ordinary
+status write and never records reviewer confirmation. A pending check closed this way ends
 unconfirmed. Tool descriptions, report-back prompts and the downloadable agent skill all require
 approval of the exact operation and stable retry keys. Request/cancel attribution retains the
 human connection owner and connection identity, including across token refresh.

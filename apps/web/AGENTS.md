@@ -449,7 +449,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   already handled (`defaultPrevented`). Only the current row's link and selection box are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. `e2e/comment-keyboard.spec.ts` covers it;
   the board keeps plain Tab order. `CommentBoard.tsx` shows
-  Open, Ready to verify and Done as compact cards, from `lg` in one row of equal columns, one per status however many
+  Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
+  column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
   there are; the board widens the page (`data-page-width="wide"` on the comments container in board view, empty states
   included), the list keeps the reading width. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
@@ -458,9 +459,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
   state, `#number` and the unread dot (the Mark as read button, "Unread. Mark as read") on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
-  Open. Change status") with Open, Ready to verify and Done, each enabled by the person's permissions: Ready to
-  verify opens the Request verification form (`VerificationControl`, whose submit has the same name), Open from
-  Ready to verify cancels the check, and Done there reads Done without verification. Copy is one menu with Copy
+  Open. Change status") with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
+  (`allowedStatuses`): Ready to verify opens the Request verification form (`VerificationControl`, whose submit has
+  the same name), Open and In progress from Ready to verify cancel the check and land there, and Done there reads
+  Done without verification. Copy is one menu with Copy
   issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
   thread and, once read, Mark as unread are in More actions. Then On (what it was left on, with the selector or
@@ -1363,6 +1365,22 @@ in services and DTOs. Priority adds activity/integration intent only, with no em
 `commentPriority` everywhere. Tests: `triage{,.api}.spec.ts`, MCP, feedback-context and integration
 suites. See [review workflow](../../docs/review-workflow.md#search-priority-and-bulk-triage).
 
+## In progress
+
+A thread's stage is `feedbackStage` (`@uier/toolbar/verification`, pure, shared by app, toolbar and
+server): Done, Ready to verify (pending check), In progress (`DbComment.inProgress`), else Open. A
+missing flag means not in progress; never migrate. `resolved` keeps its meaning for every client:
+`ordinaryVerificationStatus` clears the flag on Done and leaves it on a same-status or `false` write,
+so old clients, bulk Reopen and provider polls never drop it. `setProjectCommentStatus` (`open`,
+`in-progress`, `done`; `canResolveComment`, one `withOrdinaryStage` write) is the only way to set or
+clear it directly; it emits `progress-started` / `progress-stopped` (digest lines, MCP
+`progress_started` / `progress_stopped`) or the usual `resolved` / `reopened`. The flag stays while a
+check is pending. App writes go through `setCommentStatusAction`; the review and same-origin PATCH
+routes take `{ status }` or `{ resolved }`, never both. Lists, counts, tabs and the board read the
+stage, never the raw flag; Open filters and counts mean not done. Focused coverage is
+`in-progress.api.spec.ts`, the MCP spec, `comment-board.spec.ts`, `verification.spec.ts` and
+`toolbar-app-parity.spec.ts`. See [review workflow](../../docs/review-workflow.md#in-progress).
+
 ## Fix verification
 
 `review/fixVerification.ts` owns conditional request/confirm/reject/cancel transitions. Reuse
@@ -1375,7 +1393,8 @@ Keep `verification` bounded to the latest request/decision, with server-only act
 
 `VerificationControl` and toolbar `CommentVerification` share pure `@uier/toolbar/verification`
 labels/types, not UI or runtime imports. Ready is a subset of Open in activity counts; board
-columns are exclusive. Workflow-only changes must not acknowledge reads. MCP offers approved
+columns are exclusive. Reject sets In progress, confirm clears it, and cancel takes an optional
+`status` target (else the thread keeps its flag and returns to where it was). Workflow-only changes must not acknowledge reads. MCP offers approved
 request/cancel under `feedback:status`, never confirmation. Keep tools, workflows and downloadable
 skill aligned. Focused coverage is `verification{,.api}.spec.ts` plus bulk, MCP and integration
 regressions. Author placeholder deletion redacts verification with original author evidence.

@@ -1,6 +1,7 @@
 import { changeFixVerification } from './fixVerification';
 import { fixVerificationSchema } from './fixVerificationSchema';
 import { priorities } from '@uier/toolbar/triage';
+import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { idempotencyKeySchema } from '../comments/validation';
 import { screenshotUrlMediaType } from '../screenshots/blobStore';
 import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
@@ -28,6 +29,7 @@ import {
     getProjectScreenshot,
     replyToProjectComment,
     setProjectCommentResolved,
+    setProjectCommentStatus,
     setProjectCommentAssignee,
     setProjectCommentPriority,
     replaceProjectScreenshot
@@ -116,13 +118,17 @@ export async function replyToReviewComment(context: ReviewApiContext, { id }: { 
     return await commentResponse(context, comment, 201);
 }
 
-const updateSchema = z.object({ resolved: z.boolean() });
+/** `resolved` (Done or Open, as before) or `status` (Open, In progress or Done), never both */
+const updateSchema = z.object({ resolved: z.boolean().optional(), status: z.enum(feedbackStatusTargets).optional() })
+    .refine(input => (input.resolved === undefined) !== (input.status === undefined), 'Send either resolved or status.');
 
 export async function updateReviewComment(context: ReviewApiContext, { id }: { id: string }) {
     const { request, project, actor } = context;
-    const { resolved } = await parseJsonBody(request, updateSchema);
+    const input = await parseJsonBody(request, updateSchema);
     assertWriter(actor);
-    return await commentResponse(context, await setProjectCommentResolved(project, actor, commentId(id), resolved));
+    return await commentResponse(context, input.status !== undefined
+        ? await setProjectCommentStatus(project, actor, commentId(id), input.status)
+        : await setProjectCommentResolved(project, actor, commentId(id), input.resolved!));
 }
 
 /** POST /api/review/<code>/rewrite: rewrite suggestions for selected text, for those who can comment */

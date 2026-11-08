@@ -81,6 +81,8 @@ export type ProjectCommentView = {
     verification?: import('@uier/toolbar/verification').VerificationDetails;
     verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
     resolved: boolean;
+    /** The stored In progress flag (`feedbackStage` gives the stage: a pending check or Done comes first) */
+    inProgress: boolean;
     private: boolean;
     assignee?: { id: string; name: string; avatarUrl?: string };
     eligibleAssigneeIds: string[];
@@ -153,6 +155,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         reproduction: toReproductionContext(comment, projectOrigins(project)),
         createdAt: comment.createdAt,
         resolved: comment.resolved === true,
+        inProgress: comment.inProgress === true && comment.resolved !== true,
         private: comment.private === true,
         eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
         assignee: assignee && { ...assignee, avatarUrl: avatars.get(assignee.id) },

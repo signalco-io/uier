@@ -72,6 +72,11 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
             ...v, revision: randomUUID(), outcome: input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled',
             decision: { kind: input.action, actorId: me, at: now, override: input.action !== 'cancel' && input.override === true }
         } };
+        // Still needs work: someone continues the fix. A cancel goes where it was asked to, else back to
+        // where the thread was before the request (the flag stays while a check is pending). Done clears it.
+        const target = input.action === 'reject' ? 'in-progress' : input.action === 'cancel' ? input.status : undefined;
+        if (target === 'in-progress') updated.inProgress = true;
+        else if (target === 'open' || input.action === 'confirm') delete updated.inProgress;
         return withNotificationEvent(updated, me, input.action === 'confirm' ? 'verification-confirmed' : input.action === 'reject' ? 'verification-rejected' : 'verification-canceled', now, [v.requester, v.reviewer], actor.kind === 'member' ? actor.agent : undefined, { verificationOverride: input.override === true });
     }, attempt, { expected: null, value: () => null, requireComments: true }, store);
 }

@@ -1,4 +1,5 @@
 import { priorities } from '@uier/toolbar/triage';
+import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { z } from 'zod';
 import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
 import { idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
@@ -7,7 +8,8 @@ import { bulkReadSchema } from '../../../lib/comments/bulkRead';
 
 export const commentIdSchema = z.string().refine(isValidId);
 export const commentActionSchema = z.object({ projectId: projectIdSchema, commentId: commentIdSchema });
-export const resolveCommentActionSchema = commentActionSchema.extend({ resolved: z.boolean() });
+/** Open, In progress or Done; Ready to verify is a fix check request (`verificationCommentAction`) */
+export const statusCommentActionSchema = commentActionSchema.extend({ status: z.enum(feedbackStatusTargets) });
 export const privateCommentActionSchema = commentActionSchema.extend({ isPrivate: z.boolean() });
 export const assignCommentActionSchema = commentActionSchema.extend({ assigneeId: userIdSchema.nullable() });
 export const editCommentActionSchema = commentActionSchema.extend({ text: textSchema });

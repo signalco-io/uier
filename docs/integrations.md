@@ -252,7 +252,7 @@ registration, credentials, distribution approval and deployment readback remain 
 ## Fix verification and two-way status
 
 Provider packets add authorized verification details while keeping the provider-native status
-Open/Done. Ready to verify maps to Open. A remote closure is ordinary Done without reviewer
+Open/Done. In progress and Ready to verify map to Open, and same-status polls keep them. A remote closure (which also ends In progress) is ordinary Done without reviewer
 confirmation; a remote reopen invalidates a current confirmation claim. Same-status polls do
 not change a pending request, advance its revision or create events. In-flight local requests
 win over an older status read through the existing source-version/pending-write boundary.

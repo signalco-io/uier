@@ -47,7 +47,7 @@ const operations: { label: string; text: string }[] = [
     { label: 'Read feedback', text: 'List, search and read threads with their context. Always included. Reading does not mark them read.' },
     { label: 'Read screenshots', text: 'Open the screenshots attached to feedback.' },
     { label: 'Reply to feedback', text: 'Post replies as you, labeled with the connection name.' },
-    { label: 'Change status', text: 'Mark feedback done or open it again, and request or cancel a fix check.' },
+    { label: 'Change status', text: 'Mark feedback in progress or done, open it again, and request or cancel a fix check.' },
     { label: 'Assign feedback', text: 'Assign feedback to people who can see it.' }
 ];
 

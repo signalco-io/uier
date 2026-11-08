@@ -83,6 +83,7 @@ export function useInboxComments(filter: CommentsFilter) {
     // Of the listed comments (the site's list has the newest ones only, see `siteCapped`)
     const counts: Record<CommentsStatusFilter, number> = {
         unresolved: withStatus(scoped, 'unresolved')?.length ?? 0,
+        'in-progress': withStatus(scoped, 'in-progress')?.length ?? 0,
         ready: withStatus(scoped, 'ready')?.length ?? 0,
         resolved: withStatus(scoped, 'resolved')?.length ?? 0,
         all: scoped?.length ?? 0
@@ -91,6 +92,8 @@ export function useInboxComments(filter: CommentsFilter) {
     // Site-wide totals come from the full authorized projection, never the capped text window.
     if (scope === 'all' && activity && !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe) {
         counts.unresolved = activity.open;
+        // An API without the In progress count keeps the listed one
+        counts['in-progress'] = activity.inProgress ?? counts['in-progress'];
         counts.ready = activity.ready ?? 0;
         counts.resolved = activity.done;
         counts.all = activity.total;

@@ -169,6 +169,8 @@ export type CommentItem = {
     verification?: import('../../verification').VerificationDetails;
     verificationPermissions?: import('../../verification').VerificationPermissions;
     resolved: boolean;
+    /** In progress, only when set; `feedbackStage` (`../../verification`) gives the status */
+    inProgress?: boolean;
     /**
      * Whether the current visitor wrote this comment (only the author can resolve or delete it).
      * Always `false` once the author deleted the first item.

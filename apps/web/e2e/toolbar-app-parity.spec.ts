@@ -66,3 +66,27 @@ test('with nobody else to check a fix, the request form says so and offers an in
     await expect(submit).toBeDisabled();
     await expect(submit).toHaveAccessibleDescription(/Nobody else can check this fix yet\./);
 });
+
+test('In progress set in the toolbar reads the same in the app, and back', async ({ page }) => {
+    const { projectId, reviewUrl } = await memberComment(page);
+    const thread = openThread(page);
+    await (await threadOptions(page, thread)).getByRole('button', { name: 'Mark as in progress', exact: true }).click();
+    await expect(thread.getByRole('group', { name: 'Messages' })).toContainText('Status: In progress');
+    // The inbox has its own tab, between Open and Ready to verify
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await expect(inbox.getByRole('group', { name: 'Show comments' }).getByRole('button')).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^All/]);
+    await inbox.getByRole('button', { name: /^In progress/ }).click();
+    await expect(inbox.getByRole('article')).toHaveCount(1);
+
+    await page.goto(`/app/projects/${projectId}`);
+    const card = await openComment(page, /^Comment/);
+    await card.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
+    await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
+
+    await page.goto(reviewUrl);
+    await commentBubble(page, 1, 1).click();
+    await expect(openThread(page).getByRole('group', { name: 'Messages' })).toContainText('Status: Open');
+    await expect((await threadOptions(page, openThread(page))).getByRole('button', { name: 'Mark as in progress', exact: true })).toBeVisible();
+});

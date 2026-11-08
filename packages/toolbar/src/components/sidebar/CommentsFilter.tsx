@@ -1,8 +1,9 @@
-import { readyForReview } from '../../verification';
+import { feedbackStage } from '../../verification';
 import { matchesFeedbackSearch } from '../../triage';
 import type { CommentItem } from '../@types/Comments';
 
-export type CommentsStatusFilter = 'unresolved' | 'ready' | 'resolved' | 'all';
+/** `unresolved`: Open, not done (In progress and Ready to verify are there too); the others are one status each */
+export type CommentsStatusFilter = 'unresolved' | 'in-progress' | 'ready' | 'resolved' | 'all';
 
 /**
  * Which pages the inbox lists: this page (the default), all of the site's pages, one other
@@ -37,7 +38,9 @@ export function matchesFilter(comment: CommentItem, filter: CommentsFilter) {
 }
 
 export function matchesStatus(comment: CommentItem, status: CommentsStatusFilter) {
-    return status === 'ready' ? readyForReview(comment) : status === 'all' || comment.resolved === (status === 'resolved');
+    if (status === 'all') return true;
+    if (status === 'unresolved') return !comment.resolved;
+    return feedbackStage(comment) === (status === 'resolved' ? 'done' : status);
 }
 
 /** Everything but the status: assigned to me, unread and the words of the search */

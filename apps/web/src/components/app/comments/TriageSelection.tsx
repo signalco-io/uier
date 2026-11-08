@@ -78,7 +78,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees) });
             const rollback = (id: string) => {
                 const original = originals.get(id);
-                if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, assignee: original.assignee } });
+                if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignee: original.assignee } });
             };
             try {
                 const response = await triageCommentsAction(projectId, batch);
@@ -87,7 +87,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 start(() => { for (const item of results) {
                     if (!item.saved) rollback(item.id);
                     else update({ id: item.id, patch: { ...patchFor({ kind: 'assignment', assigneeId: item.saved.assigneeId }, assignees),
-                        priority: item.saved.priority, resolved: item.saved.resolved, revision: item.saved.revision } });
+                        priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision } });
                 } });
                 const failed = results.filter(item => item.outcome !== 'success' && item.outcome !== 'noop').map(item => item.id);
                 setDetails(results.filter(item => failed.includes(item.id)).map(item => ({ id: item.id,

@@ -1,6 +1,6 @@
 'use client';
 
-import { readyForReview } from '../verification';
+import { feedbackStage, feedbackStageLabels, readyForReview, type FeedbackStage } from '../verification';
 import { useContext, useRef, useState, type RefObject } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -20,15 +20,18 @@ import { CommentThreadMenu } from './CommentThreadMenu';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { useThreadNotificationActions } from './ThreadNotifications';
 
-/** "Open" or "Done", with the status dot (BRAND.md, "Components": ink = open, green = resolved) */
-export function CommentStatusBadge({ done, ready }: { done: boolean; ready?: boolean }) {
+/**
+ * "Open", "In progress", "Ready to verify" or "Done", with the status dot (BRAND.md, "Components":
+ * ink while not done, green = resolved). The app's `StateBadge`.
+ */
+export function CommentStatusBadge({ stage }: { stage: FeedbackStage }) {
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
             <span
                 aria-hidden="true"
-                className={cx('size-1.5 rounded-full', done ? 'bg-[hsl(var(--brand-success))]' : 'bg-foreground')} />
+                className={cx('size-1.5 rounded-full', stage === 'done' ? 'bg-[hsl(var(--brand-success))]' : 'bg-foreground')} />
             <span className="sr-only">Status: </span>
-            {done ? 'Done' : ready ? 'Ready to verify' : 'Open'}
+            {feedbackStageLabels[stage]}
         </span>
     );
 }
@@ -76,8 +79,8 @@ function PriorityBadge({ comment }: { comment: CommentItem }) {
  * The top of a thread (popover and inbox), on one line: its status, public id (`#12`), unread dot (it
  * marks the thread read), a priority other than Normal and the assignee's avatar, then the actions:
  * Mark as done / Reopen for those who can resolve, Copy (the issue or the link) and Thread options with
- * the triage and email controls each person may use (assign, priority, Request verification, follow,
- * mute, Mark as unread). The people to assign open under the line.
+ * the triage and email controls each person may use (assign, priority, Mark as in progress or Mark as
+ * open, Request verification, follow, mute, Mark as unread). The people to assign open under the line.
  * `onMarkedUnread`: the reviewer asked for the thread to stay unread (no automatic read while open).
  */
 export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerification, optionsRef }: {
@@ -89,12 +92,14 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
-    const { resolve, prioritize } = useComments();
+    const { resolve, progress, prioritize } = useComments();
     const read = useReadComment();
     const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const done = comment.resolved;
+    const stage = feedbackStage(comment);
+    const canResolve = comment.permissions?.resolve ?? comment.isMine;
     const doneLabel = readyForReview(comment) ? 'Done without verification' : 'Mark as done';
     const unread = Boolean(comment.activity?.unread);
     // Only someone else's activity can be unread
@@ -114,6 +119,17 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
         } catch {
             // Shown below
         }
+    };
+
+    const handleProgress = async () => {
+        const status = stage === 'in-progress' ? 'open' : 'in-progress';
+        try {
+            await progress.mutateAsync({ commentId: comment.id, status });
+            announce(status === 'open' ? 'Marked as open' : 'Marked as in progress');
+        } catch {
+            // Shown below
+        }
+        optionsRef?.current?.focus();
     };
 
     const handleMarkUnread = async () => {
@@ -153,7 +169,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
         <Stack spacing={1}>
             <Row spacing={1} justifyContent="space-between" className="flex-nowrap">
                 <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
-                    <CommentStatusBadge ready={readyForReview(comment)} done={done} />
+                    <CommentStatusBadge stage={stage} />
                     {/* The public id, numbered per site */}
                     {comment.number !== undefined && (
                         <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
@@ -167,7 +183,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                 <Row className="-mr-1.5 shrink-0">
                     {/* Only the author changes the status (the API enforces it too); in a project,
                         every member can (the API's `permissions`) */}
-                    {(comment.permissions?.resolve ?? comment.isMine) && <>
+                    {canResolve && <>
                         <IconButton
                             size="xs"
                             variant="plain"
@@ -186,6 +202,10 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                         <CommentThreadMenu className={threadActionClassName} triggerRef={optionsRef} actions={{
                             assign: comment.permissions?.assign ? { label: assignedText(comment), onAssign: () => setAssigning(true) } : undefined,
                             priority: comment.permissions?.priority ? { value: comment.priority, pending: prioritize.isPending, onChange: handlePriority } : undefined,
+                            // Open and In progress, for those who mark it done; Ready to verify has its own controls
+                            progress: canResolve && (stage === 'open' || stage === 'in-progress')
+                                ? { label: stage === 'open' ? 'Mark as in progress' : 'Mark as open', pending: progress.isPending, onChange: handleProgress }
+                                : undefined,
                             verify: verification?.request && onRequestVerification
                                 ? { label: comment.verification?.outcome === 'pending' && !done ? 'Request a new check' : 'Request verification', onRequest: onRequestVerification }
                                 : undefined,
@@ -200,7 +220,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                 <CommentAssigneeOptions comment={comment} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}
             <CopyIssueResult state={issue} />
-            <CommentsErrorMessage error={resolve.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
+            <CommentsErrorMessage error={resolve.error ?? progress.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
                     <span className={destructiveTextClassName}>The link could not be copied. Copy it from here:</span>

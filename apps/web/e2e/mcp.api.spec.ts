@@ -624,6 +624,58 @@ test('an already connected staff credential loses private app feedback and scree
     }
 });
 
+test('In progress through MCP: status sets it, resolved stays compatible, list filters and packets show the stage', async () => {
+    const f = await fixture();
+    const reviewer = await findOrCreateUser(`mcp-progress-reviewer-${randomUUID()}@example.com`);
+    await getAppStore().create<DbMember>({ type: 'member', pk: f.project.pk, id: memberId(reviewer.id), workspaceId: f.project.workspaceId,
+        userId: reviewer.id, email: reviewer.email, role: 'commenter', projects: 'all', createdAt: new Date().toISOString() });
+    const { token } = await createMcpCredential(f.context, { name: 'Progress', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:status'], days: 7 });
+    const client = await connect(token);
+    const args = { projectId: f.project.id, commentId: f.comment.id };
+    const set = async (input: Record<string, unknown>) => client.callTool({ name: 'set_feedback_status', arguments: { ...args, ...input, idempotencyKey: idempotencyKey() } });
+    const listed = async (status: string) => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, status } })).items.map((item: { id: string }) => item.id);
+    try {
+        const tool = (await client.listTools()).tools.find(entry => entry.name === 'set_feedback_status')!;
+        expect(JSON.stringify(tool.inputSchema)).toContain('in-progress');
+        // Exactly one of status and resolved; Ready to verify is a fix check request
+        for (const input of [{}, { status: 'in-progress', resolved: false }]) {
+            const response = await set(input);
+            expect(response.isError).toBe(true);
+            expect(data(response).error).toBe('invalid_request');
+        }
+        expect((await set({ status: 'ready' })).isError).toBe(true);
+        expect((await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment.inProgress).toBeUndefined();
+
+        expect(data(await set({ status: 'in-progress' }))).toMatchObject({ commentId: f.comment.id, resolved: false, stage: 'in-progress' });
+        expect(await listed('in-progress')).toEqual([f.comment.id]);
+        // open still means not done
+        expect(await listed('open')).toEqual([f.comment.id]);
+        expect(await listed('ready')).toEqual([]);
+        const all = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } }));
+        expect(all.items[0]).toMatchObject({ resolved: false, stage: 'in-progress' });
+        expect(data(await client.callTool({ name: 'get_feedback', arguments: args })).context).toMatchObject({ status: 'open', stage: 'in-progress' });
+        // An existing client's resolved: false keeps In progress
+        expect(data(await set({ resolved: false }))).toMatchObject({ resolved: false, stage: 'in-progress' });
+
+        // A fix check from In progress; a cancel returns there unless told otherwise
+        const requested = data(await client.callTool({ name: 'request_feedback_verification', arguments: { ...args, expectedRevision: null, reviewerId: reviewer.id, idempotencyKey: idempotencyKey() } }));
+        expect(await listed('ready')).toEqual([f.comment.id]);
+        expect(await listed('in-progress')).toEqual([]);
+        const canceled = data(await client.callTool({ name: 'cancel_feedback_verification', arguments: { ...args, expectedRevision: requested.revision, idempotencyKey: idempotencyKey() } }));
+        expect(canceled.stage).toBe('in-progress');
+        const again = data(await client.callTool({ name: 'request_feedback_verification', arguments: { ...args, expectedRevision: canceled.revision, reviewerId: reviewer.id, idempotencyKey: idempotencyKey() } }));
+        const toOpen = data(await client.callTool({ name: 'cancel_feedback_verification', arguments: { ...args, expectedRevision: again.revision, status: 'open', idempotencyKey: idempotencyKey() } }));
+        expect(toOpen.stage).toBe('open');
+
+        expect(data(await set({ status: 'done' }))).toMatchObject({ resolved: true, stage: 'done' });
+        expect(await listed('in-progress')).toEqual([]);
+        expect(await listed('resolved')).toEqual([f.comment.id]);
+        const saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+        expect(saved.notificationEvents?.map(event => event.kind)).toEqual(['comment', 'progress-started', 'verification-requested', 'verification-canceled', 'verification-requested', 'verification-canceled', 'resolved']);
+        expect(feedbackSkill()).toContain('open, in-progress or done');
+    } finally { await client.close(); }
+});
+
 test('approved verification tools request/cancel under status scope; boolean status never confirms', async () => {
     const f = await fixture();
     const reviewer = await findOrCreateUser(`mcp-reviewer-${randomUUID()}@example.com`);

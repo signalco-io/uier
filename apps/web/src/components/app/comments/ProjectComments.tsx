@@ -1,6 +1,5 @@
 'use client';
 
-import { readyForReview } from '@uier/toolbar/verification';
 import { useEffect, useOptimistic, useRef, useState } from 'react';
 import Link from 'next/link';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -18,7 +17,8 @@ import { CommentFilters } from './CommentFilters';
 import { pageMatches } from './pageFilter';
 import { CommentInbox, useOpenComment } from './CommentInbox';
 import { CommentBoard } from './CommentBoard';
-import type { AuthorFilter, StatusFilter } from './commentLabels';
+import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
+import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
@@ -27,6 +27,15 @@ import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
 import { MarkAllRead } from './MarkAllRead';
 import { RealtimeComments } from './RealtimeComments';
 
+
+/** A status tab with nothing in it (All always has something once the other filters match) */
+const emptyStatus: Record<StatusFilter, { title: string; description: string }> = {
+    open: { title: 'Nothing open', description: 'Every comment here is done. Choose Done or All to see them.' },
+    'in-progress': { title: 'Nothing in progress', description: 'Comments someone is working on show here.' },
+    ready: { title: 'No checks requested', description: 'Requested fix checks show here.' },
+    done: { title: 'Nothing done yet', description: 'Comments marked as done show here.' },
+    all: { title: 'Nothing here', description: 'No comments match these filters.' }
+};
 
 /** `openId`: Only unread keeps the open thread while it is read (opening it reads it), until another is opened */
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
@@ -46,7 +55,7 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
     });
 }
 
-/** The project's comments in a list (Open, Done or All) or on a board (Open / Done), filtered by people and page */
+/** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page */
 export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false }: {
     searchWindowCapped?: boolean;
     authorFilter?: AuthorFilter;
@@ -157,21 +166,14 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const pages = [...comments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
         .map(([path, count]) => ({ path, count }));
     const filtered = applyFilters(comments, query, userId, openId);
-    const statusCounts: Record<StatusFilter, number> = {
-        open: filtered.filter(comment => !comment.resolved).length,
-        ready: filtered.filter(readyForReview).length,
-        done: filtered.filter(comment => comment.resolved).length,
-        all: filtered.length
-    };
+    const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
+        .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment))).length])) as Record<StatusFilter, number>;
     const board = query.view === 'board';
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && comments.some(comment => comment.id === openComment.openId);
-    const shown = board || query.status === 'all'
-        ? filtered
-        : filtered.filter(comment => query.status === 'ready' ? readyForReview(comment) : comment.resolved === (query.status === 'done'));
-    const open = shown.filter(comment => !comment.resolved && !readyForReview(comment));
-    const ready = shown.filter(readyForReview);
-    const done = shown.filter(comment => comment.resolved);
+    const shown = board ? filtered : filtered.filter(comment => statusMatches(query.status, commentStatus(comment)));
+    // The board's columns, one per status in order (each thread in exactly one)
+    const columns = Object.fromEntries(commentStatuses.map(status => [status, shown.filter(comment => commentStatus(comment) === status)])) as Record<CommentStatus, ProjectCommentView[]>;
     const unreadShown = shown.filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
@@ -186,7 +188,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
             </div>
-            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? [...open, ...ready, ...done] : shown} assignees={assignees}
+            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-4xl/comments:hidden', !comments.length && 'hidden')}
                 summary={<>
                     {shown.length === comments.length
@@ -212,19 +214,15 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                         <EmptyMedia variant="icon">
                             {query.status === 'open' ? <CircleCheckIcon /> : <CircleDashedIcon />}
                         </EmptyMedia>
-                        <EmptyTitle>{query.status === 'ready' ? 'No checks requested' : query.status === 'open' ? 'Nothing open' : 'Nothing done yet'}</EmptyTitle>
-                        <EmptyDescription>
-                            {query.status === 'open'
-                                ? 'Every comment here is done. Choose Done or All to see them.'
-                                : query.status === 'ready' ? 'Requested fix checks show here.' : 'Comments marked as done show here.'}
-                        </EmptyDescription>
+                        <EmptyTitle>{emptyStatus[query.status].title}</EmptyTitle>
+                        <EmptyDescription>{emptyStatus[query.status].description}</EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <CommentBoard projectId={projectId} columns={{ open, ready, done }} allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
+                <CommentBoard projectId={projectId} columns={columns} allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
                 <CommentInbox projectId={projectId} comments={shown} allComments={comments} assignees={assignees} userId={userId} label="Comments"
-                    keepsResolved={query.status === 'all'} readLeaves={Boolean(query.unread)} openComment={openComment} />
+                    keeps={status => statusMatches(query.status, status)} readLeaves={Boolean(query.unread)} openComment={openComment} />
             )}
             </TriageSelection>
         </div>

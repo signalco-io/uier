@@ -9,8 +9,26 @@ export type VerificationPermissions = { selfId?: string; request: boolean; respo
 export function readyForReview(comment: { resolved?: boolean; verification?: { outcome: VerificationOutcome } }) {
     return !comment.resolved && comment.verification?.outcome === 'pending';
 }
-export function feedbackStatus(comment: { resolved?: boolean; verification?: { outcome: VerificationOutcome } }) {
-    return comment.resolved ? 'Done' : readyForReview(comment) ? 'Ready to verify' : 'Open';
+
+/**
+ * Where a thread is in the workflow, the board's columns: Open, In progress, Ready to verify (a fix
+ * check is pending) and Done. `resolved` stays the coarse Open/Done: In progress and Ready to verify
+ * are both open. The stored `inProgress` flag is kept while a check is pending, so canceling the
+ * check returns the thread to where it was; Done clears it.
+ */
+export type FeedbackStage = 'open' | 'in-progress' | 'ready' | 'done';
+/** In the board's order */
+export const feedbackStages = ['open', 'in-progress', 'ready', 'done'] as const satisfies readonly FeedbackStage[];
+export const feedbackStageLabels: Record<FeedbackStage, string> = { open: 'Open', 'in-progress': 'In progress', ready: 'Ready to verify', done: 'Done' };
+/** The stages a status write can set; Ready to verify is a fix check request */
+export type FeedbackStatusTarget = Exclude<FeedbackStage, 'ready'>;
+export const feedbackStatusTargets = ['open', 'in-progress', 'done'] as const satisfies readonly FeedbackStatusTarget[];
+
+export function feedbackStage(comment: { resolved?: boolean; inProgress?: boolean; verification?: { outcome: VerificationOutcome } }): FeedbackStage {
+    return comment.resolved ? 'done' : readyForReview(comment) ? 'ready' : comment.inProgress ? 'in-progress' : 'open';
+}
+export function feedbackStatus(comment: { resolved?: boolean; inProgress?: boolean; verification?: { outcome: VerificationOutcome } }) {
+    return feedbackStageLabels[feedbackStage(comment)];
 }
 function displayTime(value: string) {
     const date = new Date(value);

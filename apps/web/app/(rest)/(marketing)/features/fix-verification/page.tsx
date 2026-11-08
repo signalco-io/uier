@@ -28,16 +28,16 @@ const steps = [
     },
     {
         title: 'Confirm fix or Still needs work',
-        text: 'The reviewer checks the page. Confirm fix marks the thread done with their name and the time. Still needs work keeps it open for the next attempt.'
+        text: 'The reviewer checks the page. Confirm fix marks the thread done with their name and the time. Still needs work moves it to In progress for the next attempt.'
     }
 ];
 
 const actions: { action: string; who: string; result: string }[] = [
     { action: 'Request verification', who: 'A project member who can see the thread', result: 'Ready to verify. The thread counts as open, even if it was done.' },
     { action: 'Confirm fix', who: 'The requested reviewer', result: 'Done, with the reviewer’s name and the time.' },
-    { action: 'Still needs work', who: 'The requested reviewer', result: 'Open, marked Still needs work. The next check is a new request.' },
+    { action: 'Still needs work', who: 'The requested reviewer', result: 'In progress, marked Still needs work. The next check is a new request.' },
     { action: 'Confirm fix as admin, Still needs work as admin', who: 'A workspace admin who is not the requester or the reviewer', result: 'The same result, labeled as an admin override for the reviewer.' },
-    { action: 'Cancel request', who: 'The requester or an admin', result: 'Open, with the request canceled.' },
+    { action: 'Cancel request', who: 'The requester or an admin', result: 'Back to Open or In progress, where it was before the request. In the app’s status menu, choose which.' },
     { action: 'Done without verification', who: 'Anyone who can already mark the thread done', result: 'Done without reviewer confirmation.' },
     { action: 'Reopen', who: 'Anyone who can already reopen the thread', result: 'Open. An earlier confirmation is kept as history only.' }
 ];

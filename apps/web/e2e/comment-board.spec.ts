@@ -34,8 +34,9 @@ test('board cards move with Move from the keyboard; Ready to verify asks for the
     await move.focus();
     await page.keyboard.press('Enter');
     const menu = page.getByRole('menu');
-    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'Ready to verify', 'Done']);
+    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done']);
     await animationsFinished(menu);
+    await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
@@ -77,15 +78,15 @@ test('the board takes the width of a wide window; the list keeps its reading wid
     await page.setViewportSize({ width: 1674, height: 1366 });
     const { column } = await board(page, request);
     const comments = page.locator('#comments');
-    // The whole panel but its 32 px gutters, three equal columns in one row
+    // The whole panel but its 32 px gutters, an equal column per status in one row
     const wide = await placement(comments);
     expect(wide.width).toBeCloseTo(wide.room - 64, 0);
-    const boxes = await Promise.all(['Open', 'Ready to verify', 'Done'].map(async name => (await column(name).boundingBox())!));
+    const boxes = await Promise.all(['Open', 'In progress', 'Ready to verify', 'Done'].map(async name => (await column(name).boundingBox())!));
     for (const box of boxes) {
         expect(box.y).toBeCloseTo(boxes[0]!.y, 0);
         expect(box.width).toBeCloseTo(boxes[0]!.width, 0);
     }
-    expect(boxes[0]!.width).toBeGreaterThan(400);
+    expect(boxes[0]!.width).toBeGreaterThan(300);
 
     // The list keeps the reading width: 64rem with the gutters, centred
     await page.getByRole('button', { name: 'List', exact: true }).click();
@@ -135,4 +136,54 @@ test('board cards drag between the columns they can move to', async ({ page, req
     await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(1);
     // The card opens its thread from the board too
     await expect(await openComment(page, 'Second board thread')).toHaveAccessibleName('Comment by Reviewer');
+});
+
+test('In progress is a column between Open and Ready to verify; cards move in and out of it', async ({ page, request }, testInfo) => {
+    const { comments, column } = await board(page, request);
+    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/]);
+    await expect(column('In progress')).toContainText('Nothing in progress.');
+
+    // Move from the keyboard or a touch screen
+    await column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'In progress', exact: true }).click();
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await page.reload();
+    const card = column('In progress').getByRole('listitem').filter({ hasText: 'First board thread' });
+    await expect(card).toBeVisible();
+
+    // Its thread says so, and its menu takes it back
+    await card.getByRole('link').click();
+    const thread = page.getByRole('article');
+    await thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+    await expect(thread.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
+
+    if (!testInfo.project.name.startsWith('Mobile')) {
+        // Dragged from Done to In progress, then back to Open
+        await column('Done').getByRole('listitem').dragTo(column('In progress'));
+        await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
+        await column('In progress').getByRole('listitem').dragTo(column('Open'));
+        await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+        await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
+    }
+
+    // The list's status tabs: In progress is part of Open and has its own tab
+    await column('Open').getByRole('button', { name: `Move comment #${comments[1]!.number}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'In progress', exact: true }).click();
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    const tabs = page.getByRole('group', { name: 'Status', exact: true });
+    await expect(tabs.getByRole('button')).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^All/]);
+    await expect(tabs.getByRole('button', { name: /^Open/ })).toContainText(/\d/);
+    await tabs.getByRole('button', { name: /^In progress/ }).click();
+    await expect(page).toHaveURL(/status=in-progress/);
+    const row = page.locator('[data-comment-id]').filter({ hasText: 'Second board thread' });
+    await expect(row).toBeVisible();
+    await expect(page.getByRole('link', { name: /First board thread/ })).toHaveCount(0);
+    // The row says its status other than Open
+    await expect(row).toContainText('In progress');
 });
