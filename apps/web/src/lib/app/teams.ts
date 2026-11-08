@@ -4,6 +4,7 @@ import type { AppContext } from './context';
 import { UserFacingError } from './actionErrors';
 import { hasProjectAccess, loadWorkspaceAccess, projectAccessSources, type AccessSnapshot } from './access';
 import { mutateAccess } from './accessMutations';
+import { isLiveProject } from './projectPublicIds';
 import {
     MAX_ACTIVE_TEAMS,
     MAX_TEAM_NAME_LENGTH,
@@ -61,7 +62,8 @@ export async function validateTeamIds(workspaceId: string, ids: string[], store 
 export async function validateProjectIds(workspaceId: string, ids: string[], store = getAppStore()) {
     const selected = projectIdsSchema.parse(ids);
     const projects = await Promise.all(selected.map((id) => store.get<DbProject>(workspacePk(workspaceId), id)));
-    if (projects.some((project) => project?.doc.type !== 'project' || project.doc.workspaceId !== workspaceId))
+    if (projects.some((project) => project?.doc.type !== 'project' || project.doc.workspaceId !== workspaceId)
+        || !(await Promise.all(projects.map(project => isLiveProject(project!.doc, store)))).every(Boolean))
         throw new UserFacingError('A selected project is unavailable.');
     return selected;
 }

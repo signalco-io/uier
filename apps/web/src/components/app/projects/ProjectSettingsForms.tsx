@@ -405,10 +405,10 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 
 /** What a transfer leaves in this workspace, one sentence each */
 export function transferStaysBehind({ integrations, people, teams, invitations }: TransferPreview) {
-    const access = [people ? count(people, 'person', 'people') : '', teams ? count(teams, 'team', 'teams') : ''].filter(Boolean);
     return [
         integrations.length ? `${listText(integrations)} ${integrations.length === 1 ? 'is' : 'are'} disconnected. Connect again in the new workspace; items already sent stay where they are.` : '',
-        access.length ? `${listText(access)} here lose access. Invite them in the new workspace if they still need it.` : '',
+        people ? `${count(people, 'other person', 'other people')} here lose access, unless they also have it in the new workspace.` : '',
+        teams ? `${count(teams, 'team', 'teams')} here no longer ${teams === 1 ? 'includes' : 'include'} it.` : '',
         invitations ? `${count(invitations, 'pending invitation no longer includes', 'pending invitations no longer include')} it.` : '',
         'Access tokens and connected apps of this workspace lose access to it.'
     ].filter(Boolean);

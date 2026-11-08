@@ -153,6 +153,12 @@ export type DbProject = AppDoc & {
     environments?: import('./environments').ProjectEnvironment[];
     status: ProjectStatus;
     access: ProjectAccess;
+    /**
+     * Set while a transfer to another workspace runs (`projectTransfer.ts`): the document then exists in
+     * both workspaces, and only the one whose workspace the project code names is the project
+     * (`isLiveProject`). Cleared once the move is finished or abandoned.
+     */
+    transfer?: { from: string; to: string };
     createdBy: string;
     createdAt: string;
     updatedAt: string;

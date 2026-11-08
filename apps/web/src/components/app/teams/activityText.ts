@@ -107,6 +107,8 @@ export function describeAccessEvent(event: DbAccessEvent, names: ActivityNames):
             return done(`transferred ${text(after.projectName) ?? 'a project'} to another workspace`);
         case 'project.transferred-in':
             return done(`transferred ${text(after.projectName) ?? 'a project'} to this workspace`);
+        case 'project.transfer-abandoned':
+            return done(`ended an unfinished transfer of ${text(after.projectName) ?? 'a project'}`);
         default:
             return done('changed access');
     }

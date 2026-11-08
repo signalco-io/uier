@@ -289,7 +289,7 @@ export default function PrivacyPolicyPage() {
                 members cannot. Its place in the old workspace&rsquo;s team, member and invitation access, its
                 connected-service settings, credentials and delivery records, its author filters and coding tool
                 event subscriptions are deleted, and coding tool connections lose it as on deletion. A transfer
-                record with only identifiers lets an interrupted transfer finish. Access history in both workspaces
+                record with only identifiers lets a scheduled job finish an interrupted transfer, or give it up and leave the project where it was. Access history in both workspaces
                 records the transfer with the project&rsquo;s name for 180 days.
             </p>
 

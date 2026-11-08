@@ -42,8 +42,9 @@ Settings that belong to the old workspace are listed in the dialog and do not fo
   GitHub setup and every sync ledger of the project are then deleted, so connecting again in the new
   workspace starts fresh. Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay
   with the provider; a backfill after reconnecting creates them again as new items.
-- **Access.** Team grants, direct member grants and pending invitations in the old workspace lose the
-  project, as on deletion (an invitation for this project alone is deleted with its lookup token).
+- **Access.** Everyone in the old workspace loses access, admins and people with all projects too,
+  unless they also have it in the new one; the dialog counts them. Team grants, direct member grants
+  and pending invitations in the old workspace lose the project, as on deletion (an invitation for this project alone is deleted with its lookup token).
   Members are only updated. In the new workspace the project arrives with no grants of its own: its
   admins and people with access to all projects see it; admins invite or add others there. Any grant
   a previous stay of the project in the new workspace left behind is removed in the same transaction
@@ -60,39 +61,64 @@ Names on comments follow the new workspace: an author or assignee who is not a m
 "Former member", as for anyone who left a workspace. Their own notification follows stop delivering,
 because delivery checks current membership and access each time.
 
+## Which document is the project
+
+While a transfer runs, the project document exists in both workspaces and both copies carry
+`transfer: { from, to }`. A marked document is the project only where the project code
+(`project-ref`) points (`isLiveProject` in `projectPublicIds.ts`); an unmarked one always is, so
+ordinary reads cost nothing extra and a marked one costs one point read. Every read that takes the
+workspace from the person checks it: `getProject` (and through it `getVisibleProject`, comment
+actions, the screenshot route, MCP credentials and grants, realtime tickets), `listProjects` (the
+sidebar, project lists, My work), team project grants, integration admin and the review API's write
+recheck. A public id lookup that lands on a marked copy follows the code. So the new workspace sees
+nothing before the switch and the old one nothing after it, however a run is interrupted.
+
 ## Order
 
-1. **Checks.** Admin of both workspaces (stored memberships), the exact name, a live project code that
-   names the old workspace (or, for a retry, the new one), and no pending deletion. An old project
-   gets its public id now, as its first read would.
+1. **Checks.** Admin of both workspaces (stored memberships), the exact name, a project code that names
+   the old workspace, and no pending deletion. An old project gets its public id now, as its first
+   read would.
 2. **Intent.** A `project-transfer` record (`pk: project-transfer`, id = the project id) stores only the
    two workspace ids, the requesting admin and the time. A second transfer of the same project to
-   another workspace is refused while one is pending, for 15 minutes; after that an interrupted one
-   is replaced (below).
-3. **Workspace-bound settings** are disconnected and deleted (above), while the project is still in the
-   old workspace.
+   another workspace is refused while one may still be running (15 minutes); after that the earlier
+   one is finished or given up first (below).
+3. **Mark** the old document with the transfer.
 4. **Copy.** Through the new workspace's access guard (`mutateAccess`, the person must still be its
-   admin): any grants left from an earlier stay are removed, and the copy and its client are written
-   in one transaction with a `project.transferred-in` event.
-5. **Switch.** Every public id claim, then the project code (`project-ref`), names the new workspace.
-   From here `findProject`, `findReviewProject` and every review and MCP request use the copy.
-6. **Leave.** Through the old workspace's access guard, the grants are removed and the old document is
+   admin): any grants left from an earlier stay are removed, and the marked copy and its client are
+   written in one transaction with a `project.transferred-in` event. Everything that can refuse
+   runs here, before anything is disconnected or removed.
+5. **Workspace-bound settings** are disconnected and deleted (above), while the project is still in the
+   old workspace. Then the copy picks up settings saved meanwhile.
+6. **Switch.** Every public id claim, then the project code, names the new workspace (only if this
+   transfer's copy is there). From here `findProject`, `findReviewProject` and every review and MCP
+   request use the copy, and the old document is no longer the project.
+7. **Leave.** Through the old workspace's access guard, the grants are removed and the old document is
    deleted with the last batch, in a `project.transferred-out` event. A copy is only removed while the
    project code names another workspace.
-7. The intent is marked complete and expires one day later.
+8. The copy's mark is cleared, and the intent is marked complete and expires one day later.
 
-## Retries
+A retry runs as the person retrying: they must be an admin of both workspaces, and the access events
+name them.
+
+## Retries and the scheduled sweep
 
 Every step is idempotent. Until the project code names the new workspace, the old document is the
-project and a retry copies it again; after that, a retry only finishes step 6. Retrying from the old
-workspace's Danger zone continues the pending transfer. A copy left behind in the old workspace is
-never the project: Delete project and another transfer refuse it ("This project no longer exists").
+project and a retry from its Danger zone continues the pending transfer. After the switch, the old
+copy is no longer the project (Delete project and another transfer answer "This project no longer
+exists"), and steps 7 and 8 are finished by:
 
-A pending transfer that never switched over and is older than 15 minutes is abandoned when someone
-transfers the project elsewhere: its public ids point back to the old workspace and the copy it wrote
-in the new one is removed first. Project deletion refuses a project with a transfer in progress.
+- the scheduled `Review notifications` worker (`sweepProjectTransfers`, after the project deletion
+  sweep), which settles every pending transfer;
+- a new transfer of the project, or its deletion, which settles the earlier one first.
 
-Settings saved in the old workspace while its transfer runs can be lost: the copy is written once.
+Settling finishes a transfer whose code already names the new workspace. One that never switched over
+and is older than 15 minutes is given up: its public ids point back to the old workspace, the copy in
+the new one is removed (`project.transfer-abandoned`, "ended an unfinished transfer of ..."), the old
+document's mark is cleared and the intent is marked complete and abandoned. Workspace-bound settings
+it already disconnected stay disconnected. One that may still be running is left alone, and project
+deletion refuses the project until it ends.
+
+Locally there is no scheduled worker; a new transfer or deletion settles an interrupted one.
 
 ## Tests
 
@@ -100,8 +126,12 @@ Settings saved in the old workspace while its transfer runs can be lost: the cop
 memberships, the exact name, other workspaces' projects, the public project and workspace, action
 input validation, a full move (comments, replies, image, numbers, read state, notification settings,
 ids, links, settings, client by name and its details), who sees it before and after, the grants,
-services, coding tools and webhooks left behind, activity sentences, moving back without old access,
-an interrupted transfer before and after the switch, refusal of deletion and a second transfer
-meanwhile, and replacing an abandoned transfer. `e2e/project-transfer.spec.ts` (full suite, Desktop
-and Mobile Chrome) covers the Danger zone row without another workspace, the dialog, the typed name,
-the redirect into the new workspace, the unchanged public id and the old workspace without the project.
+services, coding tools and webhooks left behind, the preview's counts, activity sentences, moving
+back without old access, an interrupted transfer before the switch (the new workspace's admin and
+members see nothing, cannot grant it or mint tokens for it) and after it (the old workspace's
+commenter and admin see nothing and cannot mint tokens), refusal of deletion and a second transfer
+meanwhile, the sweep finishing one and giving another up, and a new transfer replacing an
+interrupted one. `e2e/notificationWorker.api.spec.ts` checks the worker runs the sweep.
+`e2e/project-transfer.spec.ts` (full suite, Desktop and Mobile Chrome) covers the Danger zone row
+without another workspace, the dialog, the typed name, the redirect into the new workspace, the
+unchanged public id and the old workspace without the project.

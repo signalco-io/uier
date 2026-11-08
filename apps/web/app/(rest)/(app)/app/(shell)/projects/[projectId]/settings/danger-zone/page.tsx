@@ -13,7 +13,7 @@ export default async function ProjectDangerZonePage({ params }: PageProps<'/app/
     const { projectId } = await params;
     const { context, project } = await configurableProject(projectId);
     const targets = projectTransferTargets(context);
-    const preview = targets.length ? await projectTransferPreview(project) : null;
+    const preview = targets.length ? await projectTransferPreview(project, context.user.id) : null;
 
     return (
         <Section id="danger-zone" title="Danger zone" className="border-destructive/40">

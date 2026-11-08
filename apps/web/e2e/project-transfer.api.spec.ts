@@ -12,6 +12,7 @@ import {
     projectTransferPreview,
     projectTransferTargets,
     runProjectTransfer,
+    sweepProjectTransfers,
     transferProject,
     type ProjectTransfer
 } from '../src/lib/app/projectTransfer';
@@ -191,9 +192,11 @@ test('a transfer moves the comments, links and settings, leaves workspace access
     const identity = await authenticateMcp(new Request('http://127.0.0.1', { headers: { authorization: `Bearer ${both_.token}` } }));
     expect((await mcpProject(identity, project.id)).project.id).toBe(project.id);
 
-    // The confirmation lists what stays behind; the workspace menu offers the other workspace
-    expect(await projectTransferPreview((await getProject(f.source.id, project.id))!)).toEqual({
-        integrations: ['Notion'], people: 1, teams: 1, invitations: 2, client: 'Acme' });
+    // The confirmation lists what stays behind (everyone else here loses access, also with all projects);
+    // the workspace menu offers the other workspace
+    const allHere = await addMember(store, f.source, 'transfer-all-source', 'commenter', 'all');
+    expect(await projectTransferPreview((await getProject(f.source.id, project.id))!, f.admin.id)).toEqual({
+        integrations: ['Notion'], people: 2, teams: 1, invitations: 2, client: 'Acme' });
     expect(projectTransferTargets(f.context)).toEqual([{ id: f.target.id, name: 'Agency' }]);
     expect(projectTransferTargets(f.reviewer.context)).toEqual([]);
 
@@ -206,6 +209,7 @@ test('a transfer moves the comments, links and settings, leaves workspace access
         name: 'Moving site', urls: ['https://moving.example'], access: 'guests', brief: 'Check the menu', emailCommentExcerpts: true,
         environments: [{ origin: 'https://moving.example', label: 'Production' }], createdAt: project.createdAt, createdBy: project.createdBy });
     expect(moved.integrations).toBeUndefined();
+    expect(moved.transfer).toBeUndefined();
     for (const id of [project.id, project.publicId]) {
         expect((await findReviewProject(id))?.workspaceId).toBe(f.target.id);
         expect((await getProject(f.target.id, id))?.id).toBe(project.id);
@@ -237,6 +241,7 @@ test('a transfer moves the comments, links and settings, leaves workspace access
     expect(await memberActor(moved, f.everything.user.id)).toMatchObject({ kind: 'member' });
     expect(await memberActor(moved, f.chosen.user.id)).toBeNull();
     expect(await memberActor(moved, f.reviewer.user.id)).toBeNull();
+    expect(await memberActor(moved, allHere.user.id)).toBeNull();
 
     // The access it had in the old workspace is gone; the other project keeps its access
     expect((await getTeam(f.source.id, teamId))?.doc.projectIds).toEqual([kept.id]);
@@ -288,50 +293,15 @@ test('a client of the same name in the new workspace is used, and no client stay
     expect((await getProject(f.target.id, plain.id))?.clientId).toBeUndefined();
 });
 
-test('an interrupted transfer is safely retried, and nothing else can take the project meanwhile', async () => {
+test('an interrupted transfer never shows the project in the wrong workspace, and the sweep finishes it', async () => {
     const f = await fixture();
     const { store, project } = f;
     const team = await saveTeam(f.context, { name: 'Design' });
     await setTeamProjects(f.context, team, [project.id]);
+    const sees = async (context: AppContext) => Boolean(await getVisibleProject(context, project.id))
+        || (await listVisibleProjects(context)).some(item => item.id === project.id);
 
-    // Interrupted after the copy, before the project code moved: the old workspace still has the project
-    const codeFails: AppStore = { ...store, async replace(doc, etag) {
-        if (doc.pk === projectRefPk(project.id)) throw new Error('Store unavailable');
-        return store.replace(doc, etag);
-    } };
-    await expect(transferProject(f.context, project.id, f.target.id, project.name, codeFails)).rejects.toThrow('Store unavailable');
-    expect((await findProject(project.id))?.workspaceId).toBe(f.source.id);
-    expect(await getVisibleProject(f.reviewer.context, project.id)).not.toBeNull();
-    // Meanwhile another admin cannot send it elsewhere or delete it
-    const third = await createWorkspace(f.admin, 'Third');
-    await expect(transferProject(f.context, project.id, third.id, project.name)).rejects.toThrow('This project is being transferred to another workspace.');
-    await expect(deleteProject(f.context, project.id, project.name)).rejects.toThrow('This project is being transferred to another workspace.');
-
-    // Interrupted after the code moved, before the old copy went: the retry finishes it
-    const copyStays: AppStore = { ...store, async transact(operations) {
-        if (operations.some(operation => operation.kind === 'delete' && operation.id === project.id)) throw new Error('Store unavailable');
-        return store.transact(operations);
-    } };
-    await expect(transferProject(f.context, project.id, f.target.id, project.name, copyStays)).rejects.toThrow('Store unavailable');
-    expect((await findProject(project.id))?.workspaceId).toBe(f.target.id);
-    // The copy left behind is not the project: it cannot be deleted or sent elsewhere from there
-    await expect(deleteProject(f.context, project.id, project.name)).rejects.toThrow('This project no longer exists.');
-    await expect(transferProject(f.context, project.id, third.id, project.name)).rejects.toThrow('This project no longer exists.');
-
-    await transferProject(f.context, project.id, f.target.id, project.name);
-    expect(await getProject(f.source.id, project.id)).toBeNull();
-    expect((await getProject(f.target.id, project.id))?.workspaceId).toBe(f.target.id);
-    expect((await getTeam(f.source.id, team))?.doc.projectIds).toEqual([]);
-    expect((await store.get<ProjectTransfer>('project-transfer', project.id))?.doc.complete).toBe(true);
-    // Running a completed transfer again changes nothing
-    await runProjectTransfer((await store.get<ProjectTransfer>('project-transfer', project.id))!.doc);
-    expect((await getProject(f.target.id, project.id))?.id).toBe(project.id);
-});
-
-test('an abandoned transfer to another workspace is replaced, without leaving its copy there', async () => {
-    const f = await fixture();
-    const { store, project } = f;
-    const third = await createWorkspace(f.admin, 'Third');
+    // Interrupted after the copy, before the project code moved: only the old workspace has the project
     const codeFails: AppStore = { ...store, async replace(doc, etag) {
         if (doc.pk === projectRefPk(project.id)) throw new Error('Store unavailable');
         return store.replace(doc, etag);
@@ -339,12 +309,105 @@ test('an abandoned transfer to another workspace is replaced, without leaving it
     await expect(transferProject(f.context, project.id, f.target.id, project.name, codeFails)).rejects.toThrow('Store unavailable');
     expect(await store.get(workspacePk(f.target.id), project.id)).not.toBeNull();
     expect((await findProject(project.id))?.workspaceId).toBe(f.source.id);
-    // Long after the request ended, a transfer elsewhere removes that copy first
+    // Its public id already names the new workspace, and still opens the project where the code is
+    expect((await findReviewProject(project.publicId))?.workspaceId).toBe(f.source.id);
+    expect(await sees(f.reviewer.context)).toBe(true);
+    for (const context of [f.targetContext, f.everything.context])
+        expect(await sees(context)).toBe(false);
+    expect(await getProject(f.target.id, project.id)).toBeNull();
+    expect(await getProject(f.target.id, project.publicId)).toBeNull();
+    await expect(createMcpCredential(f.targetContext, { name: 'Early', projectIds: [project.id], scopes: ['feedback:read'], days: 30 }))
+        .rejects.toThrow('Choose projects you can access.');
+    await expect(setTeamProjects(f.targetContext, await saveTeam(f.targetContext, { name: 'Early' }), [project.id]))
+        .rejects.toThrow('A selected project is unavailable.');
+    // Meanwhile nobody can send it elsewhere or delete it
+    const third = await createWorkspace(f.admin, 'Third');
+    await expect(transferProject(f.context, project.id, third.id, project.name)).rejects.toThrow('This project is being transferred to another workspace.');
+    await expect(deleteProject(f.context, project.id, project.name)).rejects.toThrow('This project is being transferred to another workspace.');
+
+    // Retried, and interrupted after the code moved, before the old copy went: only the new workspace has it
+    const copyStays: AppStore = { ...store, async transact(operations) {
+        if (operations.some(operation => operation.kind === 'delete' && operation.id === project.id)) throw new Error('Store unavailable');
+        return store.transact(operations);
+    } };
+    await expect(transferProject(f.context, project.id, f.target.id, project.name, copyStays)).rejects.toThrow('Store unavailable');
+    expect(await store.get(workspacePk(f.source.id), project.id)).not.toBeNull();
+    expect((await findProject(project.id))?.workspaceId).toBe(f.target.id);
+    expect((await findReviewProject(project.publicId))?.workspaceId).toBe(f.target.id);
+    // The old workspace's commenter (still granted there) and admin get nothing: no page, list, token or review access
+    for (const context of [f.reviewer.context, f.context])
+        expect(await sees(context)).toBe(false);
+    expect(await getProject(f.source.id, project.id)).toBeNull();
+    for (const context of [f.reviewer.context, f.context])
+        await expect(createMcpCredential(context, { name: 'Late', projectIds: [project.id], scopes: ['feedback:read'], days: 30 }))
+            .rejects.toThrow('Choose projects you can access.');
+    expect(await memberActor((await findProject(project.id))!, f.reviewer.user.id)).toBeNull();
+    for (const context of [f.targetContext, f.everything.context])
+        expect(await sees(context)).toBe(true);
+    // The copy left behind cannot be deleted or sent elsewhere from there
+    await expect(transferProject(f.context, project.id, third.id, project.name)).rejects.toThrow('This project no longer exists.');
+
+    // The scheduled sweep finishes it: the old copy and its access go, the new one is a plain project
+    expect(await sweepProjectTransfers()).toEqual({ failed: 0 });
+    expect(await store.get(workspacePk(f.source.id), project.id)).toBeNull();
+    expect((await getProject(f.target.id, project.id))?.transfer).toBeUndefined();
+    expect((await getTeam(f.source.id, team))?.doc.projectIds).toEqual([]);
+    const done = (await store.get<ProjectTransfer>('project-transfer', project.id))!.doc;
+    expect(done).toMatchObject({ complete: true, ttl: 86400 });
+    expect(done.abandoned).toBeUndefined();
+    await expect(deleteProject(f.context, project.id, project.name)).rejects.toThrow('This project no longer exists.');
+    // Running a completed transfer again changes nothing
+    await runProjectTransfer(done, f.admin.id);
+    expect((await getProject(f.target.id, project.id))?.id).toBe(project.id);
+});
+
+test('a transfer interrupted before the switch is given up later, and the project stays where it was', async () => {
+    const f = await fixture();
+    const { store, project } = f;
+    const third = await createWorkspace(f.admin, 'Third');
+    const codeFails: AppStore = { ...store, async replace(doc, etag) {
+        if (doc.pk === projectRefPk(project.id)) throw new Error('Store unavailable');
+        return store.replace(doc, etag);
+    } };
+    await expect(transferProject(f.context, project.id, f.target.id, project.name, codeFails)).rejects.toThrow('Store unavailable');
+    // While the request could still be running, the sweep leaves it alone
+    await sweepProjectTransfers();
+    expect(await store.get(workspacePk(f.target.id), project.id)).not.toBeNull();
+
+    // Long after the request ended, the sweep gives it up: the copy there goes, links and the project stay here
+    const pending = (await store.get<ProjectTransfer>('project-transfer', project.id))!;
+    await store.replace({ ...pending.doc, requestedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString() }, pending.etag);
+    expect(await sweepProjectTransfers()).toEqual({ failed: 0 });
+    expect(await store.get(workspacePk(f.target.id), project.id)).toBeNull();
+    const here = (await getProject(f.source.id, project.id))!;
+    expect(here.transfer).toBeUndefined();
+    expect((await projectByPublicId(project.publicId))?.workspaceId).toBe(f.source.id);
+    expect(await getVisibleProject(f.reviewer.context, project.id)).not.toBeNull();
+    expect((await store.get<ProjectTransfer>('project-transfer', project.id))?.doc).toMatchObject({ complete: true, abandoned: true });
+    const names = { people: new Map<string, string>(), invitations: new Map<string, string>(), teams: new Map<string, string>(), projects: new Map<string, string>() };
+    const ended = (await accessEvents(store, f.target.id, project.id)).find(event => event.action === 'project.transfer-abandoned')!;
+    expect(describeAccessEvent(ended, names).text).toBe('ended an unfinished transfer of Moving site');
+
+    // A new transfer elsewhere goes through
+    await transferProject(f.context, project.id, third.id, project.name);
+    expect((await findProject(project.id))?.workspaceId).toBe(third.id);
+    expect((await projectByPublicId(project.publicId))?.workspaceId).toBe(third.id);
+    expect(await store.get(workspacePk(f.source.id), project.id)).toBeNull();
+});
+
+test('an interrupted transfer that a new one replaces is given up first', async () => {
+    const f = await fixture();
+    const { store, project } = f;
+    const third = await createWorkspace(f.admin, 'Third');
+    const codeFails: AppStore = { ...store, async replace(doc, etag) {
+        if (doc.pk === projectRefPk(project.id)) throw new Error('Store unavailable');
+        return store.replace(doc, etag);
+    } };
+    await expect(transferProject(f.context, project.id, f.target.id, project.name, codeFails)).rejects.toThrow('Store unavailable');
     const pending = (await store.get<ProjectTransfer>('project-transfer', project.id))!;
     await store.replace({ ...pending.doc, requestedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString() }, pending.etag);
     await transferProject(f.context, project.id, third.id, project.name);
     expect((await findProject(project.id))?.workspaceId).toBe(third.id);
-    expect((await projectByPublicId(project.publicId))?.workspaceId).toBe(third.id);
     expect(await store.get(workspacePk(f.target.id), project.id)).toBeNull();
     expect(await store.get(workspacePk(f.source.id), project.id)).toBeNull();
 });

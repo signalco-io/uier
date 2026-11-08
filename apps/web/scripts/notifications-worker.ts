@@ -4,6 +4,7 @@ import { cosmosDataContainerApp, cosmosDataContainerComments } from '../src/lib/
 import { getScreenshotBlobStore } from '../src/lib/screenshots/blobStore';
 import { sweepCommentCleanup } from '../src/lib/comments/cleanup';
 import { sweepProjectDeletions } from '../src/lib/app/projectDeletion';
+import { sweepProjectTransfers } from '../src/lib/app/projectTransfer';
 import { retryNotificationDelivery, runNotificationWorker } from '../src/lib/notifications/delivery';
 import { configuredAppBaseUrl } from '../src/lib/app/deployment';
 import { runIntegrationWorker } from '../src/lib/integrations/worker';
@@ -53,6 +54,9 @@ if (process.env.UIER_WORKER_VERIFY_ONLY !== '1') {
         // Before the comment sweep, which then completes the thread cleanups a project deletion queued
         const deletions = await sweepProjectDeletions({ comments });
         if (deletions.failed) { console.error(`[projects] ${deletions.failed} project deletions need retry.`); process.exitCode = 1; }
+        // Transfers an interrupted request left: finished after the switch, given up before it
+        const transfers = await sweepProjectTransfers();
+        if (transfers.failed) { console.error(`[projects] ${transfers.failed} project transfers need retry.`); process.exitCode = 1; }
         const cleanup = await sweepCommentCleanup(comments);
         console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
         if (cleanup.failed) process.exitCode = 1;

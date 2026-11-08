@@ -21,7 +21,7 @@ import {
     disconnectProjectIntegrations,
     projectGrantRemovals
 } from './projectRecords';
-import { activeProjectTransfer } from './projectTransfer';
+import { pendingProjectTransfer, settleProjectTransfer } from './projectTransfer';
 import { getAppStore, type AppStore } from './store';
 import { assertMutableProject } from '../comments/publicProjectPolicy';
 import { forgetScreenshot } from '../comments/service';
@@ -74,12 +74,14 @@ export async function deleteProject(context: AppContext, projectId: string, conf
         throw new UserFacingError('Only workspace admins can delete projects.');
     if (confirmation.trim() !== project.name)
         throw new UserFacingError('Type the project name exactly as it is shown.');
-    // A copy left behind by a transfer is not the project: its code names the workspace it moved to
-    const ref = (await app.get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
-    if (ref?.type === 'project-ref' && ref.workspaceId !== context.workspace.id)
-        throw new UserFacingError('This project no longer exists.');
-    if (await activeProjectTransfer(projectId, app))
+    // A transfer that is not running any more is finished or given up first
+    const transfer = await pendingProjectTransfer(projectId, app);
+    if (transfer && !await settleProjectTransfer(transfer, context.user.id, app))
         throw new UserFacingError('This project is being transferred to another workspace. Try again in a few minutes.');
+    // A copy a transfer left behind is not the project: its code names the workspace it moved to
+    const ref = (await app.get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
+    if (ref?.type === 'project-ref' && ref.workspaceId !== context.workspace.id || !await app.get(workspacePk(context.workspace.id), projectId))
+        throw new UserFacingError('This project no longer exists.');
 
     // What Disconnect does for each service, while the admin and the project still exist: it
     // releases shared provider credentials. Copies already sent stay with the provider.
