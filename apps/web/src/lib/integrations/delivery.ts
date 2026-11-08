@@ -135,6 +135,11 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         }
         through = ledger.deletion?.version ?? source?.syncVersion ?? ledger.requestedVersion;
         const feedback = mode === 'cleanup' || statusOnly ? null : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
+        if (feedback?.context.assignee?.agent) {
+            // Trackers get the assignee's name, never the AI agent working under them or its session.
+            feedback.context.assignee = { name: feedback.context.assignee.name };
+            feedback.markdown = feedbackMarkdown(feedback.context);
+        }
         if (feedback && source) {
             const echoes = new Set(source.thread.items.filter(item => item.integrationSource?.provider === connection.provider
                 && item.integrationSource.connectionId === connection.id).map(item => item.id));

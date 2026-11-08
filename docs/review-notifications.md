@@ -28,10 +28,13 @@ identity but does not unsubscribe an already verified address; use its email uns
   same event and activity cursor with the idempotency receipt, so a lost response cannot duplicate
   an event. Legacy activity is not replayed.
 - Kinds are `comment`, `reply`, `resolved`, `reopened`, plus `mention` and `assignment` for #91,
-  the fix check's `verification-*` kinds, and `progress-started` / `progress-stopped` (a thread moved
-  to In progress or back to Open, [In progress](review-workflow.md#in-progress)). Like resolve and
-  reopen, those two go to followers; the digest line is "moved #12 (/path) to In progress" or
-  "moved #12 (/path) back to Open".
+  the fix check's `verification-*` kinds, `progress-started` / `progress-stopped` (a thread moved
+  to In progress or back to Open, [In progress](review-workflow.md#in-progress)) and `agent` (an AI
+  agent starts, changes or stops working under the assignee: `assigneeId` is that assignee,
+  `assigneeAgent` its kind, model and session id, or `null`). Like resolve and reopen, the two
+  progress kinds go to followers; the digest line is "moved #12 (/path) to In progress" or
+  "moved #12 (/path) back to Open". `agent` events are thread activity and MCP events only:
+  `eligibleEvents` never emails them.
 - [MCP events](mcp.md#events-webhooks-and-polling), delivered by webhook or polled, read the same
   events after the write (they add no write path); a change to an event's fields or kinds changes
   those payloads too.

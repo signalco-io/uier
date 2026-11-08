@@ -75,6 +75,11 @@
             "types": "./src/verification.ts",
             "development": "./dist-dev/verification.js",
             "default": "./dist/verification.js"
+        },
+        "./agents": {
+            "types": "./src/agents.ts",
+            "development": "./dist-dev/agents.js",
+            "default": "./dist/agents.js"
         }
     },
     "scripts": {

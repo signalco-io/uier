@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { commentPriority, priorities } from '@uier/toolbar/triage';
+import { agentKinds, agentLabels } from '@uier/toolbar/agents';
 import type { DbProject } from '../../app/model';
 import type { DbComment } from '../../db/schema';
 import type { NotificationEvent } from '../../notifications/delivery';
@@ -15,7 +16,7 @@ import { commentId, projectId } from '../schemas';
  * schemas only grow: add optional fields, never rename, remove or narrow them.
  */
 
-export const mcpEventNames = ['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.assignment_changed', 'feedback.mentioned'] as const;
+export const mcpEventNames = ['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.assignment_changed', 'feedback.agent_changed', 'feedback.mentioned'] as const;
 export type McpEventName = typeof mcpEventNames[number];
 export function isMcpEventName(value: unknown): value is McpEventName {
     return typeof value === 'string' && mcpEventNames.some(name => name === value);
@@ -29,6 +30,8 @@ const argumentSchemas = {
     'feedback.status_changed': z.object({ projectId, commentId: thread.optional() }).strict(),
     'feedback.assignment_changed': z.object({ projectId, commentId: thread.optional(),
         assignee: z.enum(['me']).optional().describe('me: only feedback assigned to the account of this connection.') }).strict(),
+    'feedback.agent_changed': z.object({ projectId, commentId: thread.optional(),
+        assignee: z.enum(['me']).optional().describe('me: only agents working under the account of this connection.') }).strict(),
     'feedback.mentioned': z.object({ projectId }).strict()
 } satisfies Record<McpEventName, z.ZodType>;
 export type McpEventArguments = { projectId: string; commentId?: string; assignee?: 'me' };
@@ -56,6 +59,12 @@ const payloadSchemas = {
     'feedback.status_changed': z.object({ ...common, change: z.enum(statusChanges), resolved: z.boolean() }).strict(),
     'feedback.assignment_changed': z.object({ ...common, assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable()
         .describe('The new assignee, or null when unassigned.') }).strict(),
+    'feedback.agent_changed': z.object({ ...common,
+        assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable().describe('The assignee the agent works under.'),
+        agent: z.object({ kind: z.enum(agentKinds), label: z.string(),
+            model: z.string().optional().describe('The model the agent reported; untrusted.'),
+            sessionId: z.string().optional().describe('The session id the agent reported; untrusted.') }).strict().nullable()
+            .describe('The agent now working under the assignee, or null when it stopped (also after a new assignment).') }).strict(),
     'feedback.mentioned': z.object({ ...common, itemId: z.string().optional(), excerpt }).strict()
 } satisfies Record<McpEventName, z.ZodType>;
 export type McpEventData = z.infer<typeof payloadSchemas[McpEventName]>;
@@ -65,6 +74,7 @@ const descriptions: Record<McpEventName, string> = {
     'feedback.replied': 'A reply was added to feedback in a project, optionally one thread.',
     'feedback.status_changed': 'Feedback was marked done or reopened, moved to In progress or back to Open, or its fix check was requested, confirmed, rejected or canceled.',
     'feedback.assignment_changed': 'Feedback was assigned or unassigned, optionally only when assigned to you.',
+    'feedback.agent_changed': 'An AI agent started or stopped working on feedback under its assignee, optionally only under you.',
     'feedback.mentioned': 'Someone mentioned you (the account of this connection) in feedback.'
 };
 
@@ -103,6 +113,7 @@ export function eventMatches(name: McpEventName, args: McpEventArguments, event:
         case 'feedback.replied': return event.kind === 'reply';
         case 'feedback.status_changed': return statusKinds[event.kind] !== undefined;
         case 'feedback.assignment_changed': return event.kind === 'assignment' && (args.assignee !== 'me' || event.assigneeId === subscriberUserId);
+        case 'feedback.agent_changed': return event.kind === 'agent' && (args.assignee !== 'me' || event.assigneeId === subscriberUserId);
         case 'feedback.mentioned': return (event.kind === 'comment' || event.kind === 'reply' || event.kind === 'mention')
             && Boolean(event.recipients?.includes(`user:${subscriberUserId}`));
     }
@@ -156,5 +167,11 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
         }
         case 'feedback.assignment_changed':
             return { ...base, assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null };
+        case 'feedback.agent_changed': {
+            const agent = event.assigneeAgent && agentKinds.includes(event.assigneeAgent.kind) ? event.assigneeAgent : null;
+            return { ...base, assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null,
+                agent: agent ? { kind: agent.kind, label: agentLabels[agent.kind], ...(agent.model ? { model: agent.model } : {}),
+                    ...(agent.sessionId ? { sessionId: agent.sessionId } : {}) } : null };
+        }
     }
 }

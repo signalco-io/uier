@@ -17,6 +17,8 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
     commentUrl?: string;
     screenshotUrl?: string;
     assigneeName?: string;
+    /** The AI agent working under the assignee (members only) */
+    assigneeAgent?: import('@uier/toolbar/agents').AssigneeAgentView;
 }): FeedbackExport {
     const items: FeedbackMessage[] = dto.thread.items.map(item => 'deleted' in item
         ? { id: item.id, deleted: true, createdAt: item.createdAt }
@@ -31,7 +33,11 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${summary || 'Website feedback'}`,
         verification: dto.verification, priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
-        ...(options.assigneeName ? { assignee: { name: options.assigneeName } } : {}),
+        ...(options.assigneeName ? { assignee: { name: options.assigneeName, ...(options.assigneeAgent ? { agent: {
+            kind: options.assigneeAgent.kind, label: options.assigneeAgent.label,
+            ...(options.assigneeAgent.model ? { model: options.assigneeAgent.model } : {}),
+            ...(options.assigneeAgent.sessionId ? { sessionId: options.assigneeAgent.sessionId } : {})
+        } } : {}) } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }
             : position.type === 'point' ? {
                 type: 'point', selector: position.selector,

@@ -93,6 +93,25 @@ export type DbThreadItem = {
     deletedAt?: string;
 };
 
+/**
+ * The AI agent working on a thread under its assignee (one at most). Only the assignee sets or clears it,
+ * in the app or through their own MCP connection; it belongs to `assigneeId` and is shown only while that
+ * person is still the thread's assignee (a new assignment removes it). `sessionId` and `model` are what
+ * the agent or its assignee said: untrusted display text.
+ */
+export type DbAssigneeAgent = {
+    kind: import('@uier/toolbar/agents').AgentKind;
+    /** The assignee it works under (a user id) */
+    assigneeId: string;
+    sessionId?: string;
+    model?: string;
+    /** The user id of who set it (the assignee) and when it last changed (ISO 8601, server time) */
+    setBy: string;
+    setAt: string;
+    /** The coding tool connection that attached itself, when it came through MCP */
+    connector?: AgentSource;
+};
+
 /** Latest request only. A reopened confirmation remains historical; no unbounded history. */
 export type DbVerification = {
     id: string; revision: string; requester: string; reviewer: string; requestedAt: string;
@@ -128,6 +147,8 @@ export type DbComment = {
     private?: boolean;
     /** Project comments: the user id of the member it is assigned to */
     assigneeId?: string;
+    /** Project comments: the AI agent working on it under the assignee (see `currentAssigneeAgent`) */
+    assigneeAgent?: DbAssigneeAgent;
     /** Canonical page key; v1 may include approved query/hash state. Older comments use pathname. */
     path: string;
     pageStateVersion?: 1;

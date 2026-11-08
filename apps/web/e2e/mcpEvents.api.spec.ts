@@ -72,7 +72,7 @@ test('initialize advertises events and events/list describes webhook and poll fe
     const client = await connect(f.token);
     try {
         const list = await client.request({ method: 'events/list' as never } as never, anyResult) as { events: Record<string, any>[] };
-        expect(list.events.map(event => event.name)).toEqual(['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.assignment_changed', 'feedback.mentioned']);
+        expect(list.events.map(event => event.name)).toEqual(['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.assignment_changed', 'feedback.agent_changed', 'feedback.mentioned']);
         for (const event of list.events) {
             expect(event.delivery).toEqual(['webhook', 'poll']);
             expect(event.inputSchema).toMatchObject({ type: 'object', required: ['projectId'], additionalProperties: false });

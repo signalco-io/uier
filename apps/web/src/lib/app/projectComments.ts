@@ -84,7 +84,8 @@ export type ProjectCommentView = {
     /** The stored In progress flag (`feedbackStage` gives the stage: a pending check or Done comes first) */
     inProgress: boolean;
     private: boolean;
-    assignee?: { id: string; name: string; avatarUrl?: string };
+    /** `agent`: the AI agent working under the assignee */
+    assignee?: { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView };
     eligibleAssigneeIds: string[];
     /** Author of the comment (its first message) */
     author: ProjectCommentAuthor;
@@ -98,7 +99,8 @@ export type ProjectCommentView = {
     /** A message (not deleted) mentions the signed-in member */
     mentionsMe: boolean;
     canFilterAuthor: boolean;
-    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; reply: boolean; triage: boolean };
+    /** `agent`: the signed-in member is the assignee, so they choose the agent working under them */
+    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; agent: boolean; reply: boolean; triage: boolean };
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
@@ -187,6 +189,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             makePrivate: canMakeCommentPrivate(actor),
             triage: canTriageProject(project, actor),
             assign: actor.kind === 'member',
+            agent: actor.kind === 'member' && comment.assigneeId === actor.userId,
             reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS
         }
     };

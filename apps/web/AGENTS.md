@@ -53,7 +53,8 @@ http://localhost:4004 with `pnpm dev` from the repository root.
   on the brand page are the deliberate exception: they must stay black and white in both themes;
   so are the sign-in card's Google "G" and Microsoft logo, in their own colours on the shared outline button, and
   `IntegrationLogo`, the provider logos on the Integrations pages: GitHub, Linear and Notion draw in the text colour,
-  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask).
+  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask). AI agent marks (`AgentAvatar`,
+  `agentMarks` in `@uier/toolbar/agents`) draw in the text colour too, with no hex.
 - Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
   `rounded-3xl` 24, `rounded-full`. Borders over shadows; only floating surfaces get the shadow
   from `BRAND.md`.
@@ -437,7 +438,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
   first line, author, what it was left on, page path, then priority other than Normal (`PriorityLabel`: its
-  flag and name), status other than Open, the assignee's avatar, age and the unread dot) beside the open thread
+  flag and name), status other than Open, the assignee's avatar with their agent's mark stacked on it
+  (`AssigneeAvatars`), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
@@ -472,7 +474,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
   source is unavailable), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, empty and dashed while unassigned,
-  and the name; a menu for those who can assign), the verification, every message, Reply and the quiet Open in .... The first message's time is followed by
+  and the name; a menu for those who can assign; then the AI agent working with the assignee, `AgentControl`: "with
+  Claude" and its model, or Add agent for the assignee), the verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.
@@ -1380,6 +1383,26 @@ routes take `{ status }` or `{ resolved }`, never both. Lists, counts, tabs and 
 stage, never the raw flag; Open filters and counts mean not done. Focused coverage is
 `in-progress.api.spec.ts`, the MCP spec, `comment-board.spec.ts`, `verification.spec.ts` and
 `toolbar-app-parity.spec.ts`. See [review workflow](../../docs/review-workflow.md#in-progress).
+
+## AI agents under the assignee
+
+`DbComment.assigneeAgent` is the one AI agent working on a thread under its assignee: kind (`@uier/toolbar/agents`:
+Claude, Codex, ChatGPT, Cursor, AI agent), the `assigneeId` it belongs to, optional session id and model (untrusted
+one-line text), who set it and when, and the MCP connector that attached it. Read it only through
+`currentAssigneeAgent` / `assigneeAgentView` (`review/assigneeAgentModel.ts`, pure): an agent saved under an earlier
+assignee is never shown. `setProjectCommentAgent` (`review/assigneeAgent.ts`) is the one write, through `changeComment`
+and atomic receipts: only the current assignee sets or clears it for themselves (the app's `setCommentAgentAction`, or
+their own MCP connection); other members and admins get `forbidden`, guests too. `assignToMe` (MCP only, on the
+person's explicit request) assigns an unassigned thread to the actor in the same write; never reassign someone else's
+thread. `setProjectCommentAssignee` removes the agent with every assignee change (with an `agent` event naming the
+previous assignee) and `setProjectCommentPrivate` with an assignee who loses the thread. Each change advances activity
+and records an `agent` notification event (MCP `feedback.agent_changed`), which `eligibleEvents` never emails. Members
+get the agent in views, the review DTO (toolbar), `list_feedback` and packets; guests never. Integration delivery
+strips `context.assignee.agent` before formatting. The UI is `AgentAvatar` / `AssigneeAvatars` (one-colour marks from
+`agentMarks` on a bordered circle, stacked on the assignee's avatar: rows, board cards, the thread) and `AgentControl`
+(the assignee's menu, Session and model dialog). The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
+`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts`. See [review workflow](../../docs/review-workflow.md#ai-agents-under-the-assignee)
+and [MCP](../../docs/mcp.md#agents-working-on-feedback).
 
 ## Fix verification
 

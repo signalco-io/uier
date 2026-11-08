@@ -7,7 +7,9 @@ import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
-import { priorityCommentActionSchema } from './actionSchemas';
+import { agentCommentActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
+import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import type { z } from 'zod';
@@ -179,6 +181,11 @@ export async function copyIssueAction(projectId: string, commentId: string) {
 export async function setCommentPriorityAction(projectId: string, commentId: string, priority: import('@uier/toolbar/triage').CommentPriority, idempotencyKey: string) {
     return commentAction(priorityCommentActionSchema, { projectId, commentId, priority, idempotencyKey },
         ({ project, actor }, input) => setProjectCommentPriority(project, actor, input.commentId, input.priority, input.idempotencyKey));
+}
+/** The agent working under the signed-in member on a thread assigned to them, or `null` to remove it */
+export async function setCommentAgentAction(projectId: string, commentId: string, agent: AssigneeAgentInput | null, idempotencyKey: string) {
+    return commentAction(agentCommentActionSchema, { projectId, commentId, agent, idempotencyKey },
+        ({ project, actor }, input) => setProjectCommentAgent(project, actor, input.commentId, input.agent, { idempotencyKey: input.idempotencyKey }));
 }
 export async function triageCommentsAction(projectId: string, batch: unknown) {
     return actionResult(async () => {

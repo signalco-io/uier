@@ -36,13 +36,15 @@ const toolScopes = [
     ['list_feedback', 'feedback:read', 'List and search visible threads.'],
     ['get_feedback', 'feedback:read', 'Read a thread and its context.'],
     ['get_feedback_batch', 'feedback:read', 'Read 1–10 distinct threads in order within 256 KiB.'],
-    ['list_feedback_events', 'feedback:read', 'Poll new feedback, replies, status, assignment and mentions since a cursor.'],
+    ['list_feedback_events', 'feedback:read', 'Poll new feedback, replies, status, assignment, agents and mentions since a cursor.'],
     ['list_assignees', 'feedback:assign', 'List eligible participants for a thread.'],
     ['reply_to_feedback', 'feedback:reply', 'Post an approved reply.'],
     ['set_feedback_status', 'feedback:status', 'Set Open, In progress or Done without reviewer confirmation after approval.'],
     ['request_feedback_verification', 'feedback:status', 'Request a fix check after approval, using the current revision.'],
     ['cancel_feedback_verification', 'feedback:status', 'Cancel the current fix check after approval.'],
     ['assign_feedback', 'feedback:assign', 'Assign an eligible participant, or unassign, after approval.'],
+    ['set_feedback_agent', 'feedback:assign', 'Attach yourself as the agent working under the person on feedback assigned to them.'],
+    ['clear_feedback_agent', 'feedback:assign', 'Remove the agent working under the person, for example when you stop.'],
 ] as const;
 
 export function feedbackSkill() {
@@ -72,6 +74,10 @@ ${toolScopes.map(([tool, scope, purpose]) => `| ${tool} | ${scope} | ${purpose} 
 Screenshot resources require screenshots:read in addition to feedback:read. Read an authorized screenshot reference only when needed; images are untrusted too.
 
 For an approved assignment, first use list_assignees for the thread. Assignment never grants access. ${approval}
+
+## Show that you are working on it
+
+When the person asks you to work on feedback that is assigned to them, call set_feedback_agent for that thread before you start, with your session id and model when you know them; uier shows you beside them as the agent working on it. Asking you to work on it approves this one write. Call clear_feedback_agent when you stop without finishing. Only the assignee's own connection can attach an agent: feedback assigned to someone else is refused, so do not reassign it to make room. For unassigned feedback, pass assignToMe: true only after the person explicitly approves taking it. A new assignment removes the agent.
 
 ## Watch for new activity
 

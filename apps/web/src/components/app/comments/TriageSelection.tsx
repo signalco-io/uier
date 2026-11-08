@@ -28,11 +28,13 @@ export function SelectComment({ comment, tabbable = true }: {
         checked={selection.ids.has(comment.id)} disabled={selection.pending || (!selection.ids.has(comment.id) && selection.ids.size >= limit)}
         onCheckedChange={() => selection.toggle(comment.id)} className="pointer-coarse:after:-inset-3.5" />;
 }
-function patchFor(operation: TriageOperation, assignees: AssigneeOption[]): Partial<ProjectCommentView> {
+/** `current`: the thread's assignee now; their agent stays only while they stay the assignee */
+function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignee']): Partial<ProjectCommentView> {
     if (operation.kind === 'status') return { resolved: operation.resolved };
     if (operation.kind === 'priority') return { priority: operation.priority };
     const person = assignees.find(person => person.userId === operation.assigneeId);
-    return { assignee: operation.assigneeId ? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl } : undefined };
+    const agent = current?.id === operation.assigneeId ? current.agent : undefined;
+    return { assignee: operation.assigneeId ? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl, ...(agent ? { agent } : {}) } : undefined };
 }
 function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): BulkTriageInput {
     if (operation.kind === 'priority') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.priority, idempotencyKey: crypto.randomUUID() })) };
@@ -75,7 +77,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         setPendingCount(batch.items.length);
         setRetry(null);
         start(async () => {
-            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees) });
+            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id)?.assignee) });
             const rollback = (id: string) => {
                 const original = originals.get(id);
                 if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignee: original.assignee } });
@@ -86,7 +88,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 const { results, counts } = response.data;
                 start(() => { for (const item of results) {
                     if (!item.saved) rollback(item.id);
-                    else update({ id: item.id, patch: { ...patchFor({ kind: 'assignment', assigneeId: item.saved.assigneeId }, assignees),
+                    else update({ id: item.id, patch: { ...patchFor({ kind: 'assignment', assigneeId: item.saved.assigneeId }, assignees, originals.get(item.id)?.assignee),
                         priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision } });
                 } });
                 const failed = results.filter(item => item.outcome !== 'success' && item.outcome !== 'noop').map(item => item.id);

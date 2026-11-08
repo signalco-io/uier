@@ -257,7 +257,11 @@ export default function PrivacyPolicyPage() {
                 under their account name, guests under the name they give. Who sees the comments is the
                 project&rsquo;s choice: its members, or anyone with its review link. A comment an admin makes
                 private is visible only to the project&rsquo;s admins and its author. Members can assign comments
-                to eligible members, set their priority and mark them done. We store the priority and the assignee&rsquo;s account id. A selected
+                to eligible members, set their priority and mark them done. We store the priority and the assignee&rsquo;s account id.
+                The assignee can add the AI agent working on it with them (Claude, Codex, ChatGPT, Cursor or another), or a coding tool
+                connected to their account adds itself: we store its kind, the session id and model it or the assignee entered, who
+                set it and when, and the connection that added it. It is removed when the comment is assigned to someone else, is
+                shown only to project members and is not sent to connected services. A selected
                 @mention stores the recipient&rsquo;s account id and its range in the message text, so names can
                 change without changing the recipient. Unsent selections are kept with the browser-local draft
                 for up to seven days and are cleared on discard, submission or sign-out. Only signed-in project members can look up participants;
