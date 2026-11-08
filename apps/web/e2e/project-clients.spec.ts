@@ -337,3 +337,20 @@ test('client names and updates stay in the current workspace and out of guest DT
     expect(JSON.stringify(reviewed)).not.toContain('Private client');
     await other.context.close();
 });
+
+test('a project card keeps its favicon and actions at the top when the client and access row wraps', async ({ page }) => {
+    await signIn(page, uniqueEmail('card-top'));
+    await createProject(page, { urls: ['wrap.example.com'], name: 'Wrap site', clientName: 'A client with a long name that fills the row' });
+    await page.goto('/app/projects');
+    const card = page.getByRole('list', { name: 'Active projects' }).getByRole('listitem').filter({ hasText: 'Wrap site' });
+    const title = card.locator('[data-slot="card-title"]');
+    const description = card.locator('[data-slot="card-description"]');
+    const actions = card.getByRole('button', { name: 'More actions for Wrap site' });
+    await expect(actions).toBeVisible();
+    const [titleBox, descriptionBox, actionsBox] = await Promise.all([title.boundingBox(), description.boundingBox(), actions.boundingBox()]);
+    if (!titleBox || !descriptionBox || !actionsBox) throw new Error('The card header is not laid out');
+    // The client and the access label wrap onto two lines
+    expect(descriptionBox.height).toBeGreaterThan(titleBox.height * 1.5);
+    // The actions button lines up with the name, not with the middle of the header
+    expect(Math.abs(actionsBox.y - titleBox.y)).toBeLessThanOrEqual(2);
+});
