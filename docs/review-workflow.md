@@ -100,7 +100,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     scroll it. Done and Reopen fade a row out of a list it no longer matches.
     The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
     Copy link, each described) and More (Follow thread and, once read, Mark as unread) on one line, then what it was
-    left on, its page link and source, priority and assignee (a menu of people for those who can assign), every
+    left on (a long element selector shows only its start and end until Show full selector), its page link and source,
+    priority and assignee (a menu of people for those who can assign), every
     message, Reply and the quiet Open in a connected service. Two icons after the first message's time show the screen
     size and browser it was left from;
     hovering or clicking them shows the viewport, pixel ratio, browser, OS, capture time and reviewed page,

@@ -68,6 +68,7 @@ import type { DbCommentKind } from '../../../lib/db/schema';
 import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
 import { CommentDevice } from './CommentDevice';
+import { SelectorCode } from './SelectorCode';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
 import { integrationLabels, kindLabels } from './commentLabels';
@@ -423,13 +424,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {/* What it is about and where: the element or text, the page (it opens the review there) and its environment */}
                 <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 text-sm">
                     <dt className="text-muted-foreground">On</dt>
-                    <dd className="m-0 min-w-0">
-                        <span className="break-words">{anchor.label}</span>
+                    {/* The selector beside the label while it fits, else on its own line */}
+                    <dd className="m-0 flex min-w-0 flex-wrap items-baseline gap-x-2">
+                        <span className="min-w-0 break-words">{anchor.label}</span>
                         {(anchor.type === 'element' || anchor.type === 'area') && (
-                            <code className="ml-2 font-mono text-xs break-all text-muted-foreground">{anchor.selector}</code>
+                            <SelectorCode selector={anchor.selector} className="min-w-0" />
                         )}
                         {anchor.type === 'text' && anchor.text && (
-                            <blockquote className="m-0 mt-1 line-clamp-4 border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
+                            <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
                         )}
                     </dd>
                     <dt className="text-muted-foreground">Page</dt>
