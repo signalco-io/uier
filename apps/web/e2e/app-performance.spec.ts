@@ -269,7 +269,10 @@ test('a settings section link shows its spinner at the end of the link while the
         const range = document.createRange();
         range.selectNodeContents(a.firstChild!);
         const box = a.getBoundingClientRect(), label = range.getBoundingClientRect();
-        const icon = a.querySelector('[data-slot="spinner"]')!.getBoundingClientRect();
+        const spinner = a.querySelector('[data-slot="spinner"]')!;
+        // A turned icon has a wider box than the one it is laid out in: measure it at the start of its turn
+        for (const animation of spinner.getAnimations()) animation.currentTime = 0;
+        const icon = spinner.getBoundingClientRect();
         return { label: [label.left - box.left, label.top - box.top], width: box.width, iconLeft: icon.left - box.left, iconRight: box.right - icon.right };
     });
     const before = await layout();
