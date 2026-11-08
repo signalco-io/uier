@@ -6,6 +6,7 @@ node_modules/
 
 # Build output (apps, packages and infra)
 dist/
+dist-dev/
 build/
 out/
 .next/

@@ -51,11 +51,17 @@ pnpm dev
 | URL | What |
 | --- | --- |
 | http://localhost:4004 | `apps/web` (Next.js dev server) |
-| http://localhost:4005/index.js | `packages/toolbar` (tsup watch build served from `dist/`); the web app loads this script instead of `/toolbar.js` |
+| http://localhost:4005/index.js | `packages/toolbar` (tsup watch build served from `dist-dev/`); the web app loads this script instead of `/toolbar.js` |
 
 Sites you review locally can use the install snippet as it is: in `next dev`, http://localhost:4004/toolbar.js
 (and the `review.js` its loader fetches) is the watch build on port 4005, not the `public/toolbar.js` an
 earlier `pnpm build` left behind (`next.config.ts`).
+
+The watch build writes to `packages/toolbar/dist-dev/` and production builds to `dist/`, so
+`pnpm typecheck`, `pnpm build` and `pnpm test` can run in the same checkout while `pnpm dev` keeps
+serving the development toolbar. `next dev` imports the toolbar's modules from `dist-dev/` through the
+`development` export condition in `packages/toolbar/package.json`; production builds, the extension
+and Node scripts use `dist/`.
 
 ### Several checkouts side by side
 
@@ -67,7 +73,7 @@ in its CSP. Give each git worktree its own `PORT`, at least two apart so the pai
 PORT=4104 pnpm dev   # website on 4104, toolbar on 4105
 ```
 
-Each checkout builds its own `.next/` and toolbar `dist/`, and local data stays in each server's memory,
+Each checkout builds its own `.next/` and toolbar output, and local data stays in each server's memory,
 so the instances don't share comments or sign-ins. The toolbar server fails rather than switching
 ports when its port is taken. Google and Microsoft sign-in redirect only to the 4004 callbacks you
 registered, so on another port sign in with an email code.
@@ -182,7 +188,7 @@ pnpm -C apps/web exec playwright install --with-deps chromium
 ```
 
 The tests start their own server on port 4004 and local API stand-ins on `PORT + 1000` through
-`PORT + 7000` (Anthropic, Notion, GitHub, Linear, Slack, Azure DevOps and Google). They use fake credentials and fail
+`PORT + 8000` (Anthropic, Notion, GitHub, Linear, Slack, Azure DevOps, Google and Microsoft). They use fake credentials and fail
 if a port is taken: a running server is never reused, so `pnpm dev` (maybe with a real API key) is never tested
 by mistake. To use another port, for example to run them in two worktrees at once or while `pnpm dev` holds
 4004, set `PORT`:
@@ -190,6 +196,10 @@ by mistake. To use another port, for example to run them in two worktrees at onc
 ```bash
 PORT=4104 pnpm test
 ```
+
+Keep every checkout's `PORT` between 4004 and 4999: a test run on 4104 also uses 5104 to 12104, so a
+second run on 5104 would collide with it. Two test runs in the same checkout share its `test-results/`
+and `playwright-report/`, so run them one after another there.
 
 An existing server on that port is never reused, inside or outside CI.
 

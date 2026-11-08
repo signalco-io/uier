@@ -11,15 +11,23 @@ import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
+import { ProjectSettingsButton } from '@/src/components/app/projects/ProjectSettingsButton';
+import { hasProjectFeedback } from '@/src/lib/app/projectComments';
 
-/** A project: its name, review actions (Open review lists every address) and tabs, above its comments, install guide or settings */
+/**
+ * A project: its name, Open review (it lists every address) and the settings cog, then the tabs while the
+ * install guide is one (until the site sends its first comment), above its comments, install guide or settings
+ */
 export default async function ProjectLayout({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
-    const client = project.clientId ? (await getClient(context.workspace.id, project.clientId))?.doc : undefined;
+    const [client, feedback] = await Promise.all([
+        project.clientId ? getClient(context.workspace.id, project.clientId).then(found => found?.doc) : undefined,
+        hasProjectFeedback(context, project)
+    ]);
 
     return (
         <>
@@ -47,8 +55,13 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                         )}
                     </span>
                 )}
-                actions={<ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />}>
-                <ProjectTabs projectId={project.id} />
+                actions={(
+                    <>
+                        <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />
+                        <ProjectSettingsButton projectId={project.id} installTab={!feedback} />
+                    </>
+                )}>
+                <ProjectTabs projectId={project.id} install={!feedback} />
             </PageHeader>
             <div className="flex flex-col gap-6">
                 {children}
