@@ -12,6 +12,7 @@ import type { BulkTriageInput, TriageOperation } from '../../../lib/review/bulkT
 import { triageCommentsAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 import type { AssigneeOption } from './CommentCard';
+import { PriorityFlag } from './PriorityFlag';
 
 const limit = 50;
 const Selection = createContext<{ ids: Set<string>; pending: boolean; toggle: (id: string) => void } | null>(null);
@@ -135,7 +136,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 </Select>
                 <Select items={priorityLabels} value={null} onValueChange={value => value && begin({ kind: 'priority', priority: value })}>
                     <SelectTrigger className="pointer-coarse:min-h-11" aria-label="Prioritize selected" disabled={pending || !ids.size}><SelectValue placeholder="Set priority" /></SelectTrigger>
-                    <SelectContent><SelectGroup>{priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>{priorityLabels[value]}</SelectItem>)}</SelectGroup></SelectContent>
+                    <SelectContent><SelectGroup>{priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{priorityLabels[value]}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
                 <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: true })}>Mark selected as done</Button>
                 <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: false })}>Reopen selected</Button>

@@ -91,7 +91,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (the toolbar inbox's Open,
     Ready to verify, Done and All, with counts). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, what it was left on (an element in words such as "Link in
-    navigation", an area of one, the selected text, or the whole page), page path, then priority other than Normal,
+    navigation", an area of one, the selected text, or the whole page), page path, then priority other than Normal (its flag and name),
     status, the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
     or the browser's Back), and in a sheet on the board. In the list, ↓ and ↑ move to the next and the previous comment
@@ -103,7 +103,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
     Copy link, each described) and More (Follow thread and, once read, Mark as unread) on one line, then what it was
     left on (a long element selector shows only its start and end until Show full selector), its page link and source,
-    priority and assignee (a menu of people for those who can assign), every
+    priority (its flag and name, a menu of the four for those who can triage) and assignee (a menu of people for those who can assign), every
     message, Reply and the quiet Open in a connected service. Two icons after the first message's time show the screen
     size and browser it was left from;
     hovering or clicking them shows the viewport, pixel ratio, browser, OS, capture time and reviewed page,
@@ -623,6 +623,11 @@ read the label. Ordinary accounts automatically enrolled in uier's public feedba
 change priority or use bulk triage; those actions require staff there. A real priority change adds
 one activity step and integration source intent, without a priority-only email. Setting the current
 priority, including Normal on a legacy thread, adds neither. Priority does not change list order.
+
+The app shows priority as a flag in its colour beside the name: Low grey, Normal ink, High amber,
+Urgent red. The open thread, its priority menu, the Priority filter and Set priority always show it;
+list rows and board cards show it only for a priority other than Normal, so the threads that differ
+stand out. The toolbar keeps its text label.
 
 List and Board have explicit checkboxes, an indeterminate shown-results checkbox, and, once something is
 selected, the selected count, Clear selection, assignment/unassignment, priority, Mark selected as done and

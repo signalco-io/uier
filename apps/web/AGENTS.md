@@ -434,9 +434,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   Google and Microsoft sign-in import the provider's picture on a first sign-in or link, only while the account has
   none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
-  first line, author, what it was left on, page path, then priority other than Normal, status other than Open,
-  the assignee's avatar, age and the unread dot) beside the open thread (`CommentCard.tsx`). The open thread is
-  in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
+  first line, author, what it was left on, page path, then priority other than Normal (`PriorityLabel`: its
+  flag and name), status other than Open, the assignee's avatar, age and the unread dot) beside the open thread
+  (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
   it. Each row is a link (it opens in a new tab too) with the selection box beside it. The list moves with the
@@ -464,8 +464,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
   the middle is visually hidden, so assistive tech and a copied selection get the whole selector;
   `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
-  source is unavailable), Priority and Assignee (a 20px avatar, empty and dashed while unassigned, and the name; a menu for those who can assign), the
-  verification, every message, Reply and the quiet Open in .... The first message's time is followed by
+  source is unavailable), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
+  four, each with its flag, the current one checked) and Assignee (a 20px avatar, empty and dashed while unassigned,
+  and the name; a menu for those who can assign), the verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.
@@ -511,6 +512,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to, newest first. It
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
   row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
+- Priority shows as `PriorityFlag` (`comments/PriorityFlag.tsx`), Lucide's `Flag` in the priority's colour (Low
+  `--muted-foreground`, Normal `--foreground`, High `--brand-warning`, Urgent `--destructive`; BRAND.md, "Colour"),
+  always beside the name, in the thread, rows and cards, the Priority filter and Set priority. It is coloured
+  through `stroke`, because highlighted menu and select items set the text colour of everything in them.
+  `e2e/priority-flag.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board, then the status tabs

@@ -41,7 +41,7 @@
 
         --ring: 227 100% 59%;                /* #2E5BFF, focus ring */
 
-        --destructive: 0 72% 51%;            /* #DC2626 */
+        --destructive: 0 72% 51%;            /* #DC2626, also the Urgent priority flag */
         --destructive-foreground: 0 0% 100%;
 
         --radius: 0.625rem;                  /* 10px: large controls; 8 on buttons, 12 cards, 16 panels */
@@ -52,7 +52,7 @@
         --brand-accent-text: 227 100% 59%;   /* accent used as text/icon colour (5.2:1 on paper) */
         --brand-selection: 227 100% 59% / 0.2; /* tint for a commented text range (and an area with an open thread) */
         --brand-success: 142 72% 29%;        /* #15803D resolved */
-        --brand-warning: 26 90% 37%;         /* #B45309 */
+        --brand-warning: 26 90% 37%;         /* #B45309, also the High priority flag */
 
         /* The app's sidebar (shadcn/ui): one step off the page, ink text, ink 200 for hover and the current item */
         --sidebar: 0 0% 96%;                 /* #F5F5F5 ink 100 */

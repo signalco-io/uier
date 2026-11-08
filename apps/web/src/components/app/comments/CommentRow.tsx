@@ -2,7 +2,6 @@
 
 import type { MouseEvent, ReactNode } from 'react';
 import { BugIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
-import { priorityLabels } from '@uier/toolbar/triage';
 import { cn } from '@/src/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
@@ -10,6 +9,7 @@ import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
 import { SelectComment } from './TriageSelection';
 import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
+import { PriorityLabel } from './PriorityFlag';
 
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
@@ -31,8 +31,9 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
  * One comment in the inbox list or on the board: number, first line, where it was left, who wrote it,
- * who it is assigned to, status, age and unread. The whole row opens the thread (a link to
- * `?comment=<id>`, so it can also open in a new tab); the selection box sits beside the link.
+ * priority other than Normal (its flag and name), who it is assigned to, status, age and unread. The
+ * whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the
+ * selection box sits beside the link.
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, actions, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -100,9 +101,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
                     </p>
                     <div className="flex shrink-0 items-center gap-2">
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
-                        {comment.priority !== 'normal' && (
-                            <span className="rounded-full border px-1.5 leading-4 text-foreground">{priorityLabels[comment.priority]}</span>
-                        )}
+                        {/* Normal is the default: only a priority that differs gets its flag */}
+                        {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
                         {status !== 'open' && (
                             <span className="inline-flex items-center gap-1 text-foreground">
                                 <StateDot status={status} />

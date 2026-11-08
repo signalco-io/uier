@@ -19,6 +19,7 @@ import type { EnvironmentOption } from '../../../lib/app/environments';
 import { peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
+import { PriorityFlag } from './PriorityFlag';
 
 /** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done) */
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
@@ -114,10 +115,12 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                             <Field>
                                 <FieldLabel htmlFor="filter-priority">Priority</FieldLabel>
                                 <Select items={{ all: 'All priorities', ...priorityLabels }} value={priority ?? 'all'} onValueChange={value => go({ priority: value === 'all' ? undefined : value ?? undefined })}>
-                                    <SelectTrigger id="filter-priority" aria-label="Priority filter" className="w-full pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                                    <SelectTrigger id="filter-priority" aria-label="Priority filter" className="w-full pointer-coarse:min-h-11">
+                                        <SelectValue>{(value: CommentPriority | 'all') => value === 'all' ? 'All priorities' : <><PriorityFlag priority={value} />{priorityLabels[value]}</>}</SelectValue>
+                                    </SelectTrigger>
                                     <SelectContent><SelectGroup>
                                         <SelectItem className="pointer-coarse:min-h-11" value="all">All priorities</SelectItem>
-                                        {priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>{priorityLabels[value]}</SelectItem>)}
+                                        {priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{priorityLabels[value]}</SelectItem>)}
                                     </SelectGroup></SelectContent>
                                 </Select>
                             </Field>

@@ -119,12 +119,17 @@ Contrast ratios are against the mode's background.
 | --- | --- | --- |
 | Blue | `#2E5BFF` | the one accent (white text on it: 5.2). As text on dark use `#7A9BFF` (8.0). |
 | Green | `#15803D` | resolved, success (`#22C55E` as a dot on dark) |
-| Amber | `#B45309` | warning |
-| Red | `#DC2626` | destructive |
+| Amber | `#B45309` | warning, High priority |
+| Red | `#DC2626` | destructive, Urgent priority |
 
 **Where blue shows up:** a selected text range (20 % tint), a focused control (2 px ring at
 2 px offset, keyboard only), an unread count, a link. **Primary buttons and pins stay ink.**
 Blue is never a background for a section, a card or a button.
+
+**Priority** is a flag (Lucide's outlined `Flag`) in the priority's colour, always beside its name, so
+colour is never the only signal: Low muted grey (`--muted-foreground`), Normal ink (`--foreground`),
+High amber (`--brand-warning`), Urgent red (`--destructive`). Lists and boards show it only for a
+priority other than Normal, so the threads that differ stand out. Priority has no tokens of its own.
 
 ### Theme tokens
 
