@@ -1,7 +1,7 @@
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, openComment, openCommentFilters } from './support/app';
+import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
 import { pngImage } from './support/images';
 import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -933,6 +933,8 @@ test('reply from list and board with mentions, keyboard input and local drafts',
     const { startReviewedSite } = await import('./support/reviewedSite');
     const { verifiedReviewHeaders } = await import('./support/reviewVerification');
     const site = await startReviewedSite(baseURL!);
+    // The reply's server action is held and counted, and replying must leave the thread unread
+    await inBackground(page);
     try {
         const email = uniqueEmail('app-reply');
         await signIn(page, email);
@@ -1033,6 +1035,8 @@ test('app replies retry a lost response once and reject forged or unauthorized a
     const { verifiedReviewHeaders } = await import('./support/reviewVerification');
     const site = await startReviewedSite(baseURL!);
     try {
+        // The first server action is the reply this test loses the response of
+        await inBackground(page);
         await signIn(page, uniqueEmail('app-retry'));
         const project = await createProject(page, { urls: [site.origin()] });
         await setProjectAccess(page, project, 'Anyone with the link');

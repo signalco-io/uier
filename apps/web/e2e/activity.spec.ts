@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
-import { allCommentRowLinks, commentRowLink, commentRows, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { allCommentRowLinks, commentRowLink, commentRows, createProject, inBackground, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 async function foreground(page: Page) {
@@ -315,9 +315,8 @@ test('a member shares read state between the app and reviews on different config
         await page.goto(`/app/projects/${projectId}`);
         const card = await openComment(page, 'Member inbox feedback');
         await expect(card).toHaveAccessibleName('Comment by Guest');
-        // The unread dot is the Mark as read button; Mark as unread is in More actions
-        await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
-        await card.getByRole('button', { name: 'Unread. Mark as read', exact: true }).click();
+        // The open thread is read once it has been shown; Mark as unread is in More actions and keeps it
+        // unread while it stays open, so the unread dot (the Mark as read button) waits for a click
         await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
         await card.getByRole('button', { name: 'More actions for the comment by guest', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Mark as unread', exact: true }).click();
@@ -335,8 +334,14 @@ test('a member shares read state between the app and reviews on different config
         await page.request.post(`/api/review/${projectId}/comments/${comment.id}/replies`, { headers, data: { text: 'A guest replied', authorName: 'Guest' } });
         await foreground(page);
         await expect(inbox(page)).toHaveAccessibleName('Inbox, 1 unread thread');
+        // Shown again it is read again (beside the list as soon as the page shows it, on a phone once opened);
+        // Only unread keeps it while it is open and leaves it out afterwards
+        const read = page.waitForResponse(response => response.request().method() === 'POST' && Boolean(response.request().headers()['next-action']));
         await page.goto(`/app/projects/${projectId}?unread=true`);
-        await (await openComment(page, 'Member inbox feedback')).getByRole('button', { name: 'Mark as read' }).click();
+        const reread = await openComment(page, 'Member inbox feedback');
+        await expect(reread.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
+        await read;
+        await page.goto(`/app/projects/${projectId}?unread=true`);
         await expect(commentRowLink(page, 'Member inbox feedback')).toHaveCount(0);
         const secondSite = `${site.origin('second-site')}/${projectId}/pricing`;
         await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(secondSite)}`);
@@ -348,6 +353,8 @@ test('a member shares read state between the app and reviews on different config
 
 test('app bulk read follows environment, page and people filters in list and board and offers retry', async ({ page, request, baseURL }, testInfo) => {
     test.setTimeout(90_000);
+    // Bulk reads only: the thread shown beside the list stays unread
+    await inBackground(page);
     const site = await startReviewedSite(new URL(baseURL!).origin);
     try {
         await signIn(page, uniqueEmail('bulk-owner'));

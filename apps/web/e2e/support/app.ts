@@ -194,6 +194,16 @@ export async function openComment(page: Page, row: number | string | RegExp) {
     return thread;
 }
 
+/**
+ * From the next page load the window counts as in the background (`document.hasFocus()` is false), so an
+ * open thread is not read by being shown (the app's `useReadWhenShown`, the toolbar's `CommentThread`).
+ * For tests about other changes that hold, fail or count the page's server actions or check the unread
+ * dot: they then see only their own writes, however long a step takes.
+ */
+export async function inBackground(page: Page) {
+    await page.addInitScript(() => { Document.prototype.hasFocus = () => false; });
+}
+
 /** Opens the comments' Filter popover (priority, environment and page, people, unread) */
 export async function openCommentFilters(page: Page) {
     await page.getByRole('button', { name: /^Filter ?\d*$/ }).click();

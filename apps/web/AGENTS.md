@@ -469,6 +469,21 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.
+- The open thread reads itself (`comments/useReadWhenShown.ts`, the toolbar's rule): once its `article` has been
+  on screen for 800 ms in a visible, focused window it is marked read at its shown sequence through
+  `markCommentReadAction`. That covers a click, a `?comment=` link (My work, copied links, Back/Forward), the
+  arrow keys and the board's sheet; the arrow keys pass threads faster, so only the one they stop on is read.
+  The first thread shown beside the list is read too (it is displayed in full); where it is hidden (a phone,
+  until a row is opened) the IntersectionObserver never sees it, so it stays unread. Only an unread thread
+  writes. The dot and counts change at once through `CommentUpdates`; a failed write rolls back without a
+  toast and is not retried for that sequence while the thread stays open. Mark as unread turns it off until
+  the thread is opened again. Only unread keeps the open thread and its row while it is open (`applyFilters`'
+  `openId`), so reading the last unread thread does not empty the list (or close the board's sheet); it leaves
+  once another is opened. Reading the first shown thread there opens it (`replace`), so it stays and the next
+  one is not shown and read in its place.
+  `e2e/comment-auto-read.spec.ts` covers it. A test about something else that holds, fails or counts the
+  page's server actions, or checks the unread dot, calls `inBackground(page)` (`e2e/support/app.ts`) first, so a
+  slow step cannot add a read write.
 - `comments/ReplyComposer.tsx` is a lazy inline reply form in List and Board, using shadcn controls
   and pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
@@ -497,7 +512,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
   row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
-  and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread; its badge counts the
+  and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board, then the status tabs
   (list only). Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The list header (`TriageSelection`) has Select shown results, the count with
@@ -909,7 +924,8 @@ expose identity metadata only to members. App and toolbar must share these check
   routes retain verified-write protection; public routes retain BotID. Return only successful activity
   receipts, skip missing/hidden/failed threads without reasons, and reauthorize each project thread.
   App list/board actions snapshot the shown unread threads and send sequential batches, retaining
-  failed cursors for toast retry. Neither bulk nor single reads acknowledge newer activity.
+  failed cursors for toast retry. Neither bulk nor single reads acknowledge newer activity. The app's open
+  thread reads itself like the toolbar's open thread (800 ms on screen in a focused window, `useReadWhenShown`).
 
 - `e2e/activity.spec.ts` exercises project/showcase adaptive refresh with the Playwright clock:
   15-second active cadence, 30 after one minute idle, 60 after two, immediate return, held-response

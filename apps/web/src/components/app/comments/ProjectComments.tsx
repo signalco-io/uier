@@ -28,11 +28,12 @@ import { MarkAllRead } from './MarkAllRead';
 import { RealtimeComments } from './RealtimeComments';
 
 
-function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string) {
+/** `openId`: Only unread keeps the open thread while it is read (opening it reads it), until another is opened */
+function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
     return comments.filter(comment => {
         if (query.priority && comment.priority !== query.priority) return false;
         if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
-        if (query.unread && !comment.activity?.unread) return false;
+        if (query.unread && !comment.activity?.unread && comment.id !== openId) return false;
         if (query.page && !pageMatches(query.page, comment.path))
             return false;
         if (query.people === 'assigned')
@@ -155,7 +156,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     // Each page with its number of comments, for the page search
     const pages = [...comments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
         .map(([path, count]) => ({ path, count }));
-    const filtered = applyFilters(comments, query, userId);
+    const filtered = applyFilters(comments, query, userId, openId);
     const statusCounts: Record<StatusFilter, number> = {
         open: filtered.filter(comment => !comment.resolved).length,
         ready: filtered.filter(readyForReview).length,
@@ -222,7 +223,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                 <CommentBoard projectId={projectId} columns={{ open, ready, done }} allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
                 <CommentInbox projectId={projectId} comments={shown} allComments={comments} assignees={assignees} userId={userId} label="Comments"
-                    keepsResolved={query.status === 'all'} openComment={openComment} />
+                    keepsResolved={query.status === 'all'} readLeaves={Boolean(query.unread)} openComment={openComment} />
             )}
             </TriageSelection>
         </div>
