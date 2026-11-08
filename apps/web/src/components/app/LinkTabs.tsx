@@ -19,7 +19,8 @@ export type LinkTab = {
 /**
  * Tabs that are links (a page or a filter kept in the URL), styled like shadcn's tabs:
  * `line` under a page header, `segmented` for a filter, `side` for the sections of a page (a column
- * beside them on wide screens, a row above them on small ones). The current tab has `aria-current`.
+ * beside them on wide screens, a row above them on small ones). The current tab has `aria-current`; a tab
+ * whose page is loading shows a spinner at its end (the right edge of a `side` link on wide screens).
  */
 export function LinkTabs({ tabs, label, variant = 'line', match = 'url', className }: {
     tabs: LinkTab[];
@@ -68,8 +69,9 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                             variant === 'side' && 'h-8 rounded-md px-3 hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:text-foreground'
                         )}>
                         {tab.label}
-                        <NavigationPending />
                         {tab.count !== undefined && <span className="font-normal tabular-nums text-muted-foreground">{tab.count}</span>}
+                        {/* Last, so the label and count stay together; at the right edge of a section link that fills its column */}
+                        <NavigationPending className="ml-auto" />
                     </Link>
                 );
             })}
