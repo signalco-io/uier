@@ -1,5 +1,5 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
+import { createProject, openComment, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -9,7 +9,7 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-async function board(page: Page, request: APIRequestContext) {
+async function board(page: Page, request: APIRequestContext, { access }: { access?: ProjectAccessLabel } = {}) {
     await signIn(page, uniqueEmail('board'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');
@@ -22,10 +22,47 @@ async function board(page: Page, request: APIRequestContext) {
         expect(response.status()).toBe(201);
         comments.push(await response.json());
     }
+    if (access) await setProjectAccess(page, project, access);
     await page.goto(`/app/projects/${project}?view=board`);
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
     await expect(column('Open').getByRole('listitem')).toHaveCount(2);
-    return { project, comments, column };
+    const card = (name: string, text: string) => column(name).getByRole('listitem').filter({ hasText: text });
+    return { project, comments, column, card };
+}
+
+/** The lifted copy of the dragged card and the place it would land (visual only, hidden from assistive tech) */
+const dragPreview = (page: Page) => page.locator('[data-drag-preview]');
+const placeholder = (column: Locator) => column.locator('[data-drop-placeholder]');
+
+/** Presses a card and moves the mouse in steps, as a person does: the card lifts after a few pixels */
+async function dragWithMouse(page: Page, card: Locator, target: Locator, { drop = true } = {}) {
+    // The last card has settled
+    await expect(dragPreview(page)).toHaveCount(0);
+    const from = (await card.boundingBox())!;
+    const x = from.x + from.width / 2, y = from.y + from.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 12, y, { steps: 3 });
+    await expect(dragPreview(page)).toBeVisible();
+    // Below the column's heading, inside it however tall it is
+    const to = (await target.boundingBox())!;
+    await page.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 10 });
+    if (drop) await page.mouse.up();
+}
+
+/** A long press lifts the card on a touch screen; then it follows the finger */
+async function dragWithTouch(page: Page, card: Locator, target: Locator) {
+    const session = await page.context().newCDPSession(page);
+    const from = (await card.boundingBox())!;
+    const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await expect(dragPreview(page)).toBeVisible();
+    const to = (await target.boundingBox())!;
+    const end = { x: to.x + to.width / 2, y: to.y + 40 };
+    for (let step = 1; step <= 10; step++)
+        await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10 }] });
+    await expect(target).toHaveAttribute('data-drop', 'over');
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
 test('board cards move with Move from the keyboard; Ready to verify asks for the request first', async ({ page, request }) => {
@@ -42,6 +79,9 @@ test('board cards move with Move from the keyboard; Ready to verify asks for the
     await page.keyboard.press('Enter');
     await expect(column('Done').getByRole('listitem')).toHaveCount(1);
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    // The focus follows the card to its new column, and the move is announced
+    await expect(column('Done').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true })).toBeFocused();
+    await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[0]!.number} moved to Done.` })).toBeAttached();
     await page.reload();
     await expect(column('Done').getByRole('listitem').filter({ hasText: 'First board thread' })).toBeVisible();
 
@@ -116,30 +156,66 @@ test('on a phone the board stacks its columns without scrolling sideways', async
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
-test('board cards drag between the columns they can move to', async ({ page, request }, testInfo) => {
-    test.skip(testInfo.project.name.startsWith('Mobile'), 'Dragging takes a mouse; Move covers touch screens');
-    const { column } = await board(page, request);
-    const second = column('Open').getByRole('listitem').filter({ hasText: 'Second board thread' });
-    await second.dragTo(column('Done'));
+test('board cards drag with the mouse between the columns they can move to', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens have their own test');
+    const { column, card } = await board(page, request);
+    // The card shows it can be picked up
+    await card('Open', 'Second board thread').hover();
+    await expect.poll(() => card('Open', 'Second board thread').getByRole('link').evaluate(link => getComputedStyle(link).cursor)).toBe('grab');
+
+    // Lifted: the card stays behind faded, the columns it can go to are marked, the one under it shows where it lands
+    const height = (await card('Open', 'Second board thread').boundingBox())!.height;
+    await dragWithMouse(page, card('Open', 'Second board thread'), column('Done'), { drop: false });
+    await expect(column('Open')).toHaveAttribute('data-drop', 'home');
+    await expect(column('In progress')).toHaveAttribute('data-drop', 'target');
+    await expect(column('In progress')).toContainText('Drop here.');
+    await expect(column('Ready to verify')).toHaveAttribute('data-drop', 'target');
+    await expect(column('Ready to verify')).toContainText('Drop here.');
+    await expect(column('Done')).toHaveAttribute('data-drop', 'over');
+    await expect(placeholder(column('Done'))).toHaveCount(1);
+    expect(Math.round((await placeholder(column('Done')).boundingBox())!.height)).toBe(Math.round(height));
+    await expect(dragPreview(page)).toContainText('Second board thread');
+    await page.mouse.up();
     await expect(column('Done').getByRole('listitem')).toHaveCount(1);
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
-    // Back to Open: Reopen
-    await column('Done').getByRole('listitem').dragTo(column('Open'));
+    await expect(dragPreview(page)).toHaveCount(0);
+    await expect(page.locator('section[data-drop]')).toHaveCount(0);
+    // Dropping does not open the thread
+    await expect(page.getByRole('article')).toHaveCount(0);
+
+    // Escape puts the card back
+    await dragWithMouse(page, card('Done', 'Second board thread'), column('Open'), { drop: false });
+    await expect(column('Open')).toHaveAttribute('data-drop', 'over');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+    await expect(page.getByRole('status').filter({ hasText: /stays in Done/ })).toBeAttached();
+
+    // Back to Open: Reopen. The card lands in the list's order, below the newer thread.
+    await dragWithMouse(page, card('Done', 'Second board thread'), column('Open'));
+    await expect(column('Open').getByRole('listitem')).toHaveText([/Second board thread/, /First board thread/]);
+    await page.reload();
     await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+
     // Dropped on Ready to verify: the request form opens; the card moves once it is sent
-    await column('Open').getByRole('listitem').filter({ hasText: 'First board thread' }).dragTo(column('Ready to verify'));
+    await dragWithMouse(page, card('Open', 'First board thread'), column('Ready to verify'));
     const thread = page.getByRole('article');
     await thread.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Dragged to Ready to verify');
     await thread.getByRole('form', { name: 'Request verification' }).getByRole('button', { name: 'Request verification', exact: true }).click();
     await expect(thread.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true })).toBeVisible();
     await thread.getByRole('button', { name: 'Back to comments', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(1);
+    // Back to Open cancels the check
+    await dragWithMouse(page, card('Ready to verify', 'First board thread'), column('Open'));
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByText('Verification request canceled.', { exact: true })).toBeVisible();
     // The card opens its thread from the board too
     await expect(await openComment(page, 'Second board thread')).toHaveAccessibleName('Comment by Reviewer');
 });
 
 test('In progress is a column between Open and Ready to verify; cards move in and out of it', async ({ page, request }, testInfo) => {
-    const { comments, column } = await board(page, request);
+    const { comments, column, card } = await board(page, request);
     await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/]);
     await expect(column('In progress')).toContainText('Nothing in progress.');
 
@@ -148,25 +224,27 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await page.getByRole('menuitem', { name: 'In progress', exact: true }).click();
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await expect(column('In progress').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true })).toBeFocused();
+    await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[0]!.number} moved to In progress.` })).toBeAttached();
     await page.reload();
-    const card = column('In progress').getByRole('listitem').filter({ hasText: 'First board thread' });
-    await expect(card).toBeVisible();
+    await expect(card('In progress', 'First board thread')).toBeVisible();
 
     // Its thread says so, and its menu takes it back
-    await card.getByRole('link').click();
+    await card('In progress', 'First board thread').getByRole('link').click();
     const thread = page.getByRole('article');
     await thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
     await expect(thread.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(column('Done').getByRole('listitem')).toHaveCount(1);
     await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
 
     if (!testInfo.project.name.startsWith('Mobile')) {
         // Dragged from Done to In progress, then back to Open
-        await column('Done').getByRole('listitem').dragTo(column('In progress'));
+        await dragWithMouse(page, card('Done', 'First board thread'), column('In progress'));
         await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
-        await column('In progress').getByRole('listitem').dragTo(column('Open'));
+        await dragWithMouse(page, card('In progress', 'First board thread'), column('Open'));
         await expect(column('Open').getByRole('listitem')).toHaveCount(2);
         await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
     }
@@ -186,4 +264,129 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(page.getByRole('link', { name: /First board thread/ })).toHaveCount(0);
     // The row says its status other than Open
     await expect(row).toContainText('In progress');
+});
+
+test('board cards drag to and from In progress; from Ready to verify it cancels the check', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens use the same move');
+    const { project, comments, column, card } = await board(page, request);
+
+    // Open to In progress: every other column takes the card
+    await dragWithMouse(page, card('Open', 'First board thread'), column('In progress'), { drop: false });
+    await expect(column('Open')).toHaveAttribute('data-drop', 'home');
+    await expect(column('In progress')).toHaveAttribute('data-drop', 'over');
+    await expect(placeholder(column('In progress'))).toHaveCount(1);
+    await expect(column('Ready to verify')).toHaveAttribute('data-drop', 'target');
+    await expect(column('Done')).toHaveAttribute('data-drop', 'target');
+    await page.mouse.up();
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[0]!.number} moved to In progress.` })).toBeAttached();
+    await page.reload();
+    await expect(card('In progress', 'First board thread')).toBeVisible();
+
+    // In progress to Done
+    await dragWithMouse(page, card('In progress', 'First board thread'), column('Done'), { drop: false });
+    await expect(column('In progress')).toHaveAttribute('data-drop', 'home');
+    await expect(column('Open')).toHaveAttribute('data-drop', 'target');
+    await expect(column('Done')).toHaveAttribute('data-drop', 'over');
+    await page.mouse.up();
+    await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
+    await page.reload();
+    await expect(card('Done', 'First board thread')).toBeVisible();
+    await expect(column('In progress')).toContainText('Nothing in progress.');
+
+    // Ready to verify, then dragged to In progress: the check is canceled and the card stays there
+    await dragWithMouse(page, card('Open', 'Second board thread'), column('Ready to verify'));
+    const thread = page.getByRole('article');
+    await thread.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Dragged to Ready to verify');
+    await thread.getByRole('form', { name: 'Request verification' }).getByRole('button', { name: 'Request verification', exact: true }).click();
+    await expect(thread.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true })).toBeVisible();
+    await thread.getByRole('button', { name: 'Back to comments', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(1);
+
+    // It moves at once, and goes back when canceling fails
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const fail = async (route: Route) => {
+        if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) return route.continue();
+        await held;
+        await route.abort('failed');
+    };
+    await page.route(`**/app/projects/${project}*`, fail);
+    try {
+        await dragWithMouse(page, card('Ready to verify', 'Second board thread'), column('In progress'));
+        await expect(column('In progress').getByRole('listitem')).toHaveCount(1, { timeout: 2_000 });
+        await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(0);
+    } finally { release(); }
+    await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(1);
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
+    await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
+    await page.unroute(`**/app/projects/${project}*`, fail);
+
+    await dragWithMouse(page, card('Ready to verify', 'Second board thread'), column('In progress'));
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
+    await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(0);
+    await expect(page.getByText('Verification request canceled.', { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(card('In progress', 'Second board thread')).toBeVisible();
+    await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(0);
+    await card('In progress', 'Second board thread').getByRole('link').click();
+    await expect(thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true })).toBeVisible();
+});
+
+test('a column the card cannot move to refuses it', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens have their own test');
+    // With comments off, nobody can request a verification: Ready to verify takes no card
+    const { comments, column, card } = await board(page, request, { access: 'Comments off' });
+    await dragWithMouse(page, card('Open', 'First board thread'), column('Ready to verify'), { drop: false });
+    await expect(column('Ready to verify')).toHaveAttribute('data-drop', 'refused');
+    await expect(column('Ready to verify')).toContainText('No checks requested.');
+    await expect(placeholder(column('Ready to verify'))).toHaveCount(0);
+    await expect(column('In progress')).toHaveAttribute('data-drop', 'target');
+    await expect(column('Done')).toHaveAttribute('data-drop', 'target');
+    await page.mouse.up();
+    await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[0]!.number} can't move to Ready to verify. It stays in Open.` })).toBeAttached();
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(0);
+    await expect(page.getByRole('article')).toHaveCount(0);
+    // Move offers the same choices
+    await column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Ready to verify', exact: true })).toBeDisabled();
+});
+
+test('board cards move with a long press on a touch screen', async ({ page, request }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith('Mobile'), 'Touch screens');
+    const { column, card } = await board(page, request);
+    // The phone stacks the columns: In progress is the one below Open, on the screen
+    await dragWithTouch(page, card('Open', 'First board thread'), column('In progress'));
+    await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
+    await expect(dragPreview(page)).toHaveCount(0);
+    await expect(page.getByRole('article')).toHaveCount(0);
+    await page.reload();
+    await expect(column('In progress').getByRole('listitem').filter({ hasText: 'First board thread' })).toBeVisible();
+    // A tap still opens the thread
+    await card('Open', 'Second board thread').getByRole('link').tap();
+    await expect(page.getByRole('article')).toHaveAccessibleName('Comment by Reviewer');
+});
+
+test('a dropped card shows in its new column at once and goes back when saving fails', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens use the same move');
+    const { project, column, card } = await board(page, request);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route(`**/app/projects/${project}*`, async route => {
+        if (route.request().method() !== 'POST' || !route.request().headers()['next-action']) return route.continue();
+        await held;
+        await route.abort('failed');
+    });
+    try {
+        await dragWithMouse(page, card('Open', 'First board thread'), column('Done'));
+        await expect(column('Done').getByRole('listitem')).toHaveCount(1, { timeout: 2_000 });
+        await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    } finally { release(); }
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect(column('Done').getByRole('listitem')).toHaveCount(0);
+    await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
 });

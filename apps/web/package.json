@@ -23,6 +23,7 @@
     "@azure/identity": "4.14.1",
     "@azure/storage-blob": "12.34.0",
     "@base-ui/react": "1.9.0",
+    "@dnd-kit/core": "6.3.1",
     "@modelcontextprotocol/sdk": "1.32.2",
     "@signalco/cms-core": "0.1.1",
     "@signalco/js": "0.1.0",

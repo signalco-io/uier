@@ -453,7 +453,21 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
   there are; the board widens the page (`data-page-width="wide"` on the comments container in board view, empty states
   included), the list keeps the reading width. A card opens its thread in a sheet over the board. Switching List/Board
-  closes the open thread. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
+  closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
+  the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
+  mouse after 6 px or a 250 ms long press on a touch screen, so a swipe still scrolls the page (auto-scroll at
+  the edges). The lifted card is a `DragOverlay` copy (`CommentRow preview`, no link id, inert) with the
+  floating elevation; the original stays at 40 %. Columns carry `data-drop`: `target` (dashed) where the card
+  can go, `over` (ring, a placeholder of the card's height where it lands in the list's order), `refused`
+  (dimmed) where `allowedStatuses` does not allow it, `home`; while dragging every column is as tall as the
+  longest. A refused drop is `cancelDrop`, and the card settles back (150 ms ease-out, none with reduced motion).
+  Moves are optimistic through `useStatusChanger` (Open or In progress from Ready to verify too, which cancels
+  the check and lands the card there) and roll back on failure.
+  Move (⇄) is the keyboard, screen-reader and single-pointer alternative: after it the focus goes to Move on the
+  card in its new column and a status region says "Comment #12 moved to Done."; during a save Move stays
+  focusable and offers no other column. dnd-kit's live region announces pointer drags. Columns and both paths
+  follow the `statuses` list, never fixed ids. `e2e/comment-board.spec.ts` covers mouse, touch, refused drops,
+  Escape, the keyboard path, In progress (to and from it, and from Ready to verify) and rollback. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
   from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole
   page (no page title is stored).
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
