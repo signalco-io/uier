@@ -5,10 +5,12 @@ start with the [README](../README.md#run-locally).
 
 ## Prerequisites
 
-- **Node.js 24** - the version is in [`.nvmrc`](../.nvmrc) (`nvm use` / `fnm use`).
-- **pnpm** - via Corepack, which picks up the exact version pinned in the root `packageManager` field:
+- **Node.js 26** - the version is in [`.nvmrc`](../.nvmrc) (`nvm use` / `fnm use`).
+- **pnpm** - via Corepack, which picks up the exact version pinned in the root `packageManager` field.
+  Node.js 25 and later no longer include Corepack, so install it once:
 
   ```bash
+  npm install --global corepack@latest
   corepack enable
   ```
 

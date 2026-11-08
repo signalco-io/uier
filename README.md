@@ -46,12 +46,14 @@ for public visibility and the app installation-link rollout.
 
 ## Run locally
 
-You need **Node.js 24** ([`.nvmrc`](.nvmrc)) and **pnpm through Corepack**. The repository pins the
-pnpm version in [`package.json`](package.json).
+You need **Node.js 26** ([`.nvmrc`](.nvmrc)) and **pnpm through Corepack**. The repository pins the
+pnpm version in [`package.json`](package.json). Node.js 25 and later no longer include Corepack, so
+install it once with npm.
 
 ```bash
 git clone https://github.com/signalco-io/uier.git
 cd uier
+npm install --global corepack@latest
 corepack enable
 pnpm install
 pnpm dev

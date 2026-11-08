@@ -16,7 +16,7 @@ Vercel-trusted identity; account-key authentication remains enabled until the st
 [`infra/`](../infra) is the Pulumi project **`uier`** (Node.js runtime) with a single stack,
 **`organization/uier/uier-production`**. It manages:
 
-- the Vercel project **`uier`** (`prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc`, root directory `apps/web`, Node.js 24,
+- the Vercel project **`uier`** (`prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc`, root directory `apps/web`, Node.js 26,
   function region `dub1`), its domains `uier.io` and `www.uier.io` (a permanent `308` redirect to `uier.io`
   that keeps the path and query) and the comments API variables: both targets get `COSMOSDB_ENDPOINT`,
   `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` for separate managed identities. Production selects

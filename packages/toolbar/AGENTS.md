@@ -17,7 +17,7 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 
 - Browser builds resolve the latest two stable major releases of Chrome, Edge, Firefox, Safari and
   iOS Safari from the root `.browserslistrc`, shared with Next.js. `browserslist` is build-only;
-  tsup maps its versions to esbuild targets. Pure browser/server exports retain ES2022 for Node 24.
+  tsup maps its versions to esbuild targets. Pure browser/server exports retain ES2022 for Node 26.
   Do not add runtime polyfills or old-browser branches. Keep blocked-storage/CSP handling, shadow-root
   property initialization and the UI kit's Tailwind v3 class mapping: modern browsers still need them.
 - `src/index.ts` captures configuration and review state, runs installation diagnostics and the bounded

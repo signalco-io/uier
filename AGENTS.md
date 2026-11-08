@@ -36,8 +36,9 @@ When moving documentation, update relative links and links to section anchors ac
   `.claude/skills/shadcn`. Do not build parallel buttons, inputs or menus.
 - **Keep copy in the brand voice:** sentence case, short sentences, no exclamation marks, only
   claims the product can back.
-- **Node 24, pnpm via Corepack** (`corepack enable`), exact dependency versions (Renovate keeps
-  them current; it waits a day after an npm release, and so does `pnpm install`).
+- **Node 26, pnpm via Corepack** (`npm install --global corepack@latest`, then `corepack enable`;
+  Node 26 no longer bundles it), exact dependency versions (Renovate keeps them current; it waits
+  a day after an npm release, and so does `pnpm install`).
 - **Browsers:** latest two stable major versions of Chrome, Edge, Firefox, Safari and iOS Safari,
   shared in [`.browserslistrc`](.browserslistrc). Next.js and the toolbar use it; do not add old-browser polyfills.
 - **Conventional Commits** (`feat:`, `fix:`, `chore(deps):` ...) and pull requests against
