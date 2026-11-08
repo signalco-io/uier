@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { commentRowLink, commentRows, createProject, hydrated, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRowLink, commentRows, createProject, hydrated, inBackground, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, toolbar } from './support/toolbar';
@@ -9,6 +9,8 @@ test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(b
 test.afterAll(async () => { await site.close(); });
 
 async function fixture(page: Page, request: APIRequestContext) {
+    // These tests hold or fail the page's server actions and check the unread dot: no thread is read by being shown
+    await inBackground(page);
     await signIn(page, uniqueEmail('responsive-app'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');

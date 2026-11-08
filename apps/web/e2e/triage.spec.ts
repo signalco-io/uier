@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { backToComments, openReply, commentRowLink, commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, openReply, commentRowLink, commentRows, createProject, inBackground, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { toolbar, animationsFinished, threadOptions } from './support/toolbar';
@@ -9,6 +9,8 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 async function fixture(page: Page, request: APIRequestContext, count = 3) {
+    // Triage holds and counts the page's server actions: the thread shown beside the list stays unread
+    await inBackground(page);
     await signIn(page, uniqueEmail('triage'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');

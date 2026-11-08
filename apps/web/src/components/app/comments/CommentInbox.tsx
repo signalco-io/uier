@@ -62,8 +62,13 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * from the page while nothing has the focus and the reader is not in the open thread (there they keep
  * scrolling it), so never in a text field, a menu or a dialog. Only the current row's link and
  * selection box are in the Tab order (a roving tab stop), so Tab goes on to the open thread.
+ *
+ * The thread beside the list is marked read once it has been on screen for a moment (`CommentCard`),
+ * the first shown one too: it is displayed in full, so it has been seen. Where it is not displayed (a
+ * phone, until a row is chosen) it stays unread. The keys pass threads faster than that, so only the
+ * one the reader stops on is read.
  */
-export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keepsResolved, openComment }: {
+export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keepsResolved, readLeaves, openComment }: {
     projectId: string;
     /** The shown comments, in order */
     comments: ProjectCommentView[];
@@ -74,6 +79,8 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     label: string;
     /** Done and Reopen keep the comment here (the All status) */
     keepsResolved?: boolean;
+    /** A read comment leaves the list unless it is the open one (Only unread) */
+    readLeaves?: boolean;
     openComment: ReturnType<typeof useOpenComment>;
 }) {
     const { openId, hrefFor, open, close, sideBySide } = openComment;
@@ -209,6 +216,9 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                         assignees={assignees}
                         userId={userId}
                         onBack={close}
+                        // Once read, the first shown thread would leave an unread-only list and the next one would be
+                        // shown, and read, in its place: it is opened instead, which keeps it and its row
+                        onReadWhenShown={readLeaves && !opened ? () => open(selected.id, undefined, { replace: true }) : undefined}
                         onResolve={keepsResolved ? undefined : resolved => leave(selected.id, resolved)} />
                 </div>
             )}

@@ -98,6 +98,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     (stopping at the ends) and open it beside the list; on a phone-sized layout they move the focus and Enter opens the
     row. They do nothing while you type, in a menu or a dialog, or after you clicked into the open thread, where they
     scroll it. Done and Reopen fade a row out of a list it no longer matches.
+    A thread you open is marked read once it has been on screen for a moment (see
+    [unread review activity](#unread-review-activity)).
     The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
     Copy link, each described) and More (Follow thread and, once read, Mark as unread) on one line, then what it was
     left on (a long element selector shows only its start and end until Show full selector), its page link and source,
@@ -186,7 +188,8 @@ environment or author still loads a fresh authorized list from the server. Setti
 navigation feedback, and General renders its forms before usage totals finish loading.
 
 Status, assignment, follow and read changes update the app's cards and counts while saving.
-A failed save restores the confirmed state and shows an error. Mark all as read uses only the
+A failed save restores the confirmed state and shows an error; a failed automatic read only brings the
+unread dot back. Mark all as read uses only the
 rendered activity snapshot, keeps newer activity unread, and offers Retry for failed writes.
 The toolbar likewise reflects Done/Reopen immediately; comments and replies appear while sending,
 with failed text kept in drafts. Destructive actions and access-setting changes wait for server
@@ -408,9 +411,14 @@ counts remain separate. The Unread filter includes all statuses and pages. Openi
 thread acknowledges it after 800 ms in a focused foreground window; inbox previews and longer
 collapsed threads require **Mark as read**: clicking the thread's blue unread dot. Reading never resolves
 feedback, and resolving never acknowledges it. The app shares the same member cursor and offers Unread
-and the same clickable dot. **Mark as unread** (the toolbar's Thread options, the app's More actions,
-offered once a thread with someone else's activity is read) makes the thread unread again; an open toolbar
-thread then stays unread until it is opened again.
+and the same clickable dot. The app's open thread is acknowledged the same way, after 800 ms on screen in a
+focused window: one you open from a row, a link or the board's sheet, and the first thread shown beside the
+list on wide screens, which is displayed in full. On a phone that first thread is not displayed, so it stays
+unread until you open it. Moving through the list with the arrow keys reads only the thread you stop on.
+With Only unread, the thread you are reading stays in the list while it is open and leaves when you open
+another. Already read threads send nothing; newer activity makes a thread unread again. **Mark as unread** (the toolbar's Thread options, the
+app's More actions, offered once a thread with someone else's activity is read) makes the thread unread
+again; an open toolbar or app thread then stays unread until it is opened again.
 
 **Mark all as read** in the app comments list/board or toolbar inbox acknowledges only the
 unread threads shown by the current filters. Replies arriving after that list was rendered stay
@@ -458,7 +466,8 @@ On Vercel, an expanded, visible, online embedded review subscribes to comment ch
 WebSocket. The app's project list and board use the same subscription client. A notification
 refreshes authorized data in place; pending comments/replies, drafts, focus and open thread state
 are preserved. Reconnect subscribes first and then refetches, so changes during a deployment or
-network gap are recovered. It never marks comments read automatically.
+network gap are recovered. The refresh itself never marks comments read; only a thread open on screen
+reads the new activity it shows, after the same 800 ms as on opening.
 
 While connected, the toolbar keeps one safety round every 60 seconds. If WebSockets are blocked
 or unavailable, the adaptive 15/30/60-second cadence above applies. The app has a 30-second fallback

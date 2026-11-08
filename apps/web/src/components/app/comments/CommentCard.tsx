@@ -73,6 +73,7 @@ import { updateNotificationAction } from './notificationActions';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
 import { integrationLabels, kindLabels } from './commentLabels';
 import { useCommentUpdate } from './CommentUpdates';
+import { useReadWhenShown } from './useReadWhenShown';
 import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
@@ -184,9 +185,10 @@ function MessageText({ text, edited }: { text: string; edited: boolean }) {
 /**
  * A project comment in the app's list and board, laid out like the toolbar's thread: status, number,
  * who it is assigned to and actions (following the thread among them) on one row, then the messages,
- * the linked issues, and the page it was left on at the bottom
+ * the linked issues, and the page it was left on at the bottom. It is the open thread: once it has been
+ * on screen for a moment it is marked read (`useReadWhenShown`), except after Mark as unread.
  */
-export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve, onBack, startVerifying = false, className }: {
+export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve, onBack, onReadWhenShown, startVerifying = false, className }: {
     projectId: string;
     comment: ProjectCommentView;
     /** Review link that opens the page at this comment */
@@ -198,6 +200,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     onResolve?: (resolved: boolean) => ResolveExit;
     /** Back to the list, where the thread takes the whole width (a phone): the button is shown only then */
     onBack?: () => void;
+    /** The thread is being marked read because it was shown */
+    onReadWhenShown?: () => void;
     /** Opens with the Request verification form (a card dropped on Ready to verify) */
     startVerifying?: boolean;
     className?: string;
@@ -230,6 +234,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const unread = Boolean(comment.activity?.unread);
     // Only someone else's activity can be unread
     const canMarkUnread = !unread && Boolean(comment.activity?.lastOtherSequence);
+    // Mark as unread keeps the thread unread while it stays open; opening it again reads it
+    const [keptUnread, setKeptUnread] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+    useReadWhenShown(cardRef, projectId, comment, { enabled: !keptUnread, onRead: onReadWhenShown });
     const assigned = comment.assignee
         ? `Assigned to ${comment.assignee.id === userId ? 'you' : comment.assignee.name}`
         : 'Unassigned';
@@ -322,7 +330,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
     const { anchor } = comment;
     return (
-        <Card role="article" aria-label={label} className={cn('@container/comment gap-0 py-0', className)}>
+        <Card ref={cardRef} role="article" aria-label={label} className={cn('@container/comment gap-0 py-0', className)}>
             <div className="flex flex-col gap-4 px-4 py-3">
                 {/* Status, public id and unread on the left; Copy and More actions on the right, on one line at any width */}
                 <div className="flex items-center gap-2">
@@ -373,8 +381,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         {comment.following ? 'Unfollow thread' : 'Follow thread'}
                                     </DropdownMenuItem>
                                     {canMarkUnread && (
-                                        <DropdownMenuItem onClick={() => run(() => markCommentUnreadAction(projectId, comment.id), undefined,
-                                            { activity: { ...comment.activity!, readSequence: Math.max(0, comment.activity!.lastOtherSequence - 1), unread: true } })}>
+                                        <DropdownMenuItem onClick={() => {
+                                            setKeptUnread(true);
+                                            run(() => markCommentUnreadAction(projectId, comment.id), undefined,
+                                                { activity: { ...comment.activity!, readSequence: Math.max(0, comment.activity!.lastOtherSequence - 1), unread: true } });
+                                        }}>
                                             <MailIcon />
                                             Mark as unread
                                         </DropdownMenuItem>
