@@ -12,7 +12,8 @@ actions that check the session and the role every time.
 
 The app is a sidebar layout (shadcn/ui `Sidebar`, inset variant): the workspace at the top (a menu switches
 between workspaces, creates a new one and, for admins, opens the workspace settings), the active projects for quick switching (their header links to all projects and, for
-admins, to a new one), and at the bottom Clients (once a project has a client), Users (admins), "Give feedback"
+admins, to a new one; its sort menu orders them by recent activity or alphabetically and, once a project has a
+client, groups them under their clients, remembered in the `__Host-uier_project_order` cookie), and at the bottom Clients (once a project has a client), Users (admins), "Give feedback"
 (uier's own toolbar, see [public feedback](#landing-page-showcase-and-public-feedback)) and the account menu
 (account, theme, sign out). It
 collapses to icons on desktop (`Ctrl/Cmd+B`) and opens as a sheet on small screens. A top bar holds the

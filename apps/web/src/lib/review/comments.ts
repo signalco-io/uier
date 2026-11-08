@@ -10,6 +10,7 @@ import { idempotencyKeySchema, type ReattachAnchorInput } from '../comments/vali
 import { projectOrigins } from '../app/projects';
 
 import type { OriginFilter } from '../repo/originFilter';
+import type { VisibilityFilter } from '../repo/visibilityFilter';
 import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { moveMentions } from '@uier/toolbar/mentions';
@@ -23,7 +24,8 @@ import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, type RateLimitSubject } from '../comments/rateLimits';
 import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { KnownPages } from '../../knownPages';
+import { isPrivateAppFeedback, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from '../comments/publicProject';
 import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
 import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
@@ -69,6 +71,12 @@ function isAdmin(actor: ProjectActor) {
 
 export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path'>, actor: ProjectActor) {
     return !(comment.private || isPrivateAppFeedback(comment)) || isAdmin(actor) || isAuthor(comment.authorId, actor);
+}
+
+/** `canSeeComment` as a storage filter for the partition, for aggregates that never load threads (`undefined`: all) */
+export function commentVisibilityFilter(domain: string, actor: ProjectActor): VisibilityFilter | undefined {
+    if (isAdmin(actor)) return undefined;
+    return { authorId: actorAuthorId(actor), privatePath: domain === PUBLIC_PROJECT_PARTITION ? KnownPages.App : undefined };
 }
 
 export function canResolveComment(comment: DbComment, actor: ProjectActor) {

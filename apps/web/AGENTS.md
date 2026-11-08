@@ -348,7 +348,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects with a
-  Create project icon link in their header, then at the bottom Workspace (admins; for everyone else only when a
+  Create project icon link and a sort menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu), the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). uier's own workspace, which every account joins for Give feedback, is a
@@ -359,6 +359,16 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   then the `ProjectTabs`: Comments and Install (Settings → Installation and the onboarding install step) until a comment
   from one of the project's addresses arrives (`hasProjectFeedback`); after that there is nothing to switch between and
   the tabs are gone); its pages render the comments, install guide or settings under it.
+- **Sidebar project order.** `lib/app/sidebarProjects.ts` gives each active project its client and, only for Recent
+  activity, its latest activity: `CommentsStore.latestActivity`, one `MAX(c.updatedAt)` aggregate per project with
+  `canSeeComment`'s rule in the query (`commentVisibilityFilter`, `repo/visibilityFilter.ts`), else the project's
+  creation. Alphabetical reads no comments; choosing Recent saves the cookie in a server action, whose render reads
+  them. `lib/app/projectOrder.ts` (pure, shared by server render and browser) sorts with a fixed `en` collator and
+  code-unit comparisons for ids and timestamps, so both agree, and groups by client (clients ordered like their
+  projects, No client last). The choice is the HttpOnly `__Host-uier_project_order` cookie (`projectOrderCookie.ts`,
+  `saveProjectOrderAction`), read by the shell layout, so the first render is already in order. The shell layout
+  renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
+  [Cosmos query costs](../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `workspaceTabs`): Users, Teams, Clients, Activity and Settings for admins, Clients only for everyone else and in
   the uier workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
