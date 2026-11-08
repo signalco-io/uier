@@ -111,14 +111,18 @@ function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void
     );
 }
 
-/** Who the comment is assigned to: their avatar, as in the thread, or the user icon while unassigned (the toolbar's `CommentAssignee`) */
+/**
+ * Who the comment is assigned to: their avatar at 20px, smaller than the messages' so it sits in the
+ * line beside the name, or the same avatar empty with a dashed outline while unassigned (as a pending
+ * invitation's). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5`.
+ */
 function AssigneeAvatar({ assignee }: { assignee?: { name: string; avatarUrl?: string } }) {
     if (!assignee)
-        return <UserIcon aria-hidden="true" />;
+        return <Avatar aria-hidden="true" className="size-5 after:border-dashed after:border-foreground/30" />;
     return (
-        <Avatar size="sm" aria-hidden="true">
+        <Avatar aria-hidden="true" className="size-5">
             {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
-            <AvatarFallback className="font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
+            <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
         </Avatar>
     );
 }

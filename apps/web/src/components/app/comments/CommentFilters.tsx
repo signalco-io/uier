@@ -174,9 +174,10 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                     ))}
                 </ToggleGroup>
             </div>
-            {/* The toolbar inbox's status tabs; the board shows the three statuses side by side */}
+            {/* The toolbar inbox's status tabs; the board shows the three statuses side by side.
+                The scroller's padding gives the tabs room without adding to the rows' spacing. */}
             {view === 'list' && (
-                <div className="-mx-1 overflow-x-auto px-1 pb-0.5">
+                <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
                     <ToggleGroup size="sm" spacing={0.5} aria-label="Status" className={cn(segmentedGroup, 'w-max')} value={[status]}
                         onValueChange={([value]) => value && go({ status: value === 'open' ? undefined : value })}>
                         {(Object.keys(statusFilterLabels) as StatusFilter[]).map(value => (
