@@ -7,6 +7,7 @@ import { Checkbox } from '@signalco/ui-primitives/Checkbox';
 import { Chip } from '@signalco/ui-primitives/Chip';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { brand } from '@uier/brand';
+import { priorities } from '@uier/toolbar/triage';
 import { Logo } from '@uier/brand/Logo';
 import { Mark } from '@uier/brand/Mark';
 import { Pin } from '@uier/brand/Pin';
@@ -14,6 +15,7 @@ import { ThemeToggle } from '../../../../src/components/brand/ThemeToggle';
 import { TokenSwatch } from '../../../../src/components/brand/TokenSwatch';
 import { Badge as AppBadge } from '../../../../src/components/ui/badge';
 import { Button as AppButton } from '../../../../src/components/ui/button';
+import { PriorityLabel } from '../../../../src/components/app/comments/PriorityFlag';
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
 import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
@@ -154,8 +156,8 @@ export default function BrandPage() {
                     <TokenSwatch token="--primary" name="Primary" role="solid buttons, pins" />
                     <TokenSwatch token="--brand-accent" name="Blue" role="the accent (white text on it: 5.2:1)" />
                     <TokenSwatch token="--brand-success" name="Green" role="resolved" />
-                    <TokenSwatch token="--brand-warning" name="Amber" role="warning" />
-                    <TokenSwatch token="--destructive" name="Red" role="destructive" />
+                    <TokenSwatch token="--brand-warning" name="Amber" role="warning, High priority" />
+                    <TokenSwatch token="--destructive" name="Red" role="destructive, Urgent priority" />
                     <TokenSwatch token="--brand-selection" name="Selection" role="commented text or area" bordered />
                     <TokenSwatch token="--sidebar" name="Sidebar" role="the app's sidebar" bordered />
                     <TokenSwatch token="--sidebar-accent" name="Sidebar accent" role="sidebar hover, current item" />
@@ -277,6 +279,10 @@ export default function BrandPage() {
                             Done
                         </AppBadge>
                         <AppBadge variant="secondary">Bug report</AppBadge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                        {priorities.map(priority => <PriorityLabel key={priority} priority={priority} />)}
+                        <span className="text-muted-foreground">Priority: a flag in its colour, always beside its name. Lists and boards show it only when it is not Normal.</span>
                     </div>
                 </div>
             </Section>
