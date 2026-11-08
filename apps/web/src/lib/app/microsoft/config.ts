@@ -23,7 +23,9 @@ export function microsoftConfig() {
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET ?? '',
         authorizeUrl: localOverride(process.env.MICROSOFT_OAUTH_AUTHORIZE_URL, `${MICROSOFT_AUTHORITY}/common/oauth2/v2.0/authorize`),
         tokenUrl: localOverride(process.env.MICROSOFT_OAUTH_TOKEN_URL, `${MICROSOFT_AUTHORITY}/common/oauth2/v2.0/token`),
-        authority: localOverride(process.env.MICROSOFT_OAUTH_AUTHORITY, MICROSOFT_AUTHORITY)
+        authority: localOverride(process.env.MICROSOFT_OAUTH_AUTHORITY, MICROSOFT_AUTHORITY),
+        /** The signed-in person's photo in Microsoft Graph, read once with the sign-in's access token */
+        photoUrl: localOverride(process.env.MICROSOFT_GRAPH_PHOTO_URL, 'https://graph.microsoft.com/v1.0/me/photo/$value')
     };
 }
 

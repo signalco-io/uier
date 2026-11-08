@@ -16,16 +16,19 @@ import { beginMicrosoftSignIn, finishMicrosoftSignIn, microsoftIdTokenClaims, MI
 import { PASSKEY_RECENT_SIGN_IN_SECONDS } from '../src/lib/app/passkeys';
 import { microsoftTenant, startMicrosoftStub, type MicrosoftStub, type StubMicrosoftIdentity } from './support/microsoftStub';
 import { uniqueEmail } from './support/app';
+import { getAvatarImage, normalizeAvatar, saveUserAvatar, type AvatarImage } from '../src/lib/app/avatars';
+import { stubPicturePng } from './support/microsoftStub';
 
 const baseUrl = 'http://localhost:4004';
 const managedEnv = ['UIER_LOCAL', 'VERCEL', 'VERCEL_ENV', 'UIER_DEPLOYMENT_ENV', 'MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET',
-    'MICROSOFT_OAUTH_AUTHORIZE_URL', 'MICROSOFT_OAUTH_TOKEN_URL', 'MICROSOFT_OAUTH_AUTHORITY'];
+    'MICROSOFT_OAUTH_AUTHORIZE_URL', 'MICROSOFT_OAUTH_TOKEN_URL', 'MICROSOFT_OAUTH_AUTHORITY', 'MICROSOFT_GRAPH_PHOTO_URL'];
 const test = base.extend<{ microsoft: MicrosoftStub }>({ microsoft: async ({}, use) => {
     const saved = Object.fromEntries(managedEnv.map(name => [name, process.env[name]]));
     const stub = await startMicrosoftStub();
     for (const name of ['VERCEL', 'VERCEL_ENV', 'UIER_DEPLOYMENT_ENV']) delete process.env[name];
     Object.assign(process.env, { UIER_LOCAL: '1', MICROSOFT_CLIENT_ID: stub.clientId, MICROSOFT_CLIENT_SECRET: stub.clientSecret,
-        MICROSOFT_OAUTH_AUTHORIZE_URL: `${stub.url}/common/oauth2/v2.0/authorize`, MICROSOFT_OAUTH_TOKEN_URL: `${stub.url}/token`, MICROSOFT_OAUTH_AUTHORITY: stub.url });
+        MICROSOFT_OAUTH_AUTHORIZE_URL: `${stub.url}/common/oauth2/v2.0/authorize`, MICROSOFT_OAUTH_TOKEN_URL: `${stub.url}/token`, MICROSOFT_OAUTH_AUTHORITY: stub.url,
+        MICROSOFT_GRAPH_PHOTO_URL: stub.photoUrl });
     try { await use(stub); } finally {
         await stub.close();
         for (const [name, value] of Object.entries(saved)) {
@@ -90,6 +93,34 @@ test('first sign-in proves a chosen inbox; linked sign-in follows tenant and sub
     await unlinkMicrosoftAccount(result!.user.id);
     expect(await findUserByMicrosoftSubject(account.subject)).toBeNull();
     expect((await viaMicrosoft(microsoft, { sub, email })).outcome.kind).toBe('confirm_email');
+});
+
+test('the Microsoft photo is read with the sign-in access token on a first sign-in or when connecting, never stored with it', async ({ microsoft }) => {
+    // A first sign-in: the photo waits with the pending link, the access token does not
+    const email = uniqueEmail('microsoft-photo');
+    const binding = pending((await viaMicrosoft(microsoft, { sub: randomUUID(), photo: true })).outcome);
+    const link = (await getMicrosoftLink(binding))!;
+    expect(link.picture).toMatchObject({ size: 32 });
+    expect(JSON.stringify(link)).not.toContain('microsoft-test-access');
+    expect(microsoft.photoCalls.at(-1)).toEqual({ authorized: true });
+    const proof = await emailRequest(email, link.id);
+    const result = (await confirmSignInCode(proof.requestId, proof.code, proof.binding))!;
+    const avatar = (await getUser(result.user.id))!.avatar!;
+    expect(avatar.source).toBe('microsoft');
+    expect(await getAvatarImage(result.user.id, avatar.version)).toMatchObject({ size: 32 });
+
+    // Connecting from Account: only an account without a picture takes the photo; no photo leaves initials
+    const recent = { signedInAt: Math.floor(Date.now() / 1000) };
+    const owner = await findOrCreateUser(uniqueEmail('microsoft-photo-owner'));
+    await saveUserAvatar(owner.id, await normalizeAvatar(stubPicturePng) as AvatarImage, 'upload');
+    expect((await viaMicrosoft(microsoft, { photo: true }, { link: { ...recent, userId: owner.id } })).outcome).toEqual({ kind: 'linked' });
+    expect((await getUser(owner.id))!.avatar?.source).toBe('upload');
+    const plain = await findOrCreateUser(uniqueEmail('microsoft-photo-plain'));
+    expect((await viaMicrosoft(microsoft, { photo: true }, { link: { ...recent, userId: plain.id } })).outcome).toEqual({ kind: 'linked' });
+    expect((await getUser(plain.id))!.avatar?.source).toBe('microsoft');
+    const none = await findOrCreateUser(uniqueEmail('microsoft-photo-none'));
+    expect((await viaMicrosoft(microsoft, {}, { link: { ...recent, userId: none.id } })).outcome).toEqual({ kind: 'linked' });
+    expect((await getUser(none.id))!.avatar).toBeUndefined();
 });
 
 test('Microsoft email never grants an existing account, including personal Microsoft addresses', async ({ microsoft }) => {

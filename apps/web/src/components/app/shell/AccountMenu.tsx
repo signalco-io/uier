@@ -4,7 +4,6 @@ import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,7 +20,7 @@ import {
 } from '@/src/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/src/components/ui/sidebar';
 import { KnownPages } from '@/src/knownPages';
-import { initials } from '../initials';
+import { PersonAvatar } from '../PersonAvatar';
 import { signOutAction } from './actions';
 import { clearAppReplyDrafts } from '../comments/replyDrafts';
 
@@ -32,16 +31,14 @@ export const themeOptions = [
 ] as const;
 
 /** The signed-in person at the bottom of the sidebar: account, theme and sign out */
-export function AccountMenu({ name, email }: { name: string; email: string }) {
+export function AccountMenu({ name, email, avatarUrl }: { name: string; email: string; avatarUrl?: string }) {
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
 
     const person = (
         <>
-            <Avatar aria-hidden="true">
-                <AvatarFallback>{initials(name)}</AvatarFallback>
-            </Avatar>
+            <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" />
             <span className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{name}</span>
                 <span className="truncate text-xs text-muted-foreground">{email}</span>

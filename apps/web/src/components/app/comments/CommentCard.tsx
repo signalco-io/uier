@@ -34,7 +34,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle
 } from '@/src/components/ui/alert-dialog';
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
@@ -87,7 +87,7 @@ import {
     setCommentPrivateAction,
 } from './actions';
 
-export type AssigneeOption = { userId: string; name: string };
+export type AssigneeOption = { userId: string; name: string; avatarUrl?: string };
 
 export type { ResolveExit } from './useStatusChange';
 
@@ -116,11 +116,12 @@ function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void
  * line beside the name, or the same avatar empty with a dashed outline while unassigned (as a pending
  * invitation's). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5`.
  */
-function AssigneeAvatar({ assignee }: { assignee?: { name: string } }) {
+function AssigneeAvatar({ assignee }: { assignee?: { name: string; avatarUrl?: string } }) {
     if (!assignee)
         return <Avatar aria-hidden="true" className="size-5 after:border-dashed after:border-foreground/30" />;
     return (
         <Avatar aria-hidden="true" className="size-5">
+            {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
             <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
         </Avatar>
     );
@@ -140,11 +141,13 @@ function KindLabel({ kind }: { kind: DbCommentKind }) {
 }
 
 /** One message of the thread: the avatar makes the column, as in the toolbar's thread */
-function Message({ author, avatarName, createdAt, meta, actions, children }: {
+function Message({ author, avatarName, avatarUrl, createdAt, meta, actions, children }: {
     /** As shown: "You" for your own messages */
     author: string;
     /** The person's name, for the avatar's initial ("You" would make every own avatar a Y) */
     avatarName: string;
+    /** Their profile picture, when they have one */
+    avatarUrl?: string;
     createdAt?: string;
     /** After the time: the screen and browser the comment was left from */
     meta?: ReactNode;
@@ -154,6 +157,7 @@ function Message({ author, avatarName, createdAt, meta, actions, children }: {
     return (
         <div className="flex gap-2.5">
             <Avatar size="sm" aria-hidden="true" className="mt-0.5">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
                 <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -283,7 +287,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const reply = (item: ProjectCommentMessage) => {
         const name = item.author.isMe ? 'You' : item.author.name;
         return (
-            <Message author={name} avatarName={item.author.name} createdAt={item.createdAt}
+            <Message author={name} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
                 actions={!item.deleted && (item.canDelete || item.canFilterAuthor) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
@@ -463,7 +467,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                             <DropdownMenuItem
                                                 key={option.userId}
                                                 onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
-                                                    { assignee: { id: option.userId, name: option.name } })}>
+                                                    { assignee: { id: option.userId, name: option.name, avatarUrl: option.avatarUrl } })}>
                                                 {option.name}
                                                 {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
                                             </DropdownMenuItem>
@@ -494,7 +498,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-3 border-t p-0 pt-4">
                     <li>
-                        <Message author={comment.deleted ? 'Deleted' : author} avatarName={comment.author.name} createdAt={comment.createdAt}
+                        <Message author={comment.deleted ? 'Deleted' : author} avatarName={comment.author.name} avatarUrl={comment.author.avatarUrl} createdAt={comment.createdAt}
                             meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
                             <KindLabel kind={comment.kind} />
                             {comment.deleted

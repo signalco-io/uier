@@ -18,7 +18,8 @@ import { GOOGLE_ACCOUNT_ID, googleIdentityPk, googleLinkPk, googleSignInPk, type
 import { beginGoogleSignIn, finishGoogleSignIn, googleIdTokenClaims, googleIsAuthoritative, GOOGLE_SIGN_IN_TTL_SECONDS,
     type GoogleSignInOutcome } from '../src/lib/app/google/signIn';
 import { PASSKEY_RECENT_SIGN_IN_SECONDS } from '../src/lib/app/passkeys';
-import { googleSubject, startGoogleStub, type GoogleStub, type StubGoogleIdentity } from './support/googleStub';
+import { googleSubject, startGoogleStub, stubPicturePng, type GoogleStub, type StubGoogleIdentity } from './support/googleStub';
+import { getAvatarImage, normalizeAvatar, removeUserAvatar, saveUserAvatar, type AvatarImage } from '../src/lib/app/avatars';
 import { uniqueEmail } from './support/app';
 
 const baseUrl = 'http://localhost:4004';
@@ -124,6 +125,43 @@ test('rule 3: a new Gmail address creates the account with its Google name and l
     expect(await getGoogleAccount(user.id)).toMatchObject({ sub, email });
     expect((await findUserByGoogleSubject(sub))?.id).toBe(user.id);
     expect((await getAppStore().get<DbUserIdentity>(googleIdentityPk(sub), sub))?.doc).toMatchObject({ userId: user.id, provider: 'google' });
+});
+
+test('Google\'s picture becomes the avatar on a first sign-in or when connecting, never over an existing picture', async ({ google }) => {
+    // Rule 3: the first sign-in of a Gmail account
+    const sub = googleSubject();
+    const first = signedIn((await viaGoogle(google, { sub, email: gmail('google-picture'), picture: google.pictureUrl })).outcome);
+    const imported = (await getUser(first.userId))!.avatar!;
+    expect(imported.source).toBe('google');
+    expect(await getAvatarImage(first.userId, imported.version)).toMatchObject({ contentType: 'image/webp', size: 32 });
+    // Later sign-ins bring nothing back, also once the person removed it
+    await removeUserAvatar(first.userId);
+    signedIn((await viaGoogle(google, { sub, picture: google.pictureUrl })).outcome);
+    expect((await getUser(first.userId))!.avatar).toBeUndefined();
+
+    // Connecting from Account: only an account without a picture takes Google's
+    const uploaded = await normalizeAvatar(stubPicturePng) as AvatarImage;
+    const owner = await findOrCreateUser(uniqueEmail('google-picture-owner'));
+    await saveUserAvatar(owner.id, uploaded, 'upload');
+    expect((await viaGoogle(google, { email: gmail('google-picture-owner'), picture: google.pictureUrl }, { linkUserId: owner.id })).outcome).toEqual({ kind: 'linked' });
+    expect((await getUser(owner.id))!.avatar?.source).toBe('upload');
+    const plain = await findOrCreateUser(uniqueEmail('google-picture-plain'));
+    expect((await viaGoogle(google, { email: gmail('google-picture-plain'), picture: google.pictureUrl }, { linkUserId: plain.id })).outcome).toEqual({ kind: 'linked' });
+    expect((await getUser(plain.id))!.avatar?.source).toBe('google');
+
+    // Rule 4: the picture waits with the pending link until the email proof links the account
+    const email = uniqueEmail('google-picture-proof');
+    const existing = await findOrCreateUser(email);
+    const binding = confirmEmail((await viaGoogle(google, { email, picture: google.pictureUrl })).outcome);
+    expect((await getGoogleLink(binding))?.picture).toMatchObject({ size: 32 });
+    expect((await getUser(existing.id))!.avatar).toBeUndefined();
+    const proof = await emailRequest(email, (await googleLinkIdFor(binding, email))!);
+    expect(await confirmSignInCode(proof.requestId, proof.code, proof.binding)).toMatchObject({ method: 'google' });
+    expect((await getUser(existing.id))!.avatar?.source).toBe('google');
+
+    // An address that is not on Google's image servers is never fetched
+    const foreign = signedIn((await viaGoogle(google, { email: gmail('google-picture-foreign') }, { claims: { picture: 'https://attacker.example/me.png' } })).outcome);
+    expect((await getUser(foreign.userId))!.avatar).toBeUndefined();
 });
 
 test('rule 1: a linked account signs in by subject only, and a changed Google email never changes the uier email', async ({ google }) => {

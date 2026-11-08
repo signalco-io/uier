@@ -6,7 +6,10 @@ import { pathToFileURL } from 'node:url';
 // carry a placeholder signature: uier takes them straight from the token endpoint and does not check
 // signatures (docs/google-sign-in.md), so the stub needs no key.
 
-export type StubGoogleIdentity = { sub?: string; email?: string; email_verified?: boolean | string; hd?: string; name?: string };
+/** `picture`: the ID token's picture claim, such as `pictureUrl` of the stub (which serves `stubPicturePng`) */
+/** A small blue PNG (48 × 32) the stand-in hands out as a profile picture */
+export const stubPicturePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAADAAAAAgCAIAAADbtmxLAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAASUlEQVRYhe2WAQkAQAwCF8eIRrxYH2PPOFgAET03KV/drCuIgtChmqHYMtbxE8GIDtUMxZaxDqH4oKFDNUOxZcghBGOdjhwe1wfNGXB53KQxUAAAAABJRU5ErkJggg==', 'base64');
+export type StubGoogleIdentity = { sub?: string; email?: string; email_verified?: boolean | string; hd?: string; name?: string; picture?: string };
 export type GoogleStub = Awaited<ReturnType<typeof startGoogleStub>>;
 type Grant = { challenge: string; nonce: string; redirectUri: string; identity: StubGoogleIdentity; claims?: Record<string, unknown> };
 
@@ -39,7 +42,8 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
         return [base64url({ alg: 'RS256', kid: 'google-stub', typ: 'JWT' }), base64url({
             iss: url, azp: clientId, aud: clientId, sub: identity.sub ?? googleSubject(), email: identity.email,
             email_verified: identity.email_verified ?? true, ...(identity.hd ? { hd: identity.hd } : {}),
-            ...(identity.name ? { name: identity.name } : {}), nonce: grant.nonce, iat: now, exp: now + 3600, ...grant.claims
+            ...(identity.name ? { name: identity.name } : {}), ...(identity.picture ? { picture: identity.picture } : {}),
+            nonce: grant.nonce, iat: now, exp: now + 3600, ...grant.claims
         }), Buffer.from('google-stub-signature').toString('base64url')].join('.');
     }
 
@@ -55,6 +59,11 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
         try {
             const target = new URL(request.url!, url || 'http://127.0.0.1');
             if (target.pathname === '/') return send(response, { ready: true });
+            // Google serves profile pictures from its image servers; the stub serves one PNG for every address
+            if (target.pathname.startsWith('/picture/') && request.method === 'GET') {
+                response.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': String(stubPicturePng.length), 'Cache-Control': 'no-store' });
+                return response.end(stubPicturePng);
+            }
             if (target.pathname === '/o/oauth2/v2/auth' && request.method === 'GET') {
                 const params = target.searchParams;
                 const challenge = params.get('code_challenge') ?? '';
@@ -73,6 +82,7 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
 <p><label><input name="email_verified" type="checkbox" value="true" checked> Email verified</label></p>
 <p><label>Hosted domain <input name="hd"></label></p>
 <p><label>Name <input name="name"></label></p>
+<p><label>Picture <input name="picture"></label></p>
 <button name="decision" value="allow">Allow</button> <button name="decision" value="deny">Cancel</button>
 </form></main></body></html>`);
             }
@@ -88,7 +98,8 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
                     const code = randomUUID();
                     codes.set(code, { challenge: flow.challenge, nonce: flow.nonce, redirectUri: flow.redirectUri, identity: {
                         sub: params.get('sub') || undefined, email: params.get('email') || undefined,
-                        email_verified: params.get('email_verified') === 'true', hd: params.get('hd') || undefined, name: params.get('name') || undefined
+                        email_verified: params.get('email_verified') === 'true', hd: params.get('hd') || undefined, name: params.get('name') || undefined,
+                        picture: params.get('picture') || undefined
                     } });
                     redirect.searchParams.set('code', code);
                     redirect.searchParams.set('scope', 'openid email profile');
@@ -122,6 +133,8 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
 
     return {
         url, clientId, clientSecret, tokenCalls,
+        /** A profile picture address on the stub, for the `picture` claim */
+        pictureUrl: `${url}/picture/a/stub-picture=s96-c`,
         /** Approves the authorization request at `authorizeUrl` as `identity`, like the consent screen; `claims` override ID token claims */
         approve(authorizeUrl: string, identity: StubGoogleIdentity, claims?: Record<string, unknown>) {
             const params = new URL(authorizeUrl).searchParams;

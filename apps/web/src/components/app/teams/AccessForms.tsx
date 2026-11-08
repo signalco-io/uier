@@ -41,7 +41,7 @@ import {
     teamStateAction
 } from './actions';
 
-export type AccessPerson = { member: DbMember; name: string };
+export type AccessPerson = { member: DbMember; name: string; avatarUrl?: string };
 export type AccessData = { access: AccessSnapshot; projects: DbProject[]; people: AccessPerson[]; revision: number };
 
 export function CheckList({

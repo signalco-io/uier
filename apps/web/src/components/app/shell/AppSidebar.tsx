@@ -64,7 +64,7 @@ function NavItem({ href, label, icon: Icon, current }: { href: string; label: st
  */
 export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, projects, hasClients }: {
     isAdmin: boolean;
-    user: { name: string; email: string };
+    user: { name: string; email: string; avatarUrl?: string };
     workspaces: WorkspaceOption[];
     currentWorkspaceId: string;
     /** Active projects, newest first */
@@ -148,7 +148,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
             </SidebarContent>
             <SidebarFooter>
                 <FeedbackButton />
-                <AccountMenu name={user.name} email={user.email} />
+                <AccountMenu name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

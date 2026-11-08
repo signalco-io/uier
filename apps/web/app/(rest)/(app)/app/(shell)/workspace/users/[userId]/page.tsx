@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/src/components/ui/empty';
@@ -10,7 +9,7 @@ import { requireTeamAdmin, managementData } from '@/src/components/app/teams/man
 import { MemberAccessForm } from '@/src/components/app/teams/AccessForms';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
-import { initials } from '@/src/components/app/initials';
+import { PersonAvatar } from '@/src/components/app/PersonAvatar';
 import { projectAccessSources } from '@/src/lib/app/access';
 import { KnownPageLinks } from '@/src/knownPages';
 
@@ -36,9 +35,7 @@ export default async function PersonPage({ params }: PageProps<'/app/workspace/u
         <>
             <PageHeader
                 media={(
-                    <Avatar aria-hidden="true" className="size-14">
-                        <AvatarFallback className="text-lg">{initials(person.name)}</AvatarFallback>
-                    </Avatar>
+                    <PersonAvatar name={person.name} avatarUrl={person.avatarUrl} aria-hidden="true" className="size-14" fallbackClassName="text-lg" />
                 )}
                 title={person.name}
                 description={(

@@ -4,7 +4,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import { BugIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
 import { priorityLabels } from '@uier/toolbar/triage';
 import { cn } from '@/src/lib/utils';
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
@@ -111,6 +111,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
                         )}
                         {comment.assignee && (
                             <Avatar size="sm" className="size-5" aria-label={`Assigned to ${comment.assignee.name}`} role="img">
+                                {comment.assignee.avatarUrl && <AvatarImage src={comment.assignee.avatarUrl} alt="" />}
                                 <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(comment.assignee.name)}</AvatarFallback>
                             </Avatar>
                         )}

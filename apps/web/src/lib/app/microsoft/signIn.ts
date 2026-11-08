@@ -12,6 +12,7 @@ import { microsoftConfig, microsoftRedirectUri, isMicrosoftSignInConfigured, isM
 import { boundMicrosoftRecordId, microsoftBindingToken } from './cookie';
 import { findUserByMicrosoftSubject, linkMicrosoftAccount, refreshMicrosoftAccountEmail } from './identity';
 import { createMicrosoftLink } from './link';
+import { fetchProviderPicture, importProviderAvatar, pendingPicture } from '../avatars';
 import { microsoftSignInPk, type DbMicrosoftSignIn } from './model';
 
 export const MICROSOFT_SIGN_IN_TTL_SECONDS = 10 * 60;
@@ -148,7 +149,15 @@ async function exchangeCode(code: string, verifier: string, redirectUri: string)
     catch { throw new MicrosoftSignInError('token_exchange'); }
     if (!object(body))
         throw new MicrosoftSignInError('token_exchange');
-    return body.id_token;
+    // The access token only reads the person's photo (`microsoftPhoto`) during this callback; it is never stored
+    const accessToken = typeof body.access_token === 'string' && body.access_token.length > 0 && body.access_token.length <= 16_384
+        ? body.access_token : undefined;
+    return { idToken: body.id_token, accessToken };
+}
+
+/** The Microsoft Graph photo of the person who just signed in, or `null` (none, or the token cannot read it) */
+function microsoftPhoto(accessToken: string | undefined) {
+    return accessToken ? fetchProviderPicture(microsoftConfig().photoUrl, { Authorization: `Bearer ${accessToken}` }) : Promise.resolve(null);
 }
 
 export type MicrosoftProblem = 'cancelled' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again';
@@ -195,9 +204,12 @@ export async function finishMicrosoftSignIn(input: {
         return problem('sign_in_again');
 
     let claims: MicrosoftClaims | null;
+    let accessToken: string | undefined;
     try {
         const config = microsoftConfig();
-        claims = await microsoftIdTokenClaims(await exchangeCode(input.code, pkceVerifier(flow.id, input.state), microsoftRedirectUri(input.baseUrl)),
+        const tokens = await exchangeCode(input.code, pkceVerifier(flow.id, input.state), microsoftRedirectUri(input.baseUrl));
+        accessToken = tokens.accessToken;
+        claims = await microsoftIdTokenClaims(tokens.idToken,
             { clientId: config.clientId, authority: config.authority, nonceHash: flow.nonceHash });
     } catch {
         // Never log the code, the token response or the error: they can carry credentials
@@ -207,6 +219,8 @@ export async function finishMicrosoftSignIn(input: {
         return problem('failed');
     if (linking) {
         const result = await linkMicrosoftAccount(flow.linkUserId!, { subject: claims.subject, email: claims.email ?? '' });
+        // Connecting Microsoft brings its photo to an account without a picture
+        if (result === 'linked') await importProviderAvatar(flow.linkUserId!, 'microsoft', () => microsoftPhoto(accessToken));
         return result === 'linked' ? { kind: 'linked' } : problem(result);
     }
     // Only the linked tenant + subject identifies a user. Claims never grant email access.
@@ -216,6 +230,7 @@ export async function finishMicrosoftSignIn(input: {
         return { kind: 'signed_in', userId: linked.id, next };
     }
     // First sign-in always proves a user-chosen inbox, even for outlook.com addresses.
-    const pending = await createMicrosoftLink({ subject: claims.subject, email: claims.email ?? '' }, next);
+    // The account is chosen later, so the photo is read now and waits with the link
+    const pending = await createMicrosoftLink({ subject: claims.subject, email: claims.email ?? '', picture: pendingPicture(await microsoftPhoto(accessToken)) }, next);
     return { kind: 'confirm_email', binding: pending.binding };
 }
