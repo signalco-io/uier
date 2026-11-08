@@ -10,8 +10,11 @@ export { AVATAR_SIZE, avatarInputTypes, MAX_AVATAR_UPLOAD_BYTES };
 /** Pictures fetched from a sign-in provider */
 export const MAX_PROVIDER_PICTURE_BYTES = 2 * 1024 * 1024;
 export const PROVIDER_PICTURE_TIMEOUT_MS = 5_000;
-/** About 8000 × 6000: decoding stops before a larger image is expanded in memory */
-const MAX_INPUT_PIXELS = 50_000_000;
+/**
+ * About 24 MP (a 24 MP phone photo, 5712 × 4284, is 24.5 MP): decoding stops before a larger image
+ * is expanded in memory for what becomes at most 256 px
+ */
+const MAX_INPUT_PIXELS = 25_000_000;
 /** A 256 px WebP is far smaller; the cap keeps documents small whatever the input */
 const MAX_STORED_BYTES = 96 * 1024;
 const versionPattern = /^[A-Za-z0-9_-]{21}$/;

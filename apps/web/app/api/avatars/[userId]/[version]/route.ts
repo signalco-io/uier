@@ -21,7 +21,8 @@ export async function GET(request: Request, { params }: RouteContext<'/api/avata
     const data = Buffer.from(avatar.data, 'base64');
     return new Response(new Uint8Array(data), {
         headers: {
-            'Content-Type': avatar.contentType,
+            // Every stored picture is WebP (`normalizeAvatar`); never echo a type from storage
+            'Content-Type': 'image/webp',
             'Content-Length': String(data.length),
             'Cache-Control': 'private, max-age=31536000, immutable',
             'Content-Disposition': 'inline',

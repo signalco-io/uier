@@ -178,7 +178,8 @@ export default function PrivacyPolicyPage() {
                     your profile picture, if you upload one on your Account page or one comes from Google or Microsoft (below).
                     We keep only a copy we make: a square of at most 256 pixels, without the original file or its
                     metadata. Signed-in people of the app see it where your name is shown. Replacing or removing it
-                    deletes the previous copy at once;
+                    deletes the previous copy from our storage at once; browsers that already showed it may keep
+                    their own cached copy;
                 </li>
                 <li>when your account was created;</li>
                 <li>your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.</li>

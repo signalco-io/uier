@@ -90,8 +90,10 @@ test('anything but a PNG, JPEG, WebP or GIF image within the limits is refused, 
     expect(await normalizeAvatar(Buffer.concat([png.subarray(0, 16), Buffer.alloc(64, 7)]))).toBe(avatarErrors.unreadable);
     const tooLarge = Buffer.concat([png, Buffer.alloc(MAX_AVATAR_UPLOAD_BYTES)]);
     expect(await normalizeAvatar(tooLarge)).toBe(avatarErrors.tooLarge(MAX_AVATAR_UPLOAD_BYTES));
-    // Decoding stops at the pixel limit instead of expanding a huge image
-    const huge = await sharp({ create: { width: 10_000, height: 6_000, channels: 3, background: '#000' } }).png({ compressionLevel: 9 }).toBuffer();
+    // A 24 MP phone photo decodes; decoding stops at the pixel limit instead of expanding a larger image
+    const plain = (width: number, height: number) => sharp({ create: { width, height, channels: 3, background: '#000' } }).png({ compressionLevel: 9 }).toBuffer();
+    expect(await normalizeAvatar(await plain(5712, 4284))).toMatchObject({ size: AVATAR_SIZE });
+    const huge = await plain(6000, 4400);
     expect(huge.length).toBeLessThan(MAX_AVATAR_UPLOAD_BYTES);
     expect(await normalizeAvatar(huge)).toBe(avatarErrors.unreadable);
 });
