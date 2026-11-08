@@ -115,12 +115,13 @@
             "semanticCommitScope": "infra"
         },
         {
-            "description": "Stay on the Node.js 24 runtime (.nvmrc, engines, @types/node, Vercel nodeVersion in infra/src/vercel.ts); move all of them to the next major together, by hand",
+            "description": "Stay on the Node.js 26 runtime (.nvmrc, engines, @types/node, setup-node versions in workflows, Vercel nodeVersion in infra/src/vercel.ts and .github/vercel-project.json); move all of them to the next major together, by hand. setup-node versions are looked up as actions/node-versions",
             "matchPackageNames": [
                 "@types/node",
-                "node"
+                "node",
+                "actions/node-versions"
             ],
-            "allowedVersions": "24.x"
+            "allowedVersions": "26.x"
         },
         {
             "description": "Keep the pnpm version (root and infra/ packageManager) in sync in one PR",

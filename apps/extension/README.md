@@ -6,7 +6,7 @@ The release runbook records the app installation-link rollout.
 The [design and hosted gate](../../docs/browser-extension.md) records security boundaries, local
 loading and remaining publication work. Licensed AGPL-3.0-only; shared toolbar/brand remain MIT.
 
-From the repository root, use Node 24 and the pinned Corepack pnpm:
+From the repository root, use Node 26 and the pinned Corepack pnpm:
 
 - `pnpm build`: production API package, with all executable resources bundled.
 - `pnpm -C apps/extension build:test`: separate unpacked local test package.

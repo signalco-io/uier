@@ -199,7 +199,7 @@ and [diagnostic guidance](https://azuresdkdocs.z19.web.core.windows.net/javascri
 
 ## Reproduce safely
 
-Use Node 24, the locked dependencies, and an authenticated Azure CLI principal with scoped Cosmos
+Use Node 26, the locked dependencies, and an authenticated Azure CLI principal with scoped Cosmos
 data-plane roles. The script uses `AzureCliCredential` and never retrieves account keys. No
 container/account is created or modified and no Pulumi command is invoked.
 

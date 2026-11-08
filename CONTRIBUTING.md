@@ -10,7 +10,7 @@ and steps to reproduce it. For a security problem, follow [SECURITY.md](SECURITY
 
 ## Setting up
 
-Start with the [README quick start](README.md#run-locally). You need Node.js 24 and pnpm through
+Start with the [README quick start](README.md#run-locally). You need Node.js 26 and pnpm through
 Corepack. No database or email credentials are needed for local development.
 
 [Local development and testing](docs/development.md) covers environment variables, ports, browser

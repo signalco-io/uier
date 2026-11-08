@@ -82,7 +82,7 @@ page can hide or interfere with any injected UI, but cannot acquire extension cr
 
 ## Local loading
 
-1. Run Node 24 and the pinned Corepack pnpm. Run pnpm install, then pnpm build.
+1. Run Node 26 and the pinned Corepack pnpm. Run pnpm install, then pnpm build.
 2. For local API acceptance run pnpm -C apps/extension build:test. This separate artifact has a
    fixed development public key and only http://127.0.0.1:4004/* host access by default. Set the
    same `PORT` for `build:test` and `test:browser` to isolate concurrent local runs. Never upload it.

@@ -18,7 +18,7 @@ export function vercelApp(prefix: string, name: string, {
     ignoreCommand?: string;
     outputDirectory?: string;
     rootDirectory?: string;
-    nodeVersion?: '22.x' | '24.x';
+    nodeVersion?: '22.x' | '24.x' | '26.x';
     protect?: boolean;
 }) {
     const project = new Project(`vercel-${prefix}`, {
@@ -45,7 +45,7 @@ export function nextJsApp(prefix: string, name: string, rootDirectory?: string, 
     return vercelApp(prefix, name, {
         framework: 'nextjs',
         rootDirectory,
-        nodeVersion: '24.x',
+        nodeVersion: '26.x',
         protect,
     });
 }

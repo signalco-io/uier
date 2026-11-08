@@ -230,7 +230,7 @@ publish gate while retaining the validated build artifact; it cannot request Goo
 Do not create a release tag merely to test an implementation PR.
 
 The workflow resolves the tag using main's validator, checks main ancestry and version, then builds
-and tests that exact commit with Node 24, pinned pnpm and frozen dependencies. Every action is pinned
+and tests that exact commit with Node 26, pinned pnpm and frozen dependencies. Every action is pinned
 by SHA. It validates packaged resources, creates a deterministic ZIP, SHA-256/source inventory,
 executes broker/release tests, and tests the **unchanged ZIP** in persistent Chromium. Build artifacts,
 listing artwork and browser results are retained for 90 days. A dry-run has no Google authentication

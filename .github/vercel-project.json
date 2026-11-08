@@ -5,9 +5,9 @@
   "settings": {
     "framework": "nextjs",
     "rootDirectory": "apps/web",
-    "nodeVersion": "24.x",
-    "buildCommand": "cd ../.. && corepack pnpm build",
-    "installCommand": "corepack pnpm install --frozen-lockfile",
+    "nodeVersion": "26.x",
+    "buildCommand": "cd ../.. && pnpm build",
+    "installCommand": "pnpm install --frozen-lockfile",
     "outputDirectory": null
   }
 }

@@ -88,7 +88,7 @@ export default function OpenSourcePage() {
                         <p>Open an <InlineLink href={brand.issues}>issue on GitHub</InlineLink>. Security problems go to <InlineLink href={`mailto:${brand.contact.security}`}>{brand.contact.security}</InlineLink> instead.</p>
                     </Tile>
                     <Tile title="Run it locally">
-                        <p>Node.js 24 and pnpm, then <code className="font-mono">pnpm install</code> and <code className="font-mono">pnpm dev</code>. No database needed: comments stay in memory.</p>
+                        <p>Node.js 26 and pnpm, then <code className="font-mono">pnpm install</code> and <code className="font-mono">pnpm dev</code>. No database needed: comments stay in memory.</p>
                     </Tile>
                     <Tile title="Open a pull request">
                         <p>Against <code className="font-mono">main</code>, with Conventional Commits. Typecheck, build and end-to-end tests run on every pull request.</p>
