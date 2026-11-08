@@ -50,7 +50,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
                     authorFilter={author?.filter}
                     userId={context.user.id}
                     installHref={KnownPageLinks.projectInstall(project.id)}
-                    assignees={members.map(({ member, name }) => ({ userId: member.userId, name }))} />
+                    assignees={members.map(({ member, name, avatarUrl }) => ({ userId: member.userId, name, avatarUrl }))} />
             </section>
         </>
     );

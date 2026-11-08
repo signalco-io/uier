@@ -99,14 +99,30 @@ signed in by email and lands on Account → Sign-in with `google=taken`.
 | Document (`type`) | `pk` | `id` | Lifetime |
 | --- | --- | --- | --- |
 | `google-sign-in`: state and nonce hashes, return path, linking user | `google-sign-in:<id>` | 64 random hex | 10 minutes, used up by the callback |
-| `google-link`: `sub` and the verified address waiting for an email code | `google-link:<id>` | 64 random hex | 15 minutes, used up when linked |
+| `google-link`: `sub` and the verified address waiting for an email code, and the [picture](#profile-picture) if the account has none | `google-link:<id>` | 64 random hex | 15 minutes, used up when linked |
 | `user-identity`: the unique `sub` → user claim | `identity:google:<sub>` | Google's `sub` | until unlinked |
 | `google-account`: the user's linked `sub`, its address for display, when it was linked | `user:<userId>` | `google` | until unlinked |
 
 A link writes the user's record first and then the claim, like `findOrCreateUser`. Unlinking
 deletes the user's record first, so sign-in (which needs both to agree) stops even if deleting the
-claim fails; such a leftover claim is replaced by the next link. Google's picture, tokens and other
-profile fields are not stored.
+claim fails; such a leftover claim is replaced by the next link. Google's tokens and other profile
+fields are not stored; its picture only as below.
+
+## Profile picture
+
+When a sign-in links Google to an account (rule 3, the email proof of rule 4, or Account linking)
+and the account has no [profile picture](api.md#profile-pictures), the ID token's `picture` becomes
+it. A returning sign-in (rule 1) never imports, so a removed picture stays removed, and an uploaded
+or earlier picture is never replaced (`importProviderAvatar`, then `saveUserAvatar` with
+`keepExisting`, which checks again in the same batch).
+
+`googlePictureUrl` accepts only `https:` addresses on `*.googleusercontent.com` without a port or
+credentials, and asks for 256 pixels (`=s96-c` becomes `=s256-c`); any other value is ignored, so the
+server only ever fetches Google's own image servers. `fetchProviderPicture` follows no redirects,
+gives up after five seconds, accepts PNG, JPEG, WebP or GIF up to 2 MB and re-encodes the image like
+an upload. Failures leave initials and never fail the sign-in. For rule 4 the normalized picture is
+fetched at the callback (unless the address's account already has one) and waits in the
+`google-link` record until the email proof links it.
 
 ## Where the button shows
 
@@ -154,6 +170,7 @@ in `playwright.config.ts`, which points `GOOGLE_OAUTH_AUTHORIZE_URL`, `GOOGLE_OA
 `GOOGLE_OAUTH_ISSUER` at it; these overrides work only in local runtime). `e2e/google-sign-in.api.spec.ts`
 covers every linking rule, state, nonce and PKCE replay and expiry, missing and foreign browser
 bindings, a `sub` linked to another user, the ID token checks, return paths, rate limits and the
-routes, including the recent sign-in rule for linking. `e2e/google-sign-in.spec.ts` (full suite) signs
+routes, including the recent sign-in rule for linking, and when Google's picture is imported (the stub
+serves one PNG for its `pictureUrl`). `e2e/google-sign-in.spec.ts` (full suite) signs
 in through the stub with a non-Gmail address, confirms it by email code, unlinks on Account and
 cancels a consent.

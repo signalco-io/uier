@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="5 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="8 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -55,7 +55,7 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>
                     Commenting on {brand.domain} needs no account. If you sign in to the {brand.name} app, we store your
-                    email address and name to sign you in and show who you work with. If you sign in with Google, we
+                    email address, name and, if you have one, profile picture to sign you in and show who you work with. If you sign in with Google, we
                     also store your Google account id and address. If you sign in with Microsoft, we store a
                     hash of your Microsoft identity and its suggested email address.
                 </li>
@@ -174,6 +174,12 @@ export default function PrivacyPolicyPage() {
             <p>When you sign in to the {brand.name} app at {brand.domain}/app, we store:</p>
             <ul>
                 <li>your email address, and the name shown with your work (it starts as the part of your email before the @, and you can change it);</li>
+                <li>
+                    your profile picture, if you upload one on your Account page or one comes from Google or Microsoft (below).
+                    We keep only a copy we make: a square of at most 256 pixels, without the original file or its
+                    metadata. Signed-in people of the app see it where your name is shown. Replacing or removing it
+                    deletes the previous copy at once;
+                </li>
                 <li>when your account was created;</li>
                 <li>your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.</li>
             </ul>
@@ -194,10 +200,12 @@ export default function PrivacyPolicyPage() {
                 email address and whether Google verified it, your Google Workspace domain if you have one, your name and
                 your profile picture. We store the account id, that address (shown on your Account page) and when you
                 linked the account. An account created for a Gmail or Google Workspace address takes your Google name
-                as its display name. We do not store your picture or any Google token. During sign-in we keep hashes of
+                as its display name. When you first sign in with Google or link it, and your account has no picture
+                yet, we copy your Google profile picture once as your picture; later sign-ins never change it. We do
+                not store any Google token. During sign-in we keep hashes of
                 the values that tie Google&rsquo;s answer to your request for up to 10 minutes, and the HttpOnly
                 <code>__Host-uier_google_sign_in</code> cookie ties them to your browser. For any other address, we keep
-                the Google account id and address for up to 15 minutes while you confirm the address with an email
+                the Google account id, address and that copy of your picture for up to 15 minutes while you confirm the address with an email
                 code; the Google account is linked only in the browser that asked. We count Google sign-in attempts per
                 IP address. Linking Google from your Account page needs a sign-in from the last 10 minutes. You can
                 unlink Google there at any time; email sign-in stays available.
@@ -206,10 +214,12 @@ export default function PrivacyPolicyPage() {
                 If you choose Sign in with Microsoft, you sign in at Microsoft with a work, school or personal
                 account. Microsoft tells us your account and tenant ids, a suggested email or username and profile
                 details. We store a hash of your sign-in identity, its suggested address for display and when you
-                linked it. We store no Microsoft tokens or other profile details. Your first sign-in confirms an
+                linked it. When you first sign in with Microsoft or link it, and your account has no picture yet, we
+                use that sign-in&rsquo;s access token once to copy your Microsoft profile photo, if you have one, as
+                your picture. We store no Microsoft tokens or other profile details. Your first sign-in confirms an
                 email address you choose before linking; an email claim alone never grants access to your account.
-                We keep sign-in hashes for up to 10 minutes and an identity waiting for email confirmation for up
-                to 15 minutes. The HttpOnly <code>__Host-uier_microsoft_sign_in</code> cookie binds these to your
+                We keep sign-in hashes for up to 10 minutes and an identity waiting for email confirmation, with
+                that copy of your photo, for up to 15 minutes. The HttpOnly <code>__Host-uier_microsoft_sign_in</code> cookie binds these to your
                 browser. Only the browser that requested the email can link the identity. We count starts per IP
                 address. Linking from Account needs a sign-in from the last 10 minutes. You can unlink Microsoft
                 there at any time; email sign-in stays available.
@@ -571,6 +581,7 @@ export default function PrivacyPolicyPage() {
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account and workspace: until you ask us to delete them.</li>
+                <li>Your profile picture: until you replace or remove it on your Account page, or with your account.</li>
                 <li>Projects: until a workspace admin deletes them or you ask us to. Deletion intents contain only identifiers and expire one day after the deletion completes; the reserved code and public id contain no names or content and are kept.</li>
                 <li>Comments in projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>

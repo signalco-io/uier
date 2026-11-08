@@ -113,7 +113,7 @@ export default defineConfig({
                 GOOGLE_OAUTH_ISSUER: googleStubUrl,
                 MICROSOFT_CLIENT_ID: 'microsoft-test-client', MICROSOFT_CLIENT_SECRET: 'microsoft-test-secret',
                 MICROSOFT_OAUTH_AUTHORIZE_URL: `${microsoftStubUrl}/common/oauth2/v2.0/authorize`, MICROSOFT_OAUTH_TOKEN_URL: `${microsoftStubUrl}/token`,
-                MICROSOFT_OAUTH_AUTHORITY: microsoftStubUrl,
+                MICROSOFT_OAUTH_AUTHORITY: microsoftStubUrl, MICROSOFT_GRAPH_PHOTO_URL: `${microsoftStubUrl}/v1.0/me/photo/$value`,
             },
         },
     ],

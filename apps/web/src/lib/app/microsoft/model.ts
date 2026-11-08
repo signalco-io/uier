@@ -1,4 +1,5 @@
 import type { AppDoc } from '../model';
+import type { PendingPicture } from '../avatars';
 
 /**
  * A Microsoft sign-in in progress (`ttl` 10 minutes). The browser holds only its id in a signed
@@ -29,6 +30,11 @@ export type DbMicrosoftLink = AppDoc & {
     /** Suggested address only, never mailbox proof. May be empty. */
     email: string;
     next?: string;
+    /**
+     * The Microsoft profile photo, fetched with the sign-in's access token at the callback (the
+     * token itself is never stored), for an account without a picture once the link completes
+     */
+    picture?: PendingPicture;
     createdAt: string;
     ttl: number;
 };

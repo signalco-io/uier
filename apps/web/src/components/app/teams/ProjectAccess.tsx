@@ -4,13 +4,12 @@ import type { AppContext } from '@/src/lib/app/context';
 import type { DbProject } from '@/src/lib/app/model';
 import { projectAccessGrants, type ProjectAccessGrant } from '@/src/lib/app/access';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from 'cn';
 import { buttonVariants } from '@/src/components/ui/button';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Section } from '../PageHeader';
-import { initials } from '../initials';
+import { PersonAvatar } from '../PersonAvatar';
 import { ProjectMark } from '../projects/ProjectMark';
 import { managementData } from './management';
 import { ProjectTeamButton, RemoveProjectAccess } from './AccessForms';
@@ -144,9 +143,7 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
                             {people.map(({ person, grants }) => (
                                 <Item key={person.member.id} role="listitem" size="sm" className="rounded-none">
                                     <ItemMedia className={centeredMedia}>
-                                        <Avatar aria-hidden="true">
-                                            <AvatarFallback>{initials(person.name)}</AvatarFallback>
-                                        </Avatar>
+                                        <PersonAvatar name={person.name} avatarUrl={person.avatarUrl} aria-hidden="true" />
                                     </ItemMedia>
                                     <ItemContent className="min-w-40">
                                         <ItemTitle>

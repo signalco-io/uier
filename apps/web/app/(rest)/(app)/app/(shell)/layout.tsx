@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { AppSidebar } from '@/src/components/app/shell/AppSidebar';
+import { avatarUrl } from '@/src/lib/app/avatars';
 import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { loadWorkspaceAccessForRender } from '@/src/lib/app/access';
@@ -23,7 +24,7 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
             <InviteProvider teams={teams} enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
                 <AppSidebar
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
-                    user={{ name: context.user.name, email: context.user.email }}
+                    user={{ name: context.user.name, email: context.user.email, avatarUrl: avatarUrl(context.user) }}
                     currentWorkspaceId={context.workspace.id}
                     workspaces={context.memberships.map(({ workspace, member }) => {
                         // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it

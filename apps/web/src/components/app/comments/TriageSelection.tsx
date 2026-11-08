@@ -26,7 +26,7 @@ function patchFor(operation: TriageOperation, assignees: AssigneeOption[]): Part
     if (operation.kind === 'status') return { resolved: operation.resolved };
     if (operation.kind === 'priority') return { priority: operation.priority };
     const person = assignees.find(person => person.userId === operation.assigneeId);
-    return { assignee: operation.assigneeId ? { id: operation.assigneeId, name: person?.name ?? 'Former member' } : undefined };
+    return { assignee: operation.assigneeId ? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl } : undefined };
 }
 function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): BulkTriageInput {
     if (operation.kind === 'priority') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.priority, idempotencyKey: crypto.randomUUID() })) };

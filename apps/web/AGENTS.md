@@ -12,10 +12,10 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, My work, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `avatars.ts` (profile pictures; `avatarLimits.ts` is safe for the browser), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
-| `src/components/app/` | app UI: `PageHeader` (`media` sits left of the title and description together: a project's favicon, a person's avatar)/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
+| `src/components/app/` | app UI: `PageHeader` (`media` sits left of the title and description together: a project's favicon, a person's avatar)/`Section` (titled cards), `PersonAvatar` (a person's picture with their initial as fallback), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
 | `src/lib/comments/submissions.ts` | create/reply receipts: actor/partition scoped, 30-day TTL, content conflicts, atomic Cosmos batch with the write; no text/image in receipts |
 | `src/lib/review/`, `app/api/review/` | the review API of a project's toolbar: reviewers (`actor.ts`), project comments and their permissions (`comments.ts`), CORS for the project's sites (`http.ts`), BotID proofs (`verification.ts`), routes |
 | `app/review-verification/` | empty, frameable BotID bridge; validates the parent origin on the server and returns a five-minute proof bound to origin, project and reviewer; only this and the session bridge can be framed |
@@ -405,11 +405,22 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   unchanged `updateProjectEmailExcerptsAction`). `setProjectEmailsMutedAction` mutes through `setProjectMuted` and
   revalidates the app; Account → Notifications lists every visible project of the workspace with the same switch.
 - **Account** (`account/`) uses the same `SettingsLayout` and `Section` cards: General (the account page
-  itself: profile, appearance, workspace access, which lists only what is set: role, then relationship and teams when
+  itself: profile (picture and name), appearance, workspace access, which lists only what is set: role, then relationship and teams when
   there are any, then projects), Sign-in (Google, Microsoft, passkeys, sign out), Notifications (each project's emails)
   and Coding agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
   linking outcomes land on Sign-in, and the breadcrumbs end with the section. A change to `SettingsLayout`
   applies to both settings.
+- **Profile pictures** (`lib/app/avatars.ts`, [API](../../docs/api.md#profile-pictures)): Account's Profile uploads,
+  changes and removes one at once through `POST`/`DELETE /api/account/avatar` (a route, not an action: a
+  multipart body, a same-origin `Origin` check, then the session; the page calls `router.refresh()`). The server
+  sniffs PNG/JPEG/WebP/GIF, caps 4 MB and 50 MP, and Sharp re-encodes a centre square of at most 256 px as WebP.
+  The image is a `user-avatar` document in the user's partition, swapped with `user.avatar` in one `transact`
+  batch; never write a user document without its etag, or a stale copy drops the reference. `avatarUrl(user)` gives
+  `/api/avatars/<userId>/<version>` (random version, immutable, private cache, any signed-in viewer). Show a person
+  with `PersonAvatar` (`name`, `avatarUrl`): the initial stays the fallback. Lists get `avatarUrl` from
+  `listMembersWithUsers`; comment views only for current project members; the review API and toolbar have none.
+  Google and Microsoft sign-in import the provider's picture on a first sign-in or link, only while the account has
+  none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
   first line, author, what it was left on, page path, then priority other than Normal, status other than Open,
   the assignee's avatar, age and the unread dot) beside the open thread (`CommentCard.tsx`). The open thread is
@@ -601,7 +612,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   address, new or existing, first proves its inbox with a browser-bound email code (`googleLinkId` on the sign-in
   request, `google-link` record): never create an account for it from Google alone (stale verification would
   pre-hijack it). Account links (only with a sign-in from the last 10 minutes, the passkeys' `requireRecentSignIn` on
-  `sessionSignedInAt`, checked at the start and again at the callback) and unlinks; a `sub` of another user is refused. The button shows only in
+  `sessionSignedInAt`, checked at the start and again at the callback) and unlinks; a `sub` of another user is refused.
+  A link (any rule, or Account) brings Google's `picture` to an account without one; `googlePictureUrl` allows only
+  `https://*.googleusercontent.com`, and a returning sign-in never imports. The button shows only in
   production and local runtime; endpoint overrides work only locally. `google-sign-in{,.api}.spec.ts` use
   `e2e/support/googleStub.ts`.
 - **Microsoft sign-in** (`src/lib/app/microsoft/`, [setup and identity rules](../../docs/microsoft-sign-in.md))
@@ -613,7 +626,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `email` or `preferred_username`; first sign-in always proves a chosen inbox with the existing email
   code flow. Only the explicit confirmation form attaches the browser's `microsoftLinkId`; a link
   opened in another browser signs in by email and links nothing. A linked identity signs in directly
-  and never changes the uier email. Account can link/unlink one Microsoft identity. Production/local
+  and never changes the uier email. Account can link/unlink one Microsoft identity. The callback's access token reads
+  Graph's `/me/photo/$value` once (no extra scope) for an account without a picture; a pending link keeps only the
+  normalized photo, never the token. Production/local
   only; endpoint overrides are local-only. Tests: `microsoft-sign-in{,.api}.spec.ts`, `microsoftStub.ts`.
 - Passkeys (`src/lib/app/passkeys.ts`; `PasskeySignIn` on sign-in, `PasskeysSection` on Account) use
   `@simplewebauthn/server` and `/browser` with the RP ID and origin of `appBaseUrl()` (none on an IP

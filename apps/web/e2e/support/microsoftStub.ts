@@ -5,7 +5,10 @@ import { pathToFileURL } from 'node:url';
 
 // Local Microsoft OIDC stand-in with real RS256 signatures and tenant-scoped JWKS.
 export const microsoftTenant = '11111111-2222-3333-4444-555555555555';
-export type StubMicrosoftIdentity = { sub?: string; email?: string; preferred_username?: string; name?: string };
+/** A small blue PNG (48 × 32) the stand-in hands out as a profile picture */
+export const stubPicturePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAADAAAAAgCAIAAADbtmxLAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAASUlEQVRYhe2WAQkAQAwCF8eIRrxYH2PPOFgAET03KV/drCuIgtChmqHYMtbxE8GIDtUMxZaxDqH4oKFDNUOxZcghBGOdjhwe1wfNGXB53KQxUAAAAABJRU5ErkJggg==', 'base64');
+/** `photo`: Microsoft Graph has a photo of this person (the stub serves `stubPicturePng` for its access token) */
+export type StubMicrosoftIdentity = { sub?: string; email?: string; preferred_username?: string; name?: string; photo?: boolean };
 export type MicrosoftStub = Awaited<ReturnType<typeof startMicrosoftStub>>;
 type Grant = { challenge: string; nonce: string; redirectUri: string; identity: StubMicrosoftIdentity; claims?: Record<string, unknown> };
 
@@ -29,6 +32,9 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
     const flows = new Map<string, { redirectUri: string; state: string; challenge: string; nonce: string }>();
     const codes = new Map<string, Grant>();
     const tokenCalls: { code: string; status: number }[] = [];
+    /** Access tokens the stub issued, and whether Graph has a photo for their person */
+    const accessTokens = new Map<string, boolean>();
+    const photoCalls: { authorized: boolean }[] = [];
     let url = '';
 
     async function idToken(grant: Grant) {
@@ -58,6 +64,16 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
             if (/^\/[0-9a-f-]{36}\/discovery\/v2\.0\/keys$/.test(target.pathname))
                 return send(response, { keys: [{ ...jwk, issuer: `${url}/{tenantid}/v2.0` }] });
             if (target.pathname === '/') return send(response, { ready: true });
+            // Microsoft Graph's `/me/photo/$value`, for the person of an access token the stub issued
+            if (target.pathname === '/v1.0/me/photo/$value' && request.method === 'GET') {
+                const token = /^Bearer (.+)$/.exec(request.headers.authorization ?? '')?.[1];
+                const photo = token ? accessTokens.get(token) : undefined;
+                photoCalls.push({ authorized: photo !== undefined });
+                if (photo === undefined) return send(response, { error: { code: 'InvalidAuthenticationToken' } }, 401);
+                if (!photo) return send(response, { error: { code: 'ImageNotFound' } }, 404);
+                response.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': String(stubPicturePng.length), 'Cache-Control': 'no-store' });
+                return response.end(stubPicturePng);
+            }
             if (target.pathname === '/common/oauth2/v2.0/authorize' && request.method === 'GET') {
                 const params = target.searchParams;
                 const challenge = params.get('code_challenge') ?? '';
@@ -74,6 +90,7 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
 <p><label>Subject <input name="sub" value="${microsoftSubject()}"></label></p>
 <p><label>Email <input name="email" type="email"></label></p>
 <p><label>Name <input name="name"></label></p>
+<p><label><input name="photo" type="checkbox" value="true"> Has a photo</label></p>
 <button name="decision" value="allow">Allow</button> <button name="decision" value="deny">Cancel</button>
 </form></main></body></html>`);
             }
@@ -89,7 +106,7 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
                     const code = randomUUID();
                     codes.set(code, { challenge: flow.challenge, nonce: flow.nonce, redirectUri: flow.redirectUri, identity: {
                         sub: params.get('sub') || undefined, email: params.get('email') || undefined,
-                        name: params.get('name') || undefined
+                        name: params.get('name') || undefined, photo: params.get('photo') === 'true'
                     } });
                     redirect.searchParams.set('code', code);
                     redirect.searchParams.set('scope', 'openid email profile');
@@ -110,7 +127,9 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
                     || createHash('sha256').update(params.get('code_verifier') ?? '').digest('base64url') !== grant.challenge)
                     return reject(400, 'invalid_grant');
                 tokenCalls.push({ code, status: 200 });
-                return send(response, { access_token: `microsoft-test-access-${randomUUID()}`, expires_in: 3599, token_type: 'Bearer',
+                const accessToken = `microsoft-test-access-${randomUUID()}`;
+                accessTokens.set(accessToken, grant.identity.photo === true);
+                return send(response, { access_token: accessToken, expires_in: 3599, token_type: 'Bearer',
                     scope: 'openid https://www.microsoftapis.com/auth/userinfo.email https://www.microsoftapis.com/auth/userinfo.profile', id_token: await idToken(grant) });
             }
             return send(response, { error: 'not_found' }, 404);
@@ -122,7 +141,9 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
     url = `http://127.0.0.1:${address.port}`;
 
     return {
-        url, clientId, clientSecret, tokenCalls, issueToken,
+        url, clientId, clientSecret, tokenCalls, issueToken, photoCalls,
+        /** Microsoft Graph's photo address on the stub (`MICROSOFT_GRAPH_PHOTO_URL`) */
+        photoUrl: `${url}/v1.0/me/photo/$value`,
         /** Approves the authorization request at `authorizeUrl` as `identity`, like the consent screen; `claims` override ID token claims */
         approve(authorizeUrl: string, identity: StubMicrosoftIdentity, claims?: Record<string, unknown>) {
             const params = new URL(authorizeUrl).searchParams;

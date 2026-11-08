@@ -37,9 +37,12 @@ export function appActor(context: AppContext): ProjectActor {
     return { kind: 'member', userId: context.user.id, name: context.user.name, isAdmin: context.isAdmin };
 }
 
+/** `avatarUrl`: the profile picture of a member who can still review the project, when they have one */
+export type ProjectCommentAuthor = { name: string; isMe: boolean; avatarUrl?: string };
+
 export type ProjectCommentMessage = {
     id: string;
-    author: { name: string; isMe: boolean };
+    author: ProjectCommentAuthor;
     text: string;
     createdAt?: string;
     deleted: boolean;
@@ -77,10 +80,10 @@ export type ProjectCommentView = {
     verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
     resolved: boolean;
     private: boolean;
-    assignee?: { id: string; name: string };
+    assignee?: { id: string; name: string; avatarUrl?: string };
     eligibleAssigneeIds: string[];
     /** Author of the comment (its first message) */
-    author: { name: string; isMe: boolean };
+    author: ProjectCommentAuthor;
     /** Text of the first message; empty when its author deleted it (`deleted`) */
     text: string;
     displayText: string;
@@ -109,7 +112,16 @@ function anchorView(comment: DbComment, first: import('../db/schema').DbThreadIt
     return anchor.type === 'text' && first.deletedAt ? { ...anchor, text: '' } : anchor;
 }
 
-function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0): ProjectCommentView | null {
+/** The pictures of the project's current members, by user id: only people who can still review it show theirs */
+function memberAvatars(members: Awaited<ReturnType<typeof listProjectMembers>>) {
+    return new Map(members.flatMap(({ member, avatarUrl }) => avatarUrl ? [[member.userId, avatarUrl] as const] : []));
+}
+
+function authorAvatar(item: import('../db/schema').DbThreadItem, avatars: Map<string, string>) {
+    return item.authorId?.startsWith('user:') && !item.deletedAt ? avatars.get(item.authorId.slice('user:'.length)) : undefined;
+}
+
+function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members)): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
     if (!first)
@@ -141,10 +153,10 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         resolved: comment.resolved === true,
         private: comment.private === true,
         eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
-        assignee,
+        assignee: assignee && { ...assignee, avatarUrl: avatars.get(assignee.id) },
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false }
-            : { name: itemAuthorName(first, names), isMe: Boolean(myId) && first.authorId === myId },
+            : { name: itemAuthorName(first, names), isMe: Boolean(myId) && first.authorId === myId, avatarUrl: authorAvatar(first, avatars) },
         text: first.deletedAt ? '' : first.text,
         displayText: first.deletedAt ? '' : mentionText(first, participants),
         quotedText: first.deletedAt ? undefined : first.quotedText,
@@ -154,7 +166,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(first.authorId ?? comment.authorId) && !first.deletedAt,
         replies: replies.map(reply => ({
             id: String(reply.id),
-            author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId },
+            author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId, avatarUrl: authorAvatar(reply, avatars) },
             text: reply.deletedAt ? '' : mentionText(reply, participants),
             quotedText: reply.deletedAt ? undefined : reply.quotedText,
             createdAt: reply.createdAt,
@@ -186,8 +198,9 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
     ]);
     const [names, integrationLinks] = await Promise.all([authorNames(comments), loadIntegrationLinks(project, actor, comments)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
+    const avatars = memberAvatars(members);
     const views = comments
-        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id)))
+        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id), avatars))
         .filter((view): view is ProjectCommentView => Boolean(view));
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));
     const participated = new Set(comments.filter(comment => isNotificationParticipant(comment, `user:${context.user.id}`)).map(comment => comment.id));

@@ -6,11 +6,13 @@ import { getAppStore } from '../store';
 import { isRandomToken, randomToken, sha256Hex } from '../tokens';
 import { safeNextPath } from '../signIn';
 import { requireRecentSignIn } from '../passkeys';
-import { emailSchema, findOrCreateUserWithStatus, nameSchema, updateUserName } from '../users';
+import { emailSchema, findOrCreateUserWithStatus, findUserByEmail, nameSchema, updateUserName } from '../users';
+import { fetchProviderPicture, importProviderAvatar, pendingPicture } from '../avatars';
 import { googleConfig, googleRedirectUri, isGoogleSignInConfigured } from './config';
 import { boundGoogleRecordId, googleBindingToken } from './cookie';
 import { findUserByGoogleSubject, isGoogleSubject, linkGoogleAccount, refreshGoogleAccountEmail } from './identity';
 import { createGoogleLink } from './link';
+import { googlePictureUrl } from './picture';
 import { googleSignInPk, type DbGoogleSignIn } from './model';
 
 export const GOOGLE_SIGN_IN_TTL_SECONDS = 10 * 60;
@@ -81,7 +83,8 @@ export async function beginGoogleSignIn(input: { next?: string; link?: { userId:
     return { url: url.href, binding: googleBindingToken('flow', id, GOOGLE_SIGN_IN_TTL_SECONDS) };
 }
 
-export type GoogleClaims = { sub: string; email?: string; emailVerified: boolean; hd?: string; name?: string };
+/** `picture`: Google's profile picture address (`googlePictureUrl`), when the token has one */
+export type GoogleClaims = { sub: string; email?: string; emailVerified: boolean; hd?: string; name?: string; picture?: string };
 
 function object(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -105,7 +108,7 @@ export function googleIdTokenClaims(token: unknown, expected: { clientId: string
     if (!object(claims))
         return null;
 
-    const { iss, aud, azp, exp, iat, nonce, sub, email, email_verified: emailVerified, hd, name } = claims;
+    const { iss, aud, azp, exp, iat, nonce, sub, email, email_verified: emailVerified, hd, name, picture } = claims;
     const audiences = typeof aud === 'string' ? [aud] : Array.isArray(aud) ? aud : [];
     const seconds = now / 1000;
     if (typeof iss !== 'string' || !expected.issuers.includes(iss)
@@ -122,7 +125,8 @@ export function googleIdTokenClaims(token: unknown, expected: { clientId: string
         // Google sends a boolean; older tokens used the string
         emailVerified: emailVerified === true || emailVerified === 'true',
         hd: typeof hd === 'string' ? hd.toLowerCase() : undefined,
-        name: typeof name === 'string' ? name : undefined
+        name: typeof name === 'string' ? name : undefined,
+        picture: googlePictureUrl(picture)
     };
 }
 
@@ -206,9 +210,13 @@ export async function finishGoogleSignIn(input: {
         return problem('failed');
     const parsedEmail = emailSchema.safeParse(claims.email);
     const email = claims.emailVerified && parsedEmail.success ? parsedEmail.data : undefined;
+    const picture = claims.picture;
+    // Connecting Google, or signing in with it for the first time, brings its picture to an account without one
+    const importPicture = (userId: string) => picture ? importProviderAvatar(userId, 'google', () => fetchProviderPicture(picture)) : undefined;
 
     if (linking) {
         const result = await linkGoogleAccount(flow.linkUserId!, { sub: claims.sub, email: parsedEmail.data ?? '' });
+        if (result === 'linked') await importPicture(flow.linkUserId!);
         return result === 'linked' ? { kind: 'linked' } : problem(result);
     }
 
@@ -231,11 +239,14 @@ export async function finishGoogleSignIn(input: {
         if (created && name.success)
             await updateUserName(user.id, name.data);
         const result = await linkGoogleAccount(user.id, { sub: claims.sub, email });
+        if (result === 'linked') await importPicture(user.id);
         return result === 'linked' ? { kind: 'signed_in', userId: user.id, next } : problem(result);
     }
     // 4. Any other address proves its inbox once with an email code, with or without an account:
     // Google's verification of it can be stale (a former employee, a re-registered domain), and an
     // account created for it now would be waiting, already linked, for its real owner.
-    const pending = await createGoogleLink({ sub: claims.sub, email }, next);
+    // The picture waits with the link (fetched now, while Google's address is at hand) unless the account has one
+    const waiting = picture && !(await findUserByEmail(email))?.avatar ? pendingPicture(await fetchProviderPicture(picture)) : undefined;
+    const pending = await createGoogleLink({ sub: claims.sub, email, picture: waiting }, next);
     return { kind: 'confirm_email', binding: pending.binding };
 }

@@ -8,7 +8,9 @@ available. Account → Sign-in → Microsoft account lets people link or unlink 
 ## Register the application
 
 Use a separate Entra app registration from Azure Boards. Login requests only `openid email profile`;
-it requests no Microsoft Graph or Azure DevOps access, refresh tokens or Boards permissions.
+it requests no further Microsoft Graph or Azure DevOps access, refresh tokens or Boards permissions.
+The access token those scopes return is used once, during the callback, to read the person's photo
+(see [Profile picture](#profile-picture)).
 The existing Boards app supports organizational accounts, whereas login also accepts personal accounts.
 
 1. In [Microsoft Entra app registrations](https://entra.microsoft.com/), create an application named
@@ -71,7 +73,7 @@ redirects with bounded outcome names and never copies OAuth codes or state to it
 | Document | Partition | Lifetime |
 | --- | --- | --- |
 | `microsoft-sign-in`: hashes, safe return path, optional linking user | `microsoft-sign-in:<id>` | 10 minutes |
-| `microsoft-link`: hashed identity, suggested email, return path | `microsoft-link:<id>` | 15 minutes |
+| `microsoft-link`: hashed identity, suggested email, return path, normalized photo (never the token) | `microsoft-link:<id>` | 15 minutes |
 | `user-identity`: hashed identity → user | `identity:microsoft:<hash>` | Until unlinked |
 | `microsoft-account`: hashed identity, suggested address, linked time | `user:<userId>`, id `microsoft` | Until unlinked |
 
@@ -79,12 +81,27 @@ The signed HttpOnly `__Host-uier_microsoft_sign_in` cookie binds both pending re
 browser with different token purposes. It uses Secure, SameSite=Lax and Path=/ outside local HTTP
 development. The callback clears it; email confirmation and `startSession` clear it again.
 
+## Profile picture
+
+When the callback links Microsoft from Account, or creates the pending link of a first sign-in, the
+access token from the token response reads `GET https://graph.microsoft.com/v1.0/me/photo/$value`
+once (`fetchProviderPicture`: no redirects, five seconds, PNG, JPEG, WebP or GIF up to 2 MB,
+re-encoded like an upload). The token is then dropped, never stored or logged. The normalized photo
+becomes the account's [profile picture](api.md#profile-pictures) only while it has none: at once
+when linking from Account, or from the `microsoft-link` record when the email proof links the
+identity. Returning sign-ins never import, so a removed picture stays removed.
+
+Reading the photo needs the token to carry Graph's `User.Read`, which Entra registrations list by
+default; without it, or without a photo, Graph answers 401/403/404 and the account keeps its
+initials. uier does not request extra scopes for it.
+
 ## Local tests
 
 `e2e/support/microsoftStub.ts` supplies authorization, token and tenant JWKS endpoints with real RSA
-signatures. Playwright starts it on `PORT + 8000`. The three `MICROSOFT_OAUTH_*` overrides
-(`AUTHORIZE_URL`, `TOKEN_URL`, `AUTHORITY`) accept loopback addresses only in local runtime and
-are ignored on deployments. Infrastructure rejects these overrides.
+signatures, and Graph's photo endpoint for its own access tokens (`photo: true` identities).
+Playwright starts it on `PORT + 8000`. The three `MICROSOFT_OAUTH_*` overrides (`AUTHORIZE_URL`,
+`TOKEN_URL`, `AUTHORITY`) and `MICROSOFT_GRAPH_PHOTO_URL` accept loopback addresses only in local
+runtime and are ignored on deployments. Infrastructure rejects these overrides.
 
 After `pnpm build`, run:
 
@@ -93,7 +110,7 @@ PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test microsoft-sign-in.api.sp
 ```
 
 The API suite covers signatures and claims, tenant isolation, callback replay/expiry/binding,
-mailbox proof, Account session freshness, conflicts, configuration and route guards. Browser tests
+mailbox proof, Account session freshness, conflicts, configuration, route guards and photo import. Browser tests
 exercise first and returning sign-in, editable/missing addresses, unlinking, Account linking,
 cancellation and accessibility. Local stand-ins do not prove a real Entra registration or live rollout.
 

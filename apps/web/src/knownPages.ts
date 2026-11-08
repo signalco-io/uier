@@ -20,6 +20,8 @@ export const KnownPages = {
     ExtensionDemo: '/extension-demo.html',
     Notifications: '/notifications',
     NotificationUnsubscribe: '/api/notifications/unsubscribe',
+    /** `POST` (multipart `file`) sets the signed-in person's profile picture, `DELETE` removes it */
+    AccountAvatar: '/api/account/avatar',
 
     App: '/app',
     AppExtension: '/app/extension',
@@ -97,6 +99,8 @@ export const KnownPageLinks = {
     projectInstall: (projectId: string, { onboarding = false, step }: { onboarding?: boolean; step?: OnboardingStep } = {}) => onboarding
         ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1${step && step !== 'script' ? `&step=${step}` : ''}`
         : `/app/projects/${encodeURIComponent(projectId)}/settings/installation`,
+    /** A person's profile picture (an image, for the signed-in app); a new version is a new address */
+    avatar: (userId: string, version: string) => `/api/avatars/${encodeURIComponent(userId)}/${encodeURIComponent(version)}`,
     /** The screenshot of a project comment (an image, for the signed-in app) */
     projectCommentScreenshot: (projectId: string, commentId: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,

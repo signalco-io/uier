@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation';
 import { KnownPages, KnownPageLinks } from '@/src/knownPages';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { FolderIcon, FoldersIcon, MailIcon } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
@@ -21,7 +20,7 @@ import { UsersFilters } from '@/src/components/app/teams/UsersFilters';
 import type { ProjectsAccess } from '@/src/lib/app/model';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
-import { initials } from '@/src/components/app/initials';
+import { PersonAvatar } from '@/src/components/app/PersonAvatar';
 import { ProjectFilter } from '@/src/components/app/users/ProjectFilter';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { RemoveMemberButton, ResendInvitationButton, RevokeInvitationButton } from '@/src/components/app/users/UserActions';
@@ -155,12 +154,10 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
                     description={project ? `Who can review ${projectNames.get(project)}.` : 'Admins and commenters of this workspace.'}>
                     <Card className="gap-0 py-0">
                         <ItemGroup aria-label="People" className="gap-0 divide-y">
-                            {shownMembers.map(({ member, name }) => (
+                            {shownMembers.map(({ member, name, avatarUrl }) => (
                                 <Item key={member.id} role="listitem" className="rounded-none">
                                     <ItemMedia className={centeredMedia}>
-                                        <Avatar aria-hidden="true">
-                                            <AvatarFallback>{initials(name)}</AvatarFallback>
-                                        </Avatar>
+                                        <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" />
                                     </ItemMedia>
                                     <ItemContent className="min-w-48">
                                         <ItemTitle>
