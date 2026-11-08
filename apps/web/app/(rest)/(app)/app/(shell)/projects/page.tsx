@@ -8,7 +8,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
-import { defaultProjectName, listVisibleProjects } from '@/src/lib/app/projects';
+import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadClients, projectClient, projectClients } from '@/src/lib/app/clients';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { PageHeader } from '@/src/components/app/PageHeader';
@@ -18,30 +18,11 @@ import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
-import { AccessIcon, displayUrl, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
+import { AccessIcon, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
 export const metadata: Metadata = {
     title: 'Projects'
 };
-
-/**
- * The project's main address with how many more it has. A project named after its main address (the
- * name a new project gets) says only how many addresses it has, so the card does not repeat the name.
- */
-function ProjectAddresses({ name, urls }: { name: string; urls: string[] }) {
-    const main = displayUrl(urls[0] ?? '');
-    const more = urls.length - 1;
-    const same = (other: string) => other.toLowerCase() === name.trim().toLowerCase();
-    const named = Boolean(urls[0]) && (same(main) || same(defaultProjectName(urls[0]!)));
-    if (named)
-        return more > 0 ? <CardDescription>{urls.length} addresses</CardDescription> : null;
-    return (
-        <CardDescription className="truncate">
-            <span className="font-mono text-[13px]">{main}</span>
-            {more > 0 && ` and ${more} more`}
-        </CardDescription>
-    );
-}
 
 export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
     const context = await requireAppContext();
@@ -108,9 +89,10 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         return (
                             <li key={project.id} className="flex">
                                 <Card size="sm" className="relative flex-1 transition-colors hover:border-foreground/20">
+                                    {/* The project header's layout: the favicon beside the name and the row under it (client, then who can comment) */}
                                     <CardHeader className="flex items-center gap-3">
-                                        <ProjectMark name={project.name} url={project.urls[0]} className="size-9 rounded-lg text-sm [&>img]:p-2" />
-                                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                        <ProjectMark name={project.name} url={project.urls[0]} className="size-11 rounded-lg text-base [&>img]:p-2" />
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
                                             <CardTitle className="truncate">
                                                 {/* The whole card opens the project; the buttons sit above the link */}
                                                 <Link
@@ -119,29 +101,28 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                     {project.name}
                                                 </Link>
                                             </CardTitle>
-                                            <ProjectAddresses name={project.name} urls={project.urls} />
-                                            {projectClientSummary && (
-                                                <CardDescription className="flex min-w-0 items-center gap-1.5">
-                                                    <ClientMark client={projectClientSummary} />
-                                                    <span className="truncate">Client: {projectClientSummary.name}</span>
-                                                </CardDescription>
-                                            )}
+                                            <CardDescription className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                                                {projectClientSummary && (
+                                                    <span className="flex min-w-0 items-center gap-1.5">
+                                                        <ClientMark client={projectClientSummary} />
+                                                        <span className="truncate">Client: {projectClientSummary.name}</span>
+                                                    </span>
+                                                )}
+                                                <span className="flex min-w-0 items-center gap-1.5">
+                                                    <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
+                                                    <span className="truncate">{access.label}</span>
+                                                </span>
+                                            </CardDescription>
                                         </div>
                                         {canManageProjects && (
                                             <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="relative z-10 -mr-1.5" />
                                         )}
                                     </CardHeader>
                                     <CardFooter className="mt-auto flex-wrap justify-between gap-2">
-                                        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                                            <span className="inline-flex items-center gap-1.5 tabular-nums">
-                                                <MessageSquareIcon className="size-4" aria-hidden="true" />
-                                                {open} open
-                                            </span>
-                                            <span className="inline-flex items-center gap-1.5">
-                                                <AccessIcon access={project.access} className="size-4" aria-hidden="true" />
-                                                {access.label}
-                                            </span>
-                                        </div>
+                                        <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
+                                            <MessageSquareIcon className="size-4" aria-hidden="true" />
+                                            {open} open
+                                        </span>
                                         <div className="relative z-10">
                                             <ReviewLinksMenu projectId={project.id} urls={project.urls} size="sm" />
                                         </div>

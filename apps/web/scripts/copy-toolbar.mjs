@@ -29,8 +29,9 @@ try {
     fail('The toolbar bundle (packages/toolbar/dist/index.js) was not found. Build it first: run `pnpm build` from the repository root (Turborepo builds @uier/toolbar before @uier/web).');
 }
 
-// The toolbar's watch build (`pnpm dev`) writes a development bundle to the same file; it talks to
-// the local web app (http://localhost:<PORT>, default 4004) and must never be deployed.
+// The toolbar's watch build (`pnpm dev`) writes its development bundle to dist-dev/ instead; it talks
+// to the local web app (http://localhost:<PORT>, default 4004) and must never be deployed. This
+// guard catches a dev bundle in dist/ all the same (an older checkout's watch build left one there).
 if (/http:\/\/localhost:\d+/.test(readFileSync(source, 'utf8'))) {
     fail(`${relative(appDir, source)} is a development build of the toolbar. Run \`pnpm build\` from the repository root to rebuild it for production.`);
 }

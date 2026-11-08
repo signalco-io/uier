@@ -51,8 +51,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
   active or done projects as cards with their open comments, who can comment and review links. A card
-  shows the main address under the name, or only how many addresses there are when the project is named
-  after its main address. Projects is the first link in the sidebar.
+  lays out its name like the project header: the favicon beside the name and the row under it, with the
+  client, then who can comment; the open comments and Open review sit at the bottom. Projects is the first
+  link in the sidebar.
   An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
   in settings; the field suggests the existing clients as you type, and any other name adds a new one. It
   appears with the client's tile in project details and cards. The client filter sits beside Active/Done,
@@ -205,8 +206,9 @@ integration synchronization, and capture no screenshot.
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
-The assignee shows in the thread's header as their avatar (the user icon while unassigned),
-with a tooltip that names them. The app and toolbar use the same assignment service. Assigned
+The assignee shows in the toolbar thread's header as their avatar, with a tooltip that names
+them, and in the app's thread under Assignee as a small avatar and name (an empty dashed avatar
+while unassigned). The app and toolbar use the same assignment service. Assigned
 to me combines with page, status and search filters. Guests see the assignee's avatar and name
 but cannot change assignment or look up the participant directory. Removed members appear as Former member (no access);
 the assignment can be cleared or changed.
@@ -592,7 +594,9 @@ to 200 characters and saved with debounced history replacement. Each whitespace-
 must appear literally, without case sensitivity, in the first message, a non-deleted reply or quote,
 the canonical page path or the public thread number (`#12`). Deleted text is excluded. Search,
 priority, status, people, page and unread filters combine locally; environment and staff-author
-changes still load a new server-authorized scope. Back/Forward, view changes and reload retain the
+changes still load a new server-authorized scope. People is Everyone, Assigned to me, Unassigned
+(`people=unassigned`: threads with no assignee, the same threads as MCP `list_feedback` with
+`assignee: "unassigned"`) or Opened by me. Back/Forward, view changes and reload retain the
 URL filters. Mark all as read snapshots only the final shown threads and their rendered cursors.
 
 Search covers at most 1,000 recent threads in the loaded environment/author scope. A notice appears

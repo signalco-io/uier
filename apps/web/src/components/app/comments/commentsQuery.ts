@@ -32,7 +32,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
         status: status === 'done' || status === 'ready' || status === 'all' ? status : 'open',
-        people: people === 'assigned' || people === 'mine' ? people : 'all',
+        people: people === 'assigned' || people === 'unassigned' || people === 'mine' ? people : 'all',
         page: page?.startsWith('/') ? page : undefined
     };
 }

@@ -135,7 +135,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: true })}>Mark selected as done</Button>
                 <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: false })}>Reopen selected</Button>
             </div>}
-            <p ref={resultRef} role="status" tabIndex={-1} className="m-0 text-sm text-muted-foreground outline-none">{result}</p>
+            {/* Stays mounted for announcements; out of the layout (no extra gap under the line) until there is a result */}
+            <p ref={resultRef} role="status" tabIndex={-1} className={cn('m-0 text-sm text-muted-foreground outline-none', !result && 'sr-only')}>{result}</p>
             {details.length > 0 && <ul aria-label="Threads needing attention" className="m-0 list-inside list-disc text-sm text-muted-foreground">
                 {details.map(item => <li key={item.id}>{item.label}: {item.outcome}</li>)}
             </ul>}

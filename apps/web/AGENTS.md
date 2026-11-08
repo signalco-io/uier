@@ -431,7 +431,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
   thread and, once read, Mark as unread are in More actions. Then On (what it was left on, with the selector or
   the selected text), Page (the review link, "Open on ...", and the environment's name or why the original
-  source is unavailable), Priority and Assignee (the avatar and name, a menu for those who can assign), the
+  source is unavailable), Priority and Assignee (a 20px avatar, empty and dashed while unassigned, and the name; a menu for those who can assign), the
   verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
@@ -464,7 +464,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
   row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
-  and page, People and Only unread; its badge counts the filters in effect) and List/Board, then the status tabs
+  and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread; its badge counts the
+  filters in effect) and List/Board, then the status tabs
   (list only). Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The list header (`TriageSelection`) has Select shown results, the count with
   the unread count, and Mark all as read; the bulk actions appear only once something is selected.

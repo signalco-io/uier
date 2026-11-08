@@ -177,9 +177,12 @@ text. Drafts are local to each browser origin and expire after seven days.
   Subscription writes use the review API's existing identity, CORS and verification checks; guest
   addresses are verified by an explicit button on uier.io. Do not store addresses in browser storage.
 
-- `pnpm dev` at the repository root rebuilds on change and serves `dist/` on
+- `pnpm dev` at the repository root rebuilds on change into `dist-dev/` and serves it on
   http://localhost:4005 (the port after `PORT`, whose web app API the dev build calls); the web app
-  loads it in development. Open
+  loads it in development, and `next dev` imports the toolbar modules from `dist-dev/` through the
+  `development` export condition. Production builds write `dist/` only, so `pnpm typecheck`, `build`
+  and `test` never replace the running dev toolbar. Give every new `dist/` export a `dist-dev/`
+  `development` entry too. Open
   http://localhost:4004/?review=true (or any page, e.g. `/brand?review=true`).
 - `pnpm -C packages/toolbar build` produces the production bundle; `pnpm typecheck` checks it.
 - End-to-end tests run the built toolbar on the landing page: `apps/web/e2e/showcase.spec.ts`
