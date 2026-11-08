@@ -1,6 +1,11 @@
 'use client';
 
-import { useState, type DragEvent, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { createPortal } from 'react-dom';
+import {
+    DndContext, DragOverlay, MouseSensor, TouchSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
+    type Active, type Announcements, type DraggableSyntheticListeners, type DropAnimation, type Over
+} from '@dnd-kit/core';
 import { ArrowRightLeftIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { KnownPageLinks } from '../../../knownPages';
@@ -14,40 +19,134 @@ import { commentStatus, commentStatuses, commentStatusLabels, StateDot, StateMen
 import { allowedStatuses, useStatusChanger } from './useStatusChange';
 import type { useOpenComment } from './CommentInbox';
 
-/** The columns: every status, in order (`commentStatuses`), each with its words when it is empty */
+/** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
 const statuses = commentStatuses;
 const emptyColumn: Record<CommentStatus, string> = { open: 'Nothing open.', 'in-progress': 'Nothing in progress.', ready: 'No checks requested.', done: 'Nothing done yet.' };
-/** The dragged thread's id; other drags (text, links, files) are not cards */
-const dragType = 'application/x-uier-comment';
+
+/** "comment #12", or "comment" before it has a number */
+const commentName = (comment: ProjectCommentView) => comment.number !== undefined ? `comment #${comment.number}` : 'comment';
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+/** A column takes the card when it is another status the person may move it to (`allowedStatuses`) */
+const takes = (comment: ProjectCommentView, status: CommentStatus) => status !== commentStatus(comment) && allowedStatuses(comment)[status];
+const draggedComment = (active: Active) => (active.data.current as { comment?: ProjectCommentView } | undefined)?.comment;
+const columnOf = (over: Over | null) => statuses.find(status => status === over?.id);
 
 /**
- * A board card: the row's summary, dragged by itself to another column, and Move (the same statuses
- * from the keyboard or a touch screen, like the thread's status menu).
+ * What a screen reader hears while a card is dragged (dnd-kit's live region). Keyboard and screen
+ * reader users move cards with Move, which announces the move itself.
  */
-function BoardCard({ comment, href, opened, moving, onOpen, onMove, onDragStart, onDragEnd }: {
+const announcements: Announcements = {
+    onDragStart: ({ active }) => {
+        const comment = draggedComment(active);
+        return comment && `Picked up ${commentName(comment)} from ${commentStatusLabels[commentStatus(comment)]}.`;
+    },
+    onDragOver: ({ active, over }) => {
+        const comment = draggedComment(active);
+        const status = columnOf(over);
+        if (!comment) return;
+        const name = sentence(commentName(comment));
+        if (!status) return `${name} is not over a column.`;
+        if (status === commentStatus(comment)) return `${name} is over ${commentStatusLabels[status]}, where it is now.`;
+        return takes(comment, status) ? `${name} is over ${commentStatusLabels[status]}.` : `${name} can't move to ${commentStatusLabels[status]}.`;
+    },
+    onDragEnd: ({ active, over }) => {
+        const comment = draggedComment(active);
+        const status = columnOf(over);
+        if (!comment || !status) return;
+        return status === 'ready'
+            ? `${sentence(commentName(comment))} was dropped on Ready to verify. Request verification to move it.`
+            : `${sentence(commentName(comment))} moved to ${commentStatusLabels[status]}.`;
+    },
+    onDragCancel: ({ active, over }) => {
+        const comment = draggedComment(active);
+        const status = columnOf(over);
+        if (!comment) return;
+        const stays = `It stays in ${commentStatusLabels[commentStatus(comment)]}.`;
+        return status && status !== commentStatus(comment) ? `${sentence(commentName(comment))} can't move to ${commentStatusLabels[status]}. ${stays}` : `${sentence(commentName(comment))} stays in ${commentStatusLabels[commentStatus(comment)]}.`;
+    }
+};
+
+/** The lifted card settles into its new place (or back) with the brand's 150 ms ease-out */
+const dropAnimation: DropAnimation = {
+    duration: 150,
+    easing: 'ease-out',
+    sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0' } } })
+};
+
+const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+function subscribeReducedMotion(onChange: () => void) {
+    const query = window.matchMedia(reducedMotionQuery);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+}
+const subscribeNothing = () => () => {};
+
+/**
+ * A press that lifted a card can still end in a click on its link (a short long-press on a touch
+ * screen): it must not open the thread or follow the link.
+ */
+function suppressClickAfterDrag() {
+    const prevent = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        stop();
+    };
+    const stop = () => {
+        window.removeEventListener('click', prevent, { capture: true });
+        window.removeEventListener('pointerdown', stop, { capture: true });
+    };
+    window.addEventListener('click', prevent, { capture: true });
+    // Another press is another gesture, and its click goes through
+    window.addEventListener('pointerdown', stop, { capture: true });
+    window.setTimeout(stop, 100);
+}
+
+/** A card is dragged from its own surface; its selection box and Move keep their presses (Move opens on press) */
+function fromCardSurface(listeners: DraggableSyntheticListeners) {
+    if (!listeners) return {};
+    return Object.fromEntries(Object.entries(listeners).map(([name, listener]) => [name, (event: SyntheticEvent<HTMLElement>) => {
+        const target = event.target as Element;
+        if (event.currentTarget.contains(target) && !target.closest('button, input, [role="checkbox"]')) listener(event);
+    }]));
+}
+
+const noMoves = (allowed: Record<CommentStatus, boolean>) => Object.fromEntries(Object.keys(allowed).map(status => [status, false])) as Record<CommentStatus, boolean>;
+const moveIcon = (moving: boolean) => moving ? <Spinner /> : <ArrowRightLeftIcon />;
+const moveButtonClassName = 'text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11';
+
+/**
+ * A board card: the row's summary, dragged by itself to another column (the mouse, or a long press on
+ * a touch screen), and Move (the same statuses from the keyboard, a screen reader or one tap, like the
+ * thread's status menu).
+ */
+function BoardCard({ comment, href, opened, moving, entering, onEntered, onOpen, onMove }: {
     comment: ProjectCommentView;
     href: string;
     opened: boolean;
     moving: boolean;
+    /** Moved here with Move: enters the column */
+    entering: boolean;
+    onEntered: () => void;
     onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
     onMove: (status: CommentStatus) => void;
-    onDragStart: (event: DragEvent) => void;
-    onDragEnd: () => void;
 }) {
     const status = commentStatus(comment);
     const allowed = allowedStatuses(comment);
     const canMove = statuses.some(option => option !== status && allowed[option]);
-    const name = comment.number !== undefined ? `comment #${comment.number}` : 'comment';
+    const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving });
     return (
-        <li draggable={canMove && !moving} onDragStart={onDragStart} onDragEnd={onDragEnd}
-            className={cn(canMove && 'cursor-grab active:cursor-grabbing', moving && 'opacity-60')}>
+        <li ref={setNodeRef} {...fromCardSurface(listeners)} data-board-card={comment.id} onAnimationEnd={entering ? onEntered : undefined}
+            className={cn('rounded-lg transition-opacity duration-150 ease-out',
+                canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
+                isDragging && 'opacity-40',
+                entering && 'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-150 motion-safe:ease-out')}>
             <CommentRow card comment={comment} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen}
                 actions={canMove && (
-                    <StateMenu status={status} allowed={allowed} disabled={moving} onChange={onMove}
+                    // While the move saves, Move keeps the focus it was given but offers no other column
+                    <StateMenu status={status} allowed={moving ? noMoves(allowed) : allowed} disabled={false} onChange={onMove}
                         trigger={(
-                            <Button variant="ghost" size="icon-xs" aria-label={`Move ${name}`}
-                                className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11">
-                                {moving ? <Spinner /> : <ArrowRightLeftIcon />}
+                            <Button variant="ghost" size="icon-xs" aria-label={`Move ${commentName(comment)}`} data-move={comment.id} className={moveButtonClassName}>
+                                {moveIcon(moving)}
                             </Button>
                         )} />
                 )} />
@@ -55,11 +154,36 @@ function BoardCard({ comment, href, opened, moving, onOpen, onMove, onDragStart,
     );
 }
 
+type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
+
+/**
+ * A column and its drop target. While a card is dragged, the columns it can move to are dashed, the
+ * one under it is highlighted, and the others are dimmed and refuse it.
+ */
+function BoardColumn({ status, count, state, children }: { status: CommentStatus; count: number; state: ColumnState; children: ReactNode }) {
+    // A placeholder changes a column's height, and on narrow screens moves the columns below it
+    const { setNodeRef } = useDroppable({ id: status, resizeObserverConfig: { updateMeasurementsFor: [...statuses] } });
+    return (
+        <section ref={setNodeRef} aria-label={`${commentStatusLabels[status]} comments`} data-drop={state === 'idle' ? undefined : state}
+            className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out',
+                'data-[drop=over]:border-dashed data-[drop=target]:border-dashed data-[drop=target]:border-foreground/30',
+                'data-[drop=over]:border-foreground/30 data-[drop=over]:bg-muted data-[drop=over]:ring-2 data-[drop=over]:ring-ring data-[drop=refused]:opacity-50')}>
+            <h3 className="m-0 flex items-center gap-2 px-2 pt-1 text-sm font-medium">
+                <StateDot status={status} />
+                {commentStatusLabels[status]}
+                <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+            </h3>
+            {children}
+        </section>
+    );
+}
+
 /**
  * Open, In progress, Ready to verify and Done side by side, as compact cards. A card opens its thread in a sheet
  * (the URL's `?comment=`), so the board stays where it was. Cards move between columns by dragging
- * or with Move; a column a card cannot move to does not take it. Ready to verify opens the thread with
- * the Request verification form, which asks for the details first.
+ * (dnd-kit: the mouse, or a long press on a touch screen) or with Move; a column a card cannot move to
+ * does not take it. Ready to verify opens the thread with the Request verification form, which asks for
+ * the details first. Moves show at once and go back if saving fails (`useStatusChanger`).
  */
 export function CommentBoard({ projectId, columns, allComments, assignees, userId, openComment }: {
     projectId: string;
@@ -75,11 +199,31 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
     const [movingId, setMovingId] = useState<string>();
     // The thread to open with its Request verification form
     const [verifyId, setVerifyId] = useState<string>();
-    const [dragging, setDragging] = useState<{ comment: ProjectCommentView; allowed: Record<CommentStatus, boolean>; from: CommentStatus }>();
+    // The dragged card (with its height, for the place it would land) and the column under it
+    const [drag, setDrag] = useState<{ comment: ProjectCommentView; height: number }>();
     const [over, setOver] = useState<CommentStatus>();
-    const accepts = (status: CommentStatus) => Boolean(dragging && status !== dragging.from && dragging.allowed[status]);
-    const move = (comment: ProjectCommentView, status: CommentStatus) => {
+    // Moved with Move: it enters its new column, the focus follows it there and the move is announced
+    const [enteringId, setEnteringId] = useState<string>();
+    const focusAfterMove = useRef<{ id: string; status: CommentStatus }>(undefined);
+    const [announcement, setAnnouncement] = useState('');
+    const reducedMotion = useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);
+    // The lifted card goes to the body, above the sheet and out of any clipping container
+    const client = useSyncExternalStore(subscribeNothing, () => true, () => false);
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+        // A long press, so a swipe over the cards still scrolls the page
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } })
+    );
+    // Cards keep the list's order in every column: where a moved card lands
+    const order = new Map(allComments.map((comment, index) => [comment.id, index]));
+
+    const move = (comment: ProjectCommentView, status: CommentStatus, via: 'drag' | 'menu') => {
         setMovingId(comment.id);
+        if (via === 'menu' && status !== 'ready') {
+            setEnteringId(comment.id);
+            focusAfterMove.current = { id: comment.id, status };
+            setAnnouncement(`${sentence(commentName(comment))} moved to ${commentStatusLabels[status]}.`);
+        }
         change(comment, status, {
             onVerify: () => {
                 setVerifyId(comment.id);
@@ -87,61 +231,110 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
             }
         });
     };
+    // Move's menu closes with the card it was on, so the focus is lost: give it to Move on the card in its
+    // new column. A frame later, once the closed menu no longer keeps the page inert.
+    useEffect(() => {
+        const target = focusAfterMove.current;
+        if (!target || !columns[target.status].some(comment => comment.id === target.id)) return;
+        focusAfterMove.current = undefined;
+        requestAnimationFrame(() => {
+            const button = document.querySelector<HTMLElement>(`[data-move="${CSS.escape(target.id)}"]`);
+            if (!button || (document.activeElement && document.activeElement !== document.body)) return;
+            button.focus({ preventScroll: true });
+            button.closest('li')?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
+        });
+    });
     const closeThread = () => {
         setVerifyId(undefined);
         close();
     };
+    const endDrag = () => {
+        setDrag(undefined);
+        setOver(undefined);
+        suppressClickAfterDrag();
+    };
+    const columnState = (status: CommentStatus): ColumnState => {
+        if (!drag) return 'idle';
+        if (status === commentStatus(drag.comment)) return 'home';
+        if (!takes(drag.comment, status)) return 'refused';
+        return over === status ? 'over' : 'target';
+    };
+    // Where the dragged card would land in the column under it
+    const landing = (status: CommentStatus) => {
+        const position = order.get(drag?.comment.id ?? '') ?? 0;
+        const index = columns[status].findIndex(comment => (order.get(comment.id) ?? 0) > position);
+        return index === -1 ? columns[status].length : index;
+    };
+    const refusedOver = Boolean(drag && over && over !== commentStatus(drag.comment) && !takes(drag.comment, over));
 
     return (
         <>
-            {/* From lg one row of equal columns, one per status, however many there are */}
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-flow-col lg:grid-cols-none lg:auto-cols-fr">
-                {statuses.map(status => (
-                    <section key={status} aria-label={`${commentStatusLabels[status]} comments`}
-                        onDragOver={event => {
-                            if (!accepts(status)) return;
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = 'move';
-                            setOver(status);
-                        }}
-                        onDragLeave={event => {
-                            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-                                setOver(current => current === status ? undefined : current);
-                        }}
-                        onDrop={event => {
-                            event.preventDefault();
-                            setOver(undefined);
-                            if (dragging && event.dataTransfer.getData(dragType) === dragging.comment.id && accepts(status))
-                                move(dragging.comment, status);
-                            setDragging(undefined);
-                        }}
-                        className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-colors',
-                            accepts(status) && 'border-dashed border-foreground/30',
-                            over === status && 'bg-muted ring-2 ring-ring')}>
-                        <h3 className="m-0 flex items-center gap-2 px-2 pt-1 text-sm font-medium">
-                            <StateDot status={status} />
-                            {commentStatusLabels[status]}
-                            <span className="font-normal tabular-nums text-muted-foreground">{columns[status].length}</span>
-                        </h3>
-                        {columns[status].length ? (
-                            <ul aria-label={`${commentStatusLabels[status]} comments list`} className="m-0 flex list-none flex-col gap-2 p-0">
-                                {columns[status].map(comment => (
-                                    <BoardCard key={comment.id} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
-                                        moving={pending && movingId === comment.id}
-                                        onOpen={event => open(comment.id, event, { replace: false })}
-                                        onMove={status => move(comment, status)}
-                                        onDragStart={event => {
-                                            event.dataTransfer.setData(dragType, comment.id);
-                                            event.dataTransfer.effectAllowed = 'move';
-                                            setDragging({ comment, allowed: allowedStatuses(comment), from: commentStatus(comment) });
-                                        }}
-                                        onDragEnd={() => { setDragging(undefined); setOver(undefined); }} />
-                                ))}
-                            </ul>
-                        ) : <p className="m-0 px-2 pb-1 text-sm text-muted-foreground">{accepts(status) ? 'Drop here.' : emptyColumn[status]}</p>}
-                    </section>
-                ))}
-            </div>
+            <DndContext id="comment-board" sensors={sensors} collisionDetection={pointerWithin}
+                accessibility={{ announcements, screenReaderInstructions: { draggable: 'To move a comment to another column, use its Move button.' } }}
+                onDragStart={({ active }) => {
+                    const comment = draggedComment(active);
+                    if (!comment) return;
+                    setEnteringId(undefined);
+                    // dnd-kit measures the card after this: the place it would land takes its height now
+                    const card = document.querySelector(`[data-board-card="${CSS.escape(comment.id)}"]`);
+                    setDrag({ comment, height: card?.getBoundingClientRect().height ?? 0 });
+                }}
+                onDragOver={({ over: target }) => setOver(columnOf(target))}
+                // A column that does not take the card cancels the drop: the card goes back
+                cancelDrop={({ active, over }) => {
+                    const comment = draggedComment(active);
+                    const status = columnOf(over);
+                    return !comment || !status || !takes(comment, status);
+                }}
+                onDragEnd={({ active, over }) => {
+                    endDrag();
+                    const comment = draggedComment(active);
+                    const status = columnOf(over);
+                    if (comment && status && takes(comment, status)) move(comment, status, 'drag');
+                }}
+                onDragCancel={endDrag}>
+                {/* From lg one row of equal columns, one per status, however many there are. While a card is
+                    dragged every column is as tall as the longest, so any part of it takes the card. */}
+                <div className={cn('grid grid-cols-1 items-start gap-4 lg:grid-flow-col lg:grid-cols-none lg:auto-cols-fr', drag && 'lg:items-stretch')}>
+                    {statuses.map(status => {
+                        const state = columnState(status);
+                        const cards = columns[status];
+                        const placeholder = state === 'over' ? landing(status) : -1;
+                        const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
+                            className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
+                        const items = cards.map(comment => (
+                            <BoardCard key={comment.id} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
+                                moving={pending && movingId === comment.id}
+                                entering={enteringId === comment.id} onEntered={() => setEnteringId(undefined)}
+                                onOpen={event => open(comment.id, event, { replace: false })}
+                                onMove={next => move(comment, next, 'menu')} />
+                        ));
+                        if (placeholder >= 0) items.splice(placeholder, 0, slot);
+                        return (
+                            <BoardColumn key={status} status={status} count={cards.length} state={state}>
+                                {items.length ? (
+                                    <ul aria-label={`${commentStatusLabels[status]} comments list`} className="m-0 flex list-none flex-col gap-2 p-0">
+                                        {items}
+                                    </ul>
+                                ) : <p className="m-0 px-2 pb-1 text-sm text-muted-foreground">{state === 'target' ? 'Drop here.' : emptyColumn[status]}</p>}
+                            </BoardColumn>
+                        );
+                    })}
+                </div>
+                {client && createPortal(
+                    <DragOverlay dropAnimation={reducedMotion ? null : dropAnimation} className={refusedOver ? 'cursor-not-allowed' : 'cursor-grabbing'}>
+                        {drag && (
+                            // The lifted card: floating, like a menu (BRAND.md, "Borders and elevation")
+                            <div inert aria-hidden="true" data-drag-preview="" className="rounded-lg bg-card shadow-md ring-1 ring-foreground/10">
+                                <CommentRow card preview comment={drag.comment} href={hrefFor(drag.comment.id)}
+                                    actions={<Button variant="ghost" size="icon-xs" tabIndex={-1} className={moveButtonClassName}>{moveIcon(false)}</Button>} />
+                            </div>
+                        )}
+                    </DragOverlay>,
+                    document.body
+                )}
+            </DndContext>
+            <p role="status" className="sr-only">{announcement}</p>
             <Sheet open={Boolean(opened)} onOpenChange={next => { if (!next) closeThread(); }}>
                 <SheetContent side="right" showCloseButton={false} className="gap-0 overflow-x-hidden overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
                     finalFocus={() => (opened ? document.getElementById(commentRowId(opened.id)) : null) ?? true}>

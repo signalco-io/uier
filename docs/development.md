@@ -332,6 +332,10 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   refused (CORS) with privacy-safe copyable owner notes, ended-session sign-in, offline recovery,
   and the app's comment list, board, filters, private comments, assignees, edit, delete,
   usage and links to comments.
+- **Desktop Chrome** and **Mobile Chrome** run the board's moves
+  ([`comment-board.spec.ts`](../apps/web/e2e/comment-board.spec.ts)): dragging with the mouse (column states,
+  the landing placeholder, Escape, to and from In progress, Ready to verify to In progress canceling the check), a refused drop, Move from the keyboard with its focus and announcement, a
+  long press on a touch screen (Mobile Chrome, through CDP touch events) and rollback when saving fails.
 - **Desktop Chrome** and **Mobile Chrome** run users and invitations
   ([`users.spec.ts`](../apps/web/e2e/users.spec.ts)): a commenter invited to one project and an invited admin,
   single-use links, replaced and revoked invitations, the users list and its project filter, and deleting a

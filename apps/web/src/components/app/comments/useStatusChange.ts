@@ -36,10 +36,10 @@ export function allowedStatuses(comment: ProjectCommentView): Record<CommentStat
 }
 
 /**
- * Status changes for any thread of the list: Open, In progress and Done (shown at once, rolled back
- * on failure), Open or In progress from Ready to verify (cancels the check, then the thread is there)
- * and Ready to verify (`onVerify`). The board uses one for every card it moves; `useStatusChange`
- * binds it to one thread.
+ * Status changes for any thread of the list: Open, In progress and Done, Open or In progress from
+ * Ready to verify (cancels the check, then the thread is there; each shown at once and rolled back on
+ * failure) and Ready to verify (`onVerify`). The board uses one for every card it moves;
+ * `useStatusChange` binds it to one thread.
  */
 export function useStatusChanger(projectId: string) {
     const updateComment = useCommentUpdate();
@@ -65,6 +65,10 @@ export function useStatusChanger(projectId: string) {
     });
 
     const cancelCheck = (comment: ProjectCommentView, status: Exclude<FeedbackStatusTarget, 'done'>) => startTransition(async () => {
+        // In Open or In progress at once; `useOptimistic` puts the check back if canceling fails
+        if (comment.verification) {
+            updateComment({ id: comment.id, patch: { verification: { ...comment.verification, outcome: 'canceled' }, inProgress: status === 'in-progress' } });
+        }
         try {
             const result = await verificationCommentAction(projectId, comment.id, {
                 action: 'cancel', override: false, status, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()

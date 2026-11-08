@@ -34,7 +34,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the
  * selection box sits beside the link.
  */
-export function CommentRow({ comment, href, selected, onOpen, card = false, actions, project, tabbable = true }: {
+export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, project, tabbable = true }: {
     comment: ProjectCommentView;
     href: string;
     /** Its thread is open (`opened`), or shown beside the list until another is chosen (`beside`, wide layouts only) */
@@ -43,6 +43,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
     onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
     /** A board card: bordered, the meta on lines of its own; its link is not dragged on its own */
     card?: boolean;
+    /** The copy of a card that follows the pointer while it is dragged: its link has no id */
+    preview?: boolean;
     /** Controls above the link, at the end of the first line (the board card's Move to) */
     actions?: ReactNode;
     /** The project's name, where rows of several projects are listed together (My work) */
@@ -70,7 +72,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-w-0 items-baseline gap-2">
                     {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}
-                    <a id={commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
+                    <a id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
                         tabIndex={tabbable ? undefined : -1}
                         className={cn('min-w-0 flex-1 text-sm outline-none after:absolute after:inset-0 after:rounded-lg', card ? 'line-clamp-2 break-words' : 'truncate',
                             unread ? 'font-semibold' : 'font-medium', comment.deleted && 'text-muted-foreground')}>
