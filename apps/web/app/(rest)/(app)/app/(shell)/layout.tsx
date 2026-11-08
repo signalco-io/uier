@@ -3,7 +3,8 @@ import { Separator } from '@/src/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/ui/sidebar';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
-import { getProjectOrder, loadSidebarProjects } from '@/src/lib/app/sidebarProjects';
+import { loadSidebarProjects } from '@/src/lib/app/sidebarProjects';
+import { getProjectOrder } from '@/src/lib/app/projectOrderCookie';
 import { AppSidebar } from '@/src/components/app/shell/AppSidebar';
 import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
@@ -13,12 +14,14 @@ import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel */
 export default async function AppShellLayout({ children }: PropsWithChildren) {
     const context = await requireAppContext();
-    const [projects, access, projectOrder] = await Promise.all([
-        listVisibleProjects(context),
+    const projectOrder = await getProjectOrder();
+    const visibleProjects = listVisibleProjects(context);
+    // The sidebar's reads start once the projects are listed, alongside the access snapshot
+    const [projects, access, sidebarProjects] = await Promise.all([
+        visibleProjects,
         context.isAdmin ? loadWorkspaceAccessForRender(context.workspace.id) : undefined,
-        getProjectOrder()
+        visibleProjects.then(listed => loadSidebarProjects(context, listed, projectOrder))
     ]);
-    const sidebarProjects = await loadSidebarProjects(context, projects);
     const teams = access?.teams.map(({ id, name }) => ({ id, name })) ?? [];
 
     return (

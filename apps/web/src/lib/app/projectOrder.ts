@@ -21,7 +21,10 @@ export function parseProjectOrder(value: string | undefined): ProjectOrder {
 export type OrderableProject = {
     id: string;
     name: string;
-    /** ISO 8601: the newest change to a thread the person can see, or when the project was created */
+    /**
+     * ISO 8601: the newest change to a thread the person can see, or when the project was created. The server reads
+     * activity only for Recent activity; ordered by name, it is the creation time.
+     */
     activityAt: string;
     client?: { id: string; name: string };
 };
@@ -32,12 +35,14 @@ export type ProjectGroup<T extends OrderableProject> = {
     projects: T[];
 };
 
-// A fixed locale: the server render and the browser must agree on the order
+// The server render and the browser must agree on the order: names use a fixed locale, ids and ISO timestamps
+// compare by code unit (no locale at all)
 const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 function compare<T extends OrderableProject>(sort: ProjectSort) {
-    return (a: T, b: T) => (sort === 'recent' ? b.activityAt.localeCompare(a.activityAt) : 0)
-        || collator.compare(a.name, b.name) || a.id.localeCompare(b.id);
+    return (a: T, b: T) => (sort === 'recent' ? byCodeUnit(b.activityAt, a.activityAt) : 0)
+        || collator.compare(a.name, b.name) || byCodeUnit(a.id, b.id);
 }
 
 /**
@@ -58,8 +63,8 @@ export function orderProjects<T extends OrderableProject>(projects: T[], { sort,
     }
     const clients = [...groups.values()].sort((a, b) => (sort === 'recent'
         // Projects are sorted already: each group's first project is its latest activity
-        ? b.projects[0]!.activityAt.localeCompare(a.projects[0]!.activityAt) : 0)
-        || collator.compare(a.client.name, b.client.name) || a.client.id.localeCompare(b.client.id));
+        ? byCodeUnit(b.projects[0]!.activityAt, a.projects[0]!.activityAt) : 0)
+        || collator.compare(a.client.name, b.client.name) || byCodeUnit(a.client.id, b.client.id));
     const withoutClient = sorted.filter(project => !project.client);
     return withoutClient.length ? [...clients, { projects: withoutClient }] : clients;
 }

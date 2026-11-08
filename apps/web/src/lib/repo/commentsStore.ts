@@ -1,6 +1,7 @@
 import type { OriginFilter } from './originFilter';
 import type { RealtimeComment } from '../realtime/source';
 import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem } from '../db/schema';
+import type { VisibilityFilter } from './visibilityFilter';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
@@ -44,6 +45,12 @@ export type CommentsStore = {
     listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string): Promise<DbComment[]>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
+    /**
+     * The newest `updatedAt` among the partition's threads that `visibleTo` may see (every thread without it), or
+     * `undefined`. One aggregate value, never a document list. Every write sets `updatedAt`, so only threads untouched
+     * since before it existed are left out. The sidebar orders projects by it on every shell render.
+     */
+    latestActivity(domain: string, visibleTo?: VisibilityFilter): Promise<string | undefined>;
     /**
      * Comments of the partition last written at or after `since` (epoch milliseconds, compared at
      * Cosmos `_ts` second precision), oldest write first, at most `limit` (1–1000). `changedAt`

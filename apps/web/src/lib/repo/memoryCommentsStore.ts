@@ -1,5 +1,6 @@
 import { matchesOrigin } from './originFilter';
 import { matchesAuthor } from './authorFilter';
+import { matchesVisibility } from './visibilityFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
@@ -207,10 +208,17 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
                 if (!comment) return [];
-                const { id, path, origin, private: isPrivate, authorId, resolved, verification, createdAt, updatedAt, activity } = comment;
-                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, verification: verification ? { outcome: verification.outcome } : undefined, createdAt, updatedAt, activity: clone(activity),
+                const { id, path, origin, private: isPrivate, authorId, resolved, verification, createdAt, activity } = comment;
+                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, verification: verification ? { outcome: verification.outcome } : undefined, createdAt, activity: clone(activity),
                     thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
             }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+        },
+        async latestActivity(domain, visibleTo) {
+            return domainComments(domain)
+                .filter(comment => typeof comment.path === 'string' && matchesVisibility(comment, visibleTo))
+                .map(comment => comment.updatedAt)
+                .filter((updatedAt): updatedAt is string => typeof updatedAt === 'string')
+                .sort().at(-1);
         },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
             const entries = domainEntries(domain);

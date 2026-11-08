@@ -81,6 +81,8 @@ test('the sidebar sorts the active projects by recent activity or by name, group
     await expect(projectLinks(page)).toHaveText(inOrder('Delta', 'Bravo', 'Charlie', 'Alpha'));
     await expect(navigation.getByRole('list', { name: 'Zeta Co' }).getByRole('link')).toHaveText(inOrder('Bravo', 'Charlie'));
     await expect(navigation.getByRole('list', { name: 'No client' }).getByRole('link')).toHaveText(inOrder('Alpha'));
+    // Focus is back on the trigger, whose tooltip fades in: scan its settled colours
+    await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
     await expect.poll(() => savedOrder(page)).toBe('alphabetical.client');
 

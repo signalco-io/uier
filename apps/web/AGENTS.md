@@ -360,13 +360,15 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   from one of the project's addresses arrives (`hasProjectFeedback`); after that there is nothing to switch between and
   the tabs are gone); its pages render the comments, install guide or settings under it.
 - **Sidebar project order.** `lib/app/sidebarProjects.ts` gives each active project its client and, only for Recent
-  activity, its latest activity: `CommentsStore.latestActivity`, one bounded `MAX` aggregate per project with
-  `canSeeComment`'s visibility in the query (`sidebarActivityFilter`), else the project's creation. Alphabetical reads
-  no comments. `lib/app/projectOrder.ts` (pure, shared by server render and browser) sorts with a fixed `en` collator
-  and plain comparisons for ids and timestamps, so both agree, and groups by client (clients ordered like their
-  projects, No client last). The choice is the HttpOnly `__Host-uier_project_order` cookie (`saveProjectOrderAction`),
-  read by the shell layout, so the first render is already in order. The shell layout renders on every refresh
-  (`RealtimeComments` too): keep its reads point reads or bounded aggregates.
+  activity, its latest activity: `CommentsStore.latestActivity`, one `MAX(c.updatedAt)` aggregate per project with
+  `canSeeComment`'s rule in the query (`commentVisibilityFilter`, `repo/visibilityFilter.ts`), else the project's
+  creation. Alphabetical reads no comments; choosing Recent saves the cookie in a server action, whose render reads
+  them. `lib/app/projectOrder.ts` (pure, shared by server render and browser) sorts with a fixed `en` collator and
+  code-unit comparisons for ids and timestamps, so both agree, and groups by client (clients ordered like their
+  projects, No client last). The choice is the HttpOnly `__Host-uier_project_order` cookie (`projectOrderCookie.ts`,
+  `saveProjectOrderAction`), read by the shell layout, so the first render is already in order. The shell layout
+  renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
+  [Cosmos query costs](../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `workspaceTabs`): Users, Teams, Clients, Activity and Settings for admins, Clients only for everyone else and in
   the uier workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,

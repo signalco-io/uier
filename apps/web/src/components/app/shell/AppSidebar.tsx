@@ -92,7 +92,8 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
 }) {
     const pathname = usePathname();
     const groupId = useId();
-    // Applied at once; saving only remembers it for the next visit
+    // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching from Alphabetical,
+    // Recent first orders by creation time, then by the activity that render reads
     const [order, setOrder] = useState(projectOrder);
     const changeOrder = (next: ProjectOrder) => {
         setOrder(next);

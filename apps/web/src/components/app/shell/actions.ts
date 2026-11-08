@@ -13,7 +13,7 @@ import { createWorkspace } from '@/src/lib/app/workspaces';
 import { appCookieOptions } from '@/src/lib/app/session';
 import { cookieNames } from '@/src/lib/cookieNames';
 import { formatProjectOrder, type ProjectOrder } from '@/src/lib/app/projectOrder';
-import { PROJECT_ORDER_COOKIE_NAME } from '@/src/lib/app/sidebarProjects';
+import { PROJECT_ORDER_COOKIE_NAME } from '@/src/lib/app/projectOrderCookie';
 import { projectOrderActionSchema, switchWorkspaceActionSchema } from './actionSchemas';
 
 export async function signOutAction() {
@@ -44,6 +44,7 @@ export async function switchWorkspaceAction(workspaceId: string) {
 /** Remembers how this browser lists the sidebar's projects; only a preference, with nothing about the person */
 export async function saveProjectOrderAction(order: ProjectOrder) {
     const input = parseActionInput(projectOrderActionSchema, order);
+    await appContextOrThrow();
     (await cookies()).set(PROJECT_ORDER_COOKIE_NAME, formatProjectOrder(input), appCookieOptions(cookieNames.projectOrder.lifetime));
 }
 
