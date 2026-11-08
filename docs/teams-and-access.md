@@ -143,9 +143,11 @@ one of them ([project transfer](project-transfer.md)). There is no self-service 
 member/invitation relationships, email-hashed generation records and affected access events in
 the existing scoped operator process. For workspace erasure, enumerate all these types in that
 workspace partition. For account erasure, remove membership relationships and events where the
-account is actor/target, considering other people's retained records, and the account's `passkey`
+account is actor/target, considering other people's retained records, the account's `passkey`
 documents in `user:<id>` with the `passkey-credential` lookup of each (`passkey:<SHA-256 of the
-credential id>`). Do not erase a revocation
+credential id>`), and its profile picture: the `user-avatar` document (`avatar_<version>`) in
+`user:<id>`, which `removeUserAvatar` deletes together with the user's reference
+([profile pictures](api.md#profile-pictures)). Do not erase a revocation
 marker while outstanding invitations it invalidates remain. Keep backup retention rules intact.
 
 ## Verification and operations

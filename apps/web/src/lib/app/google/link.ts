@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { getAppStore } from '../store';
+import { fromPendingPicture, importProviderAvatar, type PendingPicture } from '../avatars';
 import { boundGoogleRecordId, googleBindingToken } from './cookie';
 import { linkGoogleAccount } from './identity';
 import { googleLinkPk, type DbGoogleLink } from './model';
@@ -12,10 +13,10 @@ export const GOOGLE_LINK_TTL_SECONDS = 15 * 60;
  * for it. The verified Google account waits here, bound to this browser, until the person proves
  * the inbox with the email code flow (`requestSignInLink` then `consumeSignInRequest`).
  */
-export async function createGoogleLink(google: { sub: string; email: string }, next: string | undefined) {
+export async function createGoogleLink(google: { sub: string; email: string; picture?: PendingPicture }, next: string | undefined) {
     const id = randomBytes(32).toString('hex');
     await getAppStore().create<DbGoogleLink>({ type: 'google-link', id, pk: googleLinkPk(id), sub: google.sub, email: google.email,
-        next, createdAt: new Date().toISOString(), ttl: GOOGLE_LINK_TTL_SECONDS });
+        next, ...(google.picture ? { picture: google.picture } : {}), createdAt: new Date().toISOString(), ttl: GOOGLE_LINK_TTL_SECONDS });
     return { id, binding: googleBindingToken('link', id, GOOGLE_LINK_TTL_SECONDS) };
 }
 
@@ -39,11 +40,15 @@ export async function googleLinkIdFor(binding: string | undefined, email: string
 
 /**
  * Links the waiting Google account after a browser-bound email proof for the same address. The
- * winner of the delete links; an expired, used or mismatched link links nothing (`null`).
+ * winner of the delete links; an expired, used or mismatched link links nothing (`null`). Once
+ * linked, Google's picture becomes the account's if it has none.
  */
 export async function completeGoogleLink(id: string, userId: string, email: string) {
     const link = await getGoogleLinkById(id);
     if (!link || link.email !== email || !await getAppStore().delete(link.pk, link.id))
         return null;
-    return await linkGoogleAccount(userId, { sub: link.sub, email: link.email });
+    const result = await linkGoogleAccount(userId, { sub: link.sub, email: link.email });
+    if (result === 'linked')
+        await importProviderAvatar(userId, 'google', async () => fromPendingPicture(link.picture));
+    return result;
 }

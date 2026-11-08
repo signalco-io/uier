@@ -9,7 +9,11 @@ import { selectWorkspace } from '@/src/lib/app/workspaceCookie';
 import { parseActionInput } from '@/src/lib/app/validation';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { createWorkspace } from '@/src/lib/app/workspaces';
-import { switchWorkspaceActionSchema } from './actionSchemas';
+import { appCookieOptions } from '@/src/lib/app/session';
+import { cookieNames } from '@/src/lib/cookieNames';
+import { formatProjectOrder, type ProjectOrder } from '@/src/lib/app/projectOrder';
+import { PROJECT_ORDER_COOKIE_NAME } from '@/src/lib/app/projectOrderCookie';
+import { projectOrderActionSchema, switchWorkspaceActionSchema } from './actionSchemas';
 
 export async function signOutAction() {
     await endSession();
@@ -24,6 +28,13 @@ export async function switchWorkspaceAction(workspaceId: string) {
 
     await selectWorkspace(input.workspaceId);
     redirect(KnownPages.App);
+}
+
+/** Remembers how this browser lists the sidebar's projects; only a preference, with nothing about the person */
+export async function saveProjectOrderAction(order: ProjectOrder) {
+    const input = parseActionInput(projectOrderActionSchema, order);
+    await appContextOrThrow();
+    (await cookies()).set(PROJECT_ORDER_COOKIE_NAME, formatProjectOrder(input), appCookieOptions(cookieNames.projectOrder.lifetime));
 }
 
 /** A new workspace with the signed-in person as its admin, opened right away (on its first project) */

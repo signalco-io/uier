@@ -20,7 +20,7 @@ export async function managementData(context: AppContext) {
     return {
         access,
         projects,
-        people: members.filter((person) => person.user).map(({ member, name }) => ({ member, name })),
+        people: members.filter((person) => person.user).map(({ member, name, avatarUrl }) => ({ member, name, avatarUrl })),
         revision: context.workspace.accessRevision ?? 0
     };
 }

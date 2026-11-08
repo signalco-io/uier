@@ -3,6 +3,7 @@ import { Section } from '@/src/components/app/PageHeader';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadWorkspaceAccess } from '@/src/lib/app/access';
+import { avatarUrl } from '@/src/lib/app/avatars';
 import { AccountForm, AppearanceSection } from './AccountForm';
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default async function AccountPage() {
 
     return (
         <>
-            <AccountForm name={context.user.name} />
+            <AccountForm name={context.user.name} avatarUrl={avatarUrl(context.user)} />
             <AppearanceSection />
             <Section id="my-access" title="Your workspace access" description={`Your role, teams and projects in ${context.workspace.name}.`}>
                 <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">

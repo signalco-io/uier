@@ -27,9 +27,46 @@ export type DbUser = AppDoc & {
      * its workspace's name). Accounts from before the step never had it.
      */
     welcomePending?: boolean;
+    /**
+     * The profile picture: its image is the {@link DbUserAvatar} with `avatarDocId(version)` in this
+     * partition. Both change in one batch (`avatars.ts`); missing means initials.
+     */
+    avatar?: UserAvatarRef;
     createdAt: string;
     updatedAt: string;
 };
+
+/** Where a profile picture came from: uploaded on Account, or imported from a sign-in provider */
+export type AvatarSource = 'upload' | 'google' | 'microsoft';
+
+export type UserAvatarRef = {
+    /** Random (nanoid), new for every image: it is in the image's address, so the browser can keep it */
+    version: string;
+    source: AvatarSource;
+    updatedAt: string;
+};
+
+/**
+ * A profile picture: a square WebP of at most `AVATAR_SIZE` pixels, re-encoded on the server
+ * (`normalizeAvatar`), in the user's partition. Only the current version exists.
+ */
+export type DbUserAvatar = AppDoc & {
+    type: 'user-avatar';
+    /** `avatarDocId(version)` */
+    id: string;
+    pk: `user:${string}`;
+    userId: string;
+    source: AvatarSource;
+    contentType: 'image/webp';
+    /** Pixels on a side */
+    size: number;
+    bytes: number;
+    /** Base64 */
+    data: string;
+    createdAt: string;
+};
+
+export const avatarDocId = (version: string) => `avatar_${version}`;
 
 /** Unique email -> user (the id is the normalized email, so a second user with it can't be created) */
 export type DbUserEmail = AppDoc & {

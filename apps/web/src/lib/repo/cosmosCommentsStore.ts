@@ -1,6 +1,7 @@
 import { getScreenshotBlobStore, storeScreenshotBytes, type ScreenshotBlobStore } from '../screenshots/blobStore';
 import { originSql } from './originFilter';
 import { authorSql } from './authorFilter';
+import { visibilitySql } from './visibilityFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
@@ -216,6 +217,14 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 `SELECT c.id, c.domain, c.path, c.origin, c.private, c.authorId, c.resolved, {"outcome": c.verification.outcome} AS verification, c.createdAt, c.activity,
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
                  FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
+        },
+        async latestActivity(domain, visibleTo) {
+            // One scalar over indexed fields (automatic /* indexing), however many threads the partition holds
+            const visibility = visibilitySql(visibleTo);
+            const [latest] = await queryAll<string | undefined>('latest-activity', domain,
+                `SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.updatedAt)${visibility.clause}`,
+                visibility.parameters);
+            return typeof latest === 'string' ? latest : undefined;
         },
         async appendThreadItem(domain, id, item, maxItems, updatedAt): Promise<AppendResult> {
             // Item and activity cursor share one etag-protected write. A patch cannot derive

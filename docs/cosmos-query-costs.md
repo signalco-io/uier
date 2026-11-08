@@ -68,6 +68,7 @@ their existing conditional/transactional semantics and TTLs.
 | Cleanup/deletion (`comments/cleanup`, `app/projectDeletion`, MCP removal) | Known-partition Q deletion intents, notification/provider records and workspace references; necessary global Q read receipts, review codes, OAuth/setup/grant records; P current owner/etag before removal | Explicit deletion plus scheduled retries; **complete** deletion passes, pending intents never expire; completed intents retained one day |
 | Screenshot maintenance (`repo/cosmosCommentsStore`, `scripts/notifications-worker`) | Global Q legacy inline images (20 per environment); projected orphan metadata (100/SDK continuation), container TTL read, P owner/image and persisted Blob sweep state | Scheduled turn; remaining TTL and conditional image replacement unchanged; Blob sweep already persists progress and backs off an hour |
 | Email reports/suppression/status (`email/*`, `status/*`) | P normalized-address hash suppression/receipt and missing comment probe; global Q operation-id ledger matching | Report callbacks/requested email/status polling; report receipts 30 days; status probe does not list documents |
+| Sidebar project order (`app/sidebarProjects`, shell layout) | Recent activity only: one comments Q per active project in its own partition, `SELECT VALUE MAX(c.updatedAt)` with the member's visibility (`commentVisibilityFilter`, the rule of `canSeeComment`), one scalar and no documents; Q clients in the workspace only when an active project has a client. Alphabetical reads no comments | Every shell render: page loads, `router.refresh()` (`RealtimeComments` every 30–60 s and on changes), `revalidatePath('/app', 'layout')` and the order cookie action; scales with active projects, not threads |
 
 All call sites use the shared store contract. SQL parameter values and partition suffixes must
 never become operation labels. Global membership, access erasure and identifier-only recovery
@@ -154,6 +155,22 @@ integration suites cover rotating discovery, provider budgets, leases, retries a
   route frequencies and logical point-read totals were not retained. The bounded probe and
   opt-in telemetry enable repeatable operation attribution; they do not reconstruct missing
   history. No paid Vercel Observability tier is required or assumed.
+
+## Shell layout: sidebar project order
+
+Added for [uier #32](https://uier.io/app/review/uier00000001?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F3fl699l0cyy4&comment=comment_qTbpxxD9cuFlnq-HH_fip), operation label
+`comments.latest-activity`. The shell layout renders on every refresh, so it never lists threads:
+ordered by recent activity, each active project costs one single-partition aggregate whose filters
+(partition, `IS_STRING` type checks, `private`, `STARTSWITH` on `path`, `authorId`) are automatically
+indexed paths. Admins' queries carry no visibility clause. Ordered by name, the layout reads no comments
+at all; choosing Recent sets the cookie in a server action, and that render reads the activity.
+Every comment write sets `updatedAt`; only threads untouched since before it existed are left out, and
+a project without counted threads uses its creation time. The cost is **not measured** on Cosmos yet.
+The comparable scalar aggregate measured above (the exact blocked count) cost 3.29 RU at 20 and at
+1,200 history rows, so expect about **3 RU × active projects per render**. For example, ten active projects in a tab
+left open on a project page (`RealtimeComments`, one refresh per minute when connected) come to about
+1,800 RU/hour (43,200 RU/day), around €0.012/day at the rate below. Measure with
+`UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` and the operation label before assuming either figure.
 
 ## Diagnostics and store contract
 

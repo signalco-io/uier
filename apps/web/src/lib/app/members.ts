@@ -1,6 +1,7 @@
 import type { DbMember, DbUser } from './model';
 import { cache } from 'react';
 import { getUser } from './users';
+import { avatarUrl } from './avatars';
 import { listWorkspaceMembers } from './workspaces';
 import { getAppStore } from './store';
 import { workspacePk, type DbProject } from './model';
@@ -12,6 +13,8 @@ export type MemberWithUser = {
     /** `null` when the account no longer exists */
     user: DbUser | null;
     name: string;
+    /** Their profile picture's address, when they have one */
+    avatarUrl?: string;
 };
 
 /** The workspace's members with their names, sorted by name */
@@ -21,7 +24,7 @@ export async function listMembersWithUsers(workspaceId: string): Promise<MemberW
     return members
         .map((member, index) => {
             const user = users[index] ?? null;
-            return { member: publicProjectMember(member, user?.email ?? ''), user, name: user?.name ?? member.email };
+            return { member: publicProjectMember(member, user?.email ?? ''), user, name: user?.name ?? member.email, avatarUrl: avatarUrl(user) };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
 }

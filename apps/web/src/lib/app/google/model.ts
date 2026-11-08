@@ -1,4 +1,5 @@
 import type { AppDoc } from '../model';
+import type { PendingPicture } from '../avatars';
 
 /**
  * A Google sign-in in progress (`ttl` 10 minutes). The browser holds only its id in a signed
@@ -29,6 +30,8 @@ export type DbGoogleLink = AppDoc & {
     /** Normalized; the uier account's email */
     email: string;
     next?: string;
+    /** Google's profile picture, normalized, for an account without one once the link completes */
+    picture?: PendingPicture;
     createdAt: string;
     ttl: number;
 };

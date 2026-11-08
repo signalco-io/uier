@@ -458,6 +458,43 @@ suggestions. No selected text, instructions, generated text or customer identifi
 See [rewrite usage and costs](rewrite-costs.md) for daily reports, versioned pricing, retry/fallback gaps and the
 current model evaluation. Estimates are not provider invoices.
 
+## Profile pictures
+
+A signed-in person sets their picture on Account → General → Profile; Google and Microsoft sign-in
+can bring one too ([Google](google-sign-in.md#profile-picture), [Microsoft](microsoft-sign-in.md#profile-picture)).
+[`src/lib/app/avatars.ts`](../apps/web/src/lib/app/avatars.ts) owns them.
+
+| Route | Answer |
+| --- | --- |
+| `POST /api/account/avatar` (`multipart/form-data`, field `file`) | `200` `{ url }`: the new picture of the signed-in person |
+| `DELETE /api/account/avatar` | `204`: no picture (initials), also when there was none |
+| `GET /api/avatars/<userId>/<version>` | `200` the WebP image, for any signed-in person; `404` once replaced or removed |
+
+- **Writes** need the session and an `Origin` of the app's own host (`Sec-Fetch-Site`, when sent, must be
+  `same-origin`): a multipart form needs no CORS preflight, so `403` otherwise, then `401` signed out. Each
+  account can change its picture 30 times an hour (`429`).
+- **Validation** reads the format from the file's first bytes, never its name or declared type: PNG, JPEG,
+  WebP or GIF (first frame), at most 4 MB (`413`; a request body over the limit is cut off while it is read)
+  and 25 million pixels (a 24 MP phone photo); anything else is `415` or `400` with a message for the Account page. The browser
+  scales down a larger photo before sending it. Sharp decodes the image and keeps only pixels: upright,
+  the centre square, at most 256 pixels (never scaled up), WebP without metadata.
+- **Storage**: a `user-avatar` document (`avatar_<version>`, base64; usually under 30 KB, at most 96 KB even for noise) in
+  the person's own `user:<id>` partition, and `avatar: { version, source, updatedAt }` on their `user`
+  document. Setting, replacing and removing change both, and delete the previous image, in one
+  transactional batch with the user's etag, so a reference never points to a missing image and no old
+  image stays behind. The image is small enough for Cosmos DB, so it needs no Blob container or orphan
+  sweep and is restored with the account from backups.
+- **Reading**: the address is `KnownPageLinks.avatar(userId, version)`, from `avatarUrl(user)`. The version is
+  random (21 characters) and new for every image, so only pages that show the person hand the address
+  out, and its bytes never change: `Cache-Control: private, max-age=31536000, immutable`, with `nosniff` and
+  `Cross-Origin-Resource-Policy: same-origin`. Signed out is `401`; errors are `no-store`. It is under
+  `/api`, not `/app`, because `proxy.ts` makes every app page response `no-store`.
+- **Showing**: `PersonAvatar` (and `AvatarImage` in the comment rows and thread) shows the picture with the
+  name's initial while it loads, if it fails and for people without one. Member lists, project access, the
+  account menu and the comments inbox take `avatarUrl` from `listMembersWithUsers` / `listProjectMembers`;
+  a comment's author and assignee show a picture only while they can still review the project. The review
+  API and the toolbar do not include pictures.
+
 ## Feedback priority and app triage
 
 Comment DTOs add `priority`: `low`, `normal`, `high` or `urgent`. Missing stored values and older
