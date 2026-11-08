@@ -460,7 +460,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
   thread and, once read, Mark as unread are in More actions. Then On (what it was left on, with the selector or
-  the selected text), Page (the review link, "Open on ...", and the environment's name or why the original
+  the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
+  `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
+  the middle is visually hidden, so assistive tech and a copied selection get the whole selector;
+  `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
   source is unavailable), Priority and Assignee (a 20px avatar, empty and dashed while unassigned, and the name; a menu for those who can assign), the
   verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
