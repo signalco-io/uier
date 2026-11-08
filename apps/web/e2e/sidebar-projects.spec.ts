@@ -5,7 +5,7 @@ import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
 
-// The sidebar's active projects (uier #32): sorted by recent activity or by name, grouped by client, remembered.
+// The sidebar's projects (uier #32): sorted and grouped (Sort and Group, uier #49), remembered.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -15,14 +15,14 @@ test.afterAll(async () => { await site.close(); });
 const projectLinks = (page: Page) => page.getByRole('navigation', { name: 'App' }).locator('a[href^="/app/projects/"]:not([href="/app/projects/new"])');
 const inOrder = (...names: string[]) => names.map(name => new RegExp(`${name}$`));
 
-/** Opens the sort menu (from the keyboard, so the menu and its trigger stay reachable without a pointer) */
-async function openSortMenu(page: Page) {
+/** Opens the Sort and Group menu (from the keyboard, so the menu and its trigger stay reachable without a pointer) */
+async function openOrderMenu(page: Page) {
     const navigation = await appNavigation(page);
-    const trigger = navigation.getByRole('button', { name: 'Sort projects' });
+    const trigger = navigation.getByRole('button', { name: 'Sort and group projects' });
     await hydrated(trigger);
     // On phones the pointer stays where Toggle sidebar was tapped, over the workspace switcher in the sheet:
     // rest it on the plain label (on the trigger, its tooltip would take the next Escape)
-    await navigation.getByText('Active projects', { exact: true }).hover();
+    await navigation.getByText(/^(Active|All) projects$/).hover();
     await trigger.focus();
     await page.keyboard.press('Enter');
     const menu = page.getByRole('menu');
@@ -31,12 +31,29 @@ async function openSortMenu(page: Page) {
     return menu;
 }
 
+/** A choice in the menu's Sort or Group section */
+const option = (menu: Locator, section: 'Sort' | 'Group', name: string) =>
+    menu.getByRole('group', { name: section }).getByRole('menuitemradio', { name, exact: true });
+
+/** Closes the menu; focus goes back to its trigger */
+async function closeOrderMenu(page: Page, menu: Locator) {
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+}
+
 /** The saved choice (the local HTTP name of `__Host-uier_project_order`) */
 async function savedOrder(page: Page) {
     return (await page.context().cookies()).find(cookie => cookie.name === 'uier_project_order')?.value;
 }
 
-test('the sidebar sorts the active projects by recent activity or by name, groups them by client and remembers it', async ({ page, request }) => {
+/** Marks a project done from its settings, so the projects page and its card actions stay out of the way */
+async function markDone(page: Page, projectId: string) {
+    await page.goto(`/app/projects/${projectId}/settings/danger-zone`);
+    await page.getByRole('button', { name: 'Mark as done', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Reopen project' })).toBeVisible();
+}
+
+test('the sidebar sorts the active projects by recent activity, creation or name, groups them by client and remembers it', async ({ page, request }) => {
     await signIn(page, uniqueEmail('project-order'));
     // Oldest first: Charlie gets a comment later, which makes it the most recent
     const charlie = await createProject(page, { urls: [site.origin()], name: 'Charlie', clientName: 'Zeta Co' });
@@ -60,23 +77,35 @@ test('the sidebar sorts the active projects by recent activity or by name, group
     await appNavigation(page);
     await expect(projectLinks(page)).toHaveText(inOrder('Charlie', 'Bravo', 'Delta', 'Alpha'));
 
-    // Alphabetical, chosen with the keyboard; the menu stays open for the grouping
-    let menu = await openSortMenu(page);
-    await expect(menu.getByRole('group', { name: 'Sort by' })).toBeVisible();
-    await expect(menu.getByRole('menuitemradio', { name: 'Recent activity' })).toHaveAttribute('aria-checked', 'true');
-    await expect(menu.getByRole('menuitemcheckbox', { name: 'Group by client' })).toHaveAttribute('aria-checked', 'false');
+    // Two labelled sections, one choice in each
+    let menu = await openOrderMenu(page);
+    await expect(menu.getByRole('group', { name: 'Sort' }).getByRole('menuitemradio')).toHaveText(['Recent activity', 'Recently created', 'Name']);
+    await expect(menu.getByRole('group', { name: 'Group' }).getByRole('menuitemradio')).toHaveText(['None', 'Client', 'Status']);
+    await expect(option(menu, 'Sort', 'Recent activity')).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Group', 'None')).toHaveAttribute('aria-checked', 'true');
     await expectNoAxeViolations(page);
+
+    // Recently created, chosen with the keyboard: newest first, whatever the activity
     await page.keyboard.press('ArrowDown');
-    await expect(menu.getByRole('menuitemradio', { name: 'Alphabetical' })).toBeFocused();
+    await expect(option(menu, 'Sort', 'Recently created')).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(menu.getByRole('menuitemradio', { name: 'Alphabetical' })).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Sort', 'Recently created')).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Sort', 'Recent activity')).toHaveAttribute('aria-checked', 'false');
+    await expect(projectLinks(page)).toHaveText(inOrder('Bravo', 'Delta', 'Alpha', 'Charlie'));
+    await expect.poll(() => savedOrder(page)).toBe('created');
+
+    // Name; the menu stays open for the grouping
+    await page.keyboard.press('ArrowDown');
+    await expect(option(menu, 'Sort', 'Name')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(option(menu, 'Sort', 'Name')).toHaveAttribute('aria-checked', 'true');
     await expect(projectLinks(page)).toHaveText(inOrder('Alpha', 'Bravo', 'Charlie', 'Delta'));
 
-    // Grouped: clients by name, each client's projects a list named by the client, the rest last
-    await menu.getByRole('menuitemcheckbox', { name: 'Group by client' }).click();
-    await expect(menu.getByRole('menuitemcheckbox', { name: 'Group by client' })).toHaveAttribute('aria-checked', 'true');
-    await page.keyboard.press('Escape');
-    await expect(menu).toBeHidden();
+    // Grouped by client: clients by name, each client's projects a list named by the client, the rest last
+    await option(menu, 'Group', 'Client').click();
+    await expect(option(menu, 'Group', 'Client')).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Group', 'None')).toHaveAttribute('aria-checked', 'false');
+    await closeOrderMenu(page, menu);
     const navigation = page.getByRole('navigation', { name: 'App' });
     await expect(projectLinks(page)).toHaveText(inOrder('Delta', 'Bravo', 'Charlie', 'Alpha'));
     await expect(navigation.getByRole('list', { name: 'Zeta Co' }).getByRole('link')).toHaveText(inOrder('Bravo', 'Charlie'));
@@ -92,14 +121,94 @@ test('the sidebar sorts the active projects by recent activity or by name, group
     await expect(projectLinks(page)).toHaveText(inOrder('Delta', 'Bravo', 'Charlie', 'Alpha'));
 
     // Recent activity, still grouped: the client with the latest activity first
-    menu = await openSortMenu(page);
-    await expect(menu.getByRole('menuitemradio', { name: 'Alphabetical' })).toHaveAttribute('aria-checked', 'true');
-    await expect(menu.getByRole('menuitemcheckbox', { name: 'Group by client' })).toHaveAttribute('aria-checked', 'true');
-    await menu.getByRole('menuitemradio', { name: 'Recent activity' }).click();
-    await page.keyboard.press('Escape');
+    menu = await openOrderMenu(page);
+    await expect(option(menu, 'Sort', 'Name')).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Group', 'Client')).toHaveAttribute('aria-checked', 'true');
+    await option(menu, 'Sort', 'Recent activity').click();
+    await closeOrderMenu(page, menu);
     await expect(projectLinks(page)).toHaveText(inOrder('Charlie', 'Bravo', 'Delta', 'Alpha'));
     await expect(navigation.getByRole('list', { name: 'Zeta Co' }).getByRole('link')).toHaveText(inOrder('Charlie', 'Bravo'));
     await expect.poll(() => savedOrder(page)).toBe('recent.client');
+
+    // Recently created, still grouped: the client of the newest project first
+    menu = await openOrderMenu(page);
+    await option(menu, 'Sort', 'Recently created').click();
+    await closeOrderMenu(page, menu);
+    await expect(projectLinks(page)).toHaveText(inOrder('Bravo', 'Charlie', 'Delta', 'Alpha'));
+    await expect(navigation.getByRole('list', { name: 'Acme' }).getByRole('link')).toHaveText(inOrder('Delta'));
+    await expect.poll(() => savedOrder(page)).toBe('created.client');
+});
+
+test('grouped by status, the sidebar lists the done projects too, under Active and Done', async ({ page }) => {
+    await signIn(page, uniqueEmail('project-status-group'));
+    await createProject(page, { urls: ['alpha.example.com'], name: 'Alpha' });
+    const bravo = await createProject(page, { urls: ['bravo.example.com'], name: 'Bravo' });
+    await createProject(page, { urls: ['charlie.example.com'], name: 'Charlie' });
+    const delta = await createProject(page, { urls: ['delta.example.com'], name: 'Delta' });
+    await markDone(page, bravo);
+    await markDone(page, delta);
+
+    // Not grouped: only the active projects
+    await page.goto('/app/projects');
+    const navigation = await appNavigation(page);
+    await expect(navigation.getByText('Active projects', { exact: true })).toBeVisible();
+    await expect(projectLinks(page)).toHaveText(inOrder('Charlie', 'Alpha'));
+
+    // Without clients there is nothing to group by client
+    let menu = await openOrderMenu(page);
+    await expect(menu.getByRole('group', { name: 'Group' }).getByRole('menuitemradio')).toHaveText(['None', 'Status']);
+    await option(menu, 'Group', 'Status').click();
+    await expect(option(menu, 'Group', 'Status')).toHaveAttribute('aria-checked', 'true');
+    await closeOrderMenu(page, menu);
+    // Every project, each status a list named by it: Active first, then Done
+    await expect(navigation.getByText('All projects', { exact: true })).toBeVisible();
+    await expect(projectLinks(page)).toHaveText(inOrder('Charlie', 'Alpha', 'Delta', 'Bravo'));
+    await expect(navigation.getByRole('list', { name: 'Active' }).getByRole('link')).toHaveText(inOrder('Charlie', 'Alpha'));
+    await expect(navigation.getByRole('list', { name: 'Done' }).getByRole('link')).toHaveText(inOrder('Delta', 'Bravo'));
+    await animationsFinished(page.locator('body'));
+    await expectNoAxeViolations(page);
+    await expect.poll(() => savedOrder(page)).toBe('recent.status');
+
+    // Sorted by name within each status
+    menu = await openOrderMenu(page);
+    await option(menu, 'Sort', 'Name').click();
+    await closeOrderMenu(page, menu);
+    await expect(navigation.getByRole('list', { name: 'Active' }).getByRole('link')).toHaveText(inOrder('Alpha', 'Charlie'));
+    await expect(navigation.getByRole('list', { name: 'Done' }).getByRole('link')).toHaveText(inOrder('Bravo', 'Delta'));
+    await expect.poll(() => savedOrder(page)).toBe('alphabetical.status');
+
+    // Remembered after a reload; a done project's page is current in its own entry
+    await page.goto(`/app/projects/${delta}`);
+    const reloaded = await appNavigation(page);
+    await expect(reloaded.getByRole('list', { name: 'Done' }).getByRole('link')).toHaveText(inOrder('Bravo', 'Delta'));
+    await expect(reloaded.getByRole('list', { name: 'Done' }).getByRole('link', { name: 'Delta' })).toHaveAttribute('aria-current', 'page');
+    await expect(reloaded.getByRole('link', { name: 'Projects', exact: true })).not.toHaveAttribute('aria-current', 'page');
+
+    // Not grouped again: the done projects leave the list
+    menu = await openOrderMenu(page);
+    await expect(option(menu, 'Sort', 'Name')).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Group', 'Status')).toHaveAttribute('aria-checked', 'true');
+    await option(menu, 'Group', 'None').click();
+    await closeOrderMenu(page, menu);
+    await expect(navigation.getByText('Active projects', { exact: true })).toBeVisible();
+    await expect(projectLinks(page)).toHaveText(inOrder('Alpha', 'Charlie'));
+    await expect.poll(() => savedOrder(page)).toBe('alphabetical');
+});
+
+test('an order saved before Sort and Group reads as the same choice', async ({ page, baseURL }) => {
+    await signIn(page, uniqueEmail('project-order-saved'));
+    await createProject(page, { urls: ['alpha.example.com'], name: 'Alpha' });
+    await createProject(page, { urls: ['bravo.example.com'], name: 'Bravo', clientName: 'Acme' });
+    // Alphabetical, with Group by client checked
+    await page.context().addCookies([{ name: 'uier_project_order', value: 'alphabetical.client', url: baseURL! }]);
+
+    await page.goto('/app/projects');
+    const navigation = await appNavigation(page);
+    await expect(navigation.getByRole('list', { name: 'Acme' }).getByRole('link')).toHaveText(inOrder('Bravo'));
+    await expect(navigation.getByRole('list', { name: 'No client' }).getByRole('link')).toHaveText(inOrder('Alpha'));
+    const menu = await openOrderMenu(page);
+    await expect(option(menu, 'Sort', 'Name')).toHaveAttribute('aria-checked', 'true');
+    await expect(option(menu, 'Group', 'Client')).toHaveAttribute('aria-checked', 'true');
 });
 
 /** Where a sidebar link's parts are: its leading icon (a page's icon, a project's tile) and its label */

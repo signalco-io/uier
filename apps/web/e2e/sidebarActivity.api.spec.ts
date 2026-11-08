@@ -91,7 +91,7 @@ test('Cosmos reads one scalar in the project partition, with the visibility in t
     expect(captured[1]?.input.query).not.toMatch(/TOP|SELECT \*/);
 });
 
-test('ordered by name, the sidebar uses creation times without reading activity; by recent activity, each project\'s latest', async () => {
+test('ordered by name, the sidebar uses creation times without reading activity; by recent activity, each listed project\'s latest', async () => {
     const previous = { cosmos: process.env.COSMOSDB_CONNECTION_STRING, endpoint: process.env.COSMOSDB_ENDPOINT };
     process.env.COSMOSDB_CONNECTION_STRING = '';
     process.env.COSMOSDB_ENDPOINT = '';
@@ -99,16 +99,33 @@ test('ordered by name, the sidebar uses creation times without reading activity;
         const { loadSidebarProjects } = await import('../src/lib/app/sidebarProjects');
         const id = randomUUID().replaceAll('-', '').slice(0, 11);
         await getMemoryCommentsStore().create(comment(`project:${id}a`, 'comment_new', { updatedAt: '2026-11-08T09:00:00.000Z' }));
+        await getMemoryCommentsStore().create(comment(`project:${id}c`, 'comment_done', { updatedAt: '2026-11-09T09:00:00.000Z' }));
         const context = { workspace: { id: `w_${id}` }, user: { id: 'u_admin', name: 'Admin' }, isAdmin: true } as unknown as Parameters<typeof loadSidebarProjects>[0];
         const project = (suffix: string, createdAt: string, status: 'active' | 'done' = 'active') =>
             ({ id: `${id}${suffix}`, name: suffix, urls: [], status, createdAt }) as unknown as Parameters<typeof loadSidebarProjects>[1][number];
         const projects = [project('a', '2026-11-01T00:00:00.000Z'), project('b', '2026-11-02T00:00:00.000Z'), project('c', '2026-11-03T00:00:00.000Z', 'done')];
+        const times = (listed: Awaited<ReturnType<typeof loadSidebarProjects>>) =>
+            listed.map(({ name, status, createdAt, activityAt }) => [name, status, createdAt, activityAt]);
 
-        // The newer comment is not read: only Recent activity needs it
-        const byName = await loadSidebarProjects(context, projects, { sort: 'alphabetical', groupByClient: true });
-        expect(byName.map(({ name, activityAt }) => [name, activityAt])).toEqual([['a', '2026-11-01T00:00:00.000Z'], ['b', '2026-11-02T00:00:00.000Z']]);
-        const recent = await loadSidebarProjects(context, projects, { sort: 'recent', groupByClient: false });
-        expect(recent.map(({ name, activityAt }) => [name, activityAt])).toEqual([['a', '2026-11-08T09:00:00.000Z'], ['b', '2026-11-02T00:00:00.000Z']]);
+        // Every project comes with its status, so grouping by status shows the done ones at once.
+        // The newer comments are not read: only Recent activity needs them
+        for (const sort of ['alphabetical', 'created'] as const)
+            expect(times(await loadSidebarProjects(context, projects, { sort, group: 'status' }))).toEqual([
+                ['a', 'active', '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z'],
+                ['b', 'active', '2026-11-02T00:00:00.000Z', '2026-11-02T00:00:00.000Z'],
+                ['c', 'done', '2026-11-03T00:00:00.000Z', '2026-11-03T00:00:00.000Z']
+            ]);
+        // By recent activity, only the listed projects' activity: a done project's only when grouped by status
+        expect(times(await loadSidebarProjects(context, projects, { sort: 'recent', group: 'none' }))).toEqual([
+            ['a', 'active', '2026-11-01T00:00:00.000Z', '2026-11-08T09:00:00.000Z'],
+            ['b', 'active', '2026-11-02T00:00:00.000Z', '2026-11-02T00:00:00.000Z'],
+            ['c', 'done', '2026-11-03T00:00:00.000Z', '2026-11-03T00:00:00.000Z']
+        ]);
+        expect(times(await loadSidebarProjects(context, projects, { sort: 'recent', group: 'status' }))).toEqual([
+            ['a', 'active', '2026-11-01T00:00:00.000Z', '2026-11-08T09:00:00.000Z'],
+            ['b', 'active', '2026-11-02T00:00:00.000Z', '2026-11-02T00:00:00.000Z'],
+            ['c', 'done', '2026-11-03T00:00:00.000Z', '2026-11-09T09:00:00.000Z']
+        ]);
     } finally {
         for (const [name, value] of [['COSMOSDB_CONNECTION_STRING', previous.cosmos], ['COSMOSDB_ENDPOINT', previous.endpoint]] as const)
             if (value === undefined) delete process.env[name];

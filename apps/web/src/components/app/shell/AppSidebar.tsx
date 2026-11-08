@@ -75,8 +75,11 @@ function ProjectItem({ project, current }: { project: SidebarProject; current: b
     );
 }
 
+const statusLabels = { active: 'Active', done: 'Done' } as const;
+
 /**
- * The app's navigation: the workspace switcher, Projects, the active projects for quick switching,
+ * The app's navigation: the workspace switcher, Projects, the active projects for quick switching (or, grouped by
+ * status, every project),
  * then at the bottom the workspace area (users, teams, clients and settings in tabs), feedback on the
  * app and the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
  */
@@ -85,7 +88,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
     user: { name: string; email: string; avatarUrl?: string };
     workspaces: WorkspaceOption[];
     currentWorkspaceId: string;
-    /** Active projects, with their client and latest activity */
+    /** The projects the person can see, active and done, with their client and latest activity */
     projects: SidebarProject[];
     /** How this browser lists them (a cookie, so the first render is already in order) */
     projectOrder: ProjectOrder;
@@ -94,21 +97,25 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
 }) {
     const pathname = usePathname();
     const groupId = useId();
-    // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching from Alphabetical,
-    // Recent first orders by creation time, then by the activity that render reads
+    // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching to Recent activity
+    // (or, by recent activity, to grouping by status), the projects without activity read yet first count from their
+    // creation, then from the activity that render reads
     const [order, setOrder] = useState(projectOrder);
     const changeOrder = (next: ProjectOrder) => {
         setOrder(next);
         saveProjectOrderAction(next).catch(() => toast.error('Could not save the project order. Try again.'));
     };
+    // Only active projects, unless grouped by status
     const groups = orderProjects(projects, order);
-    const grouped = groups.some(group => group.client);
-    const canCreate = isAdmin && projects.length > 0;
+    const listed = groups.flatMap(group => group.projects);
+    const grouped = groups.some(group => group.client || group.status);
+    const active = projects.filter(project => project.status !== 'done');
+    const canCreate = isAdmin && active.length > 0;
     // On small screens the sidebar is a sheet: close it once a link has opened its page
     const { setOpenMobile } = useSidebar();
     useEffect(() => setOpenMobile(false), [pathname, setOpenMobile]);
     // A listed project is current in its own entry; Projects covers the list and every other project page
-    const inListedProject = projects.some(project => isCurrent(pathname, KnownPageLinks.project(project.id)));
+    const inListedProject = listed.some(project => isCurrent(pathname, KnownPageLinks.project(project.id)));
     const projectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
     // Admins manage the workspace's people and settings; everyone else sees the clients of their projects
     const workspaceHref = isAdmin ? KnownPages.AppUsers : hasClients ? KnownPages.AppClients : undefined;
@@ -130,27 +137,41 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                         </SidebarGroupContent>
                     </SidebarGroup>
                     <SidebarGroup>
-                        <SidebarGroupLabel>Active projects</SidebarGroupLabel>
-                        {/* Ordering needs more than one project; it sits left of Create project */}
+                        <SidebarGroupLabel>{order.group === 'status' ? 'All projects' : 'Active projects'}</SidebarGroupLabel>
+                        {/* Ordering needs more than one project (done ones count: grouped by status, they are listed);
+                            it sits left of Create project */}
                         {projects.length > 1 && (
-                            <ProjectOrderMenu order={order} onChange={changeOrder} canGroup={projects.some(project => project.client)}
+                            <ProjectOrderMenu order={order} onChange={changeOrder} canGroupByClient={active.some(project => project.client)}
                                 className={canCreate ? 'right-10' : undefined} />
                         )}
-                        {/* Without active projects, "Create a project" is in the list itself */}
+                        {/* An icon link once there are active projects; without them, "Create a project" is in the list */}
                         {canCreate && (
                             <GroupLinkAction href={KnownPages.AppNewProject} label="Create project">
                                 <PlusIcon />
                             </GroupLinkAction>
                         )}
                         <SidebarGroupContent>
+                            {/* Without active projects, "Create a project" is in the list itself (above the done ones) */}
+                            {!active.length && (isAdmin ? (
+                                <SidebarMenu>
+                                    <SidebarMenuItem>
+                                        <SidebarMenuButton className="text-sidebar-foreground/70" render={<Link href={KnownPages.AppNewProject} />}>
+                                            <PlusIcon />
+                                            <span>Create a project</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                </SidebarMenu>
+                            ) : (
+                                <p className="px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">No active projects</p>
+                            ))}
                             {grouped ? groups.map((group, index) => {
-                                // Each client's projects are a list named by the client; the rest come last
+                                // Each client's or status's projects are a list named by it; projects without a client come last
                                 const labelId = `${groupId}-${index}`;
                                 return (
-                                    <div key={group.client?.id ?? 'none'} className="flex flex-col not-first:mt-2">
+                                    <div key={group.client?.id ?? group.status ?? 'none'} className="flex flex-col not-first:mt-2">
                                         <SidebarGroupLabel id={labelId} className="gap-2 font-normal">
                                             {group.client && <ClientMark client={group.client} />}
-                                            <span className="truncate">{group.client?.name ?? 'No client'}</span>
+                                            <span className="truncate">{group.client?.name ?? (group.status ? statusLabels[group.status] : 'No client')}</span>
                                         </SidebarGroupLabel>
                                         <SidebarMenu aria-labelledby={labelId}>
                                             {group.projects.map(project => (
@@ -159,23 +180,12 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                                         </SidebarMenu>
                                     </div>
                                 );
-                            }) : (
+                            }) : listed.length > 0 && (
                                 <SidebarMenu>
-                                    {groups[0]?.projects.map(project => (
+                                    {listed.map(project => (
                                         <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} />
                                     ))}
-                                    {!projects.length && isAdmin && (
-                                        <SidebarMenuItem>
-                                            <SidebarMenuButton className="text-sidebar-foreground/70" render={<Link href={KnownPages.AppNewProject} />}>
-                                                <PlusIcon />
-                                                <span>Create a project</span>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    )}
                                 </SidebarMenu>
-                            )}
-                            {!projects.length && !isAdmin && (
-                                <p className="px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">No active projects</p>
                             )}
                         </SidebarGroupContent>
                     </SidebarGroup>

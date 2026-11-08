@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { workspaceIdSchema } from '../../../lib/app/validation';
-import { projectSorts } from '../../../lib/app/projectOrder';
+import { projectGroupings, projectSorts } from '../../../lib/app/projectOrder';
 
 export const switchWorkspaceActionSchema = z.object({ workspaceId: workspaceIdSchema });
-export const projectOrderActionSchema = z.object({ sort: z.enum(projectSorts), groupByClient: z.boolean() }).strict();
+export const projectOrderActionSchema = z.object({ sort: z.enum(projectSorts), group: z.enum(projectGroupings) }).strict();

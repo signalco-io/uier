@@ -4,7 +4,7 @@ import { commentVisibilityFilter, projectPartition } from '../review/comments';
 import type { AppContext } from './context';
 import { loadClients, projectClient, type ClientSummary } from './clients';
 import { appActor } from './projectComments';
-import type { OrderableProject, ProjectOrder } from './projectOrder';
+import { listsProject, type OrderableProject, type ProjectOrder } from './projectOrder';
 
 /** A project in the sidebar's quick switcher; grouped by client, the client's tile heads its projects */
 export type SidebarProject = OrderableProject & { url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color'> };
@@ -27,22 +27,28 @@ async function projectActivityAt(context: AppContext, project: DbProject) {
 }
 
 /**
- * The active projects for the sidebar, with their client to group by. The shell layout renders on every refresh,
- * so comments are read only for Recent activity; otherwise `activityAt` is the creation time. Choosing Recent saves
- * the cookie in a server action, and Next renders the layout again with the activity.
+ * The projects for the sidebar, active and done, with their client to group by; the order picks which it lists
+ * (`listsProject`), so switching to grouping by status shows the done ones at once. The shell layout renders on
+ * every refresh, so comments are read only for Recent activity and only for the listed projects; otherwise
+ * `activityAt` is the creation time. Choosing a new order saves the cookie in a server action, and Next renders
+ * the layout again with the activity.
  */
 export async function loadSidebarProjects(context: AppContext, projects: DbProject[], order: ProjectOrder): Promise<SidebarProject[]> {
-    const active = projects.filter(project => project.status !== 'done');
+    const listed = projects.map(project => listsProject(order, project));
     const [clients, activity] = await Promise.all([
-        active.some(project => project.clientId) ? loadClients(context.workspace.id) : undefined,
-        order.sort === 'recent' ? Promise.all(active.map(project => projectActivityAt(context, project))) : undefined
+        projects.some(project => project.status !== 'done' && project.clientId) ? loadClients(context.workspace.id) : undefined,
+        order.sort === 'recent'
+            ? Promise.all(projects.map((project, index) => (listed[index] ? projectActivityAt(context, project) : undefined)))
+            : undefined
     ]);
-    return active.map((project, index) => {
+    return projects.map((project, index) => {
         const client = clients && projectClient(project, clients);
         return {
             id: project.id,
             name: project.name,
             url: project.urls[0],
+            status: project.status === 'done' ? 'done' : 'active',
+            createdAt: project.createdAt,
             activityAt: activity?.[index] ?? project.createdAt,
             client: client && { id: client.id, name: client.name, icon: client.icon, color: client.color }
         };
