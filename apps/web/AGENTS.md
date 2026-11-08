@@ -460,7 +460,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
   thread and, once read, Mark as unread are in More actions. Then On (what it was left on, with the selector or
-  the selected text), Page (the review link, "Open on ...", and the environment's name or why the original
+  the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
+  `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
+  the middle is visually hidden, so assistive tech and a copied selection get the whole selector;
+  `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
   source is unavailable), Priority and Assignee (a 20px avatar, empty and dashed while unassigned, and the name; a menu for those who can assign), the
   verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
@@ -723,9 +726,12 @@ follow and read changes for cards, counters and board columns. Failed actions re
 `useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
 revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
 `NavigationPending` gives settings links immediate feedback while their authorized destination loads.
+`LinkTabs` puts its spinner last, after any count: at the right end of a section link that fills its
+column, in space kept while hidden so nothing moves when it appears.
 `e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
 immediate updates, rollback, persistence and background feedback submission on desktop and mobile,
-and that the open thread and the filters follow clicks and Back while a write is held.
+and that the open thread and the filters follow clicks and Back while a write is held; it also holds a
+settings section's page to check where that link's spinner sits.
 
 ## Rewrite accounting
 

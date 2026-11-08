@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { commentRowLink, commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRowLink, commentRows, createProject, hydrated, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, toolbar } from './support/toolbar';
@@ -251,5 +251,43 @@ test('new feedback appears and the composer closes while submission waits for th
         await page.reload();
         await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
         await expect(inbox.getByText('Posted in the background', { exact: true })).toBeVisible();
+    } finally { pending.release(); }
+});
+
+test('a settings section link shows its spinner at the end of the link while the section loads', async ({ page }) => {
+    await signIn(page, uniqueEmail('pending-link'));
+    const project = await createProject(page, { urls: ['pending.example.com'] });
+    await page.goto(`/app/projects/${project}/settings`);
+    const sections = page.getByRole('navigation', { name: 'Project settings' });
+    await hydrated(sections);
+    const link = sections.getByRole('link', { name: 'Integrations' });
+    const spinner = link.locator('[data-slot="spinner"]');
+    // Where the label and the (hidden, space-keeping) spinner are, relative to the link
+    const layout = () => link.evaluate(a => {
+        const range = document.createRange();
+        range.selectNodeContents(a.firstChild!);
+        const box = a.getBoundingClientRect(), label = range.getBoundingClientRect();
+        const icon = a.querySelector('[data-slot="spinner"]')!.getBoundingClientRect();
+        return { label: [label.left - box.left, label.top - box.top], width: box.width, iconLeft: icon.left - box.left, iconRight: box.right - icon.right };
+    });
+    const before = await layout();
+    await expect(spinner).toBeHidden();
+    const pending = gate();
+    await page.route(`**/app/projects/${project}/settings/integrations*`, async route => {
+        await pending.wait;
+        await route.continue().catch(() => undefined);
+    });
+    try {
+        await link.click();
+        await expect(spinner).toBeVisible();
+        // At the right end of the link (inside its padding), and nothing moved when it appeared
+        const during = await layout();
+        expect(during).toEqual(before);
+        expect(during.iconRight).toBeCloseTo(12, 0);
+        // A section link fills its column on wide screens, so the spinner sits well past the label
+        if (during.width > 150) expect(during.iconLeft).toBeGreaterThan(during.width / 2);
+        pending.release();
+        await expect(link).toHaveAttribute('aria-current', 'page');
+        await expect(spinner).toBeHidden();
     } finally { pending.release(); }
 });
