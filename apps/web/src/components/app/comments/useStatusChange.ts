@@ -2,50 +2,57 @@
 
 import { useTransition } from 'react';
 import { toast } from 'sonner';
+import type { FeedbackStatusTarget } from '@uier/toolbar/verification';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
-import { setCommentResolvedAction, verificationCommentAction } from './actions';
+import { setCommentStatusAction, verificationCommentAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 import { commentStatus, type CommentStatus } from './CommentStatus';
 
-/** A row or card leaving its list after Done or Reopen: the exit animation, and undoing it when the change fails */
+/** A row or card leaving its list after a status change: the exit animation, and undoing it when the change fails */
 export type ResolveExit = { finished: Promise<void>; cancel: () => void };
 
 type ChangeOptions = {
-    /** Done or Reopen takes the thread out of its list: starts its exit right away */
-    onResolve?: (resolved: boolean) => ResolveExit;
+    /** A status change that takes the thread out of its list starts its exit right away (`undefined`: it stays) */
+    onMove?: (status: CommentStatus) => ResolveExit | undefined;
     /** Ready to verify: the Request verification form, which asks for the details first */
     onVerify: () => void;
 };
 
-/** Where the person may move the thread: Open and Done with the resolve permission (Open from Ready to verify cancels the check), Ready to verify with the request permission */
+/**
+ * Where the person may move the thread: Open, In progress and Done with the resolve permission (the
+ * same people who mark it done or reopen it), Ready to verify with the request permission. From Ready
+ * to verify, Open and In progress cancel the check, which takes the requester or an admin.
+ */
 export function allowedStatuses(comment: ProjectCommentView): Record<CommentStatus, boolean> {
     const status = commentStatus(comment);
     const verification = comment.verificationPermissions;
+    const leave = status === 'ready' ? Boolean(verification?.cancel) : comment.permissions.resolve;
     return {
-        open: status === 'done' ? comment.permissions.resolve : status === 'ready' && Boolean(verification?.cancel),
+        open: status !== 'open' && leave,
+        'in-progress': status !== 'in-progress' && leave,
         ready: Boolean(verification?.request),
         done: status !== 'done' && comment.permissions.resolve
     };
 }
 
 /**
- * Status changes for any thread of the list: Done and Reopen (shown at once, rolled back on failure),
- * Open from Ready to verify (cancels the check) and Ready to verify (`onVerify`). The board uses one
- * for every card it moves; `useStatusChange` binds it to one thread.
+ * Status changes for any thread of the list: Open, In progress and Done (shown at once, rolled back
+ * on failure), Open or In progress from Ready to verify (cancels the check, then the thread is there)
+ * and Ready to verify (`onVerify`). The board uses one for every card it moves; `useStatusChange`
+ * binds it to one thread.
  */
 export function useStatusChanger(projectId: string) {
     const updateComment = useCommentUpdate();
     const [pending, startTransition] = useTransition();
 
-    const toggleResolved = (comment: ProjectCommentView, onResolve?: ChangeOptions['onResolve']) => startTransition(async () => {
-        const resolved = !comment.resolved;
-        const exit = onResolve?.(resolved);
+    const setStatus = (comment: ProjectCommentView, status: FeedbackStatusTarget, onMove?: ChangeOptions['onMove']) => startTransition(async () => {
+        const exit = onMove?.(status);
         // Start saving immediately, then move the card once its exit has played.
         try {
-            const request = setCommentResolvedAction(projectId, comment.id, resolved)
+            const request = setCommentStatusAction(projectId, comment.id, status)
                 .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
             if (exit) await exit.finished;
-            startTransition(() => updateComment({ id: comment.id, patch: { resolved } }));
+            startTransition(() => updateComment({ id: comment.id, patch: { resolved: status === 'done', inProgress: status === 'in-progress' } }));
             const result = await request;
             if (result && !result.ok) {
                 exit?.cancel();
@@ -57,10 +64,10 @@ export function useStatusChanger(projectId: string) {
         }
     });
 
-    const cancelCheck = (comment: ProjectCommentView) => startTransition(async () => {
+    const cancelCheck = (comment: ProjectCommentView, status: Exclude<FeedbackStatusTarget, 'done'>) => startTransition(async () => {
         try {
             const result = await verificationCommentAction(projectId, comment.id, {
-                action: 'cancel', override: false, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
+                action: 'cancel', override: false, status, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
             });
             if (result && !result.ok) toast.error(result.error);
             else toast.success('Verification request canceled.');
@@ -69,13 +76,13 @@ export function useStatusChanger(projectId: string) {
         }
     });
 
-    const change = (comment: ProjectCommentView, next: CommentStatus, { onResolve, onVerify }: ChangeOptions) => {
+    const change = (comment: ProjectCommentView, next: CommentStatus, { onMove, onVerify }: ChangeOptions) => {
         const status = commentStatus(comment);
         if (!allowedStatuses(comment)[next] && next !== status) return;
         if (next === 'ready') onVerify();
         else if (next === status) return;
-        else if (next === 'open' && status === 'ready') cancelCheck(comment);
-        else toggleResolved(comment, onResolve);
+        else if (status === 'ready' && next !== 'done') cancelCheck(comment, next);
+        else setStatus(comment, next, onMove);
     };
     return { change, pending };
 }

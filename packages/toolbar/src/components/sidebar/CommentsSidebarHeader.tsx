@@ -37,12 +37,13 @@ export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
 
 const statuses = [
     { value: 'unresolved', label: 'Open' },
+    { value: 'in-progress', label: 'In progress' },
     { value: 'ready', label: 'Ready to verify' },
     { value: 'resolved', label: 'Done' },
     { value: 'all', label: 'All' }
 ] as const;
 
-/** Open, Done and All, with their counts for the chosen pages: underlined tabs right above the list */
+/** Open, In progress, Ready to verify, Done and All, with their counts for the chosen pages: underlined tabs right above the list */
 export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     status: CommentsStatusFilter;
     counts: Record<CommentsStatusFilter, number>;

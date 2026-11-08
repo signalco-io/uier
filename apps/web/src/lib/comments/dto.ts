@@ -45,6 +45,8 @@ export type CommentDto = {
     device?: { size?: DbDeviceSize; windowSize?: [number, number] };
     verification?: import('@uier/toolbar/verification').VerificationDetails;
     resolved: boolean;
+    /** In progress: only when set (missing means not). The stage is `feedbackStage` of `@uier/toolbar/verification`. */
+    inProgress?: true;
     isMine: boolean;
     createdAt?: string;
 };
@@ -210,6 +212,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         },
         device: toDeviceDto(comment.device),
         resolved: comment.resolved === true,
+        ...(comment.inProgress === true && comment.resolved !== true ? { inProgress: true as const } : {}),
         priority: commentPriority(comment.priority),
         isMine: Boolean(authorId) && authorId === visitorAuthorId,
         createdAt: optionalString(comment.createdAt)

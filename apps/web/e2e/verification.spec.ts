@@ -72,9 +72,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
             expect((await rejected).status()).toBe(200);
             await expect(inbox.getByRole('article')).toHaveCount(0);
             await page.reload();
-            await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
+            // Still needs work: someone continues the fix
+            await expect(page.getByRole('region', { name: 'In progress comments', exact: true }).getByRole('listitem')).toHaveCount(1);
             const thread = await openComment(page, 'Checkout needs a fix');
-            await (await openRequestForm(page, thread)).getByRole('button', { name: 'Request verification', exact: true }).click();
+            await (await openRequestForm(page, thread, 'In progress')).getByRole('button', { name: 'Request verification', exact: true }).click();
             await expect(thread.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true })).toBeVisible();
             await page.keyboard.press('Escape');
             await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true }).getByRole('listitem')).toHaveCount(1);
@@ -153,12 +154,12 @@ test('members request and cancel from the toolbar using the existing participant
     await expect(inbox.getByRole('button', { name: 'Mark as done', exact: true })).toBeVisible();
 });
 
-test('the status menu lists all three statuses; Open from Ready to verify cancels the check', async ({ page, request }) => {
+test('the status menu lists every status; Open and In progress from Ready to verify cancel the check', async ({ page, request }) => {
     await fixture(page, request);
     const card = await openComment(page, 'Checkout needs a fix');
     await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
     const menu = page.getByRole('menu');
-    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'Ready to verify', 'Done']);
+    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done']);
     await page.keyboard.press('Escape');
     const form = await openRequestForm(page, card);
     await form.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -167,8 +168,17 @@ test('the status menu lists all three statuses; Open from Ready to verify cancel
 
     await (await openRequestForm(page, card)).getByRole('button', { name: 'Request verification', exact: true }).click();
     await card.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true }).click();
-    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'Ready to verify', 'Done without verification']);
+    await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done without verification']);
     await menu.getByRole('menuitem', { name: 'Open', exact: true }).click();
     await expect(card).toContainText('Request canceled.');
     await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
+
+    // In progress from Ready to verify cancels the check too, and the thread stays In progress
+    await (await openRequestForm(page, card)).getByRole('button', { name: 'Request verification', exact: true }).click();
+    await card.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true }).click();
+    await menu.getByRole('menuitem', { name: 'In progress', exact: true }).click();
+    await expect(card.getByRole('button', { name: 'Status: In progress. Change status', exact: true })).toBeVisible();
+    await expect(card).toContainText('Request canceled.');
+    await page.reload();
+    await expect(card.getByRole('button', { name: 'Status: In progress. Change status', exact: true })).toBeVisible();
 });

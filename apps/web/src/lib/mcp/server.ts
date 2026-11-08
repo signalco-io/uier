@@ -1,5 +1,5 @@
 import { changeFixVerification, verificationDetails } from '../review/fixVerification';
-import { readyForReview } from '@uier/toolbar/verification';
+import { feedbackStage, feedbackStatusTargets } from '@uier/toolbar/verification';
 import { commentPriority, priorities } from '@uier/toolbar/triage';
 import { screenshotBytes } from '../screenshots/blobStore';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -11,7 +11,7 @@ import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
-import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentResolved } from '../review/comments';
+import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentResolved, setProjectCommentStatus } from '../review/comments';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
 import { projectFeedbackExport } from '../review/feedbackContext';
 import { sha256Hex } from '../app/tokens';
@@ -39,8 +39,8 @@ const feedbackFilters = z.object({
     projectId, ...page,
     search: z.string().max(200).default(''),
     priority: z.enum(priorities).optional(),
-    status: z.enum(['all', 'open', 'ready', 'resolved']).default('all')
-        .describe('open: not done (Ready to verify included); ready: Ready to verify, a fix check is pending; resolved: Done.'),
+    status: z.enum(['all', 'open', 'in-progress', 'ready', 'resolved']).default('all')
+        .describe('open: not done (In progress and Ready to verify included); in-progress: In progress, someone is working on it; ready: Ready to verify, a fix check is pending; resolved: Done.'),
     path: reviewPathSchema.optional(),
     environment: z.string().min(1).max(512).optional(),
     anchorType: z.enum(['point', 'text', 'page']).optional(),
@@ -116,12 +116,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const [participants, reads] = await Promise.all([participantNames(project), loadReadSequences(`project:${project.id}`, authorId)]);
         const search = input.search.toLocaleLowerCase();
         const items = comments.filter(comment => (input.priority === undefined || commentPriority(comment.priority) === input.priority)
-            && (input.status === 'ready' ? readyForReview(comment) : input.status === 'all' || Boolean(comment.resolved) === (input.status === 'resolved'))
+            && (input.status === 'all' || (input.status === 'open' ? !comment.resolved
+                : feedbackStage(comment) === (input.status === 'resolved' ? 'done' : input.status)))
             && comment.thread.items.some(item => !item.deletedAt && item.text.toLocaleLowerCase().includes(search)))
             .map(comment => {
                 const first = comment.thread.items[0];
                 const { path, source, assignee, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
-                return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), private: Boolean(comment.private),
+                return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
                     summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
@@ -188,10 +189,17 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const saved = await replyToProjectComment(request, project, actor, input.commentId, { text: input.text, idempotencyKey: key(identity, input.idempotencyKey) });
         return result({ actingAs, commentId: saved.id, saved: true });
     }));
-    server.registerTool('set_feedback_status', { description: `Set ordinary human-approved Done/Open without reviewer confirmation. Pending verification ends unconfirmed on Done. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: { ...write, resolved: z.boolean() }, annotations: writeAnnotations }, input => safely(async () => {
+    server.registerTool('set_feedback_status', { description: `Set an ordinary human-approved status without reviewer confirmation. Send exactly one of status (open, in-progress or done) or resolved (true: Done; false: reopens a Done thread to Open and leaves an In progress thread as it is). Leaving Ready to verify ends the pending check without confirmation. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: {
+        ...write,
+        status: z.enum(feedbackStatusTargets).optional().describe('open, in-progress (someone is working on it) or done. Ready to verify is request_feedback_verification.'),
+        resolved: z.boolean().optional().describe('The earlier Done/Open switch, kept for existing clients: true is done; false reopens a Done thread and keeps In progress.')
+    }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:status');
-        const saved = await setProjectCommentResolved(project, actor, input.commentId, input.resolved, key(identity, input.idempotencyKey));
-        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved) });
+        if ((input.status === undefined) === (input.resolved === undefined)) throw apiErrors.invalidRequest('Send either status or resolved.');
+        const saved = input.status !== undefined
+            ? await setProjectCommentStatus(project, actor, input.commentId, input.status, key(identity, input.idempotencyKey))
+            : await setProjectCommentResolved(project, actor, input.commentId, input.resolved!, key(identity, input.idempotencyKey));
+        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage(saved) });
     }));
     server.registerTool('request_feedback_verification', { description: `Request a human-approved fix check from the original author or another eligible member. The thread becomes Ready to verify, which still counts as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
         ...write, expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),
@@ -202,12 +210,14 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             expectedRevision: input.expectedRevision, summary: input.summary, fixUrl: input.fixUrl, idempotencyKey: key(identity, input.idempotencyKey) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision });
     }));
-    server.registerTool('cancel_feedback_verification', { description: `Cancel a human-approved current fix check as its requester or an admin. Requires the current request revision. No reviewer confirmation is available through MCP. ${untrusted}`, inputSchema: {
-        ...write, expectedRevision: z.string().min(1).max(128)
+    server.registerTool('cancel_feedback_verification', { description: `Cancel a human-approved current fix check as its requester or an admin. Requires the current request revision. The thread goes back to where it was before the request (Open or In progress) unless status says otherwise. No reviewer confirmation is available through MCP. ${untrusted}`, inputSchema: {
+        ...write, expectedRevision: z.string().min(1).max(128),
+        status: z.enum(['open', 'in-progress']).optional().describe('Where the thread goes; without it, back to where it was before the request.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:status');
-        const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey) });
-        return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision });
+        const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey),
+            ...(input.status ? { status: input.status } : {}) });
+        return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage(saved) });
     }));
     server.registerTool('assign_feedback', { description: `Set a human-approved existing participant, or null to unassign. Private visibility and current membership are enforced. ${untrusted}`, inputSchema: { ...write, assigneeId: userIdSchema.nullable() }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');

@@ -380,7 +380,7 @@ test('activity counts and unread content include older threads outside the bound
     }
     expect((await store.listAll(domain, 200)).some(comment => comment.id === 'comment_0')).toBe(false);
     expect(JSON.stringify(await store.listActivity(domain))).not.toContain('Private message text');
-    expect((await projectActivity(domain, 'me')).summary).toEqual({ unread: 1, ready: 0, open: 205, done: 0, total: 205 });
+    expect((await projectActivity(domain, 'me')).summary).toEqual({ unread: 1, inProgress: 0, ready: 0, open: 205, done: 0, total: 205 });
     const unread = await unreadComments(domain, 'me');
     expect(unread.map(comment => comment.id)).toEqual(['comment_0']);
     await markThreadRead(unread[0]!, 'me', 1);

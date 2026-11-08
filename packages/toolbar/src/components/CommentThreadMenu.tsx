@@ -16,6 +16,8 @@ export type ThreadMenuActions = {
     /** "Unassigned" / "Assigned to Ana": opens the people under the header */
     assign?: { label: string; onAssign: () => void };
     priority?: { value: CommentPriority | undefined; pending: boolean; onChange: (priority: CommentPriority) => void };
+    /** Mark as in progress, or Mark as open for a thread in progress (Done and Reopen are the header's button) */
+    progress?: { label: string; pending: boolean; onChange: () => void };
     /** Request verification (or a new check) opens the form in the thread */
     verify?: { label: string; onRequest: () => void };
     follow?: { following: boolean; pending: boolean; onToggle: () => void };
@@ -44,8 +46,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
     const [choosingPriority, setChoosingPriority] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
     const { triggerProps, tooltip } = useIconTooltip('Thread options');
-    const { assign, priority, verify, follow, mute, markUnread } = actions;
-    if (!assign && !priority && !verify && !follow && !mute && !markUnread) return null;
+    const { assign, priority, progress, verify, follow, mute, markUnread } = actions;
+    if (!assign && !priority && !progress && !verify && !follow && !mute && !markUnread) return null;
     const run = (action: () => void) => { setOpen(false); setChoosingPriority(false); action(); };
     const current = commentPriority(priority?.value);
 
@@ -106,6 +108,9 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                         </div>
                     )}
                 </>}
+                {progress && (
+                    <MenuButton buttonRef={takeFirst()} disabled={progress.pending} onClick={() => run(progress.onChange)}>{progress.label}</MenuButton>
+                )}
                 {verify && (
                     <MenuButton buttonRef={takeFirst()} onClick={() => run(verify.onRequest)}>{verify.label}</MenuButton>
                 )}

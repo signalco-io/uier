@@ -1,4 +1,5 @@
-import { ordinaryVerificationStatus } from './verificationState';
+import { ordinaryVerificationStatus, withOrdinaryStage } from './verificationState';
+import { feedbackStage } from '@uier/toolbar/verification';
 import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
 import { cleanupThread, queueThreadCleanup } from './cleanup';
 import { readActivity, threadActivity, withThreadActivity } from './activity';
@@ -347,7 +348,11 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {
     const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
         assertCommentAuthor(comment, context);
-        return { ...ordinaryVerificationStatus(Boolean(comment.resolved) === input.resolved && !(!input.resolved && comment.verification?.outcome === 'pending') ? comment : withThreadActivity(comment, writerId(context)), input.resolved, true), updatedAt: nowIso() };
+        const status = input.status;
+        if (status !== undefined)
+            return { ...(feedbackStage(comment) === status ? comment : withOrdinaryStage(withThreadActivity(comment, writerId(context)), status)), updatedAt: nowIso() };
+        const resolved = input.resolved!;
+        return { ...ordinaryVerificationStatus(Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withThreadActivity(comment, writerId(context)), resolved, true), updatedAt: nowIso() };
     });
 
     return toDto(updated, context);

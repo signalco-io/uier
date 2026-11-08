@@ -156,6 +156,12 @@ export type DbComment = {
      */
     screenshot?: DbCommentScreenshot;
     resolved?: boolean;
+    /**
+     * In progress (`@uier/toolbar/verification` `feedbackStage`). Missing means not in progress; no
+     * migration required. Cleared when the thread is done; kept while a fix check is pending, so a
+     * canceled check returns the thread to In progress.
+     */
+    inProgress?: boolean;
     /** sha256 of the visitor token (missing on old documents) */
     authorId?: string;
     /** ISO 8601, server time (missing on old documents) */
@@ -249,7 +255,7 @@ export type DbSubmission = {
 };
 
 /** Lightweight activity projection; legacy threads need only item authors and deletion markers. */
-export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'createdAt' | 'activity'> & {
+export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'inProgress' | 'createdAt' | 'activity'> & {
     verification?: Pick<DbVerification, 'outcome'>;
     thread: { items: Pick<DbThreadItem, 'authorId' | 'deletedAt'>[] };
 };

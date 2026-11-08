@@ -8,7 +8,7 @@ export type CommentsQuery = {
     author?: string;
     unread?: boolean;
     view: CommentsView;
-    /** Open, Done or All in the list (the board shows Open and Done side by side) */
+    /** Open (not done), In progress, Ready to verify, Done or All in the list (the board shows every status side by side) */
     status: StatusFilter;
     people: PeopleFilter;
     /** A page (relative URL), a section (`/blog/*`) or every page */
@@ -31,7 +31,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
         author: value('author'),
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
-        status: status === 'done' || status === 'ready' || status === 'all' ? status : 'open',
+        status: status === 'done' || status === 'ready' || status === 'in-progress' || status === 'all' ? status : 'open',
         people: people === 'assigned' || people === 'unassigned' || people === 'mine' ? people : 'all',
         page: page?.startsWith('/') ? page : undefined
     };

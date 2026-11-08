@@ -19,7 +19,8 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
     const row = (action: string) => actions.getByRole('row').filter({ has: page.getByRole('rowheader', { name: action, exact: true }) });
     await expect(row('Request verification')).toContainText('even if it was done');
     await expect(row('Confirm fix')).toContainText('The requested reviewer');
-    await expect(row('Still needs work')).toContainText('Open, marked Still needs work.');
+    await expect(row('Still needs work')).toContainText('In progress, marked Still needs work.');
+    await expect(row('Cancel request')).toContainText('where it was before the request');
     await expect(row('Confirm fix as admin, Still needs work as admin')).toContainText('labeled as an admin override');
     await expect(row('Done without verification')).toContainText('Done without reviewer confirmation.');
     await expect(row('Reopen')).toContainText('history only');

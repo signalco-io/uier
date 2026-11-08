@@ -10,12 +10,13 @@ import { Sheet, SheetContent, SheetTitle } from '@/src/components/ui/sheet';
 import { Spinner } from '@/src/components/ui/spinner';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
-import { commentStatus, commentStatusLabels, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
+import { commentStatus, commentStatuses, commentStatusLabels, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
 import { allowedStatuses, useStatusChanger } from './useStatusChange';
 import type { useOpenComment } from './CommentInbox';
 
-const statuses = ['open', 'ready', 'done'] as const;
-const emptyColumn: Record<CommentStatus, string> = { open: 'Nothing open.', ready: 'No checks requested.', done: 'Nothing done yet.' };
+/** The columns: every status, in order (`commentStatuses`), each with its words when it is empty */
+const statuses = commentStatuses;
+const emptyColumn: Record<CommentStatus, string> = { open: 'Nothing open.', 'in-progress': 'Nothing in progress.', ready: 'No checks requested.', done: 'Nothing done yet.' };
 /** The dragged thread's id; other drags (text, links, files) are not cards */
 const dragType = 'application/x-uier-comment';
 
@@ -55,7 +56,7 @@ function BoardCard({ comment, href, opened, moving, onOpen, onMove, onDragStart,
 }
 
 /**
- * Open, Ready to verify and Done side by side, as compact cards. A card opens its thread in a sheet
+ * Open, In progress, Ready to verify and Done side by side, as compact cards. A card opens its thread in a sheet
  * (the URL's `?comment=`), so the board stays where it was. Cards move between columns by dragging
  * or with Move; a column a card cannot move to does not take it. Ready to verify opens the thread with
  * the Request verification form, which asks for the details first.

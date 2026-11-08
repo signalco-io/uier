@@ -1,4 +1,5 @@
-import { ordinaryVerificationStatus } from '../comments/verificationState';
+import { ordinaryVerificationStatus, withOrdinaryStage } from '../comments/verificationState';
+import { feedbackStage, feedbackStatusTargets, type FeedbackStatusTarget } from '@uier/toolbar/verification';
 import { commentPriority, priorities, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from './commentRevision';
 import { queueThreadCleanup } from '../comments/cleanup';
@@ -405,6 +406,27 @@ export async function setProjectCommentResolved(project: DbProject, actor: Proje
         comment => Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withNotificationEvent(
             { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!), resolved, true) }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved, ...guardFingerprint(guard) }), guard, store);
+}
+
+/**
+ * Open, In progress or Done, with the resolve permission (members, and a guest on their own thread).
+ * `resolved` writes keep their meaning: `false` reopens a Done thread to Open and leaves In progress as
+ * it is; this sets the stage itself. Leaving Ready to verify ends the check without confirmation.
+ */
+export async function setProjectCommentStatus(project: DbProject, actor: ProjectActor, id: string, status: FeedbackStatusTarget, idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore) {
+    const parsed = z.enum(feedbackStatusTargets).safeParse(status);
+    if (!parsed.success) throw apiErrors.invalidRequest('Choose Open, In progress or Done.');
+    status = parsed.data;
+    return await changeComment(project, actor, id,
+        comment => canResolveComment(comment, actor),
+        comment => {
+            const from = feedbackStage(comment);
+            if (from === status) return comment;
+            const actorId = actorAuthorId(actor)!;
+            const kind = status === 'done' ? 'resolved' : status === 'in-progress' ? 'progress-started' : from === 'in-progress' ? 'progress-stopped' : 'reopened';
+            return withNotificationEvent(withOrdinaryStage(withThreadActivity(comment, actorId), status), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
+        },
+        submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, status, ...guardFingerprint(guard) }), guard, store);
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {

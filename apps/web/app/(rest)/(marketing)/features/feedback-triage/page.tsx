@@ -90,7 +90,7 @@ export default function FeedbackTriagePage() {
                         </p>
                     </Tile>
                     <Tile title="Reopen selected">
-                        <p>Each thread goes back to Open.</p>
+                        <p>Done threads go back to Open, and a pending fix check ends. In progress stays as it is.</p>
                     </Tile>
                 </Panel>
                 <p className="max-w-[720px] text-sm leading-relaxed text-muted-foreground">
@@ -120,7 +120,7 @@ export default function FeedbackTriagePage() {
                         <p>Search and filters cover up to 1,000 of the most recent threads in the loaded environment. When there are more, the app says so: narrow the environment or the author to reach older feedback.</p>
                     </Tile>
                     <Tile title="50 threads per action">
-                        <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown: Open, Ready to verify, then Done on the board. The rest stay as they are.</p>
+                        <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown: Open, In progress, Ready to verify, then Done on the board. The rest stay as they are.</p>
                     </Tile>
                     <Tile title="One project at a time">
                         <p>Search and actions cover the project you have open. There is no search across projects, and an action only reaches the threads you selected.</p>

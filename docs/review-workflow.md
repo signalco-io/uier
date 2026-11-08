@@ -85,12 +85,12 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
   - My work `/app/my-work`: across the workspace's projects you can see, open threads assigned to you, open threads that
     mention you and other unread threads, each once; a row opens the thread on its project's comments page.
-  - Comments `/app/projects/<code>`: the project's **comments**, as an inbox list or a board (Open / Ready to verify / Done).
+  - Comments `/app/projects/<code>`: the project's **comments**, as an inbox list or a board (Open / In progress / Ready to verify / Done).
     The list keeps the app's reading width; the board takes the panel's width on wide screens, up to 1920 px.
     Above them: search, one Filter button (priority; environment and page in one control, with environments on the left
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (the toolbar inbox's Open,
-    Ready to verify, Done and All, with counts). Filters in effect show under the bar, each with a clear button. Each
+    In progress, Ready to verify, Done and All, with counts; Open is everything not done). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, what it was left on (an element in words such as "Link in
     navigation", an area of one, the selected text, or the whole page), page path, then priority other than Normal (its flag and name),
     status, the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
@@ -98,7 +98,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     or the browser's Back), and in a sheet on the board. In the list, ↓ and ↑ move to the next and the previous comment
     (stopping at the ends) and open it beside the list; on a phone-sized layout they move the focus and Enter opens the
     row. They do nothing while you type, in a menu or a dialog, or after you clicked into the open thread, where they
-    scroll it. Done and Reopen fade a row out of a list it no longer matches.
+    scroll it. A status change (Done, Reopen, In progress) fades a row out of a list it no longer matches.
     A thread you open is marked read once it has been on screen for a moment (see
     [unread review activity](#unread-review-activity)).
     The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
@@ -183,7 +183,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 
 ### Page and comment responsiveness
 
-The app filters loaded comments immediately when switching Open/Ready to verify/Done/All, List/Board, people,
+The app filters loaded comments immediately when switching Open/In progress/Ready to verify/Done/All, List/Board, people,
 pages or unread. These choices stay in the URL and work with Back, Forward and reload. Changing
 environment or author still loads a fresh authorized list from the server. Settings links show
 navigation feedback, and General renders its forms before usage totals finish loading.
@@ -192,7 +192,7 @@ Status, assignment, follow and read changes update the app's cards and counts wh
 A failed save restores the confirmed state and shows an error; a failed automatic read only brings the
 unread dot back. Mark all as read uses only the
 rendered activity snapshot, keeps newer activity unread, and offers Retry for failed writes.
-The toolbar likewise reflects Done/Reopen immediately; comments and replies appear while sending,
+The toolbar likewise reflects Done/Reopen immediately (Mark as in progress and Mark as open once saved); comments and replies appear while sending,
 with failed text kept in drafts. Destructive actions and access-setting changes wait for server
 confirmation.
 
@@ -632,9 +632,10 @@ stand out. The toolbar keeps its text label.
 
 List and Board have explicit checkboxes, an indeterminate shown-results checkbox, and, once something is
 selected, the selected count, Clear selection, assignment/unassignment, priority, Mark selected as done and
-Reopen selected.
+Reopen selected. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
+In progress threads as they are ([In progress](#in-progress)).
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
-visible order (Open, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view
+visible order (Open, In progress, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view
 clears selection. Threads arriving later never join a running batch. Replies and their drafts remain
 scoped independently of selection and filtering.
 
@@ -643,8 +644,8 @@ keys. It validates the whole request before writing, then applies at most four s
 mutations concurrently, rechecking current access, visibility and target eligibility on write retries.
 Status changes additionally compare an opaque content revision. New workflow fields automatically
 participate in that revision; notification/outbox bookkeeping does not. This is the extension point
-for fix verification: keep status writes in `setProjectCommentResolved`, preserve reviewer decisions,
-and never infer reviewer confirmation from bulk Done.
+for fix verification and In progress: keep status writes in `setProjectCommentResolved` and
+`setProjectCommentStatus`, preserve reviewer decisions, and never infer reviewer confirmation from bulk Done.
 
 Batches have partial success: changed, unchanged, stale, unavailable and failed counts, with a stable
 result even when changed rows leave a filter. Missing and inaccessible threads share unavailable.
@@ -658,6 +659,34 @@ The public [feedback triage page](https://uier.io/features/feedback-triage)
 (`apps/web/app/(rest)/(marketing)/features/feedback-triage/`) states these bounds, outcomes and
 permissions. Update it in the same pull request when they change.
 
+## In progress
+
+A thread is Open, In progress, Ready to verify or Done. In progress says someone is working on it.
+It sits between Open and Ready to verify on the board, has its own status tab in the app and the
+toolbar inbox, and, like Ready to verify, counts as open: the Open tab, Open counts, My work and
+`resolved: false` all include it. Board columns are exclusive.
+
+- **Who.** The people who can mark the thread done or reopen it can set it: project members, and a
+  guest on their own thread. In the app it is in the status menu and the board card's Move (or a
+  drag to its column); in the toolbar, Thread options has Mark as in progress and, for a thread in
+  progress, Mark as open. MCP sets it with `set_feedback_status` `status: "in-progress"`.
+- **Done** ends it: Done, bulk Done, a confirmed fix and a closure in a connected service clear it.
+  Reopen brings a Done thread back to Open; choose In progress from Done to reopen straight into it.
+- **Fix checks.** Requesting a check from In progress makes the thread Ready to verify; In progress
+  is kept underneath. Still needs work moves the thread to In progress, since someone continues the
+  fix. Cancel request returns it to where it was before the request (In progress or Open). In the
+  app's status menu, Open and In progress on a Ready to verify thread cancel the check and land
+  there, which takes the requester or an admin, as Cancel request does. A plain status write (MCP,
+  the toolbar's API) to Open or In progress ends a pending check without confirmation, as Reopen does.
+- **Compatibility.** Stored threads need no migration: a missing `inProgress` flag means not in
+  progress. `resolved` keeps its meaning everywhere: `true` is Done and clears In progress; `false`
+  reopens a Done thread to Open and leaves In progress as it is, so old clients, bulk Reopen and
+  same-status polls from connected services never drop it. Connected services see In progress as open.
+- **Activity.** Moving into or out of In progress is a status change: it advances unread activity,
+  notifies followers by email ("moved #12 to In progress", "moved #12 back to Open"), triggers
+  realtime refreshes and integration sync, and is an MCP `feedback.status_changed` event
+  (`progress_started`, `progress_stopped`). It does not acknowledge reads.
+
 ## Fix verification
 
 Verification is optional for each thread. A project member can request a fix check, add a short
@@ -668,14 +697,16 @@ that identity still has access. A requester cannot choose or independently confi
 Missing authors require an eligible member selection; no identity is silently substituted.
 
 Ready to verify remains unresolved and is included in Open counts. Its dedicated filter shows
-pending checks. Board columns are exclusive: Open, Ready to verify, Done. Replies, priority,
-search and selection continue to work in all three states. Changes do not acknowledge unread
+pending checks. Board columns are exclusive: Open, In progress, Ready to verify, Done. Replies, priority,
+search and selection continue to work in every state. Changes do not acknowledge unread
 activity. Saving shows pending feedback; failures preserve the entered details and retry identity.
 
 The requested reviewer can choose Confirm fix or Still needs work. Original guest authors use
 their existing visitor identity without an account or email verification. A different workspace
 admin can explicitly decide on the reviewer's behalf; the result names the admin and labels the
-override. The requester or an admin can cancel. Each new request gets a new id and revision;
+override. Still needs work moves the thread to In progress. The requester or an admin can cancel;
+the thread goes back to where it was before the request, Open or In progress
+([In progress](#in-progress)). Each new request gets a new id and revision;
 stale decisions conflict after another request, cancellation, Done or Reopen.
 
 Done without verification remains available while a check is pending. Ordinary Done, bulk Done,

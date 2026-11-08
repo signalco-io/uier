@@ -7,6 +7,7 @@ import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { CommentCard, type AssigneeOption, type ResolveExit } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
+import { commentStatus, type CommentStatus } from './CommentStatus';
 
 /** The brand's exit (BRAND.md, "Motion"): 150 ms ease-out, fade plus 8 px slide */
 const exitMs = 150;
@@ -68,7 +69,7 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * phone, until a row is chosen) it stays unread. The keys pass threads faster than that, so only the
  * one the reader stops on is read.
  */
-export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keepsResolved, readLeaves, openComment }: {
+export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment }: {
     projectId: string;
     /** The shown comments, in order */
     comments: ProjectCommentView[];
@@ -77,8 +78,8 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     assignees: AssigneeOption[];
     userId: string;
     label: string;
-    /** Done and Reopen keep the comment here (the All status) */
-    keepsResolved?: boolean;
+    /** Whether the list still shows a thread in this status (the status tab): one that leaves fades out */
+    keeps: (status: CommentStatus) => boolean;
     /** A read comment leaves the list unless it is the open one (Only unread) */
     readLeaves?: boolean;
     openComment: ReturnType<typeof useOpenComment>;
@@ -89,9 +90,9 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     const listRef = useRef<HTMLUListElement>(null);
     const detailRef = useRef<HTMLDivElement>(null);
     const [initial] = useState(() => new Set(comments.map(comment => comment.id)));
-    // Comment id → the state it is leaving for; it stays hidden only while it has the other one
-    const [leaving, setLeaving] = useState<Record<string, boolean>>({});
-    const isLeaving = (comment: ProjectCommentView) => comment.id in leaving && leaving[comment.id] !== comment.resolved;
+    // Comment id → the status it is leaving for; it stays hidden only while it has another one
+    const [leaving, setLeaving] = useState<Record<string, CommentStatus>>({});
+    const isLeaving = (comment: ProjectCommentView) => comment.id in leaving && leaving[comment.id] !== commentStatus(comment);
 
     // The row the keyboard is on: the one last focused or opened. It follows the open thread whenever
     // that changes (a click, an arrow key, Back or Forward) and holds the list's one tab stop.
@@ -153,10 +154,10 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
         return () => window.removeEventListener('keydown', listener);
     }, []);
 
-    const leave = (id: string, resolved: boolean): ResolveExit => {
+    const leave = (id: string, status: CommentStatus): ResolveExit => {
         // The thread stays open while its row leaves; otherwise the next one would take its place
         if (!opened) open(id, undefined, { replace: true });
-        setLeaving(current => ({ ...current, [id]: resolved }));
+        setLeaving(current => ({ ...current, [id]: status }));
         return {
             finished: new Promise(resolve => setTimeout(resolve, exitMs)),
             cancel: () => setLeaving(({ [id]: _, ...rest }) => rest)
@@ -219,7 +220,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                         // Once read, the first shown thread would leave an unread-only list and the next one would be
                         // shown, and read, in its place: it is opened instead, which keeps it and its row
                         onReadWhenShown={readLeaves && !opened ? () => open(selected.id, undefined, { replace: true }) : undefined}
-                        onResolve={keepsResolved ? undefined : resolved => leave(selected.id, resolved)} />
+                        onMove={status => keeps(status) ? undefined : leave(selected.id, status)} />
                 </div>
             )}
         </div>

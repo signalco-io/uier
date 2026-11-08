@@ -50,7 +50,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
-| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, done (`resolved`), editing messages (`text`, `expectedText`), deleting |
+| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, status (`{ status }`: `open`, `in-progress` or `done`; or the earlier `{ resolved }`, never both; see [In progress](#in-progress)), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
@@ -272,7 +272,7 @@ trailing slash). `sourcePath` is the same page as it was addressed, for links (s
 | `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
-| `PATCH /api/comments/{id}` | `{ resolved }` | `200` the updated comment; author only |
+| `PATCH /api/comments/{id}` | `{ resolved }` or `{ status }` | `200` the updated comment; author only. `status` is `open`, `in-progress` or `done` ([In progress](#in-progress)) |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
@@ -542,7 +542,9 @@ Requests require a stable `idempotencyKey` and `expectedRevision` (null for a th
 verification record). Supported payloads are:
 
 - `{ action: 'request', reviewerId: 'author' | memberId, expectedRevision, idempotencyKey, summary?, fixUrl? }`.
-- `{ action: 'confirm' | 'reject' | 'cancel', expectedRevision, idempotencyKey, override? }`.
+- `{ action: 'confirm' | 'reject', expectedRevision, idempotencyKey, override? }`.
+- `{ action: 'cancel', expectedRevision, idempotencyKey, override?, status? }`: `status` (`open` or
+  `in-progress`) is where the thread goes; without it, where it was before the request.
 
 Summary is plain text, up to 500 characters. Fix URLs are up to 2,048 characters; external URLs
 must be HTTPS without credentials or query/fragment state, and configured destinations must
@@ -560,3 +562,19 @@ summary/link and latest named/timed decision with override attribution) and `ver
 Guest actor hashes never leave storage. Legacy records need no migration. The resolved boolean
 remains compatible: Ready is false, confirmation is true, and ordinary true never confirms.
 Activity summaries add `ready`, a subset of `open`, over the full authorized projection.
+Reject (Still needs work) moves the thread to In progress; confirm ends In progress.
+
+## In progress
+
+A thread is Open, In progress, Ready to verify or Done ([review workflow](review-workflow.md#in-progress)).
+Comment DTOs add `inProgress: true` while the stored flag is set and the thread is not done; it is
+absent otherwise, and on every thread stored before it existed (no migration). The stage is
+`feedbackStage` of `@uier/toolbar/verification`: Done, then Ready to verify (a pending check), then
+In progress, else Open. `resolved` is unchanged, so In progress is `resolved: false`.
+
+`PATCH /api/review/:projectId/comments/:id` and `PATCH /api/comments/:id` take exactly one of
+`{ resolved: boolean }` (unchanged: `true` is Done and ends In progress; `false` reopens a Done thread
+to Open and leaves In progress) or `{ status: 'open' | 'in-progress' | 'done' }`. Both, neither,
+`ready` or another value is `400 invalid_request`. The same people who resolve may set it (project
+members; a guest or visitor on their own thread). A status write that leaves Ready to verify ends the
+check without confirmation. Activity summaries add `inProgress`, a subset of `open`.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { maxPageKeyLength } from '@uier/toolbar/page-state';
+import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
@@ -227,9 +228,11 @@ export const editThreadItemSchema = z.object({
 });
 export type EditThreadItemInput = z.infer<typeof editThreadItemSchema>;
 
+/** `resolved` (Done or Open, as before) or `status` (Open, In progress or Done), never both */
 export const updateCommentSchema = z.object({
-    resolved: z.boolean()
-});
+    resolved: z.boolean().optional(),
+    status: z.enum(feedbackStatusTargets).optional()
+}).refine(input => (input.resolved === undefined) !== (input.status === undefined), 'Send either resolved or status.');
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type ReplyInput = z.infer<typeof replySchema>;

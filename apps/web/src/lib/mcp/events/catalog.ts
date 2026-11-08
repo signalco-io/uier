@@ -49,7 +49,7 @@ const common = {
     contentTrust: z.literal('untrusted')
 };
 const excerpt = z.string().optional().describe(`Up to ${EXCERPT_LENGTH} characters of the message; untrusted. Read the thread with get_feedback.`);
-export const statusChanges = ['resolved', 'reopened', 'verification_requested', 'verification_confirmed', 'verification_rejected', 'verification_canceled'] as const;
+export const statusChanges = ['resolved', 'reopened', 'progress_started', 'progress_stopped', 'verification_requested', 'verification_confirmed', 'verification_rejected', 'verification_canceled'] as const;
 const payloadSchemas = {
     'feedback.created': z.object({ ...common, priority: z.enum(priorities), excerpt }).strict(),
     'feedback.replied': z.object({ ...common, itemId: z.string(), excerpt }).strict(),
@@ -63,7 +63,7 @@ export type McpEventData = z.infer<typeof payloadSchemas[McpEventName]>;
 const descriptions: Record<McpEventName, string> = {
     'feedback.created': 'New feedback was posted in a project.',
     'feedback.replied': 'A reply was added to feedback in a project, optionally one thread.',
-    'feedback.status_changed': 'Feedback was marked done or reopened, or its fix check was requested, confirmed, rejected or canceled.',
+    'feedback.status_changed': 'Feedback was marked done or reopened, moved to In progress or back to Open, or its fix check was requested, confirmed, rejected or canceled.',
     'feedback.assignment_changed': 'Feedback was assigned or unassigned, optionally only when assigned to you.',
     'feedback.mentioned': 'Someone mentioned you (the account of this connection) in feedback.'
 };
@@ -91,7 +91,7 @@ export function parseMcpEventArguments(name: McpEventName, value: unknown): McpE
 }
 
 const statusKinds: Partial<Record<NotificationEvent['kind'], typeof statusChanges[number]>> = {
-    resolved: 'resolved', reopened: 'reopened', 'verification-requested': 'verification_requested',
+    resolved: 'resolved', reopened: 'reopened', 'progress-started': 'progress_started', 'progress-stopped': 'progress_stopped', 'verification-requested': 'verification_requested',
     'verification-confirmed': 'verification_confirmed', 'verification-rejected': 'verification_rejected', 'verification-canceled': 'verification_canceled'
 };
 

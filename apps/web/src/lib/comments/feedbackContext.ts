@@ -1,4 +1,5 @@
 import { feedbackMarkdown, type FeedbackContext, type FeedbackExport, type FeedbackMessage } from '@uier/toolbar/feedback-context';
+import { feedbackStage } from '@uier/toolbar/verification';
 import type { CommentDto } from './dto';
 import type { ReproductionContext } from './reproduction';
 import type { DbCommentLayer } from '../db/schema';
@@ -29,7 +30,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         schemaVersion: 1, contentTrust: 'untrusted',
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${summary || 'Website feedback'}`,
-        verification: dto.verification, priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', feedback: first,
+        verification: dto.verification, priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
         ...(options.assigneeName ? { assignee: { name: options.assigneeName } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }
             : position.type === 'point' ? {

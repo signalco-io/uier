@@ -3,7 +3,7 @@
 Project creators and workspace admins receive new top-level feedback by default, while they
 retain access to it. Members automatically follow threads they
 post in; any authorized member can follow or unfollow a thread explicitly. Replies and
-resolve/reopen activity go to followers. A project mute stops all its notification emails
+resolve/reopen/In progress activity go to followers. A project mute stops all its notification emails
 for that member, including targeted activity. The actor never receives their own activity.
 The toolbar and app expose follow/unfollow and project mute/unmute (in the app: the project's Notifications
 settings and Account → Notifications, which lists every project).
@@ -27,7 +27,11 @@ identity but does not unsubscribe an already verified address; use its email uns
   sequence; `notificationPending` requests durable discovery. Safe submission retries commit the
   same event and activity cursor with the idempotency receipt, so a lost response cannot duplicate
   an event. Legacy activity is not replayed.
-- Kinds are `comment`, `reply`, `resolved`, `reopened`, plus `mention` and `assignment` for #91.
+- Kinds are `comment`, `reply`, `resolved`, `reopened`, plus `mention` and `assignment` for #91,
+  the fix check's `verification-*` kinds, and `progress-started` / `progress-stopped` (a thread moved
+  to In progress or back to Open, [In progress](review-workflow.md#in-progress)). Like resolve and
+  reopen, those two go to followers; the digest line is "moved #12 (/path) to In progress" or
+  "moved #12 (/path) back to Open".
 - [MCP events](mcp.md#events-webhooks-and-polling), delivered by webhook or polled, read the same
   events after the write (they add no write path); a change to an event's fields or kinds changes
   those payloads too.

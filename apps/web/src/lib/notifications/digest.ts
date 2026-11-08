@@ -36,6 +36,8 @@ export function digestContent(project: DbProject, comment: DbComment, recipient:
             action = event.assigneeId === recipient.slice('user:'.length) ? `assigned ${thread} to you${location}`
                 : event.assigneeId !== undefined ? `unassigned you from ${thread}${location}` : `updated your assignment on ${place}`;
         } else if (event.kind.startsWith('verification-')) action = `${event.kind === 'verification-requested' ? 'requested a fix check on' : event.kind === 'verification-confirmed' ? event.verificationOverride ? 'confirmed the fix as an admin override on' : 'confirmed the fix on' : event.kind === 'verification-rejected' ? 'said the fix still needs work on' : 'canceled the fix check on'} ${place}`;
+        else if (event.kind === 'progress-started' || event.kind === 'progress-stopped')
+            action = `moved ${place} ${event.kind === 'progress-started' ? 'to In progress' : 'back to Open'}`;
         else action = `${event.kind === 'comment' ? 'left feedback on' : event.kind === 'reply' ? 'replied on' : event.kind === 'resolved' ? 'resolved' : 'reopened'} ${place}`;
         actionLines.push(`${actor} ${action}`);
         const excerpt = project.emailCommentExcerpts && event.itemId && item && !item.deletedAt

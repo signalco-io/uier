@@ -188,7 +188,7 @@ function MessageText({ text, edited }: { text: string; edited: boolean }) {
  * the linked issues, and the page it was left on at the bottom. It is the open thread: once it has been
  * on screen for a moment it is marked read (`useReadWhenShown`), except after Mark as unread.
  */
-export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onResolve, onBack, onReadWhenShown, startVerifying = false, className }: {
+export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onMove, onBack, onReadWhenShown, startVerifying = false, className }: {
     projectId: string;
     comment: ProjectCommentView;
     /** Review link that opens the page at this comment */
@@ -196,8 +196,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     assignees: AssigneeOption[];
     /** The signed-in user: "Assigned to you" in the assignee's tooltip */
     userId: string;
-    /** Done or Reopen takes the comment out of its list: starts its exit right away */
-    onResolve?: (resolved: boolean) => ResolveExit;
+    /** A status change that takes the comment out of its list starts its exit right away (`undefined`: it stays) */
+    onMove?: (status: CommentStatus) => ResolveExit | undefined;
     /** Back to the list, where the thread takes the whole width (a phone): the button is shown only then */
     onBack?: () => void;
     /** The thread is being marked read because it was shown */
@@ -222,7 +222,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const statusTrigger = useRef<HTMLButtonElement>(null);
     const { permissions, source } = comment;
     const statusChange = useStatusChange(projectId, comment, {
-        onResolve,
+        onMove,
         onVerify: () => setVerifying(true)
     });
     const changeStatus = (next: CommentStatus) => {

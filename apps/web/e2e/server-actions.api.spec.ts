@@ -6,7 +6,7 @@ import { parseActionInput, userIdSchema } from '../src/lib/app/validation';
 import { UserFacingError } from '../src/lib/app/actionErrors';
 import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
     filterAuthorActionSchema, notificationActionSchema, privateCommentActionSchema, readCommentActionSchema,
-    readCommentsActionSchema, replyCommentActionSchema, resolveCommentActionSchema } from '../src/components/app/comments/actionSchemas';
+    readCommentsActionSchema, replyCommentActionSchema, statusCommentActionSchema } from '../src/components/app/comments/actionSchemas';
 import { removeMemberActionSchema, revokeInvitationActionSchema } from '../src/components/app/users/actionSchemas';
 import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActionSchema } from '../src/components/app/projects/actionSchemas';
 import { switchWorkspaceActionSchema } from '../src/components/app/shell/actionSchemas';
@@ -21,7 +21,7 @@ import { followThread, setProjectMuted } from '../src/lib/notifications/preferen
 test('positional action schemas validate every argument before it is used', () => {
     const thread = { projectId: 'abc123def456', commentId: 'comment_valid' };
     const cases: [z.ZodType, Record<string, unknown>][] = [
-        [commentActionSchema, thread], [resolveCommentActionSchema, { ...thread, resolved: false }],
+        [commentActionSchema, thread], [statusCommentActionSchema, { ...thread, status: 'in-progress' }],
         [privateCommentActionSchema, { ...thread, isPrivate: true }],
         [assignCommentActionSchema, { ...thread, assigneeId: 'u_alex' }],
         [editCommentActionSchema, { ...thread, text: 'Valid feedback' }],
@@ -53,11 +53,16 @@ test('positional action schemas validate every argument before it is used', () =
     expect(parseActionInput(notificationActionSchema, { projectId: thread.projectId, enabled: true }).threadId).toBeUndefined();
     expect(parseActionInput(filterAuthorActionSchema, thread).itemId).toBeUndefined();
     for (const value of ['false', 'true', 0, 1, null, undefined]) {
-        expect(resolveCommentActionSchema.safeParse({ ...thread, resolved: value }).success).toBe(false);
+        expect(statusCommentActionSchema.safeParse({ ...thread, status: value }).success).toBe(false);
         expect(privateCommentActionSchema.safeParse({ ...thread, isPrivate: value }).success).toBe(false);
         expect(notificationActionSchema.safeParse({ projectId: thread.projectId, enabled: value }).success).toBe(false);
         expect(projectEmailsActionSchema.safeParse({ projectId: thread.projectId, muted: value }).success).toBe(false);
     }
+    // Ready to verify is a fix check request, never a plain status write
+    for (const status of ['ready', 'resolved', 'In progress', 'in_progress'])
+        expect(statusCommentActionSchema.safeParse({ ...thread, status }).success).toBe(false);
+    for (const status of ['open', 'in-progress', 'done'])
+        expect(statusCommentActionSchema.safeParse({ ...thread, status }).success).toBe(true);
     for (const value of ['', 'bad/id#', null, 123]) {
         expect(commentActionSchema.safeParse({ ...thread, commentId: value }).success).toBe(false);
         expect(notificationActionSchema.safeParse({ projectId: thread.projectId, threadId: value, enabled: true }).success).toBe(false);
