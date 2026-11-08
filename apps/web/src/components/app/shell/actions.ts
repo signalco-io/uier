@@ -1,12 +1,11 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { KnownPages } from '@/src/knownPages';
 import { endSession } from '@/src/lib/app/session';
-import { appContextOrThrow, WORKSPACE_COOKIE_NAME } from '@/src/lib/app/context';
-import { isLocalRuntime } from '@/src/lib/comments/environment';
+import { appContextOrThrow } from '@/src/lib/app/context';
+import { selectWorkspace } from '@/src/lib/app/workspaceCookie';
 import { parseActionInput } from '@/src/lib/app/validation';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { createWorkspace } from '@/src/lib/app/workspaces';
@@ -15,16 +14,6 @@ import { switchWorkspaceActionSchema } from './actionSchemas';
 export async function signOutAction() {
     await endSession();
     redirect(KnownPages.AppSignIn);
-}
-
-async function selectWorkspace(workspaceId: string) {
-    (await cookies()).set(WORKSPACE_COOKIE_NAME, workspaceId, {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 365 * 24 * 60 * 60,
-        secure: !isLocalRuntime()
-    });
 }
 
 export async function switchWorkspaceAction(workspaceId: string) {

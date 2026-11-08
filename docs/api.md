@@ -164,6 +164,8 @@ app. The same-origin public showcase continues through `/api/comments`.
 
 Deleting a project replaces its code and public id claims with retired claims that name no project.
 Both ids then answer `404` and are never issued again ([project deletion](project-deletion.md)).
+Transferring a project to another workspace points both claims at the new workspace, so both ids,
+review links and embeds keep working there ([project transfer](project-transfer.md)).
 
 ## `/toolbar.js`
 

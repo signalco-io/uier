@@ -26,7 +26,7 @@ import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Switch } from '@/src/components/ui/switch';
-import { KnownPages } from '../../../knownPages';
+import { KnownPageLinks, KnownPages } from '../../../knownPages';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { destructiveTextClassName, Section } from '../PageHeader';
@@ -39,6 +39,7 @@ import { AccessIcon, displayUrl, projectAccessLabels } from './projectLabels';
 import { hasSchemelessLocal, sameSiteAs, savedSiteRows, shareOptions, sharedWith, shareWith, siteRowsPayload, type SiteRow } from './siteRows';
 import {
     deleteProjectAction,
+    transferProjectAction,
     setProjectEmailsMutedAction,
     setProjectStatusAction,
     updateProjectEmailExcerptsAction,
@@ -48,6 +49,7 @@ import {
 } from './actions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
+import type { TransferPreview, TransferTarget } from '../../../lib/app/projectTransfer';
 
 /** React resets a form after its action; the fields here are controlled, so keep what they show */
 const keepValues = (event: FormEvent) => {
@@ -389,6 +391,106 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
                         <Button type="submit" variant="outline" className={destructiveTextClassName} disabled={!confirmed || pending}>
                             {pending && <Spinner data-icon="inline-start" />}
                             Delete project
+                        </Button>
+                    </AlertDialogFooter>
+                </form>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
+/** "a", "a and b", "a, b and c" */
+const listText = (items: string[]) => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** What a transfer leaves in this workspace, one sentence each */
+export function transferStaysBehind({ integrations, people, teams, invitations }: TransferPreview) {
+    const access = [people ? count(people, 'person', 'people') : '', teams ? count(teams, 'team', 'teams') : ''].filter(Boolean);
+    return [
+        integrations.length ? `${listText(integrations)} ${integrations.length === 1 ? 'is' : 'are'} disconnected. Connect again in the new workspace; items already sent stay where they are.` : '',
+        access.length ? `${listText(access)} here lose access. Invite them in the new workspace if they still need it.` : '',
+        invitations ? `${count(invitations, 'pending invitation no longer includes', 'pending invitations no longer include')} it.` : '',
+        'Access tokens and connected apps of this workspace lose access to it.'
+    ].filter(Boolean);
+}
+
+/**
+ * Moves the project to another workspace the person administers, once its name is typed; the server
+ * checks both roles and the name again. Afterwards the app opens the project in that workspace.
+ */
+export function TransferProjectButton({ projectId, name, targets, preview }: { projectId: string; name: string; targets: TransferTarget[]; preview: TransferPreview }) {
+    const router = useRouter();
+    const formId = useId();
+    const input = useRef<HTMLInputElement>(null);
+    const [open, setOpen] = useState(false);
+    const [workspaceId, setWorkspaceId] = useState(targets.length === 1 ? targets[0]!.id : '');
+    const [confirmation, setConfirmation] = useState('');
+    const [pending, startTransition] = useTransition();
+    const target = targets.find(option => option.id === workspaceId);
+    const confirmed = Boolean(target) && confirmation.trim() === name;
+
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!confirmed || !target || pending) return;
+        startTransition(async () => {
+            const result = await transferProjectAction(projectId, target.id, confirmation);
+            if (result && !result.ok) {
+                toast.error(result.error);
+                return;
+            }
+            toast.success(`${name} is in ${target.name} now.`);
+            router.push(KnownPageLinks.project(projectId));
+        });
+    };
+
+    return (
+        <AlertDialog open={open} onOpenChange={next => {
+            if (pending) return;
+            setOpen(next);
+            if (!next) setConfirmation('');
+        }}>
+            <AlertDialogTrigger render={<Button variant="outline" disabled={!targets.length} />}>Transfer project</AlertDialogTrigger>
+            {/* With one workspace to choose, typing the name is the only step left */}
+            <AlertDialogContent initialFocus={targets.length === 1 ? input : undefined} className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+                <form className="contents" onSubmit={handleSubmit}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Transfer {name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            It moves with its comments, replies, screenshots, read state, review links and settings.{preview.client ? ` Its client, ${preview.client}, becomes that workspace's client with the same name.` : ''} Its address in the app stays the same. In the new workspace, admins and people with access to all projects can open it.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <FieldGroup>
+                        <Field>
+                            <FieldLabel htmlFor={`${formId}-workspace`}>Workspace</FieldLabel>
+                            <Select value={workspaceId} onValueChange={value => setWorkspaceId(typeof value === 'string' ? value : '')} disabled={pending}
+                                items={targets.map(option => ({ value: option.id, label: option.name }))}>
+                                <SelectTrigger id={`${formId}-workspace`} className="w-full">
+                                    <SelectValue placeholder="Choose a workspace" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        {targets.map(option => <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>)}
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        <div className="flex flex-col gap-1.5">
+                            <h3 id={`${formId}-behind`} className="m-0 text-sm font-medium">Stays in this workspace</h3>
+                            <ul aria-labelledby={`${formId}-behind`} className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
+                                {transferStaysBehind(preview).map(line => <li key={line}>{line}</li>)}
+                            </ul>
+                        </div>
+                        <Field>
+                            <FieldLabel htmlFor={`${formId}-name`}>Type the project name to confirm</FieldLabel>
+                            <Input ref={input} id={`${formId}-name`} value={confirmation} onChange={event => setConfirmation(event.target.value)}
+                                placeholder={name} autoComplete="off" spellCheck={false} disabled={pending} />
+                        </Field>
+                    </FieldGroup>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                        <Button type="submit" disabled={!confirmed || pending}>
+                            {pending && <Spinner data-icon="inline-start" />}
+                            Transfer project
                         </Button>
                     </AlertDialogFooter>
                 </form>

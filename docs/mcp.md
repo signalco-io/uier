@@ -106,6 +106,8 @@ that token. Revocation cannot retract data the client already received.
 You cannot edit a connection's access yet. To change it, connect again from the tool and replace the
 existing connection. Deleting a project removes it from every connection and access token that
 selected it; one left with nothing selected is revoked ([project deletion](project-deletion.md)).
+Transferring a project to another workspace does the same, and ends its event subscriptions: connect
+again and choose it in the new workspace ([project transfer](project-transfer.md)).
 
 ## Access tokens
 

@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="5 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="8 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -280,6 +280,17 @@ export default function PrivacyPolicyPage() {
                 identifiers. The project&rsquo;s code and public id stay reserved, without any content or names, so
                 they are never given to another project. Access history keeps the change for 180 days.
                 The public feedback project on {brand.domain} cannot be deleted this way.
+            </p>
+            <p>
+                Someone who is an admin of two workspaces can transfer a project from one to the other after
+                typing its name. Its settings, comments, replies, screenshots, read cursors and notification
+                preferences move with it, and its code, public id and review links stay the same. From then on the
+                new workspace&rsquo;s admins, and the people they give access, can see it; the old workspace&rsquo;s
+                members cannot. Its place in the old workspace&rsquo;s team, member and invitation access, its
+                connected-service settings, credentials and delivery records, its author filters and coding tool
+                event subscriptions are deleted, and coding tool connections lose it as on deletion. A transfer
+                record with only identifiers lets an interrupted transfer finish. Access history in both workspaces
+                records the transfer with the project&rsquo;s name for 180 days.
             </p>
 
             <h3>Read activity</h3>
@@ -571,7 +582,7 @@ export default function PrivacyPolicyPage() {
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>
                 <li>Rate-limit counters: about an hour, or about a day for the count per page.</li>
                 <li>Your account and workspace: until you ask us to delete them.</li>
-                <li>Projects: until a workspace admin deletes them or you ask us to. Deletion intents contain only identifiers and expire one day after the deletion completes; the reserved code and public id contain no names or content and are kept.</li>
+                <li>Projects: until a workspace admin deletes them or you ask us to. Deletion and transfer intents contain only identifiers and expire one day after the deletion or transfer completes; the reserved code and public id contain no names or content and are kept.</li>
                 <li>Comments in projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>

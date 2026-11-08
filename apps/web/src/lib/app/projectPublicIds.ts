@@ -46,6 +46,22 @@ export async function projectByPublicId(publicId: string, store: AppStore = getA
 }
 
 /**
+ * Project transfer: every claim of the project, published or abandoned, names the workspace given,
+ * so review links and embeds keep their id. Pointed at the new workspace once the copy exists there,
+ * and back at the old one when an interrupted transfer is abandoned.
+ */
+export async function pointProjectPublicIds(projectId: string, workspaceId: string, store: AppStore = getAppStore()) {
+    for (const ref of await store.query<DbProjectPublicRef>({ type: 'project-public-ref', where: { projectId } })) {
+        for (let attempt = 0; ; attempt++) {
+            const current = await store.get<DbProjectPublicRef>(ref.pk, ref.id);
+            if (current?.doc.type !== 'project-public-ref' || current.doc.projectId !== projectId || current.doc.workspaceId === workspaceId) break;
+            if (await store.replace({ ...current.doc, workspaceId }, current.etag) === 'ok') break;
+            if (attempt >= 7) throw new Error('A public project id changed while it was moved');
+        }
+    }
+}
+
+/**
  * Project deletion: every claim of the project, published or abandoned, becomes a retired claim
  * without workspace or project ids. Never deleted, so a review link or embed of the deleted
  * project can never reach a project that later draws the same id.

@@ -136,7 +136,10 @@ that no longer resolve read as "someone", "a team" or "a deleted project", never
 target ids and before/after access metadata; no credentials, tokens, comment text or screenshots.
 The privacy policy describes relationship data and 180-day retention. Deleting a project removes it
 from team, member and invitation grants through the same guard, in `project.deleted` events
-([project deletion](project-deletion.md)). There is no self-service account/workspace deletion flow today. For a verified erasure request, include team/name records,
+([project deletion](project-deletion.md)). Transferring a project to another workspace removes its
+grants in the old workspace the same way (`project.transferred-out`) and writes it into the new one
+without grants (`project.transferred-in`); both events carry the project's name, since it is gone from
+one of them ([project transfer](project-transfer.md)). There is no self-service account/workspace deletion flow today. For a verified erasure request, include team/name records,
 member/invitation relationships, email-hashed generation records and affected access events in
 the existing scoped operator process. For workspace erasure, enumerate all these types in that
 workspace partition. For account erasure, remove membership relationships and events where the

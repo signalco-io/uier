@@ -6,23 +6,29 @@ import {
     projectRefPk,
     workspacePk,
     type AppDoc,
-    type DbInvitation,
     type DbMember,
     type DbProject,
-    type DbRetiredProjectRef,
-    type DbTeam
+    type DbProjectRef,
+    type DbRetiredProjectRef
 } from './model';
 import { isProjectId } from './projects';
 import { retireProjectPublicIds } from './projectPublicIds';
-import { getAppStore, type AppMutation, type AppStore } from './store';
+import {
+    deleteInvitationTokens,
+    deleteProjectIntegrationRecords,
+    deleteProjectMcpEvents,
+    deleteProjectWorkspaceRecords,
+    disconnectProjectIntegrations,
+    projectGrantRemovals
+} from './projectRecords';
+import { activeProjectTransfer } from './projectTransfer';
+import { getAppStore, type AppStore } from './store';
 import { assertMutableProject } from '../comments/publicProjectPolicy';
 import { forgetScreenshot } from '../comments/service';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { deleteProjectThread, projectPartition } from '../review/comments';
-import { integrationProviders, type IntegrationProviderId } from '../integrations/model';
 import { notificationPk } from '../notifications/preferences';
 import { removeProjectFromMcpAccess } from '../mcp/credentials';
-import { eventsPk as mcpEventsPk } from '../mcp/events/subscriptions';
 
 /**
  * Identifier-only intent, saved before anything is deleted. A pending intent never expires: the
@@ -68,6 +74,12 @@ export async function deleteProject(context: AppContext, projectId: string, conf
         throw new UserFacingError('Only workspace admins can delete projects.');
     if (confirmation.trim() !== project.name)
         throw new UserFacingError('Type the project name exactly as it is shown.');
+    // A copy left behind by a transfer is not the project: its code names the workspace it moved to
+    const ref = (await app.get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
+    if (ref?.type === 'project-ref' && ref.workspaceId !== context.workspace.id)
+        throw new UserFacingError('This project no longer exists.');
+    if (await activeProjectTransfer(projectId, app))
+        throw new UserFacingError('This project is being transferred to another workspace. Try again in a few minutes.');
 
     // What Disconnect does for each service, while the admin and the project still exist: it
     // releases shared provider credentials. Copies already sent stay with the provider.
@@ -79,25 +91,6 @@ export async function deleteProject(context: AppContext, projectId: string, conf
         // Once the project is gone, the durable intent finishes the rest on the next scheduled run.
         if (await app.get(project.pk, project.id)) throw error;
         console.error('[projects] Project deletion needs scheduled retry');
-    }
-}
-
-async function disconnectProjectIntegrations(project: DbProject, userId: string, app: AppStore) {
-    for (const provider of integrationProviders) {
-        const connections = await app.query({ type: `${provider}-connection`, pk: project.pk, where: { projectId: project.id } });
-        if (!connections.length && !project.integrations?.[provider]) continue;
-        await disconnectProvider(provider, project, userId);
-    }
-}
-
-/** Loaded on demand, like the integration registry, to keep provider modules out of initialization cycles */
-async function disconnectProvider(provider: IntegrationProviderId, project: DbProject, userId: string) {
-    switch (provider) {
-        case 'notion': return (await import('../integrations/notion/connection')).disconnectNotion(project, userId);
-        case 'github': return (await import('../integrations/github/connection')).disconnectGitHub({ userId, workspaceId: project.workspaceId, projectId: project.id });
-        case 'linear': return (await import('../integrations/linear/connection')).disconnectLinear(project, userId);
-        case 'slack': return (await import('../integrations/slack/connection')).disconnectSlack(project, userId);
-        case 'azure-devops': return (await import('../integrations/azure-devops/connection')).disconnectAzureDevOps(project, userId);
     }
 }
 
@@ -146,58 +139,19 @@ async function unpublishProject(intent: ProjectDeletion, app: AppStore) {
     await retireProjectPublicIds(intent.id, intent.publicId, app);
 }
 
-/**
- * Team grants, direct member grants and pending invitations, through the workspace access guard.
- * Members are only updated, never deleted or recreated.
- */
+/** Team grants, direct member grants and pending invitations, through the workspace access guard. */
 async function removeProjectAccess(intent: ProjectDeletion, app: AppStore) {
-    const pk = workspacePk(intent.workspaceId);
-    const mentions = (doc: DbTeam | DbMember | DbInvitation) => doc.type === 'team'
-        ? doc.projectIds.includes(intent.id)
-        : (Array.isArray(doc.projects) && doc.projects.includes(intent.id)) || (doc.type === 'invitation' && doc.projectId === intent.id);
     for (let batch = 0; batch < 100; batch++) {
         let more = false;
         let tokens: string[] = [];
         await mutateAccess(intent.workspaceId, intent.requestedBy, async store => {
-            tokens = [];
-            const found = (await Promise.all((['team', 'member', 'invitation'] as const).map(type =>
-                store.query<DbTeam | DbMember | DbInvitation>({ type, pk })))).flat().filter(mentions);
-            if (!found.length) return null;
-            more = found.length > ACCESS_BATCH;
-            const operations: AppMutation[] = [];
-            const before: Record<string, unknown> = {};
-            const after: Record<string, unknown> = {};
-            for (const { id } of found.slice(0, ACCESS_BATCH)) {
-                // Change the version the transaction checks, never the query's copy
-                const stored = await store.get<DbTeam | DbMember | DbInvitation>(pk, id);
-                if (!stored || !mentions(stored.doc)) continue;
-                const doc = stored.doc;
-                if (doc.type === 'team') {
-                    const projectIds = doc.projectIds.filter(projectId => projectId !== intent.id);
-                    operations.push({ kind: 'replace', doc: { ...doc, projectIds }, etag: stored.etag });
-                    [before[id], after[id]] = [doc.projectIds, projectIds];
-                    continue;
-                }
-                const projects = Array.isArray(doc.projects) ? doc.projects.filter(projectId => projectId !== intent.id) : doc.projects;
-                if (doc.type === 'member') {
-                    operations.push({ kind: 'replace', doc: { ...doc, projects }, etag: stored.etag });
-                    [before[id], after[id]] = [doc.projects, projects];
-                    continue;
-                }
-                const { projectId: _opened, ...invitation } = doc;
-                // An invitation for this project alone would let someone join with access to nothing
-                const empty = invitation.role !== 'admin' && Array.isArray(projects) && !projects.length && !invitation.teamIds?.length;
-                if (empty) tokens.push(invitation.tokenHash);
-                // A replace restarts the database expiry: keep it at the invitation's own expiry
-                const ttl = Math.max(1, Math.ceil((Date.parse(invitation.expiresAt) - Date.now()) / 1000));
-                operations.push(empty ? { kind: 'delete', pk, id, etag: stored.etag } : { kind: 'replace', doc: { ...invitation, projects, ttl }, etag: stored.etag });
-                [before[id], after[id]] = [doc.projects, empty ? null : projects];
-            }
-            if (!operations.length) return null;
-            return { operations, action: 'project.deleted', targetIds: [intent.id, ...Object.keys(before)], before, after } satisfies AccessChange;
+            const removals = await projectGrantRemovals(store, intent.workspaceId, intent.id, ACCESS_BATCH);
+            ({ more, tokens } = removals);
+            if (!removals.operations.length) return null;
+            return { operations: removals.operations, action: 'project.deleted', targetIds: [intent.id, ...Object.keys(removals.before)],
+                before: removals.before, after: removals.after } satisfies AccessChange;
         }, { admin: false, store: app });
-        // The lookup token cannot accept a deleted invitation; it only goes sooner than its expiry
-        for (const hash of tokens) await app.delete(`invitation:${hash}`, hash);
+        await deleteInvitationTokens(tokens, app);
         if (!more) return;
     }
     throw new Error('Too many access grants to remove');
@@ -234,27 +188,14 @@ async function deleteProjectThreads(intent: ProjectDeletion, comments: CommentsS
 
 /** Records keyed by the project that no thread delete reaches. */
 async function deleteProjectRecords(intent: ProjectDeletion, app: AppStore) {
-    const remove = async (docs: AppDoc[]) => { for (const doc of docs) await app.delete(doc.pk, doc.id); };
     const notifications = notificationPk(intent.id);
     for (const type of ['notification-preference', 'notification-subscription', 'notification-delivery'])
-        await remove(await app.query({ type, pk: notifications }));
-    // MCP event subscriptions (callback URLs, encrypted secrets), the discovery cursor and delivery rows
-    for (const type of ['mcp-event-subscription', 'mcp-event-cursor', 'mcp-event-delivery'])
-        await remove(await app.query({ type, pk: mcpEventsPk(intent.id) }));
-    await remove(await app.query({ type: 'review-read', where: { domain: projectPartition(intent.id) } }));
-    await remove(await app.query({ type: 'review-code', where: { projectId: intent.id } }));
-    for (const type of ['comment-author', 'slack-test'])
-        await remove(await app.query({ type, pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
-    for (const provider of integrationProviders) {
-        await remove(await app.query({ type: `${provider}-sync`, pk: `${provider}:${intent.id}` }));
-        await remove(await app.query({ type: `${provider}-connection`, pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
-        await remove(await app.query({ type: `${provider}-oauth-state`, where: { projectId: intent.id } }));
-    }
-    await remove(await app.query({ type: 'notion-grant', pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
-    await remove(await app.query({ type: 'linear-selection', pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
-    for (const type of ['azure-devops-selection', 'azure-devops-grant'])
-        await remove(await app.query({ type, pk: workspacePk(intent.workspaceId), where: { projectId: intent.id } }));
-    await remove(await app.query({ type: 'github-setup', where: { projectId: intent.id, workspaceId: intent.workspaceId } }));
+        for (const doc of await app.query({ type, pk: notifications })) await app.delete(doc.pk, doc.id);
+    await deleteProjectMcpEvents(intent.id, app);
+    for (const doc of await app.query({ type: 'review-read', where: { domain: projectPartition(intent.id) } })) await app.delete(doc.pk, doc.id);
+    for (const doc of await app.query({ type: 'review-code', where: { projectId: intent.id } })) await app.delete(doc.pk, doc.id);
+    await deleteProjectWorkspaceRecords(intent.id, intent.workspaceId, app);
+    await deleteProjectIntegrationRecords(intent.id, intent.workspaceId, app);
 }
 
 /** Scheduled with the comment cleanup. */

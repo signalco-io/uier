@@ -30,8 +30,10 @@ import { appActor } from '../../../lib/app/projectComments';
 import { assertMutableProject } from '../../../lib/comments/publicProjectPolicy';
 import { ApiError } from '../../../lib/comments/http';
 import { setProjectMuted } from '../../../lib/notifications/preferences';
-import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActionSchema } from './actionSchemas';
+import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActionSchema, transferProjectActionSchema } from './actionSchemas';
 import { deleteProject } from '../../../lib/app/projectDeletion';
+import { transferProject } from '../../../lib/app/projectTransfer';
+import { selectWorkspace } from '../../../lib/app/workspaceCookie';
 
 /** One origin's environment: a label, and the group of addresses it shares feedback with */
 const environmentSchema = z.array(z.object({
@@ -160,6 +162,21 @@ export async function deleteProjectAction(projectId: string, confirmation: strin
     const result = await actionResult(async () => {
         const input = parseActionInput(deleteProjectActionSchema, { projectId, confirmation });
         await deleteProject(await appContextOrThrow({ admin: true }), input.projectId, input.confirmation);
+    });
+    if (result?.ok)
+        revalidatePath('/app', 'layout');
+    return result;
+}
+
+/**
+ * Admins of both workspaces. After a success the app opens the new workspace, where the client goes
+ * to the project: its id and links stay the same.
+ */
+export async function transferProjectAction(projectId: string, workspaceId: string, confirmation: string): Promise<ActionState> {
+    const result = await actionResult(async () => {
+        const input = parseActionInput(transferProjectActionSchema, { projectId, workspaceId, confirmation });
+        await transferProject(await appContextOrThrow({ admin: true }), input.projectId, input.workspaceId, input.confirmation);
+        await selectWorkspace(input.workspaceId);
     });
     if (result?.ok)
         revalidatePath('/app', 'layout');

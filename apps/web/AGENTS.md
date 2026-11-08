@@ -12,7 +12,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, My work, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `projectTransfer.ts` (moving a project to another workspace), `projectRecords.ts` (the grants, services and workspace records both remove), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader` (`media` sits left of the title and description together: a project's favicon, a person's avatar)/`Section` (titled cards), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
@@ -506,6 +506,16 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   claims. Access changes go through `mutateAccess`; members are updated, never deleted or recreated. Threads use
   `deleteProjectThread` + `forgetScreenshot`. A new project-keyed record type must be added to the deletion, the
   privacy policy and [project deletion](../../docs/project-deletion.md); `e2e/project-deletion{,.api}.spec.ts` cover it.
+- Project transfer (`app/projectTransfer.ts`, the Danger zone's Transfer project, `transferProjectAction`) needs an admin
+  of both workspaces (stored memberships), the typed name and never touches the public workspace/project. Only the
+  project document lives in the workspace partition: it is copied (client matched by name, no integrations) through the
+  target's `mutateAccess`, then public id claims and the code point at the target, then the old copy is deleted with its
+  grants through the source's `mutateAccess`. Comments, images, read state and notification records are keyed by the
+  project and stay. Workspace-bound settings stay behind: services are disconnected and their records deleted, coding
+  tools lose the project, grants do not follow (`projectRecords.ts` shares this with deletion). A `project-transfer`
+  intent makes it retryable; until the code switches, the old document is the project. A new workspace-keyed record
+  type that names a project must be handled by the transfer and [project transfer](../../docs/project-transfer.md);
+  `e2e/project-transfer{,.api}.spec.ts` cover it.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.
