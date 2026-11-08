@@ -15,6 +15,7 @@ test('public ids work in embeds, guest writes, verification and member review re
     await expect(page.getByText(`data-uier-project="${publicId}"`).first()).toBeVisible();
     await setProjectAccess(page, id, 'Anyone with the link');
     await page.goto(`/app/projects/${id}`);
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install', exact: true })).toBeVisible();
     await page.getByRole('button', { name: /^Anyone with the link/ }).click();
     await expect(page.getByRole('dialog', { name: 'Anyone with the link' }).locator('code')).toHaveText(`${site.origin()}/?toolbar-code=${publicId}`);
     const guest = await browser.newContext();
@@ -34,6 +35,9 @@ test('public ids work in embeds, guest writes, verification and member review re
         expect(created.status()).toBe(201);
         await page.reload();
         await expect(commentRowLink(page, 'Feedback via public id')).toBeVisible();
+        // The site sends feedback: no Install tab, so no tabs at all; Settings stays the header's cog
+        await expect(page.getByRole('navigation', { name: 'Project' })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${id}/settings`);
         const target = `${site.origin()}/${publicId}/pricing`;
         await page.goto(`/app/review/${id}?url=${encodeURIComponent(target)}`);
         await expect(page).toHaveURL(`${target}?toolbar-code=${publicId}`);

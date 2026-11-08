@@ -355,8 +355,10 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment, whose popover has Invite for admins, Open
-  review, then the `ProjectTabs`: Comments, Install (Settings → Installation and the onboarding install step) and
-  Settings (every other section)); its pages render the comments, install guide or settings under it.
+  review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
+  then the `ProjectTabs`: Comments and Install (Settings → Installation and the onboarding install step) until a comment
+  from one of the project's addresses arrives (`hasProjectFeedback`); after that there is nothing to switch between and
+  the tabs are gone); its pages render the comments, install guide or settings under it.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `workspaceTabs`): Users, Teams, Clients, Activity and Settings for admins, Clients only for everyone else and in
   the uier workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
