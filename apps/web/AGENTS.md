@@ -716,8 +716,11 @@ follow and read changes for cards, counters and board columns. Failed actions re
 `useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
 revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
 `NavigationPending` gives settings links immediate feedback while their authorized destination loads.
+`LinkTabs` puts its spinner last, after any count: at the right end of a section link that fills its
+column, in space kept while hidden so nothing moves when it appears.
 `e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
-immediate updates, rollback, persistence and background feedback submission on desktop and mobile.
+immediate updates, rollback, persistence and background feedback submission on desktop and mobile;
+it also holds a settings section's page to check where that link's spinner sits.
 
 ## Rewrite accounting
 
