@@ -184,7 +184,8 @@ export type CommentItem = {
     permissions?: { resolve: boolean; delete: boolean; edit?: boolean; assign?: boolean; priority?: boolean };
     /** Project comments: only workspace admins and the author see it */
     private?: boolean;
-    assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean };
+    /** `agent`: the AI agent working under the assignee (members only) */
+    assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('../../agents').AssigneeAgentView };
     /** Shown before the API saved it (an optimistic comment with a temporary id, see hooks/useComments.tsx) */
     pending?: boolean;
 }

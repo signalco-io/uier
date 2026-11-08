@@ -8,6 +8,7 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
 import type { CommentItem } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
+import { agentMarks, agentText, type AgentKind } from '../agents';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
 export function assignedText(comment: CommentItem) {
@@ -15,10 +16,30 @@ export function assignedText(comment: CommentItem) {
     return `Assigned to ${comment.assignee.isMe ? 'you' : comment.assignee.name}${comment.assignee.unavailable ? ' (no access)' : ''}`;
 }
 
-/** The assignee's avatar, as in the messages, or the user icon while unassigned */
+/** "Assigned to Ana, with Claude": the header avatar's tooltip, with the AI agent working under the assignee */
+export function workingText(comment: CommentItem) {
+    const agent = comment.assignee?.agent;
+    return agent ? `${assignedText(comment)}, with ${agentText(agent)}` : assignedText(comment);
+}
+
+/** The agent's one-colour mark on a bordered circle, as in the app (`@uier/toolbar/agents`) */
+function AgentAvatar({ kind }: { kind: AgentKind }) {
+    const mark = agentMarks[kind];
+    return <span aria-hidden="true" data-agent={kind} className="-ml-2 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-2 ring-background">
+        <svg viewBox="0 0 24 24" width={14} height={14} focusable="false" fill={mark.stroke ? 'none' : 'currentColor'}
+            {...(mark.stroke ? { stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const } : {})}>
+            {mark.paths.map(d => <path key={d} d={d} {...(mark.evenOdd ? { fillRule: 'evenodd' as const, clipRule: 'evenodd' as const } : {})} />)}
+        </svg>
+    </span>;
+}
+
+/** The assignee's avatar, as in the messages, with the agent's stacked on it, or the user icon while unassigned */
 function AssigneeAvatar({ comment }: { comment: CommentItem }) {
     if (!comment.assignee) return <User size={16} aria-hidden="true" />;
-    return <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(comment.assignee.name)}</Avatar>;
+    return <span className="flex items-center">
+        <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(comment.assignee.name)}</Avatar>
+        {comment.assignee.agent && <AgentAvatar kind={comment.assignee.agent.kind} />}
+    </span>;
 }
 
 /**
@@ -27,7 +48,7 @@ function AssigneeAvatar({ comment }: { comment: CommentItem }) {
  * `CommentAssigneeOptions` under the header.
  */
 export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
-    const assigned = assignedText(comment);
+    const assigned = workingText(comment);
     const { triggerProps, tooltip } = useIconTooltip(assigned);
     if (!comment.assignee) return null;
     return <>

@@ -237,6 +237,34 @@ actor, read activity, muted projects, explicitly unfollowed threads, removed mem
 people without private-thread access are suppressed by the shared notification delivery.
 Unassignment targets the previous assignee, subject to the same rules.
 
+### AI agents under the assignee
+
+A thread's assignee can have one AI agent working under them: Claude, Codex, ChatGPT, Cursor or a
+generic AI agent. Its one-colour mark (`@uier/toolbar/agents`, drawn by `AgentAvatar`) sits on the right
+edge of the assignee's avatar in the app's thread, list rows, board cards and My work, and in the
+toolbar thread's header; the avatar's name says both ("Assigned to Ana, with Claude (claude-opus-5-5)").
+Under Assignee the thread reads "You with Claude" and the model in mono.
+
+- **Who sets it.** Only the assignee, for themselves: **Add agent** after their name (Claude, Codex,
+  ChatGPT, Cursor, AI agent), then the agent's menu changes it, opens **Session and model** (the less
+  common, manual path) or removes it. Other members, admins included, see it but cannot change it;
+  guests never see it. The toolbar shows it and has no control for it.
+- **Coding tools set it themselves.** Through MCP, a tool attaches itself under its owner when it starts
+  on feedback assigned to them, with its session id and model ([MCP](mcp.md#agents-working-on-feedback)).
+  It never attaches under someone else; for unassigned feedback it assigns its owner first, only when
+  the person asked.
+- **It belongs to its assignee.** A new assignment, unassigning, or making the thread private for an
+  assignee who cannot see it removes the agent in the same write. An agent saved under an earlier
+  assignee is never shown (`currentAssigneeAgent`).
+- **Stored on the thread** as `assigneeAgent`: kind, the assignee it works under, optional session id
+  (200 characters) and model (100), who set it and when, and the MCP connection that attached it.
+  Each change advances the shared unread activity and records an `agent` event in `notificationEvents`
+  (MCP `feedback.agent_changed`); agent events are never emailed. Copy issue and MCP packets include it
+  for members; connected services get the assignee's name only.
+- `setProjectCommentAgent` (`review/assigneeAgent.ts`) is the one service; `setCommentAgentAction` and the
+  MCP tools call it. `e2e/assignee-agent.api.spec.ts` covers the rules and `e2e/assignee-agent.spec.ts`
+  picking an agent, its details and its avatar on rows, the board and the toolbar.
+
 ### Review email notifications
 
 Owners and admins receive new feedback. Members automatically follow threads they post in, can follow or

@@ -1,0 +1,169 @@
+'use client';
+
+import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
+import { toast } from 'sonner';
+import { ChevronDownIcon, PlusIcon } from 'lucide-react';
+import { agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_SESSION_LENGTH, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { Button } from '@/src/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from '@/src/components/ui/dropdown-menu';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Input } from '@/src/components/ui/input';
+import { Spinner } from '@/src/components/ui/spinner';
+import type { ProjectCommentView } from '../../../lib/app/projectComments';
+import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
+import { setCommentAgentAction } from './actions';
+import { AgentAvatar } from './AgentAvatar';
+import { useCommentUpdate } from './CommentUpdates';
+
+function agentView(input: AssigneeAgentInput): AssigneeAgentView {
+    const model = input.model?.trim();
+    const sessionId = input.sessionId?.trim();
+    return { kind: input.kind, label: agentLabels[input.kind], ...(model ? { model } : {}), ...(sessionId ? { sessionId } : {}) };
+}
+
+/**
+ * The AI agent working under the assignee, after their name in the thread's Assignee field. The assignee
+ * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), edits its session id and model (agents usually
+ * report these themselves through MCP) or removes it; everyone else reads "with Claude".
+ */
+export function AgentControl({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
+    const [pending, start] = useTransition();
+    const update = useCommentUpdate();
+    const attempt = useRef<{ value: string; key: string } | null>(null);
+    const [editing, setEditing] = useState(false);
+    const [details, setDetails] = useState({ sessionId: '', model: '' });
+    const [error, setError] = useState<string>();
+    const trigger = useRef<HTMLButtonElement>(null);
+    const ids = useId();
+    const assignee = comment.assignee;
+    const agent = assignee?.agent;
+    if (!assignee) return null;
+
+    if (!comment.permissions.agent) {
+        if (!agent) return null;
+        return (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+                <span className="text-muted-foreground">with</span>
+                <span className="truncate">{agent.label}</span>
+                {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
+            </span>
+        );
+    }
+
+    /** One key per intended change, reused when the same change is retried */
+    const save = async (next: AssigneeAgentInput | null) => {
+        const value = JSON.stringify(next);
+        if (attempt.current?.value !== value) attempt.current = { value, key: crypto.randomUUID() };
+        update({ id: comment.id, patch: { assignee: { ...assignee, agent: next ? agentView(next) : undefined } } });
+        try {
+            const result = await setCommentAgentAction(projectId, comment.id, next, attempt.current.key);
+            if (!result?.ok) return result?.error ?? 'Could not change the agent. Try again.';
+            attempt.current = null;
+            return undefined;
+        } catch { return 'Could not change the agent. Try again.'; }
+    };
+    const choose = (kind: AgentKind) => start(async () => {
+        if (kind === agent?.kind) return;
+        const failed = await save({ kind });
+        if (failed) toast.error(failed);
+        else toast(`Agent set to ${agentLabels[kind]}.`);
+    });
+    const remove = () => start(async () => {
+        const failed = await save(null);
+        if (failed) toast.error(failed);
+        else toast('Agent removed.');
+    });
+    const openDetails = () => {
+        setDetails({ sessionId: agent?.sessionId ?? '', model: agent?.model ?? '' });
+        setError(undefined);
+        setEditing(true);
+    };
+    const saveDetails = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!agent) return;
+        start(async () => {
+            const failed = await save({ kind: agent.kind, sessionId: details.sessionId, model: details.model });
+            if (failed) { setError(failed); return; }
+            setEditing(false);
+            toast('Agent details saved.');
+        });
+    };
+
+    return (
+        <>
+            {agent && <span aria-hidden="true" className="text-muted-foreground">with</span>}
+            <DropdownMenu>
+                <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" disabled={pending}
+                    aria-label={agent ? `Agent: ${agent.label}. Change agent` : undefined}
+                    className={agent ? 'h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
+                    {agent ? <>
+                        <span className="truncate">{agent.label}</span>
+                        {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
+                        {pending ? <Spinner data-icon="inline-end" /> : <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />}
+                    </> : <>
+                        {pending ? <Spinner data-icon="inline-start" /> : <PlusIcon aria-hidden="true" data-icon="inline-start" />}
+                        Add agent
+                    </>}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-52">
+                    <DropdownMenuGroup>
+                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agent working with you</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup value={agent?.kind ?? ''}>
+                            {agentKinds.map(kind => (
+                                <DropdownMenuRadioItem key={kind} value={kind} closeOnClick className="pointer-coarse:min-h-11" onClick={() => choose(kind)}>
+                                    <AgentAvatar kind={kind} />
+                                    {agentLabels[kind]}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuGroup>
+                    {agent && (
+                        <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={openDetails}>Session and model</DropdownMenuItem>
+                            <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={remove}>Remove agent</DropdownMenuItem>
+                        </>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog open={editing} onOpenChange={open => { if (!pending) setEditing(open); }}>
+                <DialogContent className="sm:max-w-md" finalFocus={trigger}>
+                    <form onSubmit={saveDetails} className="flex flex-col gap-6">
+                        <DialogHeader>
+                            <DialogTitle>{agent?.label ?? 'Agent'} details</DialogTitle>
+                            <DialogDescription>Agents usually fill these in when they start. Change them only when they are missing or wrong.</DialogDescription>
+                        </DialogHeader>
+                        <FieldGroup>
+                            <Field>
+                                <FieldLabel htmlFor={`${ids}-session`}>Session id</FieldLabel>
+                                <Input id={`${ids}-session`} value={details.sessionId} maxLength={MAX_AGENT_SESSION_LENGTH} autoComplete="off" spellCheck={false}
+                                    className="font-mono" onChange={event => setDetails(current => ({ ...current, sessionId: event.target.value }))} />
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor={`${ids}-model`}>Model</FieldLabel>
+                                <Input id={`${ids}-model`} value={details.model} maxLength={MAX_AGENT_MODEL_LENGTH} autoComplete="off" spellCheck={false}
+                                    className="font-mono" onChange={event => setDetails(current => ({ ...current, model: event.target.value }))} />
+                            </Field>
+                            {error && <FieldError>{error}</FieldError>}
+                        </FieldGroup>
+                        <DialogFooter>
+                            <DialogClose render={<Button variant="outline" disabled={pending} />}>Cancel</DialogClose>
+                            <Button type="submit" disabled={pending}>{pending && <Spinner data-icon="inline-start" />}Save</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}

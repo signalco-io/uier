@@ -78,6 +78,8 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { ReplyComposer } from './ReplyComposer';
+import { AgentAvatar, assignedLabel } from './AgentAvatar';
+import { AgentControl } from './AgentControl';
 import {
     markCommentReadAction,
     markCommentUnreadAction,
@@ -118,14 +120,17 @@ function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void
  * line beside the name, or the same avatar empty with a dashed outline while unassigned (as a pending
  * invitation's). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5`.
  */
-function AssigneeAvatar({ assignee }: { assignee?: { name: string; avatarUrl?: string } }) {
+function AssigneeAvatar({ assignee }: { assignee?: ProjectCommentView['assignee'] }) {
     if (!assignee)
         return <Avatar aria-hidden="true" className="size-5 after:border-dashed after:border-foreground/30" />;
     return (
-        <Avatar aria-hidden="true" className="size-5">
-            {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
-            <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
-        </Avatar>
+        <span aria-hidden="true" className="flex shrink-0 items-center">
+            <Avatar className="size-5">
+                {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
+                <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
+            </Avatar>
+            {assignee.agent && <AgentAvatar kind={assignee.agent.kind} className="-ml-1.5 ring-2 ring-background" />}
+        </span>
     );
 }
 
@@ -238,9 +243,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [keptUnread, setKeptUnread] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     useReadWhenShown(cardRef, projectId, comment, { enabled: !keptUnread, onRead: onReadWhenShown });
-    const assigned = comment.assignee
-        ? `Assigned to ${comment.assignee.id === userId ? 'you' : comment.assignee.name}`
-        : 'Unassigned';
+    const assigned = assignedLabel(comment.assignee && { ...comment.assignee, agent: undefined }, userId);
     // After the page link: the environment's name; the address itself is in the link
     const sourceText = source.available
         ? source.label !== source.origin ? source.label : undefined
@@ -460,7 +463,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     <dt className="text-muted-foreground">Priority</dt>
                     <dd className="m-0"><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
                     <dt className="text-muted-foreground">Assignee</dt>
-                    <dd className="m-0 min-w-0">
+                    {/* The assignee, then the AI agent working with them (its avatar stacked on theirs) */}
+                    <dd className="m-0 flex min-w-0 flex-wrap items-center gap-x-1">
                         {/* The list of people for those who can assign */}
                         {permissions.assign ? (
                             <DropdownMenu>
@@ -480,7 +484,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                             <DropdownMenuItem
                                                 key={option.userId}
                                                 onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
-                                                    { assignee: { id: option.userId, name: option.name, avatarUrl: option.avatarUrl } })}>
+                                                    // A new assignee starts without an agent; the same one keeps theirs
+                                                    { assignee: { id: option.userId, name: option.name, avatarUrl: option.avatarUrl,
+                                                        ...(option.userId === comment.assignee?.id && comment.assignee.agent ? { agent: comment.assignee.agent } : {}) } })}>
                                                 {option.name}
                                                 {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
                                             </DropdownMenuItem>
@@ -502,6 +508,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <span aria-hidden="true">{comment.assignee?.name ?? 'Unassigned'}</span>
                             </span>
                         )}
+                        <AgentControl projectId={projectId} comment={comment} />
                     </dd>
                 </dl>
 

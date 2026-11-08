@@ -5,6 +5,7 @@ import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
 import { idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
 import { mentionsSchema } from '../../../lib/review/participants';
 import { bulkReadSchema } from '../../../lib/comments/bulkRead';
+import { assigneeAgentInputSchema } from '../../../lib/review/assigneeAgentModel';
 
 export const commentIdSchema = z.string().refine(isValidId);
 export const commentActionSchema = z.object({ projectId: projectIdSchema, commentId: commentIdSchema });
@@ -21,3 +22,4 @@ export const readCommentsActionSchema = bulkReadSchema.extend({ projectId: proje
 export const notificationActionSchema = z.object({ projectId: projectIdSchema, threadId: commentIdSchema.optional(), enabled: z.boolean() });
 
 export const priorityCommentActionSchema = commentActionSchema.extend({ priority: z.enum(priorities), idempotencyKey: idempotencyKeySchema });
+export const agentCommentActionSchema = commentActionSchema.extend({ agent: assigneeAgentInputSchema.nullable(), idempotencyKey: idempotencyKeySchema });

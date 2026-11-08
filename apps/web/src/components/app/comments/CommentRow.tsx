@@ -3,11 +3,10 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { BugIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
-import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
 import { SelectComment } from './TriageSelection';
+import { AssigneeAvatars } from './AgentAvatar';
 import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
 
@@ -109,12 +108,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
                                 {commentStatusLabels[status]}
                             </span>
                         )}
-                        {comment.assignee && (
-                            <Avatar size="sm" className="size-5" aria-label={`Assigned to ${comment.assignee.name}`} role="img">
-                                {comment.assignee.avatarUrl && <AvatarImage src={comment.assignee.avatarUrl} alt="" />}
-                                <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(comment.assignee.name)}</AvatarFallback>
-                            </Avatar>
-                        )}
+                        {comment.assignee && <AssigneeAvatars assignee={comment.assignee} />}
                     </div>
                 </div>
             </div>

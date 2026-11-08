@@ -145,7 +145,10 @@ own colours ([Google sign-in](../../docs/google-sign-in.md)); the buttons around
 outline button as every other sign-in option. The others are the
 logos of connected services in a project's Integrations settings: each is the provider's own filled
 mark on a bordered tile, in ink and paper where the provider allows a one-colour logo (GitHub,
-Linear, Notion) and in its own colours where it does not (Slack, Azure DevOps).
+Linear, Notion) and in its own colours where it does not (Slack, Azure DevOps). The AI agents that
+work under an assignee (Claude, Codex, ChatGPT, Cursor) show their product's one-colour mark in ink and
+paper on a bordered circle, the size of the avatar it is stacked on; a generic agent is Lucide's bot.
+They are third-party marks: never recoloured, redrawn or used as uier's.
 
 ## Typography
 

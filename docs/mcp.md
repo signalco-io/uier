@@ -71,7 +71,8 @@ out. Only that random request id passes through sign-in. The page shows:
   and projects", where each workspace gets all its projects, including new ones, or the projects you
   pick. Only workspaces and projects you can access are listed.
 - **Operations.** Read feedback (always included), Read screenshots, Reply to feedback, Change status and
-  Assign feedback. The operations the tool asked for are preselected; Claude Code asks for Read feedback.
+  Assign feedback (which also lets the tool show itself as the [agent working on feedback assigned to
+  you](#agents-working-on-feedback)). The operations the tool asked for are preselected; Claude Code asks for Read feedback.
   **Select all operations** picks all five. Operations apply to the whole connection, not per workspace.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
   assignments made through the connection show this name.
@@ -348,11 +349,13 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
 | `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
-| `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment and mentions since a cursor ([polling](#polling)) |
+| `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment, agents and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the connection name |
 | `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
+| `set_feedback_agent` | `feedback:assign` | Attach the connection as the AI agent working under its owner on feedback assigned to them ([agents](#agents-working-on-feedback)) |
+| `clear_feedback_agent` | `feedback:assign` | Remove the agent working under the connection's owner |
 
 All tools are listed for every connection. A call without the needed operation returns a `forbidden`
 tool error ("This connection needs `<scope>`."); there is no step-up sign-in yet.
@@ -377,7 +380,8 @@ resource reference supplements its protected web image link when image access wa
 Deleted first-message evidence is unavailable through both the packet and screenshot resource.
 
 `list_feedback` items include `resolved` and `stage` (`open`, `in-progress`, `ready` or `done`), canonical `path`, `environment: { id, label }`, `anchorType`,
-`assignee: { id, name }` or `null`, `authorKind`, `unread` and `hasScreenshot`. Deleted first
+`assignee: { id, name, agent? }` or `null` (`agent`: the AI agent working under the assignee,
+`{ kind, label, model?, sessionId?, setAt }`), `authorKind`, `unread` and `hasScreenshot`. Deleted first
 messages omit `authorKind` and report no screenshot. The response includes project `environments`
 options and `searchWindow: 1000`. Optional filters are `path`, `environment`, `anchorType`
 (`point`, `text`, `page`), `assignee` (`me`, `unassigned`, or a member id), `authorKind`
@@ -414,8 +418,9 @@ Responses mark feedback as `contentTrust: "untrusted"`; server instructions also
 anchors, names and images as untrusted content. Clients must treat them as data and keep changes
 user-initiated. The connector cannot edit code, run commands or deploy. A supported workflow is:
 ask the client to read selected feedback, approve a code fix in the coding tool, then explicitly
-approve its reply and status update. Tool annotations identify reads and mutations, but annotations
-are hints, not an approval system. Reading does not acknowledge inbox unread activity.
+approve its reply and status update. Attaching itself with `set_feedback_agent` when the person asks it
+to work on feedback assigned to them is the one write that request approves. Tool annotations identify
+reads and mutations, but annotations are hints, not an approval system. Reading does not acknowledge inbox unread activity.
 
 Server instructions, prompts and the skill also tell clients to cite feedback by its uier link:
 `[uier #12](comment link)` with `links.comment` in pull requests, issues and replies, the comment
@@ -471,6 +476,7 @@ not yet accepted; expect changes when it is.
 | `feedback.replied` | `projectId`, optional `commentId` | A reply is added |
 | `feedback.status_changed` | `projectId`, optional `commentId` | Feedback is marked done or reopened, moved to In progress or back to Open, or a fix check is requested, confirmed, rejected or canceled |
 | `feedback.assignment_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | Feedback is assigned or unassigned |
+| `feedback.agent_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | An AI agent starts, changes or stops working on feedback under its assignee, also when a new assignment removes it ([agents](#agents-working-on-feedback)) |
 | `feedback.mentioned` | `projectId` | Someone mentions the account of the connection |
 
 Priority, text edits and deletions have no event. `events/list` returns each event's `inputSchema`
@@ -765,6 +771,10 @@ and catalog, verification, Standard Webhooks signatures, filters, loop preventio
 refresh and secret rotation, unsubscribe, retries, `410`, revocation, error codes and what is logged,
 plus polling: starting from now, each event once, a late commit, paging, visibility, the
 `list_feedback_events` tool, invalid and expired cursors.
+`e2e/assignee-agent.api.spec.ts` covers agents: only the assignee sets or clears one (other members,
+admins and guests cannot), a new assignment or a private thread removes it, it is never emailed, and
+the MCP tools attach a connection only under its owner (`assignToMe` only for unassigned feedback),
+replay retries, and appear in `list_feedback`, packets and `feedback.agent_changed`.
 `e2e/mcpEvents.spec.ts` creates a token in Account, subscribes, posts feedback to the running app and
 expects the webhook right after the request, without the worker.
 `e2e/mcp-report.api.spec.ts` checks the daily report on fixture events: raw and Vercel lines,
@@ -819,3 +829,41 @@ status write and never records reviewer confirmation. A pending check closed thi
 unconfirmed. Tool descriptions, report-back prompts and the downloadable agent skill all require
 approval of the exact operation and stable retry keys. Request/cancel attribution retains the
 human connection owner and connection identity, including across token refresh.
+
+### Agents working on feedback
+
+The person a thread is assigned to can have one AI agent working under them: Claude, Codex, ChatGPT,
+Cursor or a generic AI agent, with the session id and model it reported. The app shows its mark beside
+the assignee's avatar ([review workflow](review-workflow.md#ai-agents-under-the-assignee)). A coding tool
+attaches itself when it starts working on feedback assigned to its owner:
+
+| Tool | Scope | Input and meaning |
+| --- | --- | --- |
+| `set_feedback_agent` | `feedback:assign` | Thread ids, stable retry key, optional `agent` (`claude`, `codex`, `chatgpt`, `cursor` or `agent`), optional `sessionId` (up to 200 characters) and `model` (up to 100), optional `assignToMe`. Calling it again updates the details. |
+| `clear_feedback_agent` | `feedback:assign` | Thread ids and stable retry key. Removes the agent, for example when the tool stops without finishing. |
+
+Both return `{ actingAs, commentId, assigneeId, agent }`, `agent` being `{ kind, label, model?, sessionId?, setAt }`
+or `null`.
+
+- **Only under its owner.** The thread must be assigned to the connection's owner. Feedback assigned to
+  someone else is `forbidden` for both tools, whoever the owner is (admins included): nobody puts an
+  agent under another person, and a tool never reassigns feedback to make room.
+- **Unassigned feedback** is `forbidden` ("Assign this thread to yourself first.") unless
+  `assignToMe: true`, which assigns the owner and attaches the agent in one write. Pass it only when the
+  person explicitly asked to take the feedback; the skill and tool description say so. It records the
+  same assignment event as `assign_feedback`.
+- **The kind** is `agent` when given, otherwise inferred from what the connection calls itself (the
+  connected app's or access token's name, its client id, the request's user agent): Claude, Codex, ChatGPT
+  (or OpenAI) and Cursor, else AI agent. It only chooses a label and an avatar.
+- **A new assignment removes the agent**: it belongs to the person it works under. The assignment and
+  the agent leaving are one write, with a `feedback.agent_changed` event whose `agent` is `null` and
+  whose `assignee` is the previous assignee. Making a thread private also removes an assignee who cannot
+  see it, with their agent.
+- The details are untrusted text from the tool or the person: one line, no control characters.
+  `feedback.agent_changed` payloads add `assignee: { id, name }` (the person it works under, or `null`)
+  and `agent: { kind, label, model?, sessionId? }` or `null` to the common fields.
+- Activity and attribution follow assignments: each change advances the thread's unread activity and
+  records the connection as the connector. Agent changes are never emailed.
+- `get_feedback` packets name the agent beside the assignee (`context.assignee.agent`, and
+  `Agent:`, `Model:` and `Session:` in the Markdown). Connected services (GitHub, Linear, Notion, Slack,
+  Azure DevOps) get the assignee's name only, never the agent.
