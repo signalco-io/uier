@@ -126,6 +126,41 @@ function openLayers(host: HTMLElement, modal: HTMLDialogElement | undefined) {
     return [...layers].filter(layer => (!modal || modal.contains(layer)) && !host.contains(layer));
 }
 
+/** The page element outside the layer that opens it: its expanded trigger, else a popover or command invoker */
+function openerOf(layer: Element) {
+    if (!layer.id) return undefined;
+    const id = CSS.escape(layer.id);
+    const outside = (element: Element) => !layer.contains(element) && isShown(element);
+    try {
+        const triggers = [...document.querySelectorAll(`[aria-controls~="${id}"]`)].filter(outside);
+        return triggers.find(trigger => trigger.getAttribute('aria-expanded') === 'true')
+            ?? [...document.querySelectorAll(`[popovertarget="${id}"],[commandfor="${id}"]`)].find(outside)
+            ?? triggers.find(trigger => trigger.hasAttribute('aria-haspopup'));
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * The page element that opens the open menu, popover or dialog the element is in: of nested ones
+ * (a submenu in a menu), the outermost, which is what is on the page when they are all closed.
+ */
+export function layerOpener(element: Element) {
+    const host = getToolbarHost();
+    if (!host) return undefined;
+    const modals = [...document.querySelectorAll('dialog[open]')].filter(isModal);
+    const layers = [...modals, ...openLayers(host, activeModalDialog())];
+    let opener: Element | undefined;
+    for (let node: Element = element, depth = 0; depth < 8; depth++) {
+        const containing = layers.filter(layer => layer.contains(node));
+        const innermost = containing.find(layer => !containing.some(other => other !== layer && layer.contains(other)));
+        const next = innermost && openerOf(innermost);
+        if (!next) break;
+        opener = node = next;
+    }
+    return opener;
+}
+
 function showOnTop(host: HTMLElement) {
     try {
         if (host.matches(':popover-open')) host.hidePopover();

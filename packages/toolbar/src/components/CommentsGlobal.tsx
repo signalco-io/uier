@@ -28,6 +28,7 @@ import { takeLinkedCommentId } from '../review';
 import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../modalLayer';
+import { withLayer } from '../layerAnchor';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { isAddCommentShortcut, isLetterKeyTarget, useShortcutsEnabled } from '../shortcuts';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
@@ -189,7 +190,11 @@ export function CommentsGlobal({
         setCreatingCommentSelection(undefined);
         setSidebarOpen(true);
     };
-    const chooseAnchor = (candidate: CommentAnchor) => setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
+    // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
+    const chooseAnchor = (anchor: CommentAnchor) => {
+        const candidate = withLayer(anchor);
+        setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
+    };
     const saveAnchor = async () => {
         if (!reattaching?.candidate) return;
         try {
@@ -226,7 +231,9 @@ export function CommentsGlobal({
         setHintOpen(false);
     };
 
-    const startDraft = (position: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
+    const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
+        // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
+        const position = withLayer(anchor);
         closeHintForUse();
         awaitingThreadRef.current = undefined;
         draftKeyRef.current += 1;

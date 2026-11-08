@@ -41,17 +41,24 @@ export function elementLabel(selector: string) {
     return place ? `${word} in ${places[place]}` : word;
 }
 
+/** ", after opening Account": the anchor is in a menu, popover or dialog that a page element opens */
+function openedFrom(position: DbCommentPosition) {
+    if (position.type === 'page' || !position.layer) return '';
+    const name = position.layer.label?.replace(/\s+/g, ' ').trim();
+    return name ? `, after opening “${name}”` : ', in a menu or dialog';
+}
+
 export function commentAnchor(position: DbCommentPosition, kind: DbCommentKind | undefined, quotedText?: string): CommentAnchorView {
     if (position.type === 'text') {
         const text = (quotedText || position.text).replace(/\s+/g, ' ').trim();
-        return { type: 'text', label: kind === 'rewrite' ? 'Suggested rewrite of selected text' : 'Selected text', text };
+        return { type: 'text', label: `${kind === 'rewrite' ? 'Suggested rewrite of selected text' : 'Selected text'}${openedFrom(position)}`, text };
     }
     if (position.type === 'point') {
         const element = elementLabel(position.selector);
         const area = typeof position.widthNormal === 'number' && typeof position.heightNormal === 'number';
         return area
-            ? { type: 'area', label: `Area of ${element.charAt(0).toLowerCase()}${element.slice(1)}`, selector: position.selector }
-            : { type: 'element', label: element, selector: position.selector };
+            ? { type: 'area', label: `Area of ${element.charAt(0).toLowerCase()}${element.slice(1)}${openedFrom(position)}`, selector: position.selector }
+            : { type: 'element', label: `${element}${openedFrom(position)}`, selector: position.selector };
     }
     return { type: 'page', label: kind === 'bug' ? 'Bug report about the page' : 'Whole page' };
 }

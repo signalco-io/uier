@@ -17,7 +17,8 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
         { type: 'text', text: 'Original\nselected copy', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 12, endType: 'text' },
         { type: 'page' },
         { type: 'text', text: 'Old headline', startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 12, endType: 'text' },
-        { type: 'point', selector: '#hero', xNormal: 0.1, yNormal: 0.2, widthNormal: 0.5, heightNormal: 0.25 }
+        { type: 'point', selector: '#hero', xNormal: 0.1, yNormal: 0.2, widthNormal: 0.5, heightNormal: 0.25 },
+        { type: 'point', selector: '#account-menu>button:nth-of-type(2)', xNormal: 0.5, yNormal: 0.5, layer: { opener: '#account', label: 'Account' } }
     ];
     for (const [index, position] of positions.entries()) {
         const response = await request.post('/api/comments', { data: {
@@ -53,6 +54,12 @@ test('public exports preserve exact saved element/text/page/rewrite feedback and
             expect(packet.context.anchor).toEqual({ type: 'point', selector: '#hero', area: { x: 0.1, y: 0.2, width: 0.5, height: 0.25 } });
             expect(packet.markdown).toContain('Anchor: Area of an element');
             expect(packet.markdown).toContain('Area within the element: 10% from the left, 20% from the top, 50% wide, 25% tall');
+        }
+        if (index === 5) {
+            // In a menu: the button that opens it, for reproducing the anchor
+            expect(packet.context.anchor).toEqual({ type: 'point', selector: '#account-menu>button:nth-of-type(2)', opener: { selector: '#account', label: 'Account' } });
+            expect(packet.markdown).toContain('In a menu, popover or dialog: open it first with ` Account `.');
+            expect(packet.markdown).toContain('Opener selector (may no longer match):\n\n```text\n#account\n```');
         }
         if (index === 0) {
             expect(packet.context.screenshot.state).toBe('protected');

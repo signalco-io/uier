@@ -231,6 +231,10 @@ menu, press the + button, pin an item and write the comment while the menu stays
 show with it. The toolbar's keys, typing and clicks stay in the toolbar, so they never choose a menu
 item; `aria-hidden` or `inert` that the page sets on the toolbar while the layer is open is taken
 off. A click on the page outside the layer still closes it, and the toolbar returns to `<body>`.
+A comment left in such a layer is saved with the element that opens it (`layer: { opener, label }`
+on its position). While the layer is closed, its pin is beside that element and its thread says
+"Open “Account” to see the comment in place."; open, the pin is on the commented item again. The app
+and copied issues name it too ("Button, after opening “Account”").
 Non-modal dialogs (`dialog.show()`), manual popovers, disclosures such as accordions and the
 suggestions of a text field leave the toolbar where it is. While in a layer, the toolbar is its last
 child: rules for the layer's last child (`:last-child`, Tailwind's `space-y-*`) apply to the item before.

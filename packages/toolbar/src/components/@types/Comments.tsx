@@ -39,6 +39,16 @@ export type CommentPoint = {
     yNormal: number;
     widthNormal?: number;
     heightNormal?: number;
+    layer?: CommentLayer;
+};
+
+/**
+ * The anchor is in a menu, popover or dialog that a page element opens (`layerAnchor.ts`): that
+ * element's selector and its name ("Account"). While it is closed, the pin is on the opener.
+ */
+export type CommentLayer = {
+    opener: string;
+    label?: string;
 };
 
 /** Whether the point is a dragged area (both sizes set) */
@@ -55,6 +65,7 @@ export type CommentSelection = {
     endSelector?: string;
     endOffset: number;
     endType: 'text' | 'element';
+    layer?: CommentLayer;
 }
 
 /** Feedback about the page as a whole (feedback and bug reports): no pin */

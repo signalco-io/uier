@@ -740,6 +740,19 @@ test('an area comment keeps its area', async ({ newVisitor }) => {
     expect((await listComments(visitor, path))[0]?.position).toEqual(area);
 });
 
+test('a comment in a menu keeps the button that opens it', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+    // Saved while the menu was open, so a closed menu's comment can be shown on its opener
+    const inMenu = { ...pointPosition, selector: '#account-menu>button:nth-of-type(2)', layer: { opener: '#account', label: 'Account' } };
+    const comment = await created(await createComment(visitor, path, { position: inMenu }));
+    expect(comment.position).toEqual(inMenu);
+    const inText = { ...selectionPosition, layer: { opener: 'body>header>button' } };
+    const textComment = await created(await createComment(visitor, path, { position: inText }));
+    expect(textComment.position).toEqual(inText);
+    expect((await listComments(visitor, path)).map(saved => saved.position)).toEqual(expect.arrayContaining([inMenu, inText]));
+});
+
 test('requests are validated', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();
@@ -776,6 +789,12 @@ test('requests are validated', async ({ newVisitor }) => {
         { position: { ...pointPosition, widthNormal: 0, heightNormal: 0.5 } },
         { position: { ...pointPosition, xNormal: 0.75, widthNormal: 0.5, heightNormal: 0.25 } },
         { position: { ...pointPosition, yNormal: 0.25, widthNormal: 0.25, heightNormal: 1 } },
+        // The opener of a menu is a selector like the anchor's, its name short visible text
+        { position: { ...pointPosition, layer: { opener: 'main button' } } },
+        { position: { ...pointPosition, layer: { label: 'Account' } } },
+        { position: { ...pointPosition, layer: { opener: '#account', label: 'x'.repeat(121) } } },
+        { position: { ...pointPosition, layer: { opener: '#account', label: '\u200b' } } },
+        { position: { ...selectionPosition, layer: { opener: 'a[href]' } } },
         { device: { windowSize: [390] } },
         { device: { pixelRatio: 11 } },
         { device: { browser: 'x'.repeat(65) } }

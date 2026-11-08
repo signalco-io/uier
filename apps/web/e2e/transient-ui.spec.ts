@@ -97,8 +97,11 @@ test('a modal menu stays open while the toolbar is used, pinned into and typed a
     await composer.press('Enter');
     const saved = await response;
     expect(saved.status()).toBe(201);
-    const comment = await saved.json() as { id: string; position: { selector: string } };
+    const comment = await saved.json() as { id: string; position: { selector: string; layer?: { opener: string; label?: string } } };
     await expectAnchoredTo(page, comment.position.selector, signOut);
+    // Saved with the button that opens the menu
+    expect(comment.position.layer?.label).toBe('Account');
+    await expectAnchoredTo(page, comment.position.layer!.opener, accountButton);
     await expect(thread(page)).toContainText('Explain sign out');
     // Escape closes the thread; the page's own Escape listener does not see it
     await page.keyboard.press('Escape');
@@ -110,10 +113,36 @@ test('a modal menu stays open while the toolbar is used, pinned into and typed a
     // A press on the page outside the menu still closes it, and the toolbar returns to <body>
     await page.mouse.click(5, 5);
     await expect(menu).toBeHidden();
-    await expect(pin).toHaveCount(0);
     await expect(page.locator('body > #uier-toolbar')).toHaveCount(1);
     expect(await page.locator('#uier-toolbar').getAttribute('popover')).toBeNull();
     await expect(page.getByRole('navigation', { name: 'uier feedback' })).toBeVisible();
+
+    // While the menu is closed, the pin is beside the button that opens it, and its thread says so
+    await expect(pin).toBeVisible();
+    const opener = (await accountButton.boundingBox())!;
+    await expect.poll(async () => {
+        const box = (await pin.boundingBox())!;
+        return box.x >= opener.x + opener.width - 8 && box.x <= opener.x + opener.width + 40
+            && box.y >= opener.y + opener.height - 8 && box.y <= opener.y + opener.height + 40;
+    }).toBe(true);
+    await pin.click();
+    await expect(thread(page)).toContainText('Open “Account” to see the comment in place.');
+    await expect(thread(page).getByRole('button', { name: 'Reattach comment' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(thread(page)).toBeHidden();
+    // Open, it is on the item again
+    await accountButton.click();
+    await expect(menu).toBeVisible();
+    const item = (await signOut.boundingBox())!;
+    // A point pin sits 16 px below and right of the point clicked (the item's middle)
+    await expect.poll(async () => {
+        const box = (await pin.boundingBox())!;
+        const x = box.x + box.width / 2;
+        const y = box.y + box.height / 2;
+        return Math.abs(x - (item.x + item.width / 2 + 17)) < 4 && Math.abs(y - (item.y + item.height / 2 + 17)) < 4;
+    }).toBe(true);
+    await page.mouse.click(5, 5);
+    await expect(menu).toBeHidden();
 });
 
 test('point mode keeps popovers and hover menus open, and pins what is in them and in frames', async ({ page }, testInfo) => {
