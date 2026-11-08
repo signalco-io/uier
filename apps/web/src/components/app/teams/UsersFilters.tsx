@@ -1,15 +1,25 @@
 'use client';
 
+import { useOptimistic, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 
 export type UsersFilter = 'relationship' | 'team' | 'state';
 
-/** The users list's filters (`?relationship=`, `?team=`, `?state=`); the page shows only those with something to tell apart */
+/**
+ * The users list's filters (`?relationship=`, `?team=`, `?state=`); the page shows only those with something
+ * to tell apart. A choice shows at once while the list loads.
+ */
 export function UsersFilters({ teams, show }: { teams: { id: string; name: string }[]; show: UsersFilter[] }) {
     const params = useSearchParams(),
         pathname = usePathname(),
         router = useRouter();
+    const [, startTransition] = useTransition();
+    const [chosen, choose] = useOptimistic<URLSearchParams, [string, string]>(params, (current, [key, value]) => {
+        const next = new URLSearchParams(current);
+        next.set(key, value);
+        return next;
+    });
     const filters = [
         {
             key: 'relationship',
@@ -36,13 +46,14 @@ export function UsersFilters({ teams, show }: { teams: { id: string; name: strin
         <Select
             key={filter.key}
             items={filter.options.map(option => ({ value: option.id, label: option.name }))}
-            value={params.get(filter.key) ?? 'all'}
-            onValueChange={(value) => {
+            value={chosen.get(filter.key) ?? 'all'}
+            onValueChange={(value) => startTransition(() => {
                 const query = new URLSearchParams(params);
                 if (!value || value === 'all') query.delete(filter.key);
                 else query.set(filter.key, value);
+                choose([filter.key, value ?? 'all']);
                 router.push(`${pathname}?${query}`);
-            }}
+            })}
         >
             <SelectTrigger aria-label={filter.label} size="sm" className="w-48">
                 <SelectValue />

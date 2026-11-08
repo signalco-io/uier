@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useEffectEvent, useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { cn } from '@/src/lib/utils';
+import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { CommentCard, type AssigneeOption, type ResolveExit } from './CommentCard';
@@ -17,16 +17,17 @@ const sideBySidePx = 56 * 16;
 /**
  * The open thread, in the URL (`?comment=<id>`) like the filters, so it can be linked, reloaded and
  * opened in a new tab. Side by side it replaces the history entry; where the thread takes the whole
- * width (a phone) and on the board it adds one, so Back closes it.
+ * width (a phone) and on the board it adds one, so Back closes it. It opens and closes during the
+ * click or the Back, even while a change waits for the server (`useUrlSearchParams`).
  */
 export function useOpenComment(container: RefObject<HTMLElement | null>) {
-    const searchParams = useSearchParams();
+    const searchParams = useUrlSearchParams();
     const openId = searchParams.get('comment') ?? undefined;
     // The address this hook added to the history, so Back to comments can take it away again
     const pushed = useRef<string>(undefined);
     const sideBySide = () => (container.current?.offsetWidth ?? 0) >= sideBySidePx;
     const hrefFor = (id: string) => {
-        const params = new URLSearchParams(searchParams.toString());
+        const params = new URLSearchParams(searchParams);
         params.set('comment', id);
         return `?${params}#comments`;
     };
@@ -34,13 +35,8 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
         // A new tab or window keeps the browser's own handling of the link
         if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)) return;
         event?.preventDefault();
-        const url = new URL(window.location.href);
-        url.searchParams.set('comment', id);
-        if (replace) window.history.replaceState(null, '', url);
-        else {
-            window.history.pushState(null, '', url);
-            pushed.current = url.href;
-        }
+        const url = setUrlSearchParams({ comment: id }, { history: replace ? 'replace' : 'push' });
+        if (url && !replace) pushed.current = url.href;
     };
     const close = () => {
         // Only while that entry is still the current one: another navigation (a filter) stays
@@ -50,9 +46,7 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
             window.history.back();
             return;
         }
-        const url = new URL(window.location.href);
-        url.searchParams.delete('comment');
-        window.history.replaceState(null, '', url);
+        setUrlSearchParams({ comment: undefined });
     };
     return { openId, hrefFor, open, close, sideBySide };
 }

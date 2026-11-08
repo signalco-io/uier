@@ -2,8 +2,8 @@
 
 import { readyForReview } from '@uier/toolbar/verification';
 import { useEffect, useOptimistic, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
 import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
@@ -60,7 +60,9 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     /** The install guide, offered while there are no comments */
     installHref: string;
 }) {
-    const searchParams = useSearchParams();
+    // The presentation filters and the open thread change with the address at once, even while a
+    // change waits for the server (`useUrlSearchParams`)
+    const searchParams = useUrlSearchParams();
     const containerRef = useRef<HTMLDivElement>(null);
     const openComment = useOpenComment(containerRef);
     // Environment and author are authorized server scopes. Presentation filters only use
@@ -73,23 +75,13 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const query = { ...urlQuery, q: search, environment: serverQuery.environment, author: serverQuery.author };
     useEffect(() => {
         if (search === (urlQuery.q ?? '') && !searchNeedsNormalization) return;
-        const timer = window.setTimeout(() => {
-            const url = new URL(window.location.href);
-            if (search) url.searchParams.set('q', search); else url.searchParams.delete('q');
-            window.history.replaceState(null, '', url);
-        }, 250);
+        const timer = window.setTimeout(() => setUrlSearchParams({ q: search || undefined }), 250);
         return () => window.clearTimeout(timer);
     }, [search, urlQuery.q, urlKey, searchNeedsNormalization]);
-    const commitSearch = () => {
-        const url = new URL(window.location.href);
-        if (search) url.searchParams.set('q', search); else url.searchParams.delete('q');
-        window.history.replaceState(null, '', url);
-    };
+    const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
-        const url = new URL(window.location.href);
-        for (const name of ['q', 'priority', 'status', 'people', 'page', 'unread']) url.searchParams.delete(name);
         setSearchDraft({ url: urlKey, value: '' });
-        window.history.pushState(null, '', url);
+        setUrlSearchParams({ q: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
     const [comments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
@@ -108,9 +100,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const openId = openComment.openId;
     useEffect(() => {
         if (!openId || comments.some(comment => comment.id === openId)) return;
-        const url = new URL(window.location.href);
-        url.searchParams.delete('comment');
-        window.history.replaceState(null, '', url);
+        setUrlSearchParams({ comment: undefined });
     }, [openId, comments]);
     const installText = query.environment === 'all'
         ? 'Set up reviews and open a review link to leave the first comment.'
