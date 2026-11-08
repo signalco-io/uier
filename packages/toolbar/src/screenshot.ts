@@ -483,7 +483,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
             // content (`data-uier-decorative`, README) keeps its box without the animation.
             filter: node => node !== exclude
                 && !(node instanceof Element && (node.hasAttribute('data-uier-thread')
-                    || node.matches('.review-overlay,[data-uier-outline],[data-uier-comment],[data-uier-capture-exclude]')
+                    || node.matches('[data-uier-outline],[data-uier-comment],[data-uier-capture-exclude]')
                     || (reviewRoot && node.getRootNode() === reviewRoot
                         && !node.matches('style,[data-uier-root]') && !node.closest(toolbarReviewSurfaces)
                         && !node.querySelector(toolbarReviewSurfaces))))

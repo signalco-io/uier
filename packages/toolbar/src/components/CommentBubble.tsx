@@ -50,8 +50,9 @@ function prefersReducedMotion() {
  * Scrolls a comment's place into the middle of the window: its element, or an area itself (its
  * element can be much larger). An area taller than half the window brings its pin, at the bottom.
  */
-function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | undefined, behavior: ScrollBehavior) {
-    if (isCommentArea(position) && rect) {
+function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | undefined, behavior: ScrollBehavior, closed = false) {
+    // An area, and the opener of the closed menu that holds the anchor, by the placed rectangle
+    if ((isCommentArea(position) || closed) && rect) {
         const target = rect.height <= window.innerHeight / 2 ? rect.top + rect.height / 2 : rect.bottom;
         window.scrollBy({ top: target - window.innerHeight / 2, behavior });
         return;
@@ -100,8 +101,10 @@ export function CommentBubble(props: CommentBubbleProps) {
     const drafts = useDrafts();
     const announce = useAnnounce();
     const triggerRef = useRef<HTMLButtonElement>(null);
-    // Missing, ambiguous and hidden anchors have no pin; their threads stay in the inbox
-    const { rects: placementRects } = useCommentPlacement(position);
+    // Missing, ambiguous and hidden anchors have no pin; their threads stay in the inbox. An anchor in
+    // a closed menu, popover or dialog has its pin on the element that opens it.
+    const { rects: placementRects, state: placementState } = useCommentPlacement(position);
+    const closedLayer = placementState === 'closed';
     const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
     const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> | undefined }>();
@@ -199,7 +202,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (autoOpen && hasRect) {
             const rect = triggerRef.current?.getBoundingClientRect();
             if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
-                scrollAnchorIntoView(position, lastRect, 'auto');
+                scrollAnchorIntoView(position, lastRect, 'auto', closedLayer);
             }
             setOpen(true);
             onAutoOpened?.();
@@ -212,7 +215,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (!rect || (rect.top >= 0 && rect.bottom <= window.innerHeight)) {
             return;
         }
-        scrollAnchorIntoView(position, lastRect, prefersReducedMotion() ? 'auto' : 'smooth');
+        scrollAnchorIntoView(position, lastRect, prefersReducedMotion() ? 'auto' : 'smooth', closedLayer);
     };
 
     // The commented element is not on the page (anymore), e.g. a different layout on this device
@@ -228,7 +231,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                     commentId={commentItem?.id}
                     onClick={commentItem ? () => setOpen(true) : undefined} />
             )}
-            {isCommentArea(position) && lastRect && (
+            {isCommentArea(position) && lastRect && !closedLayer && (
                 <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open} />
             )}
             <Popper

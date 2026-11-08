@@ -212,7 +212,7 @@ how-it-works scene this way.
 <div data-uier-decorative aria-hidden="true" style="min-height: 380px">…</div>
 ```
 
-### Modal dialogs
+### Modal dialogs, popovers and menus
 
 Native modal dialogs (`dialog.showModal()`) can be reviewed while they are open. The page behind a
 modal is inert, so while one is open the toolbar moves into it and shows above it: reviewers can pin
@@ -221,8 +221,23 @@ only, and leave when it closes. Escape first closes what the review has open (po
 a thread); Escape in the toolbar never closes the dialog, and Escape in the dialog itself works as the
 page intends. When the dialog closes, the toolbar returns to `<body>` and the dialog restores the
 page's focus as usual. Clicks on the toolbar do not reach the dialog, so a page that closes its dialog on
-a click outside its box keeps it open. Non-modal dialogs (`dialog.show()`) and script modals built from
-`aria-modal` elements leave the toolbar where it is.
+a click outside its box keeps it open.
+
+The toolbar does the same for what pages close on a click, focus or key outside it: an open popover
+(`popover` or `popover="auto"`), the popup of an expanded menu or select button (`aria-expanded="true"`
+with `aria-haspopup` or a select-only `role="combobox"`, and `aria-controls` naming the popup) and a
+script dialog (`aria-modal="true"`). Inside it, the toolbar counts as inside: reviewers can open the
+menu, press the + button, pin an item and write the comment while the menu stays open, and its pins
+show with it. The toolbar's keys, typing and clicks stay in the toolbar, so they never choose a menu
+item; `aria-hidden` or `inert` that the page sets on the toolbar while the layer is open is taken
+off. A click on the page outside the layer still closes it, and the toolbar returns to `<body>`.
+A comment left in such a layer is saved with the element that opens it (`layer: { opener, label }`
+on its position). While the layer is closed, its pin is beside that element and its thread says
+"Open “Account” to see the comment in place."; open, the pin is on the commented item again. The app
+and copied issues name it too ("Button, after opening “Account”").
+Non-modal dialogs (`dialog.show()`), manual popovers, disclosures such as accordions and the
+suggestions of a text field leave the toolbar where it is. While in a layer, the toolbar is its last
+child: rules for the layer's last child (`:last-child`, Tailwind's `space-y-*`) apply to the item before.
 
 ## Comments API
 
@@ -290,10 +305,16 @@ error boundary, so one bad comment never breaks the toolbar.
   From the first reply, a small white badge on the pin's corner counts the messages; the pin's name says both
   ("Comment #12, 3 messages", with ", done" for a resolved thread kept open). Old comments without a number
   have an empty pin (the badge still counts replies), as do drafts and comments still sending.
-- Point comments: the + button starts point mode (a pin cursor and an instruction above the pill, Esc
+- Point comments: the + button starts point mode (a pin beside the pointer and an instruction above the pill, Esc
   cancels). The element under the pointer gets a dashed accent outline, drawn by the toolbar over it (the
   page's own styles are not touched, and the toolbar's controls are never outlined); a click pins the comment. With the keyboard, focus an element on the page, Tab to the + button and press
   Enter: the comment is pinned to that element (Enter on a focused element in point mode does the same).
+- Point mode does not cover the page. Presses on the page are taken before the page's own scripts see
+  them, so nothing is activated, focused or selected, and what is open stays open: a menu that closes on a
+  click outside it, a popover, a menu shown on hover. To comment on one, open it, then press the + button
+  (or **C**; for a menu shown on hover, **C**, since the pointer stays on it) and point into it. See
+  [Modal dialogs, popovers and menus](#modal-dialogs-popovers-and-menus). Frames, such as maps and
+  videos, get a transparent shield while pointing: a click pins the frame and does not reach it.
 - Keyboard shortcut: **C** starts point mode and ends it again, like the + button with a pointer; with page text
   selected, it opens a comment on the selection. The + button shows it in its tooltip and `aria-keyshortcuts`.
   It does nothing with a modifier, while typing in a text field, in a widget whose letters choose an item (menus,

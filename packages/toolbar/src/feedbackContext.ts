@@ -29,6 +29,8 @@ export type FeedbackContext = {
         type: 'point' | 'text' | 'page'; selector?: string; text?: string; startOffset?: number; endSelector?: string; endOffset?: number;
         /** A point anchor that is an area dragged over the element: fractions of the element's box */
         area?: { x: number; y: number; width: number; height: number };
+        /** The anchor is in a menu, popover or dialog that this page element opens (its saved selector and name) */
+        opener?: { selector: string; label?: string };
     };
     source: { path: string; origin?: string; environment?: string };
     links: { page?: string; comment?: string };
@@ -126,6 +128,7 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         anchor.text !== undefined ? `Original selected text:\n\n${literal(anchor.text)}` : '',
         anchor.startOffset !== undefined ? `Text offsets: ${anchor.startOffset}–${anchor.endOffset ?? 'unknown'}` : '',
         anchor.endSelector ? `End selector:\n\n${literal(anchor.endSelector)}` : '',
+        anchor.opener ? `In a menu, popover or dialog: open it first with ${anchor.opener.label ? plain(anchor.opener.label) : 'this element'}.\n\nOpener selector (may no longer match):\n\n${literal(anchor.opener.selector)}` : '',
         '## Original browser context',
         [
             `Device: ${r.device ?? 'Unavailable'}`,

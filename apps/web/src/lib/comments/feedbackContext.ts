@@ -1,6 +1,12 @@
 import { feedbackMarkdown, type FeedbackContext, type FeedbackExport, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import type { CommentDto } from './dto';
 import type { ReproductionContext } from './reproduction';
+import type { DbCommentLayer } from '../db/schema';
+
+/** The element that opens the anchor's menu, popover or dialog */
+function opener(layer: DbCommentLayer | undefined): Pick<FeedbackContext['anchor'], 'opener'> {
+    return layer ? { opener: { selector: layer.opener, ...(layer.label ? { label: layer.label } : {}) } } : {};
+}
 
 /** Input must already have passed visibility checks and DTO projection. Never accept a DbComment here. */
 export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionContext }, options: {
@@ -30,9 +36,10 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
                 type: 'point', selector: position.selector,
                 ...(position.widthNormal !== undefined && position.heightNormal !== undefined
                     ? { area: { x: position.xNormal, y: position.yNormal, width: position.widthNormal, height: position.heightNormal } }
-                    : {})
+                    : {}),
+                ...opener(position.layer)
             }
-            : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector },
+            : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector, ...opener(position.layer) },
         source: { path: dto.path, ...(options.environment ? { environment: options.environment } : {}), ...(options.pageUrl ? { origin: new URL(options.pageUrl).origin } : {}) },
         links: { page: options.pageUrl, comment: options.commentUrl },
         reproduction: available ? {

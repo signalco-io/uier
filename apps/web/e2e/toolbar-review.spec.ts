@@ -109,7 +109,7 @@ test('uier inbox elements support pointer and keyboard anchors, panel movement a
     await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
     await search.focus();
     await page.keyboard.press('Escape');
-    await expect(page.locator('.review-overlay')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'to pin a comment' })).toHaveCount(0);
     await expect(inbox).toBeVisible();
     await expect(toolbar(page).getByRole('button', { name: 'Add comment' })).toBeFocused();
     await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
@@ -118,7 +118,7 @@ test('uier inbox elements support pointer and keyboard anchors, panel movement a
     await animationsFinished(cancel);
     await expectNoAxeViolations(page);
     await cancel.click();
-    await expect(page.locator('.review-overlay')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'to pin a comment' })).toHaveCount(0);
     await expect(toolbar(page).getByRole('button', { name: 'Add comment' })).toBeFocused();
     await expect(openThread(page)).toHaveCount(0);
     await context.close();

@@ -4,7 +4,6 @@ import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
 import { toolbarReviewTarget } from '../toolbarReview';
-import { useWindowEvent } from '@signalco/hooks/useWindowEvent';
 import { Button } from '@signalco/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
@@ -28,7 +27,8 @@ import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
 import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
-import { activeModalDialog, isInActiveModal } from '../modalLayer';
+import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../modalLayer';
+import { withLayer } from '../layerAnchor';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { isAddCommentShortcut, isLetterKeyTarget, useShortcutsEnabled } from '../shortcuts';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
@@ -190,7 +190,11 @@ export function CommentsGlobal({
         setCreatingCommentSelection(undefined);
         setSidebarOpen(true);
     };
-    const chooseAnchor = (candidate: CommentAnchor) => setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
+    // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
+    const chooseAnchor = (anchor: CommentAnchor) => {
+        const candidate = withLayer(anchor);
+        setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
+    };
     const saveAnchor = async () => {
         if (!reattaching?.candidate) return;
         try {
@@ -227,7 +231,9 @@ export function CommentsGlobal({
         setHintOpen(false);
     };
 
-    const startDraft = (position: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
+    const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
+        // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
+        const position = withLayer(anchor);
         closeHintForUse();
         awaitingThreadRef.current = undefined;
         draftKeyRef.current += 1;
@@ -301,7 +307,8 @@ export function CommentsGlobal({
         };
     }, [rootElement]);
 
-    useWindowEvent('keydown', (event: KeyboardEvent) => {
+    // Also the review layer's own Escape while its host is in the page's menu or dialog (modalLayer.ts)
+    const handleEscape = useEffectEvent((event: KeyboardEvent) => {
         if (event.key !== 'Escape') {
             return;
         }
@@ -321,7 +328,8 @@ export function CommentsGlobal({
         if (hintOpen && showAbout && isToolbarNode(document.activeElement, rootElement)) {
             handleDismissHint(false);
         }
-    }, [creatingCommentSelection, creatingCommentPoint, hintOpen, showAbout, rootElement, reattaching, reattach.isPending]);
+    });
+    useEffect(() => listenToWindowKeydown(event => handleEscape(event)), []);
 
     // In point mode, Enter on a focused page element pins the comment to it (instead of e.g.
     // following the link). Capture phase, so the page does not handle the key first.
@@ -382,9 +390,7 @@ export function CommentsGlobal({
         if (collapsed || !shortcutsEnabled) {
             return;
         }
-        const listener = (event: KeyboardEvent) => handleShortcut(event);
-        window.addEventListener('keydown', listener);
-        return () => window.removeEventListener('keydown', listener);
+        return listenToWindowKeydown(event => handleShortcut(event));
     }, [collapsed, shortcutsEnabled]);
 
     const handleSelectionChange = useEffectEvent(() => {

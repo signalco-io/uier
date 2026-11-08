@@ -83,6 +83,16 @@ export async function startReviewedSite(apiBaseUrl: string) {
                     dialog { transform: translateY(0); overflow: hidden; }
                     ::backdrop { background: rgba(0, 0, 0, 0.4); }
                 ` : ''}
+                ${url.searchParams.has('host-menus') ? `
+                    .host-menus { display: flex; gap: 24px; align-items: flex-start; margin: 24px 0 160px; }
+                    .host-dropdown, .host-hover { position: relative; }
+                    #host-menu, .host-hover-menu { position: absolute; top: 100%; left: 0; z-index: 50; display: grid; gap: 4px; padding: 8px; background: white; border: 1px solid; }
+                    #host-menu { pointer-events: auto; }
+                    #host-menu[hidden], .host-hover:not(:hover) .host-hover-menu { display: none; }
+                    #host-popover p { margin: 0; }
+                    #host-sheet { display: none; position: fixed; right: 16px; bottom: 96px; padding: 12px; background: white; border: 1px solid; }
+                    #host-sheet.open { display: block; }
+                ` : ''}
                 ${url.searchParams.has('host-probe') ? `
                     body { color: rgb(30, 40, 50); font-family: monospace; text-transform: uppercase; letter-spacing: 3px; }
                     button { background: rgb(220, 230, 240) !important; color: rgb(30, 40, 50) !important; border-radius: 0 !important; }
@@ -98,6 +108,74 @@ export async function startReviewedSite(apiBaseUrl: string) {
                         performance.measure('host-click-to-frame', { start: event.timeStamp, end: performance.now() });
                     });
                 });`);
+            return;
+        }
+        if (url.pathname === '/host-menus.js') {
+            // A menu the way UI libraries write a modal one: focus moves into it, letters choose an item,
+            // the rest of the page takes no presses and is hidden from assistive technologies, and it
+            // closes on a press, focus or Escape outside it (on the document, so the toolbar's shadow
+            // root counts as outside unless the toolbar is in the menu) and when an item is chosen
+            response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+            response.end(`const trigger = document.querySelector('#host-menu-open');
+                const menu = document.querySelector('#host-menu');
+                const items = [...menu.querySelectorAll('[role=menuitem]')];
+                let hidden = [];
+                const setOpen = (open) => {
+                    if (open === !menu.hidden) return;
+                    menu.hidden = !open;
+                    trigger.setAttribute('aria-expanded', String(open));
+                    document.body.style.pointerEvents = open ? 'none' : '';
+                    if (open) {
+                        hidden = [...document.body.children].filter(element => !element.contains(menu) && !element.hasAttribute('aria-hidden'));
+                        for (const element of hidden) element.setAttribute('aria-hidden', 'true');
+                        items[0].focus();
+                    } else {
+                        for (const element of hidden) element.removeAttribute('aria-hidden');
+                        hidden = [];
+                    }
+                };
+                trigger.addEventListener('click', () => setOpen(menu.hidden));
+                document.addEventListener('pointerdown', (event) => {
+                    if (!menu.hidden && !menu.contains(event.target) && !trigger.contains(event.target)) setOpen(false);
+                });
+                document.addEventListener('focusin', (event) => {
+                    if (!menu.hidden && !menu.contains(event.target) && event.target !== trigger) setOpen(false);
+                });
+                document.addEventListener('keydown', (event) => {
+                    if (!menu.hidden && event.key === 'Escape') { setOpen(false); trigger.focus(); }
+                });
+                menu.addEventListener('keydown', (event) => {
+                    if (event.key.length !== 1) return;
+                    const item = items.find(item => item.textContent.toLowerCase().startsWith(event.key.toLowerCase()));
+                    if (item) { event.preventDefault(); item.focus(); }
+                });
+                menu.addEventListener('click', (event) => {
+                    const item = event.target.closest('[role=menuitem]');
+                    if (!item) return;
+                    document.body.dataset.chosen = item.dataset.action;
+                    setOpen(false);
+                });
+                // A script dialog shown and hidden with a class, its \`aria-modal\` always set
+                const sheet = document.querySelector('#host-sheet');
+                document.querySelector('#host-sheet-open').addEventListener('click', () => {
+                    sheet.classList.add('open');
+                    sheet.querySelector('#host-sheet-close').focus();
+                });
+                sheet.querySelector('#host-sheet-close').addEventListener('click', () => sheet.classList.remove('open'));`);
+            return;
+        }
+        if (url.pathname === '/host-frame.html') {
+            // An embedded frame (a map, a video) whose whole window is a button that counts its presses
+            response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            response.end(`<!doctype html><html><body style="margin:0"><button id="frame-button" type="button" style="width:100vw;height:100vh">Zoom in</button>
+                <script src="/host-frame.js"></script></body></html>`);
+            return;
+        }
+        if (url.pathname === '/host-frame.js') {
+            response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+            response.end(`document.querySelector('#frame-button').addEventListener('click', () => {
+                document.body.dataset.clicks = String(Number(document.body.dataset.clicks || 0) + 1);
+            });`);
             return;
         }
         if (url.pathname === '/host-dialog.js') {
@@ -164,6 +242,22 @@ export async function startReviewedSite(apiBaseUrl: string) {
         <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
         <p>A page on a site under review. Every plan includes the toolbar.</p>
         ${url.searchParams.has('host-probe') ? '<button id="host-probe" type="button">Host interaction</button><input aria-label="Host input"><script src="/host-probe.js" defer></script>' : ''}
+        ${url.searchParams.has('host-menus') ? `<div class="host-menus">
+            <div class="host-dropdown">
+                <button id="host-menu-open" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="host-menu">Account</button>
+                <div id="host-menu" role="menu" aria-labelledby="host-menu-open" hidden>
+                    <button type="button" role="menuitem" data-action="profile">Edit profile</button>
+                    <button type="button" role="menuitem" data-action="sign-out">Sign out</button>
+                </div>
+            </div>
+            <button id="host-popover-open" type="button" popovertarget="host-popover">Shipping details</button>
+            <div id="host-popover" popover><p>Orders ship within two days.</p></div>
+            <div class="host-hover"><span>Help</span><div class="host-hover-menu"><a href="#contact">Contact support</a></div></div>
+            <iframe id="host-frame" title="Store map" src="/host-frame.html" width="240" height="120"></iframe>
+            <button id="host-sheet-open" type="button">Chat with us</button>
+        </div>
+        <div id="host-sheet" role="dialog" aria-modal="true" aria-label="Chat"><p>We reply within a day.</p><button id="host-sheet-close" type="button">Close chat</button></div>
+        <script src="/host-menus.js" defer></script>` : ''}
         ${url.searchParams.has('host-dialog') ? `<button id="host-dialog-open" type="button">Read the project brief</button>
         <dialog id="host-dialog" aria-labelledby="host-dialog-title">
             <h2 id="host-dialog-title">Project brief</h2>

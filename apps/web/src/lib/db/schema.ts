@@ -1,4 +1,13 @@
 /**
+ * The anchor is in a menu, popover or dialog that a page element opens: that element's selector and
+ * its name ("Account"), so a comment in a closed menu shows on the button that opens it.
+ */
+export type DbCommentLayer = {
+    opener: string;
+    label?: string;
+};
+
+/**
  * A point on an element (fractions of its box). With `widthNormal` and `heightNormal` it is an
  * area dragged over the page, the point its top-left corner.
  */
@@ -9,6 +18,7 @@ export type DbCommentPoint = {
     yNormal: number;
     widthNormal?: number;
     heightNormal?: number;
+    layer?: DbCommentLayer;
 };
 
 export type DbCommentSelection = {
@@ -20,6 +30,7 @@ export type DbCommentSelection = {
     endSelector?: string;
     endOffset: number;
     endType: 'text' | 'element';
+    layer?: DbCommentLayer;
 };
 
 /** Feedback about the page as a whole (feedback and bug reports), not pinned to an element */

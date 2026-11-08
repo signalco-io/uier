@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { getToolbarHost } from './mount';
 
 /**
  * The toolbar's keyboard shortcut: C starts point mode (or ends it), like the comment tool of design
@@ -30,13 +31,20 @@ export function isAddCommentShortcut(event: KeyboardEvent) {
 
 /** Whether the key went to a text field or a widget that uses letters, on the page or in the toolbar */
 export function isLetterKeyTarget(event: KeyboardEvent) {
-    return event.composedPath().some(node => {
-        if (!(node instanceof HTMLElement)) return false;
+    const host = getToolbarHost();
+    for (const node of event.composedPath()) {
+        // A key in the toolbar did not go to the page's menu or dialog that its host is in (modalLayer.ts)
+        if (host && node === host) return false;
+        if (!(node instanceof HTMLElement)) continue;
         if (node.isContentEditable || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true;
-        if (node instanceof HTMLInputElement) return !nonTextInputTypes.has(node.type);
+        if (node instanceof HTMLInputElement) {
+            if (nonTextInputTypes.has(node.type)) continue;
+            return true;
+        }
         const role = node.getAttribute('role');
-        return role !== null && letterKeyRoles.has(role);
-    });
+        if (role !== null && letterKeyRoles.has(role)) return true;
+    }
+    return false;
 }
 
 const listeners = new Set<() => void>();

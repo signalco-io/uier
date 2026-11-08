@@ -3,6 +3,7 @@ import { maxPageKeyLength } from '@uier/toolbar/page-state';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
+    MAX_LAYER_LABEL_LENGTH,
     MAX_REWRITE_INSTRUCTION_LENGTH,
     MAX_PATH_LENGTH,
     MAX_PIXEL_RATIO,
@@ -89,6 +90,15 @@ const areaTolerance = 1e-6;
 const offsetSchema = z.int().min(0).max(MAX_SELECTION_OFFSET);
 const nodeTypeSchema = z.enum(['text', 'element']);
 
+/**
+ * The anchor is in a menu, popover or dialog that a page element opens: that element (a selector like
+ * the anchor's) and its name, so a closed menu's comment can be shown on the button that opens it
+ */
+const layerSchema = z.object({
+    opener: selectorSchema,
+    label: textOf(MAX_LAYER_LABEL_LENGTH).optional()
+});
+
 /** A point on an element; with a width and a height, an area dragged over it (the point its top-left corner) */
 export const pointPositionSchema = z.object({
     type: z.literal('point'),
@@ -96,7 +106,8 @@ export const pointPositionSchema = z.object({
     xNormal: normalSchema,
     yNormal: normalSchema,
     widthNormal: areaSizeSchema.optional(),
-    heightNormal: areaSizeSchema.optional()
+    heightNormal: areaSizeSchema.optional(),
+    layer: layerSchema.optional()
 })
     .refine(point => (point.widthNormal === undefined) === (point.heightNormal === undefined), 'An area needs a width and a height')
     .refine(point => point.widthNormal === undefined || point.heightNormal === undefined
@@ -111,7 +122,8 @@ export const selectionPositionSchema = z.object({
     startType: nodeTypeSchema,
     endSelector: selectorSchema.optional(),
     endOffset: offsetSchema,
-    endType: nodeTypeSchema
+    endType: nodeTypeSchema,
+    layer: layerSchema.optional()
 });
 
 export const pagePositionSchema = z.object({

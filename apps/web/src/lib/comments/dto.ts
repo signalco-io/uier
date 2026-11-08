@@ -1,5 +1,5 @@
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
-import type { DbComment, DbCommentKind, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentKind, DbCommentLayer, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { pagePath, sourcePagePath, storedPagePath, storedSourcePath, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { displayName } from './visitor';
 import { MAX_LIST_RESPONSE_BYTES } from './limits';
@@ -85,6 +85,16 @@ export function newSourcePath(path: string, sourcePath: string | undefined, poli
     return source !== path && pagePath(source, policy) === path ? source : undefined;
 }
 
+/** The opener of the anchor's menu, popover or dialog, when it is a selector and an optional name */
+function toLayerDto(layer: unknown): { layer: DbCommentLayer } | Record<string, never> {
+    if (typeof layer !== 'object' || layer === null) return {};
+    const value = layer as Record<string, unknown>;
+    const opener = optionalString(value.opener);
+    if (!opener) return {};
+    const label = optionalString(value.label);
+    return { layer: { opener, ...(label ? { label } : {}) } };
+}
+
 /** Copies only the known position fields (old documents may contain anything) */
 function toPositionDto(position: unknown): DbCommentPosition | null {
     if (typeof position !== 'object' || position === null)
@@ -100,7 +110,8 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
             // An area has both sizes; a partial one is a plain point
             ...(typeof value.widthNormal === 'number' && typeof value.heightNormal === 'number'
                 ? { widthNormal: value.widthNormal, heightNormal: value.heightNormal }
-                : {})
+                : {}),
+            ...toLayerDto(value.layer)
         };
     }
 
@@ -113,7 +124,8 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
             startType: value.startType === 'element' ? 'element' : 'text',
             endSelector: optionalString(value.endSelector),
             endOffset: typeof value.endOffset === 'number' ? value.endOffset : 0,
-            endType: value.endType === 'element' ? 'element' : 'text'
+            endType: value.endType === 'element' ? 'element' : 'text',
+            ...toLayerDto(value.layer)
         };
     }
 

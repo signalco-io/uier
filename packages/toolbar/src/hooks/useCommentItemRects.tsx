@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { CommentItemPosition, CommentPoint, CommentSelection, isCommentArea } from '../components/@types/Comments';
+import { CommentAnchor, CommentItemPosition, CommentPoint, CommentSelection, isCommentArea } from '../components/@types/Comments';
 import { getDomVersion, useLayoutVersion } from './useLayoutVersion';
 import { queryAnchorElements } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
@@ -198,7 +198,8 @@ function findText(text: string): Range | 'ambiguous' | null {
     return range;
 }
 
-export type AnchorState = 'exact' | 'restored' | 'hidden' | 'missing' | 'ambiguous' | 'page';
+/** `closed`: the anchor is in a menu, popover or dialog that is closed now, and its pin is on the opener */
+export type AnchorState = 'exact' | 'restored' | 'hidden' | 'missing' | 'ambiguous' | 'page' | 'closed';
 
 const resolvedText = new WeakMap<CommentSelection, { version: number; result: { range: Range | null; state: AnchorState } }>();
 
@@ -308,19 +309,38 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
 
 export type CommentPlacement = { rects: DOMRect[]; state: AnchorState };
 
-/** Missing or ambiguous anchors stay in the inbox, without an unrelated fallback pin. */
+/**
+ * An anchor that is not shown (hidden or missing) in a menu, popover or dialog that is closed now:
+ * placed on the element that opens it, while that element is shown and not expanded (when it is,
+ * the layer is open and the anchor is really gone).
+ */
+function closedLayerPlacement(position: CommentAnchor): CommentPlacement | undefined {
+    const matches = selectorMatches(position.layer?.opener);
+    const opener = matches.length === 1 ? matches[0] : undefined;
+    if (!opener || !isShown(opener) || opener.getAttribute('aria-expanded') === 'true') return undefined;
+    return { rects: [opener.getBoundingClientRect()], state: 'closed' };
+}
+
+/**
+ * Missing or ambiguous anchors stay in the inbox, without an unrelated fallback pin. The one
+ * fallback is the opener of the closed menu, popover or dialog that the anchor was saved in.
+ */
 export function getCommentPlacement(position: CommentItemPosition | null | undefined): CommentPlacement {
     try {
         if (!position || position.type === 'page') return { rects: [], state: 'page' };
         if (position.type === 'point') {
             const matches = selectorMatches(position.selector);
-            if (matches.length !== 1) return { rects: [], state: matches.length ? 'ambiguous' : 'missing' };
-            const rects = pointRects(position);
-            return { rects, state: rects.length ? 'exact' : 'hidden' };
+            if (matches.length > 1) return { rects: [], state: 'ambiguous' };
+            const rects = matches.length ? pointRects(position) : [];
+            return rects.length ? { rects, state: 'exact' }
+                : closedLayerPlacement(position) ?? { rects, state: matches.length ? 'hidden' : 'missing' };
         }
         const { range, state } = resolveText(position);
         const rects = range ? shownRangeRects(range).filter(rect => rect.width > 0 && rect.height > 0) : [];
-        return { rects, state: range && !rects.length ? 'hidden' : state };
+        const shownState = range && !rects.length ? 'hidden' : state;
+        return !rects.length && (shownState === 'hidden' || shownState === 'missing')
+            ? closedLayerPlacement(position) ?? { rects, state: shownState }
+            : { rects, state: shownState };
     } catch {
         return { rects: [], state: 'missing' };
     }
