@@ -19,8 +19,10 @@ import {
     canMakeCommentPrivate,
     canResolveComment,
     canSeeComment,
-    listProjectComments
+    listProjectComments,
+    projectPartition
 } from '../review/comments';
+import { getCommentsStore } from '../repo/commentsStore';
 import { authorNames, itemAuthorName, messageMentions } from '../review/dto';
 import { listProjectMembers } from './members';
 import type { AppContext } from './context';
@@ -222,6 +224,20 @@ export async function loadProjectUsage(context: AppContext, project: DbProject) 
     return projectUsage(comments.filter(comment => comment.thread?.items?.length).map(comment => ({
         resolved: comment.resolved === true, replies: comment.thread.items.slice(1), path: comment.path ?? '/', createdAt: comment.createdAt
     })));
+}
+
+/** How many of the newest comments from the project's addresses `hasProjectFeedback` reads */
+const FEEDBACK_WINDOW = 20;
+
+/**
+ * Whether one of the newest comments from the project's addresses is one this person can see (the
+ * same comments that make Settings → Installation say "Feedback received"): the site sends feedback,
+ * so the project header drops its Install tab. One small query, without names or read state.
+ */
+export async function hasProjectFeedback(context: AppContext, project: DbProject) {
+    const actor = appActor(context);
+    const recent = await getCommentsStore().listAll(projectPartition(project.id), FEEDBACK_WINDOW, { origins: projectOrigins(project) });
+    return recent.some(comment => canSeeComment(comment, actor));
 }
 
 export function projectUsage(comments: { resolved: boolean; replies: unknown[]; path: string; createdAt?: string }[]): ProjectUsage {

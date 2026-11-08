@@ -15,10 +15,15 @@ import type { AssigneeOption } from './CommentCard';
 
 const limit = 50;
 const Selection = createContext<{ ids: Set<string>; pending: boolean; toggle: (id: string) => void } | null>(null);
-export function SelectComment({ comment }: { comment: ProjectCommentView }) {
+export function SelectComment({ comment, tabbable = true }: {
+    comment: ProjectCommentView;
+    /** In the Tab order; the inbox list keeps only its current row's controls there */
+    tabbable?: boolean;
+}) {
     const selection = useContext(Selection);
     if (!selection || !comment.permissions.triage) return null;
-    return <Checkbox aria-label={`Select comment ${comment.number === undefined ? comment.id : `#${comment.number}`}`}
+    // Only set to take it out: an explicit `undefined` would replace Base UI's own tab index
+    return <Checkbox aria-label={`Select comment ${comment.number === undefined ? comment.id : `#${comment.number}`}`} {...!tabbable && { tabIndex: -1 }}
         checked={selection.ids.has(comment.id)} disabled={selection.pending || (!selection.ids.has(comment.id) && selection.ids.size >= limit)}
         onCheckedChange={() => selection.toggle(comment.id)} className="pointer-coarse:after:-inset-3.5" />;
 }

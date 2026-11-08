@@ -34,7 +34,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * who it is assigned to, status, age and unread. The whole row opens the thread (a link to
  * `?comment=<id>`, so it can also open in a new tab); the selection box sits beside the link.
  */
-export function CommentRow({ comment, href, selected, onOpen, card = false, actions, project }: {
+export function CommentRow({ comment, href, selected, onOpen, card = false, actions, project, tabbable = true }: {
     comment: ProjectCommentView;
     href: string;
     /** Its thread is open (`opened`), or shown beside the list until another is chosen (`beside`, wide layouts only) */
@@ -47,6 +47,11 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
     actions?: ReactNode;
     /** The project's name, where rows of several projects are listed together (My work) */
     project?: string;
+    /**
+     * Its link and selection box are in the Tab order. The inbox list keeps only one row there (a roving
+     * tab stop) and moves between rows with the arrow keys.
+     */
+    tabbable?: boolean;
 }) {
     const status = commentStatus(comment);
     const unread = Boolean(comment.activity?.unread);
@@ -60,12 +65,13 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, acti
             card && 'border bg-card hover:bg-muted/40')}>
             {/* Above the link that covers the row */}
             <div className="relative z-10 flex h-5 shrink-0 items-center empty:hidden">
-                <SelectComment comment={comment} />
+                <SelectComment comment={comment} tabbable={tabbable} />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-w-0 items-baseline gap-2">
                     {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}
                     <a id={commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
+                        tabIndex={tabbable ? undefined : -1}
                         className={cn('min-w-0 flex-1 text-sm outline-none after:absolute after:inset-0 after:rounded-lg', card ? 'line-clamp-2 break-words' : 'truncate',
                             unread ? 'font-semibold' : 'font-medium', comment.deleted && 'text-muted-foreground')}>
                         {comment.number !== undefined && <>
