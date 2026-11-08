@@ -93,7 +93,8 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
 
     return (
         <>
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+            {/* From lg one row of equal columns, one per status, however many there are */}
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-flow-col lg:grid-cols-none lg:auto-cols-fr">
                 {statuses.map(status => (
                     <section key={status} aria-label={`${commentStatusLabels[status]} comments`}
                         onDragOver={event => {
