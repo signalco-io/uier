@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRowLink, commentRows, createProject, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, toolbar } from './support/toolbar';
@@ -59,6 +59,53 @@ test('comment filters work without server requests and survive history and reloa
     await expect(page.getByRole('button', { name: 'Clear filter: Assigned to me', exact: true })).toBeVisible();
     await expect((await openCommentFilters(page)).getByRole('combobox', { name: 'People', exact: true })).toContainText('Assigned to me');
     await expect(commentRows(page)).toHaveCount(0);
+});
+
+test('the open thread and the filters follow clicks and Back while a write waits for the server', async ({ page, request }) => {
+    const { project, comment, headers } = await fixture(page, request);
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Second thread', authorName: 'Performance reviewer', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    const second = await response.json() as { number: number };
+    await page.goto(`/app/projects/${project}?view=board`);
+    const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    const pending = gate();
+    let posts = 0;
+    await page.route(`**/app/projects/${project}*`, async route => {
+        if (route.request().method() === 'POST' && route.request().headers()['next-action']) {
+            posts++;
+            await pending.wait;
+        }
+        await route.continue();
+    });
+    // Short waits: the UI must not wait for the held write (it would only catch up once it is released)
+    const now = { timeout: 2_000 };
+    try {
+        await column('Open').getByRole('button', { name: `Move comment #${comment.number}`, exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+        await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+        await expect.poll(() => posts).toBe(1);
+        const thread = page.getByRole('article');
+        await commentRowLink(page, second.number).click();
+        await expect(thread).toContainText(`Comment #${second.number}`, now);
+        await page.keyboard.press('Escape');
+        await expect(thread).toBeHidden(now);
+        await expect(page).not.toHaveURL(/[?&]comment=/, now);
+        // Back closes a thread the board opened
+        await commentRowLink(page, second.number).click();
+        await expect(thread).toBeVisible(now);
+        await page.goBack();
+        await expect(thread).toBeHidden(now);
+        await page.getByRole('button', { name: 'List', exact: true }).click();
+        await page.getByRole('button', { name: 'Done 1', exact: true }).click(now);
+        await expect(page.getByRole('button', { name: 'Done 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
+        await page.goBack();
+        await expect(page.getByRole('button', { name: 'Open 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
+        expect(posts).toBe(1);
+    } finally { pending.release(); }
+    await expect(page.getByRole('button', { name: 'Open 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('status, assignment, follow and read changes render before the server confirms and persist', async ({ page, request }) => {

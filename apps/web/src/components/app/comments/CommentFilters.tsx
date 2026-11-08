@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { KanbanIcon, ListFilterIcon, ListIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { setUrlSearchParams, urlWith } from '@/src/hooks/use-url-search-params';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
@@ -62,18 +63,13 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
     const pathname = usePathname();
 
     const go = (changes: Record<string, string | undefined>) => {
-        // The address as it is now: the open thread and history moves change it outside React too
-        const params = new URLSearchParams(window.location.search);
-        if (search) params.set('q', search); else params.delete('q');
-        for (const [name, value] of Object.entries(changes)) {
-            if (value === undefined) params.delete(name);
-            else params.set(name, value);
-        }
-        const query = params.toString();
-        const href = `${pathname}${query ? `?${query}` : ''}#comments`;
-        // Environment and author are server scopes; the rest filter what is already loaded
-        if ('environment' in changes || 'author' in changes) router.push(href, { scroll: false });
-        else window.history.pushState(null, '', href);
+        // With the search still inside its debounce window
+        const all = { q: search || undefined, ...changes };
+        // Environment and author are server scopes; the rest filter what is already loaded, at once
+        if ('environment' in changes || 'author' in changes) {
+            const query = urlWith(all).searchParams.toString();
+            router.push(`${pathname}${query ? `?${query}` : ''}#comments`, { scroll: false });
+        } else setUrlSearchParams(all, { history: 'push' });
     };
 
     const environmentLabel = environment && environment !== 'all'

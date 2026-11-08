@@ -709,15 +709,23 @@ usage totals after its authorization check instead of enriching every comment be
 Keep authorization/not-found checks outside streaming boundaries so forbidden document requests retain 404.
 
 `ProjectComments` is a client boundary over the server-authorized environment/author snapshot.
-Status, people, page, unread and list/board filters use native history and `useSearchParams` with
-no server request; environment and author changes still navigate through server authorization.
+Search, status, people, page, unread, list/board filters and the open thread (`?comment=`) are URL
+state with no server request: read them with `useUrlSearchParams` and write them with
+`setUrlSearchParams` (`src/hooks/use-url-search-params.ts`), not `useSearchParams` and
+`history.pushState`. Next.js applies history writes and Back/Forward to `useSearchParams` in a
+transition, and React holds that transition while a server action started with `useTransition` is
+pending, so UI read from it waits for the write; the hook reads `location.search` and updates during
+the click, `popstate` or Next navigation that changes it. Environment and author changes still navigate
+through server authorization. Selects that navigate to a server filter (clients, projects, users) show
+the choice at once with `useOptimistic` inside the navigation's transition.
 `commentsQuery.ts` is the shared pure parser. `CommentUpdates` owns optimistic status, assignment,
 follow and read changes for cards, counters and board columns. Failed actions revert through
 `useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
 revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
 `NavigationPending` gives settings links immediate feedback while their authorized destination loads.
 `e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
-immediate updates, rollback, persistence and background feedback submission on desktop and mobile.
+immediate updates, rollback, persistence and background feedback submission on desktop and mobile,
+and that the open thread and the filters follow clicks and Back while a write is held.
 
 ## Rewrite accounting
 
