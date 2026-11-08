@@ -4,6 +4,7 @@ import { getAppStore } from '../app/store';
 import { getMember } from '../app/workspaces';
 import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
 import { workspacePk } from '../app/model';
+import { isLiveProject } from '../app/projectPublicIds';
 import { getUser } from '../app/users';
 import { isRandomToken, randomToken, sha256Hex, signToken, verifyToken } from '../app/tokens';
 import { MAX_NAME_LENGTH } from '../app/limits';
@@ -141,7 +142,7 @@ export function assertWriter(actor: ProjectActor) {
 /** Recheck the current project and member on each optimistic write attempt. */
 export async function refreshMutationActor(project: DbProject, actor: ProjectActor, requireComments = false) {
     const current = (await getAppStore().get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
-    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId) throw apiErrors.notFound();
+    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || !await isLiveProject(current)) throw apiErrors.notFound();
     if (actor.kind === 'member') {
         const fresh = await memberActor(current, actor.userId);
         if (!fresh || fresh.kind !== 'member') throw apiErrors.signInRequired();

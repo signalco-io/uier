@@ -22,6 +22,7 @@ test.beforeAll(async () => {
         '../src/lib/screenshots/blobStore': 'export function getScreenshotBlobStore() { return {async listBefore(){ console.log("PROBE blobs"); return {items:[]}; }}; }',
         '../src/lib/comments/cleanup': 'export async function sweepCommentCleanup() { console.log("CALL cleanup"); return {removed:0,failed:0}; }',
         '../src/lib/app/projectDeletion': 'export async function sweepProjectDeletions() { console.log("CALL deletions"); return {failed:0}; }',
+        '../src/lib/app/projectTransfer': 'export async function sweepProjectTransfers() { console.log("CALL transfers"); return {failed:0}; }',
         '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return JSON.parse(process.env.UIER_WORKER_TEST_DELIVERY || \'{"checked":0,"failed":0,"blocked":0,"review":[]}\'); }',
         '../src/lib/app/deployment': 'export function configuredAppBaseUrl() { return "https://uier.io"; }',
         '../src/lib/integrations/worker': 'export async function runIntegrationWorker() { console.log("CALL integrations"); return {discovered:{checked:0,deferred:0},providers:[],blocked:0}; }',
@@ -50,7 +51,7 @@ test('integration-only runs do not invoke email discovery, sending or retry', as
     expect(result.stdout).toContain('CALL integrations');
     // MCP event webhooks are not email: they are delivered on integration-only runs too.
     expect(result.stdout).toContain('CALL mcp-events');
-    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL deletions|CALL migrate|CALL blobs/);
+    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL deletions|CALL transfers|CALL migrate|CALL blobs/);
 });
 
 test('normal scheduled runs retain email retries and integration delivery', async () => {
@@ -59,7 +60,7 @@ test('normal scheduled runs retain email retries and integration delivery', asyn
     expect(result.stdout).toContain('CALL migrate preview');
     expect(result.stdout).toContain('CALL blobs');
     // Project deletions queue thread cleanups that the comment sweep then completes
-    expect(result.stdout).toMatch(/CALL deletions[\s\S]*CALL cleanup/);
+    expect(result.stdout).toMatch(/CALL deletions[\s\S]*CALL transfers[\s\S]*CALL cleanup/);
     expect(result.stdout).toContain('CALL retry');
     expect(result.stdout).toContain('CALL email');
     // Events imported by integrations this run are delivered in the same run.

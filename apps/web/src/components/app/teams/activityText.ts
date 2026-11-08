@@ -49,7 +49,8 @@ export function describeAccessEvent(event: DbAccessEvent, names: ActivityNames):
         return changed(before ?? [], after ?? [], project);
     };
     const { before, after, targetIds: [first, ...rest] } = event;
-    const actor = names.people.get(event.actorId) ?? 'Someone';
+    // A scheduled cleanup whose requester's account is gone acts as uier itself
+    const actor = event.actorId === 'system' ? 'uier' : names.people.get(event.actorId) ?? 'Someone';
     const done = (sentence: string, details: string[] = []) => ({ actor, text: sentence, details: details.filter(Boolean) });
 
     switch (event.action) {
@@ -102,6 +103,13 @@ export function describeAccessEvent(event: DbAccessEvent, names: ActivityNames):
             return done(`deleted the team ${team(first ?? '')}`);
         case 'project.deleted':
             return done('deleted a project and the access it gave');
+        // The project is gone from one of the two workspaces, so its name comes with the event
+        case 'project.transferred-out':
+            return done(`transferred ${text(after.projectName) ?? 'a project'} to another workspace`);
+        case 'project.transferred-in':
+            return done(`transferred ${text(after.projectName) ?? 'a project'} to this workspace`);
+        case 'project.transfer-abandoned':
+            return done(`ended an unfinished transfer of ${text(after.projectName) ?? 'a project'}`);
         default:
             return done('changed access');
     }

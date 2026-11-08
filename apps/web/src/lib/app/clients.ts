@@ -91,8 +91,12 @@ export function clientNames(projects: Pick<DbProject, 'id' | 'name' | 'status' |
     return projectClients(projects, clients).map(client => client.name);
 }
 
-/** The client with this name, created when no client of the workspace has it yet */
-async function clientNamed(store: AppStore, workspaceId: string, name: string, actorId: string): Promise<StoredDoc<DbClient>> {
+/**
+ * The client with this name, created when no client of the workspace has it yet (with `details`, when
+ * a transferred project brings its client's description, icon and colour along)
+ */
+export async function clientNamed(store: AppStore, workspaceId: string, name: string, actorId: string,
+    details: Pick<DbClient, 'description' | 'icon' | 'color'> = {}): Promise<StoredDoc<DbClient>> {
     const pk = workspacePk(workspaceId);
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         const reservation = await store.get<DbClientName>(pk, clientNameId(name));
@@ -105,7 +109,10 @@ async function clientNamed(store: AppStore, workspaceId: string, name: string, a
         }
 
         const now = new Date().toISOString();
-        const client: DbClient = { type: 'client', id: `client_${nanoid()}`, pk, workspaceId, name, createdBy: actorId, createdAt: now, updatedAt: now };
+        const { description, icon, color } = details;
+        const client: DbClient = { type: 'client', id: `client_${nanoid()}`, pk, workspaceId, name,
+            ...(description ? { description } : {}), ...(icon ? { icon } : {}), ...(color ? { color } : {}),
+            createdBy: actorId, createdAt: now, updatedAt: now };
         const nameRef: DbClientName = { type: 'client-name', id: clientNameId(name), pk, workspaceId, clientId: client.id };
         // `false`: someone else claimed the name first; the next attempt reads their client
         if (await store.createAll([client, nameRef])) {

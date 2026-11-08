@@ -10,7 +10,7 @@ test('an admin deletes a project from the danger zone after typing its name', as
     await page.goto(`/app/projects/${projectId}/settings/danger-zone`);
 
     const danger = page.getByRole('region', { name: 'Danger zone' });
-    await expect(danger.getByRole('heading', { level: 3 })).toHaveText(['Mark as done', 'Delete project']);
+    await expect(danger.getByRole('heading', { level: 3 })).toHaveText(['Mark as done', 'Transfer project', 'Delete project']);
     const open = danger.getByRole('button', { name: 'Delete project' });
     await open.click();
     const dialog = page.getByRole('alertdialog', { name: 'Delete Old site?' });

@@ -9,7 +9,7 @@ import type { AppContext } from './context';
 import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
-import { ensureProjectPublicId, isProjectPublicId, projectByPublicId } from './projectPublicIds';
+import { ensureProjectPublicId, isLiveProject, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 import { createProjectWithClient, ensureProjectClient } from './clients';
 import { normalizeSiteUrl } from './siteUrl';
 
@@ -87,7 +87,10 @@ export function reviewUrl(siteUrl: string, publicId: string) {
 }
 
 export async function listProjects(workspaceId: string) {
-    const projects = await getAppStore().query<DbProject>({ type: 'project', pk: workspacePk(workspaceId) });
+    const stored = await getAppStore().query<DbProject>({ type: 'project', pk: workspacePk(workspaceId) });
+    // A transfer's other copy is not a project of this workspace (one read only while a transfer runs)
+    const live = await Promise.all(stored.map(project => isLiveProject(project)));
+    const projects = stored.filter((_, index) => live[index]);
     return await Promise.all(projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map(async project => await ensureProjectPublicId(await ensureProjectClient(project))));
 }
@@ -106,7 +109,7 @@ export async function getProject(workspaceId: string, projectId: string) {
     if (!isProjectId(projectId))
         return null;
     const project = (await getAppStore().get<DbProject>(workspacePk(workspaceId), projectId))?.doc;
-    return project ? await ensureProjectPublicId(await ensureProjectClient(project)) : null;
+    return project?.type === 'project' && await isLiveProject(project) ? await ensureProjectPublicId(await ensureProjectClient(project)) : null;
 }
 
 /** A project by its internal id (any workspace). */

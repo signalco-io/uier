@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { AppDoc, DbProject } from './model';
+import { projectRefPk, type AppDoc, type DbProject, type DbProjectRef } from './model';
 import { getAppStore, type AppStore } from './store';
 
 export type PublicProject = DbProject & { publicId: string };
@@ -36,13 +36,48 @@ export async function ensureProjectPublicId(project: DbProject, store: AppStore 
     throw new Error('Could not assign a public project id');
 }
 
+/**
+ * Whether a project document is the project. One in a transfer (`transfer`) exists in two workspaces
+ * and is the project only where its code points; every other document is, without another read.
+ * Every read that takes the workspace from the person (`getProject`, `listProjects`, team grants,
+ * integration admin) checks it, so neither workspace reaches the other's copy.
+ */
+export async function isLiveProject(project: Pick<DbProject, 'id' | 'workspaceId' | 'transfer'>, store: AppStore = getAppStore()) {
+    if (!project.transfer) return true;
+    const code = (await store.get<DbProjectRef>(projectRefPk(project.id), project.id))?.doc;
+    return code?.type === 'project-ref' && code.workspaceId === project.workspaceId;
+}
+
 /** Only a published reference may resolve; abandoned claims cannot expose a project. */
 export async function projectByPublicId(publicId: string, store: AppStore = getAppStore()): Promise<PublicProject | null> {
     if (!isProjectPublicId(publicId)) return null;
     const ref = (await store.get<DbProjectPublicRef>(publicRefPk(publicId), publicId))?.doc;
     if (ref?.type !== 'project-public-ref') return null;
-    const project = (await store.get<DbProject>(`workspace:${ref.workspaceId}`, ref.projectId))?.doc;
-    return project?.publicId === publicId ? project as PublicProject : null;
+    let project = (await store.get<DbProject>(`workspace:${ref.workspaceId}`, ref.projectId))?.doc;
+    if (!project || project.transfer) {
+        // Around a transfer the public id and the code can name different workspaces: the code decides
+        const code = (await store.get<DbProjectRef>(projectRefPk(ref.projectId), ref.projectId))?.doc;
+        if (code?.type !== 'project-ref') return null;
+        if (code.workspaceId !== ref.workspaceId)
+            project = (await store.get<DbProject>(`workspace:${code.workspaceId}`, ref.projectId))?.doc;
+    }
+    return project?.type === 'project' && project.publicId === publicId ? project as PublicProject : null;
+}
+
+/**
+ * Project transfer: every claim of the project, published or abandoned, names the workspace given,
+ * so review links and embeds keep their id. Pointed at the new workspace once the copy exists there,
+ * and back at the old one when an interrupted transfer is abandoned.
+ */
+export async function pointProjectPublicIds(projectId: string, workspaceId: string, store: AppStore = getAppStore()) {
+    for (const ref of await store.query<DbProjectPublicRef>({ type: 'project-public-ref', where: { projectId } })) {
+        for (let attempt = 0; ; attempt++) {
+            const current = await store.get<DbProjectPublicRef>(ref.pk, ref.id);
+            if (current?.doc.type !== 'project-public-ref' || current.doc.projectId !== projectId || current.doc.workspaceId === workspaceId) break;
+            if (await store.replace({ ...current.doc, workspaceId }, current.etag) === 'ok') break;
+            if (attempt >= 7) throw new Error('A public project id changed while it was moved');
+        }
+    }
 }
 
 /**

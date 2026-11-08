@@ -2,6 +2,7 @@ import type { AppContext } from '../app/context';
 import { workspacePk, type DbProject } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { getMember } from '../app/workspaces';
+import { isLiveProject } from '../app/projectPublicIds';
 import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
 import { integrationProviders, type IntegrationBinding, type IntegrationConnection, type IntegrationProviderId, type IntegrationSync } from './model';
 import { configuredIntegrationAdapters } from './registry';
@@ -20,7 +21,7 @@ export async function requireIntegrationAdmin(context: AppContext, projectId: st
     const member = await getMember(context.workspace.id, context.user.id);
     const stored = await getAppStore().get<DbProject>(workspacePk(context.workspace.id), projectId);
     if (member?.role !== 'admin' || !stored || stored.doc.type !== 'project'
-        || stored.doc.workspaceId !== context.workspace.id || projectId === PUBLIC_PROJECT_ID)
+        || stored.doc.workspaceId !== context.workspace.id || projectId === PUBLIC_PROJECT_ID || !await isLiveProject(stored.doc))
         throw new IntegrationAccessError();
     return stored.doc;
 }

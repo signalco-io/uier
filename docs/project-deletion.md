@@ -50,6 +50,11 @@ cleared; the app shows a client only through projects that point to it. Rate-lim
 day) and submission receipts (30 days, hashes only) in the comment partition expire on their own. Access events keep the project id for 180 days. Backups keep deleted
 data for up to seven days ([backups and restore](backups-and-restore.md)).
 
+A project with a transfer to another workspace in progress cannot be deleted until the transfer
+finishes, and a copy that an interrupted transfer left in its old workspace is not the project
+(its code names the new one): deleting it there answers "This project no longer exists"
+([project transfer](project-transfer.md)).
+
 ## Retries
 
 Every step is idempotent. If a step fails before the project document is deleted, the admin sees the

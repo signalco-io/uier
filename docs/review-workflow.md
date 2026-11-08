@@ -123,7 +123,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     and the addresses it shares feedback with), a second card on Notifications for comment excerpts in emails,
     **People and teams**, **Integrations** (each
     provider's connection; connect and callback routes return to `/settings/integrations`) and **Danger zone**,
-    which marks the project as done or reopens it, and deletes it after the admin types its name
+    which marks the project as done or reopens it, transfers it to another workspace the admin also
+    administers ([project transfer](project-transfer.md)) and deletes it after the admin types its name
     ([project deletion](project-deletion.md)). Admin-only sections answer 404 for everyone else. Each page
     has one Save, off until something changed; switches save at once.
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
