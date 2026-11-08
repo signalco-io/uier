@@ -53,7 +53,9 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                         <AppBreadcrumbs projectNames={Object.fromEntries(projects.map(project => [project.id, project.name]))} />
                     </header>
                     <div className="flex-1 md:overflow-y-auto">
-                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 md:px-8 md:py-10">
+                        {/* A reading width. A page that lays things side by side (the comments board) takes the
+                            panel's width, up to 1920 px, with data-page-width="wide" on an element inside it */}
+                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 md:px-8 md:py-10 has-data-[page-width=wide]:max-w-[120rem]">
                             {children}
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
@@ -58,6 +58,61 @@ test('board cards move with Move from the keyboard; Ready to verify asks for the
     await expect(column('Open').getByRole('listitem')).toHaveCount(0);
     await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
+});
+
+/** Where the comments sit in the page's scrolling panel (`room` leaves out its scrollbar) */
+function placement(comments: Locator) {
+    return comments.evaluate(element => {
+        let scroller = element.parentElement!;
+        while (getComputedStyle(scroller).overflowY !== 'auto') scroller = scroller.parentElement!;
+        const box = element.getBoundingClientRect();
+        const panel = scroller.getBoundingClientRect();
+        return { width: box.width, room: scroller.clientWidth, left: box.left - panel.left, right: panel.left + scroller.clientWidth - box.right };
+    });
+}
+
+test('the board takes the width of a wide window; the list keeps its reading width', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
+    // The window the feedback came from
+    await page.setViewportSize({ width: 1674, height: 1366 });
+    const { column } = await board(page, request);
+    const comments = page.locator('#comments');
+    // The whole panel but its 32 px gutters, three equal columns in one row
+    const wide = await placement(comments);
+    expect(wide.width).toBeCloseTo(wide.room - 64, 0);
+    const boxes = await Promise.all(['Open', 'Ready to verify', 'Done'].map(async name => (await column(name).boundingBox())!));
+    for (const box of boxes) {
+        expect(box.y).toBeCloseTo(boxes[0]!.y, 0);
+        expect(box.width).toBeCloseTo(boxes[0]!.width, 0);
+    }
+    expect(boxes[0]!.width).toBeGreaterThan(400);
+
+    // The list keeps the reading width: 64rem with the gutters, centred
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect.poll(async () => (await placement(comments)).width).toBe(1024 - 64);
+    const list = await placement(comments);
+    expect(list.left).toBeCloseTo(list.right, 0);
+
+    // On a very wide window the board stops at 1920 px with the gutters, centred
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await expect.poll(async () => (await placement(comments)).width).toBe(1920 - 64);
+    const widest = await placement(comments);
+    expect(widest.left).toBeCloseTo(widest.right, 0);
+
+    // A card's thread opens in the sheet over the board, which keeps its width
+    await expect(await openComment(page, 'First board thread')).toHaveAccessibleName('Comment by Reviewer');
+    expect((await placement(comments)).width).toBe(1920 - 64);
+});
+
+test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith('Mobile'), 'The phone layout');
+    const { column } = await board(page, request);
+    const open = (await column('Open').boundingBox())!;
+    const done = (await column('Done').boundingBox())!;
+    expect(done.y).toBeGreaterThan(open.y + open.height);
+    expect(done.width).toBeCloseTo(open.width, 0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
 test('board cards drag between the columns they can move to', async ({ page, request }, testInfo) => {

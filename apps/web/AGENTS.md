@@ -351,7 +351,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   Create project icon link and a sort menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu), the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
-  `useInvite()` open it). uier's own workspace, which every account joins for Give feedback, is a
+  `useInvite()` open it). Pages sit in a centred reading column (`max-w-5xl`); a page that lays things side by side
+  renders an element with `data-page-width="wide"` and the column takes the panel's width, up to 120rem (1920 px), through
+  CSS `:has()`, so it follows a client-side view switch at once. Only the comments board does. uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment, whose popover has Invite for admins, Open
@@ -447,7 +449,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   already handled (`defaultPrevented`). Only the current row's link and selection box are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. `e2e/comment-keyboard.spec.ts` covers it;
   the board keeps plain Tab order. `CommentBoard.tsx` shows
-  Open, Ready to verify and Done as compact cards; a card opens its thread in a sheet. Switching List/Board
+  Open, Ready to verify and Done as compact cards, from `lg` in one row of equal columns, one per status however many
+  there are; the board widens the page (`data-page-width="wide"` on the comments container in board view, empty states
+  included), the list keeps the reading width. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
   from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole
   page (no page title is stored).
