@@ -7,6 +7,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Local development and testing](development.md): setup, ports, local MCP OAuth, test categories, focused implementation checks and PR verification.
 - [Contributing](../CONTRIBUTING.md): workflow, code conventions and documentation ownership.
 - [Agent guides](../AGENTS.md): package code maps and implementation rules.
+- Feature notes for [apps/web](../apps/web/docs/README.md) and [packages/toolbar](../packages/toolbar/docs/README.md): one file per area, read the one for the area you change.
 - [Brand guide](../packages/brand/BRAND.md) and [live brand page](https://uier.io/brand): voice, tokens, logo and components.
 - [GitHub presence](github-presence.md): repository details, social preview assets and the signalco company profile.
 

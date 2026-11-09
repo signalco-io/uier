@@ -1,0 +1,67 @@
+# apps/web notes
+
+One note per feature area: what it does, where the code is, the rules that apply only to it and
+the tests that cover it. Rules for every change in `apps/web` are in [the web guide](../AGENTS.md).
+
+Read the note for the area you change, not all of them. When a change alters an area's behaviour
+or rules, update its note in the same pull request. A new area gets its own note and a line here.
+Product contracts, API references and runbooks stay in the repository's [`docs/`](../../../docs/README.md).
+
+## Public site
+
+- [Brand page](brand-page.md): `/brand`, the live brand reference.
+- [Landing page](landing-page.md): sections, copy rules, the how-it-works scene, pricing.
+- [Feature pages](feature-pages.md): `/features/<feature>`, when to publish one and what each states.
+- [Integration pages](integration-pages.md): `/integrations` and provider pages, listing illustrations.
+- [Search indexing](search-indexing.md): metadata, sitemap, `noindex`, IndexNow.
+- [Social cards](social-cards.md): page cards, app link previews, `/og/[card]`.
+- [Footer](footer.md): `SiteFooter` and its links.
+- [Legal documents](legal-documents.md): when a change needs the legal pages updated.
+- [Security and open source pages](security-and-open-source-pages.md): `security.txt`, `/security`, `/open-source`.
+- [Status page](status-page.md): `/status` and `/api/status`.
+- [Page security](page-security.md): CSP, nonces, COOP, HSTS and the cookie name migration.
+
+## The app
+
+- [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work.
+- [Project settings](project-settings.md): settings sections, one save per page, notification settings.
+- [Environments](environments.md): the site addresses table and environment filters.
+- [Account](account.md): account sections and profile pictures.
+- [First run, onboarding and installation](onboarding.md): welcome step, onboarding steps, installation check, snippets.
+- [Projects](projects.md): public ids, addresses, deletion and transfer.
+- [Clients](clients.md): client documents, names, appearance and visibility.
+- [Page and mutation responsiveness](responsiveness.md): realtime refresh, URL state, optimistic updates, `LinkTabs` spinners.
+
+## Comments and review
+
+- [Comments inbox and board](comments-inbox.md): rows, keyboard, the board and drag and drop.
+- [The open thread](comment-thread.md): `CommentCard`, reading when shown, the reply composer.
+- [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
+- [App triage](triage.md): search, priority and bulk triage.
+- [In progress](in-progress.md): the In progress stage.
+- [Fix verification](fix-verification.md): request, confirm, reject and cancel.
+- [AI agents under the assignee](assignee-agents.md): `assigneeAgent`, its UI and MCP tools.
+- [Read state and activity](read-state-and-activity.md): read cursors, bulk read, adaptive refresh.
+- [Review API and comment records](review-api.md): anchors on uier's pages, review SSO, edits, image replacement, page state.
+- [Anchor updates](anchor-updates.md): reattaching a comment's anchor.
+- [Project review briefs](project-review-briefs.md): the project brief.
+- [Feedback export](feedback-export.md): the shared feedback context packet.
+- [uier's public feedback project](public-feedback-project.md): the showcase, staff allowlist and public workspace.
+
+## Accounts, access and sign-in
+
+- [Sign-in](sign-in.md): email codes, Google, Microsoft, passkeys and the sign-in card.
+- [Workspace access and membership](access-and-membership.md): teams, access writes and membership rules.
+
+## Integrations, MCP and services
+
+- [Integration foundation](integrations.md): outbox, delivery, status and reply sync, provider notes.
+- [Authenticated MCP connector](mcp-connector.md): authentication, OAuth, tools, events and client setup.
+- [Review notifications](notifications.md): events, digests, the scheduled worker and email reports.
+- [Browser extension runtime](browser-extension.md): extension sessions, installation and the public pages.
+- [Rewrite accounting](rewrite-accounting.md): rewrite usage telemetry and cost reports.
+
+## Data and privacy
+
+- [Cosmos query diagnostics](cosmos-queries.md): complete queries, counts and sampled diagnostics.
+- [Privacy cleanup](privacy-cleanup.md): image re-encoding, cleanup intents and screenshot storage.

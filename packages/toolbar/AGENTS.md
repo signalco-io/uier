@@ -13,6 +13,11 @@ legacy random 12-character codes; do not trim their alphabet to lowercase. `dist
 (`@uier/toolbar/react`, `src/react.ts`, with a `project` prop), plus `openUierFeedback()`. Embedding and configuration:
 [README.md](README.md).
 
+This guide holds the code map and the rules for every change in the toolbar. How a feature works,
+and the rules that apply only to it, are in [`docs/`](docs/README.md), one note per area. Read the
+note for the area you change and update it with the change; add rules here only when they apply to
+every change in the package.
+
 ## How it is built
 
 - Browser builds resolve the latest two stable major releases of Chrome, Edge, Firefox, Safari and
@@ -239,106 +244,3 @@ Never infer recipients from display names or reveal account ids in guest DTOs.
 - `useActivitySummary` provides full unread/Open/In progress/Ready/Done counts separately from bounded text lists.
   The unread inbox requests `scope=site&unread=true`, including old threads outside the newest list.
   Refresh and mutation paths must invalidate the activity summary as well as page/site lists.
-
-## Anchor recovery
-
-`CommentAnchorDetails` shows anchors that need attention (moved text, hidden, missing, ambiguous) with
-Reattach comment; a matching anchor stays quiet (`data-uier-anchor-state` only) and author/admin
-reattachment is in the first message's menu (`useReattach`). An anchor in a closed menu, popover or
-dialog (`closed`) is not broken: its line says which element opens it, without Reattach.
-`layerAnchor.ts` (`withLayer`) saves that element when an anchor is chosen (new comments and
-reattaching) while the layer is open: `modalLayer.ts`'s `layerOpener` finds the expanded
-`aria-controls` trigger, else the `popovertarget`/`commandfor` invoker, outermost for nested layers;
-its name is limited to the API's 120 visible characters. `getCommentPlacement` places a hidden or missing anchor
-with a `layer` on that opener while it is shown and not expanded; areas are not outlined there.
-`CommentsGlobal` reuses the point overlay and selection offsets, with a dockable confirm/cancel panel
-and compact instructions while choosing. The saved thread is changed only after confirmation; collapse
-cancels choosing. Anchor updates use `PATCH .../anchor`, the saved page key and expected revision.
-Keep original and previous context, and never invent fallback pins for missing or ambiguous targets
-(the saved opener of a closed layer is the one fallback).
-`e2e/reattach*.spec.ts` covers recovery, access, races, layout changes and light/dark accessibility.
-
-- Project review info supplies environment labels and explicit alias groups. Pins always use the
-  current environment; inbox lists and activity use the saved environment chosen in the inbox's
-  location picker (All environments until one is chosen).
-  Scope query keys by that selection and reviewer. A thread's server-provided `source` owns its
-  original link; missing/removed sources have no executable link. Keep foreign-environment items
-  out of This page/Show on page even when paths match (the location picker keys pages by environment and path). Direct links override saved filters for the
-  visit. Filter preferences use the versioned `uier:environment:v1:` key and contain no credentials.
-
-## Review brief
-`ProjectGate` passes fresh access and optional brief through `useProjectViewer`. Keep customer
-retention claims out. Reviews have no first-run guide; the brief is in the inbox header only. The
-landing hint's dismissal is browser-local (`uier:showcase-hint-dismissed`, boolean only). Feedback
-mode must keep its requested form focused on mount. Briefs render only as text nodes with preserved
-line breaks. No linkification or rich text.
-
-The composite UI CSS source scan covers only `Timeago`, the sole `@signalco/ui` import. Add another
-component's source if importing one; primitives retain their full source scan. Lightning CSS merges
-equivalent rules before CSS injection; unused shadow-root `@property` registrations are removed,
-but retain the unconditional properties fallback. All review shadow roots share one constructed
-sheet; do not add plain style elements or require the host's `unsafe-inline` permission.
-
-## Feedback export
-
-`ExternalFeedbackLink` is a browser-safe provider/url type exported alongside the feedback
-contract. Its values are projected separately on the server for current project members; never
-put another destination's links into an outbound feedback packet or infer provider access from a
-URL. Source synchronization versions, pending flags, deletion markers and credentials stay server-only.
-
-`components/CopyIssue.tsx` reloads `/comments/:id/context` on each copy and provides a manual
-Markdown fallback. Success appears beside the copy icon for two seconds without changing the
-thread layout; the shared announcer reports it to screen readers. Errors and manual copy text
-stay available until the reviewer retries or closes the text. `@uier/toolbar/feedback-context` is
-the pure versioned model and deterministic formatter for toolbar/app and future integrations.
-Titles, names and inline values use variable-length padded code spans to suppress GitHub/GitLab
-autolinks and mentions; messages/quotes remain fenced and the structured context stays unchanged.
-Authorization and private-field projection
-belong on the server; never format a raw document or browser location for export. See
-[the shared contract](../../docs/feedback-context.md).
-
-## Optimistic status changes
-
-`useComments` applies pending resolve/reopen changes to every cached page/site list, including
-poll responses, and restores the previous status on failure. Pending changes carry the reviewer
-revision; an old response must never repopulate a cache cleared by sign-out or lost access. Only
-remove the pending entry owned by the settling mutation. Create/reply drafts retain their existing
-immediate rendering, stable submission identity and failure recovery. The delayed-response browser
-checks live in `apps/web/e2e/app-performance.spec.ts`.
-
-## Packaged extension adapter
-
-`src/extension.ts` configures `adapters.ts` before lazily importing `runtime.tsx`, the same mount
-primitive used by the script entry. Configuration, transport, private images, draft storage, sign-out
-and capture come from the trusted caller. Never read extension credentials from page globals.
-`extensionContract.ts` is the v1 closed route/method contract for worker and backend. Keep it compatible
-for one year after the last supported release. `coexistence.ts` is a secret-free DOM event handshake
-so a mounted or late embed yields to extension activation across isolated worlds. DOM ids do not
-prove ownership. `screenshotImage.tsx` uses byte-decoded canvas in extension mode for strict img-src.
-See [browser-extension.md](../../docs/browser-extension.md) for unreleased status and hosted gate.
-
-Packaged request adapter failures must become CommentsApiError(network_error), preserving the
-shared retry/draft recovery behavior. Keep HTTP status parsing outside that transport catch.
-
-
-## Priority and matching
-
-`triage.ts` exports pure priority values/defaults and `matchesFeedbackSearch` for app/toolbar use.
-Missing priority means Normal, including pinned responses. The thread header shows a priority other
-than Normal to everyone; Thread options changes it only with `permissions.priority`, and a failed
-intended value retains the submission key. The review API rechecks membership/private visibility and current public-project
-staff policy. The control is shared by thread and inbox, with cache/activity invalidation through
-`useComments`. No toolbar bulk operations. Feedback packets include priority as additive context.
-
-## Fix verification
-
-`verification.ts` is the pure public display contract, status helper and literal description.
-`CommentVerification` is shared by thread popovers and inbox cards, with signalco controls (its
-Request verification form opens from Thread options, whose button gets the focus back),
-reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
-The status badge reads `feedbackStage`'s label: In progress for a thread in progress and Ready
-to verify for pending unresolved requests; the ordinary action
-says Done without verification. Confirmation requires the server's current request revision.
-Workflow mutations refresh all lists/activity, preserve failed details and never auto-acknowledge
-activity. Ready remains in Open counts, with its own filter. The extension contract adds the
-same narrowly allowed verification POST; retain all supported older routes.
