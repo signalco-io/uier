@@ -722,7 +722,7 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
         .toHaveAttribute('href', '/app/projects/uier00000002');
     await page.goto('/app/projects/uier00000002');
     // This local feedback has a loopback origin, outside the public project's production environment.
-    await expect((await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ })).toContainText('All environments and pages');
+    await expect((await openCommentFilters(page)).getByRole('button', { name: /, environment and page$/ })).toContainText('All environments and pages');
     await page.keyboard.press('Escape');
     await expect(await openComment(page, text)).toHaveAccessibleName('Comment by you');
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
@@ -928,7 +928,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
     await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
     await backToComments(page);
     await expect(row('Replied by target')).toHaveCount(0); // No remaining participation by that author.
-    await page.getByRole('button', { name: /^Clear author filter:/ }).click();
+    await page.getByRole('button', { name: /^Author: .*, clear filter$/ }).click();
     await backToComments(page);
     await expect(row('Replied by target')).toBeVisible();
     await expect((await open('Replied by target')).getByText(`Target reply ${key}`)).toHaveCount(0);
@@ -960,7 +960,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
         await ownCard.getByRole('button', { name: /^More actions/ }).click();
         await expect(commenter.page.getByRole('menuitem', { name: 'More from this author', exact: true })).toHaveCount(0);
         await commenter.page.keyboard.press('Escape');
-        await expect(commenter.page.getByRole('button', { name: /^Clear author filter:/ })).toHaveCount(0);
+        await expect(commenter.page.getByRole('button', { name: /^Author: .*, clear filter$/ })).toHaveCount(0);
         expect((await commenter.context.request.get(new URL(`/app/projects/uier00000001?author=${authorQuery}`, page.url()).href)).status()).toBe(404);
     } finally { await commenter.context.close(); await guest.context.close(); await other.context.close(); }
 });

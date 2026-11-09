@@ -43,7 +43,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}`);
     // One control for where, in Filter: the environment, then the page
-    const where = (await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ });
+    const where = (await openCommentFilters(page)).getByRole('button', { name: /, environment and page$/ });
     await expect(where).toContainText('All environments and pages');
     await expect(commentRows(page)).toHaveCount(3);
     await where.click();
@@ -56,7 +56,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await environmentGroup.getByRole('button', { name: 'Production', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(commentRows(page)).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Clear environment filter: Production', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Environment: Production, clear filter', exact: true })).toBeVisible();
     await page.reload();
     await expect(commentRows(page)).toHaveCount(1);
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
@@ -129,7 +129,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(settings.getByRole('status')).toContainText('Saved.');
     await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText(host(production));
     await page.goto(`/app/projects/${projectId}`);
-    await (await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ }).click();
+    await (await openCommentFilters(page)).getByRole('button', { name: /, environment and page$/ }).click();
     await expect(page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Removed addresses', exact: true })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Source not recorded', exact: true })).toHaveCount(0);
     await page.goto(`/app/projects/${projectId}?environment=removed`);

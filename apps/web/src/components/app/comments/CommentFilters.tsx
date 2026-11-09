@@ -32,7 +32,7 @@ const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-mut
 function FilterChip({ name, value, icon, onClear }: { name?: string; value: string; icon?: React.ReactNode; onClear: () => void }) {
     return (
         <Button size="xs" variant="outline" className="max-w-full font-normal pointer-coarse:min-h-11"
-            aria-label={name ? `Clear ${name.toLowerCase()} filter: ${value}` : `Clear filter: ${value}`} onClick={onClear}>
+            aria-label={`${name ? `${name}: ` : ''}${value}, clear filter`} onClick={onClear}>
             {icon}
             {name && <span className="shrink-0 text-muted-foreground">{name}:</span>}
             <span className="truncate">{value}</span>

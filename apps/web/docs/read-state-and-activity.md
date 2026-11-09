@@ -46,6 +46,9 @@ isolation; `thread-history.spec.ts` covers the app/toolbar controls, reloads, th
   comments and activity endpoints separately; do not equate cycles with HTTP requests or invoice savings.
   See [refresh contract and measurements](../../../docs/review-workflow.md#polling-request-measurement).
 
+- The app bulk-read browser test (`activity.spec.ts`) assigns through the assignee menu's checkbox items and Done,
+  then checks environment, page and people filters in list/board views, an axe scan of the filtered list and failed-read retry.
+
 - Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
   threads, so badge counts do not inherit text-list limits. Unread content is selected before
   applying response limits. Preserve legacy author-only projections and private-thread filtering.

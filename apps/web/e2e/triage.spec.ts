@@ -112,7 +112,7 @@ test('search covers replies, quotes, paths and numbers with local URL history an
     await page.unroute(`**/app/projects/${project}?*`);
     await page.reload();
     await expect(search).toHaveValue(`/${project}/pricing`);
-    await expect(page.getByRole('button', { name: 'Clear priority filter: Urgent', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Priority: Urgent, clear filter', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
     await expect(search).toHaveValue('');
     await expect(search).toBeFocused();

@@ -58,7 +58,7 @@ test('comment filters work without server requests and survive history and reloa
     expect(requests).toEqual([]);
     await page.unroute(`**/app/projects/${project}?*`);
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Clear people filter: Assigned to me', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'People: Assigned to me, clear filter', exact: true })).toBeVisible();
     await expect((await openCommentFilters(page)).getByRole('combobox', { name: 'People', exact: true })).toContainText('Assigned to me');
     await expect(commentRows(page)).toHaveCount(0);
 });
@@ -248,7 +248,7 @@ test('the unread count toggles Only unread and stays while it is on (uier #193)'
     await count.click();
     await expect(count).toHaveAttribute('aria-pressed', 'true');
     await expect(page).toHaveURL(/[?&]unread=true/);
-    await expect(page.getByRole('button', { name: 'Clear filter: Only unread', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Only unread, clear filter', exact: true })).toBeVisible();
     // With nothing unread left it stays, pressed, so the filter can be turned off where it was turned on
     await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
     const none = page.getByRole('button', { name: '0 unread, show only unread', exact: true });

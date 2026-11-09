@@ -123,7 +123,7 @@ export function LocationFilter({ environment, environments, historySources, page
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={`Environment and page: ${summary}`} className={cn('max-w-80 min-w-36 justify-between font-normal pointer-coarse:min-h-11', triggerClassName)} />}>
+            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={`${summary}, environment and page`} className={cn('max-w-80 min-w-36 justify-between font-normal pointer-coarse:min-h-11', triggerClassName)} />}>
                 {prefix !== undefined ? <FolderIcon data-icon="inline-start" className="text-muted-foreground" />
                     : page ? <FileIcon data-icon="inline-start" className="text-muted-foreground" />
                         : <GlobeIcon data-icon="inline-start" className="text-muted-foreground" />}

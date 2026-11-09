@@ -19,7 +19,8 @@
   the arrow keys move between the tabs only. Each filter in effect shows on the status tabs' line (wrapping under them only when there is no
   room; on the board, which has no tabs, on its own line), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
-  clear button ("Clear page filter: /app/…", "Clear author filter: Ana", "Clear filter: Only unread"). The count line under them (`TriageSelection`) has the unread
+  clear button, named by its visible text first so the name contains the label (WCAG 2.5.3): "Page: /app/…, clear filter",
+  "Author: Ana, clear filter", "Only unread, clear filter". The count line under them (`TriageSelection`) has the unread
   count, a toggle for Only unread (uier #193, like the toolbar's Unread toggle: the kit's `Toggle`, named "7 unread, show
   only unread", pressed while the filter is on, the count still in the unread accent; while the filter is on it stays, at "0 unread"
   in muted text too, so it can be turned off where it was turned on), then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
@@ -31,7 +32,8 @@
   room and no gap in the column, and its status stays mounted for announcements. The count line has no side padding of its own and takes the filters header's width, so its
   edges line up with the search and Filter row (and the view toggle) in the list and the board, the board's wide layout too; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
-  `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
+  `LocationFilter`: its trigger is named by what it shows, then "environment and page" ("Production · /pricing, environment and page").
+  Environments on the left, the chosen environment's pages on the right with a search,
   sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
   keeps the panel open and reloads its pages. "Removed addresses" and
   "Source not recorded" show only when comments have that source (`historySources`, worked out in `ProjectComments`
