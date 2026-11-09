@@ -3,7 +3,7 @@
 import { PriorityControl } from './PriorityControl';
 import { useCommitCommentsSearch } from './CommentsSearchNavigation';
 
-import { useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeftIcon,
@@ -84,12 +84,15 @@ import { ReplyComposer } from './ReplyComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
+import { MessageEditor } from './MessageEditor';
+import type { MessageMention } from './MentionTextarea';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
 import {
     markCommentReadAction,
     markCommentUnreadAction,
     deleteCommentAction,
     deleteCommentReplyAction,
+    editCommentReplyAction,
     filterCommentAuthorAction,
     editCommentAction,
     setCommentPrivateAction,
@@ -224,6 +227,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const copyIssue = useCopyIssue(projectId, comment.id);
     const [confirmingReply, setConfirmingReply] = useState<string>();
+    // The message being edited in place: the saved text it started from (the edit's `expectedText`) and, after a
+    // failed save, the text that was tried and why it failed
+    const [editingReply, setEditingReply] = useState<{ id: string; expectedText: string; text: string; mentions: MessageMention[]; error?: string }>();
+    // The reply whose More actions takes the focus back once its edit closes and nothing is pending
+    const replyActionsFocus = useRef<string>(undefined);
     // The Request verification form, opened from the status menu
     const [verifying, setVerifying] = useState(startVerifying);
     const statusTrigger = useRef<HTMLButtonElement>(null);
@@ -318,18 +326,60 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         setEditing(false);
     });
 
+    useEffect(() => {
+        const id = replyActionsFocus.current;
+        if (!id || pending || editingReply) return;
+        replyActionsFocus.current = undefined;
+        cardRef.current?.querySelector<HTMLElement>(`[data-reply-actions="${CSS.escape(id)}"]`)?.focus();
+    }, [pending, editingReply]);
+
+    const closeReplyEdit = (id: string) => {
+        replyActionsFocus.current = id;
+        setEditingReply(undefined);
+    };
+
+    /** Saves an edited message as the toolbar does: trimmed, its mentions moved with it, shown at once */
+    const saveReply = (item: ProjectCommentMessage, expectedText: string, text: string, mentions: MessageMention[]) => {
+        const leading = text.length - text.trimStart().length;
+        const sent = text.trim();
+        const sentMentions = mentions.filter(mention => mention.start >= leading && mention.end <= text.trimEnd().length)
+            .map(mention => ({ ...mention, start: mention.start - leading, end: mention.end - leading }));
+        const unchanged = sent === expectedText && JSON.stringify(sentMentions) === JSON.stringify(item.editable?.mentions ?? []);
+        closeReplyEdit(item.id);
+        if (unchanged) return;
+        startTransition(async () => {
+            updateComment({ id: comment.id, patch: { replies: comment.replies.map(current => current.id === item.id ? {
+                ...current, text: sent, mentions: sentMentions.length ? sentMentions.map(({ start, end }) => ({ start, end })) : undefined,
+                edited: true, editable: { text: sent, mentions: sentMentions }
+            } : current) } });
+            let result: ActionState;
+            try { result = await editCommentReplyAction(projectId, comment.id, item.id, sent, expectedText, sentMentions); }
+            catch { result = { ok: false, error: 'Could not save the change. Try again.' }; }
+            // The tried text stays in the field with the reason, as the toolbar keeps it
+            if (result && !result.ok) setEditingReply({ id: item.id, expectedText, text, mentions, error: result.error });
+        });
+    };
+
     const reply = (item: ProjectCommentMessage) => {
         const name = item.author.isMe ? 'You' : item.author.name;
+        const edit = editingReply?.id === item.id && item.editable ? editingReply : undefined;
+        const editable = item.editable;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
-                actions={!item.deleted && (item.canDelete || item.canFilterAuthor) && (
+                actions={!item.deleted && !edit && (item.canDelete || item.canFilterAuthor || editable) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                                aria-label={`More actions for reply by ${item.author.isMe ? 'you' : item.author.name}`} />}>
+                                data-reply-actions={item.id} aria-label={`More actions for reply by ${item.author.isMe ? 'you' : item.author.name}`} />}>
                             <MoreHorizontalIcon />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-auto min-w-48">
                             <DropdownMenuGroup>
+                                {editable && (
+                                    <DropdownMenuItem onClick={() => setEditingReply({ id: item.id, expectedText: editable.text, text: editable.text, mentions: editable.mentions })}>
+                                        <PencilIcon />
+                                        Edit
+                                    </DropdownMenuItem>
+                                )}
                                 {item.canFilterAuthor && (
                                     <DropdownMenuItem onClick={() => filterAuthor(item.id)}>
                                         <UserIcon />
@@ -348,7 +398,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 )}>
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">Reply deleted</p>
-                    : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
+                    : edit
+                        ? <MessageEditor projectId={projectId} commentId={comment.id} label="Edit reply"
+                            text={edit.text} mentions={edit.mentions} error={edit.error}
+                            onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
+                        : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
             </Message>
         );
     };

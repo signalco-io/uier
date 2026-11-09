@@ -17,6 +17,7 @@ import {
     canDeleteComment,
     canDeleteItem,
     canEditComment,
+    canEditItem,
     canMakeCommentPrivate,
     canResolveComment,
     canSeeComment,
@@ -71,6 +72,11 @@ export type ProjectCommentMessage = {
     quotedText?: string;
     canDelete: boolean;
     canFilterAuthor: boolean;
+    /**
+     * Only for a message the signed-in member may edit (`canEditItem`, as the toolbar allows): its saved text, the
+     * edit's `expectedText`, with its mentions where they are in that text, so an edit keeps them
+     */
+    editable?: { text: string; mentions: import('../db/schema').DbMention[] };
     pending?: boolean;
 };
 
@@ -263,7 +269,10 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             deleted: Boolean(reply.deletedAt),
             edited: Boolean(reply.editedAt),
             canDelete: actor.kind === 'member' && actor.isAdmin && canDeleteItem(reply, actor),
-            canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(reply.authorId) && !reply.deletedAt
+            canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(reply.authorId) && !reply.deletedAt,
+            ...(actor.kind === 'member' && canEditItem(reply, actor)
+                ? { editable: { text: reply.text, mentions: (reply.mentions ?? []).map(({ userId, start, end }) => ({ userId, start, end })) } }
+                : {})
         })),
         pullRequests: comment.pullRequests?.map(link => ({ url: link.url, canRemove: canTriageProject(project, actor) && link.addedBy === `user:${actor.kind === 'member' ? actor.userId : ''}` })),
         permissions: {

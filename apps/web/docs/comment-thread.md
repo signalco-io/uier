@@ -113,6 +113,15 @@
   The reply browser check waits for the saved-reply announcement before its light/dark axe scans,
   so it audits the settled document after action revalidation rather than the optimistic message.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.
+- A reply's More actions menu (`w-auto min-w-48`, so its items stay on one line) starts with Edit for a message the
+  member may edit (`canEditItem`, as the toolbar allows: its author or an admin; the view carries its saved text
+  and mentions as `editable` only then). Edit turns the message into `MessageEditor` in place: the saved text with
+  Cancel and Save (Enter saves, Shift+Enter adds a line, Escape cancels), and the menu takes the focus back when it
+  closes. `MentionTextarea` is the field with `@` mentions that the reply form uses too; mentions move with the text.
+  `editCommentReplyAction` calls the review API's edit (`editProjectCommentItem`: `expectedText`, mentions, the
+  edited label); the new text shows at once through `CommentUpdates`. When the message changed in the meantime the
+  edit is refused, the field keeps the tried text and says why. `e2e/app-message-edit.spec.ts` covers it. The first
+  message is edited from the thread's More actions (Edit comment dialog).
 
 Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
 Link a pull request ghost control (plus icon, muted text, like Assignees' Unassigned); choosing it reveals the
