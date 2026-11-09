@@ -61,6 +61,9 @@ same shape people click on every day.
 - Never rotate or flip it: the sharp corner points up-left.
 - The product pin is the same shape on a 32 grid with a 2 px white ring and the issue number
   inside (`PIN_PATH`); that is the only place the mark gets a ring.
+- The product pin is the one exception to "never flip": where the bottom of the window leaves no room below
+  the anchor, the pin sits above the point it marks, upside down (`<Pin upsideDown />`), its sharp
+  corner pointing down-left at it. The number and the message badge stay upright.
 
 ### The wordmark is just the name
 

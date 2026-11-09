@@ -10,6 +10,11 @@ export type PinProps = Omit<HTMLAttributes<HTMLSpanElement>, 'children'> & {
     size?: number;
     /** Accessible name; defaults to `pinLabel` ("Comment #12, 3 messages"). */
     label?: string;
+    /**
+     * Upside down: the sharp corner points down-left, for a pin above its anchor where the window has
+     * no room below it (the toolbar at the bottom edge). The number and the badge stay upright.
+     */
+    upsideDown?: boolean;
 };
 
 /** The pin's accessible name: "Comment #12, 3 messages", "Comment, 1 message" without a number. */
@@ -32,7 +37,7 @@ function numberFontSize(number: number, size: number) {
  * its message count as a white badge. Always ink, whatever the host page looks like (see BRAND.md,
  * "The review layer").
  */
-export function Pin({ number, messages, size = 32, label, style, ...rest }: PinProps) {
+export function Pin({ number, messages, size = 32, label, upsideDown = false, style, ...rest }: PinProps) {
     const name = label ?? pinLabel({ number, messages });
     // The outer span carries no `position`, so a consumer can place it with a class (e.g. `absolute`);
     // the inner span is the positioning context for the number and the badge.
@@ -44,7 +49,7 @@ export function Pin({ number, messages, size = 32, label, style, ...rest }: PinP
     return (
         <span role="img" aria-label={name} style={outer} {...rest}>
             <span style={inner}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox={PIN_VIEWBOX} width={size} height={size} aria-hidden="true" style={{ display: 'block' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox={PIN_VIEWBOX} width={size} height={size} aria-hidden="true" style={{ display: 'block', transform: upsideDown ? 'scaleY(-1)' : undefined }}>
                     <path d={PIN_PATH} fill="#0A0A0A" stroke="#FFFFFF" strokeWidth="2" />
                 </svg>
                 {number !== undefined && (
