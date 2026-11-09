@@ -1,3 +1,4 @@
+import { toolbarPartLabel } from '@uier/toolbar/feedback-context';
 import type { DbCommentKind, DbCommentPosition } from '../db/schema';
 
 /** What a thread was left on, in words: an element ("Link in navigation"), selected text or the whole page */
@@ -26,12 +27,16 @@ function tagOf(part: string) {
 }
 
 /**
- * "Link in navigation" for `body>header>nav>a:nth-of-type(3)`. Saved selectors come from reviewers'
- * browsers: only their tag names are read, and the result is plain text.
+ * "Link in navigation" for `body>header>nav>a:nth-of-type(3)`, "Button in uier comment thread" for a
+ * part of uier's own toolbar (`#uier-toolbar>>>div.uier-thread>…`). Saved selectors come from
+ * reviewers' browsers: only their tag names and toolbar part names are read, and the result is plain text.
  */
 export function elementLabel(selector: string) {
-    if (selector.startsWith('#uier-toolbar>>>'))
-        return 'uier toolbar';
+    const part = toolbarPartLabel(selector);
+    if (part) {
+        const tag = tagOf(selector.split(',')[0]?.split('>').at(-1) ?? '');
+        return `${(tag && tagWords[tag]) ?? 'Element'} in uier ${part}`;
+    }
     // The first of alternative selectors (`a,b`), then its parts from the outermost
     const parts = (selector.split(',')[0] ?? '').split('>').map(part => part.trim()).filter(Boolean);
     const tags = parts.map(tagOf);

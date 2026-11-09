@@ -15,6 +15,7 @@ import { destructiveTextClassName } from './@types/Comments';
 import { suppliedScreenshot } from '../suppliedScreenshot';
 import { useReplaceScreenshot } from '../hooks/useReplaceScreenshot';
 import { ScreenshotRedaction } from './ScreenshotRedaction';
+import { toolbarSurface } from '../toolbarReview';
 
 export const screenshotAlt = 'Screenshot of the commented part of the page';
 
@@ -150,7 +151,7 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                 open={open}
                 onOpenChange={value => { if (!busy) { setOpen(value); if (!value) setEditing(false); } }}
                 aria-label="Screenshot"
-                className="z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3"
+                {...toolbarSurface('uier-screenshot', 'z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3')}
                 trigger={(
                     <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={screenshotAlt} title="Expand screenshot">
                         <ScreenshotImage src={data} width={size.width} height={size.height} alt={screenshotAlt}

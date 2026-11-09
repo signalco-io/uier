@@ -43,8 +43,10 @@
   follow the `statuses` list, never fixed ids. `e2e/comment-board.spec.ts` covers mouse, touch, refused drops,
   Escape, the keyboard path (Move hidden at rest, M, Tab), In progress (to and from it, and from Ready to verify)
   and rollback; `openBoardMove` in `e2e/support/app.ts` opens Move the way a keyboard user does. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
-  from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole
-  page (no page title is stored).
+  from its saved selector's tag names ("Link in navigation"), a part of uier's own toolbar by its name
+  (`toolbarPartLabel` from `@uier/toolbar/feedback-context`: "Button in uier comment thread"), an area of one,
+  the selected text, or the whole page (no page title is stored), with ", after opening “Comment #6”" for an
+  anchor saved with an opener.
 - Status colours: `StateDot` (`comments/CommentStatus.tsx`) gives each status its own dot, Open ink
   (`--foreground`), In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`) and Done
   green (`--brand-success`; BRAND.md, "Status"), always beside the name. List rows, board column headers, the

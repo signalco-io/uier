@@ -54,11 +54,15 @@ still use `/api/comments` for the public showcase on uier.io. Local subdomains k
 partitions. Failed comment loads of configured projects show a message and a retry action.
 
 On uier's own pages (the page and configured API share an origin), Add comment can also target
-the toolbar and inbox controls. Point mode outlines the control and pins the comment without
-activating it. Use Cancel in the instruction or Escape to leave point mode. Keyboard reviewers
-can focus an inbox or toolbar control before activating Add comment. These anchors survive a
-reload, follow panel movement, and include the reviewed UI in automatic screenshots. Toolbar
-and inbox controls stay excluded on third-party sites.
+every part of the toolbar: the pill, the inbox, an open thread and the toolbar's popovers and menus.
+Point mode outlines the part and pins the comment without activating it; open popovers stay open
+while they are pointed at and while a comment on them is written or read. Use Cancel in the
+instruction or Escape to leave point mode. Keyboard reviewers can focus an inbox or toolbar control
+before activating Add comment. A part in a popover or the inbox is saved with the button that opens
+it (a thread's pin, Options, Inbox): while it is closed, the pin is beside that button, and showing
+the comment opens it first. These anchors survive a reload, follow panel movement, and include the
+reviewed UI in automatic screenshots. On third-party sites the toolbar stays excluded, and the review
+API refuses toolbar anchors from them. Details: [docs/toolbar-review.md](docs/toolbar-review.md).
 
 Configuration is read synchronously while the script runs (`src/config.ts`), from the script tag's data
 attributes or from `window.uierConfig`, set before the script:

@@ -170,6 +170,11 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
     await expect(openThread(guest.page).getByText('Show the yearly price.')).toBeVisible();
     await expect(openThread(guest.page).getByText('Include tax too.')).toBeVisible();
     await expect(openThread(guest.page).getByText('You', { exact: true }).first()).toBeVisible();
+    // Nor are its threads: Add comment closes an open one, as before
+    await toolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
+    await expect(openThread(guest.page)).toHaveCount(0);
+    await guest.page.keyboard.press('Escape');
+    await expect(toolbar(guest.page).getByRole('button', { name: 'Add comment' })).toHaveAttribute('aria-pressed', 'false');
     expect(await guest.context.cookies()).toEqual([]);
     await guest.context.close();
 
@@ -179,6 +184,15 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
     await expect(page.getByRole('article')).toContainText(`${new URL(reviewedSiteOrigin).host}/pricing`);
 
     const headers = await verifiedReviewHeaders(request, projectId, reviewedSiteOrigin);
+    // A project's site never pins a comment to uier's own toolbar, whatever its toolbar sends
+    for (const position of [
+        { type: 'point', selector: '#uier-toolbar>>>div.uier-thread>div:nth-of-type(1)>button:nth-of-type(1)', xNormal: 0.5, yNormal: 0.5 },
+        { type: 'point', selector: 'main>h1', xNormal: 0.5, yNormal: 0.5, layer: { opener: '#uier-toolbar>>>#uier-feedback-toolbar>div:nth-of-type(1)', label: 'Options' } }
+    ]) {
+        const toolbarAnchor = await request.post(`/api/review/${projectId}/comments`, { headers, data: { path: '/pricing', position, text: 'About the toolbar', authorName: 'Ana' } });
+        expect(toolbarAnchor.status()).toBe(400);
+        expect(await toolbarAnchor.json()).toMatchObject({ error: 'invalid_request', message: 'Comments on this site cannot be pinned to the uier toolbar.' });
+    }
     const data = { path: '/pricing', position: { type: 'page' }, kind: 'feedback', text: 'A direct request', authorName: 'Ana' };
     const post = (requestHeaders: Record<string, string>) => request.post(`/api/review/${projectId}/comments`, { headers: requestHeaders, data });
     const { 'X-Uier-Verification': proof, ...withoutProof } = headers;

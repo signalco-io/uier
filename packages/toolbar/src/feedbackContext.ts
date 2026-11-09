@@ -1,6 +1,9 @@
 import { commentPriority, priorityLabels, type CommentPriority } from './triage';
 import { feedbackStageLabels } from './verification';
 import { deviceSettings } from './userAgent';
+import { toolbarPartLabel } from './toolbarParts';
+
+export { toolbarPartLabel } from './toolbarParts';
 /** Versioned handoff contract shared by copy/export and future authenticated integrations.
  * Construct on the server from an authorized, explicitly projected view, never a raw document.
  * All saved text is untrusted user content. This model grants no access or capabilities.
@@ -84,6 +87,9 @@ function literal(value: string) {
 
 /** Shared with the integrations that format the packet themselves */
 export function anchorLabel(anchor: FeedbackContext['anchor']) {
+    // A part of uier's own review toolbar, on uier's own pages ("Element in uier comment thread")
+    const part = anchor.type === 'point' ? toolbarPartLabel(anchor.selector) : undefined;
+    if (part) return `${anchor.area ? 'Area of an element' : 'Element'} in uier ${part}`;
     return anchor.type === 'point' ? anchor.area ? 'Area of an element' : 'Element' : anchor.type === 'text' ? 'Selected text' : 'Whole page';
 }
 
@@ -148,6 +154,7 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         link('Reviewed page', context.links.page), link('Open comment in uier', context.links.comment),
         `Anchor: ${anchorLabel(anchor)}`,
         anchor.selector !== undefined ? `Saved selector (may no longer match):\n\n${literal(anchor.selector)}` : '',
+        toolbarPartLabel(anchor.selector) ? 'This is a part of uier\'s own review toolbar, on uier\'s own pages: the selector after #uier-toolbar>>> is inside the toolbar\'s shadow root.' : '',
         anchor.area ? `Area within the element: ${areaText(anchor.area)}` : '',
         anchor.text !== undefined ? `Original selected text:\n\n${literal(anchor.text)}` : '',
         anchor.startOffset !== undefined ? `Text offsets: ${anchor.startOffset}–${anchor.endOffset ?? 'unknown'}` : '',

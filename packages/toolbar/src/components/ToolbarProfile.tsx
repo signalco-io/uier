@@ -15,6 +15,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { avatarText } from './CommentThreadItem';
 import { floatingShadowClassName } from './@types/Comments';
+import { toolbarSurface } from '../toolbarReview';
 
 /** The toolbar's profile button: who the visitor comments as. Signed in, it shows their avatar (the app's initial), otherwise a person icon */
 export function ToolbarProfile() {
@@ -32,7 +33,7 @@ export function ToolbarProfile() {
             side="top"
             sideOffset={12}
             aria-label="Profile"
-            className={cx('w-72 rounded-xl p-4', floatingShadowClassName)}
+            {...toolbarSurface('uier-profile', cx('w-72 rounded-xl p-4', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     variant="plain"

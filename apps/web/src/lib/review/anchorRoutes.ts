@@ -5,6 +5,7 @@ import { projectOrigins } from '../app/projects';
 import { assertWriter } from './actor';
 import { reattachProjectAnchor } from './comments';
 import { commentResponse } from './response';
+import { assertNotToolbarAnchor } from './toolbarAnchors';
 import type { ReviewApiContext } from './http';
 
 /** Anchor updates are bound to the partition, exact saved page key, and reviewed origin. */
@@ -13,6 +14,7 @@ export async function reattachReviewAnchor(context: ReviewApiContext, { id }: { 
     assertWriter(actor);
     if (!isValidId(id)) throw apiErrors.notFound();
     const input = await parseJsonBody(request, reattachAnchorSchema);
+    assertNotToolbarAnchor(siteOrigin, input.position);
     const origin = siteOrigin ?? new URL(request.url).origin;
     if (!projectOrigins(project).includes(origin)) throw apiErrors.forbidden('Open the reviewed page to change its anchor.');
     if (pagePath(input.path, project.pageState) !== input.path) throw apiErrors.invalidRequest('Use the saved page state.');

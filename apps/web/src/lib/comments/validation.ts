@@ -6,6 +6,7 @@ import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } f
 import {
     MAX_DEVICE_LABEL_LENGTH,
     MAX_LAYER_LABEL_LENGTH,
+    MAX_NESTED_OPENERS,
     MAX_REWRITE_INSTRUCTION_LENGTH,
     MAX_PATH_LENGTH,
     MAX_PIXEL_RATIO,
@@ -79,6 +80,7 @@ const identifier = `-{0,2}(?:[A-Za-z_]|${escapedCharacter})(?:[A-Za-z0-9_-]|${es
 const compound = `(?:#${identifier}|[A-Za-z][A-Za-z0-9-]*(?:\\.${identifier})?(?::nth-of-type\\([1-9][0-9]{0,5}\\))?)`;
 const complex = `${compound}(?:>${compound})*`;
 // A single explicit boundary for anchors on uier's own toolbar; the inner CSS stays restricted.
+const toolbarAnchorPrefix = '#uier-toolbar>>>';
 const selectorPattern = new RegExp(`^(?:#uier-toolbar>>>)?${complex}(?:,${complex})*$`, 'u');
 
 const selectorSchema = z.string()
@@ -94,12 +96,16 @@ const nodeTypeSchema = z.enum(['text', 'element']);
 
 /**
  * The anchor is in a menu, popover or dialog that a page element opens: that element (a selector like
- * the anchor's) and its name, so a closed menu's comment can be shown on the button that opens it
+ * the anchor's) and its name, so a closed menu's comment can be shown on the button that opens it.
+ * On uier's own pages a toolbar layer inside another adds `nested`: the toolbar buttons that open the
+ * inner layers, outside in (packages/toolbar/docs/toolbar-review.md).
  */
 const layerSchema = z.object({
     opener: selectorSchema,
-    label: textOf(MAX_LAYER_LABEL_LENGTH).optional()
-});
+    label: textOf(MAX_LAYER_LABEL_LENGTH).optional(),
+    nested: z.array(selectorSchema.refine(selector => selector.startsWith(toolbarAnchorPrefix), 'Nested openers are toolbar buttons'))
+        .min(1).max(MAX_NESTED_OPENERS).optional()
+}).refine(layer => !layer.nested || layer.opener.startsWith(toolbarAnchorPrefix), 'Nested openers are inside a toolbar opener');
 
 /** A point on an element; with a width and a height, an area dragged over it (the point its top-left corner) */
 export const pointPositionSchema = z.object({
@@ -133,6 +139,18 @@ export const pagePositionSchema = z.object({
 });
 
 export const positionSchema = z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema, pagePositionSchema]);
+
+/**
+ * Whether a position points into uier's own toolbar (its anchor or the opener of its layer). Only
+ * uier's own pages review the toolbar: the review API refuses these from a project's sites.
+ */
+export function isToolbarPosition(position: z.infer<typeof positionSchema>) {
+    if (position.type === 'page') return false;
+    const selectors = position.type === 'point'
+        ? [position.selector]
+        : [position.startSelector, position.endSelector];
+    return [...selectors, position.layer?.opener, ...position.layer?.nested ?? []].some(selector => selector?.startsWith(toolbarAnchorPrefix));
+}
 
 export const reattachAnchorSchema = z.object({
     path: reviewPathSchema,

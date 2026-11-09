@@ -1,10 +1,12 @@
 /**
  * The anchor is in a menu, popover or dialog that a page element opens: that element's selector and
- * its name ("Account"), so a comment in a closed menu shows on the button that opens it.
+ * its name ("Account"), so a comment in a closed menu shows on the button that opens it. `nested`:
+ * on uier's own pages, the toolbar buttons that open toolbar layers inside the opener's, outside in.
  */
 export type DbCommentLayer = {
     opener: string;
     label?: string;
+    nested?: string[];
 };
 
 /**

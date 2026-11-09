@@ -1,14 +1,16 @@
-import { memo, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
 import { CommentPoint } from './@types/Comments';
-import { canReviewToolbar, toolbarReviewTarget } from '../toolbarReview';
+import { canReviewToolbar, holdToolbarLayers, toolbarReviewTarget } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
 import { activeModalDialog, isInActiveModal } from '../modalLayer';
 import { useLayoutVersion } from '../hooks/useLayoutVersion';
 import { CommentIcon } from './CommentIcon';
+import { cx } from '@signalco/ui-primitives/cx';
 
 type CommentPointOverlayProps = {
-    onPoint: (commentPoint: CommentPoint) => void;
+    /** With the element it is on (a toolbar part's opener is found from it, `layerAnchor.ts`) */
+    onPoint: (commentPoint: CommentPoint, element: Element) => void;
 };
 
 /** How far the pointer moves before pressing becomes drawing an area, and an area's smallest side */
@@ -34,8 +36,9 @@ const cancelledEvents = new Set(['mousedown', 'click', 'dblclick', 'auxclick', .
 /**
  * Whether the event points at something to comment on: anything outside the review layer; the
  * layer's pins, highlights and frame shields (what is under them is pinned); and on uier's own
- * pages its reviewable surfaces. The rest of the review layer, such as the point-mode instruction
- * and its Cancel, an open thread or, on reviewed sites, the toolbar, keeps working.
+ * pages the toolbar's parts: the pill, the inbox, its threads, popovers and menus. The rest of the
+ * review layer, such as the point-mode instruction and its Cancel, the comment being written or,
+ * on reviewed sites, the whole toolbar, keeps working.
  */
 function pointsAtPage(event: Event) {
     const host = getToolbarHost();
@@ -89,7 +92,7 @@ function clampFraction(value: number) {
 }
 
 /** The dragged area as a point (its top-left corner) and size on the element that holds it */
-function areaPoint(area: DOMRect): CommentPoint | undefined {
+function areaPoint(area: DOMRect): { point: CommentPoint; element: Element } | undefined {
     const element = pageElementAround(area);
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return undefined;
@@ -98,7 +101,7 @@ function areaPoint(area: DOMRect): CommentPoint | undefined {
     const widthNormal = Math.min(clampFraction(area.width / box.width), 1 - xNormal);
     const heightNormal = Math.min(clampFraction(area.height / box.height), 1 - yNormal);
     return widthNormal > 0 && heightNormal > 0
-        ? { type: 'point', selector: anchorSelector(element), xNormal, yNormal, widthNormal, heightNormal }
+        ? { point: { type: 'point', selector: anchorSelector(element), xNormal, yNormal, widthNormal, heightNormal }, element }
         : undefined;
 }
 
@@ -191,7 +194,7 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
             selector,
             xNormal: Math.min(1, Math.max(0, elBounds.width ? relativeX / elBounds.width : 0)),
             yNormal: Math.min(1, Math.max(0, elBounds.height ? relativeY / elBounds.height : 0))
-        });
+        }, el);
     });
 
     const handlePointerMove = useEffectEvent((event: PointerEvent) => {
@@ -209,6 +212,9 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
     });
 
     const handlePress = useEffectEvent((event: Event) => {
+        // Only the reviewer's own presses: a script's click (the page's, or the toolbar's own as it
+        // closes or opens its popovers, toolbarReview.ts) is not a place to pin a comment
+        if (!event.isTrusted) return;
         const drag = dragRef.current;
         // A drag keeps its moves and release wherever they go, the toolbar included
         const dragEvent = drag && event instanceof PointerEvent && event.pointerId === drag.pointerId;
@@ -229,8 +235,8 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
             updateHovered();
             // A short drag is a click where it started
             const dragged = draggedArea(drag, { x: event.clientX, y: event.clientY });
-            const point = dragged.width >= areaMinSize && dragged.height >= areaMinSize ? areaPoint(dragged) : undefined;
-            if (point) onPoint(point);
+            const area = dragged.width >= areaMinSize && dragged.height >= areaMinSize ? areaPoint(dragged) : undefined;
+            if (area) onPoint(area.point, area.element);
             else pinAt(drag.x - window.scrollX, drag.y - window.scrollY);
         } else if (event.type === 'click' && event instanceof MouseEvent) {
             if (draggedRef.current) {
@@ -245,6 +251,10 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
         dragRef.current = null;
         setArea(null);
     });
+
+    // On uier's own pages the toolbar's popovers stay open while they are pointed at. A layout
+    // effect: the hold ends before the new comment's text box takes the focus (`autoFocus`)
+    useLayoutEffect(() => holdToolbarLayers(), []);
 
     useEffect(() => {
         const move = (event: PointerEvent) => handlePointerMove(event);
@@ -271,6 +281,8 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
         };
     }, []);
 
+    // On uier's own pages over the toolbar's popovers and menus too, which can be pointed at
+    const layer = canReviewToolbar() ? 'z-[95]' : 'z-[53]';
     return (
         <>
             <FrameShields />
@@ -279,7 +291,7 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
                 <div
                     aria-hidden="true"
                     data-uier-outline=""
-                    className="pointer-events-none fixed z-[53] rounded-sm outline-2 outline-offset-2 outline-dashed outline-[hsl(var(--brand-accent))]"
+                    className={cx('pointer-events-none fixed rounded-sm outline-2 outline-offset-2 outline-dashed outline-[hsl(var(--brand-accent))]', layer)}
                     style={{
                         left: hoveredRect.left,
                         top: hoveredRect.top,
@@ -292,7 +304,7 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
                 <div
                     aria-hidden="true"
                     data-uier-drawing=""
-                    className="pointer-events-none fixed z-[53] rounded-sm bg-[hsl(var(--brand-selection))] outline-2 outline-dashed outline-[hsl(var(--brand-accent))]"
+                    className={cx('pointer-events-none fixed rounded-sm bg-[hsl(var(--brand-selection))] outline-2 outline-dashed outline-[hsl(var(--brand-accent))]', layer)}
                     style={{
                         left: area.left,
                         top: area.top,
@@ -307,7 +319,7 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
                     aria-hidden="true"
                     data-uier-pointer=""
                     data-uier-capture-exclude=""
-                    className="pointer-events-none fixed z-[53]"
+                    className={cx('pointer-events-none fixed', layer)}
                     style={{ left: cursor.x + 12, top: cursor.y + 14 }} />
             )}
         </>
