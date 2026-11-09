@@ -82,4 +82,6 @@
   revalidation reconciles them. Seven-day drafts are scoped to app origin/deployment, project,
   account and thread. Closing/filtering keeps text; explicit discard, successful send and both
   app sign-out controls clear relevant drafts. Storage failure stays in memory with a notice.
+  The reply browser check waits for the saved-reply announcement before its light/dark axe scans,
+  so it audits the settled document after action revalidation rather than the optimistic message.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.

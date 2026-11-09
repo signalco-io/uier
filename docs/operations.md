@@ -154,7 +154,7 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| [`ci.yml`](../.github/workflows/ci.yml) | pull requests, manual | Web: typecheck, build, Playwright e2e and a Vercel preview deployment (URL in the job summary). Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
+| [`ci.yml`](../.github/workflows/ci.yml) | pull requests, manual | Web: parallel checks, API and browser jobs, plus a Vercel preview deployment (URL in the job summary). Extension: unit and packaged runtime checks. Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
 | [`deploy.yml`](../.github/workflows/deploy.yml) | push to `main`, manual | `pulumi up` first, then build and deploy the website to Vercel production (`uier.io`). |
 | [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
 | [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Builds with public settings and no deployment credentials, then deploys only prebuilt output in a separate environment-bound job. |
@@ -171,6 +171,24 @@ Actions; the Vercel project is not connected to Vercel's Git integration.
 
 Concurrency: deploys run one at a time and are never cancelled; `pulumi up` runs are serialized; a new push
 to a pull request cancels its previous CI run.
+
+The web matrix separates typecheck/artifact/worker checks, all API tests, and all tagged desktop/mobile
+browser essentials. Test jobs use four workers each and retain separate `playwright-results-api` and
+`playwright-results-browser` artifacts. Matrix failures do not cancel sibling jobs; every result still
+feeds `CI OK`. The required coverage and no-retry policy are unchanged.
+
+Web, extension and Vercel builds cache only `apps/web/.next/cache`, using Next.js 16.3+'s persistent
+Turbopack compiler cache. Keys include the OS, architecture, lockfile, Node version file and checked-out
+revision, with a fallback to the same dependency set. Main's production build seeds the default-branch
+cache for new PRs; PR caches stay scoped to their merge ref. Next invalidates compiler entries when
+source or build configuration changes; each job still builds fresh output. Toolbar retention always
+fetches the current production archive. Cache misses remain supported and take longer.
+
+Prebuilt packaging deduplicates shared function dependencies and copies them in batches of 16,
+retaining path and symlink validation. The archive uses gzip level 1 and disables redundant ZIP
+compression during artifact upload. Only the credential-free build job caches its pinned Vercel CLI.
+The deployment job continues to install its pinned CLI afresh;
+neither repository executables nor a cached CLI enter the credential-bearing job.
 
 Runners: jobs that only gate, aggregate or call an API (`Detect changes`, `CI OK`, the extension store
 status and inspect jobs, and the extension `publish` job) run on `ubuntu-slim` (1 vCPU, 5 GB, 15-minute
