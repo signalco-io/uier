@@ -16,9 +16,58 @@ Every issue they find has a quick action that posts it as a comment in one click
   panels are reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
 - `components/checks/PageChecks.tsx` owns what the panels keep while closed: the last report of each,
   the comments their quick actions posted (by issue key; keys end with the checked page's path, so after a
-  client-side navigation the same finding on another page can be commented again) and the highlighted element. Opening a panel
-  checks the page when it has no report of the current page; **Check again** runs it again. A report of
+  client-side navigation the same finding on another page can be commented again) and the highlighted element. Both
+  check the page in the background ([below](#in-the-background)), so a panel opens with its report. Opening a panel
+  checks the page when it has no report of the current page (and none is running); **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
+
+## In the background
+
+Both checks run once the toolbar has loaded, without waiting for a panel and without getting in the
+person's way
+([uier #208](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_HGmaIZ3KHhrhjlIFnduAq)).
+
+- When: once per page (`PageChecks` remounts for every page, so again after a client-side navigation),
+  after the page's `load` event (at most 10 s), once it has stopped rendering (`pageSettled`) and when the
+  browser is idle (`requestIdleCallback`, at most 5 s; a short timeout where it is missing), all in
+  `src/checks/pageIdle.ts`.
+- **In short steps** ([review of #568](https://github.com/signalco-io/uier/pull/568)). One axe-core run
+  does all its rules in one task (800 ms on a 1,000-paragraph page at 4× slower CPU), so the unasked audit
+  never makes one (`auditInSteps` in `src/checks/accessibility.ts`). It runs the rules axe-core runs by
+  default (`getRules()`, enabled), each step its own `axe.run` when the browser is idle (`nextIdle`): groups
+  of rules on the whole document, then the two rules whose work grows with every element (`color-contrast`,
+  `link-in-text-block`, which have no page-wide `after` step) on parts of it: disjoint subtrees in document
+  order, and the larger elements above them on their own where they have text of their own (or are a
+  link). A step aims at 50 ms: the next takes fewer rules or elements when one took longer, at most twice
+  as many when it took less, never under 50 elements (each run also reads the whole page). The steps find
+  what one run finds; the elements of a parted rule are put back in document order, and rules of the same
+  impact and count keep axe-core's order, so Check again lists the same report.
+- **Its bounds.** Over 1,500 elements (`backgroundElementLimit`, the document's own, counted before the
+  download) the audit is not run unasked: the panel and Check again check the page at once. A step that
+  took over 200 ms (a slow device) ends it the same way. Neither is an error: the button just has no dot.
+  An Accessibility panel opened meanwhile waits for it, so its steps no longer wait for idle moments and
+  are not limited (opened before it starts, it checks the page in one run).
+- **Cancelled when no longer needed.** Each audit has an `AbortController` (`auditControl`): a newer audit
+  of the panels (Check again), collapsing the toolbar (unless an open Accessibility panel waits for the
+  audit) and leaving the page (a client-side navigation remounts `PageChecks`, Exit review unmounts the
+  toolbar) cancel it. The audit queue checks it before loading axe-core and right before every `axe.run`,
+  so a cancelled audit waiting for another or for the download never runs, and one between its steps
+  stops (a step already running ends first). Its owner hears of it at once. Cancelled by collapsing, the
+  page is checked again when the toolbar expands.
+- Only where the toolbar can show the result: not while it is collapsed (expanding it starts the
+  checks), and the audit only where the Accessibility button is (`auditAvailable()`). Where the browser
+  asks to save data (`Save-Data`), the audit is not downloaded unasked; the panel still runs it.
+- A check a panel asked for meanwhile is not run twice (`auditedPath`, `seoPath`), and an open panel shows
+  "Checking this page..." until the background audit ends. A failed background audit is quiet (opening the
+  panel tries again, and says so if it fails then), unless the panel is open by then. One that ended
+  without a report (too large a page, too slow a step) leaves the check to the panel, and an open panel
+  checks the page then. It never clears a highlight.
+- **The indicator.** While a report of this page found something to act on, its button in the pill gets
+  a small amber dot (`AttentionDot`, `--brand-warning`, `data-uier-attention`) and an accessible name that
+  says what (`checksButtonLabel`): "Accessibility, 3 issues found" (every element of every rule) and "SEO,
+  2 to look at" (the panel's "To look at" count, Core Web Vitals included, so it follows them as the page
+  is used; `ChecksAttentionReporter`). The tooltip stays the panel's name. On a narrow screen the dot and
+  the name are on the panel's Options row. Without a report, or with nothing to act on, neither changes.
 
 ## Layout
 
@@ -72,7 +121,7 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   `/toolbar/<sha256>.js` and pinned in the review script by path and SHA-384 SRI (`tsup.config.ts`
   fills in `__UIER_AUDIT_PATH__` / `__UIER_AUDIT_INTEGRITY__` from its final bytes, before the review
   script's own hash). `src/checks/axeLoader.ts` adds it as a classic script, once, only when the panel
-  runs a check, with the review script's nonce and referrer policy and anonymous CORS, resolved against
+  runs a check (in the background or from the panel), with the review script's nonce and referrer policy and anonymous CORS, resolved against
   the review script's URL. A site whose CSP allows the toolbar allows it too; axe-core needs no `eval`
   with its default locale. The development build loads `./audit.js` (`next dev` rewrites `/audit.js`).
 - The asset hands axe-core over through a symbol on its own script element (`auditHandoff.ts`), never a
@@ -82,7 +131,8 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   on the document, excluding the toolbar's host and inline thread slots by reference, without frames
   (`iframes: false`). One audit runs at a time: one asked for while another runs waits for it, then
   checks the page as it is then (never sharing the running one's report), and the panel shows only its
-  latest audit. The panel lists only what axe-core finds
+  latest audit; a newer audit cancels the previous one ([above](#in-the-background)). Asked for (the panel,
+  Check again), it is one `axe.run` of the whole page; in the background, short steps. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
   the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
   then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
@@ -168,22 +218,33 @@ checks (a `details` row, "Outline").
 ## Bundle and loading
 
 The panels' code is in the review bundle (about 32 KB minified, no new dependency there); axe-core
-(about 680 KB) loads only from the Accessibility panel. Nothing here runs for ordinary visitors: the
-review bundle itself loads only for reviewers.
+(about 680 KB) is still its own asset, loaded on use: by the background audit once the page is idle
+(on pages of up to 1,500 elements), or by the panel. Its evaluation is one task (about 190 ms at 4× slower
+CPU locally). Nothing here runs for ordinary visitors of a project's site: the review bundle itself loads
+only for reviewers. uier.io's own public pages show the toolbar to everyone (`showcase` mode), so there the
+background checks run for every visitor whose browser does not ask to save data.
 
 ## Tests
 
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
-(`?page-checks` in `e2e/support/reviewedSite.ts`): no audit request before the Accessibility panel opens
-and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
+(`?page-checks` in `e2e/support/reviewedSite.ts`): one audit request in the background, the buttons' dots
+and names before a panel opens, the panel opening with that report and no new request, rules by impact without the toolbar, Highlight, a comment posted on the element with its
 screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
 element's comment with what was found and its check, findings marked as reported after a reload (with Show) until their thread is done, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
-the panels from Options on a phone, fitting the screen (Mobile Chrome); the SEO panel and the inbox
+the panels from Options on a phone, their rows marked by the background checks, fitting the screen (Mobile Chrome); the SEO panel and the inbox
 staying open across a client-side navigation, a same-site full load and a reload, and not on a page
 opened anew; an Accessibility panel left open while the previous page's audit still runs (a slow
 axe-core) showing the new page's report, a window opened from the site starting without the panel, and
 the inbox showing another page listing its comments once it reaches that page (Desktop Chrome).
+A background audit nobody needs any more (a slow axe-core, then collapsed while it loads, collapsed between
+its steps at 4× slower CPU, and Exit review while it loads) never runs again, counted through the audit
+handoff (`e2e/support/auditRuns.ts` wraps axe-core's `run`, no hook in the toolbar), and checks the whole page once expanded again (Desktop Chrome).
+`launch-performance.spec.ts` waits for the background audit of a 250-section page with issues (1,027
+elements) at normal and 4× slower CPU while pressing a button of the page: in more than one run, no long
+task from its download to its report reaching 100 ms (normal) or 250 ms (4×), the presses under 250 ms;
+over the element limit (1,000 sections) nothing is downloaded or run unasked, and the panel checks the page
+in one run (Desktop Chrome; `audit-performance.json`).
 `comments.api.spec.ts`: a comment keeps its `check`, the packet names it, and other values are refused.
 `toolbar-assets.api.spec.ts`:
 the audit asset is pinned by path and SRI in the review script, absent from the loader and the review

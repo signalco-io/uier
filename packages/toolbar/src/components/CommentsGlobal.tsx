@@ -9,7 +9,7 @@ import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivi
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { getCommentPlacement, resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
-import { PageChecks, type ChecksPanelId, type ShownComment } from './checks/PageChecks';
+import { PageChecks, type ChecksAttention, type ChecksPanelId, type ShownComment } from './checks/PageChecks';
 import { auditAvailable } from '../checks/axeLoader';
 import { CommentToolbar } from './CommentToolbar';
 import { CommentSelectionPopover } from './CommentSelectionPopover';
@@ -171,6 +171,8 @@ export function CommentsGlobal({
     const [sidebarOpen, setSidebarOpen] = useState(restoredPanel === 'inbox');
     // The Accessibility or SEO panel: docked like the inbox, so one of them is open at a time
     const [checksPanel, setChecksPanel] = useState<ChecksPanelId | undefined>(restoredPanel === 'inbox' ? undefined : restoredPanel);
+    // What the checks of this page (run in the background) found to act on: a dot on their buttons
+    const [checksAttention, setChecksAttention] = useState<ChecksAttention>({});
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
     const [feedbackRequested, setFeedbackRequested] = useState(mountRequest === 'feedback');
     const [collapsed, setCollapsed] = useState(() => !mountRequest && readCollapsed());
@@ -889,7 +891,8 @@ export function CommentsGlobal({
                     panel={checksPanel}
                     collapsed={collapsed}
                     onClose={closeChecks}
-                    onShowComment={handleShowCheckComment} />
+                    onShowComment={handleShowCheckComment}
+                    onAttentionChange={setChecksAttention} />
             </RestoredPanelContext>
             <CommentToolbar
                 mode={mode}
@@ -911,6 +914,7 @@ export function CommentsGlobal({
                 checksPanel={checksPanel}
                 onChecksPanelChange={changeChecksPanel}
                 accessibilityAvailable={auditAvailable()}
+                checksAttention={checksAttention}
                 accessibilityButtonRef={accessibilityButtonRef}
                 seoButtonRef={seoButtonRef}
                 optionsButtonRef={optionsButtonRef}

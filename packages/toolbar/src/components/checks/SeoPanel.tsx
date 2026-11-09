@@ -1,7 +1,7 @@
 import { Down } from '@signalco/ui-icons';
 import type { SeoReport } from '../../checks/seo';
 import type { CheckState, PageCheck } from '../../checks/types';
-import { useWebVitals, vitalCheck, type VitalName } from '../../checks/webVitals';
+import { useWebVitals, vitalCheck, type VitalName, type WebVitals } from '../../checks/webVitals';
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
@@ -33,8 +33,18 @@ function HeadingsOutline({ outline }: { outline: SeoReport['headings']['outline'
 }
 
 /** How many checks are in each state */
-function tally(checks: readonly PageCheck[], state: CheckState) {
+export function tally(checks: readonly PageCheck[], state: CheckState) {
     return checks.filter(check => check.state === state).length;
+}
+
+/** Core Web Vitals as checks, in the panel's order */
+export function vitalChecks(vitals: WebVitals) {
+    return vitalNames.map(name => vitalCheck(name, vitals[name]));
+}
+
+/** Every check the panel lists: the report's, then Core Web Vitals (its summary counts them all) */
+export function seoChecks(report: SeoReport | undefined, vitals: readonly PageCheck[]) {
+    return [...report ? [...report.page, ...report.headings.checks, ...report.links.checks, ...report.images.checks] : [], ...vitals];
 }
 
 /**
@@ -49,9 +59,8 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
     onCheck: () => void;
     onClose: () => void;
 }) {
-    const vitals = useWebVitals();
-    const vitalChecks = vitalNames.map(name => vitalCheck(name, vitals[name]));
-    const checks = [...report ? [...report.page, ...report.headings.checks, ...report.links.checks, ...report.images.checks] : [], ...vitalChecks];
+    const vitals = vitalChecks(useWebVitals());
+    const checks = seoChecks(report, vitals);
     return (
         <ChecksPanel id="seo" title="SEO" onCheckAgain={onCheck} onClose={onClose}>
             {report && <>
@@ -81,7 +90,7 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
                 </CheckSection>
             </>}
             <CheckSection title="Core Web Vitals" note="Measured in this browser">
-                {vitalChecks.map(check => <CheckItem key={check.id} check={check} />)}
+                {vitals.map(check => <CheckItem key={check.id} check={check} />)}
             </CheckSection>
         </ChecksPanel>
     );

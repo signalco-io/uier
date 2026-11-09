@@ -1,15 +1,14 @@
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, toolbar } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // The toolbar's Accessibility and SEO panels (packages/toolbar/docs/page-checks.md) on a project's
-// site on another origin, with the install guide's Content-Security-Policy: axe-core loads as its
-// own integrity-checked asset only when the Accessibility panel opens.
+// site on another origin, with the install guide's Content-Security-Policy: both check the page in the
+// background once the toolbar loaded, and axe-core loads as its own integrity-checked asset.
 
 test.use({ actionTimeout: 15_000 });
 
@@ -17,8 +16,7 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-const auditPath = async () => `/toolbar/${createHash('sha256')
-    .update(await readFile(new URL('../../../packages/toolbar/dist/audit.js', import.meta.url))).digest('hex')}.js`;
+const auditPath = auditAssetPath;
 
 /** The next comment the toolbar posts, with its body */
 function nextCreate(page: Page, project: string) {
@@ -34,22 +32,29 @@ async function memberReview(page: Page, label: string) {
     return project;
 }
 
-test('the Accessibility panel loads axe-core only when opened, audits the page without the toolbar, highlights an element and posts its issue', async ({ page }, testInfo) => {
+test('the Accessibility panel audits the page in the background without the toolbar, marks its button, highlights an element and posts its issue', async ({ page }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout; the phone test is below');
     test.setTimeout(90_000);
     const audit = await auditPath();
     const auditRequests: string[] = [];
     page.on('request', request => { if (new URL(request.url()).pathname === audit) auditRequests.push(request.url()); });
     const project = await memberReview(page, 'a11y-panel');
-    await page.waitForLoadState('networkidle');
-    expect(auditRequests).toEqual([]);
 
-    const button = toolbar(page).getByRole('button', { name: 'Accessibility', exact: true });
+    // Checked in the background once the page loaded: the buttons say what was found, with a dot
+    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
+    await expect(button).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 20_000 });
+    await expect(button.locator('[data-uier-attention="accessibility"]')).toBeVisible();
+    const seoButton = toolbar(page).getByRole('button', { name: /^SEO/ });
+    await expect(seoButton).toHaveAccessibleName(/^SEO, \d+ to look at$/);
+    await expect(seoButton.locator('[data-uier-attention="seo"]')).toBeVisible();
+    expect(auditRequests).toHaveLength(1);
+
+    // The panel opens with the report, without checking again
     await button.click();
     await expect(button).toHaveAttribute('aria-expanded', 'true');
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(panel.getByRole('button', { name: 'Close Accessibility panel' })).toBeFocused();
-    await expect(panel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/, { timeout: 20_000 });
+    await expect(panel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/);
     expect(auditRequests).toHaveLength(1);
 
     // By impact, with the rule, its help link and the element; the toolbar itself is left out
@@ -121,7 +126,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     // A guest: the panel asks for the name comments are posted with
     await page.context().clearCookies();
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
-    const button = toolbar(page).getByRole('button', { name: 'SEO', exact: true });
+    const button = toolbar(page).getByRole('button', { name: /^SEO/ });
     await button.click();
     const panel = page.getByRole('complementary', { name: 'SEO' });
     await expect(panel.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
@@ -231,7 +236,7 @@ test('a finding that is already reported stays marked after a reload, until its 
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(60_000);
     const project = await memberReview(page, 'reported-findings');
-    const button = toolbar(page).getByRole('button', { name: 'SEO', exact: true });
+    const button = toolbar(page).getByRole('button', { name: /^SEO/ });
     await button.click();
     const panel = page.getByRole('complementary', { name: 'SEO' });
     const check = (id: string) => panel.locator(`[data-uier-check="${id}"]`);
@@ -281,7 +286,7 @@ test('an open panel stays open on the next page and shows that page', async ({ p
     await setProjectAccess(page, project, 'Anyone with the link');
     await page.context().clearCookies();
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
-    await toolbar(page).getByRole('button', { name: 'SEO', exact: true }).click();
+    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
     const panel = page.getByRole('complementary', { name: 'SEO' });
     // Folded, but in the panel: its text says which page was checked
     const outline = panel.locator('ol[aria-label="Headings outline"]');
@@ -319,7 +324,7 @@ test('an open panel stays open on the next page and shows that page', async ({ p
     await expect(panel).toBeHidden();
 
     // A page opened anew (not from the site) starts without a panel
-    await toolbar(page).getByRole('button', { name: 'SEO', exact: true }).click();
+    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
     await expect(panel).toBeVisible();
     await page.goto(`${site.origin()}/${project}/pricing?page-checks`);
     await expect(toolbar(page)).toBeVisible();
@@ -345,7 +350,7 @@ test('a panel that stays open shows the page it reached, never the previous one,
         await route.continue();
     });
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
-    await toolbar(page).getByRole('button', { name: 'Accessibility', exact: true }).click();
+    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
     const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(accessibility.getByRole('status')).toHaveText('Checking this page...');
     await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/pricing$/, '/team')}${location.search}`));
@@ -373,20 +378,85 @@ test('a panel that stays open shows the page it reached, never the previous one,
     await expect(inboxPages(page)).toHaveAccessibleName(/This page$/);
 });
 
+test('a background audit nobody needs any more stops: collapsed while it loads or between its steps, and after Exit review', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(90_000);
+    await signIn(page, uniqueEmail('audit-cancel'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.context().clearCookies();
+    await observeAuditRuns(page);
+    // axe-core loads slowly: the background audit waits for it
+    const audit = await auditPath();
+    await page.route(`**${audit}`, async route => {
+        await new Promise(resolve => setTimeout(resolve, 2_000));
+        await route.continue();
+    });
+    const isAudit = (request: Request) => new URL(request.url()).pathname === audit;
+    const pill = toolbar(page);
+    const collapse = () => pill.getByRole('button', { name: 'Collapse toolbar' }).click();
+    const expand = () => page.getByRole('button', { name: /^Expand toolbar/ }).click();
+    const runCount = async () => (await auditRuns(page)).length;
+
+    // Collapsed while axe-core loads: it never runs
+    let requested = page.waitForRequest(isAudit);
+    await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks&sections=250`);
+    await requested;
+    await collapse();
+    await page.waitForResponse(response => isAudit(response.request()));
+    await page.waitForTimeout(1_000);
+    expect(await runCount()).toBe(0);
+
+    // Collapsed between its steps (on a slower CPU, so it is still running): the step that runs ends, no other starts
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    try {
+        await expand();
+        await expect.poll(runCount, { intervals: [50] }).toBeGreaterThan(0);
+        await collapse();
+        await page.waitForTimeout(500);
+        const stopped = await runCount();
+        await page.waitForTimeout(1_500);
+        expect(await runCount()).toBe(stopped);
+    } finally {
+        await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    }
+    // Expanded again, the page is checked from the start, to the end
+    await expand();
+    await expect(pill.getByRole('button', { name: /^Accessibility/ })).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 30_000 });
+
+    // Exit review while axe-core loads: it never runs on the page left without the toolbar
+    requested = page.waitForRequest(isAudit);
+    await page.reload();
+    await requested;
+    await pill.getByRole('button', { name: 'Options', exact: true }).click();
+    await page.getByRole('button', { name: 'Exit review', exact: true }).click();
+    await expect(toolbar(page)).toHaveCount(0);
+    await page.waitForResponse(response => isAudit(response.request()));
+    await page.waitForTimeout(1_000);
+    expect(await runCount()).toBe(0);
+});
+
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {
     test.skip(!testInfo.project.use.isMobile, 'Phone layout');
     test.setTimeout(90_000);
     const project = await memberReview(page, 'checks-mobile');
     const pill = toolbar(page);
     // The pill keeps its buttons in view: the panels are in Options here
-    await expect(pill.getByRole('button', { name: 'SEO', exact: true })).toHaveCount(0);
+    await expect(pill.getByRole('button', { name: /^SEO/ })).toHaveCount(0);
     const collapse = (await pill.getByRole('button', { name: 'Collapse toolbar' }).boundingBox())!;
     expect(collapse.x + collapse.width).toBeLessThanOrEqual(page.viewportSize()!.width);
     const openFromOptions = async (name: string) => {
         await pill.getByRole('button', { name: 'Options', exact: true }).tap();
-        await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name, exact: true }).tap();
+        await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: new RegExp(`^${name}`) }).tap();
     };
-    await openFromOptions('SEO');
+    // The background checks mark their Options rows; the dot is beside the row's name
+    await pill.getByRole('button', { name: 'Options', exact: true }).tap();
+    const options = page.getByRole('dialog', { name: 'Options' });
+    await expect(options.getByRole('button', { name: /^Accessibility, \d+ issues? found$/ })).toBeVisible({ timeout: 20_000 });
+    await expect(options.locator('[data-uier-attention="accessibility"]')).toBeVisible();
+    await expect(options.getByRole('button', { name: /^SEO, \d+ to look at$/ })).toBeVisible();
+    await options.getByRole('button', { name: /^SEO/ }).tap();
     const seo = page.getByRole('complementary', { name: 'SEO' });
     await expect(seo.locator('[data-uier-check="alt"]')).toContainText('img#plan-chart');
     const box = (await seo.boundingBox())!;
