@@ -70,10 +70,34 @@ function descriptionCheck(): PageCheck {
     return check('description', 'Meta description', 'pass', `${length} characters, within 50 to 160.`, text);
 }
 
+/** A robots meta tag's directives, lowercase: `noindex, nofollow` is `['noindex', 'nofollow']` */
+const directives = (tag: Element) => (tag.getAttribute('content') ?? '').toLowerCase().split(',').map(directive => directive.trim()).filter(Boolean);
+
+/**
+ * What the page's robots meta tags (`robots`, and `googlebot` for Google) ask of search engines.
+ * `noindex` (or `none`) keeps the page out of search results, so it needs no canonical link. The
+ * `X-Robots-Tag` response header is not in the document and is not read.
+ */
+function robotsCheck(): { check: PageCheck; noindex: boolean } {
+    const tags = [...document.querySelectorAll('meta[name="robots" i], meta[name="googlebot" i]')];
+    const blocking = tags.filter(tag => directives(tag).some(directive => directive === 'noindex' || directive === 'none'));
+    const content = (list: Element[]) => oneLine(list.map(tag => directives(tag).join(', ')).filter(Boolean).join('; ')) || undefined;
+    if (blocking.length) {
+        const everyEngine = blocking.some(tag => tag.getAttribute('name')?.toLowerCase() === 'robots');
+        return {
+            noindex: true,
+            check: check('robots', 'Indexing', 'none', `The page asks ${everyEngine ? 'search engines' : 'Google'} not to index it.`, content(blocking))
+        };
+    }
+    return { noindex: false, check: check('robots', 'Indexing', 'pass', 'Search engines may index it.', content(tags)) };
+}
+
 const withoutTrailingSlash = (path: string) => path.length > 1 ? path.replace(/\/+$/, '') : path;
 
-function canonicalCheck(): PageCheck {
+function canonicalCheck(noindex: boolean): PageCheck {
     const links = [...document.querySelectorAll('link[rel~="canonical" i]')];
+    // A page kept out of search results has no main address to choose
+    if (!links.length && noindex) return check('canonical', 'Canonical', 'none', 'Not needed on a noindex page.');
     if (!links.length) {
         return check('canonical', 'Canonical', 'warn', 'No canonical link. Search engines choose the main address on their own.', undefined,
             [issue('canonical', undefined, 'The page has no canonical link.', 'SEO: The page has no canonical link. Search engines choose the main address on their own.')]);
@@ -204,10 +228,11 @@ function imageChecks(): SeoReport['images'] {
 /** Reads the page now: its head, headings, links and images */
 export function checkSeo(path: string): SeoReport {
     checkedPath = path;
+    const robots = robotsCheck();
     return {
         path,
         checkedAt: Date.now(),
-        page: [titleCheck(), descriptionCheck(), canonicalCheck()],
+        page: [robots.check, titleCheck(), descriptionCheck(), canonicalCheck(robots.noindex)],
         headings: headingChecks(),
         links: linkChecks(),
         images: imageChecks()

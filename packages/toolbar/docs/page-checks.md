@@ -44,11 +44,17 @@ Every issue they find has a quick action that posts it as a comment in one click
 ## SEO
 
 `src/checks/seo.ts` reads the page's own document when the panel opens (the toolbar's shadow root and
-inline threads are never in `document.querySelectorAll`). Each check is pass, warning or not measured,
-with a one-line reason:
+inline threads are never in `document.querySelectorAll`). Each check is pass, warning or a note (not
+measured, not needed), with a one-line reason:
 
-- **Page**: the title (10 to 60 characters), the meta description (one, 50 to 160 characters) and the
-  canonical link (one, valid, pointing to this page's origin and path).
+- **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters)
+  and the canonical link (one, valid, pointing to this page's origin and path). Indexing reads the
+  `robots` and `googlebot` meta tags: `noindex` (or `none`) is a note that the page asks search engines
+  (or Google) not to index it, and on such a page a missing canonical link is a note, "Not needed",
+  not a warning ([uier #195](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_1hEpNjurDgh70vdAEO8Tn)).
+  The uier app's pages declare `noindex` on purpose ([search indexing](../../../apps/web/docs/search-indexing.md)).
+  A canonical that is there is still checked. The `X-Robots-Tag` response header is not in the document
+  and is not read.
 - **Headings**: one h1, no skipped levels (an h3 right after an h1), no empty headings, and the outline.
 - **Links**: the count (this site and other sites), links without text (text, `aria-label`,
   `aria-labelledby`, `title` or an image's alt text), and addresses that look broken: empty, `#` alone,

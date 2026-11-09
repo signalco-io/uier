@@ -181,6 +181,17 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('description')).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(check('description').getByRole('button', { name: 'Comment' })).toBeVisible();
     await expect(check('description')).not.toContainText(/sent as #1/);
+
+    // A noindex page (like the uier app's) asks search engines not to index it: it needs no canonical link
+    await expect(check('robots')).toHaveAttribute('data-uier-check-state', 'pass');
+    await page.evaluate(() => document.head.insertAdjacentHTML('beforeend', '<meta name="robots" content="noindex, nofollow">'));
+    await panel.getByRole('button', { name: 'Check again' }).click();
+    await expect(check('robots')).toHaveAttribute('data-uier-check-state', 'none');
+    await expect(check('robots')).toContainText('The page asks search engines not to index it.');
+    await expect(check('robots')).toContainText('noindex, nofollow');
+    await expect(check('canonical')).toHaveAttribute('data-uier-check-state', 'none');
+    await expect(check('canonical')).toContainText('Not needed on a noindex page.');
+    await expect(check('canonical').getByRole('button', { name: 'Comment' })).toHaveCount(0);
 });
 
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {

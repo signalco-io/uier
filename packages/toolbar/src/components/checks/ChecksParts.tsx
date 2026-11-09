@@ -95,9 +95,9 @@ export function IssueList({ issues, label, showSummary = true }: { issues: PageI
     );
 }
 
-const stateWords: Record<CheckState, string> = { pass: 'Pass', warn: 'Warning', none: 'Not measured' };
+const stateWords: Record<CheckState, string> = { pass: 'Pass', warn: 'Warning', none: 'Note' };
 
-/** Pass (green check), worth a look (amber warning) or nothing yet (muted): shape, colour and the word for screen readers */
+/** Pass (green check), worth a look (amber warning) or a note (muted: not measured, not needed): shape, colour and the word for screen readers */
 export function CheckStateIcon({ state }: { state: CheckState }) {
     const Icon = state === 'pass' ? Check : state === 'warn' ? Warning : Info;
     return (

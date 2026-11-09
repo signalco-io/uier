@@ -1,4 +1,4 @@
-/** A check's result: passed, worth a look, or nothing to say yet (not measured, not supported) */
+/** A check's result: passed, worth a look, or a note without a verdict (not measured, not supported, not needed, a noindex page) */
 export type CheckState = 'pass' | 'warn' | 'none';
 
 /** Something a panel found, which one click turns into a comment (`useIssueComment`) */
