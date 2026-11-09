@@ -28,5 +28,5 @@
   `unsafe-inline` from its style CSP sources. `scripts/toolbar-assets.mjs` publishes identical
   default/content-addressed loader bytes and the content-addressed review script, checks and retains
   both assets for one year after last release as current; deployment builds carry forward the
-  verified uier.io archive. Keep the
-  manifest no-store and content-addressed JavaScript immutable with anonymous CORS.
+  verified uier.io archive. New and retained bundles share a 1,000,000-byte uncompressed size limit.
+  Keep the manifest no-store and content-addressed JavaScript immutable with anonymous CORS.

@@ -1,10 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { changedUrls, contentHash, publicUrl, validateManifest, submit, config } from './search-index.mjs';
 
 const revision = 'a'.repeat(40);
 const manifest = entries => ({ version: 1, revision, pages: entries.map(([path, content]) => ({ url: `https://uier.io${path}`, hash: contentHash(content) })) });
 const page = (text, extra = '') => `<head><title>uier</title>${extra}</head><body><main><p>${text}</p><a href="/guides">Guides</a></main></body>`;
+
+function compareOutput(t, previous, current) {
+    const dir = mkdtempSync(join(tmpdir(), 'uier-search-index-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    const before = join(dir, 'before.json');
+    const after = join(dir, 'after.json');
+    writeFileSync(before, JSON.stringify(previous));
+    writeFileSync(after, JSON.stringify(current));
+    return execFileSync(process.execPath,
+        [fileURLToPath(new URL('./search-index.mjs', import.meta.url)), 'compare', before, after],
+        { encoding: 'utf8', stdio: 'pipe' });
+}
 
 test('semantic hashes ignore framework code, CSS, class changes and social-card build keys', () => {
     const a = page('Review a site', '<meta property="og:image" content="https://uier.io/guides/opengraph-image?abcdef123"/><style>.x{color:red}</style>');
@@ -42,6 +59,28 @@ test('the diff includes additions, edits and removals, and excludes unchanged pa
 test('unchanged deployments make no external submission', async () => {
     const current = manifest([['/', 'home']]);
     assert.deepEqual(await submit(current, current, revision, () => { throw new Error('Unexpected request'); }), { status: 'unchanged', count: 0 });
+});
+
+test('the workflow skips notification for identical public content in a new revision', t => {
+    const before = manifest([['/', page('Review', '<script>oldBuild()</script>')]]);
+    const current = { ...manifest([['/', page('Review', '<script>newBuild()</script>')]]), revision: 'b'.repeat(40) };
+    assert.equal(compareOutput(t, before, current), 'changed=false\n');
+});
+
+test('the workflow enables notification for added, edited, removed and first-deployment public pages', t => {
+    const before = manifest([['/', 'home'], ['/brand', 'brand']]);
+    for (const current of [
+        manifest([['/', 'home'], ['/brand', 'brand'], ['/guides', 'guide']]),
+        manifest([['/', 'updated home'], ['/brand', 'brand']]),
+        manifest([['/', 'home']]),
+    ]) assert.equal(compareOutput(t, before, current), 'changed=true\n');
+    assert.equal(compareOutput(t, null, before), 'changed=true\n');
+});
+
+test('the workflow comparison fails instead of skipping on invalid manifests', t => {
+    const valid = manifest([['/', 'home']]);
+    assert.throws(() => compareOutput(t, { ...valid, revision: 'invalid' }, valid));
+    assert.throws(() => compareOutput(t, valid, { ...valid, pages: [] }));
 });
 
 test('submission verifies the deployed revision and public proof before sending only the diff', async () => {

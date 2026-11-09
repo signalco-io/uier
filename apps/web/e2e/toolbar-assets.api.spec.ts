@@ -23,6 +23,7 @@ test('pins survive a clean deployment, hashes are verified, and only expired pin
     const review = join(directory, 'review.js');
     const first = join(directory, 'first');
     const second = join(directory, 'second');
+    const firstReview = `/*${'x'.repeat(760_000)}*/`;
     let corrupt = false;
     const server = createServer(async (request, response) => {
         try {
@@ -34,7 +35,7 @@ test('pins survive a clean deployment, hashes are verified, and only expired pin
     const retainFrom = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     try {
         await writeFile(source, 'console.log("first");');
-        await writeFile(review, 'console.log("first review");');
+        await writeFile(review, firstReview);
         const reviewPath = `/toolbar/${createHash('sha256').update(await readFile(review)).digest('hex')}.js`;
         const a = await publishToolbar(source, first, { now: new Date('2026-01-01'), dependencies: [review] });
         await writeFile(source, 'console.log("second");');
@@ -44,7 +45,7 @@ test('pins survive a clean deployment, hashes are verified, and only expired pin
         expect(await readFile(join(second, a.path), 'utf8')).toBe('console.log("first");');
         expect(await readFile(join(second, b.path), 'utf8')).toBe('console.log("second");');
         expect(await readFile(join(second, 'toolbar.js'), 'utf8')).toBe('console.log("second");');
-        expect(await readFile(join(second, reviewPath), 'utf8')).toBe('console.log("first review");');
+        expect(await readFile(join(second, reviewPath), 'utf8')).toBe(firstReview);
         corrupt = true;
         await expect(publishToolbar(source, second, { retainFrom, now: new Date('2026-01-03') })).rejects.toThrow('hash mismatch');
         corrupt = false;
@@ -59,6 +60,37 @@ test('pins survive a clean deployment, hashes are verified, and only expired pin
         await expect(readFile(join(second, a.path))).rejects.toMatchObject({ code: 'ENOENT' });
         await expect(readFile(join(second, reviewPath))).rejects.toMatchObject({ code: 'ENOENT' });
         expect(await readFile(join(second, b.path), 'utf8')).toBe('console.log("second");');
+    } finally {
+        await new Promise<void>(resolve => server.close(() => resolve()));
+        await rm(directory, { recursive: true, force: true });
+    }
+});
+
+test('new and retained toolbar bundles share the same bounded size limit', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'uier-pin-limits-'));
+    const source = join(directory, 'source.js');
+    const review = join(directory, 'review.js');
+    const output = join(directory, 'public');
+    const oversized = Buffer.alloc(1_000_001, 'x');
+    const id = createHash('sha256').update(oversized).digest('hex');
+    const server = createServer((request, response) => {
+        response.end(request.url === '/toolbar/manifest.json'
+            ? JSON.stringify({ version: 1, bundles: { [id]: '2026-01-01T00:00:00.000Z' } })
+            : oversized);
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+        await writeFile(source, 'console.log("loader");');
+        await writeFile(review, oversized.subarray(0, 1_000_000));
+        await publishToolbar(source, output, { dependencies: [review] });
+        await writeFile(review, oversized);
+        await expect(publishToolbar(source, output, { dependencies: [review] })).rejects.toThrow('Toolbar bundle exceeds its size limit');
+        await writeFile(source, oversized);
+        await expect(publishToolbar(source, output)).rejects.toThrow('Toolbar bundle exceeds its size limit');
+        await writeFile(source, 'console.log("loader");');
+        const retainFrom = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+        await expect(publishToolbar(source, output, { retainFrom, now: new Date('2026-01-02') }))
+            .rejects.toThrow('Toolbar archive exceeds its size limit');
     } finally {
         await new Promise<void>(resolve => server.close(() => resolve()));
         await rm(directory, { recursive: true, force: true });

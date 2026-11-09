@@ -23,12 +23,14 @@ Framework scripts, CSS, class names and generated social-card query keys do not 
 The dynamic status page stays in the sitemap but is omitted from notifications: health checks
 are not editorial changes. Missing HTML for another sitemap entry fails the build.
 
-The production build job captures the previously published manifest before building, in an
-artifact containing public URLs and hashes only. After successful deployment, the IndexNow job
-checks that the new manifest's revision matches the workflow commit, validates the public proof
-file from `.github/indexnow.json`, then sends added, changed and removed URLs. Unchanged
-deployments send nothing. The first deployment without a prior manifest submits all static public
-pages once. Non-production deployments never submit. The random proof key is intentionally public.
+The production build job captures the previously published manifest before building, then compares
+it with the built manifest's public URLs and content hashes. If no public page was added, changed
+or removed, the entire IndexNow job is skipped, even when the build's revision changed. Otherwise,
+the baseline is saved in an artifact containing public URLs and hashes only. After successful
+deployment, the IndexNow job checks that the new manifest's revision matches the workflow commit,
+validates the public proof file from `.github/indexnow.json`, then sends added, changed and removed
+URLs. The first deployment without a prior manifest submits all static public pages once.
+Non-production deployments never submit. The random proof key is intentionally public.
 
 The job runs without deployment credentials. It accepts only the exact HTTPS production host,
 canonical public paths, bounded manifests and a verified public key. It refuses app, API,
