@@ -205,7 +205,8 @@ With the UI kit: `rounded-sm` = 6, `rounded-md` = 8, `rounded-lg` = 10 (`--radiu
 
 ### Space
 
-4 px grid: 4 icon-to-label, 8 inside a pill and between buttons, 12 list rows and menu padding,
+4 px grid: 4 icon-to-label in text, 8 inside a pill, between buttons and icon-to-label in menu and option rows,
+12 list rows and menu padding,
 16 card and popover padding, 24 between cards and dialog padding, 32 section inner padding,
 64 between marketing sections. Controls are 32 (sm), 36 (md) or 44 (lg) tall; touch targets
 never below 44.
