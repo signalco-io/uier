@@ -12,6 +12,11 @@ are `/app/workspace/teams`, `/app/workspace/teams/[teamId]`, `/app/workspace/use
 revisions. See [teams and access](../../../docs/teams-and-access.md) for limits, history, erasure,
 Session-consistency limits, real preview Cosmos checks and rollback.
 
+Workspace → People (`workspace/(tabs)/users/page.tsx`): the People and Invitations lists are one grid
+per card (`columnsGroup`, rows use `grid-cols-subgrid`), so the person, access and actions columns line
+up whichever actions a row has (your own row has no Remove). The grid starts at the card's `@2xl`
+container width; narrower cards keep the wrapping item row. Keep new row content inside those columns.
+
 - Apart from uier's own feedback workspace, which every account joins as a commenter of the user feedback project (`joinPublicProject`), a
   membership is only ever created by an invitation, by the person's own click on a workspace that offers
   their email domain ([email domains](#email-domains)), or together with a new workspace (`ensureOwnWorkspace`
