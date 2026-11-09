@@ -1,7 +1,7 @@
 import './copy-fonts.mjs';
 // Copies the production build of the uier toolbar (`@uier/toolbar`, packages/toolbar) to
-// public/toolbar.js and public/toolbar/<sha256>.js, with a retention manifest (headers in
-// next.config.ts). The landing page embeds the default like a customer site would.
+// public/toolbar.js and public/toolbar/<sha256>.js (the loader, the review script and the
+// accessibility audit), with a retention manifest (headers in next.config.ts). The landing page embeds the default like a customer site would.
 //
 // Runs as the first step of `pnpm build`. Turborepo builds `@uier/toolbar` before this app
 // (`^build`), and Vercel builds through Turborepo too (vercel.json `buildCommand`).
@@ -38,6 +38,7 @@ if (/http:\/\/localhost:\d+/.test(readFileSync(source, 'utf8'))) {
 
 const pinned = await publishToolbar(source, dirname(target), {
     retainFrom: process.env.UIER_TOOLBAR_RETAIN_FROM,
-    dependencies: [join(dirname(source), 'review.js')]
+    // The review script, and the accessibility audit (axe-core) it loads when its panel runs a check
+    dependencies: [join(dirname(source), 'review.js'), join(dirname(source), 'audit.js')]
 });
 console.log(`[copy-toolbar] ${relative(appDir, source)} -> ${relative(appDir, target)} and ${pinned.path}`);

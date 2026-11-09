@@ -38,8 +38,10 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
         onMove: point => { target.current = point.x < view.left + view.width / 2 ? 'left' : 'right'; setDestination(target.current); },
         onEnd: canceled => { setDestination(undefined); if (!canceled) moveTo(target.current); }
     });
+    // "Move comments panel", "Move SEO panel": a capitalized word goes lower case, an abbreviation stays
+    const name = /^[A-Z][a-z]/.test(label) ? label[0]!.toLowerCase() + label.slice(1) : label;
     const handle = (
-        <IconButton variant="plain" size="sm" aria-label={`Move ${label.toLowerCase()} panel`}
+        <IconButton variant="plain" size="sm" aria-label={`Move ${name} panel`}
             title="Drag to the other side, or use the arrow keys" className="-ml-2 shrink-0" {...drag.handle}
             onKeyDown={event => {
                 drag.handle.onKeyDown(event);

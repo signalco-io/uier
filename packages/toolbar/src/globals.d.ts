@@ -12,3 +12,7 @@ declare const __UIER_DEV__: boolean;
 /** Exact review bundle path and SRI, filled in after its CSS has been inlined. */
 declare const __UIER_REVIEW_PATH__: string;
 declare const __UIER_REVIEW_INTEGRITY__: string;
+
+/** Exact path and SRI of the accessibility audit asset (axe-core), filled in from its final bytes. */
+declare const __UIER_AUDIT_PATH__: string;
+declare const __UIER_AUDIT_INTEGRITY__: string;

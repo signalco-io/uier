@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from 'react';
 import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -21,7 +21,9 @@ import { floatingShadowClassName } from './@types/Comments';
 import { toolbarConfig } from '../config';
 import { setShortcutsEnabled, toolbarShortcuts, useKeyboardLikely, useShortcutsEnabled } from '../shortcuts';
 import { moveFocusInMenu } from '../focusKeys';
-import { toolbarSurface } from '../toolbarReview';
+import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
+import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
+import type { ChecksPanelId } from './checks/PageChecks';
 
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -32,6 +34,9 @@ type ToolbarOptionsProps = {
     /** `?` was pressed: the options open on the keyboard shortcuts */
     shortcutsRequested?: boolean;
     onShortcutsRequestHandled?: () => void;
+    triggerRef?: Ref<HTMLButtonElement>;
+    /** A narrow screen: the Accessibility (where it can load) and SEO panels open from here, not from the pill */
+    pageChecks?: { accessibility: boolean; onOpen: (panel: ChecksPanelId) => void };
 };
 
 /** The keyboard shortcuts, by what they do (`toolbarShortcuts`); the single keys are marked off while they are */
@@ -112,7 +117,7 @@ function OptionSwitch({ checked, onClick, children }: { checked: boolean; onClic
  * apply), and always a link to uier.io, since the toolbar shows on other people's sites. ↑ and ↓ move
  * between its buttons.
  */
-export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled }: ToolbarOptionsProps) {
+export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled, triggerRef, pageChecks }: ToolbarOptionsProps) {
     const { rootElement, mode } = useContext(CommentsBootstrapperContext);
     // Dark like the pill it opens from
     const container = useInkContainer() ?? rootElement;
@@ -176,6 +181,14 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
         }
     };
 
+    // The panel's Close has the focus: closing the options leaves it there
+    const openingPanelRef = useRef(false);
+    const handleOpenPanel = (panel: ChecksPanelId) => {
+        openingPanelRef.current = true;
+        handleOpenChange(false);
+        pageChecks?.onOpen(panel);
+    };
+
     const handleExitReview = () => {
         handleOpenChange(false);
         onExitReview?.();
@@ -215,8 +228,15 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                 shortcutsHeadingRef.current?.focus();
             } }}
             {...toolbarSurface('uier-options', cx('w-auto min-w-48 max-w-80 rounded-xl p-1', floatingShadowClassName))}
+            {...{ onCloseAutoFocus: (event: Event) => {
+                if (openingPanelRef.current) {
+                    openingPanelRef.current = false;
+                    event.preventDefault();
+                } else keepMovedFocus(event);
+            } }}
             trigger={(
                 <IconButton
+                    ref={triggerRef}
                     variant="plain"
                     className="rounded-full"
                     {...tip.triggerProps}
@@ -268,6 +288,17 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                             Keyboard shortcuts
                             {shortcutsEnabled && <kbd aria-hidden="true" className="ml-auto pl-3 font-mono font-normal text-muted-foreground">?</kbd>}
                         </OptionButton>
+                    </>}
+                    {pageChecks && <>
+                        {pageChecks.accessibility && (
+                            <OptionButton icon={<AccessibilityIcon size={16} />} onClick={() => handleOpenPanel('accessibility')}>
+                                Accessibility
+                            </OptionButton>
+                        )}
+                        <OptionButton icon={<SeoIcon size={16} />} onClick={() => handleOpenPanel('seo')}>
+                            SEO
+                        </OptionButton>
+                        <Divider role="separator" className="my-1" />
                     </>}
                     {onResetPosition && (
                         <OptionButton icon={<Reset size={16} />} onClick={() => { handleOpenChange(false); onResetPosition(); }}>

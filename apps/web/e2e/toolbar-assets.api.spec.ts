@@ -17,6 +17,23 @@ test('the bootstrap stays small and pins the exact integrity-checked review scri
     expect(loader.toString()).toContain(`sha384-${createHash('sha384').update(review).digest('base64')}`);
 });
 
+test('the accessibility audit (axe-core) is its own pinned, integrity-checked asset, never in the loader or the review script', async ({ request }) => {
+    const loader = (await readFile(new URL('../../../packages/toolbar/dist/index.js', import.meta.url))).toString();
+    const review = (await readFile(new URL('../../../packages/toolbar/dist/review.js', import.meta.url))).toString();
+    const audit = await readFile(new URL('../../../packages/toolbar/dist/audit.js', import.meta.url));
+    const path = `/toolbar/${createHash('sha256').update(audit).digest('hex')}.js`;
+    expect(review).toContain(path);
+    expect(review).toContain(`sha384-${createHash('sha384').update(audit).digest('base64')}`);
+    // axe-core's licence notice marks its code: only the audit asset has it
+    expect(audit.toString()).toContain('Deque Systems');
+    for (const script of [loader, review]) expect(script).not.toContain('Deque Systems');
+    const served = await request.get(path);
+    expect(served.status()).toBe(200);
+    expect(served.headers()['access-control-allow-origin']).toBe('*');
+    expect(served.headers()['cache-control']).toContain('immutable');
+    expect(Buffer.compare(await served.body(), audit)).toBe(0);
+});
+
 test('pins survive a clean deployment, hashes are verified, and only expired pins are pruned', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'uier-pins-'));
     const source = join(directory, 'source.js');

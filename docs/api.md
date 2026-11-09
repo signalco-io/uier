@@ -233,9 +233,10 @@ HTML and Next.js snippets with `/toolbar/<sha256>.js`, `integrity="sha384-..."` 
 The SHA-256 path and SHA-384 integrity value describe the loader bytes (`@uier/toolbar/bundle`).
 The loader contains the exact review script's SHA-256 path and SHA-384 integrity value, generated
 after its CSS is inlined, and loads it with anonymous CORS. `copy-toolbar.mjs` publishes identical
-loader bytes at the default and pinned paths, the review script at its content-addressed path, and
-a no-store `/toolbar/manifest.json` archive index. The manifest retains both loaders and their
-review scripts; a pinned loader never switches to a newer review UI.
+loader bytes at the default and pinned paths, the review script and the accessibility audit asset
+(axe-core, which the review script pins the same way and loads only for its Accessibility panel) at their
+content-addressed paths, and a no-store `/toolbar/manifest.json` archive index. The manifest retains the
+loaders, their review scripts and audit assets; a pinned loader never switches to a newer review UI.
 
 Pinned production bundles remain available and compatible with the review API for one year after
 their last release as the current version. They get fixes only when the site updates its snippet.

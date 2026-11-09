@@ -67,6 +67,13 @@ function longPage(count: number) {
     return Array.from({ length: count }, (_, i) => `<section class="card" id="section-${i + 1}"><h2>Plan section ${i + 1}</h2><p>Details of this part of the plan, with <a href="#section-${i + 1}">a link to it</a>.</p></section>`).join('');
 }
 
+/**
+ * `?page-checks`: what the toolbar's Accessibility and SEO panels report: an h3 right after the h1,
+ * an image without alt text, a script link, a link to a missing #faq and a link without text (the
+ * page also has no meta description or canonical link). A 1 × 1 PNG, allowed by `img-src data:`.
+ */
+const pageCheckImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
 export async function startReviewedSite(apiBaseUrl: string) {
     const csp = [
         'default-src \'self\'',
@@ -93,6 +100,7 @@ export async function startReviewedSite(apiBaseUrl: string) {
                     #host-sheet { display: none; position: fixed; right: 16px; bottom: 96px; padding: 12px; background: white; border: 1px solid; }
                     #host-sheet.open { display: block; }
                 ` : ''}
+                ${url.searchParams.has('page-checks') ? '#empty-link { display: inline-block; width: 24px; height: 24px; background: rgb(40, 40, 40); }' : ''}
                 ${url.searchParams.has('host-probe') ? `
                     body { color: rgb(30, 40, 50); font-family: monospace; text-transform: uppercase; letter-spacing: 3px; }
                     button { background: rgb(220, 230, 240) !important; color: rgb(30, 40, 50) !important; border-radius: 0 !important; }
@@ -258,6 +266,12 @@ export async function startReviewedSite(apiBaseUrl: string) {
         </div>
         <div id="host-sheet" role="dialog" aria-modal="true" aria-label="Chat"><p>We reply within a day.</p><button id="host-sheet-close" type="button">Close chat</button></div>
         <script src="/host-menus.js" defer></script>` : ''}
+        ${url.searchParams.has('page-checks') ? `<section id="page-checks">
+            <h3>Plans in detail</h3>
+            <img id="plan-chart" src="${pageCheckImage}" width="48" height="48">
+            <p><a id="compare-plans" href="javascript:void(0)">Compare plans</a> or <a id="missing-anchor" href="#faq">read the questions</a>.</p>
+            <a id="empty-link" href="/plans"></a>
+        </section>` : ''}
         ${url.searchParams.has('host-dialog') ? `<button id="host-dialog-open" type="button">Read the project brief</button>
         <dialog id="host-dialog" aria-labelledby="host-dialog-title">
             <h2 id="host-dialog-title">Project brief</h2>

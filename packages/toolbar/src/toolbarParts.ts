@@ -9,12 +9,15 @@ export const toolbarAnchorPrefix = '#uier-toolbar>>>';
 
 /**
  * The parts that can be reviewed, by the id or class that names them in anchors, and their name in
- * words. The pill and the inbox keep the ids of anchors saved before; popovers and menus have a
+ * words. The pill and the panels (the inbox, Accessibility and SEO) are named by their ids, the
+ * pill and the inbox as in anchors saved before; popovers and menus have a
  * class, since their id is the one the popover gives itself (the `aria-controls` of its button).
  */
 export const toolbarParts = {
     'uier-feedback-toolbar': 'toolbar',
     'uier-panel-inbox': 'inbox',
+    'uier-panel-accessibility': 'accessibility panel',
+    'uier-panel-seo': 'SEO panel',
     'uier-thread': 'comment thread',
     'uier-thread-menu': 'thread options',
     'uier-thread-status-menu': 'thread status',
@@ -30,7 +33,7 @@ export const toolbarParts = {
 
 export type ToolbarPart = keyof typeof toolbarParts;
 
-const partIds: readonly string[] = ['uier-feedback-toolbar', 'uier-panel-inbox'] satisfies ToolbarPart[];
+const partIds: readonly string[] = ['uier-feedback-toolbar', 'uier-panel-inbox', 'uier-panel-accessibility', 'uier-panel-seo'] satisfies ToolbarPart[];
 
 /** Every reviewable part, as a selector list */
 export const toolbarPartsSelector = Object.keys(toolbarParts)

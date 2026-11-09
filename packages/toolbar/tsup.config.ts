@@ -20,7 +20,9 @@ export default defineConfig(({ env }) => {
     const development = env?.NODE_ENV === 'development';
     const outDir = development ? 'dist-dev' : 'dist';
     return [{
-        entry: { index: './src/index.ts', review: './src/runtime.tsx' },
+        // `audit` is axe-core for the Accessibility panel: a separate asset the review bundle loads only
+        // when the panel runs a check (src/checks/axeLoader.ts), never part of its first load.
+        entry: { index: './src/index.ts', review: './src/runtime.tsx', audit: './src/checks/auditEntry.ts' },
         outDir,
         // The bundle is embedded with a classic <script> tag (it reads `document.currentScript`,
         // see src/config.ts), so it is wrapped in an IIFE to keep its variables out of the page's
@@ -47,14 +49,24 @@ export default defineConfig(({ env }) => {
             __UIER_DEV__: JSON.stringify(development),
             __UIER_REVIEW_PATH__: JSON.stringify('__uier_review_path__'),
             __UIER_REVIEW_INTEGRITY__: JSON.stringify('__uier_review_integrity__'),
+            __UIER_AUDIT_PATH__: JSON.stringify('__uier_audit_path__'),
+            __UIER_AUDIT_INTEGRITY__: JSON.stringify('__uier_audit_integrity__'),
         },
         onSuccess: async () => {
             // Replace the entire literal: esbuild may choose either quote style while minifying.
             const css = readFileSync(`./${outDir}/review.css`, 'utf8');
-            const js = readFileSync(`./${outDir}/review.js`).toString();
+            // The audit asset's final bytes give the path and SRI the review bundle loads it with.
+            const audit = readFileSync(`./${outDir}/audit.js`);
+            new Script(audit.toString());
+            const auditHash = createHash('sha256').update(audit).digest('hex');
+            const auditIntegrity = `sha384-${createHash('sha384').update(audit).digest('base64')}`;
+            const js = readFileSync(`./${outDir}/review.js`).toString()
+                .replace(/(["'])__uier_audit_path__\1/g, () => JSON.stringify(development ? './audit.js' : `/toolbar/${auditHash}.js`))
+                .replace(/(["'])__uier_audit_integrity__\1/g, () => JSON.stringify(development ? '' : auditIntegrity));
             if (!js.includes('__uier_toolbar_css__')) {
                 throw new Error(`CSS placeholder __uier_toolbar_css__ not found in ${outDir}/review.js`);
             }
+            if (js.includes('__uier_audit_')) throw new Error('Audit placeholder is not a JavaScript string literal');
             // Function replacer so `$` sequences in CSS are not treated as replacement patterns
             const injected = js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css));
             if (injected === js) throw new Error('CSS placeholder is not a JavaScript string literal');

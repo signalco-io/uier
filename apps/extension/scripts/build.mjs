@@ -22,7 +22,9 @@ for (const [name, entry] of Object.entries({ worker: 'worker.ts', content: 'cont
     await build({ entryPoints: [resolve(root, 'src', entry)], outfile: resolve(dest, `${name}.js`), bundle: true,
         format: name === 'worker' ? 'esm' : 'iife', platform: 'browser', target: 'chrome120', minify: true,
         alias: { 'next/link': resolve(root, '../../packages/toolbar/src/components/ToolbarLink.tsx') },
-        define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}', __UIER_API_URL__: JSON.stringify(api), __UIER_DEV__: 'false', __EXTENSION_API__: JSON.stringify(api) },
+        define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}', __UIER_API_URL__: JSON.stringify(api), __UIER_DEV__: 'false', __EXTENSION_API__: JSON.stringify(api),
+            // No remote scripts in packaged clients: the toolbar's accessibility audit is not available here
+            __UIER_AUDIT_PATH__: '""', __UIER_AUDIT_INTEGRITY__: '""' },
         plugins: [{ name: 'packaged-css', setup(b) {
             // The embed runtime imports CSS for tsup; packaged clients use its compiled sheet.
             b.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));

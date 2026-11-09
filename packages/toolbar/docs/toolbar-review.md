@@ -1,7 +1,7 @@
 # Reviewing uier's own toolbar
 
 On uier's own pages every part of the toolbar can be commented on like page content: the pill, the
-inbox, a saved comment's thread and the toolbar's popovers and menus (options, profile, feedback form,
+inbox, the Accessibility and SEO panels, a saved comment's thread and the toolbar's popovers and menus (options, profile, feedback form,
 thread options and status, message options, copy menu, device details, screenshot, the inbox's location filter).
 Everywhere else the toolbar stays out of point mode and out of anchors.
 
@@ -17,7 +17,8 @@ the anchor, the end of a text selection or the opener, whenever the request has 
 ## Picking
 
 - The parts are named in `src/toolbarParts.ts` (pure, shared with the feedback packet and the app): the
-  pill and the inbox by their ids (`#uier-feedback-toolbar`, `#uier-panel-inbox`, as before), popovers
+  pill and the panels by their ids (`#uier-feedback-toolbar`, `#uier-panel-inbox` as before,
+  `#uier-panel-accessibility`, `#uier-panel-seo`), popovers
   and menus by a class on the popover (`div.uier-thread`), since a popover's id is the one it gives
   itself for its button's `aria-controls`. Toolbar popovers take `toolbarSurface(part, className)`:
   the class, `onInteractOutside` and `onCloseAutoFocus` (below). A new toolbar popover gets a part, or
@@ -54,7 +55,7 @@ only trusted presses, so these clicks (and a page script's) never pin a comment.
   (`toolbarLayerOpeners`, outside in): each the expanded button whose `aria-controls` names a layer.
   The outermost is `layer.opener`: a thread's pin, a button of the pill (Options, Profile, Send
   feedback) or Inbox, which names the inbox panel in its `aria-controls` while it is open. The label is
-  its name without its count or state ("Comment #6", "Inbox"). For nested layers (Copy issue in an
+  its name without its count or state ("Comment #6", "Inbox"); Accessibility and SEO name their panels the same way. For nested layers (Copy issue in an
   open thread's Copy menu) the buttons that open the inner ones follow in `layer.nested` (toolbar
   anchors only, up to 7; the API refuses them with a page opener or from a project's sites).
 - A toolbar anchor with a toolbar opener is looked for only in what that opener opens
