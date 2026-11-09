@@ -10,13 +10,14 @@ import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadClients, projectClient, projectClients } from '@/src/lib/app/clients';
-import { loadProjectComments } from '@/src/lib/app/projectComments';
+import { loadProjectUsage } from '@/src/lib/app/projectComments';
+import type { ProjectStatus } from '@/src/lib/app/model';
 import { PageHeader } from '@/src/components/app/PageHeader';
-import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectActionsMenu } from '@/src/components/app/projects/ProjectActionsMenu';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
+import { ProjectStatusPanel, ProjectStatusTabs } from '@/src/components/app/projects/ProjectStatusTabs';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
@@ -42,48 +43,34 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
         ? clientParam : undefined;
     const clientOf = (project: (typeof projects)[number]) => projectClient(project, clientDocs);
     const matching = projects.filter(project => !client || (client === 'none' ? !clientOf(project) : project.clientId === client));
-    const statusHref = (next: 'active' | 'done') => {
+    const statusHref = (next: ProjectStatus) => {
         const query = new URLSearchParams();
         if (next === 'done') query.set('status', next);
         if (client) query.set('client', client);
         return `${KnownPages.AppProjects}${query.size ? `?${query}` : ''}`;
     };
-    const counts = {
-        active: matching.filter(project => project.status !== 'done').length,
-        done: matching.filter(project => project.status === 'done').length
+    // Both lists come with the page, so Active and Done switch at once in the browser (`ProjectStatusTabs`)
+    const lists: Record<ProjectStatus, typeof matching> = {
+        active: matching.filter(project => project.status !== 'done'),
+        done: matching.filter(project => project.status === 'done')
     };
-    const shown = matching.filter(project => (project.status === 'done' ? 'done' : 'active') === status);
     // Open comments per project, as the person sees them (private comments only for admins and authors)
-    const openCounts = await Promise.all(shown.map(async project =>
-        (await loadProjectComments(context, project)).filter(comment => !comment.resolved).length));
+    const openCounts = new Map(await Promise.all(matching.map(async project =>
+        [project.id, (await loadProjectUsage(context, project)).open] as const)));
+    const createProject = canManageProjects && (
+        <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
+            <PlusIcon data-icon="inline-start" />
+            Create project
+        </Link>
+    );
 
-    return (
-        <>
-            <PageHeader
-                title="Projects"
-                // The empty active list has its own Create project
-                actions={canManageProjects && (shown.length > 0 || status === 'done') && (
-                    <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
-                        <PlusIcon data-icon="inline-start" />
-                        Create project
-                    </Link>
-                )}>
-                <div className="flex flex-wrap items-center gap-3">
-                    <LinkTabs
-                        label="Project status"
-                        variant="segmented"
-                        tabs={[
-                            { href: statusHref('active'), label: 'Active', count: counts.active, current: status === 'active' },
-                            { href: statusHref('done'), label: 'Done', count: counts.done, current: status === 'done' }
-                        ]} />
-                    {/* Only when a project has a client, like the sidebar's Clients link */}
-                    {clients.length > 0 && <ClientFilter clients={clients.map(({ id, name }) => ({ id, name }))} value={client} status={status} />}
-                </div>
-            </PageHeader>
+    // One status's list, or its empty state
+    const statusPanel = (listStatus: ProjectStatus, shown = lists[listStatus]) => (
+        <ProjectStatusPanel status={listStatus}>
             {shown.length ? (
-                <ul aria-label={`${status === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-                    {shown.map((project, index) => {
-                        const open = openCounts[index] ?? 0;
+                <ul aria-label={`${listStatus === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+                    {shown.map(project => {
+                        const open = openCounts.get(project.id) ?? 0;
                         const access = projectAccessLabels[project.access];
                         const projectClientSummary = clientOf(project);
                         return (
@@ -139,18 +126,18 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         <EmptyMedia variant="icon">
                             <FolderOpenIcon />
                         </EmptyMedia>
-                        <EmptyTitle>{status === 'done' ? 'No done projects' : 'No active projects'}</EmptyTitle>
+                        <EmptyTitle>{listStatus === 'done' ? 'No done projects' : 'No active projects'}</EmptyTitle>
                         <EmptyDescription>
                             {client
                                 ? 'No projects match this client and status. Choose another filter to see more projects.'
-                                : status === 'done'
+                                : listStatus === 'done'
                                 ? 'Projects you mark as done move here. You can reopen them any time.'
                                 : canManageProjects
                                     ? 'Create a project for the site you want to review, then add one script tag to it.'
                                     : 'Projects you are invited to show up here.'}
                         </EmptyDescription>
                     </EmptyHeader>
-                    {status === 'active' && canManageProjects && (
+                    {listStatus === 'active' && canManageProjects && (
                         <EmptyContent>
                             <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
                                 <PlusIcon data-icon="inline-start" />
@@ -160,6 +147,25 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                     )}
                 </Empty>
             )}
+        </ProjectStatusPanel>
+    );
+
+    return (
+        <>
+            <PageHeader
+                title="Projects"
+                // The empty active list has its own Create project
+                actions={createProject && (lists.active.length > 0 ? createProject : <ProjectStatusPanel status="done">{createProject}</ProjectStatusPanel>)}>
+                <div className="flex flex-wrap items-center gap-3">
+                    <ProjectStatusTabs
+                        hrefs={{ active: statusHref('active'), done: statusHref('done') }}
+                        counts={{ active: lists.active.length, done: lists.done.length }} />
+                    {/* Only when a project has a client, like the sidebar's Clients link */}
+                    {clients.length > 0 && <ClientFilter clients={clients.map(({ id, name }) => ({ id, name }))} value={client} />}
+                </div>
+            </PageHeader>
+            {statusPanel('active')}
+            {statusPanel('done')}
         </>
     );
 }

@@ -296,3 +296,71 @@ test('a settings section link shows its spinner at the end of the link while the
         await expect(spinner).toBeHidden();
     } finally { pending.release(); }
 });
+
+test('Active and Done switch the projects list at once, with no spinner or space for one', async ({ page }) => {
+    await signIn(page, uniqueEmail('project-status'));
+    await createProject(page, { urls: ['ongoing.example.com'], name: 'Ongoing site' });
+    await createProject(page, { urls: ['finished.example.com'], name: 'Finished site' });
+    await page.goto('/app/projects');
+    const active = page.getByRole('list', { name: 'Active projects' });
+    const done = page.getByRole('list', { name: 'Done projects' });
+    await active.getByRole('button', { name: 'More actions for Finished site' }).click();
+    await page.getByRole('menuitem', { name: 'Mark as done' }).click();
+    await expect(active.getByRole('listitem')).toHaveCount(1);
+    const tabs = page.getByRole('navigation', { name: 'Project status' });
+    const activeTab = tabs.getByRole('link', { name: 'Active 1', exact: true });
+    const doneTab = tabs.getByRole('link', { name: 'Done 1', exact: true });
+    await hydrated(tabs);
+    // No spinner, and no space kept for one: the label and count sit in the middle of their tab
+    const insets = () => doneTab.evaluate(a => {
+        const range = document.createRange();
+        range.selectNodeContents(a);
+        const box = a.getBoundingClientRect(), content = range.getBoundingClientRect();
+        return [Math.round(content.left - box.left), Math.round(box.right - content.right)];
+    });
+    await expect(tabs.locator('[data-slot="spinner"]')).toHaveCount(0);
+    const [left, right] = await insets();
+    expect(right).toBe(left);
+
+    const requests: string[] = [];
+    page.on('request', request => {
+        if (new URL(request.url()).pathname === '/app/projects' && request.method() === 'GET' && !request.headers()['next-router-prefetch']) requests.push(request.url());
+    });
+    // A regression cannot silently pass on a fast local server: refuse every round trip for the list
+    await page.route('**/app/projects?*', route => route.request().method() === 'GET' ? route.abort() : route.continue());
+    await doneTab.click();
+    await expect(done.getByRole('link', { name: 'Finished site' })).toBeVisible();
+    await expect(active).toBeHidden();
+    await expect(doneTab).toHaveAttribute('aria-current', 'page');
+    await expect(activeTab).not.toHaveAttribute('aria-current');
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.searchParams.get('status') === 'done');
+    await expect(tabs.locator('[data-slot="spinner"]')).toHaveCount(0);
+    expect(await insets()).toEqual([left, right]);
+    // The keyboard switches back
+    await activeTab.focus();
+    await page.keyboard.press('Enter');
+    await expect(active.getByRole('link', { name: 'Ongoing site' })).toBeVisible();
+    await expect(done).toBeHidden();
+    await expect(activeTab).toHaveAttribute('aria-current', 'page');
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects' && !url.searchParams.has('status'));
+    await page.goBack();
+    await expect(doneTab).toHaveAttribute('aria-current', 'page');
+    await expect(done.getByRole('link', { name: 'Finished site' })).toBeVisible();
+    await page.goForward();
+    await expect(activeTab).toHaveAttribute('aria-current', 'page');
+    await expect(active.getByRole('link', { name: 'Ongoing site' })).toBeVisible();
+    await page.goBack();
+    await expect(doneTab).toHaveAttribute('aria-current', 'page');
+    expect(requests).toEqual([]);
+    await page.unroute('**/app/projects?*');
+
+    // A reload keeps the tab, and a done project reopens from it as before
+    await page.reload();
+    await expect(doneTab).toHaveAttribute('aria-current', 'page');
+    await done.getByRole('button', { name: 'More actions for Finished site' }).click();
+    await page.getByRole('menuitem', { name: 'Reopen' }).click();
+    await expect(page.getByText('No done projects', { exact: true })).toBeVisible();
+    await expect(tabs.getByRole('link', { name: 'Done 0', exact: true })).toHaveAttribute('aria-current', 'page');
+    await tabs.getByRole('link', { name: 'Active 2', exact: true }).click();
+    await expect(active.getByRole('listitem')).toHaveCount(2);
+});

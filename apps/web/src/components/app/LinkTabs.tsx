@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { setUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { cn } from '@/src/lib/utils';
 import { NavigationPending } from './NavigationPending';
 
@@ -14,13 +15,20 @@ export type LinkTab = {
     current?: boolean;
     /** Also current on the pages below its href (a settings section's own pages) */
     nested?: boolean;
+    /**
+     * The search params this tab sets (a value) or removes (`undefined`) when the page already holds what it
+     * shows (a list's Active and Done): a click changes the address at once, without a server request, so the
+     * tab has no spinner and keeps no space for one. Pass `current` from `useUrlSearchParams`.
+     */
+    query?: Record<string, string | undefined>;
 };
 
 /**
  * Tabs that are links (a page or a filter kept in the URL), styled like shadcn's tabs:
  * `line` under a page header, `segmented` for a filter, `side` for the sections of a page (a column
  * beside them on wide screens, a row above them on small ones). The current tab has `aria-current`; a tab
- * whose page is loading shows a spinner at its end (the right edge of a `side` link on wide screens).
+ * whose page is loading shows a spinner at its end (the right edge of a `side` link on wide screens), and a
+ * `query` tab switches at once, with neither. Opening a tab in a new tab or window loads its href.
  */
 export function LinkTabs({ tabs, label, variant = 'line', match = 'url', className }: {
     tabs: LinkTab[];
@@ -57,11 +65,18 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
             )}>
             {tabs.map(tab => {
                 const current = tab.current ?? (tab.href === here || (tab.nested === true && pathname.startsWith(`${tab.href}/`)));
+                const { query } = tab;
                 return (
                     <Link
                         key={tab.href}
                         href={tab.href}
                         aria-current={current ? 'page' : undefined}
+                        // Nothing to load: the address changes during the click (Back and Forward follow it)
+                        prefetch={query ? false : undefined}
+                        onNavigate={query ? event => {
+                            event.preventDefault();
+                            setUrlSearchParams(query, { history: 'push' });
+                        } : undefined}
                         className={cn(
                             'inline-flex shrink-0 items-center gap-1.5 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
                             variant === 'line' && 'h-10 border-b-2 border-transparent aria-[current=page]:border-foreground aria-[current=page]:text-foreground',
@@ -71,7 +86,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                         {tab.label}
                         {tab.count !== undefined && <span className="font-normal tabular-nums text-muted-foreground">{tab.count}</span>}
                         {/* Last, so the label and count stay together; at the right edge of a section link that fills its column */}
-                        <NavigationPending className="ml-auto" />
+                        {!query && <NavigationPending className="ml-auto" />}
                     </Link>
                 );
             })}

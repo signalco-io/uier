@@ -534,6 +534,13 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   1 px padding (`[&>img]:p-px`), so the favicon shows at the 16 px it is drawn for; a negative margin keeps
   the tile in the menu button's 16 px icon slot, so project names line up with Projects and My work,
   expanded, collapsed to icons and in the mobile sheet.
+- **Projects list** (`(shell)/projects/page.tsx`): the page renders both the active and the done list (and
+  each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
+  names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
+  (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;
+  Back, Forward and reload keep the tab, and opening a tab in a new window loads its href. Open counts come
+  from `loadProjectUsage` for every listed project. `ClientFilter` still navigates (server filter) and keeps
+  the status from the current address.
 - The project header's Open review is a menu with Review and Visit site for every address; the header does not
   repeat the addresses. The install guide
   opens from the empty comments list and from Settings → Installation. It shows "Connected" with the latest
@@ -782,11 +789,15 @@ follow and read changes for cards, counters and board columns. Failed actions re
 revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
 `NavigationPending` gives settings links immediate feedback while their authorized destination loads.
 `LinkTabs` puts its spinner last, after any count: at the right end of a section link that fills its
-column, in space kept while hidden so nothing moves when it appears.
+column, in space kept while hidden so nothing moves when it appears. A tab with `query` (the projects
+list's Active and Done, whose page already holds both lists) changes only the address, so it has no
+spinner and keeps no space for one; keep the spinner on tabs that load a page (settings sections,
+project tabs, the workspace area).
 `e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
 immediate updates, rollback, persistence and background feedback submission on desktop and mobile,
 and that the open thread and the filters follow clicks and Back while a write is held; it also holds a
-settings section's page to check where that link's spinner sits.
+settings section's page to check where that link's spinner sits, and refuses the projects list's round
+trips to check that Active and Done switch at once, with no spinner, through Back, Forward and reload.
 
 ## Rewrite accounting
 
