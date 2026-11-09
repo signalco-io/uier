@@ -94,11 +94,12 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     alone is wider: its columns grow to 20rem each (four fill a 1674 px window with the sidebar open) and centre beyond that.
     Above them: search, one Filter button (priority; environment and page in one control, with environments on the left
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
-    people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (the toolbar inbox's Open,
-    In progress, Ready to verify, Done and All, with counts; Open is everything not done). Filters in effect show under the bar, each with a clear button. Each
+    people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (Active,
+    Open, In progress, Ready to verify, Done and All, with counts; Active, the default, is everything not done,
+    and `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
-    status, the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
+    status (a dot and its name, Open too, so an Active list shows where each thread is), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
     or the browser's Back), and in a sheet on the board. On the board, drag a card to another column with the mouse,
     or press and hold it on a touch screen (the page scrolls at the edges), or use its Move button, which lists the
@@ -193,7 +194,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
 
 ### Page and comment responsiveness
 
-The app filters loaded comments immediately when switching Open/In progress/Ready to verify/Done/All, List/Board, people,
+The app filters loaded comments immediately when switching Active/Open/In progress/Ready to verify/Done/All, List/Board, people,
 pages or unread. These choices stay in the URL and work with Back, Forward and reload. Changing
 environment or author still loads a fresh authorized list from the server. Settings links show
 navigation feedback, and General renders its forms before usage totals finish loading.

@@ -30,7 +30,8 @@ import { RealtimeComments } from './RealtimeComments';
 
 /** A status tab with nothing in it (All always has something once the other filters match) */
 const emptyStatus: Record<StatusFilter, { title: string; description: string }> = {
-    open: { title: 'Nothing open', description: 'Every comment here is done. Choose Done or All to see them.' },
+    active: { title: 'Nothing active', description: 'Every comment here is done. Choose Done or All to see them.' },
+    open: { title: 'Nothing open', description: 'Comments no one has started show here.' },
     'in-progress': { title: 'Nothing in progress', description: 'Comments someone is working on show here.' },
     ready: { title: 'No checks requested', description: 'Requested fix checks show here.' },
     done: { title: 'Nothing done yet', description: 'Comments marked as done show here.' },
@@ -212,7 +213,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
-                            {query.status === 'open' ? <CircleCheckIcon /> : <CircleDashedIcon />}
+                            {query.status === 'active' ? <CircleCheckIcon /> : <CircleDashedIcon />}
                         </EmptyMedia>
                         <EmptyTitle>{emptyStatus[query.status].title}</EmptyTitle>
                         <EmptyDescription>{emptyStatus[query.status].description}</EmptyDescription>

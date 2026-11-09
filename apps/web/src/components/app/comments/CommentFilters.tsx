@@ -173,12 +173,12 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                     ))}
                 </ToggleGroup>
             </div>
-            {/* The toolbar inbox's status tabs; the board shows the three statuses side by side.
+            {/* Active (the default, every status but Done), each status on its own and All; the board shows the statuses side by side.
                 The scroller's padding gives the tabs room without adding to the rows' spacing. */}
             {view === 'list' && (
                 <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
                     <ToggleGroup size="sm" spacing={0.5} aria-label="Status" className={cn(segmentedGroup, 'w-max')} value={[status]}
-                        onValueChange={([value]) => value && go({ status: value === 'open' ? undefined : value })}>
+                        onValueChange={([value]) => value && go({ status: value === 'active' ? undefined : value })}>
                         {(Object.keys(statusFilterLabels) as StatusFilter[]).map(value => (
                             <ToggleGroupItem key={value} value={value} className={segmentedItem}>
                                 {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{statusCounts[value]}</span>

@@ -104,10 +104,10 @@ test('the open thread and the filters follow clicks and Back while a write waits
         await page.getByRole('button', { name: 'Done 1', exact: true }).click(now);
         await expect(page.getByRole('button', { name: 'Done 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
         await page.goBack();
-        await expect(page.getByRole('button', { name: 'Open 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
+        await expect(page.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
         expect(posts).toBe(1);
     } finally { pending.release(); }
-    await expect(page.getByRole('button', { name: 'Open 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('status, assignment, follow and read changes render before the server confirms and persist', async ({ page, request }) => {

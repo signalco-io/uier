@@ -985,10 +985,10 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(page).toHaveTitle('Reviewed site · uier');
     await expectNoAxeViolations(page);
 
-    // The list shows open comments; Done and All show closed ones. Done and Reopen take a comment out
+    // The list shows active comments; Done and All show closed ones. Done and Reopen take a comment out
     await page.goto(`/app/projects/${projectId}`);
     const status = page.getByRole('group', { name: 'Status' });
-    await expect(status.getByRole('button', { name: 'Open 1' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(status.getByRole('button', { name: 'Active 1' })).toHaveAttribute('aria-pressed', 'true');
     await expect(commentRows(page)).toHaveCount(1);
     await expect(commentRowLink(page, 'Pricing needs a table.')).toHaveCount(0);
     await status.getByRole('button', { name: 'Done 1' }).click();

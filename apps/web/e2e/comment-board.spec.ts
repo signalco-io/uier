@@ -290,21 +290,70 @@ test('In progress is a column between Open and Ready to verify; cards move in an
         await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
     }
 
-    // The list's status tabs: In progress is part of Open and has its own tab
+    // The list's status tabs: In progress is part of Active and has its own tab
     await column('Open').getByRole('button', { name: `Move comment #${comments[1]!.number}`, exact: true }).click();
     await page.getByRole('menuitem', { name: 'In progress', exact: true }).click();
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
-    await expect(tabs.getByRole('button')).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^All/]);
-    await expect(tabs.getByRole('button', { name: /^Open/ })).toContainText(/\d/);
+    await expect(tabs.getByRole('button')).toHaveText([/^Active/, /^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^All/]);
+    await expect(tabs.getByRole('button', { name: /^Active/ })).toContainText(/\d/);
     await tabs.getByRole('button', { name: /^In progress/ }).click();
     await expect(page).toHaveURL(/status=in-progress/);
     const row = page.locator('[data-comment-id]').filter({ hasText: 'Second board thread' });
     await expect(row).toBeVisible();
     await expect(page.getByRole('link', { name: /First board thread/ })).toHaveCount(0);
-    // The row says its status other than Open
+    // The row says its status
     await expect(row).toContainText('In progress');
+});
+
+test('the list shows Active by default, every status but Done, and each row says its status', async ({ page, request }) => {
+    const { project, comments, column } = await board(page, request);
+    const response = await request.post(`/api/review/${project}/comments`, { headers: await verifiedReviewHeaders(request, project, site.origin()), data: {
+        path: `/${project}/pricing`, text: 'Third board thread', authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    await page.reload();
+    const move = async (number: number, to: string) => {
+        await page.getByRole('button', { name: `Move comment #${number}`, exact: true }).click();
+        await page.getByRole('menuitem', { name: to, exact: true }).click();
+        await expect(column(to).getByRole('listitem').filter({ hasText: `#${number}` })).toHaveCount(1);
+    };
+    await move(comments[0]!.number, 'In progress');
+    await move(comments[1]!.number, 'Done');
+
+    // No `?status=`: Active, with Open and In progress threads but not the Done one
+    await page.goto(`/app/projects/${project}`);
+    const tabs = page.getByRole('group', { name: 'Status', exact: true });
+    await expect(tabs.getByRole('button')).toHaveText([/^Active 2$/, /^Open 1$/, /^In progress 1$/, /^Ready to verify 0$/, /^Done 1$/, /^All 3$/]);
+    await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const rows = page.locator('[data-comment-id]');
+    const row = (text: string) => rows.filter({ hasText: text });
+    await expect(rows).toHaveCount(2);
+    await expect(row('Second board thread')).toHaveCount(0);
+    // Every row says its status, Open too, inside the layout
+    for (const [text, status] of [['First board thread', 'In progress'], ['Third board thread', 'Open']] as const) {
+        const state = row(text).getByText(`Status: ${status}`, { exact: true });
+        await expect(state).toBeVisible();
+        await expect(state).toBeInViewport({ ratio: 1 });
+    }
+
+    // One status at a time still filters, and stays in the address
+    await tabs.getByRole('button', { name: 'Open 1', exact: true }).click();
+    await expect(page).toHaveURL(/status=open/);
+    await expect(rows).toHaveCount(1);
+    await expect(row('Third board thread')).toHaveCount(1);
+    await tabs.getByRole('button', { name: 'Done 1', exact: true }).click();
+    await expect(rows).toHaveCount(1);
+    await expect(row('Second board thread').getByText('Status: Done', { exact: true })).toBeVisible();
+    await page.goto(`/app/projects/${project}?status=in-progress`);
+    await expect(tabs.getByRole('button', { name: 'In progress 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(rows).toHaveCount(1);
+    await expect(row('First board thread')).toHaveCount(1);
+    // Back to Active: the address drops `status`
+    await tabs.getByRole('button', { name: 'Active 2', exact: true }).click();
+    await expect(page).not.toHaveURL(/status=/);
+    await expect(rows).toHaveCount(2);
 });
 
 test('board cards drag to and from In progress; from Ready to verify it cancels the check', async ({ page, request }, testInfo) => {
