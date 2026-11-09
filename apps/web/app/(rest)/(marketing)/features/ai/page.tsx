@@ -9,7 +9,8 @@ import { KnownPages } from '../../../../../src/knownPages';
 // What uier does with AI today: the MCP connector for coding tools (docs/mcp.md; src/lib/mcp:
 // server.ts for the tools, workflows.ts for the prompts and the skill, clients.ts for the clients
 // Account offers; src/components/app/mcp/scopes.ts for the operation labels) and rewrite
-// suggestions in the toolbar (src/lib/rewrite, packages/toolbar RewriteSuggestions). Change this page
+// suggestions in the toolbar (src/lib/rewrite, packages/toolbar RewriteSuggestions), and its FAQ names AI thread
+// titles (src/lib/titles). Change this page
 // with them. Offer a client here only once Account offers it. The connector never confirms a fix
 // (fix verification), and approval of each write happens in the coding tool, not in uier.
 
@@ -77,7 +78,7 @@ const questions: Question[] = [
     },
     {
         question: `Does ${brand.name} send my feedback to an AI model?`,
-        answer: <>Not through the MCP connector: your coding tool reads the feedback and handles it under its own terms, including what it sends to its model. Rewrite suggestions send the selected text and your instruction to Anthropic. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
+        answer: <>Not through the MCP connector: your coding tool reads the feedback and handles it under its own terms, including what it sends to its model. Rewrite suggestions send the selected text and your instruction to Anthropic. Thread titles send each thread&rsquo;s first message to Anthropic, whose Claude Haiku writes a short title for lists, unless an admin turns them off. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
     },
     {
         question: 'Can an agent change things without asking?',

@@ -43,7 +43,7 @@ const emptyStatus: Record<StatusFilter, { title: string; description: string }> 
 function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
     return comments.filter(comment => {
         if (query.priority && comment.priority !== query.priority) return false;
-        if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
+        if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, context: comment.title ? [comment.title] : undefined, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
         if (query.unread && !comment.activity?.unread && comment.id !== openId) return false;
         if (query.page && !pageMatches(query.page, comment.path))
             return false;

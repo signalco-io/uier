@@ -363,8 +363,10 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   hash/fetch failures and expiry. `feedback-context.api.spec.ts` covers literal Markdown titles,
   names and metadata, including URLs/hosts and user/team mentions, with unchanged structured context.
 
-Browser verification and rewrite requests use the local Anthropic stand-in configured by Playwright;
-the suite uses fake credentials and does not require live provider calls. `rewrite-accounting.api.spec.ts`
+Browser verification, rewrite and AI thread title requests use the local Anthropic stand-in configured by
+Playwright; the suite uses fake credentials and does not require live provider calls. Every new thread asks
+the stand-in for a title, which it gives only for a `[stub:title:Words]` marker in the first message, so other
+tests keep seeing first lines (`ai-titles.api.spec.ts` covers the title request with an injected fetch). `rewrite-accounting.api.spec.ts`
 checks token pricing, outcomes, retries, missing usage, privacy and daily report coverage. The
 [rewrite cost runbook](rewrite-costs.md) has the no-network comparison command and the separate bounded
 live-evaluation procedure. Keep all automated checks on stubs.

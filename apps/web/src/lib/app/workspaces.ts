@@ -32,6 +32,21 @@ export async function renameWorkspace(workspaceId: string, userId: string, name:
     return updated;
 }
 
+/**
+ * Turns AI thread titles on or off for the workspace's projects (each project can override it), for
+ * one of its admins. Only this setting changes.
+ */
+export async function setWorkspaceAiTitles(workspaceId: string, userId: string, enabled: unknown) {
+    assertMutableWorkspace(workspaceId);
+    const parsed = z.boolean().parse(enabled);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin')
+        throw new UserFacingError('Only admins can do this.');
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, aiTitles: parsed }));
+    if (!updated)
+        throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
+}
+
 export async function getMember(workspaceId: string, userId: string) {
     return (await getAppStore().get<DbMember>(workspacePk(workspaceId), memberId(userId)))?.doc ?? null;
 }

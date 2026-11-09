@@ -25,7 +25,7 @@ Vercel-trusted identity; account-key authentication remains enabled until the st
   The app's data container is `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`); only production gets the
   email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
   existing variable sensitivity is retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
-  suggestions) once the production-environment secret `ANTHROPIC_API_KEY` is set,
+  suggestions and AI thread titles; `UIER_AI_TITLES=off`, set by hand, stops only the titles) once the production-environment secret `ANTHROPIC_API_KEY` is set,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
   both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself;
   the apex CAA `0 issue letsencrypt.org` restricts issuance to that documented CA (Cloudflare `data`, not `content`),

@@ -7,9 +7,12 @@ function stable(value: unknown): string {
         .sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`).join(',')}}`;
     return JSON.stringify(value) ?? 'null';
 }
-/** Opaque content revision. Future workflow fields participate automatically; delivery bookkeeping does not. */
+/**
+ * Opaque content revision. Future workflow fields participate automatically; delivery bookkeeping
+ * does not, and neither does the generated title (`aiTitle`), which follows the first message.
+ */
 export function commentRevision(comment: DbComment) {
     const content = Object.fromEntries(Object.entries(comment).filter(([key]) => !key.startsWith('_')
-        && !key.startsWith('sync') && !key.startsWith('notification')));
+        && !key.startsWith('sync') && !key.startsWith('notification') && key !== 'aiTitle'));
     return createHash('sha256').update(stable(content)).digest('hex');
 }

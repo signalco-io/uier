@@ -4,6 +4,6 @@
  */
 export async function register() {
     if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-    const [{ after }, { registerAfterResponse }] = await Promise.all([import('next/server'), import('./src/lib/mcp/events/trigger')]);
+    const [{ after }, { registerAfterResponse }] = await Promise.all([import('next/server'), import('./src/lib/afterResponse')]);
     registerAfterResponse(after);
 }

@@ -12,6 +12,7 @@ import { listProjectMembers } from '@/src/lib/app/members';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { ProjectGeneralForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { projectAiTitleMode, workspaceAiTitles } from '@/src/lib/titles/settings';
 import { projectSettingsContext } from './settingsContext';
 
 export const metadata: Metadata = {
@@ -31,7 +32,8 @@ export default async function ProjectSettingsPage({ params }: PageProps<'/app/pr
 
     return (
         <>
-            <ProjectGeneralForm projectId={project.id} name={project.name} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)} />
+            <ProjectGeneralForm projectId={project.id} name={project.name} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)}
+                aiTitles={projectAiTitleMode(project)} workspaceAiTitles={workspaceAiTitles(context.workspace)} />
             <Suspense fallback={<AppPageLoading />}>
                 <ProjectUsageSection context={context} project={project} />
             </Suspense>

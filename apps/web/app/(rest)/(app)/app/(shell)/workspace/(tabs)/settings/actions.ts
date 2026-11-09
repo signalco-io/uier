@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
-import { renameWorkspace } from '@/src/lib/app/workspaces';
+import { renameWorkspace, setWorkspaceAiTitles } from '@/src/lib/app/workspaces';
 
 export async function renameWorkspaceAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
@@ -11,4 +11,14 @@ export async function renameWorkspaceAction(_: ActionState, formData: FormData):
         await renameWorkspace(context.workspace.id, context.user.id, formData.get('name') ?? '');
         revalidatePath('/app', 'layout');
     }, 'The workspace name is saved.');
+}
+
+/** AI thread titles for the workspace's projects; projects can override it */
+export async function setWorkspaceAiTitlesAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        const context = await appContextOrThrow({ admin: true });
+        const enabled = formData.get('aiTitles');
+        await setWorkspaceAiTitles(context.workspace.id, context.user.id, enabled === 'true' ? true : enabled === 'false' ? false : enabled);
+        revalidatePath('/app', 'layout');
+    }, 'The thread title setting is saved.');
 }

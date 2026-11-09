@@ -400,6 +400,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
         thread: { ...comment.thread, items: [placeholder, ...replies] },
         updatedAt: now
     };
+    delete updated.aiTitle;
     delete updated.verification;
     delete updated.authorId;
     delete updated.device;

@@ -36,6 +36,7 @@ import { assertEligibleParticipant, assertParticipantEditor, validateMentions } 
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
 import { queueMcpEventDelivery } from '../mcp/events/trigger';
+import { queueAiTitles } from '../titles/threadTitles';
 import { currentAssigneeAgent } from './assigneeAgentModel';
 
 /** Most comments the app loads for a project (all pages) */
@@ -262,10 +263,12 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (attempt) {
         const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined);
         queueMcpEventDelivery(project.id);
+        queueAiTitles(project, [saved], 'new');
         return visibleOrThrow(saved, actor);
     }
     await createWithScreenshot(store, recorded, screenshot);
     queueMcpEventDelivery(project.id);
+    queueAiTitles(project, [recorded], 'new');
     return recorded;
 }
 
@@ -301,6 +304,7 @@ export async function enforceProjectRewriteLimits(request: Request, project: DbP
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
     const saved = await appendProjectReply(request, project, actor, id, input);
     queueMcpEventDelivery(project.id);
+    queueAiTitles(project, [saved], 'change');
     return saved;
 }
 
@@ -371,6 +375,8 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
     const saved = attempt ? await commitChangeSubmission(store, attempt, id, authorize, apply, guard?.onResult)
         : await updateComment(store, project, actor, id, apply);
     queueMcpEventDelivery(project.id);
+    // A new first message (an edit) gets a new title; a thread made before titles gets its first one
+    queueAiTitles(project, [saved], 'change');
     return saved;
 }
 
@@ -485,7 +491,10 @@ export async function editProjectCommentText(project: DbProject, actor: ProjectA
             if (!first)
                 throw apiErrors.notFound();
             if (first.text === text) return comment;
-            return { ...comment, thread: { ...comment.thread, items: [{ ...first, text, mentions: moveMentions(first.text, text, first.mentions ?? []), editedAt: nowIso() }, ...replies] } };
+            const edited: DbComment = { ...comment, thread: { ...comment.thread, items: [{ ...first, text, mentions: moveMentions(first.text, text, first.mentions ?? []), editedAt: nowIso() }, ...replies] } };
+            // The title described the old text: it goes with it, and a new one is made after the save
+            delete edited.aiTitle;
+            return edited;
         });
 }
 
@@ -496,7 +505,9 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
             const edited = withEditedThreadItem(comment, itemId, input, item => canEditItem(item, actor));
             const previous = comment.thread.items.find(item => item.id === itemId);
             const mentions = await validateMentions(project, actor, comment, input.text, input.mentions, previous);
-            const updated = { ...edited, thread: { ...edited.thread, items: edited.thread.items.map(item => item.id === itemId ? { ...item, mentions } : item) } };
+            const updated: DbComment = { ...edited, thread: { ...edited.thread, items: edited.thread.items.map(item => item.id === itemId ? { ...item, mentions } : item) } };
+            // An edit of the first message drops the title made from it; a new one is made after the save
+            if (edited.thread.items[0]?.id === itemId) delete updated.aiTitle;
             const existing = new Set(previous?.mentions?.map(mention => mention.userId));
             const recipients = mentionRecipients(mentions.filter(mention => !existing.has(mention.userId)));
             return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
@@ -557,6 +568,8 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             if (item.createdAt)
                 placeholder.createdAt = item.createdAt;
             const kept: DbComment = { ...comment, thread: { ...comment.thread, items: [placeholder, ...replies] }, updatedAt: now };
+            // The title was made from the deleted text
+            delete kept.aiTitle;
             delete kept.verification;
             delete kept.authorId;
             delete kept.device;

@@ -50,6 +50,7 @@ import {
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
 import type { TransferPreview, TransferTarget } from '../../../lib/app/projectTransfer';
+import { projectAiTitleModes, type ProjectAiTitleMode } from '../../../lib/titles/settings';
 
 /** React resets a form after its action; the fields here are controlled, so keep what they show */
 const keepValues = (event: FormEvent) => {
@@ -57,11 +58,25 @@ const keepValues = (event: FormEvent) => {
     event.stopPropagation();
 };
 
-/** General: the project's name and its client, one save */
-export function ProjectGeneralForm({ projectId, name, clientName, clients }: { projectId: string; name: string; clientName?: string; clients: string[] }) {
+/** General: the project's name, its client and its AI thread titles, one save */
+export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTitles, workspaceAiTitles }: {
+    projectId: string;
+    name: string;
+    clientName?: string;
+    clients: string[];
+    /** The project's own choice, or the workspace's setting */
+    aiTitles: ProjectAiTitleMode;
+    /** The workspace's setting, which `workspace` follows */
+    workspaceAiTitles: boolean;
+}) {
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectGeneralAction, null);
-    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '' }, state);
+    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', aiTitles }, state);
+    const aiTitleOptions = [
+        { value: 'workspace', label: `Workspace setting (${workspaceAiTitles ? 'on' : 'off'})` },
+        { value: 'on', label: 'On' },
+        { value: 'off', label: 'Off' }
+    ] satisfies { value: ProjectAiTitleMode; label: string }[];
     return (
         <Section
             id="general"
@@ -88,6 +103,24 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients }: { p
                             onValueChange={value => update(current => ({ ...current, clientName: value }))} clients={clients} className="max-w-md" />
                         <FieldDescription>
                             Who the project is for. Edit a client&apos;s name, icon and colour on <Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">Clients</Link>.
+                        </FieldDescription>
+                    </Field>
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-ai-titles`}>Thread titles</FieldLabel>
+                        <input type="hidden" name="aiTitles" value={draft.aiTitles} />
+                        <Select value={draft.aiTitles} items={aiTitleOptions}
+                            onValueChange={value => update(current => ({ ...current, aiTitles: projectAiTitleModes.find(mode => mode === value) ?? 'workspace' }))}>
+                            <SelectTrigger id={`${formId}-ai-titles`} className="w-full max-w-md">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    {aiTitleOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            A short title for each thread, written by Claude Haiku from its first message and shown in place of the first line. Change the workspace setting in <Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">Workspace settings</Link>.
                         </FieldDescription>
                     </Field>
                 </FieldGroup>
