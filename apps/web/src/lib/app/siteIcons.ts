@@ -23,6 +23,8 @@ import { isPublicAddress, publicLookup } from '../mcp/publicNetwork';
 export const MAX_PAGE_BYTES = 512 * 1024;
 export const MAX_ICON_BYTES = 256 * 1024;
 const REQUEST_TIMEOUT_MS = 5_000;
+/** Less time left than this, and no request starts: it could not finish (timers may fire a moment early) */
+const MIN_REQUEST_MS = 50;
 const MAX_REDIRECTS = 5;
 const MAX_ICON_ATTEMPTS = 6;
 const FOUND_TTL_MS = 24 * 60 * 60 * 1000;
@@ -170,7 +172,7 @@ async function fetchFollowing(start: URL, read: Read, context: Context): Promise
     let url = start;
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
         const remaining = context.deadline - Date.now();
-        if (remaining <= 0 || !isFetchableUrl(url, context.ports))
+        if (remaining < MIN_REQUEST_MS || !isFetchableUrl(url, context.ports))
             return null;
         const answer = await get(url, read, Math.min(context.timeoutMs, remaining), context.lookup);
         if (!answer)
@@ -335,7 +337,7 @@ export async function resolveSiteIcon(siteUrl: string, { lookup = publicLookup, 
     const origins = [...new Set([page?.url.origin ?? site.origin, site.origin])];
     const usual = usualPaths.flatMap(path => origins.map(origin => `${origin}${path}`));
     for (const href of [...new Set([...declared, ...usual])].slice(0, MAX_ICON_ATTEMPTS)) {
-        if (Date.now() >= context.deadline)
+        if (context.deadline - Date.now() < MIN_REQUEST_MS)
             break;
         const icon = await loadIcon(href, context);
         if (icon)
