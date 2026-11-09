@@ -10,7 +10,7 @@ const limit = (value: string, max: number) => Array.from(value).slice(0, max).jo
 /** Reviewer text stays plain_text; generated links never interpolate a reviewer-supplied label. */
 export function slackRootMessage(context: FeedbackContext, projectName: string, baseUrl = 'https://uier.io') {
     const number = context.identity.number ? `#${context.identity.number}` : 'Feedback';
-    const title = limit(literal(`${slackLabel(projectName) || 'Project'} · ${number} · ${context.kind === 'rewrite' ? 'Suggested rewrite' : context.kind === 'bug' ? 'Bug' : 'Feedback'} · ${context.status === 'done' ? 'Done' : 'Open'}`), 180);
+    const title = limit(literal(`${slackLabel(projectName) || 'Project'} · ${number} · ${context.kind === 'rewrite' ? 'Suggested rewrite' : context.kind === 'bug' ? 'Bug' : context.kind.startsWith('custom_') ? context.feedbackType?.label ?? 'Feedback' : 'Feedback'} · ${context.status === 'done' ? 'Done' : 'Open'}`), 180);
     let excerpt = limit(literal(context.feedback?.deleted ? 'This message was deleted.'
         : `${context.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${context.feedback?.text ?? 'Feedback is unavailable.'}`), 500);
     const verification = context.verification ? limit(literal(verificationDescription(context.verification)), 500) : '';

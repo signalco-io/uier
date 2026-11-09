@@ -1,3 +1,4 @@
+import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { setIntegrationReplySync } from '../src/lib/integrations/connection';
 import { randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
@@ -614,4 +615,16 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     current = await dispatch(f); expect([...slack.messages.values()].filter(message => message.threadTs === root.ts)).toHaveLength(1);
     slack.messages.get(`${root.channelId}:${ts}`)!.payload.text = 'Edited in Slack'; await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe('Edited in Slack');
     current = await dispatch(f); slack.messages.delete(`${root.channelId}:${ts}`); await poll(); expect((await source(f)).thread.items.at(-1)!.deletedAt).toBeTruthy();
+});
+
+ test('custom feedback types use their saved label and built-in names stay stable', () => {
+    const context: FeedbackContext = {
+        schemaVersion: 1, contentTrust: 'untrusted', identity: { commentId: 'comment_type' },
+        title: 'Saved thread', kind: 'custom_design', feedbackType: { id: 'custom_design', label: 'Design review', icon: 'message' },
+        status: 'open', feedback: null, anchor: { type: 'page' }, source: { path: '/' }, links: {},
+        reproduction: {}, screenshot: { state: 'unavailable' }, discussion: [], notes: []
+    };
+    expect(slackRootMessage(context, 'Project').payload.text).toContain('Design review');
+    for (const [kind, label] of [['feedback', 'Feedback'], ['bug', 'Bug'], ['rewrite', 'Suggested rewrite']] as const)
+        expect(slackRootMessage({ ...context, kind }, 'Project').payload.text).toContain(` · ${label} · `);
 });

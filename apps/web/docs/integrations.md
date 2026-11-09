@@ -104,3 +104,5 @@ Manual thread pull requests use the same canonical parser and state read path as
 
 Notion Kind select values use the saved feedback type label for custom kinds; built-in values
 retain their original lowercase names so existing database options remain stable.
+Slack notification titles also use the saved custom label, retaining the existing Feedback, Bug and
+Suggested rewrite titles for built-in kinds. Labels remain literal, bounded text.
