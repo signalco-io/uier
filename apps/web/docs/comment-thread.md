@@ -118,6 +118,8 @@
   and mentions as `editable` only then). Edit turns the message into `MessageEditor` in place: the saved text with
   Cancel and Save (Enter saves, Shift+Enter adds a line, Escape cancels), and the menu takes the focus back when it
   closes. `MentionTextarea` is the field with `@` mentions that the reply form uses too; mentions move with the text.
+  After a chosen mention the caret is placed in a layout effect, in the same commit as the new value, so typing straight
+  on continues after the name; a deferred move (`requestAnimationFrame`) once let later keys land before the name.
   `editCommentReplyAction` calls the review API's edit (`editProjectCommentItem`: `expectedText`, mentions, the
   edited label); the new text shows at once through `CommentUpdates`. When the message changed in the meantime the
   edit is refused, the field keeps the tried text and says why. `e2e/app-message-edit.spec.ts` covers it. The first

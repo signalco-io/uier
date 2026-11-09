@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState, type ComponentProps, type RefObject } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from 'react';
 import { mentionQuery, moveMentions } from '@uier/toolbar/mentions';
 import { Button } from '@/src/components/ui/button';
 import { FieldDescription } from '@/src/components/ui/field';
@@ -15,6 +15,10 @@ type Participant = { id: string; name: string };
  * thread's eligible people (fetched on demand, `commentParticipantsAction`), the arrow keys move through them
  * and Enter or Tab inserts one. Mentions move with the text around them (`moveMentions`). Enter without Shift
  * submits; Escape closes the list first, then calls `onEscape`. Render it inside a `Field`.
+ *
+ * After a mention is inserted the caret goes right after it in the same commit as the new value (a layout
+ * effect), before the next key is handled, so typing straight on never lands elsewhere. Any later input or
+ * selection change drops a caret move still waiting for its value.
  */
 export function MentionTextarea({ projectId, commentId, value, mentions, maxLength, textareaRef, onValueChange, onSubmit, onEscape, onMention, ...props }: {
     projectId: string;
@@ -35,6 +39,8 @@ export function MentionTextarea({ projectId, commentId, value, mentions, maxLeng
     const [people, setPeople] = useState<Participant[]>([]);
     const [peopleError, setPeopleError] = useState(false);
     const listId = useId();
+    /** Where the caret goes once `value` is the text with the chosen mention */
+    const pendingCaret = useRef<{ value: string; at: number } | null>(null);
     const query = dismissed ? undefined : mentionQuery(value, caret);
     const querying = Boolean(query);
     const suggestions = query ? people.filter(person => person.name.toLocaleLowerCase().includes(query.search)).slice(0, 8) : [];
@@ -52,16 +58,24 @@ export function MentionTextarea({ projectId, commentId, value, mentions, maxLeng
         }).catch(() => { if (current) setPeopleError(true); });
         return () => { current = false; };
     }, [projectId, commentId, querying]);
+    useLayoutEffect(() => {
+        const pending = pendingCaret.current;
+        const input = textareaRef.current;
+        if (!pending || !input || value !== pending.value || input.value !== pending.value) return;
+        pendingCaret.current = null;
+        input.focus();
+        input.setSelectionRange(pending.at, pending.at);
+        setCaret(pending.at);
+    }, [value, textareaRef]);
 
     const selectMention = (person: Participant) => {
         if (!query) return;
         const label = `@${person.name}`;
         const next = value.slice(0, query.start) + label + ' ' + value.slice(query.end);
         if (next.length > maxLength) return;
+        pendingCaret.current = { value: next, at: query.start + label.length + 1 };
         onValueChange(next, [...moveMentions(value, next, mentions), { userId: person.id, start: query.start, end: query.start + label.length }].sort((a, b) => a.start - b.start));
         setDismissed(true);
-        const at = query.start + label.length + 1;
-        requestAnimationFrame(() => { textareaRef.current?.focus(); textareaRef.current?.setSelectionRange(at, at); setCaret(at); });
         onMention?.(person.name);
     };
 
@@ -69,8 +83,9 @@ export function MentionTextarea({ projectId, commentId, value, mentions, maxLeng
         <Textarea {...props} ref={textareaRef} value={value} maxLength={maxLength}
             aria-autocomplete={suggestions.length ? 'list' : undefined} aria-controls={suggestions.length ? listId : undefined}
             aria-activedescendant={suggestions.length ? `${listId}-${selected}` : undefined}
-            onSelect={event => setCaret(event.currentTarget.selectionStart)}
+            onSelect={event => { pendingCaret.current = null; setCaret(event.currentTarget.selectionStart); }}
             onChange={event => {
+                pendingCaret.current = null;
                 onValueChange(event.target.value, moveMentions(value, event.target.value, mentions));
                 setCaret(event.target.selectionStart);
                 setDismissed(false);

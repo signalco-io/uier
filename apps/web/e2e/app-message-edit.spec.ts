@@ -22,10 +22,13 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         const card = await openComment(page, 'Thread to edit in the app');
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
         const input = card.getByRole('textbox', { name: 'Reply', exact: true });
+        const name = email.split('@')[0];
         await input.fill('Please check @');
         await expect(card.getByRole('listbox', { name: 'Mention people' }).getByRole('option')).toHaveCount(1);
+        // Typing straight after choosing a mention continues after it (the caret never jumps back)
         await input.press('Tab');
         await input.pressSequentially('first draft');
+        await expect(input).toHaveValue(`Please check @${name} first draft`);
         await input.press('Enter');
         await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
         await card.getByRole('button', { name: 'Close reply' }).click();
@@ -41,7 +44,6 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         expect((await menu.getByRole('menuitem', { name: 'More from this author', exact: true }).boundingBox())!.height).toBe(lineHeight);
         await menu.getByRole('menuitem', { name: 'Edit', exact: true }).click();
         const editor = card.getByRole('textbox', { name: 'Edit reply', exact: true });
-        const name = email.split('@')[0];
         await expect(editor).toBeFocused();
         await expect(editor).toHaveValue(`Please check @${name} first draft`);
         await expect(actions).toHaveCount(0);
@@ -57,17 +59,22 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await card.getByRole('button', { name: 'Cancel', exact: true }).click();
         await expect(card.getByText(`Please check @${name} first draft`, { exact: true })).toBeVisible();
 
-        // Typing after the mention keeps it; the edit shows at once, labeled
+        // Typing after the mention keeps it, a new mention continues where it was chosen; the edit shows at once, labeled
         await actions.click();
         await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
         await editor.press('End');
-        await editor.pressSequentially(', then ship');
+        await editor.pressSequentially(', ask @');
+        await expect(card.getByRole('listbox', { name: 'Mention people' }).getByRole('option')).toHaveCount(1);
+        await editor.press('Enter');
+        await editor.pressSequentially('then ship');
+        await expect(editor).toHaveValue(`Please check @${name} first draft, ask @${name} then ship`);
         await card.getByRole('button', { name: 'Save', exact: true }).click();
-        await expect(card.getByText(`Please check @${name} first draft, then ship (edited)`, { exact: true })).toBeVisible();
+        const edited = `Please check @${name} first draft, ask @${name} then ship (edited)`;
+        await expect(card.getByText(edited, { exact: true })).toBeVisible();
         await expect(actions).toBeFocused();
         await page.reload();
-        await expect(card.getByText(`Please check @${name} first draft, then ship (edited)`, { exact: true })).toBeVisible();
-        await expect(card.locator('[data-mention]')).toHaveText(`@${name}`);
+        await expect(card.getByText(edited, { exact: true })).toBeVisible();
+        await expect(card.locator('[data-mention]')).toHaveText([`@${name}`, `@${name}`]);
 
         // Another tab saves first: this edit is refused, its text kept until the person cancels
         const other = await page.context().newPage();
