@@ -4,7 +4,8 @@
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
-  visible project has a client), Give feedback and the account menu), the inset panel with the breadcrumbs
+  visible project has a client), Give feedback and the account menu: rows like the navigation's, the person's avatar centred in their 16px icon column so
+  its name starts with the labels above; the email is in the account menu), the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). Pages sit in a centred reading column (`max-w-5xl`) on every page, in every view. An element that lays things
   side by side breaks out of it with the `page-wide` utility (`app/global.css`: the panel's width less the gutters, centred
