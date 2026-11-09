@@ -29,8 +29,8 @@ async function fixture(page: Page, request: APIRequestContext, count = 3) {
     return { project, headers, comments };
 }
 const selected = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
-/** Whether a row's box takes its room at the end of the meta line; at rest it is `sr-only` (out of the layout) */
-const boxShown = (box: Locator) => box.evaluate(element => getComputedStyle(element.parentElement!).position !== 'absolute');
+/** Where a row's box sits: it keeps its room at the end of the meta line, shown or not, so nothing beside it moves */
+const boxPlace = async (box: Locator) => { const { x, y } = (await box.boundingBox())!; return { x, y }; };
 function gate() { let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; }); return { wait, release }; }
 
 test('find, select, assign, prioritize and complete feedback in list and board @smoke @mobile-smoke', async ({ page, request }) => {
@@ -140,14 +140,12 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     expect(await selectShown()).toBe(mobile);
     if (mobile) await expect(anyBox).toHaveCount(0);
     else {
-        for (const index of [0, 1, 2]) {
-            await expect(box(index)).toHaveCSS('opacity', '0');
-            // No room kept for it: the title and the path have the row's width
-            expect(await boxShown(box(index))).toBe(false);
-        }
+        for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
+        // Its room is kept: the box (and the assignee and status before it) stay where they are when it shows
+        const atRest = await boxPlace(box(1));
         await rowOf(box(1)).hover();
         await expect(box(1)).toHaveCSS('opacity', '1');
-        expect(await boxShown(box(1))).toBe(true);
+        expect(await boxPlace(box(1))).toEqual(atRest);
         await expect(box(0)).toHaveCSS('opacity', '0');
         // Pointer: check one, Shift-click another for the range between them; while selecting every box shows
         await rowOf(box(0)).hover();

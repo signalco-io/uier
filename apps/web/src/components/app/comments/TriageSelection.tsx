@@ -45,11 +45,10 @@ export function SelectComment({ comment, tabbable = true, className }: {
     if (!selection || !comment.permissions.triage) return null;
     const checked = selection.ids.has(comment.id);
     return (
-        // Above the link that covers the row. At rest the box takes no room (`sr-only`, still focusable, named and
-        // clickable) and shows on hover or keyboard focus; a touch screen has no hover, so there it is left out until
-        // Select (or a key) starts selecting
-        <div className={cn('relative z-10 flex h-5 shrink-0 items-center', className,
-            !selection.active && 'pointer-coarse:hidden [[data-comment-row]:not(:hover):not(:has(:focus-visible))_&]:sr-only')}>
+        // Above the link that covers the row. At rest the box is transparent but keeps its room at the end of the meta
+        // line (still focusable and named), so the assignee beside it does not move when it shows on hover or keyboard
+        // focus; a touch screen has no hover, so there it is left out until Select (or a key) starts selecting
+        <div className={cn('relative z-10 flex h-5 shrink-0 items-center', className, !selection.active && 'pointer-coarse:hidden')}>
             {/* Only set to take it out: an explicit `undefined` would replace Base UI's own tab index */}
             <Checkbox aria-label={`Select comment ${comment.number === undefined ? comment.id : `#${comment.number}`}`} {...!tabbable && { tabIndex: -1 }}
                 checked={checked} disabled={selection.pending || (!checked && selection.ids.size >= limit)}
