@@ -2,6 +2,7 @@ import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { cn } from 'cn';
 import { buttonVariants } from '@/src/components/ui/button';
+import { GoogleLogo } from '@/src/components/app/SignInProviderLogos';
 import { KnownPages } from '@/src/knownPages';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
@@ -16,18 +17,6 @@ const problems: Record<string, string> = {
     other_account: 'Your uier account is linked to a different Google account. Use that one, or sign in with your email.',
     unavailable: 'Google sign-in is not available here. Sign in with your email.'
 };
-
-/** The standard Google "G" in Google's colours, which the branding rules do not allow to change */
-function GoogleG() {
-    return (
-        <svg viewBox="0 0 48 48" aria-hidden="true" data-icon="inline-start">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-        </svg>
-    );
-}
 
 /** Why the last Google attempt did not sign in, at the top of the card */
 export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }) {
@@ -51,7 +40,7 @@ export function GoogleSignInButton({ next, lastUsed }: { next?: string; lastUsed
         // A plain link: a full navigation, never prefetched (the route starts a sign-in).
         <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
             aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
-            <GoogleG />
+            <GoogleLogo data-icon="inline-start" />
             Google
             {lastUsed && <LastUsedBadge />}
         </a>

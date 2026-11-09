@@ -45,10 +45,12 @@ export function PageHeader({ title, description, media, actions, children, class
  * A titled card of a page (settings, account): a region named by its heading (BRAND.md "h3" at
  * 16 px for cards). `footer` sits under a divider, for a form's message and its button; with
  * `stickyFooter` it stays at the bottom of the window while the card is longer than the window, so a
- * long form's Save is always in reach.
+ * long form's Save is always in reach. `icon` (16 px, decorative) sits before the title, for cards that
+ * stand for one thing with its own mark: a sign-in method on Account → Sign-in.
  */
-export function Section({ title, description, children, actions, footer, stickyFooter = false, id, className }: {
+export function Section({ title, icon, description, children, actions, footer, stickyFooter = false, id, className }: {
     title: ReactNode;
+    icon?: ReactNode;
     description?: ReactNode;
     actions?: ReactNode;
     children?: ReactNode;
@@ -63,7 +65,10 @@ export function Section({ title, description, children, actions, footer, stickyF
         <Card id={id} role="region" aria-labelledby={headingId} className={cn('scroll-mt-6', stickyFooter && 'overflow-visible', className)}>
             <CardHeader>
                 <CardTitle>
-                    <h2 id={headingId} className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{title}</h2>
+                    <h2 id={headingId} className="m-0 flex items-center gap-2 text-base leading-6 font-semibold tracking-[-0.01em]">
+                        {icon && <span aria-hidden="true" data-section-icon className="flex shrink-0 [&_svg:not([class*='size-'])]:size-4">{icon}</span>}
+                        {title}
+                    </h2>
                 </CardTitle>
                 {description && <CardDescription>{description}</CardDescription>}
                 {actions && <CardAction>{actions}</CardAction>}

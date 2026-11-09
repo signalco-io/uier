@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImageUpIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -8,9 +8,8 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLegend, FieldSet 
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
 import { Spinner } from '@/src/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
+import { EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
 import { KnownPageLinks } from '@/src/knownPages';
-import { avatarInputTypes } from '@/src/lib/app/avatarLimits';
-import { fitForUpload } from '@/src/lib/app/fitAvatarUpload';
 import { clientColors, clientIcons, type ClientColor, type ClientIcon } from '@/src/lib/app/clientAppearance';
 import type { ClientSummary } from '@/src/lib/app/clients';
 import { cn } from '@/src/lib/utils';
@@ -31,40 +30,26 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
 }) {
     const [open, setOpen] = useState(false);
     const [logoUrl, setLogoUrl] = useState(client.logoUrl);
-    const [error, setError] = useState<string>();
     const [status, setStatus] = useState('');
-    const [pending, startTransition] = useTransition();
-    const input = useRef<HTMLInputElement>(null);
     const router = useRouter();
-    const send = (method: 'POST' | 'DELETE', file?: File) => {
-        onPendingChange(true);
-        startTransition(async () => {
-            setError(undefined);
-            setStatus('');
-            try {
-                let body: FormData | undefined;
-                if (file) {
-                    body = new FormData();
-                    body.set('file', await fitForUpload(file), file.name);
-                }
-                const response = await fetch(KnownPageLinks.clientLogoUpload(workspaceId, client.id), { method, body });
-                if (!response.ok) {
-                    const result = await response.json().catch(() => null) as { message?: unknown } | null;
-                    setError(typeof result?.message === 'string' ? result.message : 'The logo could not be saved. Try again.');
-                    return;
-                }
-                const result = method === 'POST' ? await response.json() as { url: string } : undefined;
-                setLogoUrl(result?.url);
-                setStatus(method === 'POST' ? 'Logo saved.' : 'Logo removed.');
-                router.refresh();
-            } catch {
-                setError('The logo could not be saved. Check your connection and try again.');
-            } finally { onPendingChange(false); }
-        });
-    };
+    const { pending, error, fileInput, choose, remove } = usePictureUpload({
+        endpoint: KnownPageLinks.clientLogoUpload(workspaceId, client.id),
+        fileLabel: 'Client logo file',
+        failed: 'The logo could not be saved.',
+        onPendingChange: (next) => {
+            if (next) setStatus('');
+            onPendingChange(next);
+        },
+        onSaved: async (method, response) => {
+            const result = method === 'POST' ? await response.json() as { url: string } : undefined;
+            setLogoUrl(result?.url);
+            setStatus(method === 'POST' ? 'Logo saved.' : 'Logo removed.');
+            router.refresh();
+        }
+    });
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<Button variant="ghost" size="icon" aria-label="Edit client avatar" disabled={disabled} className="size-12 rounded-xl p-0" />}>
+            <PopoverTrigger render={<EditablePicture aria-label="Edit client avatar" disabled={disabled} className="size-12 rounded-xl" badgeClassName="-right-1.5 -bottom-1.5 size-5" />}>
                 <ClientMark client={{ ...client, logoUrl }} className="size-12 rounded-xl text-lg" />
             </PopoverTrigger>
             <PopoverContent align="start" className="max-h-[min(32rem,80svh)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl">
@@ -72,18 +57,13 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
                 <FieldGroup>
                     <Field data-invalid={error ? true : undefined}>
                         <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => input.current?.click()}>
+                            <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending} onClick={choose}>
                                 {pending ? <Spinner data-icon="inline-start" /> : <ImageUpIcon data-icon="inline-start" />}
                                 {logoUrl ? 'Change logo' : 'Upload logo'}
                             </Button>
-                            {logoUrl && <Button variant="ghost" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => send('DELETE')}>Remove logo</Button>}
+                            {logoUrl && <Button variant="ghost" className="pointer-coarse:min-h-11" disabled={pending} onClick={remove}>Remove logo</Button>}
                         </div>
-                        <input ref={input} type="file" accept={avatarInputTypes.join(',')} aria-label="Client logo file" hidden
-                            onChange={event => {
-                                const file = event.target.files?.[0];
-                                event.target.value = '';
-                                if (file) send('POST', file);
-                            }} />
+                        {fileInput}
                         <FieldDescription>PNG, JPEG, WebP or GIF, cropped to a square. Logo changes save immediately.</FieldDescription>
                         {error && <FieldError>{error}</FieldError>}
                         <p role="status" className="text-sm text-muted-foreground">{status}</p>

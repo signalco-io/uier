@@ -1,84 +1,63 @@
 'use client';
 
-import { useActionState, useEffect, useId, useRef, useState, useTransition } from 'react';
+import { useActionState, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
-import { ImageUpIcon } from 'lucide-react';
-import { Button } from '@/src/components/ui/button';
+import { ImageUpIcon, Trash2Icon } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/src/components/ui/dropdown-menu';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
-import { Spinner } from '@/src/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
+import { EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
 import { Section } from '@/src/components/app/PageHeader';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';
 import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
 import { themeOptions } from '@/src/components/app/shell/AccountMenu';
 import { KnownPages } from '@/src/knownPages';
-import { avatarInputTypes } from '@/src/lib/app/avatarLimits';
-import { fitForUpload } from '@/src/lib/app/fitAvatarUpload';
 import { MAX_NAME_LENGTH } from '@/src/lib/app/limits';
 import { updateNameAction } from './actions';
 
-/** Upload, change or remove the profile picture; each saves at once, like a switch */
-function ProfilePicture({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
-    const id = useId();
+/**
+ * The profile picture: the avatar is the button that opens Upload picture (and Remove picture once there
+ * is one). Each change saves at once, like a switch; the name beside it saves with the form.
+ */
+function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avatarUrl?: string; descriptionId: string }) {
     const router = useRouter();
-    const input = useRef<HTMLInputElement>(null);
-    const [pending, startTransition] = useTransition();
-    const [error, setError] = useState<string>();
-
-    const send = (method: 'POST' | 'DELETE', file?: File) => startTransition(async () => {
-        setError(undefined);
-        try {
-            let body: FormData | undefined;
-            if (file) {
-                body = new FormData();
-                body.set('file', await fitForUpload(file), file.name);
-            }
-            const response = await fetch(KnownPages.AccountAvatar, { method, body });
-            if (!response.ok) {
-                const result = await response.json().catch(() => null) as { message?: unknown } | null;
-                setError(typeof result?.message === 'string' ? result.message : 'Your picture could not be saved. Try again.');
-                return;
-            }
+    const { pending, error, fileInput, choose, remove } = usePictureUpload({
+        endpoint: KnownPages.AccountAvatar,
+        fileLabel: 'Profile picture file',
+        failed: 'Your picture could not be saved.',
+        onSaved: (method) => {
             toast(method === 'POST' ? 'Your picture is saved.' : 'Your picture is removed.');
             router.refresh();
-        } catch {
-            setError('Your picture could not be saved. Check your connection and try again.');
         }
     });
-
+    // While a change saves, the menu stays closed but the avatar keeps the focus: a disabled trigger
+    // can't take it back from the closing menu, which would leave it on the page's body
+    const [open, setOpen] = useState(false);
     return (
-        <Field data-invalid={error ? true : undefined}>
-            <FieldLabel id={`${id}-label`}>Picture</FieldLabel>
-            <div className="flex flex-wrap items-center gap-4">
-                <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" className="size-16" fallbackClassName="text-xl" />
-                <div role="group" aria-labelledby={`${id}-label`} className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" disabled={pending} onClick={() => input.current?.click()}>
-                        {pending ? <Spinner data-icon="inline-start" /> : <ImageUpIcon data-icon="inline-start" />}
-                        {avatarUrl ? 'Change picture' : 'Upload picture'}
-                    </Button>
+        <>
+            <DropdownMenu open={open} onOpenChange={next => setOpen(next && !pending)}>
+                <DropdownMenuTrigger render={<EditablePicture aria-label="Edit profile picture" aria-describedby={descriptionId} pending={pending} />}>
+                    <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" className="size-16" fallbackClassName="text-xl" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-auto">
+                    <DropdownMenuItem onClick={choose}>
+                        <ImageUpIcon />
+                        {avatarUrl ? 'Upload a new picture' : 'Upload picture'}
+                    </DropdownMenuItem>
                     {avatarUrl && (
-                        <Button variant="ghost" size="sm" disabled={pending} onClick={() => send('DELETE')}>Remove picture</Button>
+                        <DropdownMenuItem onClick={remove}>
+                            <Trash2Icon />
+                            Remove picture
+                        </DropdownMenuItem>
                     )}
-                </div>
-                <input
-                    ref={input}
-                    type="file"
-                    accept={avatarInputTypes.join(',')}
-                    aria-label="Profile picture file"
-                    hidden
-                    onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        // The same file can be chosen again after an error
-                        event.target.value = '';
-                        if (file) send('POST', file);
-                    }} />
-            </div>
-            <FieldDescription id={`${id}-description`}>Shown beside your name. PNG, JPEG, WebP or GIF, cropped to a square.</FieldDescription>
-            {error && <FieldError>{error}</FieldError>}
-        </Field>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            {fileInput}
+            {error && <FieldError className="order-last basis-full">{error}</FieldError>}
+        </>
     );
 }
 
@@ -91,22 +70,28 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
             id="profile"
             title="Profile"
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
-            <ProfilePicture name={name} avatarUrl={avatarUrl} />
-            <form id={formId} action={formAction}>
-                <Field>
-                    <FieldLabel htmlFor={`${formId}-name`}>Name</FieldLabel>
-                    <Input
-                        id={`${formId}-name`}
-                        name="name"
-                        value={draft}
-                        onChange={(event) => update(() => event.target.value)}
-                        required
-                        maxLength={MAX_NAME_LENGTH}
-                        autoComplete="name"
-                        className="max-w-md" />
-                    <FieldDescription>Shown with your comments and to the people you work with.</FieldDescription>
-                </Field>
-            </form>
+            <div className="flex flex-col gap-3">
+                {/* The picture on the left, the name on the right (the label's row is the avatar's top) */}
+                <div className="flex flex-wrap items-start gap-x-4 gap-y-3 sm:gap-x-6">
+                    <ProfilePicture name={name} avatarUrl={avatarUrl} descriptionId={`${formId}-picture`} />
+                    <form id={formId} action={formAction} className="min-w-0 flex-1">
+                        <Field>
+                            <FieldLabel htmlFor={`${formId}-name`}>Name</FieldLabel>
+                            <Input
+                                id={`${formId}-name`}
+                                name="name"
+                                value={draft}
+                                onChange={(event) => update(() => event.target.value)}
+                                required
+                                maxLength={MAX_NAME_LENGTH}
+                                autoComplete="name"
+                                className="max-w-md" />
+                            <FieldDescription>Shown with your comments and to the people you work with.</FieldDescription>
+                        </Field>
+                    </form>
+                </div>
+                <FieldDescription id={`${formId}-picture`}>Your picture is shown beside your name. PNG, JPEG, WebP or GIF, cropped to a square.</FieldDescription>
+            </div>
         </Section>
     );
 }

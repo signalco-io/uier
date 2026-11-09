@@ -37,6 +37,7 @@ async function addPasskey(page: Page) {
     await page.goto(`${base}/app/account/sign-in`);
     const section = page.getByRole('region', { name: 'Passkeys' });
     await expect(section).toContainText('No passkeys yet.');
+    await expect(section.locator('h2 [data-section-icon] svg')).toBeVisible();
     await section.getByRole('button', { name: 'Add a passkey' }).click();
     await expect(section.getByRole('status')).toHaveText('Passkey added. Use it the next time you sign in.');
     return section;
