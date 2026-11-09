@@ -26,8 +26,39 @@ const plist = file => JSON.parse(command('plutil', ['-convert', 'json', '-o', '-
 async function writePlist(file, value) {
     command('plutil', ['-convert', 'xml1', '-o', file, '-'], { input: JSON.stringify(value) });
 }
+export function configureBundleIdentifiers(project) {
+    const configured = new Set();
+    for (const target of Object.values(project.objects)) {
+        if (target.isa !== 'PBXNativeTarget') continue;
+        const bundle = target.productType === 'com.apple.product-type.application' ? 'io.uier.safari'
+            : target.productType === 'com.apple.product-type.app-extension' ? 'io.uier.safari.Extension' : undefined;
+        if (!bundle) continue;
+        const configurations = project.objects[target.buildConfigurationList].buildConfigurations;
+        for (const id of configurations) project.objects[id].buildSettings.PRODUCT_BUNDLE_IDENTIFIER = bundle;
+        configured.add(bundle);
+    }
+    assert.equal(configured.size, 2, 'Expected one generated containing app and Safari extension');
+    return project;
+}
+async function selectXcode(env) {
+    if (env.GITHUB_ACTIONS !== 'true') return;
+    const candidates = (await readdir('/Applications')).filter(name => /^Xcode(?:_\d+(?:\.\d+)*)?\.app$/.test(name));
+    const versions = candidates.map(name => {
+        const directory = resolve('/Applications', name, 'Contents/Developer');
+        const value = command('xcodebuild', ['-version'], { encoding: 'utf8', env: { ...env, DEVELOPER_DIR: directory } });
+        const match = /^Xcode ([\d.]+)$/m.exec(value);
+        return match && { directory, version: match[1].split('.').map(Number) };
+    }).filter(Boolean).sort((a, b) => {
+        for (let i = 0; i < 3; i++) { const difference = (b.version[i] ?? 0) - (a.version[i] ?? 0); if (difference) return difference; }
+        return 0;
+    });
+    assert(versions[0], 'The macOS runner must include stable Xcode');
+    env.DEVELOPER_DIR = versions[0].directory;
+    console.log(`Using stable Xcode ${versions[0].version.join('.')}`);
+}
 export async function nativeArchive({ root, signed = false, env = process.env }) {
     assert.equal(process.platform, 'darwin', 'Safari native builds require macOS and full Xcode');
+    await selectXcode(env);
     const { manifest, files } = await validate(undefined, { root, browser: 'safari' });
     const version = appleVersion(manifest.version);
     const generated = resolve(root, 'xcode/dist');
@@ -36,12 +67,18 @@ export async function nativeArchive({ root, signed = false, env = process.env })
     const projects = await find(generated, name => name.endsWith('.xcodeproj'));
     assert.equal(projects.length, 1, 'Expected one generated Safari project');
     const project = projects[0], projectFile = resolve(project, 'project.pbxproj');
+    // The converter can replace the final bundle-ID component with the app name. Normalize both
+    // native targets before compiling, and before selecting profiles for signed distribution.
+    await writePlist(projectFile, configureBundleIdentifiers(plist(projectFile)));
     const description = JSON.parse(command('xcodebuild', ['-list', '-json', '-project', project], { encoding: 'utf8' }));
     const schemes = description.project.schemes.filter(name => !/extension/i.test(name));
     assert.equal(schemes.length, 1, 'Expected one containing-app scheme');
     for (const file of await find(generated, name => name === 'Info.plist')) {
         const value = plist(file);
-        await writePlist(file, { ...value, CFBundleShortVersionString: version, CFBundleVersion: version });
+        const extension = Boolean(value.NSExtension);
+        await writePlist(file, { ...value, CFBundleIdentifier: extension ? 'io.uier.safari.Extension' : 'io.uier.safari',
+            CFBundleShortVersionString: version, CFBundleVersion: version,
+            ...(!extension ? { LSApplicationCategoryType: 'public.app-category.developer-tools' } : {}) });
     }
     const out = resolve(root, 'release/native'); await mkdir(out, { recursive: true });
     const archive = resolve(out, `uier-${version}.xcarchive`);

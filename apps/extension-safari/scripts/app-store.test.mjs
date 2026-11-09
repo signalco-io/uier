@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
 import { AppStoreClient, submitSafari } from './app-store.mjs';
-import { appleVersion } from './native.mjs';
+import { appleVersion, configureBundleIdentifiers } from './native.mjs';
 
 test('Apple JWT uses ES256 with short expiry and the App Store audience', async () => {
     const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
@@ -20,6 +20,18 @@ test('Apple JWT uses ES256 with short expiry and the App Store audience', async 
 test('Safari versions fit both marketing and CFBundleVersion fields', () => {
     assert.equal(appleVersion('0.1.3'), '0.1.3');
     for (const version of ['1.0', '1.100.1', '10000.1.1', '1.0.0-beta']) assert.throws(() => appleVersion(version));
+});
+test('converter-generated bundle identifiers are normalized for app and extension in every configuration', () => {
+    const project = { objects: {
+        app: { isa: 'PBXNativeTarget', productType: 'com.apple.product-type.application', buildConfigurationList: 'appList' },
+        extension: { isa: 'PBXNativeTarget', productType: 'com.apple.product-type.app-extension', buildConfigurationList: 'extensionList' },
+        appList: { buildConfigurations: ['appDebug', 'appRelease'] }, extensionList: { buildConfigurations: ['extensionDebug', 'extensionRelease'] },
+        appDebug: { buildSettings: { PRODUCT_BUNDLE_IDENTIFIER: 'io.uier.uier' } }, appRelease: { buildSettings: { PRODUCT_BUNDLE_IDENTIFIER: 'io.uier.uier' } },
+        extensionDebug: { buildSettings: { PRODUCT_BUNDLE_IDENTIFIER: 'io.uier.uier.Extension' } }, extensionRelease: { buildSettings: { PRODUCT_BUNDLE_IDENTIFIER: 'io.uier.uier.Extension' } }
+    } };
+    configureBundleIdentifiers(project);
+    for (const id of ['appDebug', 'appRelease']) assert.equal(project.objects[id].buildSettings.PRODUCT_BUNDLE_IDENTIFIER, 'io.uier.safari');
+    for (const id of ['extensionDebug', 'extensionRelease']) assert.equal(project.objects[id].buildSettings.PRODUCT_BUNDLE_IDENTIFIER, 'io.uier.safari.Extension');
 });
 function fixture({ wrongApp = false, processing = false, lost } = {}) {
     let uploaded = false, receipt = { appId: '123', phase: 'prepared', version: '0.1.3' };

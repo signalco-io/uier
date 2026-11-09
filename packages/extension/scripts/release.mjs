@@ -46,7 +46,9 @@ export async function sourceArchive({ directory, version, cwd = process.cwd() })
     const name = `uier-extension-source-${version}.zip`, file = resolve(directory, name);
     const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
     // Only committed files, never local credentials, generated resources or ignored dependencies.
-    execFileSync('git', ['archive', '--format=zip', `--output=${file}`, 'HEAD'], { cwd });
+    // git archive scopes itself to the invoking subfolder. Always archive from the repo root.
+    const repositoryRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
+    execFileSync('git', ['archive', '--format=zip', `--output=${file}`, 'HEAD'], { cwd: repositoryRoot });
     const sha256 = digest(await readFile(file));
     await writeFile(`${file}.sha256`, `${sha256}  ${name}\n`);
     await writeFile(`${file}.json`, JSON.stringify({ commit, sha256, version }, null, 2) + '\n');

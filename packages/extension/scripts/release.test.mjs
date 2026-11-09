@@ -20,13 +20,17 @@ test('reviewer source is reproducible committed content and excludes local crede
     try {
         git('init', '-b', 'main'); git('config', 'user.name', 'Source test'); git('config', 'user.email', 'source@example.test');
         await writeFile(resolve(root, 'package.json'), '{"name":"source-fixture"}'); await writeFile(resolve(root, '.gitignore'), '.env.local\n');
+        await mkdir(resolve(root, 'packages/extension'), { recursive: true });
+        await writeFile(resolve(root, 'pnpm-lock.yaml'), 'committed-lockfile');
+        await writeFile(resolve(root, 'packages/extension/package.json'), '{"name":"nested"}');
         git('add', '.'); git('commit', '-m', 'Committed source');
         await writeFile(resolve(root, '.env.local'), 'never-upload-this'); await writeFile(resolve(root, 'untracked-key.p8'), 'untracked-private-key');
-        const result = await sourceArchive({ directory: resolve(root, 'release'), version: '0.1.3', cwd: root });
+        const result = await sourceArchive({ directory: resolve(root, 'release'), version: '0.1.3', cwd: resolve(root, 'packages/extension') });
         const first = await readFile(result.file);
         assert.equal(digest(first), result.sha256);
         const files = execFileSync('unzip', ['-Z1', result.file], { encoding: 'utf8' });
         assert(!/env\.local|untracked-key/.test(files));
+        assert(files.includes('pnpm-lock.yaml')); assert(files.includes('packages/extension/package.json'));
         await sourceArchive({ directory: resolve(root, 'release'), version: '0.1.3', cwd: root });
         assert.deepEqual(await readFile(result.file), first);
     } finally { await rm(root, { recursive: true, force: true }); }
