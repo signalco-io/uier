@@ -64,7 +64,7 @@ function ShortcutList({ enabled }: { enabled: boolean }) {
 
 /**
  * One row of the options: its 16 px icon first, so every row's icon (and the mark in
- * "Powered by uier") lines up in one column.
+ * "Powered by uier") lines up in one column, 8 px from its label.
  */
 function OptionButton({ icon, className, ...props }: ComponentProps<typeof Button> & { icon: ReactNode }) {
     return (
@@ -73,7 +73,7 @@ function OptionButton({ icon, className, ...props }: ComponentProps<typeof Butto
             variant="plain"
             size="sm"
             fullWidth
-            className={cx('justify-start', className)}
+            className={cx('justify-start gap-2', className)}
             startDecorator={<span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">{icon}</span>} />
     );
 }
