@@ -145,12 +145,12 @@ function pageLayerIsOpen(layer: Element) {
 
 /** Open state for saved page openers, including invokers that have no aria-expanded attribute. */
 export function layerOpenerIsExpanded(opener: Element) {
-    if (opener.getAttribute('aria-expanded') === 'true') return true;
+    if (opener.hasAttribute('aria-expanded')) return opener.getAttribute('aria-expanded') === 'true';
     const remembered = layersByOpener.get(opener);
     if (remembered && pageLayerIsOpen(remembered)) return true;
     for (const id of [opener.getAttribute('popovertarget'), opener.getAttribute('commandfor'), ...(opener.getAttribute('aria-controls') ?? '').split(/\s+/)]) {
         const layer = id ? document.getElementById(id) : null;
-        if (layer && pageLayerIsOpen(layer)) return true;
+        if (layer && (layer instanceof HTMLDialogElement || layer.hasAttribute('popover')) && pageLayerIsOpen(layer)) return true;
     }
     return false;
 }
@@ -158,14 +158,15 @@ export function layerOpenerIsExpanded(opener: Element) {
 /** The page element outside the layer that opens it: its expanded trigger, else a popover or command invoker */
 function openerOf(layer: Element) {
     const recorded = recentLayerOpeners.get(layer);
-    if (recorded?.isConnected && !layer.contains(recorded) && isShown(recorded)) return recorded;
-    if (!layer.id) return undefined;
+    const validRecorded = recorded?.isConnected && !layer.contains(recorded) && !recorded.contains(layer) && isShown(recorded) ? recorded : undefined;
+    if (!layer.id) return validRecorded;
     const id = CSS.escape(layer.id);
-    const outside = (element: Element) => !layer.contains(element) && isShown(element);
+    const outside = (element: Element) => !layer.contains(element) && !element.contains(layer) && isShown(element);
     try {
         const triggers = [...document.querySelectorAll(`[aria-controls~="${id}"]`)].filter(outside);
         const command = [...document.querySelectorAll(`[popovertarget="${id}"],[commandfor="${id}"]`)].filter(outside);
         return triggers.find(trigger => trigger.getAttribute('aria-expanded') === 'true')
+            ?? validRecorded
             ?? command.find(trigger => trigger.matches(':focus'))
             ?? command[0]
             ?? triggers.find(trigger => trigger.hasAttribute('aria-haspopup'));
@@ -219,7 +220,11 @@ export function followPageLayers(host: HTMLElement) {
     // Only layers that actually open during this activation are associated with the trigger.
     let activation: { trigger: Element; before: Set<Element>; time: number } | undefined;
     const remember = (layer: Element, trigger: Element) => {
-        if (layer === host || layer.contains(trigger) || host.contains(trigger)) return;
+        if (layer === host || layer.contains(trigger) || trigger.contains(layer) || host.contains(trigger)) return;
+        // A click near newly rendered page content is not evidence that it opened an overlay.
+        const native = layer instanceof HTMLDialogElement || layer.hasAttribute('popover') || layer.getAttribute('aria-modal') === 'true';
+        const declared = trigger.matches('[aria-haspopup]:not([aria-haspopup="false"]),[aria-controls],[popovertarget],[commandfor]');
+        if (!native && !(declared && layer.matches('[role="dialog"],[role="alertdialog"],[role="menu"]'))) return;
         recentLayerOpeners.set(layer, trigger);
         layersByOpener.set(trigger, layer);
     };
@@ -234,9 +239,10 @@ export function followPageLayers(host: HTMLElement) {
         if (event instanceof KeyboardEvent && !['Enter', ' ', 'ArrowDown', 'ArrowUp', 'F4'].includes(event.key)) return;
         const target = event.target;
         if (!(target instanceof Element)) return;
-        const trigger = target.closest('button,a,[role="button"],[role="combobox"],[role="menuitem"],[aria-haspopup],[aria-controls],[popovertarget],[commandfor],[tabindex]');
-        if (!trigger || trigger.matches(':disabled,[aria-disabled="true"]')) return;
+        const trigger = target.closest('button,[role="button"],[role="combobox"],[role="menuitem"],[aria-haspopup],[aria-controls],[popovertarget],[commandfor]');
         rememberOpenedLayers();
+        activation = undefined;
+        if (!trigger || trigger.matches(':disabled,[aria-disabled="true"]')) return;
         activation = { trigger, before: new Set(openAnchorLayers(host)), time: performance.now() };
         // Framework portals often mount in a microtask, or the frame after the event.
         schedule();

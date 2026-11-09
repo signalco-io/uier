@@ -12,18 +12,23 @@ limited to the API's 120 visible characters. `anchorSelector.ts` avoids framewor
 Base UI, Radix and Headless UI ids everywhere in a path. It saves up to three independently unique
 alternatives in the existing comma-separated selector, favouring stable ids, role, aria-label and
 identity data attributes; structure below a semantic ancestor disambiguates repeated controls.
-State attributes are excluded. The complete selector remains at most 1,024 characters, including
+Generated-id filtering applies only to ids, using bounded React tokens and numeric library suffixes; real JSF/PrimeFaces ids, reach-us and accessible labels remain semantic identities. State attributes are excluded. The complete selector remains at most 1,024 characters, including
 openers and both ends of text selections. A purely positional path is used only without semantic
 alternatives, so a moved portal cannot make a semantic match conflict with unrelated page content.
 Multiple matches remain ambiguous; existing stored selectors still resolve without migration.
 
 Trigger capture observes pointer and activation keys before page handlers, then associates only newly
 opened layers in the next second. Native toggle event sources identify the actual invoker when several
-buttons target the same popover. `dialog[open]`, native popovers and common dialog/menu/listbox roles
-participate, including non-modal dialogs; this does not broaden which layers the toolbar host follows.
+buttons target the same popover. Capture accepts native open dialogs/popovers and aria-modal layers,
+or dialog/menu roles activated by a trigger declaring popup/control semantics. Static grids, trees and
+listboxes are never inferred from clicks; links and bare tabindex wrappers are not activation triggers.
+Containing triggers are rejected, unrelated presses clear activation, and expanded aria-controls
+relationships take precedence over captured triggers; this does not broaden which layers the toolbar host follows.
 Explicit control relationships also work for layers that were already open when review started.
 `getCommentPlacement` places a hidden or missing anchor with a `layer` on that opener while it is shown
-and its layer is closed (native open/popover state and captured layers count without aria-expanded).
+and its layer is closed. Explicit aria-expanded always wins, including false for a mounted empty
+listbox. Without it, captured layers and native open/popover state count; aria-controls alone requires
+a natively open dialog or popover.
 Missing content in an open layer stays missing. Areas are not outlined on an opener. Toolbar
 layers nested on uier's own pages save every opener and place it on the first closed one
 ([toolbar-review.md](toolbar-review.md#openers-and-showing-a-comment-again)).
@@ -42,6 +47,8 @@ Keep original and previous context, and never invent fallback pins for missing o
   out of This page/Show on page even when paths match (the location picker keys pages by environment and path). Direct links override saved filters for the
   visit. Filter preferences use the versioned `uier:environment:v1:` key and contain no credentials.
 
+`e2e/anchor-recovery.spec.ts` covers static content after navigation, explicit collapsed state,
+control precedence, activation clearing and generated versus real ids/labels.
 `e2e/transient-ui.spec.ts` covers real Base UI portal remounts with regenerated ids and a removed
 attribute alternative, reload recovery, multi-invoker native popovers and class-opened script dialogs.
 `e2e/modal-dialog.spec.ts` covers showModal() trigger capture and closed-dialog pins on desktop/mobile.
