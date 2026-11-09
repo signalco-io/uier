@@ -1,8 +1,11 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { deviceSettings } from '@uier/toolbar/devices';
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from 'lucide-react';
+import {
+    AccessibilityIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, HandIcon, LanguagesIcon, MonitorIcon, MoonIcon, MousePointer2Icon,
+    SmartphoneIcon, SunIcon, TabletIcon, type LucideIcon
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item';
@@ -16,11 +19,20 @@ import { deviceLabels } from './commentLabels';
 
 const deviceIcons = { desktop: MonitorIcon, tablet: TabletIcon, mobile: SmartphoneIcon } as const;
 
+/** The icon beside each recorded setting (`deviceSettings` labels), chosen by its value where that differs */
+const settingIcons: Record<string, (value: string) => LucideIcon> = {
+    Model: () => SmartphoneIcon,
+    Input: value => value === 'Touch' ? HandIcon : MousePointer2Icon,
+    'Colour scheme': value => value === 'Dark' ? MoonIcon : SunIcon,
+    'Reduced motion': () => AccessibilityIcon,
+    'Page language': () => LanguagesIcon
+};
+
 /**
  * The screen and the browser a comment was left from, as two icons next to its time (the browser's own
  * mark, `DeviceMark`, or a globe when unknown). Hovering or clicking them shows the original capture
  * (size, viewport, the browser and OS with their marks, then the model, input, colour scheme, reduced
- * motion and page language when recorded, time and the reviewed page) with the reproduction details to
+ * motion and page language when recorded, each a tile with its icon, time and the reviewed page) with the reproduction details to
  * copy as text. Only authorized project members get this context (`reproduction.ts`).
  */
 export function CommentDevice({ device, context }: { device?: DbDeviceSize; context: ReproductionContext }) {
@@ -70,14 +82,22 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                         </ItemContent>
                     </Item>
                 </div>
+                {/* Tiles like the screen and browser rows: the icon, the value, its name under it (the term first for assistive tech) */}
                 {settings.length > 0 && (
-                    <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-1 text-xs">
-                        {settings.map(([name, value]) => (
-                            <Fragment key={name}>
-                                <dt className="text-muted-foreground">{name}</dt>
-                                <dd className="m-0 truncate text-foreground">{value}</dd>
-                            </Fragment>
-                        ))}
+                    <dl className="m-0 grid grid-cols-2 gap-1">
+                        {settings.map(([name, value]) => {
+                            const Icon = settingIcons[name]?.(value) ?? MonitorIcon;
+                            return (
+                                // A dl allows only dt and dd in its div groups, so the icon sits in the term
+                                <div key={name} className="relative flex min-w-0 flex-col rounded-md bg-muted/50 py-2 pr-2.5 pl-8.5">
+                                    <dt className="order-2 truncate text-xs text-muted-foreground">
+                                        <Icon aria-hidden="true" className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-foreground" />
+                                        {name}
+                                    </dt>
+                                    <dd className="order-1 m-0 truncate text-sm leading-snug font-medium" title={value}>{value}</dd>
+                                </div>
+                            );
+                        })}
                     </dl>
                 )}
                 {(context.capturedAt || context.url) && (

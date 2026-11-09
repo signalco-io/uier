@@ -103,6 +103,9 @@ const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as
 
 const maxTextLength = 1000;
 
+/** Who sees a private thread (`canSeeComment`): the workspace admins and its author */
+const privateHint = 'Only workspace admins and the author can see this thread. Other members and guests cannot.';
+
 /**
  * The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`).
  * It is the Mark as read button; Mark as unread is in the More actions menu.
@@ -377,10 +380,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
                         )}
                         {comment.private && (
-                            <Badge variant="secondary">
-                                <LockIcon aria-hidden="true" data-icon="inline-start" />
-                                Private
-                            </Badge>
+                            <Tooltip>
+                                <TooltipTrigger render={<Badge variant="secondary" tabIndex={0} className="cursor-default outline-none" />}>
+                                    <LockIcon aria-hidden="true" data-icon="inline-start" />
+                                    Private
+                                    <span className="sr-only">. {privateHint}</span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-64">{privateHint}</TooltipContent>
+                            </Tooltip>
                         )}
                     </div>
                     <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">

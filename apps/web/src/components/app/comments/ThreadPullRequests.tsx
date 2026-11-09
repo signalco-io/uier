@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { ArrowUpRightIcon, GitPullRequestIcon } from 'lucide-react';
+import { ArrowUpRightIcon, GitPullRequestIcon, PlusIcon } from 'lucide-react';
 import { useActionState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
@@ -144,18 +144,45 @@ export function ThreadPullRequests({ projectId, comment }: { projectId: string; 
     </>;
 }
 
+/**
+ * A quiet "Link a pull request" control, like the Assignees row's Unassigned: an icon and muted text, no outline.
+ * Choosing it shows the URL field with focus in it; Escape or leaving it empty closes it and gives focus back.
+ */
 function LinkPullRequest({ projectId, commentId }: { projectId: string; commentId: string }) {
+    const [open, setOpen] = useState(false);
     const [url, setUrl] = useState('');
-    const [state, action, pending] = useActionState(async () => {
+    const trigger = useRef<HTMLButtonElement>(null);
+    const field = useRef<HTMLInputElement>(null);
+    // Focus goes back to the trigger after Escape or a saved link, not when the field is left by clicking elsewhere
+    const refocus = useRef(false);
+    const [error, setError] = useState<string>();
+    const close = (focusTrigger: boolean) => { refocus.current = focusTrigger; setUrl(''); setError(undefined); setOpen(false); };
+    const [, action, pending] = useActionState(async () => {
         const result = await setCommentPullRequestAction(projectId, commentId, url);
-        if (result?.ok) setUrl('');
+        if (result?.ok) close(true);
+        else if (result) setError(result.error);
         return result;
     }, undefined);
-    return <form action={action} className="flex w-full min-w-0 flex-wrap items-center gap-2">
-        <Input aria-label="Pull request URL" type="url" placeholder="Paste a pull request URL" required maxLength={2048}
-            value={url} onChange={event => setUrl(event.target.value)} className="min-w-0 flex-1 pointer-coarse:min-h-11" />
-        <Button type="submit" size="sm" variant="outline" disabled={pending} className="pointer-coarse:min-h-11">Link</Button>
-        {state && !state.ok && <p role="alert" className="w-full text-sm text-destructive">{state.error}</p>}
+    useEffect(() => {
+        if (open) field.current?.focus();
+        else if (refocus.current) { refocus.current = false; trigger.current?.focus(); }
+    }, [open]);
+
+    if (!open) return (
+        <Button ref={trigger} type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}
+            className="-ml-1.5 h-7 min-w-0 gap-2 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
+            <PlusIcon aria-hidden="true" data-icon="inline-start" />
+            Link a pull request
+        </Button>
+    );
+    return <form action={action} className="flex w-full min-w-0 flex-wrap items-center gap-2"
+        onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); } }}>
+        <Input ref={field} aria-label="Pull request URL" type="url" placeholder="Paste a pull request URL" required maxLength={2048}
+            value={url} onChange={event => setUrl(event.target.value)}
+            onBlur={event => { if (!url && !event.currentTarget.form?.contains(event.relatedTarget)) close(false); }}
+            className="min-w-0 flex-1 pointer-coarse:min-h-11" />
+        <Button type="submit" size="sm" variant="ghost" disabled={pending} className="pointer-coarse:min-h-11">Link</Button>
+        {error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}
     </form>;
 }
 

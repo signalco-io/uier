@@ -7,7 +7,8 @@
   for retention, write paths and private-period filtering. Guests receive no history section.
 
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
-  state, `#number` and the unread dot (the Mark as read button, "Unread. Mark as read") on the first line with
+  state, `#number`, the unread dot (the Mark as read button, "Unread. Mark as read") and, on a private thread, the
+  Private badge (focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
   Open. Change status") with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
   (`allowedStatuses`): Ready to verify opens the Request verification form (`VerificationControl`, whose submit has
@@ -15,7 +16,7 @@
   Done without verification. Copy is one menu with Copy
   issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
-  thread and, once read, Mark as unread are in More actions. Under that line, `ThreadTitle` shows the thread's
+  thread and, once read, Mark as unread are in More actions. Under that line, close beneath it (8px), `ThreadTitle` shows the thread's
   title as an `h2`: one a member gave it, or its [AI title](ai-titles.md) with a sparkles mark ("Title written by
   AI"). For those who can triage (`permissions.title`) the title is a button: a click or focus turns it into the
   Thread title field in place (Enter or leaving it saves, Escape cancels and gives focus back; an empty title
@@ -93,7 +94,8 @@
   (`pointer: coarse` is touch), the colour scheme, reduced motion and the page's `<html lang>` (language, script and
   region only). The API keeps bounded names and drops settings it does not know (`deviceSchema`); the popovers list
   model, input, colour scheme, reduced motion and page language under the browser row when recorded
-  (`deviceSettings`), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
+  (`deviceSettings`; in the app as two-column tiles styled like the screen and browser rows, each with a lucide icon:
+  phone, pointer or hand, sun or moon, accessibility, languages), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
   strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
   mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers.
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
@@ -110,4 +112,6 @@
   so it audits the settled document after action revalidation rather than the optimistic message.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.
 
-Project triagers can paste a supported pull request URL in the open thread properties. Manually linked PRs persist separately from messages, deduplicate with message links and appear in the row/card hover or tap card with the same provider icons and state badges as detected links. Only the member who linked one can remove that manual link; message detection remains independent.
+Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
+Link a pull request ghost control (plus icon, muted text, like Assignees' Unassigned); choosing it reveals the
+Pull request URL field with focus in it, Escape closes it and returns focus, and a saved link closes it. Manually linked PRs persist separately from messages, deduplicate with message links and appear in the row/card hover or tap card with the same provider icons and state badges as detected links. Only the member who linked one can remove that manual link; message detection remains independent.
