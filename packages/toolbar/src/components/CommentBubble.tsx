@@ -17,7 +17,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
-import { RewriteSuggestions } from './RewriteSuggestions';
+import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
@@ -165,6 +165,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const newLabel = rewriting ? 'New rewrite suggestion' : 'New comment';
     // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
     const composerRef = useRef<CommentComposerHandle>(null);
+    // The instruction and suggestions belong to the form, so they go on in the modal and back
+    const rewrite = useRewriteSuggestionsState();
 
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const drafts = useDrafts();
@@ -262,6 +264,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
         if (!open) {
             mutation.reset();
+            rewrite.reset();
             setReading(false);
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
             // back. A rewrite whose text is still the selected text has nothing to keep.
@@ -276,6 +279,7 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     const handleDiscard = () => {
         mutation.reset();
+        rewrite.reset();
         drafts.delete(draftKey);
         onCanceled?.();
     };
@@ -336,7 +340,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const popoverClassName = cx(
         onToolbar ? 'z-[78]' : 'z-[60]',
         'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
-        // A rewrite (text box and suggestions) scrolls as a whole: when it is clipped, the
+        // A rewrite (suggestions and text box) scrolls as a whole: when it is clipped, the
         // browser would scroll the page to show the caret, and the popover follows its pin
         rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
         // In place of the draft's popover, already on the page
@@ -376,15 +380,15 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
                 attachments={creating ? <ComposerAttachButton attachment={attachment} /> : undefined}
+                // A rewrite's form: the quoted text, the suggestions, then the suggested text in its box
+                beforeText={rewriting && selectedText ? (
+                    <RewriteSuggestions
+                        text={selectedText}
+                        state={rewrite}
+                        onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
+                ) : undefined}
                 onSubmit={handleSubmit}
                 onDiscard={creating ? handleDiscard : undefined} />
-        </div>
-    );
-    const suggestions = rewriting && selectedText && (
-        <div className="shrink-0">
-            <RewriteSuggestions
-                text={selectedText}
-                onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
         </div>
     );
 
@@ -393,7 +397,6 @@ export function CommentBubble(props: CommentBubbleProps) {
             {creating && open && expanded && (
                 <ComposerModal container={rootElement} label={newLabel} onCollapse={() => setExpanded(false)} {...holdsLayers}>
                     {composer}
-                    {suggestions}
                 </ComposerModal>
             )}
             {position.type === 'text' && (
@@ -479,7 +482,6 @@ export function CommentBubble(props: CommentBubbleProps) {
                     </>
                 )}
                 {composer}
-                {suggestions}
             </Popper>
         </>
     );

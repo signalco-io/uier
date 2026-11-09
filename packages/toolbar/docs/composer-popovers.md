@@ -10,7 +10,21 @@ posted comment's thread opens in the draft's place.
 Attach image (`ComposerAttachButton`) is in the bottom-left corner of the text box (`CommentComposer`'s
 `attachments`), so it reads as a part of the comment; once an image is attached, its name with a remove button
 takes that place and the screenshot toggle leaves the header (the image replaces the screenshot). Screenshot
-rules: [review workflow](../../../docs/review-workflow.md#screenshots).
+rules: [review workflow](../../../docs/review-workflow.md#screenshots). No line under the text box: what Enter and
+Shift+Enter do is in the keyboard shortcuts list ([keyboard](keyboard.md)).
+
+### A rewrite
+
+A rewrite suggestion (the selected text's **Rewrite**) is the same form, one card with one spacing
+([uier #180](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_WMvFpcew7B7-K384zFTL4)):
+the header ("New rewrite suggestion", Omit screenshot, Expand), the quoted text, the instruction box, the
+suggestions once asked for, then the text box with the suggested text (it starts as the selected text), Attach
+image in its corner and Discard and Post suggestion inside it. `RewriteSuggestions` is `CommentComposer`'s
+`beforeText`, inside its form: the instruction is one box like the text box (the AI mark, the field, Suggest as a
+plain button), Enter in it asks for suggestions instead of posting (its `keydown` prevents the form's implicit
+submission), and its buttons are `type="button"`. A picked suggestion replaces the text as if typed. The
+instruction and the suggestions belong to the popover's owner (`useRewriteSuggestionsState` in `CommentBubble`),
+like the attached image: Expand and Collapse keep them; closing the popover or Discard clears them.
 
 ## Where the pin and its popover go
 
@@ -48,7 +62,8 @@ announced as a dialog with the form's name ("New comment", "Send feedback"). It 
 text box starts at 8 lines (`CommentComposer`'s `tall`).
 
 - The form goes on: the text and mentions are in the drafts, and the attached image, the screenshot (and the
-  choice to omit it), the feedback type and the capture belong to the form's owner, so the composer can mount
+  choice to omit it), the feedback type, a rewrite's instruction and suggestions and the capture belong to the
+  form's owner, so the composer can mount
   again in the modal and back in the popover. A guest's name typed but not sent is kept too, for that form only (by its draft key), so another form never starts with it.
 - Collapse, Escape (the dialog's `cancel`, prevented) and a press on the backdrop go back to the popover, never
   close the form; a browser that closes the dialog anyway (a repeated Escape) goes back too. Sending from the
@@ -65,7 +80,8 @@ text box starts at 8 lines (`CommentComposer`'s `tall`).
 
 `apps/web/e2e/expanded-composer.spec.ts` (desktop and mobile): feedback expanded and back with its text, type,
 image and screenshot choice, Escape, Collapse and sending; a new comment's modal, Tab staying in it, the
-backdrop and posting. `new-comment-after-thread.spec.ts`: posting keeps one popover open (no gap, no opening
+backdrop and posting. `rewrite.spec.ts`: a rewrite's form in order, Enter in the instruction not posting, and its
+instruction and suggestions kept in the modal and back. `new-comment-after-thread.spec.ts`: posting keeps one popover open (no gap, no opening
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.

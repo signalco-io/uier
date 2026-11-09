@@ -78,6 +78,11 @@ type CommentComposerProps = {
     waiting?: boolean;
     /** In the bottom-left corner of the text box, before its hint (Attach image for new comments and feedback) */
     attachments?: ReactNode;
+    /**
+     * Above the text box, after the quote (and a guest's name), in the same form and spacing: a rewrite's
+     * suggestions. Its own controls must not submit the form (no nested form; Enter handled there).
+     */
+    beforeText?: ReactNode;
     /** Expanded to a modal for focused writing: a larger text box */
     tall?: boolean;
     error?: unknown;
@@ -96,7 +101,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, tall = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -341,6 +346,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         )}
                     </>
                 )}
+                {beforeText}
                 {/* One box: the text, then its hint or counter and the buttons; the box shows the focus */}
                 <div className={cx('rounded-lg border border-input bg-background', inputFocusRingClassName)}>
                 <textarea

@@ -345,10 +345,12 @@ error boundary, so one bad comment never breaks the toolbar.
   at its bottom-right corner and the automatic screenshot shows the area. A drag shorter than 8 px on
   either side pins a point where it started. Toolbars without area support show the pin at the area's
   top-left corner.
-- Rewrite suggestions: select text, then **Rewrite**. The text box starts as the selected text, to edit into
-  your version; **Suggest** (optionally with an instruction such as "shorter") asks `POST /api/rewrite` for AI
-  suggestions, and picking one replaces the text as if it was typed (Ctrl/Cmd+Z brings yours back; a guest's
-  name stays). **Post suggestion** saves a comment with `kind: "rewrite"`, shown as "Suggested rewrite" with the
+- Rewrite suggestions: select text, then **Rewrite**. The form is laid out like a new comment's: the header
+  (Omit screenshot, Expand), the quoted text, the instruction box, then the text box, which starts as the selected
+  text, to edit into your version. **Suggest** (inside the instruction box; optionally with an instruction such as
+  "shorter", Enter there asks too) requests AI suggestions from `POST /api/rewrite`, and picking one replaces the
+  text as if it was typed (Ctrl/Cmd+Z brings yours back; a guest's name stays). Expand keeps the instruction and
+  the suggestions. **Post suggestion** saves a comment with `kind: "rewrite"`, shown as "Suggested rewrite" with the
   original quoted. Suggestions are offered for selections of up to 1000 characters (what a comment holds). When
   the model declines, the toolbar says "No suggestions for this text."; when suggestions are not available (no
   API key, `503`) or limited (`429`), it says so, and your own version still works. Closing an unchanged rewrite

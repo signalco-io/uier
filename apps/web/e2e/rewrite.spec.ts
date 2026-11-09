@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { brand } from '@uier/brand';
 import {
     commentBubble,
@@ -16,6 +16,8 @@ import { expectNoAxeViolations } from './accessibility';
 // test mocks the endpoint to choose the suggestions, the second makes the stub fail.
 
 const selected = 'Review any live website by leaving comments directly on it.';
+
+const isModal = (dialog: Locator) => dialog.evaluate(element => element.matches('dialog:modal'));
 
 test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
@@ -45,14 +47,38 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await expect(suggested).toHaveValue(selected);
     await expect(draft.locator('blockquote')).toHaveText(selected);
 
+    // One form like a new comment's (uier #180): the header, the quoted text, the instruction with
+    // Suggest, then the suggested text's box with Attach image and the send button; no hint under it
+    const instruction = draft.getByRole('textbox', { name: 'Instruction for suggestions' });
+    const quoteTop = (await draft.locator('blockquote').boundingBox())!.y;
+    const instructionTop = (await instruction.boundingBox())!.y;
+    expect(quoteTop).toBeLessThan(instructionTop);
+    expect(instructionTop).toBeLessThan((await suggested.boundingBox())!.y);
+    await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toBeVisible();
+    await expect(draft.getByRole('button', { name: 'Attach image' })).toBeVisible();
+    await expect(draft.getByText('Shift+Enter for a new line', { exact: true })).toHaveCount(0);
+
     // Suggestions, optionally with an instruction
-    await draft.getByRole('textbox', { name: 'Instruction for suggestions' }).fill('Shorter');
+    await instruction.fill('Shorter');
     await draft.getByRole('button', { name: 'Suggest', exact: true }).click();
     const suggestions = draft.getByRole('group', { name: 'Suggestions' });
     await expect(suggestions.getByRole('button')).toHaveCount(3);
     expect(requests).toEqual([{ text: selected, instruction: 'Shorter' }]);
     await expect(page.getByRole('status').filter({ hasText: '3 suggestions' })).toBeAttached();
     await expectNoAxeViolations(page);
+    await page.screenshot({ path: testInfo.outputPath('rewrite-form.png') });
+
+    // Expanded to a modal like the other forms: the instruction and the suggestions go on, and back
+    await draft.getByRole('button', { name: 'Expand' }).click();
+    await expect.poll(() => isModal(draft)).toBe(true);
+    await expect(suggested).toBeFocused();
+    await expect(suggested).toHaveValue(selected);
+    await expect(instruction).toHaveValue('Shorter');
+    await expect(suggestions.getByRole('button')).toHaveCount(3);
+    await draft.getByRole('button', { name: 'Collapse' }).click();
+    await expect.poll(() => isModal(draft)).toBe(false);
+    await expect(instruction).toHaveValue('Shorter');
+    await expect(suggestions.getByRole('button')).toHaveCount(3);
 
     // A picked suggestion becomes the text, to post as it is or to edit
     await suggestions.getByRole('button', { name: 'Comment on any live website, right on the page.' }).click();
@@ -86,10 +112,14 @@ test('rewrite: without suggestions the reviewer writes their own', async ({ brow
     await selectText(page, selected);
     await selectionToolbar(page).getByRole('button', { name: 'Rewrite' }).click();
     const draft = page.getByRole('dialog', { name: 'New rewrite suggestion' });
-    // The real endpoint, with an instruction that makes the stub's API fail
-    await draft.getByRole('textbox', { name: 'Instruction for suggestions' }).fill('[stub:fail]');
-    await draft.getByRole('button', { name: 'Suggest', exact: true }).click();
+    // The real endpoint, with an instruction that makes the stub's API fail. Enter in the instruction
+    // asks for suggestions: it is in the rewrite's form, but never posts it.
+    const instruction = draft.getByRole('textbox', { name: 'Instruction for suggestions' });
+    await instruction.fill('[stub:fail]');
+    await instruction.press('Enter');
     await expect(draft.getByRole('alert')).toHaveText('Suggestions are not available right now. You can still write your own.');
+    await expect(draft).toBeVisible();
+    await expect(instruction).toHaveValue('[stub:fail]');
 
     const suggested = draft.getByRole('textbox', { name: 'Suggested text' });
     await suggested.fill('Review a live website right on its pages.');
