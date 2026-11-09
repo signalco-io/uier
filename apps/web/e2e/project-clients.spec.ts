@@ -136,6 +136,8 @@ test('admins rename a client and set its description, icon and colour; every pro
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
     await expect(page.getByRole('button', { name: 'First letter' })).toHaveCount(0);
     const avatarTrigger = dialog.getByRole('button', { name: 'Edit client avatar' });
+    // The same editable picture as the profile picture: the logo is the button, with an edit badge (uier #205)
+    await expect(avatarTrigger.locator('[data-edit-badge]')).toBeVisible();
     await avatarTrigger.focus();
     await avatarTrigger.press('Enter');
     const avatar = page.getByRole('dialog', { name: 'Client avatar', exact: true });

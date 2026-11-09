@@ -28,8 +28,10 @@
   rename, admin-only access, workspace isolation, migration and DTO exclusion; `project-clients.spec.ts`
   and `users.spec.ts` the UI.
 
-- **Client avatar editor**: clicking the avatar in `ClientEditDialog` opens a popover with Icon and
-  Colour (saved with the form) and Upload/Change/Remove logo (saved immediately, like profile pictures).
+- **Client avatar editor**: the avatar in `ClientEditDialog` is an `EditablePicture` (the shared editable picture
+  of [profile pictures](account.md): the picture is the button, a pencil badge on its corner) and opens a popover
+  with Icon and Colour (saved with the form) and Upload/Change/Remove logo (saved immediately through the shared
+  `usePictureUpload`, like profile pictures).
   The optional description has no visibility hint beneath it.
   Uploads and refreshes preserve the unsaved name, description, icon and colour. A logo takes precedence;
   removing it restores the icon/letter and colour. Controls have 44 px touch targets.
