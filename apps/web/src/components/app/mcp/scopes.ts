@@ -6,7 +6,7 @@ export const scopeOptions: readonly { scope: McpScope; label: string; descriptio
     { scope: 'screenshots:read', label: 'Read screenshots', description: 'Open the screenshots attached to feedback.', write: false },
     { scope: 'feedback:reply', label: 'Reply to feedback', description: 'Post replies as you, labeled with the connection name.', write: true },
     { scope: 'feedback:status', label: 'Change status', description: 'Mark feedback in progress or done, or open it again.', write: true },
-    { scope: 'feedback:assign', label: 'Assign feedback', description: 'Assign feedback to people who can see it, and show the coding tool as the agent working on feedback assigned to you.', write: true }
+    { scope: 'feedback:assign', label: 'Assign feedback', description: 'Assign feedback to people who can see it, link pull requests to it, and show the coding tool as the agent working on feedback assigned to you.', write: true }
 ];
 
 export function scopeLabel(scope: string) {

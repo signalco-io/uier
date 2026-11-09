@@ -49,7 +49,7 @@ const operations: { label: string; text: string }[] = [
     { label: 'Read screenshots', text: 'Open the screenshots attached to feedback.' },
     { label: 'Reply to feedback', text: 'Post replies as you, labeled with the connection name.' },
     { label: 'Change status', text: 'Mark feedback in progress or done, open it again, and request or cancel a fix check.' },
-    { label: 'Assign feedback', text: 'Assign feedback to people who can see it, and show your coding tool as the agent working on feedback assigned to you.' }
+    { label: 'Assign feedback', text: 'Assign feedback to people who can see it, link pull requests to it, and show your coding tool as the agent working on feedback assigned to you.' }
 ];
 
 // The connector's prompts (src/lib/mcp/workflows.ts)

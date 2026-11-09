@@ -71,7 +71,7 @@ out. Only that random request id passes through sign-in. The page shows:
   and projects", where each workspace gets all its projects, including new ones, or the projects you
   pick. Only workspaces and projects you can access are listed.
 - **Operations.** Read feedback (always included), Read screenshots, Reply to feedback, Change status and
-  Assign feedback (which also lets the tool show itself as the [agent working on feedback assigned to
+  Assign feedback (which also lets the tool link pull requests to threads and show itself as the [agent working on feedback assigned to
   you](#agents-working-on-feedback)). The operations the tool asked for are preselected; Claude Code asks for Read feedback.
   **Select all operations** picks all five. Operations apply to the whole connection, not per workspace.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
