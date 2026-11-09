@@ -95,6 +95,8 @@ export type ProjectCommentView = {
     device?: DbDeviceSize;
     reproduction: ReproductionContext;
     createdAt?: string;
+    completedAt?: string;
+    updatedAt?: string;
     verification?: import('@uier/toolbar/verification').VerificationDetails;
     verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
     resolved: boolean;
@@ -216,6 +218,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         device: size && deviceSizes.includes(size) ? size : undefined,
         reproduction: toReproductionContext(comment, projectOrigins(project)),
         createdAt: comment.createdAt,
+        completedAt: comment.completedAt,
+        updatedAt: comment.updatedAt,
         resolved: comment.resolved === true,
         inProgress: comment.inProgress === true && comment.resolved !== true,
         private: comment.private === true,

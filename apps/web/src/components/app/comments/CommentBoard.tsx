@@ -236,7 +236,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
         // A long press, so a swipe over the cards still scrolls the page
         useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } })
     );
-    // Cards keep the list's order in every column: where a moved card lands
+    // Active columns keep the list order; a newly completed card lands first in Done.
     const order = new Map(allComments.map((comment, index) => [comment.id, index]));
     // The cards' positions are read in the grid, and copies of cards that leave fade out in it
     const grid = useRef<HTMLDivElement>(null);
@@ -288,6 +288,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
     };
     // Where the dragged card would land in the column under it
     const landing = (status: CommentStatus) => {
+        if (status === 'done') return 0;
         const position = order.get(drag?.comment.id ?? '') ?? 0;
         const index = columns[status].findIndex(comment => (order.get(comment.id) ?? 0) > position);
         return index === -1 ? columns[status].length : index;

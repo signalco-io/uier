@@ -6,7 +6,7 @@ const priorityRank: Record<CommentPriority, number> = { urgent: 0, high: 1, norm
 type Ordered = { priority?: CommentPriority; number?: number };
 
 /**
- * A project's threads in the order its list and board columns show them: by priority (Urgent, High,
+ * A project's threads in the order its list and active board columns show them: by priority (Urgent, High,
  * Normal, Low; missing is Normal), then by number, highest first, so the newest request of each priority
  * comes first. Threads without a number (older records) come after the numbered ones
  * of their priority, in the order they were given (`sort` is stable).
@@ -22,4 +22,16 @@ export function compareCommentOrder(a: Ordered, b: Ordered) {
 /** A sorted copy (`compareCommentOrder`) */
 export function orderComments<T extends Ordered>(comments: readonly T[]) {
     return [...comments].sort(compareCommentOrder);
+}
+
+/** Done is a completion history; legacy threads use their last update, then creation. */
+export function compareDoneOrder(a: Ordered & { completedAt?: string; updatedAt?: string; createdAt?: string }, b: Ordered & { completedAt?: string; updatedAt?: string; createdAt?: string }) {
+    const time = (comment: typeof a) => {
+        for (const value of [comment.completedAt, comment.updatedAt, comment.createdAt]) {
+            const parsed = Date.parse(value ?? '');
+            if (Number.isFinite(parsed)) return parsed;
+        }
+        return 0;
+    };
+    return time(b) - time(a) || compareCommentOrder(a, b);
 }

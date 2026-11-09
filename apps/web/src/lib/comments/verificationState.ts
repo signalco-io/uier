@@ -9,7 +9,7 @@ import type { DbComment } from '../db/schema';
 export function ordinaryVerificationStatus(comment: DbComment, resolved: boolean, explicitReopen = false): DbComment {
     if (Boolean(comment.resolved) === resolved && !(explicitReopen && !resolved && comment.verification?.outcome === 'pending')) return comment;
     const verification = comment.verification;
-    const updated: DbComment = { ...comment, resolved, ...(verification ? { verification: { ...verification, revision: randomUUID(),
+    const updated: DbComment = { ...comment, resolved, ...(resolved ? { completedAt: new Date().toISOString() } : {}), ...(verification ? { verification: { ...verification, revision: randomUUID(),
         outcome: resolved ? 'unconfirmed' as const : 'reopened' as const } } : {}) };
     if (resolved) delete updated.inProgress;
     return updated;

@@ -20,7 +20,7 @@ import { CommentBoard } from './CommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
-import { orderComments } from './commentOrder';
+import { compareDoneOrder, orderComments } from './commentOrder';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
@@ -107,8 +107,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
-    // Priority first (Urgent to Low), then number, highest first: the list, every board column, where a
-    // dragged card lands, selection and the keyboard all follow this order, and so do changes as they arrive
+    // Priority first (Urgent to Low), then number, highest first: the list, active columns,
+    // selection and keyboard follow this order. Done has its own completion history on the board.
     const comments = orderComments(optimisticComments);
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
     // closed, so it cannot reopen later when the scope changes back
@@ -179,6 +179,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const shown = board ? filtered : filtered.filter(comment => statusMatches(query.status, commentStatus(comment)));
     // The board's columns, one per status in order (each thread in exactly one)
     const columns = Object.fromEntries(commentStatuses.map(status => [status, shown.filter(comment => commentStatus(comment) === status)])) as Record<CommentStatus, ProjectCommentView[]>;
+    columns.done.sort(compareDoneOrder);
     const unreadShown = shown.filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);

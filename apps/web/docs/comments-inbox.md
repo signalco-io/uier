@@ -69,6 +69,14 @@
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe.
 
+The list and active board columns sort by priority, then newest number. Done sorts by the last
+transition into Done (`completedAt`), newest first, regardless of priority or number. Legacy Done
+threads fall back to `updatedAt`, then `createdAt`; ties use the usual list order. Ordinary Done
+writes and verification confirmations record completion; same-status writes and later replies
+preserve it. Reopening and completing again records a new time. Optimistic moves place the card
+first in Done, including the drag placeholder; realtime snapshots use the persisted time and the
+existing layout motion.
+
 ## Motion
 
 - `comments/LayoutMotion.tsx` animates the board's cards (`data-board-card`, in the grid) and the list's rows

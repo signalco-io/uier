@@ -68,7 +68,7 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
                 else if (me !== comment.authorId || comment.thread.items[0]?.deletedAt || currentProject.access !== 'guests') throw apiErrors.forbidden('This reviewer no longer has access.');
             }
         }
-        const updated: DbComment = { ...withThreadActivity(comment, me), resolved: input.action === 'confirm', verification: {
+        const updated: DbComment = { ...withThreadActivity(comment, me), resolved: input.action === 'confirm', ...(input.action === 'confirm' ? { completedAt: now } : {}), verification: {
             ...v, revision: randomUUID(), outcome: input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled',
             decision: { kind: input.action, actorId: me, at: now, override: input.action !== 'cancel' && input.override === true }
         } };
