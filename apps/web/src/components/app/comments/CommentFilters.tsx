@@ -195,7 +195,7 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
 /**
  * The list's status tabs: Active, Done and All. The menu beside Active picks one of the statuses folded under it
  * (Open, In progress, Ready to verify), which the Active tab then shows ("Active: In progress"); pressing that tab
- * goes back to every active status.
+ * goes back to every active status. The tabs have no status dot, so none reads as a notification; the menu keeps them.
  */
 function StatusTabs({ status, counts, onStatus }: {
     status: StatusFilter;
@@ -204,8 +204,6 @@ function StatusTabs({ status, counts, onStatus }: {
 }) {
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'active';
-    /** The one status under Active the tab shows, if any */
-    const activeOne = activeStatusFilters.find(value => value === status);
     const activeLabel = activeValue === 'active' ? statusFilterLabels.active : `${statusFilterLabels.active}: ${statusFilterLabels[activeValue]}`;
     return (
         <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
@@ -216,7 +214,6 @@ function StatusTabs({ status, counts, onStatus }: {
                     else if (activeShown && status !== 'active') onStatus('active');
                 }}>
                 <ToggleGroupItem value="active" className={segmentedItem}>
-                    {activeOne && <StateDot status={activeOne} />}
                     {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span>
                 </ToggleGroupItem>
                 <DropdownMenu>
@@ -244,7 +241,6 @@ function StatusTabs({ status, counts, onStatus }: {
                 </DropdownMenu>
                 {(['done', 'all'] as const).map(value => (
                     <ToggleGroupItem key={value} value={value} className={segmentedItem}>
-                        {value === 'done' && <StateDot status="done" />}
                         {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
                     </ToggleGroupItem>
                 ))}
