@@ -151,8 +151,14 @@ checks (a `details` row, "Outline").
 - The request also names the check, `check: { type, id }` (`accessibility` with the rule id, `seo` with
   the check id, `web-vitals` with `lcp`, `cls` or `inp`; [the API](../../../docs/api.md#comments-api)). The API
   saves it and returns it with the comment (`CommentItem.check`), in the feedback packet and through MCP.
-  Nothing reads it in the toolbar yet: it is there so a later change can mark findings already reported
-  and check a fix again.
+- **Already reported.** A finding keeps its comment after a reload and for every other reviewer
+  (`checks/reportedIssue.ts`): among the page's threads, an open one posted from the same check on the same
+  element (its anchor resolves to the issue's element), or about the page for an issue without an element.
+  Its row says "Reported as #12" with **Show** and has no Comment action, so the same finding is not
+  reported twice. What this panel posted itself keeps its own words ("Comment posted", "Bug report sent").
+  A thread marked as done no longer counts: a finding still on the page can be reported again. Several
+  elements of a page's own shadow root share their host's anchor, so one comment marks them all. A report
+  of another page (`PageIssue.path`) is never matched against this page's threads.
 - After posting, the row says "Comment posted as #12" (or "Bug report sent") with **Show**:
   the thread on its pin, or the inbox narrowed to it for page feedback. A failed post shows the usual
   toast and the action comes back.
@@ -172,7 +178,7 @@ review bundle itself loads only for reviewers.
 and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
 screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
-element's comment with what was found and its check, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
+element's comment with what was found and its check, findings marked as reported after a reload (with Show) until their thread is done, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome); the SEO panel and the inbox
 staying open across a client-side navigation, a same-site full load and a reload, and not on a page
 opened anew; an Accessibility panel left open while the previous page's audit still runs (a slow
