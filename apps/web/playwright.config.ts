@@ -38,7 +38,7 @@ const apiTests = /\.api\.spec\.ts$/;
 export default defineConfig({
     // The required suite should expose failures immediately, without retrying a slow browser flow.
     retries: fullSuite ? 2 : 0,
-    workers: process.env.CI ? 2 : 4,
+    workers: process.env.CI && fullSuite ? 2 : 4,
     globalTimeout: fullSuite ? 0 : 3 * 60 * 1000,
     reporter: [['dot'], ['json', { outputFile: 'playwright-report/results.json' }]],
     timeout: 30 * 1000,

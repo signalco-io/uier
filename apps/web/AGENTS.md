@@ -142,10 +142,10 @@ Start a fresh audit for subsequent product actions; retain the strict policy and
   against `next start` on `PORT`, default 4004, e.g. `PORT=4104 pnpm test`; API, Desktop and
   Mobile Chrome). The default runs every `.api.spec.ts`, desktop `@smoke` tests and mobile
   `@mobile-smoke` tests: landing, sign-in, security policy, installation, owner/guest discussion,
-  capture, routes and recovery. It has no retries and a three-minute total budget; CI has two
-  workers and local runs have four. Browser essentials can run in parallel within a file;
-  API tests and the full suite retain their file ordering. Failures retain traces, and
-  `playwright-report/results.json` records timings. `pnpm test:full` restores every browser spec
+  capture, routes and recovery. It has no retries and a three-minute total budget, with four
+  workers locally and in CI. CI runs API and browser projects in separate jobs. Browser essentials
+  can run in parallel within a file; API tests and the full suite retain their file ordering.
+  Failures retain traces, and `playwright-report/results.json` records timings. `pnpm test:full` restores every browser spec
   and two retries. For a specific regression use
   `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file> --project="Desktop Chrome" --retries=0`.
   Keep new feature permutations in the full suite; do not add smoke tags by default.
