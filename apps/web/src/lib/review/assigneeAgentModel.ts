@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { agentKinds, agentLabels, isAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { agentIsWorking, agentKinds, agentLabels, isAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, type AssigneeAgentView } from '@uier/toolbar/agents';
 import type { DbComment } from '../db/schema';
 
 /** Plain one-line text; blank clears it */
@@ -28,5 +28,5 @@ export function assigneeAgentView(comment: Pick<DbComment, 'assigneeId' | 'assig
     if (!agent) return undefined;
     return { kind: agent.kind, label: agentLabels[agent.kind], ...(agent.model ? { model: agent.model } : {}),
         ...(agent.reasoning ? { reasoning: agent.reasoning } : {}),
-        ...(agent.sessionId ? { sessionId: agent.sessionId } : {}), setAt: agent.setAt };
+        ...(agent.sessionId ? { sessionId: agent.sessionId } : {}), setAt: agent.setAt, ...(agentIsWorking(agent.workingUntil) ? { workingUntil: agent.workingUntil } : {}) };
 }

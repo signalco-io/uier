@@ -9,10 +9,14 @@ function stable(value: unknown): string {
 }
 /**
  * Opaque content revision. Future workflow fields participate automatically; delivery bookkeeping
- * does not, and neither does the generated title (`aiTitle`), which follows the first message.
+ * does not, nor do transient agent presence and the generated title (`aiTitle`), which follows the first message.
  */
 export function commentRevision(comment: DbComment) {
     const content = Object.fromEntries(Object.entries(comment).filter(([key]) => !key.startsWith('_')
         && !key.startsWith('sync') && !key.startsWith('notification') && key !== 'aiTitle'));
+    if (comment.assigneeAgent) {
+        const { workingUntil: _, ...agent } = comment.assigneeAgent;
+        content.assigneeAgent = agent;
+    }
     return createHash('sha256').update(stable(content)).digest('hex');
 }

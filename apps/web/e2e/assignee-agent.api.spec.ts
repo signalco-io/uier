@@ -13,11 +13,12 @@ import { projectCommentRouting } from '../src/lib/app/projectCommentRouting';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { createProjectComment, setProjectCommentAssignee, setProjectCommentPrivate, setProjectCommentStatus } from '../src/lib/review/comments';
 import { changeFixVerification } from '../src/lib/review/fixVerification';
-import { setProjectCommentAgent } from '../src/lib/review/assigneeAgent';
+import { setProjectCommentAgent, setProjectCommentAgentWorking } from '../src/lib/review/assigneeAgent';
 import { currentAssigneeAgent } from '../src/lib/review/assigneeAgentModel';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { participantNames, toReviewCommentDto } from '../src/lib/review/dto';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
+import { commentRevision } from '../src/lib/review/commentRevision';
 import { threadActivity } from '../src/lib/comments/activity';
 import { discoverThreadNotifications, processNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
 import { notificationPk } from '../src/lib/notifications/preferences';
@@ -352,4 +353,130 @@ test('the agent kind follows what a coding tool calls itself', () => {
     expect(inferAgentKind('my token', 'https://chatgpt.com/connector')).toBe('chatgpt');
     expect(inferAgentKind(null, undefined, 'Cursor/2.0')).toBe('cursor');
     expect(inferAgentKind('Build bot')).toBe('agent');
+});
+
+test('MCP working leases expire, renew and clear without status, unread, integration or notification changes', async () => {
+    const f = await fixture();
+    const client = await mcpClient(f, 'Claude Code', ['feedback:read', 'feedback:assign']);
+    const otherConnection = await mcpClient(f, 'Another Claude session', ['feedback:read', 'feedback:assign']);
+    const readOnly = await mcpClient(f, 'Read only', ['feedback:read']);
+    const call = async (name: string, args: Record<string, unknown>, using = client) => {
+        const response = await using.callTool({ name, arguments: { projectId: f.project.id, commentId: f.comment.id, idempotencyKey: randomUUID(), ...args } });
+        return { error: Boolean(response.isError), data: response.structuredContent as Record<string, any> };
+    };
+    const working = (args: Record<string, unknown> = {}, using = client) => call('set_feedback_agent_working', { working: true, sessionId: 'working-session', ...args }, using);
+    try {
+        const tool = (await client.listTools()).tools.find(tool => tool.name === 'set_feedback_agent_working')!;
+        expect(tool.description).toContain('five-minute lease');
+        expect(tool.description).toContain('never changes here');
+        expect(tool.inputSchema.required).toContain('working');
+        expect(await working()).toMatchObject({ error: true, data: { error: 'forbidden' } });
+        expect(await call('set_feedback_agent', { assignToMe: true, sessionId: 'working-session' })).toMatchObject({ error: false, data: { stage: 'open' } });
+        const before = await stored(f.comment);
+        const revision = (await getCommentsStore().listRealtime(f.comment.domain)).find(row => row.id === f.comment.id)!.revision;
+        expect(await working({}, readOnly)).toMatchObject({ error: true, data: { error: 'forbidden' } });
+        expect(await working({}, otherConnection)).toMatchObject({ error: true, data: { error: 'conflict' } });
+        expect(await working({ sessionId: 'stale-session' })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        expect(await working({ sessionId: undefined })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        expect(await working({ working: 'yes' })).toMatchObject({ error: true });
+        const key = randomUUID();
+        const started = await working({ idempotencyKey: key });
+        expect(started).toMatchObject({ error: false, data: { stage: 'open', agent: { kind: 'claude', workingUntil: expect.any(String) } } });
+        const until = started.data.agent.workingUntil;
+        expect(Date.parse(until) - Date.now()).toBeGreaterThan(290_000);
+        expect(Date.parse(until) - Date.now()).toBeLessThanOrEqual(300_000);
+        expect((await working({ idempotencyKey: key })).data.agent.workingUntil).toBe(until);
+        expect(await working({ working: false, idempotencyKey: key })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        const active = await stored(f.comment);
+        expect(threadActivity(active)).toEqual(threadActivity(before));
+        expect(active.notificationEvents).toEqual(before.notificationEvents);
+        expect(active.syncVersion).toBe(before.syncVersion);
+        expect(active.updatedAt).toBe(before.updatedAt);
+        expect(commentRevision(active)).toBe(commentRevision(before));
+        expect((await getCommentsStore().listRealtime(f.comment.domain)).find(row => row.id === f.comment.id)!.revision).not.toBe(revision);
+        const participants = await participantNames(f.project);
+        expect(projectCommentRouting(active, f.project, participants, `user:${f.a.id}`).assignee?.agent?.workingUntil).toBe(until);
+        expect(toReviewCommentDto(active, f.assignee, new Map(), [], 0, participants)?.assignee?.agent?.workingUntil).toBe(until);
+        expect(toReviewCommentDto(active, f.guest, new Map(), [], 0, participants)?.assignee).not.toHaveProperty('agent');
+        const list = (await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).structuredContent as Record<string, any>;
+        expect(list.items[0].assignee.agent.workingUntil).toBe(until);
+        const { sent, dispatch } = mailer(f);
+        await dispatch(); // existing assignment may send mail, the lease has no event
+        sent.length = 0;
+        const renewed = await working();
+        expect(Date.parse(renewed.data.agent.workingUntil)).toBeGreaterThan(Date.parse(until));
+        await dispatch();
+        expect(sent).toEqual([]);
+        expect(await working({ working: false })).toMatchObject({ error: false, data: { stage: 'open', agent: { kind: 'claude' } } });
+        expect((await stored(f.comment)).assigneeAgent?.workingUntil).toBeUndefined();
+        // Replaying a previous start cannot undo a clear or extend an old lease.
+        expect((await working({ idempotencyKey: key })).data.agent).not.toHaveProperty('workingUntil');
+        await working();
+        const expired = await stored(f.comment);
+        const entry = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+        await getCommentsStore().replace({ ...expired, assigneeAgent: { ...expired.assigneeAgent!, workingUntil: new Date(Date.now() - 1).toISOString() } }, entry.etag);
+        const expiredList = (await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).structuredContent as Record<string, any>;
+        expect(expiredList.items[0].assignee.agent).not.toHaveProperty('workingUntil');
+        expect(expiredList.items[0].assignee.agent.kind).toBe('claude');
+        expect((await working()).data.agent.workingUntil).toBeTruthy();
+        // Same session details retain the lease; replacing a session ends it and refuses late stop/renewal.
+        await call('set_feedback_agent', { sessionId: 'working-session', model: 'claude-opus-5-5' });
+        expect((await stored(f.comment)).assigneeAgent?.workingUntil).toBeTruthy();
+        await call('set_feedback_agent', { sessionId: 'new-session' });
+        expect((await stored(f.comment)).assigneeAgent?.workingUntil).toBeUndefined();
+        expect(await working({ working: false })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        await working({ sessionId: 'new-session' });
+        // A different connection with identical details replaces the attachment and ends its lease too.
+        await call('set_feedback_agent', { agent: 'claude', sessionId: 'new-session' }, otherConnection);
+        expect((await stored(f.comment)).assigneeAgent?.workingUntil).toBeUndefined();
+        expect(await working({ sessionId: 'new-session' })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        await working({ sessionId: 'new-session' }, otherConnection);
+        await call('clear_feedback_agent', {}, otherConnection);
+        expect((await stored(f.comment)).assigneeAgent).toBeUndefined();
+        expect(await working({ sessionId: 'new-session' }, otherConnection)).toMatchObject({ error: true, data: { error: 'conflict' } });
+        // None of the four stages is changed by presence start or stop.
+        for (const stage of ['open', 'in-progress', 'done', 'ready'] as const) {
+            if (stage === 'ready') {
+                const saved = await stored(f.comment);
+                await changeFixVerification(f.project, f.assignee, f.comment.id, { action: 'request', reviewerId: f.owner.id, expectedRevision: saved.verification?.revision ?? null, idempotencyKey: randomUUID() });
+            } else await setProjectCommentStatus(f.project, f.admin, f.comment.id, stage);
+            await call('set_feedback_agent', { sessionId: 'working-session' });
+            expect((await working()).data.stage).toBe(stage);
+            expect((await working({ working: false })).data.stage).toBe(stage);
+        }
+        await working();
+        await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.b.id);
+        expect((await stored(f.comment)).assigneeAgent).toBeUndefined();
+        expect(await working()).toMatchObject({ error: true, data: { error: 'forbidden' } });
+    } finally { await Promise.all([client.close(), otherConnection.close(), readOnly.close()]); }
+});
+
+
+test('working presence rechecks the attachment after a conditional-write conflict and ends on lost private access', async () => {
+    const f = await fixture();
+    const actor = { ...f.assignee, agent: { credentialId: 'fixture-connector', name: 'Codex', kind: 'credential' as const } };
+    const input = { working: true, sessionId: 'first-session' };
+    await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.a.id);
+    await setProjectCommentAgent(f.project, actor, f.comment.id, { kind: 'codex', sessionId: 'first-session' });
+    for (const forbidden of [f.guest, f.other, f.admin, { kind: 'anonymous' } as ProjectActor])
+        await expect(setProjectCommentAgentWorking(f.project, forbidden, f.comment.id, input, randomUUID())).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(setProjectCommentAgentWorking(f.project, actor, f.comment.id, { working: 'yes' } as never, randomUUID())).rejects.toMatchObject({ code: 'invalid_request' });
+    const store = getCommentsStore();
+    let raced = false;
+    const conflictStore = { ...store, commitSubmission: async (...args: Parameters<typeof store.commitSubmission>) => {
+        if (!raced) {
+            raced = true;
+            await setProjectCommentAgent(f.project, actor, f.comment.id, { kind: 'codex', sessionId: 'replacement-session' });
+        }
+        return store.commitSubmission(...args);
+    } };
+    await expect(setProjectCommentAgentWorking(f.project, actor, f.comment.id, input, randomUUID(), conflictStore)).rejects.toMatchObject({ code: 'conflict' });
+    expect((await stored(f.comment)).assigneeAgent).toMatchObject({ sessionId: 'replacement-session' });
+    expect((await stored(f.comment)).assigneeAgent?.workingUntil).toBeUndefined();
+    await setProjectCommentAgentWorking(f.project, actor, f.comment.id, { working: true, sessionId: 'replacement-session' }, randomUUID());
+    const saved = await setProjectCommentPrivate(f.project, f.admin, f.comment.id, true);
+    expect(saved.assigneeId).toBeUndefined();
+    expect(saved.assigneeAgent).toBeUndefined();
+    await expect(setProjectCommentAgentWorking(f.project, actor, f.comment.id, { working: false, sessionId: 'replacement-session' }, randomUUID()))
+        .rejects.toMatchObject({ code: 'not_found' });
 });

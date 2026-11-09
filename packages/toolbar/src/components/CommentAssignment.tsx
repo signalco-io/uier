@@ -1,14 +1,15 @@
 import { Button } from '@signalco/ui-primitives/Button';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { cx } from '@signalco/ui-primitives/cx';
-import { User } from '@signalco/ui-icons';
+import { LoaderSpinner, User } from '@signalco/ui-icons';
 import { useParticipants } from '../hooks/useParticipants';
 import { useComments } from '../hooks/useComments';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
 import type { CommentItem } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
-import { agentText, type AgentKind } from '../agents';
+import { agentIsWorking, agentText, type AgentKind } from '../agents';
+import { useAgentWorking } from '../useAgentWorking';
 import { AgentMark } from './AgentMark';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
@@ -18,15 +19,19 @@ export function assignedText(comment: CommentItem) {
 }
 
 /** "Assigned to Ana, with Claude": the header avatar's tooltip, with the AI agent working under the assignee */
-export function workingText(comment: CommentItem) {
+export function workingText(comment: CommentItem, working = agentIsWorking(comment.assignee?.agent?.workingUntil)) {
     const agent = comment.assignee?.agent;
-    return agent ? `${assignedText(comment)}, with ${agentText(agent)}` : assignedText(comment);
+    return agent ? `${assignedText(comment)}, with ${agentText(agent)}${working ? ', working now' : ''}` : assignedText(comment);
 }
 
 /** The agent's one-colour mark on a bordered circle, as in the app (`@uier/toolbar/agents`) */
-function AgentAvatar({ kind }: { kind: AgentKind }) {
-    return <span aria-hidden="true" data-agent={kind} className="-ml-2 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-2 ring-background">
+function AgentAvatar({ kind, workingUntil }: { kind: AgentKind; workingUntil?: string }) {
+    const working = useAgentWorking(workingUntil);
+    return <span aria-hidden="true" data-agent={kind} className="relative -ml-2 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-2 ring-background">
         <AgentMark kind={kind} />
+        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-3 items-center justify-center rounded-full bg-background">
+            <LoaderSpinner size={10} className="motion-safe:animate-spin" />
+        </span>}
     </span>;
 }
 
@@ -35,7 +40,7 @@ function AssigneeAvatar({ comment }: { comment: CommentItem }) {
     if (!comment.assignee) return <User size={16} aria-hidden="true" />;
     return <span className="flex items-center">
         <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(comment.assignee.name)}</Avatar>
-        {comment.assignee.agent && <AgentAvatar kind={comment.assignee.agent.kind} />}
+        {comment.assignee.agent && <AgentAvatar kind={comment.assignee.agent.kind} workingUntil={comment.assignee.agent.workingUntil} />}
     </span>;
 }
 
@@ -45,7 +50,8 @@ function AssigneeAvatar({ comment }: { comment: CommentItem }) {
  * `CommentAssigneeOptions` under the header.
  */
 export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
-    const assigned = workingText(comment);
+    const working = useAgentWorking(comment.assignee?.agent?.workingUntil);
+    const assigned = workingText(comment, working);
     const { triggerProps, tooltip } = useIconTooltip(assigned);
     if (!comment.assignee) return null;
     return <>

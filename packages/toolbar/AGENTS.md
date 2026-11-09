@@ -223,7 +223,10 @@ toolbar comment matching the app (pin number, avatar, follow state, no-reviewer 
 Assignment uses `CommentAssignment` and the shared review service. The agent under the assignee
 (`assignee.agent`, members only) is display-only here: only the assignee changes it, in the app or through MCP.
 `src/agents.ts` (`@uier/toolbar/agents`) is the pure vocabulary both share: kinds, labels, `inferAgentKind`,
-model names (`modelName`, `agentText`) and the one-colour marks. `src/devices.ts` (`@uier/toolbar/devices`) does the
+model names (`modelName`, `agentText`) and the one-colour marks. The optional `workingUntil` lease
+shows a small spinner in `CommentAssignment` only while live. `@uier/toolbar/agent-working`
+(`useAgentWorking`) expires it locally with a timer, even offline; reduced motion keeps it still.
+Attachment and thread status are independent of the lease; [agent rules](../../apps/web/docs/assignee-agents.md). `src/devices.ts` (`@uier/toolbar/devices`) does the
 same for the browser and OS a comment was left from: `browserKind` / `osKind` and their marks. `useParticipants` fetches
 a member-only, thread-filtered directory; composer mention ranges are maintained by `mentions.ts`.
 Never infer recipients from display names or reveal account ids in guest DTOs.

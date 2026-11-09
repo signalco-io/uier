@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
+import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { toast } from 'sonner';
 import { ChevronDownIcon, PlusIcon } from 'lucide-react';
 import {
@@ -26,7 +27,7 @@ import { cn } from '@/src/lib/utils';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { setCommentAgentAction } from './actions';
-import { AgentAvatar, AgentMark } from './AgentAvatar';
+import { AgentAvatar } from './AgentAvatar';
 import { useCommentUpdate } from './CommentUpdates';
 
 function agentView(input: AssigneeAgentInput): AssigneeAgentView {
@@ -73,6 +74,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
     const ids = useId();
     const assignee = comment.assignee;
     const agent = assignee?.agent;
+    const working = useAgentWorking(agent?.workingUntil);
     if (!assignee) return null;
 
     if (!comment.permissions.agent) {
@@ -80,7 +82,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
         return (
             <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
                 <span className="text-muted-foreground">with</span>
-                <AgentMark kind={agent.kind} />
+                <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
                 <span className="shrink-0">{agent.label}</span>
                 <AgentDetails agent={agent} />
             </span>
@@ -129,9 +131,10 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
             <DropdownMenu>
                 <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" disabled={pending}
                     aria-label={agent ? `Agent: ${agent.label}. Change agent` : undefined}
+                    aria-description={working ? `${agent?.label} is working now` : undefined}
                     className={agent ? 'h-7 min-w-0 max-w-full gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
                     {agent ? <>
-                        <AgentMark kind={agent.kind} />
+                        <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
                         <span className="shrink-0">{agent.label}</span>
                         <AgentDetails agent={agent} />
                         {pending ? <Spinner data-icon="inline-end" /> : <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />}

@@ -47,3 +47,22 @@ the connection's name), as "via" with the mark and an `IconTooltip` in the toolb
 message, stripped before integration delivery), email digests and MCP event `actor.agent`. Permissions follow the
 author as before. Tests: `agent-replies{,.api}.spec.ts`; the "via" mark's model uses `agentModelText` too. See [review workflow](../../../docs/review-workflow.md#ai-agents-under-the-assignee)
 and [MCP](../../../docs/mcp.md#agents-working-on-feedback).
+
+**Working now (MCP presence).** Attachment and thread status are separate from active execution.
+`set_feedback_agent_working` (`feedback:assign`) calls `setProjectCommentAgentWorking` with a boolean
+`working` and the attached `sessionId` when present. Only the current assignee's attached MCP connection
+and exact session can start, renew or clear it; another connection or stale session gets `conflict`.
+The server sets `assigneeAgent.workingUntil` five minutes ahead; renew every two minutes with a fresh
+idempotency key. Atomic receipt retries do not extend it or overwrite a later clear. `working: false`
+removes only the lease. Detaching, changing kind/session/connection or changing assignee ends it;
+metadata edits in the same session keep it. Older attachments have no lease.
+
+`assigneeAgentView` includes `workingUntil` only while live, for members in app/toolbar/MCP lists.
+These ephemeral writes use the usual conditional write and etag realtime detection, without changing
+status, unread activity, notification events, content timestamps/revisions, integration signals or AI titles.
+Heartbeats are not durable agent events: no activity history, email or `feedback.agent_changed` spam.
+`useAgentWorking` (`@uier/toolbar/agent-working`) expires mounted indicators locally with one cleanup-safe
+timer and no extra reads, even offline. `AgentAvatar`, `AssigneeCard`, the thread's `AgentControl` and
+the toolbar's `CommentAssignment` show the small spinner and accessible working text; reduced motion
+keeps the indicator still. Coverage includes lease expiry/retry/ownership, realtime updates and draft preservation, and indicators
+on list, board, My work, thread, hover card and toolbar.

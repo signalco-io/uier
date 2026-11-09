@@ -128,6 +128,8 @@ export type DbThreadItem = {
  * (the reasoning level, or effort, it runs at) are what the agent or its assignee said: untrusted display text.
  */
 export type DbAssigneeAgent = {
+    /** Server-issued working lease; expiry leaves the agent attached and the thread status unchanged. */
+    workingUntil?: string;
     kind: import('@uier/toolbar/agents').AgentKind;
     /** The assignee it works under (a user id) */
     assigneeId: string;
