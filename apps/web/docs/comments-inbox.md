@@ -3,8 +3,8 @@
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
   title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
   stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",
-  the name in a tooltip, a click on it opens the row; it starts a row's meta line and a card's last line, so a card's
-  path has the card's width), page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
+  the name in a tooltip, a click on it opens the row; it starts the title line, before the number, centred on a card's
+  first title line), page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
   (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age (`RelativeTime`: one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render) and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
