@@ -20,7 +20,9 @@
   room; on the board, which has no tabs, on its own line), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
   clear button ("Clear page filter: /app/…", "Clear author filter: Ana", "Clear filter: Only unread"). The count line under them (`TriageSelection`) has the unread
-  count, then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
+  count, a toggle for Only unread (uier #193, like the toolbar's Unread toggle: the kit's `Toggle`, named "7 unread, show
+  only unread", pressed while the filter is on, the count still in the unread accent; while the filter is on it stays, at "0 unread"
+  in muted text too, so it can be turned off where it was turned on), then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
   accent, so it reads as that count's action). There is no Select (uier #179): selecting starts from a row's box, x, or a long press on a
   touch screen ([App triage](triage.md#selection)). The toolbar's inbox has the same count line under its
   filters (`packages/toolbar/src/components/sidebar/MarkAllRead.tsx`: "7 unread", then Mark all as read with its icon), and its

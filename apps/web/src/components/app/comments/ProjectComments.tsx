@@ -8,6 +8,7 @@ import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-sear
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
 import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
+import { Toggle } from '@/src/components/ui/toggle';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ProjectAccess } from '../../../lib/app/model';
@@ -230,7 +231,15 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
                 lineClassName={wideClassName}
                 // Only the unread count: the list's status tabs and the board's columns already count what is shown
-                summary={unreadShown > 0 && <span className="text-[hsl(var(--brand-accent-text))]">{`${unreadShown} unread`}</span>}
+                // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
+                // at 0 too, so it can be turned off where it was turned on
+                summary={(unreadShown > 0 || query.unread) && (
+                    <Toggle size="sm" pressed={Boolean(query.unread)} aria-label={`${unreadShown} unread, show only unread`}
+                        onPressedChange={pressed => setUrlSearchParams({ q: search || undefined, unread: pressed ? 'true' : undefined }, { history: 'push' })}
+                        className={cn('-mx-1.5 px-1.5 font-normal tabular-nums pointer-coarse:min-h-11', unreadShown > 0 ? 'text-[hsl(var(--brand-accent-text))] hover:text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>
+                        {`${unreadShown} unread`}
+                    </Toggle>
+                )}
                 actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
