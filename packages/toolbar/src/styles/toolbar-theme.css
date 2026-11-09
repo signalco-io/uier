@@ -28,6 +28,23 @@
         pointer-events: auto;
     }
 
+    /* Scrollbars (the inbox, long threads, menus) follow the toolbar's theme, not the page's:
+       light threads, and the ink pill and inbox (`.dark`, components/InkScope.tsx) on any page.
+       `scrollbar-color` resolves its tokens where it is declared, so the ink scope declares it again. */
+    [data-uier-root],
+    [data-uier-root] .dark {
+        scrollbar-color: hsl(var(--muted-foreground) / 0.5) transparent;
+    }
+
+    [data-uier-root] {
+        color-scheme: light;
+    }
+
+    [data-uier-root].dark,
+    [data-uier-root] .dark {
+        color-scheme: dark;
+    }
+
     @media (prefers-reduced-motion: reduce) {
         [data-uier-root] *,
         [data-uier-root] *::before,
