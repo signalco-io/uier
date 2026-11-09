@@ -4,7 +4,7 @@ import './index.css';
 import { CommentsBootstrapper, clearToolbarQueries } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
 import { endReviewSession, type ReviewSession } from './review';
-import { requestFeedbackOnMount } from './openFeedback';
+import { requestOnMount } from './openFeedback';
 import { runtimeContext } from './runtimeContext';
 import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
 import { adoptToolbarStyles } from './stylesheet';
@@ -106,8 +106,8 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
 
 // The loader supplies its captured configuration and in-memory identity through this script's
 // symbol property. Register a mount function so feedback can reopen without another download.
-runtimeContext.mount = (mode, review) => {
+runtimeContext.mount = (mode, review, request) => {
     if (runtimeAdapters() || getToolbarHost()) return;
-    if (mode === 'feedback') requestFeedbackOnMount();
+    if (mode === 'feedback') requestOnMount(request ?? 'feedback');
     mountToolbar(mode, review);
 };

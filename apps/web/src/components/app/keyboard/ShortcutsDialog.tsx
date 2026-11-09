@@ -29,7 +29,7 @@ const groups: { title: string; shortcuts: Shortcut[] }[] = [
         shortcuts: [
             { label: 'Show keyboard shortcuts', keys: ['?'], letter: true },
             { label: 'Search', keys: ['/'], letter: true },
-            { label: 'Give feedback on this page', keys: ['C'], letter: true },
+            { label: 'Comment on this page', keys: ['C'], letter: true },
             { label: 'Go to the project’s inbox', keys: ['G', 'I'], join: 'then', letter: true },
             { label: 'Go to the project’s board', keys: ['G', 'B'], join: 'then', letter: true },
             { label: 'Go to My work', keys: ['G', 'M'], join: 'then', letter: true },

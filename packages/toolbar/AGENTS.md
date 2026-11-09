@@ -6,11 +6,11 @@ open shadow root when the page is opened with
 a review link (`?toolbar-code=<project code>` or `?review=true`) or a project member signs in silently
 (`review` mode; the review then lasts
 for the tab, `src/review.ts`), always (`showcase` mode, every public uier.io page) or when the page asks
-for feedback (`feedback` mode, the uier app's "Give feedback" button, `src/openFeedback.ts`). The link only
+for feedback or a comment (`feedback` mode, the uier app's "Give feedback" button and C, `src/openFeedback.ts`). The link only
 starts the review: the project whose comments apply is the script's `data-uier-project`
 (`src/config.ts`). Configuration and bridge validation accept 21-character public Nano IDs and
 legacy random 12-character codes; do not trim their alphabet to lowercase. `dist/react.js` is the React component that adds the script
-(`@uier/toolbar/react`, `src/react.ts`, with a `project` prop), plus `openUierFeedback()`. Embedding and configuration:
+(`@uier/toolbar/react`, `src/react.ts`, with a `project` prop), plus `openUierFeedback()` and `startUierComment()`. Embedding and configuration:
 [README.md](README.md).
 
 This guide holds the code map and the rules for every change in the toolbar. How a feature works,

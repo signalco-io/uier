@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { isSearchKey, isShortcutsHelpKey, sequenceTimeoutMs, shortcutLetter } from '@uier/toolbar/keyboard';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { setUrlSearchParams } from '@/src/hooks/use-url-search-params';
-import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
+import { startToolbarComment } from '../../toolbar/ToolbarScript';
 import { isShortcutTarget, useShortcutsEnabled } from './keys';
 import { ShortcutsDialog } from './ShortcutsDialog';
 
@@ -25,7 +25,7 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
 
 /**
  * The app's shortcuts that work on every page: `?` shows them all (`ShortcutsDialog`), `/` goes to the
- * page's search (a field marked `data-shortcut-search`), C opens Give feedback, and G followed by I, B,
+ * page's search (a field marked `data-shortcut-search`), C starts a comment with uier's own toolbar, and G followed by I, B,
  * M or P goes to the project's inbox or board, My work or Projects. The comments list and board, My
  * work and the open thread add their own (`useKeyShortcuts`). Single keys, so they can be turned off
  * (WCAG 2.1.4) and never act while typing, in a menu or a dialog, or in the review toolbar.
@@ -85,7 +85,7 @@ export function AppShortcuts({ children }: { children: ReactNode }) {
             goPressed.current = Date.now();
         } else if (letter === 'c') {
             event.preventDefault();
-            openToolbarFeedback();
+            startToolbarComment();
         }
     });
     useEffect(() => {

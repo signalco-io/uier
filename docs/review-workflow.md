@@ -440,7 +440,8 @@ other public pages. Explicit review
 links still start review mode; the signed-in app does not automatically publish a showcase.
 
 The app's **Give feedback** button (sidebar, above the account) opens the same toolbar on the app page in
-`feedback` mode, with its feedback form open (`openUierFeedback()` from `@uier/toolbar/react`). App pages show
+`feedback` mode, with its feedback form open (`openUierFeedback()` from `@uier/toolbar/react`); the app's C
+shortcut opens it placing a comment instead (`startUierComment()`). App pages show
 people's private projects, so on the public project every comment on an `/app` page is **private**: only its
 author and the uier team (the public project's admins, in the app) see it, in both comments APIs, whichever
 toolbar left it. Comments the team makes private there are hidden from other visitors as well.

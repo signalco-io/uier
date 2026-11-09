@@ -1,6 +1,6 @@
 import { toolbarConfig } from './config';
 import { getToolbarHost } from './mount';
-import { openFeedbackEvent } from './openFeedback';
+import { openFeedbackEvent, readToolbarRequest, startCommentEvent, type ToolbarRequest } from './openFeedback';
 import { backgroundSignIn } from './project/backgroundSession';
 import { startInstallationCheck } from './project/installationCheck';
 import { getReviewToken, setReviewToken } from './project/projectSession';
@@ -49,10 +49,10 @@ function whenBodyReady(callback: () => void) {
     else document.addEventListener('DOMContentLoaded', callback, { once: true });
 }
 
-function openToolbar(mode: Parameters<MountToolbar>[0], review: Parameters<MountToolbar>[1]) {
+function openToolbar(mode: Parameters<MountToolbar>[0], review: Parameters<MountToolbar>[1], request?: ToolbarRequest) {
     whenBodyReady(() => {
         if (getToolbarHost()) return;
-        void loadToolbar().then(mount => mount(mode, review)).catch(error => {
+        void loadToolbar().then(mount => mount(mode, review, request)).catch(error => {
             console.warn('uier-toolbar: Could not open the toolbar', error);
         });
     });
@@ -62,8 +62,10 @@ if (toolbarConfig.mode === 'showcase') {
     const review = resolveReviewSession();
     openToolbar(review ? 'review' : 'showcase', review);
 } else if (toolbarConfig.mode === 'feedback') {
-    window.addEventListener(openFeedbackEvent, () => openToolbar('feedback', null));
-    openToolbar('feedback', null);
+    // A toolbar already on the page handles these events itself (CommentsGlobal)
+    window.addEventListener(openFeedbackEvent, () => openToolbar('feedback', null, 'feedback'));
+    window.addEventListener(startCommentEvent, () => openToolbar('feedback', null, 'comment'));
+    openToolbar('feedback', null, readToolbarRequest(source?.dataset.uierOpen));
 } else {
     const review = resolveReviewSession();
     if (review) {
