@@ -83,19 +83,47 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
 
     // Only the latest audit's result is shown (a page reached since, or Check again, asked for a newer one)
     const latestAudit = useRef(0);
-    // The page the running or last audit checks (none after one failed), read before React renders its state
+    // The latest audit's cancellation: a newer audit, collapsing (for one in the background) and leaving the page cancel it
+    const auditControl = useRef<{ controller: AbortController; background: boolean }>(undefined);
+    useEffect(() => () => auditControl.current?.controller.abort(), []);
+    // The page the running or last audit checks (none after one failed or was cancelled), read before React renders its state
     const auditedPath = useRef<string>(undefined);
     const seoPath = useRef<string>(undefined);
     const runAccessibility = ({ background = false } = {}) => {
         const audit = ++latestAudit.current;
+        auditControl.current?.controller.abort();
+        const controller = new AbortController();
+        auditControl.current = { controller, background };
         auditedPath.current = pathRef.current;
         setAccessibility(current => ({ ...current, checking: true, error: false }));
         if (!background) setHighlighted(undefined);
-        checkAccessibility(pathRef.current).then(report => {
-            if (audit === latestAudit.current) setAccessibility({ report, checking: false });
+        const ended = () => {
+            if (auditControl.current?.controller === controller) auditControl.current = undefined;
+        };
+        // An open panel waits for the background audit: it goes on without waiting for idle moments
+        const report = background
+            ? checkAccessibility(pathRef.current, { signal: controller.signal, background: { hurry: () => panelRef.current === 'accessibility' } })
+            : checkAccessibility(pathRef.current, { signal: controller.signal });
+        report.then(report => {
+            ended();
+            if (audit !== latestAudit.current) return;
+            if (report) {
+                setAccessibility({ report, checking: false });
+                return;
+            }
+            // Too large a page or too slow a device to check unasked: the panel checks it when it opens (or now, if open)
+            auditedPath.current = undefined;
+            setAccessibility(current => ({ ...current, checking: false }));
+            if (panelRef.current === 'accessibility') runAccessibility();
         }, error => {
+            ended();
             if (audit !== latestAudit.current) return;
             auditedPath.current = undefined;
+            if (controller.signal.aborted) {
+                // Cancelled without a newer audit (the toolbar collapsed): checked again when it expands
+                setAccessibility(current => ({ ...current, checking: false }));
+                return;
+            }
             console.warn('uier-toolbar: The accessibility check could not run', error);
             // In the background it fails quietly (the panel checks again when it opens), unless the panel is open meanwhile
             setAccessibility(current => ({ ...current, checking: false, error: !background || panelRef.current === 'accessibility' }));
@@ -109,7 +137,9 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
 
     // In the background, once per page: after it has loaded and rendered, when the browser is idle,
     // and only while the toolbar is expanded (its buttons show what was found). axe-core is still
-    // the lazy audit asset; it is not downloaded unasked where the browser saves data.
+    // the lazy audit asset; it is not downloaded unasked where the browser saves data. Collapsing
+    // cancels a background audit not yet done (queued, loading or between its steps) that no open
+    // panel waits for.
     useEffect(() => {
         if (collapsed) return;
         const ready = pageIdle();
@@ -117,7 +147,11 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             if (seoPath.current !== pathRef.current) runSeo({ background: true });
             if (auditAvailable() && !savesData() && auditedPath.current !== pathRef.current) runAccessibility({ background: true });
         });
-        return ready.cancel;
+        return () => {
+            ready.cancel();
+            // An open Accessibility panel (it stays open while collapsed) still waits for it
+            if (auditControl.current?.background && panelRef.current !== 'accessibility') auditControl.current.controller.abort();
+        };
     }, [collapsed]);
 
     // Opening a panel checks the page unless it has (or is checking) this page's report

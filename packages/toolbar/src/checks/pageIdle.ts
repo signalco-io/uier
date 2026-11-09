@@ -51,3 +51,34 @@ export function pageIdle({ loadLimit = 10_000, idleLimit = 5000 }: { loadLimit?:
 export function savesData() {
     return (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 }
+
+/**
+ * The browser's next idle moment (at most `limit` ms away), or the next task when `soon`: between the
+ * steps of work the toolbar does in the background, so the page's own tasks go first. Rejects with the
+ * signal's reason when it aborts first.
+ */
+export function nextIdle(signal?: AbortSignal, { soon = false, limit = 1000 }: { soon?: boolean; limit?: number } = {}) {
+    return new Promise<void>((resolve, reject) => {
+        if (signal?.aborted) {
+            reject(signal.reason);
+            return;
+        }
+        let cancel = () => {};
+        const abort = () => {
+            cancel();
+            reject(signal!.reason);
+        };
+        const done = () => {
+            signal?.removeEventListener('abort', abort);
+            resolve();
+        };
+        if (!soon && typeof window.requestIdleCallback === 'function') {
+            const id = window.requestIdleCallback(done, { timeout: limit });
+            cancel = () => window.cancelIdleCallback(id);
+        } else {
+            const id = window.setTimeout(done, 0);
+            cancel = () => window.clearTimeout(id);
+        }
+        signal?.addEventListener('abort', abort, { once: true });
+    });
+}

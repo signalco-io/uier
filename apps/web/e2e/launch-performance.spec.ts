@@ -3,6 +3,7 @@ import { gzipSync, brotliCompressSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { pngImage } from './support/images';
+import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { chooseInboxPages, newVisitor, toolbar } from './support/toolbar';
@@ -301,4 +302,86 @@ test('feedback on a long page paints its composer first and captures in short ta
     expect(slow.blockingMs).toBeLessThan(500);
     // And it still finishes: a loose guard, the slow sample takes about half a second locally
     for (const sample of samples) expect(sample.encodedMs).toBeLessThan(5_000);
+});
+
+test('the background checks audit a long page in short tasks while the page stays responsive, also on a slower CPU', async ({ page, browser }, testInfo) => {
+    // The pill names what the audit found; on a phone that is in Options. The tasks depend on the CPU, not the layout.
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    await signIn(page, uniqueEmail('audit-budget'));
+    const projectId = await createProject(page, { urls: [site.origin()], name: 'Audit budgets' });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const audit = await auditAssetPath();
+    const samples: { sections: number; cpu: number; elements: number; auditMs: number; runs: number; longestRunMs: number;
+        longTasksMs: number[]; clickToFrameMs: number[] }[] = [];
+    // A long page like a real one (250 sections, over 1,000 elements) with issues to find, at normal and 4× slower CPU
+    for (const cpu of [1, 4]) {
+        const guest = await newVisitor(browser, testInfo);
+        await observeCapture(guest.page);
+        await observeAuditRuns(guest.page);
+        const cdp = await guest.page.context().newCDPSession(guest.page);
+        try {
+            await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpu });
+            await guest.page.goto(`${site.origin()}/${projectId}/pricing?sections=250&page-checks&host-probe=1&toolbar-code=${projectId}`);
+            await expect(toolbar(guest.page)).toBeVisible();
+            const button = toolbar(guest.page).getByRole('button', { name: /^Accessibility/ });
+            // The page's own button, pressed until the audit has said what it found
+            const deadline = Date.now() + 60_000;
+            while (!/issues? found$/.test(await button.getAttribute('aria-label') ?? '')) {
+                expect(Date.now()).toBeLessThan(deadline);
+                await guest.page.locator('#host-probe').press('Space');
+            }
+            const sample = await guest.page.evaluate(async audit => {
+                const end = performance.now();
+                // Long-task entries arrive after their task
+                await new Promise(resolve => setTimeout(resolve, 250));
+                const start = performance.getEntriesByType('resource').find(entry => new URL(entry.name).pathname === audit)!.startTime;
+                const during = (entry: PerformanceEntry) => entry.startTime + entry.duration > start && entry.startTime < end;
+                const runs = performance.getEntriesByName('axe-run');
+                return { elements: document.getElementsByTagName('*').length, auditMs: end - start, runs: runs.length,
+                    longestRunMs: Math.max(0, ...runs.map(run => run.duration)),
+                    longTasksMs: performance.getEntriesByName('observed-long-task').filter(during).map(task => task.duration),
+                    clickToFrameMs: performance.getEntriesByName('host-click-to-frame').filter(during).map(entry => entry.duration) };
+            }, audit);
+            samples.push({ sections: 250, cpu, ...sample });
+        } finally {
+            await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+            await guest.context.close();
+        }
+    }
+
+    // Over the background audit's element limit it is left to the panel: nothing is downloaded or run unasked
+    const guest = await newVisitor(browser, testInfo);
+    await observeAuditRuns(guest.page);
+    const auditRequests: string[] = [];
+    guest.page.on('request', request => { if (new URL(request.url()).pathname === audit) auditRequests.push(request.url()); });
+    try {
+        await guest.page.goto(`${site.origin()}/${projectId}/pricing?sections=1000&page-checks&toolbar-code=${projectId}`);
+        // The SEO check ran in the background: so would the audit have
+        await expect(toolbar(guest.page).getByRole('button', { name: /^SEO, \d+ to look at$/ })).toBeVisible({ timeout: 20_000 });
+        await guest.page.waitForTimeout(1_000);
+        expect(auditRequests).toHaveLength(0);
+        const button = toolbar(guest.page).getByRole('button', { name: /^Accessibility/ });
+        await expect(button).toHaveAccessibleName('Accessibility');
+        // Asked for, the panel checks the whole page at once
+        await button.click();
+        await expect(guest.page.getByRole('complementary', { name: 'Accessibility' }).getByRole('status')).toHaveText(/^\d+ issues? found\.$/, { timeout: 30_000 });
+        expect(auditRequests).toHaveLength(1);
+        expect(await auditRuns(guest.page)).toHaveLength(1);
+    } finally { await guest.context.close(); }
+
+    const metricsPath = testInfo.outputPath('audit-performance.json');
+    await writeFile(metricsPath, JSON.stringify({ profile: testInfo.project.name, browser: browser.version(), samples }, null, 2));
+    await testInfo.attach('audit-performance.json', { path: metricsPath, contentType: 'application/json' });
+    console.info('Audit performance', JSON.stringify({ profile: testInfo.project.name, samples: samples.map(({ longTasksMs, clickToFrameMs, ...sample }) => ({
+        ...sample, longestTaskMs: Math.max(0, ...longTasksMs), maximumClickToFrameMs: Math.max(0, ...clickToFrameMs), clicks: clickToFrameMs.length })) }));
+    const [normal, slow] = samples as [typeof samples[0], typeof samples[0]];
+    expect(normal.elements).toBeGreaterThan(1_000);
+    // In short steps: the budgets of capture on a long page (100 ms, 250 ms at 4×), and the page's own presses within the launch budget
+    for (const sample of samples) expect(sample.runs).toBeGreaterThan(1);
+    expect(Math.max(0, ...normal.longTasksMs)).toBeLessThan(100);
+    expect(Math.max(0, ...slow.longTasksMs)).toBeLessThan(250);
+    for (const sample of samples) {
+        expect(sample.clickToFrameMs.length).toBeGreaterThan(0);
+        expect(Math.max(...sample.clickToFrameMs)).toBeLessThan(250);
+    }
 });

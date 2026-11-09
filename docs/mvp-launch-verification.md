@@ -97,6 +97,13 @@ styles and fonts load only when the review UI is needed; the loader still has a 
   **500 ms** at 4×; no long task after the first frame may reach **100 ms** (normal) or **250 ms** (4×);
   blocking time stays under **150 ms** / **500 ms**, and every capture finishes within **5 s**. These keep
   several times the local headroom and fail on the previous capture.
+- The toolbar's background accessibility audit is measured in `audit-performance.json` (Desktop Chrome):
+  `?sections=250&page-checks` (1,027 elements, with issues to find) at normal and 4× slower CPU, from the
+  audit asset's download to the report on the pill, while a host button is pressed. It must take more than
+  one axe-core run, no long task may reach **100 ms** (normal) or **250 ms** (4×), and host presses stay
+  under **250 ms**. Locally: 13 runs of at most 50 ms in 0.5 s and no long task at normal CPU; 35 runs of
+  at most 137 ms in 3.4 s at 4×, where the longest task (191 ms) is axe-core's own evaluation. A page over
+  1,500 elements (`?sections=1000`) is not audited unasked.
 
 The release record must preserve the actual JSON measurements and limitations with the tested
 revision. Repeat measurements after merged feature changes before accepting the launch gate.

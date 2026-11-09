@@ -1,8 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, toolbar } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -17,8 +16,7 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-const auditPath = async () => `/toolbar/${createHash('sha256')
-    .update(await readFile(new URL('../../../packages/toolbar/dist/audit.js', import.meta.url))).digest('hex')}.js`;
+const auditPath = auditAssetPath;
 
 /** The next comment the toolbar posts, with its body */
 function nextCreate(page: Page, project: string) {
@@ -378,6 +376,65 @@ test('a panel that stays open shows the page it reached, never the previous one,
     await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/team$/, '/features')}${location.search}`));
     await expect(inbox).toContainText('Features need a comparison table');
     await expect(inboxPages(page)).toHaveAccessibleName(/This page$/);
+});
+
+test('a background audit nobody needs any more stops: collapsed while it loads or between its steps, and after Exit review', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(90_000);
+    await signIn(page, uniqueEmail('audit-cancel'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.context().clearCookies();
+    await observeAuditRuns(page);
+    // axe-core loads slowly: the background audit waits for it
+    const audit = await auditPath();
+    await page.route(`**${audit}`, async route => {
+        await new Promise(resolve => setTimeout(resolve, 2_000));
+        await route.continue();
+    });
+    const isAudit = (request: Request) => new URL(request.url()).pathname === audit;
+    const pill = toolbar(page);
+    const collapse = () => pill.getByRole('button', { name: 'Collapse toolbar' }).click();
+    const expand = () => page.getByRole('button', { name: /^Expand toolbar/ }).click();
+    const runCount = async () => (await auditRuns(page)).length;
+
+    // Collapsed while axe-core loads: it never runs
+    let requested = page.waitForRequest(isAudit);
+    await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks&sections=250`);
+    await requested;
+    await collapse();
+    await page.waitForResponse(response => isAudit(response.request()));
+    await page.waitForTimeout(1_000);
+    expect(await runCount()).toBe(0);
+
+    // Collapsed between its steps (on a slower CPU, so it is still running): the step that runs ends, no other starts
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    try {
+        await expand();
+        await expect.poll(runCount, { intervals: [50] }).toBeGreaterThan(0);
+        await collapse();
+        await page.waitForTimeout(500);
+        const stopped = await runCount();
+        await page.waitForTimeout(1_500);
+        expect(await runCount()).toBe(stopped);
+    } finally {
+        await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    }
+    // Expanded again, the page is checked from the start, to the end
+    await expand();
+    await expect(pill.getByRole('button', { name: /^Accessibility/ })).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 30_000 });
+
+    // Exit review while axe-core loads: it never runs on the page left without the toolbar
+    requested = page.waitForRequest(isAudit);
+    await page.reload();
+    await requested;
+    await pill.getByRole('button', { name: 'Options', exact: true }).click();
+    await page.getByRole('button', { name: 'Exit review', exact: true }).click();
+    await expect(toolbar(page)).toHaveCount(0);
+    await page.waitForResponse(response => isAudit(response.request()));
+    await page.waitForTimeout(1_000);
+    expect(await runCount()).toBe(0);
 });
 
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {
