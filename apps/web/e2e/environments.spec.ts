@@ -47,11 +47,12 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(where).toContainText('All environments and pages');
     await expect(commentRows(page)).toHaveCount(3);
     await where.click();
-    // Options that match no comments are hidden
+    // Options that match no comments are hidden; long paths show in full on hover
     const environmentGroup = page.getByRole('group', { name: 'Environment' });
     await expect(environmentGroup.getByRole('button', { name: 'All environments', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(environmentGroup.getByRole('button', { name: 'Removed addresses', exact: true })).toHaveCount(0);
     await expect(environmentGroup.getByRole('button', { name: 'Source not recorded', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${path}`) })).toHaveAttribute('title', path);
     await environmentGroup.getByRole('button', { name: 'Production', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(commentRows(page)).toHaveCount(1);
