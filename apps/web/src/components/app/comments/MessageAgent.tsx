@@ -1,6 +1,6 @@
 'use client';
 
-import { reasoningText } from '@uier/toolbar/agents';
+import { agentModelText, modelName, reasoningText } from '@uier/toolbar/agents';
 import { Button } from '@/src/components/ui/button';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
@@ -10,8 +10,8 @@ import { AgentAvatar, AgentMark } from './AgentAvatar';
 
 /**
  * "via Claude" after a message's author: the AI agent that wrote it for them through a coding tool
- * connection, with its logo. Hovering or clicking it shows the model and reasoning level it gave and the
- * connection it came through. The message is still the person's: they edit and delete it as their own.
+ * connection, with its logo. Hovering or clicking it shows the model (by name, like `AgentControl`, with the
+ * reported id as its title; an unknown id as it is, in mono), the reasoning level it gave and the connection it came through. The message is still the person's: they edit and delete it as their own.
  */
 export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
     const agent = author.agent;
@@ -30,7 +30,11 @@ export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
                     <ItemMedia><AgentAvatar kind={agent.kind} className="size-8" /></ItemMedia>
                     <ItemContent className="min-w-0">
                         <ItemTitle>{agent.label}</ItemTitle>
-                        <ItemDescription className="truncate font-mono">{agent.model ?? 'No model given'}</ItemDescription>
+                        {agent.model
+                            ? <ItemDescription data-agent-model="" title={agent.model} className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'}>
+                                {agentModelText({ label: agent.label, model: agent.model })}
+                            </ItemDescription>
+                            : <ItemDescription className="truncate">No model given</ItemDescription>}
                         {agent.reasoning && <ItemDescription className="truncate">{reasoningText(agent.reasoning)}</ItemDescription>}
                     </ItemContent>
                 </Item>

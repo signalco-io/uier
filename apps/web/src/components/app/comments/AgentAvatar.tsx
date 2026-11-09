@@ -34,7 +34,7 @@ export function AgentAvatar({ kind, className }: { kind: AgentKind; className?: 
 
 type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView };
 
-/** "Assigned to Ana" or "Assigned to you, with Claude (claude-opus-5-5)": the words of the avatars below */
+/** "Assigned to Ana" or "Assigned to you, with Claude Opus 5.5 (high reasoning)": the words of the avatars below */
 export function assignedLabel(assignee: Assignee | undefined, userId?: string) {
     if (!assignee) return 'Unassigned';
     return `Assigned to ${assignee.id === userId ? 'you' : assignee.name}${assignee.agent ? `, with ${agentText(assignee.agent)}` : ''}`;
