@@ -41,6 +41,15 @@ agent with `set_feedback_agent`, renews `set_feedback_agent_working` every two m
 least every minute while a lease is live), and turns the spinner off when the session reports. The
 agent stays attached until the comment closes. `monitor.mjs status` lists the leases.
 
+An optional `agentLease.sessionUrl` carries the existing desktop session link supplied by the
+harness. The watcher forwards it to `set_feedback_agent`, including when it changes or is removed.
+For T3 Code, pass `t3-thread://v2/<environmentId>/<threadId>` with the correct environment id; agent
+kind and session id alone cannot identify the desktop app. Codex accepts
+`codex://threads/<UUID>` and Claude accepts `claude://claude.ai/chat/<UUID>`. Omit the field when the
+harness has no supported link. uier rejects other routes, queries and fragments. Links appear only
+in member agent details and never in guest responses or connected-service deliveries. See the
+[validated formats and official documentation](../apps/web/docs/assignee-agents.md#desktop-session-links).
+
 uier only lets the connection that attached an agent report its work, which is why the watcher
 attaches it rather than the orchestrator. Its token can't change status, so the orchestrator moves
 the comment to In progress. With a token without "Assign feedback", or without a token, the

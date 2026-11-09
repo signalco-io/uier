@@ -35,7 +35,7 @@ import { userIdSchema } from '../app/validation';
 import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
 import { attachmentId, setProjectCommentAgent, setProjectCommentAgentWorking } from '../review/assigneeAgent';
 import { assignedAgents, assignedUserIds, agentIdSchema, assigneeIdsSchema, assignmentModeSchema } from '../review/assignments';
-import { assigneeAgentViews } from '../review/assigneeAgentModel';
+import { agentSessionUrlSchema, assigneeAgentViews } from '../review/assigneeAgentModel';
 import { messageAgentView } from '../review/messageAgent';
 
 const page = {
@@ -269,13 +269,14 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         add: z.boolean().optional().describe('true: attach an additional agent under you; do not also send agentId.'),
         agent: z.enum(agentKinds).optional().describe('Which agent you are: claude, codex, chatgpt, cursor, or agent for any other. Omit it to use the one this connection identifies as.'),
         sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe(`Your session or conversation id, when you have one (up to ${MAX_AGENT_SESSION_LENGTH} characters).`),
+        sessionUrl: agentSessionUrlSchema.optional().describe('An existing desktop session link, supplied by your harness: t3-thread://v2/<environmentId>/<threadId>, codex://threads/<UUID>, or claude://claude.ai/chat/<UUID>. Never infer it from agent kind or sessionId. No query or fragment; omit or use an empty string to clear.'),
         model: z.string().max(MAX_AGENT_MODEL_LENGTH).optional().describe(`The model you run on, when you know it (up to ${MAX_AGENT_MODEL_LENGTH} characters).`),
         reasoning: z.string().max(MAX_AGENT_REASONING_LENGTH).optional().describe(`The reasoning level (effort) you run at, when you know it, as your tool names it: for example low, medium, high, xhigh or max for Claude, minimal to high for OpenAI models (up to ${MAX_AGENT_REASONING_LENGTH} characters, one line).`),
         assignToMe: z.boolean().default(false).describe('Assign unassigned feedback to the connection owner first, in the same write. Only when the person explicitly asked for it.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const kind = input.agent ?? connectionAgent();
-        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, model: input.model, reasoning: input.reasoning },
+        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, sessionUrl: input.sessionUrl, model: input.model, reasoning: input.reasoning },
             { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status'), agentId: input.agentId, add: input.add }),
             input.add ? attachmentId(key(identity, input.idempotencyKey)) : input.agentId);
     }));

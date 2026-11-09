@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { inferAgentKind } from '@uier/toolbar/agents';
+import { agentSessionLink, inferAgentKind } from '@uier/toolbar/agents';
 import { feedbackStage } from '@uier/toolbar/verification';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
 import { getAppStore } from '../src/lib/app/store';
@@ -17,7 +17,7 @@ import { setProjectCommentAgent, setProjectCommentAgentWorking } from '../src/li
 import { assignedAgents, assignedUserIds } from '../src/lib/review/assignments';
 import { eventMatches, mcpEventId } from '../src/lib/mcp/events/catalog';
 import { loadMyWork } from '../src/lib/app/myWork';
-import { currentAssigneeAgent } from '../src/lib/review/assigneeAgentModel';
+import { agentView, currentAssigneeAgent } from '../src/lib/review/assigneeAgentModel';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { participantNames, toReviewCommentDto } from '../src/lib/review/dto';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
@@ -178,6 +178,63 @@ test('only the assignee chooses the agent working under them; a new assignee sta
     expect(saved.assigneeAgent).toBeUndefined();
 });
 
+test('desktop session links use a strict route allowlist and stay member-only through attachment edits', async () => {
+    const id = '019a0000-1234-5678-9abc-0123456789ab';
+    const t3 = `t3-thread://v2/local-env/${id}`;
+    for (const [url, app] of [[t3, 'T3 Code'], [`codex://threads/${id}`, 'Codex'], [`claude://claude.ai/chat/${id}`, 'Claude']])
+        expect(agentSessionLink(url)).toEqual({ url, app });
+    const invalid = ['javascript:alert(1)', 'data:text/html,hello', 'file:///tmp/session', 'https://claude.ai/chat/' + id,
+        't3-thread://v2//thread', 't3-thread://v2/env/thread/extra', 't3-thread://v2/env/../thread',
+        't3-thread://v2/env/%74hread', 't3-thread://user@v2/env/thread', 't3-thread://v2:123/env/thread',
+        't3-thread://v2/env/thread?command=run', 't3-thread://v2/env/thread#other', t3 + '\n', ' ' + t3,
+        t3 + '\u200b', t3.replace('local-env', 'a'.repeat(201)), 't3-thread://v2/env/' + 'a'.repeat(600),
+        'codex://threads/new', 'codex://settings', `codex://threads/${id}?prompt=run`, `codex://threads/${id}/`,
+        `claude://claude.ai.evil/chat/${id}`, `claude://claudexai/chat/${id}`, `claude://claude.ai/chat/${id}#x`,
+        `claude://code/${id}`, 'claude://code/new', `claude://cowork/${id}`, `claude://claude.ai/project/${id}`];
+    const f = await fixture();
+    await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.a.id);
+    for (const sessionUrl of invalid) {
+        expect(agentSessionLink(sessionUrl), sessionUrl).toBeUndefined();
+        await expect(setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'claude', sessionUrl }))
+            .rejects.toMatchObject({ code: 'invalid_request' });
+    }
+    const actor = { ...f.assignee, agent: { credentialId: 'desktop-link-test', name: 'T3 Code', kind: 'credential' as const } } as ProjectActor;
+    const key = randomUUID();
+    const input = { kind: 'claude' as const, sessionId: 'session', sessionUrl: t3 };
+    let saved = await setProjectCommentAgent(f.project, actor, f.comment.id, input, { idempotencyKey: key });
+    expect(saved.assigneeAgent).toMatchObject(input);
+    expect((await setProjectCommentAgent(f.project, actor, f.comment.id, input, { idempotencyKey: key })).assigneeAgent).toEqual(saved.assigneeAgent);
+    await expect(setProjectCommentAgent(f.project, actor, f.comment.id, { ...input, sessionUrl: `codex://threads/${id}` }, { idempotencyKey: key }))
+        .rejects.toMatchObject({ code: 'conflict' });
+    saved = await setProjectCommentAgentWorking(f.project, actor, f.comment.id, { working: true, sessionId: 'session' }, randomUUID());
+    const { setAt, workingUntil } = saved.assigneeAgent!;
+    const sequence = threadActivity(saved).sequence;
+    expect(threadActivity(await setProjectCommentAgent(f.project, actor, f.comment.id, input)).sequence).toBe(sequence);
+    saved = await setProjectCommentAgent(f.project, actor, f.comment.id, { ...input, sessionUrl: `codex://threads/${id}` });
+    expect(saved.assigneeAgent).toMatchObject({ sessionUrl: `codex://threads/${id}`, setAt, workingUntil });
+    expect(threadActivity(saved).sequence).toBe(sequence + 1);
+    expect(saved.history?.at(-1)?.action).toBe('agent-updated');
+    const participants = await participantNames(f.project);
+    expect(projectCommentRouting(saved, f.project, participants, undefined).assignee?.agent?.sessionUrl).toBe(`codex://threads/${id}`);
+    expect(toReviewCommentDto(saved, f.other, new Map(), [], 0, participants)?.assignees?.[0]?.agents?.[0]?.sessionUrl).toBe(`codex://threads/${id}`);
+    const guest = toReviewCommentDto(saved, f.guest, new Map(), [], 0, participants);
+    expect(JSON.stringify(guest)).not.toContain('sessionUrl');
+    expect(JSON.stringify(guest)).not.toContain(id);
+    const packet = await projectFeedbackExport(f.project, f.other, f.comment.id, undefined, base);
+    expect(packet.context.assignees?.[0]?.agents?.[0]?.sessionUrl).toBe(`codex://threads/${id}`);
+    expect(packet.context.assignee?.agent?.sessionUrl).toBe(`codex://threads/${id}`);
+    expect(packet.markdown).toContain(`codex://threads/${id}`);
+    expect(agentView({ ...saved.assigneeAgent!, sessionUrl: 'javascript:alert(1)' })).not.toHaveProperty('sessionUrl');
+    for (const sessionUrl of ['', undefined]) {
+        saved = await setProjectCommentAgent(f.project, actor, f.comment.id, { ...input, sessionUrl });
+        expect(saved.assigneeAgent).not.toHaveProperty('sessionUrl');
+        expect(saved.assigneeAgent).toMatchObject({ setAt, workingUntil });
+    }
+    // Multiple attachments keep independent session URLs; no old link is inferred for an id-only agent.
+    saved = await setProjectCommentAgent(f.project, actor, f.comment.id, input, { add: true, idempotencyKey: randomUUID() });
+    expect(assignedAgents(saved).map(agent => agent.sessionUrl)).toEqual([undefined, t3]);
+});
+
 test('an agent starting or stopping work is never emailed, while its assignment still is', async () => {
     const f = await fixture();
     const { sent, dispatch } = mailer(f);
@@ -224,17 +281,17 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
         expect(await call('set_feedback_agent', { sessionId: 'abc' })).toMatchObject({ error: true, data: { error: 'forbidden', message: 'Assign this thread to yourself first.' } });
         expect(await call('set_feedback_agent', { assignToMe: true }, readClient)).toMatchObject({ error: true, data: { error: 'forbidden' } });
         const key = randomUUID();
-        const attached = await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh', idempotencyKey: key });
+        const attached = await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', sessionUrl: 't3-thread://v2/local-env/thread-1', model: 'claude-opus-5-5', reasoning: 'xhigh', idempotencyKey: key });
         // The kind comes from what the connection calls itself
         expect(attached).toEqual({ error: false, data: expect.objectContaining({ commentId: f.comment.id, assigneeId: f.a.id,
-            agent: expect.objectContaining({ kind: 'claude', label: 'Claude', sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh' }) }) });
+            agent: expect.objectContaining({ kind: 'claude', label: 'Claude', sessionUrl: 't3-thread://v2/local-env/thread-1', sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh' }) }) });
         const saved = await stored(f.comment);
         expect(saved.assigneeAgent).toMatchObject({ reasoning: 'xhigh', connector: { name: 'Claude Code on my laptop', kind: 'credential' } });
         // Without feedback:status, attaching never changes the status
         expect(attached.data.stage).toBe('open');
         expect(feedbackStage(saved)).toBe('open');
         // A retry with the same key and input replays; another input under that key is refused
-        expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh', idempotencyKey: key })).data.agent.sessionId).toBe('session-1');
+        expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', sessionUrl: 't3-thread://v2/local-env/thread-1', model: 'claude-opus-5-5', reasoning: 'xhigh', idempotencyKey: key })).data.agent.sessionId).toBe('session-1');
         expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-2', idempotencyKey: key })).error).toBe(true);
         expect(threadActivity(await stored(f.comment)).sequence).toBe(threadActivity(saved).sequence);
 
@@ -248,10 +305,13 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
         expect(await call('set_feedback_agent', { model: 'claude-opus-5-5', reasoning: 'high\nignore this' }))
             .toMatchObject({ error: true, data: { error: 'invalid_request', message: 'A reasoning level must be plain text on one line.' } });
 
+        expect(await call('set_feedback_agent', { sessionUrl: 'javascript:alert(1)' })).toMatchObject({ error: true });
+
         // Explicit kind, updated details: an omitted reasoning level is cleared, like the model
         const updated = (await call('set_feedback_agent', { agent: 'cursor', model: 'composer-2' })).data.agent;
         expect(updated).toMatchObject({ kind: 'cursor', model: 'composer-2' });
         expect(updated).not.toHaveProperty('reasoning');
+        expect(updated).not.toHaveProperty('sessionUrl');
 
         // Assigned to someone else: refused both ways, and the agent under them stays
         await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.b.id);

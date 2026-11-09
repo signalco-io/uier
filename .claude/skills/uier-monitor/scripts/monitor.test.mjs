@@ -55,3 +55,35 @@ test('skipped, active and untracked resolved threads do not produce reply wakes'
     await f.reconcile(null, f.state, f.seen, f.found);
     assert.equal(f.found.filter(hit => hit.type === 'reply' || hit.type === 'untracked').length, 0);
 });
+
+test('leases forward supplied desktop links, reattach on URL edits/removal, and keep heartbeat identity', async () => {
+    const context = vm.createContext({ process: { argv: [] }, Date, Set, Map });
+    vm.runInContext(source, context);
+    const calls = [];
+    context.tool = async (_ctx, name, args) => { calls.push({ name, args }); return {}; };
+    const lease = { items: ['thread'], agent: 'claude', sessionId: 'thread-id', sessionUrl: 't3-thread://v2/local-env/thread-id', state: 'working' };
+    const state = { project: { id: 'project' }, groups: { g190: { agentLease: lease } } };
+    const seen = {}, found = [];
+    const tick = () => context.keepLeases(null, state, seen, found, () => {});
+    await tick();
+    assert.equal(calls[0].name, 'set_feedback_agent');
+    assert.equal(calls[0].args.sessionUrl, lease.sessionUrl);
+    assert.equal(calls[1].name, 'set_feedback_agent_working');
+    assert.equal(calls[1].args.sessionId, 'thread-id');
+    assert.equal('sessionUrl' in calls[1].args, false);
+    await tick();
+    assert.equal(calls.length, 2);
+    lease.sessionUrl = 't3-thread://v2/remote-env/thread-id';
+    await tick();
+    assert.equal(calls[2].args.sessionUrl, lease.sessionUrl);
+    delete lease.sessionUrl;
+    await tick();
+    assert.equal(calls[4].name, 'set_feedback_agent');
+    assert.equal('sessionUrl' in calls[4].args, false);
+    lease.state = 'done';
+    await tick();
+    assert.equal(calls[6].name, 'set_feedback_agent_working');
+    assert.equal(calls[6].args.working, false);
+    assert.equal(calls[6].args.sessionId, 'thread-id');
+    assert.equal(found.length, 0);
+});

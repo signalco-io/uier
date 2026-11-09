@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
@@ -577,7 +577,7 @@ async function reconcile(ctx, state, seen, found) {
 
 // ---------------------------------------------------------------- agent leases (working spinner)
 //
-// The orchestrator writes groups.<id>.agentLease = { items, agent, model, reasoning, sessionId,
+// The orchestrator writes groups.<id>.agentLease = { items, agent, model, reasoning, sessionId, sessionUrl?,
 // state: "working" | "done", clear? } and sleeps while the session builds. The watcher attaches the
 // agent with its own token (set_feedback_agent), renews the five-minute working lease
 // (set_feedback_agent_working) and, once the lease is done, clears the spinner (and the agent for
@@ -594,7 +594,7 @@ function wantedLeases(state) {
     for (const [group, entry] of Object.entries(state.groups ?? {})) {
         const lease = entry?.agentLease;
         if (lease?.state !== 'working' || !Array.isArray(lease.items)) continue;
-        const sig = JSON.stringify([lease.agent ?? null, lease.model ?? null, lease.reasoning ?? null, lease.sessionId ?? null]);
+        const sig = JSON.stringify([lease.agent ?? null, lease.model ?? null, lease.reasoning ?? null, lease.sessionId ?? null, lease.sessionUrl ?? null]);
         for (const commentId of lease.items) if (typeof commentId === 'string') wanted.set(commentId, { group, lease, sig });
     }
     return wanted;
@@ -653,6 +653,7 @@ async function keepLeases(ctx, state, seen, found, log) {
                 records[commentId] = { group, sig, attached: false, working: false };
                 await tool(ctx, 'set_feedback_agent', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'attach'),
                     ...(lease.agent ? { agent: lease.agent } : {}), ...(lease.sessionId ? { sessionId: String(lease.sessionId) } : {}),
+                    ...(lease.sessionUrl ? { sessionUrl: String(lease.sessionUrl) } : {}),
                     ...(lease.model ? { model: String(lease.model) } : {}), ...(lease.reasoning ? { reasoning: String(lease.reasoning) } : {}) });
                 Object.assign(records[commentId], { attached: true, attachedAt: Date.now() });
                 log(`lease ${group} ${commentId}: attached ${lease.agent ?? ''} ${lease.model ?? ''} ${lease.reasoning ?? ''}`);

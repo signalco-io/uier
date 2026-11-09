@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.1.1, sha256 `eec809b5ef38a1b7ba316f39c52a54f348ac9de9ab4fa8f7f788074e89f7f2bc`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.1.2, sha256 `23c53d88c09e6edc92a9d3fffdccbf364570832a01284c389c3591fa0962fc0e`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.1.1 and sha256
-   `eec809b5ef38a1b7ba316f39c52a54f348ac9de9ab4fa8f7f788074e89f7f2bc`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.1.2 and sha256
+   `23c53d88c09e6edc92a9d3fffdccbf364570832a01284c389c3591fa0962fc0e`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -44,7 +44,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
@@ -606,7 +606,7 @@ async function reconcile(ctx, state, seen, found) {
 
 // ---------------------------------------------------------------- agent leases (working spinner)
 //
-// The orchestrator writes groups.<id>.agentLease = { items, agent, model, reasoning, sessionId,
+// The orchestrator writes groups.<id>.agentLease = { items, agent, model, reasoning, sessionId, sessionUrl?,
 // state: "working" | "done", clear? } and sleeps while the session builds. The watcher attaches the
 // agent with its own token (set_feedback_agent), renews the five-minute working lease
 // (set_feedback_agent_working) and, once the lease is done, clears the spinner (and the agent for
@@ -623,7 +623,7 @@ function wantedLeases(state) {
     for (const [group, entry] of Object.entries(state.groups ?? {})) {
         const lease = entry?.agentLease;
         if (lease?.state !== 'working' || !Array.isArray(lease.items)) continue;
-        const sig = JSON.stringify([lease.agent ?? null, lease.model ?? null, lease.reasoning ?? null, lease.sessionId ?? null]);
+        const sig = JSON.stringify([lease.agent ?? null, lease.model ?? null, lease.reasoning ?? null, lease.sessionId ?? null, lease.sessionUrl ?? null]);
         for (const commentId of lease.items) if (typeof commentId === 'string') wanted.set(commentId, { group, lease, sig });
     }
     return wanted;
@@ -682,6 +682,7 @@ async function keepLeases(ctx, state, seen, found, log) {
                 records[commentId] = { group, sig, attached: false, working: false };
                 await tool(ctx, 'set_feedback_agent', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'attach'),
                     ...(lease.agent ? { agent: lease.agent } : {}), ...(lease.sessionId ? { sessionId: String(lease.sessionId) } : {}),
+                    ...(lease.sessionUrl ? { sessionUrl: String(lease.sessionUrl) } : {}),
                     ...(lease.model ? { model: String(lease.model) } : {}), ...(lease.reasoning ? { reasoning: String(lease.reasoning) } : {}) });
                 Object.assign(records[commentId], { attached: true, attachedAt: Date.now() });
                 log(`lease ${group} ${commentId}: attached ${lease.agent ?? ''} ${lease.model ?? ''} ${lease.reasoning ?? ''}`);

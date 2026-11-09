@@ -5,7 +5,7 @@ import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { toast } from 'sonner';
 import { ChevronDownIcon, PlusIcon } from 'lucide-react';
 import {
-    assigneeAgents, commentAssignees, agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, agentModelText, modelName, reasoningText, type AgentKind, type AssigneeAgentView
+    assigneeAgents, commentAssignees, agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, MAX_AGENT_SESSION_URL_LENGTH, agentSessionLink, agentModelText, modelName, reasoningText, type AgentKind, type AssigneeAgentView
 } from '@uier/toolbar/agents';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -28,13 +28,15 @@ import type { ProjectAssignee, ProjectCommentView } from '../../../lib/app/proje
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { setCommentAgentAction } from './actions';
 import { AgentAvatar } from './AgentAvatar';
+import { AgentSessionLink } from './AgentSessionLink';
 import { useCommentUpdate } from './CommentUpdates';
 
 function agentView(input: AssigneeAgentInput): AssigneeAgentView {
     const model = input.model?.trim();
     const reasoning = input.reasoning?.trim();
     const sessionId = input.sessionId?.trim();
-    return { kind: input.kind, label: agentLabels[input.kind], ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}) };
+    const sessionLink = agentSessionLink(input.sessionUrl);
+    return { ...(sessionLink ? { sessionUrl: sessionLink.url } : {}), kind: input.kind, label: agentLabels[input.kind], ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}) };
 }
 
 /**
@@ -76,7 +78,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
     const update = useCommentUpdate();
     const attempt = useRef<{ value: string; key: string } | null>(null);
     const [editing, setEditing] = useState(false);
-    const [details, setDetails] = useState({ sessionId: '', model: '', reasoning: '' });
+    const [details, setDetails] = useState({ sessionId: '', sessionUrl: '', model: '', reasoning: '' });
     const [error, setError] = useState<string>();
     const trigger = useRef<HTMLButtonElement>(null);
     const ids = useId();
@@ -91,6 +93,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                 <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
                 <span className="shrink-0">{agent.label}</span>
                 <AgentDetails agent={agent} />
+                <AgentSessionLink sessionUrl={agent.sessionUrl} />
             </span>
         );
     }
@@ -123,15 +126,16 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
         if (failed) toast.error(failed);
     });
     const openDetails = () => {
-        setDetails({ sessionId: agent?.sessionId ?? '', model: agent?.model ?? '', reasoning: agent?.reasoning ?? '' });
+        setDetails({ sessionUrl: agent?.sessionUrl ?? '', sessionId: agent?.sessionId ?? '', model: agent?.model ?? '', reasoning: agent?.reasoning ?? '' });
         setError(undefined);
         setEditing(true);
     };
     const saveDetails = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!agent) return;
+        if (details.sessionUrl && !agentSessionLink(details.sessionUrl)) { setError('Use a supported desktop session link.'); return; }
         start(async () => {
-            const failed = await save({ kind: agent.kind, sessionId: details.sessionId, model: details.model, reasoning: details.reasoning });
+            const failed = await save({ kind: agent.kind, sessionId: details.sessionId, sessionUrl: details.sessionUrl, model: details.model, reasoning: details.reasoning });
             if (failed) { setError(failed); return; }
             setEditing(false);
         });
@@ -176,8 +180,9 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
+            {agent && <AgentSessionLink sessionUrl={agent.sessionUrl} />}
             <Dialog open={editing} onOpenChange={open => { if (!pending) setEditing(open); }}>
-                <DialogContent className="sm:max-w-md" finalFocus={trigger}>
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md" finalFocus={trigger}>
                     <form onSubmit={saveDetails} className="flex flex-col gap-6">
                         <DialogHeader>
                             <DialogTitle>{agent?.label ?? 'Agent'} details</DialogTitle>
@@ -188,6 +193,14 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                                 <FieldLabel htmlFor={`${ids}-session`}>Session id</FieldLabel>
                                 <Input id={`${ids}-session`} value={details.sessionId} maxLength={MAX_AGENT_SESSION_LENGTH} autoComplete="off" spellCheck={false}
                                     className="font-mono" onChange={event => setDetails(current => ({ ...current, sessionId: event.target.value }))} />
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor={`${ids}-session-url`}>Session link</FieldLabel>
+                                <Input id={`${ids}-session-url`} value={details.sessionUrl} maxLength={MAX_AGENT_SESSION_URL_LENGTH} autoComplete="off" spellCheck={false}
+                                    aria-describedby={`${ids}-session-url-description`} className="font-mono"
+                                    onChange={event => setDetails(current => ({ ...current, sessionUrl: event.target.value }))} />
+                                <FieldDescription id={`${ids}-session-url-description`}>An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.</FieldDescription>
+                                <AgentSessionLink sessionUrl={details.sessionUrl} />
                             </Field>
                             <Field>
                                 <FieldLabel htmlFor={`${ids}-model`}>Model</FieldLabel>

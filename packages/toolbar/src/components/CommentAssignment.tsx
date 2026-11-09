@@ -1,3 +1,7 @@
+import { useContext } from 'react';
+import { Popper } from '@signalco/ui-primitives/Popper';
+import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { floatingShadowClassName } from './@types/Comments';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -8,7 +12,7 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
 import type { CommentAssignee as Assignee, CommentItem } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
-import { assigneeAgents, commentAssignees, agentIsWorking, agentText, type AgentKind } from '../agents';
+import { assigneeAgents, commentAssignees, agentSessionLink, agentIsWorking, agentText, type AgentKind } from '../agents';
 import { useAgentWorking } from '../useAgentWorking';
 import { AgentMark } from './AgentMark';
 import { moveFocusInMenu } from '../focusKeys';
@@ -63,18 +67,37 @@ function OverflowCount({ count, workingUntil, compact = false }: { count: number
  * `CommentAssigneeOptions` under the header.
  */
 export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
+    const { rootElement } = useContext(CommentsBootstrapperContext);
     const people = commentAssignees(comment);
     useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     const assigned = workingText(comment);
     const { triggerProps, tooltip } = useIconTooltip(assigned);
     if (!people.length) return null;
-    return <>
+    const avatars = <>
         <span role="img" tabIndex={-1} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center gap-3', className)} {...triggerProps}>
             {people.slice(0, 3).map((person, index) => <AssigneeAvatar key={person.id ?? index} person={person} />)}
             {people.length > 3 && <OverflowCount count={people.length - 3} workingUntil={people.slice(3).flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil))} />}
         </span>
         {tooltip}
     </>;
+    // Agents are projected only for members. Older attachments without a link keep their tooltip.
+    if (!people.some(person => assigneeAgents(person).some(agent => agentSessionLink(agent.sessionUrl)))) return avatars;
+    return <Popper container={rootElement} side="bottom" sideOffset={8} aria-label="Assignee details"
+        className={cx('max-h-[min(32rem,80dvh)] w-64 overflow-y-auto rounded-xl p-3 text-xs', floatingShadowClassName)}
+        trigger={<Button variant="plain" size="sm" aria-label="Assignee details" className="rounded-full p-0">{avatars}</Button>}>
+        <div className="flex flex-col gap-3">
+            {people.map((person, index) => <div key={person.id ?? index} className="flex min-w-0 flex-col gap-1">
+                <span className="truncate font-medium">{person.isMe ? 'You' : person.name}</span>
+                {assigneeAgents(person).map((agent, index) => {
+                    const link = agentSessionLink(agent.sessionUrl);
+                    return <div key={agent.id ?? index} className="ml-2 flex min-w-0 flex-col gap-1 border-l pl-2">
+                        <span className="break-words">{agentText(agent)}</span>
+                        {link && <a href={link.url} className="inline-flex min-h-8 items-center self-start rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring pointer-coarse:min-h-11">Open in {link.app}</a>}
+                    </div>;
+                })}
+            </div>)}
+        </div>
+    </Popper>;
 }
 
 /** The people to assign the thread to, under its header while `CommentAssignee` is open; refreshed each time it opens */

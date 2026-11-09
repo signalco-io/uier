@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 import { hoverPopoverTrigger } from '../hoverPopover';
 import { AgentAvatar, AssigneeAvatars, assignedLabel, PersonAvatar, type Assignee } from './AgentAvatar';
 import { RelativeTime } from './DateTime';
+import { AgentSessionLink } from './AgentSessionLink';
 
 /**
  * The assignee's avatars on a row or board card (`AssigneeAvatars`). Hovering them shows who the thread is
@@ -92,6 +93,7 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
                 {agent.sessionId && <CutText data-agent-session="" full={<span className="font-mono break-all">{agent.sessionId}</span>} render={<ItemDescription className="truncate" />}>
                     Session <span className="font-mono">{agent.sessionId}</span>
                 </CutText>}
+                <AgentSessionLink sessionUrl={agent.sessionUrl} />
             </ItemContent>
         </Item>
     );

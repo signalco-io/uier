@@ -138,6 +138,8 @@ export type DbAssigneeAgent = {
     /** The assignee it works under (a user id) */
     assigneeId: string;
     sessionId?: string;
+    /** Validated desktop session URL; member-only, never inferred from kind/sessionId. */
+    sessionUrl?: string;
     model?: string;
     reasoning?: string;
     /** The user id of who set it (the assignee) and when it last changed (ISO 8601, server time) */

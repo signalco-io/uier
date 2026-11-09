@@ -22,3 +22,11 @@ current workspace/project settings, and includes neither the placeholder nor the
 Markdown prints its literal name, stable ID and curated icon key. Built-in kinds and their existing
 Markdown stay unchanged. The same snapshot passes through toolbar/app DTOs, MCP list/single/batch
 reads and MCP event payloads; it never comes from client-submitted display metadata.
+
+
+Member assignment agents can carry a validated `sessionUrl`. The packet formatter prints it as a
+literal value; connected-service delivery strips assignment agents before formatting. Guest
+projections never include agents. `CommentAssignment` lets a member open Assignee details from the
+header avatars when a supported session link exists, with a native `Open in <app>` link beneath its
+agent. It rechecks the shared `agentSessionLink` allowlist before rendering; older agents without a
+link keep their existing tooltip. See [desktop session links](../../../apps/web/docs/assignee-agents.md#desktop-session-links).

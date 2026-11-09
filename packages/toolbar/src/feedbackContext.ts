@@ -139,7 +139,8 @@ export function feedbackMarkdown(context: FeedbackContext): string {
                 `Agent: ${plain(agent.label)}`,
                 agent.model ? ` · Model: ${plain(agent.model)}` : '',
                 agent.reasoning ? ` · Reasoning: ${plain(agent.reasoning)}` : '',
-                agent.sessionId ? ` · Session: ${plain(agent.sessionId)}` : ''
+                agent.sessionId ? ` · Session: ${plain(agent.sessionId)}` : '',
+                agent.sessionUrl ? ` · Session link: ${plain(agent.sessionUrl)}` : ''
             ].join('');
             return `Assignee: ${plain(person.name)}${agents.length === 1 ? ` · ${details(agents[0]!)}` : agents.map(agent => `\n  - ${details(agent)}`).join('')}`;
         }).join('\n\n'),
@@ -188,4 +189,4 @@ export function feedbackMarkdown(context: FeedbackContext): string {
 }
 
 export type FeedbackAssignee = { name: string; agent?: FeedbackAgent; agents?: FeedbackAgent[] };
-export type FeedbackAgent = { kind: import('./agents').AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string };
+export type FeedbackAgent = { kind: import('./agents').AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; sessionUrl?: string };

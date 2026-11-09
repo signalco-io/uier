@@ -36,7 +36,7 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
     for (const userId of after) if (!before.includes(userId)) add('assigned', { userId });
     const oldAgents = assignedAgents(previous), newAgents = assignedAgents(next);
     const key = (agent: typeof oldAgents[number]) => `${agent.assigneeId}:${agent.id ?? 'legacy'}`;
-    const details = (agent: typeof oldAgents[number]) => JSON.stringify([agent.kind, agent.model, agent.reasoning, agent.sessionId, agent.connector?.credentialId]);
+    const details = (agent: typeof oldAgents[number]) => JSON.stringify([agent.kind, agent.model, agent.reasoning, agent.sessionId, agent.sessionUrl, agent.connector?.credentialId]);
     for (const agent of oldAgents) if (!newAgents.some(other => key(other) === key(agent)))
         add('agent-removed', { userId: agent.assigneeId, agentKind: agent.kind });
     for (const agent of newAgents) {

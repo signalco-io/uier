@@ -37,7 +37,7 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
     const parsed = assigneeAgentInputSchema.nullable().safeParse(agent);
     if (!parsed.success) {
         const issue = parsed.error.issues[0];
-        throw apiErrors.invalidRequest(issue && ['sessionId', 'model', 'reasoning'].includes(String(issue.path[0])) ? issue.message : 'Choose a valid agent.');
+        throw apiErrors.invalidRequest(issue && ['sessionId', 'sessionUrl', 'model', 'reasoning'].includes(String(issue.path[0])) ? issue.message : 'Choose a valid agent.');
     }
     const desired = parsed.data;
     if (!z.object({ agentId: agentIdSchema.optional(), add: z.boolean().optional() }).safeParse(options).success || (options.add && (options.agentId || !desired)))
@@ -73,10 +73,11 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
         const sameSession = current && current.kind === desired.kind && current.sessionId === desired.sessionId
             && (!actor.agent || current.connector?.credentialId === actor.agent.credentialId);
         if (sameSession && current.model === desired.model
-            && current.reasoning === desired.reasoning) return updated;
+            && current.reasoning === desired.reasoning && current.sessionUrl === desired.sessionUrl) return updated;
         const next: DbAssigneeAgent = {
             id: current?.id ?? newId, kind: desired.kind, assigneeId: actor.userId,
             ...(desired.sessionId ? { sessionId: desired.sessionId } : {}), ...(desired.model ? { model: desired.model } : {}),
+            ...(desired.sessionUrl ? { sessionUrl: desired.sessionUrl } : {}),
             ...(desired.reasoning ? { reasoning: desired.reasoning } : {}),
             // The same agent in the same session keeps when it started; new details are not a new start
             setBy: actor.userId, setAt: sameSession ? current.setAt : at,
