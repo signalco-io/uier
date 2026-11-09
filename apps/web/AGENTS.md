@@ -53,7 +53,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
   on the brand page are the deliberate exception: they must stay black and white in both themes;
   so are the sign-in card's Google "G" and Microsoft logo, in their own colours on the shared outline button, and
   `IntegrationLogo`, the provider logos on the Integrations pages: GitHub, Linear and Notion draw in the text colour,
-  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask). AI agent marks (`AgentAvatar`,
+  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask). AI agent logos (`AgentMark`, `AgentAvatar`,
   `agentMarks` in `@uier/toolbar/agents`) draw in the text colour too, with no hex.
 - Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
   `rounded-3xl` 24, `rounded-full`. Borders over shadows; only floating surfaces get the shadow
@@ -498,8 +498,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
   source is unavailable), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, empty and dashed while unassigned,
-  and the name; a menu for those who can assign; then the AI agent working with the assignee, `AgentControl`: "with
-  Claude" and its model, or Add agent for the assignee), the verification, every message, Reply and the quiet Open in .... The first message's time is followed by
+  and the name; a menu for those who can assign; then the AI agent working with the assignee, `AgentControl`: "with",
+  the agent's logo, Claude and its model, or Add agent for the assignee), the verification, every message, Reply and the quiet Open in .... The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.
@@ -1434,9 +1434,10 @@ thread. `setProjectCommentAssignee` removes the agent with every assignee change
 previous assignee) and `setProjectCommentPrivate` with an assignee who loses the thread. Each change advances activity
 and records an `agent` notification event (MCP `feedback.agent_changed`), which `eligibleEvents` never emails. Members
 get the agent in views, the review DTO (toolbar), `list_feedback` and packets; guests never. Integration delivery
-strips `context.assignee.agent` before formatting. The UI is `AgentAvatar` / `AssigneeAvatars` (one-colour marks from
-`agentMarks` on a bordered circle, stacked on the assignee's avatar: rows, board cards, the thread) and `AgentControl`
-(the assignee's menu, Session and model dialog). The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
+strips `context.assignee.agent` before formatting. The UI is `AgentMark` (each agent's one-colour product logo from `agentMarks`:
+Claude, Codex, ChatGPT, Cursor, a generic bot for AI agent), `AgentAvatar` / `AssigneeAvatars` (the mark on a bordered
+circle, stacked on the assignee's avatar: rows, board cards, the agent menu) and `AgentControl` (the logo beside the
+agent's name in the thread's Assignee field, the assignee's menu, Session and model dialog). The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
 `feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts`. See [review workflow](../../docs/review-workflow.md#ai-agents-under-the-assignee)
 and [MCP](../../docs/mcp.md#agents-working-on-feedback).
 

@@ -78,7 +78,7 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { ReplyComposer } from './ReplyComposer';
-import { AgentAvatar, assignedLabel } from './AgentAvatar';
+import { assignedLabel } from './AgentAvatar';
 import { AgentControl } from './AgentControl';
 import {
     markCommentReadAction,
@@ -129,7 +129,6 @@ function AssigneeAvatar({ assignee }: { assignee?: ProjectCommentView['assignee'
                 {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
                 <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
             </Avatar>
-            {assignee.agent && <AgentAvatar kind={assignee.agent.kind} className="-ml-1.5 ring-2 ring-background" />}
         </span>
     );
 }
@@ -463,7 +462,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     <dt className="text-muted-foreground">Priority</dt>
                     <dd className="m-0"><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
                     <dt className="text-muted-foreground">Assignee</dt>
-                    {/* The assignee, then the AI agent working with them (its avatar stacked on theirs) */}
+                    {/* The assignee, then the AI agent working with them (its logo and name, `AgentControl`) */}
                     <dd className="m-0 flex min-w-0 flex-wrap items-center gap-x-1">
                         {/* The list of people for those who can assign */}
                         {permissions.assign ? (

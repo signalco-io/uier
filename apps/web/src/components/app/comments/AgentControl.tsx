@@ -23,7 +23,7 @@ import { Spinner } from '@/src/components/ui/spinner';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { setCommentAgentAction } from './actions';
-import { AgentAvatar } from './AgentAvatar';
+import { AgentAvatar, AgentMark } from './AgentAvatar';
 import { useCommentUpdate } from './CommentUpdates';
 
 function agentView(input: AssigneeAgentInput): AssigneeAgentView {
@@ -34,7 +34,7 @@ function agentView(input: AssigneeAgentInput): AssigneeAgentView {
 
 /**
  * The AI agent working under the assignee, after their name in the thread's Assignee field. The assignee
- * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), edits its session id and model (agents usually
+ * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), shown by its logo and name, edits its session id and model (agents usually
  * report these themselves through MCP) or removes it; everyone else reads "with Claude".
  */
 export function AgentControl({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
@@ -55,6 +55,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
         return (
             <span className="inline-flex min-w-0 items-center gap-1.5">
                 <span className="text-muted-foreground">with</span>
+                <AgentMark kind={agent.kind} />
                 <span className="truncate">{agent.label}</span>
                 {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
             </span>
@@ -108,6 +109,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
                     aria-label={agent ? `Agent: ${agent.label}. Change agent` : undefined}
                     className={agent ? 'h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
                     {agent ? <>
+                        <AgentMark kind={agent.kind} />
                         <span className="truncate">{agent.label}</span>
                         {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
                         {pending ? <Spinner data-icon="inline-end" /> : <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />}

@@ -4,18 +4,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar'
 import { initials } from '../initials';
 
 /**
+ * An AI agent's product logo on its own (Claude, Codex, ChatGPT, Cursor, or a generic bot for any other),
+ * one colour in the text colour (BRAND.md), 16px like a button's icon (`size-*` on `className` scales it).
+ * Decorative: the agent's name is always written beside it or in the surrounding label.
+ */
+export function AgentMark({ kind, className }: { kind: AgentKind; className?: string }) {
+    const mark = agentMarks[kind];
+    return (
+        <svg aria-hidden="true" data-agent-mark={kind} viewBox="0 0 24 24" focusable="false" className={cn('size-4 shrink-0', className)}
+            fill={mark.stroke ? 'none' : 'currentColor'}
+            {...(mark.stroke ? { stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const } : {})}>
+            {mark.paths.map(d => <path key={d} d={d} {...(mark.evenOdd ? { fillRule: 'evenodd' as const, clipRule: 'evenodd' as const } : {})} />)}
+        </svg>
+    );
+}
+
+/**
  * An AI agent's mark on a bordered circle, the size of the 20px avatars it sits with (`size-*` on
  * `className` scales it). Every mark is one colour, ink on light and paper on dark (BRAND.md).
  */
 export function AgentAvatar({ kind, className }: { kind: AgentKind; className?: string }) {
-    const mark = agentMarks[kind];
     return (
         <span aria-hidden="true" data-agent={kind}
             className={cn('flex size-5 shrink-0 items-center justify-center rounded-full border bg-background text-foreground', className)}>
-            <svg viewBox="0 0 24 24" focusable="false" className="size-3/5" fill={mark.stroke ? 'none' : 'currentColor'}
-                {...(mark.stroke ? { stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const } : {})}>
-                {mark.paths.map(d => <path key={d} d={d} {...(mark.evenOdd ? { fillRule: 'evenodd' as const, clipRule: 'evenodd' as const } : {})} />)}
-            </svg>
+            <AgentMark kind={kind} className="size-3/5" />
         </span>
     );
 }
