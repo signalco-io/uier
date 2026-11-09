@@ -106,12 +106,16 @@ export async function submit(previous, current, revision, fetcher = fetch) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    const [command, filename] = process.argv.slice(2);
+    const [command, filename, currentFilename] = process.argv.slice(2);
     if (command === 'generate') await generate();
     else if (command === 'capture' && filename) await writeFile(filename, `${JSON.stringify(await readPublished())}\n`);
-    else if (command === 'submit' && filename) {
+    else if (command === 'compare' && filename && currentFilename) {
+        const previous = JSON.parse(await readFile(filename, 'utf8'));
+        const current = JSON.parse(await readFile(currentFilename, 'utf8'));
+        console.log(`changed=${changedUrls(previous, current).length > 0}`);
+    } else if (command === 'submit' && filename) {
         const current = await readPublished();
         if (!current) throw new Error('Production search manifest is missing');
         console.log(JSON.stringify(await submit(JSON.parse(await readFile(filename, 'utf8')), current, process.env.GITHUB_SHA)));
-    } else throw new Error('Expected generate, capture <file>, or submit <file>');
+    } else throw new Error('Expected generate, capture <file>, compare <previous> <current>, or submit <file>');
 }
