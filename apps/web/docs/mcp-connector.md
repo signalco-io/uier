@@ -147,7 +147,7 @@ endpoint verification and encrypted `whsec_` secrets; `webhook.ts` Standard Webh
 POST, which goes only to public HTTPS on the default port through `publicNetwork.ts` (the same
 connection-time address check as OAuth metadata fetches), never follows redirects and reports fixed
 failure categories only; `delivery.ts` discovery from `listChangedSince` with a per-project cursor,
-deterministic delivery records, leased attempts with bounded retries, and `runMcpEventWorker`.
+deterministic delivery records retaining the event's `agentId` (several agent removals can share a sequence, kind and timestamp), leased attempts with bounded retries, and `runMcpEventWorker`.
 Events never get their own write path: add an event kind to `notificationEvents` and map it in the
 catalog. Every attempt rechecks the connection (`currentMcpConnection`), `mcpProject` and
 `canSeeComment`; lost access deletes the subscription. Never deliver a connection's own changes

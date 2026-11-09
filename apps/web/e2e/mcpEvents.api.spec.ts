@@ -15,7 +15,9 @@ import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
 import { createProject } from '../src/lib/app/projects';
 import { memberId, workspacePk, type DbMember } from '../src/lib/app/model';
 import type { AppContext } from '../src/lib/app/context';
-import { createProjectComment, replyToProjectComment, setProjectCommentAssignee, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
+import { createProjectComment, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
+import { setProjectCommentAgent } from '../src/lib/review/assigneeAgent';
+import { assignedAgents } from '../src/lib/review/assignments';
 import { memberActor } from '../src/lib/review/actor';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { newWebhookSecret, WebhookReceiver } from './support/webhookReceiver';
@@ -155,6 +157,60 @@ test('filters, status, assignment and mention events reach only matching subscri
         expect(receiver.deliveries('feedback.assignment_changed').map(entry => entry.json.data)).toEqual([expect.objectContaining({ commentId: other.id, assignee: { id: f.user.id, name: expect.any(String) } })]);
         for (const entry of receiver.deliveries()) expect(receiver.verifiedBy(entry)).toEqual([secret]);
     } finally { await client.close(); await receiver.stop(); }
+});
+
+test('webhooks preserve each removed agent and its assignee through delivery and retry', async () => {
+    const f = await fixture();
+    const colleague = await findOrCreateUser(`mcp-agent-colleague-${randomUUID()}@example.com`);
+    const member: DbMember = { type: 'member', id: memberId(colleague.id), pk: workspacePk(f.project.workspaceId), workspaceId: f.project.workspaceId,
+        userId: colleague.id, email: colleague.email, role: 'commenter', projects: 'all', createdAt: new Date().toISOString() };
+    expect(await getAppStore().create(member)).toBe(true);
+    const colleagueContext = { user: colleague, member, workspace: { id: f.project.workspaceId }, isAdmin: false } as AppContext;
+    const { token } = await createMcpCredential(colleagueContext, { name: 'Agent watcher', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const colleagueActor = (await memberActor(f.project, colleague.id))!;
+    const thread = await f.create('Several agents');
+    await setProjectCommentAssignees(f.project, f.actor, thread.id, [f.user.id, colleague.id]);
+    await setProjectCommentAgent(f.project, f.actor, thread.id, { kind: 'claude' });
+    await setProjectCommentAgent(f.project, f.actor, thread.id, { kind: 'codex' }, { add: true });
+    const attached = await setProjectCommentAgent(f.project, colleagueActor, thread.id, { kind: 'codex' });
+    const agents = assignedAgents(attached);
+    expect(agents).toHaveLength(3);
+    const receiver = await new WebhookReceiver().start();
+    const client = await connect(f.token);
+    const colleagueClient = await connect(token);
+    try {
+        const secret = newWebhookSecret();
+        receiver.secrets.add(secret);
+        const delivery = { mode: 'webhook', url: receiver.url, secret };
+        const all = await subscribe(client, { name: 'feedback.agent_changed', arguments: { projectId: f.project.id }, delivery });
+        const mine = await subscribe(colleagueClient, { name: 'feedback.agent_changed', arguments: { projectId: f.project.id, assignee: 'me' }, delivery });
+        await dispatch(f.project.id);
+        receiver.received.length = 0;
+        const removed = await setProjectCommentAssignees(f.project, f.actor, thread.id, []);
+        const removals = removed.notificationEvents!.filter(event => event.kind === 'agent' && event.assigneeAgent === null);
+        expect(removals).toHaveLength(3);
+        expect(new Set(removals.map(event => `${event.sequence}:${event.kind}:${event.at}`)).size).toBe(1);
+        receiver.status = 503;
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 4, retrying: 4 });
+        const first = receiver.deliveries();
+        const forSubscription = (id: string) => first.filter(entry => entry.headers['x-mcp-subscription-id'] === id);
+        expect(forSubscription(all.id).map(entry => entry.json.data)).toEqual(expect.arrayContaining(agents.map(agent => expect.objectContaining({
+            agentId: agent.id, assignee: { id: agent.assigneeId, name: expect.any(String) }, agent: null
+        }))));
+        expect(forSubscription(all.id)).toHaveLength(3);
+        expect(forSubscription(mine.id).map(entry => entry.json.data)).toEqual([expect.objectContaining({
+            agentId: agents.find(agent => agent.assigneeId === colleague.id)!.id, assignee: { id: colleague.id, name: expect.any(String) }, agent: null
+        })]);
+        receiver.status = 200;
+        expect(await dispatch(f.project.id, () => Date.now() + 61_000)).toMatchObject({ discovered: 0, delivered: 4 });
+        for (const entry of first) {
+            const attempts = receiver.deliveries().filter(retry => retry.headers['webhook-id'] === entry.headers['webhook-id']
+                && retry.headers['x-mcp-subscription-id'] === entry.headers['x-mcp-subscription-id']);
+            expect(attempts).toHaveLength(2);
+            expect(attempts[1]!.json).toEqual(entry.json);
+            expect(receiver.verifiedBy(attempts[1]!)).toEqual([secret]);
+        }
+    } finally { await client.close(); await colleagueClient.close(); await receiver.stop(); }
 });
 
 test('mentions and private threads follow the subscriber\'s current visibility', async () => {

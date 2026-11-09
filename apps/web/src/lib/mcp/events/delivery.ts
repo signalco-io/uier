@@ -47,6 +47,7 @@ export type McpEventDelivery = AppDoc & {
     sequence: number;
     eventKind: NotificationEvent['kind'];
     eventAt: string;
+    agentId?: string;
     active: boolean;
     status: 'queued' | 'delivered' | 'failed' | 'skipped';
     attempts: number;
@@ -140,7 +141,7 @@ async function discoverThread(project: DbProject, comment: DbComment, subscripti
             const delivery: McpEventDelivery = {
                 type: 'mcp-event-delivery', pk: eventsPk(project.id), id: deliveryId(subscription.id, eventId), projectId: project.id,
                 subscriptionId: subscription.id, eventId, name: subscription.name, threadId: comment.id, sequence: event.sequence,
-                eventKind: event.kind, eventAt: event.at, active: true, status: 'queued', attempts: 0, nextAttemptAt: iso(now),
+                eventKind: event.kind, eventAt: event.at, ...(event.agentId ? { agentId: event.agentId } : {}), active: true, status: 'queued', attempts: 0, nextAttemptAt: iso(now),
                 ttl: DELIVERY_TTL_SECONDS
             };
             if (await store.create(delivery)) created++;
@@ -203,7 +204,8 @@ async function deliver(context: Context, candidate: McpEventDelivery): Promise<'
     catch { actor = null; }
     if (!identity || !actor) { await terminate(context, subscription); return skip(); }
     const comment = (await comments.get(projectPartition(context.project.id), delivery.threadId))?.comment;
-    const event = comment?.notificationEvents?.find(entry => entry.sequence === delivery.sequence && entry.kind === delivery.eventKind && entry.at === delivery.eventAt);
+    const event = comment?.notificationEvents?.find(entry => entry.sequence === delivery.sequence && entry.kind === delivery.eventKind && entry.at === delivery.eventAt
+        && (entry.agentId ?? undefined) === delivery.agentId);
     // A deleted thread, or one the account can no longer see, is not delivered.
     if (!comment || !event || !canSeeComment(comment, actor)) return skip();
 
