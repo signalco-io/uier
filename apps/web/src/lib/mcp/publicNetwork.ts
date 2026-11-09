@@ -3,8 +3,9 @@ import { BlockList, isIP } from 'node:net';
 
 /*
  * Outbound requests to addresses a client chose (OAuth client metadata documents, MCP event
- * callbacks) reach only public addresses. Pass `publicLookup` as the request's `lookup`, so the
- * check runs on the connection's own resolution and DNS cannot change in between.
+ * callbacks, project site icons in `app/siteIcons.ts`) reach only public addresses. Pass
+ * `publicLookup` as the request's `lookup`, so the check runs on the connection's own resolution
+ * and DNS cannot change in between.
  */
 
 const blocked = new BlockList();

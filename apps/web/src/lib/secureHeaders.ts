@@ -15,6 +15,14 @@ export type SecureHeadersExternalUrls = {
     frameAncestors?: string[];
 };
 
+/**
+ * A project site's icon, served from uier.io (`/api/projects/<id>/icon`): another site's SVG must never
+ * run as a uier.io page. `proxy.ts` sends it in place of the page policy; the route sends it too.
+ */
+export const siteIconContentSecurityPolicy = 'default-src \'none\'; style-src \'unsafe-inline\'; sandbox';
+/** The icon route's path (`proxy.ts`) */
+export const siteIconPath = /^\/api\/projects\/[^/]+\/icon$/;
+
 export const knownSecureHeadersExternalUrls = {
     vercelToolbar: {
         imgSrc: ['https://vercel.com', 'https://vercel.live', 'https://sockjs-mt1.pusher.com', 'data: blob:'],

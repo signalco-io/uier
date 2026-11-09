@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="8 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="9 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -182,7 +182,12 @@ export default function PrivacyPolicyPage() {
                     their own cached copy;
                 </li>
                 <li>when your account was created;</li>
-                <li>your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.</li>
+                <li>
+                    your workspace and the projects in it: their names, optional client names, the site addresses you add, their environment labels and explicit alias groups, and their settings.
+                    To show a project&rsquo;s icon, our servers request the page at its main address and the icon it declares,
+                    with no cookies or details about you, so your browser does not contact the site for it. The icon stays
+                    in our server&rsquo;s memory for up to a day and in your browser&rsquo;s cache.
+                </li>
             </ul>
             <p>
                 To sign you in, we email you a link and an eight-digit code. We store only a hash of the link token
