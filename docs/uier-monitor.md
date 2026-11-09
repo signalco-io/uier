@@ -22,13 +22,29 @@ with another repository, link `uier-monitor` and `uier-monitor-script` into `~/.
 
 ### The watcher's access token
 
-The watcher checks uier with its own read-only access token, so waiting costs no model tokens.
-Create one in uier under Account → Coding agents → Access tokens. Select the project, choose the
-"Read feedback" and "Screenshots" operations, and let it run for 30 days. In T3 Code the skill asks
+The watcher checks uier with its own access token, so waiting costs no model tokens. Create one in
+uier under Account → Coding agents → Access tokens. Select the project, choose the "Read feedback",
+"Read screenshots" and "Assign feedback" operations, and let it run for 30 days. The token can't
+reply or change status; Assign feedback lets it show the working spinner (below). In T3 Code the skill asks
 for the token and stores it in the macOS keychain (service `uier-mcp`, account: the project id).
 Elsewhere, store it with `monitor.mjs token --project <id> --from-file <file>` or export
 `UIER_MCP_TOKEN`. Without a token the monitor still works, but it polls uier itself every 15
 minutes, which costs more tokens.
+
+### The working spinner
+
+While a fix session builds, uier shows a small spinner by the agent's avatar on its comments. The
+spinner is a five-minute lease that has to be renewed, and the orchestrator sleeps while sessions
+run, so the watcher keeps it: when a session starts, the orchestrator writes the session's agent,
+model, effort and thread id to the group's `agentLease` in `state.json`. The watcher attaches that
+agent with `set_feedback_agent`, renews `set_feedback_agent_working` every two minutes (checking at
+least every minute while a lease is live), and turns the spinner off when the session reports. The
+agent stays attached until the comment closes. `monitor.mjs status` lists the leases.
+
+uier only lets the connection that attached an agent report its work, which is why the watcher
+attaches it rather than the orchestrator. Its token can't change status, so the orchestrator moves
+the comment to In progress. With a token without "Assign feedback", or without a token, the
+orchestrator attaches agents itself as before and there is no spinner; the watcher says so once.
 
 ### Where its files are
 

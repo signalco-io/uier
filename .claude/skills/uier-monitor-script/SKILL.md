@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.0.1, sha256 `38a3b5401ca988e20dba1bed7c4014f73c5391025c2f346005c3a4d89ddc2fb2`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.1.0, sha256 `262bda1f4dfc6fad559f048f8f46a79eb43793cce3b973cfbfc54f506efab91d`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.0.1 and sha256
-   `38a3b5401ca988e20dba1bed7c4014f73c5391025c2f346005c3a4d89ddc2fb2`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.1.0 and sha256
+   `262bda1f4dfc6fad559f048f8f46a79eb43793cce3b973cfbfc54f506efab91d`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -44,25 +44,29 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.0.1';
+const VERSION = '1.1.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'error']);
 const DAY = 86_400_000;
+const LEASE_RENEW_MS = 115_000;  // uier's lease lasts five minutes; renew about every two
+const LEASE_CYCLE_MS = 60_000;   // the longest wait between cycles while a lease is live
 
 const HELP = `uier monitor helper ${VERSION}
 
 Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
 
   version                 Print the version and this file's sha256.
-  check                   Test the uier token, show who it acts as, seed the event cursor.
+  check                   Test the uier token, show who it acts as and whether it can keep the
+                          working spinner (Assign feedback), seed the event cursor.
   watch [--replace] [--max-minutes N] [--interval SECONDS]
                           Wait without model tokens. Exits with one JSON line when there is
-                          something to do; the details go to inbox.json.
+                          something to do; the details go to inbox.json. Keeps the agent
+                          attached and its working spinner renewed for groups.*.agentLease.
   take                    Print and clear inbox.json.
-  status                  Compact view of sessions, queue, PRs, deploys and open questions.
+  status                  Compact view of sessions, leases, queue, PRs, deploys and open questions.
   patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to state.json.
   packet ID... [--out DIR] [--screenshots]
                           Save feedback packets (and screenshots) as files for fix sessions.
@@ -292,7 +296,14 @@ async function tool(ctx, name, args) {
     const text = result?.content?.find?.(part => part.type === 'text')?.text;
     if (result?.isError) {
         const message = (text ?? `${name} failed`).slice(0, 300);
-        throw new UierError(/forbidden|not_found|needs `feedback|unauthori/i.test(message) ? 'auth' : 'tool', message);
+        let details = result.structuredContent;
+        if (!details?.error) { try { details = JSON.parse(text ?? '{}'); } catch { details = {}; } }
+        const code = details?.error;
+        const error = new UierError(/forbidden|not_found|needs `feedback|unauthori/i.test(message) ? 'auth' : 'tool', message);
+        error.code = typeof code === 'string' ? code : undefined;
+        error.fromTool = true;
+        if (typeof details?.message === 'string') error.detail = details.message.slice(0, 200);
+        throw error;
     }
     if (result?.structuredContent) return result.structuredContent;
     try { return JSON.parse(text ?? 'null') ?? {}; } catch { return { text }; }
@@ -325,14 +336,32 @@ async function check(options) {
         if (!project) { print({ ok: false, reason: 'project-not-granted', actingAs: projects.actingAs, reachable: projects.items.map(item => item.name).slice(0, 20) }); return; }
         const watchFile = join(dir, 'watch.json');
         const seen = readJson(watchFile, {});
+        const before = JSON.stringify(seen);
         if (!seen.cursor) {
             seen.cursor = (await tool(ctx, 'list_feedback_events', { projectId, cursor: null })).cursor;
             seen.forceReconcile = true;
-            writeJson(watchFile, seen);
         }
-        print({ ok: true, version: VERSION, actingAs: projects.actingAs, project: { id: project.id, name: project.name, workspace: project.workspace }, cursor: 'set' });
+        const assign = await canAssign(ctx, projectId);
+        // A new token can bring the Assign operation; let the watcher try leases again.
+        if (assign === true && seen.leases === 'unsupported') delete seen.leases;
+        if (assign === false) seen.leases = 'unsupported';
+        // Write only on a change, so a running watcher's cursor isn't overwritten.
+        if (JSON.stringify(seen) !== before) writeJson(watchFile, seen);
+        print({ ok: true, version: VERSION, actingAs: projects.actingAs, project: { id: project.id, name: project.name, workspace: project.workspace }, cursor: 'set',
+            assign, lease: assign === true ? 'available' : assign === false ? 'unsupported' : 'unknown' });
     } catch (error) {
         print({ ok: false, reason: error.kind === 'auth' ? 'unauthorized' : 'error', message: error.message });
+    }
+}
+
+// Whether the token has the Assign operation (feedback:assign), without writing anything:
+// list_assignees needs that scope, and a thread id that doesn't exist answers not_found when it has it.
+async function canAssign(ctx, projectId) {
+    try { await tool(ctx, 'list_assignees', { projectId, commentId: 'uier-monitor-scope-probe', limit: 1 }); return true; }
+    catch (error) {
+        if (error.code === 'forbidden' && /needs\W*feedback:assign/i.test(error.message)) return false;
+        if (error.code === 'not_found') return true;
+        return null;
     }
 }
 
@@ -411,6 +440,8 @@ async function watch(options) {
         const settings = state.watch ?? {};
         const found = [];
         if (ctx === undefined) ctx = connection(state);
+        // Lease trouble never blocks the rest of the cycle.
+        if (ctx && state.project?.id) await keepLeases(ctx, state, seen, found, log).catch(error => log(`lease error: ${error.message}`));
         try {
             if (ctx && state.project?.id) await pollUier(ctx, state, seen, found, Math.max(5, Number(settings.reconcileMinutes) || 15) * 60_000);
             if (Date.now() - lastGithub >= 55_000) {
@@ -444,12 +475,12 @@ async function watch(options) {
             return;
         }
         writeJson(join(dir, 'watch.json'), seen);
-        await sleep(intervalMs);
+        await sleep(ctx && leasesLive(state, seen) ? Math.min(intervalMs, LEASE_CYCLE_MS) : intervalMs);
     }
 }
 
 function prune(seen, now) {
-    for (const key of ['others', 'reported', 'drift', 'failedRuns', 'flags', 'pendingSince']) {
+    for (const key of ['others', 'reported', 'drift', 'failedRuns', 'flags', 'pendingSince', 'leaseReported']) {
         for (const [id, at] of Object.entries(seen[key] ?? {})) if (now - Number(at) > 30 * DAY) delete seen[key][id];
     }
 }
@@ -558,6 +589,125 @@ async function reconcile(ctx, state, seen, found) {
         if (seen.drift[key]) continue;
         seen.drift[key] = now;
         found.push({ type: 'drift', commentId: id, number: item.number, expected: item.stage, actual: 'done or hidden' });
+    }
+}
+
+// ---------------------------------------------------------------- agent leases (working spinner)
+//
+// The orchestrator writes groups.<id>.agentLease = { items, agent, model, reasoning, sessionId,
+// state: "working" | "done", clear? } and sleeps while the session builds. The watcher attaches the
+// agent with its own token (set_feedback_agent), renews the five-minute working lease
+// (set_feedback_agent_working) and, once the lease is done, clears the spinner (and the agent for
+// items in clear). Its progress per item lives in watch.json under agentLeases, never in state.json.
+
+function leaseKey(state, commentId, action) {
+    const number = state.items?.[commentId]?.number ?? commentId;
+    const key = `um-${state.project.id}-${number}-${action}-${Date.now().toString(36)}`.replace(/[^A-Za-z0-9_-]/g, '_');
+    return key.length > 128 ? key.slice(0, 128) : key;
+}
+
+function wantedLeases(state) {
+    const wanted = new Map();
+    for (const [group, entry] of Object.entries(state.groups ?? {})) {
+        const lease = entry?.agentLease;
+        if (lease?.state !== 'working' || !Array.isArray(lease.items)) continue;
+        const sig = JSON.stringify([lease.agent ?? null, lease.model ?? null, lease.reasoning ?? null, lease.sessionId ?? null]);
+        for (const commentId of lease.items) if (typeof commentId === 'string') wanted.set(commentId, { group, lease, sig });
+    }
+    return wanted;
+}
+
+function leasesLive(state, seen) {
+    if (seen.leases === 'unsupported') return false;
+    return Object.keys(seen.agentLeases ?? {}).length > 0 || wantedLeases(state).size > 0;
+}
+
+// What to do for one item this cycle: attach, renew, stop or nothing. Pure, so it is easy to test.
+function leaseStep(record, want, now) {
+    if (!want) return record ? 'stop' : 'none';
+    if (!record || record.group !== want.group || record.sig !== want.sig) return 'attach';
+    if (record.failed) return 'none';
+    if (!record.attached) return 'attach';
+    return now - (record.renewedAt ?? 0) >= LEASE_RENEW_MS ? 'renew' : 'none';
+}
+
+async function keepLeases(ctx, state, seen, found, log) {
+    if (seen.leases === 'unsupported') return;
+    const projectId = state.project.id;
+    const records = (seen.agentLeases ??= {});
+    const wanted = wantedLeases(state);
+    const ids = [...new Set([...Object.keys(records), ...wanted.keys()])];
+    const report = (commentId, sig, error) => {
+        const key = `${commentId}:${sig}`;
+        (seen.leaseReported ??= {});
+        if (seen.leaseReported[key]) return;
+        seen.leaseReported[key] = Date.now();
+        found.push({ type: 'lease-error', commentId, number: state.items?.[commentId]?.number, code: error.code ?? error.kind, message: error.detail ?? String(error.message).slice(0, 200) });
+    };
+    for (const commentId of ids) {
+        const record = records[commentId];
+        const want = wanted.get(commentId);
+        const step = leaseStep(record, want, Date.now());
+        if (step === 'none') continue;
+        try {
+            if (step === 'stop') {
+                const lease = state.groups?.[record.group]?.agentLease;
+                const clear = Array.isArray(lease?.clear) && lease.clear.includes(commentId);
+                const sessionId = JSON.parse(record.sig)[3];
+                if (record.working && !record.failed) {
+                    await leaseCall(ctx, 'set_feedback_agent_working', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'idle'), working: false, ...(sessionId ? { sessionId } : {}) }, ['not_found', 'conflict', 'forbidden']);
+                    log(`lease ${record.group} ${commentId}: working false`);
+                }
+                if (clear && record.attached && !record.failed) {
+                    await leaseCall(ctx, 'clear_feedback_agent', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'clear') }, ['not_found', 'conflict', 'forbidden']);
+                    log(`lease ${record.group} ${commentId}: agent cleared`);
+                }
+                delete records[commentId];
+                continue;
+            }
+            const { group, lease, sig } = want;
+            if (step === 'attach') {
+                records[commentId] = { group, sig, attached: false, working: false };
+                await tool(ctx, 'set_feedback_agent', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'attach'),
+                    ...(lease.agent ? { agent: lease.agent } : {}), ...(lease.sessionId ? { sessionId: String(lease.sessionId) } : {}),
+                    ...(lease.model ? { model: String(lease.model) } : {}), ...(lease.reasoning ? { reasoning: String(lease.reasoning) } : {}) });
+                Object.assign(records[commentId], { attached: true, attachedAt: Date.now() });
+                log(`lease ${group} ${commentId}: attached ${lease.agent ?? ''} ${lease.model ?? ''} ${lease.reasoning ?? ''}`);
+            }
+            await tool(ctx, 'set_feedback_agent_working', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'work'), working: true, ...(lease.sessionId ? { sessionId: String(lease.sessionId) } : {}) });
+            Object.assign(records[commentId], { working: true, renewedAt: Date.now(), renewals: (records[commentId].renewals ?? 0) + 1 });
+        } catch (error) {
+            if (error.code === 'forbidden' && /needs\W*feedback:assign/i.test(error.message)) {
+                seen.leases = 'unsupported';
+                if (!records[commentId]?.attached) delete records[commentId];
+                log(`leases unsupported: ${error.message}`);
+                found.push({ type: 'lease-unsupported', message: 'The watcher token lacks the Assign feedback operation, so it cannot show the working spinner. Attach agents yourself.' });
+                return;
+            }
+            if (error.fromTool) {
+                // This thread only (not_found, conflict, forbidden, invalid input): skip it until its lease changes.
+                if (step === 'stop') { delete records[commentId]; continue; }
+                records[commentId] = { ...records[commentId], failed: error.code ?? error.kind };
+                log(`lease ${want.group} ${commentId}: ${error.code ?? error.kind} ${error.message}`);
+                if (error.code === 'rate_limited' || error.code === 'server_error') { delete records[commentId].failed; continue; }
+                report(commentId, want.sig, error);
+                continue;
+            }
+            // Network, server or token trouble: try again next cycle (the uier poll reports a refused token).
+            log(`lease ${commentId}: ${error.message}`);
+            return;
+        }
+    }
+}
+
+async function leaseCall(ctx, name, args, ignore) {
+    try { return await tool(ctx, name, args); }
+    catch (error) {
+        if (error.fromTool) {
+            if (error.code === 'forbidden' && /needs\W*feedback:assign/i.test(error.message)) throw error;
+            if (ignore.includes(error.code)) return null;
+        }
+        throw error;
     }
 }
 
@@ -700,6 +850,18 @@ function status(options) {
     for (const [id, group] of groups) {
         if (['closed', 'cancelled'].includes(group.state)) continue;
         lines.push(`  ${id} ${group.state} ${label(group.items)} · ${group.class ?? '?'}/${group.size ?? '?'} · ${group.model ?? ''} ${group.effort ?? ''}${group.port ? ` · port ${group.port}` : ''}${group.pr ? ` · PR #${group.pr}` : ''}${group.note ? ` · ${group.note}` : ''}`);
+    }
+    const leaseRecords = seen.agentLeases ?? {};
+    const ago = at => (at ? `${Math.max(0, Math.round((Date.now() - at) / 1000))}s ago` : 'never');
+    if (seen.leases === 'unsupported') lines.push('leases unsupported: the watcher token lacks Assign feedback, so there is no working spinner');
+    for (const [id, group] of groups) {
+        const lease = group.agentLease;
+        if (!lease) continue;
+        const live = (lease.items ?? []).map(item => leaseRecords[item]).filter(record => record?.group === id);
+        if (lease.state !== 'working' && !live.length) continue;
+        const last = Math.max(0, ...live.map(record => record.renewedAt ?? 0));
+        const failed = live.filter(record => record.failed).map(record => record.failed);
+        lines.push(`  lease ${id} ${lease.state ?? '?'} ${label(lease.items)} · ${lease.agent ?? '?'} ${lease.model ?? ''} ${lease.reasoning ?? ''} · renewed ${ago(last)}${lease.state === 'done' ? ' · stopping' : ''}${failed.length ? ` · failed ${failed.join(', ')}` : ''}`);
     }
     const byDecision = decision => Object.values(items).filter(item => item.decision === decision && item.stage !== 'done');
     const queued = Object.entries(items).filter(([, item]) => item.decision === 'accepted' && !['done', 'ready'].includes(item.stage) && !item.group);
