@@ -13,7 +13,7 @@ import { RelativeTime } from './DateTime';
 
 /**
  * The assignee's avatars on a row or board card (`AssigneeAvatars`). Hovering them shows who the thread is
- * assigned to and the AI agent working under them: its model by name, reasoning level, when it started and its session.
+ * assigned to and the AI agent working under them: whether it is working now and when it started beside its name, then its model by name, reasoning level and session.
  * A mouse click still opens the thread (`onPress`, the row's link); the keyboard (Enter on the focused
  * avatars) and a tap open the card instead. Guests get no agent in their views, so they see the assignee only.
  */
@@ -72,8 +72,15 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
         <Item size="xs">
             <ItemMedia><AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-6" /></ItemMedia>
             <ItemContent className="min-w-0">
-                <CutText full={agent.label} render={<ItemTitle className="block max-w-full truncate" />} />
-                {working && <ItemDescription>Working now</ItemDescription>}
+                {/* The header: the name, then whether it is working and when it started, compact on the same line; the start gives way first */}
+                <div data-agent-header="" className="flex min-w-0 items-baseline gap-1.5">
+                    <CutText full={agent.label} render={<ItemTitle className="block min-w-0 max-w-[60%] shrink-0 truncate" />} />
+                    {(working || agent.setAt) && <span className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
+                        {working && <span className="shrink-0">Working now</span>}
+                        {working && agent.setAt && <span aria-hidden="true" className="shrink-0">·</span>}
+                        {agent.setAt && <span data-agent-since="" className="min-w-0 truncate">Started <RelativeTime value={agent.setAt} short /></span>}
+                    </span>}
+                </div>
                 {/* By name like the thread's Assignee field, the reported id as its title; an unknown id as it is, in mono */}
                 {agent.model
                     ? <CutText data-agent-model="" title={agent.model} full={<>{agentModelText({ label: agent.label, model: agent.model })}{modelName(agent.model) && <span className="block font-mono">{agent.model}</span>}</>}
@@ -82,7 +89,6 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
                     </CutText>
                     : <ItemDescription className="truncate">No model given</ItemDescription>}
                 {agent.reasoning && <CutText full={reasoningText(agent.reasoning)} render={<ItemDescription className="truncate" />} />}
-                {agent.setAt && <ItemDescription data-agent-since="">Started <RelativeTime value={agent.setAt} /></ItemDescription>}
                 {agent.sessionId && <CutText data-agent-session="" full={<span className="font-mono break-all">{agent.sessionId}</span>} render={<ItemDescription className="truncate" />}>
                     Session <span className="font-mono">{agent.sessionId}</span>
                 </CutText>}

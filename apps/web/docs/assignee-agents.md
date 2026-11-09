@@ -31,7 +31,8 @@ Adding more agents, updating and clearing keep the stage.
 optimistic shared-list patches. It groups each person's `AgentControl` beneath the selection; only
 the signed-in person's controls edit agents, including Add agent while they already have agents.
 `AssigneeCard` opens from rows, board cards and My work. Its full list indents agents beneath their
-person, whose avatar is larger, on a line that runs down from the centre of that avatar. Compact avatars
+person, whose avatar is larger, on a line that runs down from the centre of that avatar. Each agent's header line
+holds its name, then "Working now" and "Started 3 min ago" (compact, truncating); model, reasoning and session follow below. Compact avatars
 stack each person's agents beside their 20px avatar as 16px agent avatars. Up to three people and two
 agents per person fit in a compact row; a count names
 the remainder and shows any active work there. The label and scrollable hover card retain everyone.

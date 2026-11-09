@@ -174,7 +174,7 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
         await expect(card.locator('[data-agent-model]')).toHaveText('Opus 5.5');
         await expect(card.locator('[data-agent-model]')).toHaveAttribute('title', 'claude-opus-5-5');
         await expect(card).toContainText('high reasoning');
-        await expect(card.locator('[data-agent-since]')).toHaveText(/^Started (just now|\d+ minutes? ago)$/);
+        await expect(card.locator('[data-agent-since]')).toHaveText(/^Started (just now|\d+ min ago)$/);
         await expect(session).toHaveText(`Session ${sessionId}`);
     };
 
