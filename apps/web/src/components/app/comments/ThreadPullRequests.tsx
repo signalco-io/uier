@@ -16,6 +16,7 @@ import { threadPullRequestLinks, type PullRequestLink, type PullRequestState, ty
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { integrationLogos } from '../integrations/IntegrationLogo';
 import { hoverPopoverTrigger } from '../hoverPopover';
+import { unsetValueClass } from './unsetValue';
 
 export const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies' | 'pullRequests'>) =>
     threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies], comment.pullRequests);
@@ -205,7 +206,7 @@ function LinkPullRequest({ projectId, commentId }: { projectId: string; commentI
 
     if (!open) return (
         <Button ref={trigger} type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}
-            className="-ml-1.5 h-7 min-w-0 gap-2 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11">
+            data-unset="" className={cn('-ml-1.5 h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11', unsetValueClass)}>
             <PlusIcon aria-hidden="true" data-icon="inline-start" />
             Link a pull request
         </Button>

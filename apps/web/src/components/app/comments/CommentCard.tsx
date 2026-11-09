@@ -443,7 +443,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                         {comment.private && (
                             <Tooltip>
-                                <TooltipTrigger render={<Badge variant="secondary" tabIndex={0} className="cursor-default outline-none" />}>
+                                {/* No background, so it sits quietly beside the number; the lock and the tooltip carry it */}
+                                <TooltipTrigger render={<Badge variant="ghost" tabIndex={0} className="cursor-default text-muted-foreground outline-none hover:bg-transparent dark:hover:bg-transparent" />}>
                                     <LockIcon aria-hidden="true" data-icon="inline-start" />
                                     Private
                                     <span className="sr-only">. {privateHint}</span>
@@ -606,8 +607,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <ReplyIcon data-icon="inline-start" />Reply
                     </Button>)}
 
-                <ThreadActivity entries={comment.history} />
-
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (
                     <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
@@ -620,6 +619,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 ) : null}
             </div>
+
+            {/* Activity is the card's footer, under its divider */}
+            <ThreadActivity entries={comment.history} />
 
             <AlertDialog open={confirmingDelete || Boolean(confirmingReply)} onOpenChange={open => {
                 if (!open) { setConfirmingDelete(false); setConfirmingReply(undefined); }

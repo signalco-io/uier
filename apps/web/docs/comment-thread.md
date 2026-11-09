@@ -1,6 +1,7 @@
 # The open thread
 
-- `ThreadActivity` adds a compact, initially closed Activity section below Reply in the app.
+- `ThreadActivity` adds a compact, initially closed Activity section as the open thread's card footer in the app
+  (the kit's `CardFooter` under a divider: the muted band down to the card's edge, after Reply and the Open in ... links).
   The toolbar's `CommentActivity` fits the same section into pin popovers and inbox threads.
   Each shows authorized entries oldest first, with relative times and a bounded scrolling list.
   It adds no reads or acknowledgements. See [thread history](read-state-and-activity.md#thread-history)
@@ -8,7 +9,7 @@
 
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
   state, `#number`, the unread dot (the Mark as read button, "Unread. Mark as read") and, on a private thread, the
-  Private badge (focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
+  Private badge (a ghost badge with no background, muted lock and text; focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
   Open. Change status") with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
   (`allowedStatuses`): Ready to verify opens the Request verification form (`VerificationControl`, whose submit has
@@ -22,13 +23,15 @@
   Thread title field in place (Enter or leaving it saves, Escape cancels and gives focus back; an empty title
   brings the AI title back), and a thread without a title shows a quiet Add a title. Otherwise, without a title
   there is no heading, as the first message shows in full below. Then the details, from the most abstract to the most
-  detailed: Page, On, Assignees, Priority, then Pull requests. On (what it was left on, with the selector or
+  detailed: Page, On, Assignees, Priority, then Pull requests. Every value still unset or at its default (Unassigned,
+  the default Normal priority, Link a pull request) has one "not set" look (`unsetValue.ts`, `data-unset`): muted text
+  with its icon in the same colour, ink on hover for a control; set values are ink. `e2e/thread-details.spec.ts` checks it. On (what it was left on, with the selector or
   the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
   `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
   the middle is visually hidden, so assistive tech and a copied selection get the whole selector;
   `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
   source is unavailable), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
-  four, each with its flag, the current one checked) and Assignee (a 20px avatar, empty and dashed while unassigned,
+  four, each with its flag, the current one checked) and Assignee (a 20px avatar, or a person icon while unassigned,
   and the name, together one menu button for those who can assign; then the AI agent working with the assignee, `AgentControl`: "with",
   the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
   A message an AI agent wrote for its author through MCP reads "You via", the agent's logo and "Claude" after the
@@ -142,7 +145,7 @@
   leaves the focus in the editor when Edit opens it). `e2e/project-review.spec.ts` covers it.
 
 Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
-Link a pull request ghost control (plus icon, muted text, like Assignees' Unassigned), in a row one control tall so it
+Link a pull request ghost control (plus icon, the shared "not set" look), in a row one control tall so it
 is centred on the Pull requests label like every other row's control; choosing it reveals the
 Pull request URL field with focus in it, Escape closes it and returns focus, and a saved link closes it. Manually linked PRs persist separately from messages, deduplicate with message links and appear in the row/card hover or tap card with the same provider icons and state badges as detected links. Once a state is known, the link's icon and name take the
 badge's colour (Open green, Merged violet, Closed red, Draft muted; `data-pull-request-color`); a closed one's name stays

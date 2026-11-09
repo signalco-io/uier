@@ -9,16 +9,22 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { setCommentPriorityAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 import { PriorityFlag } from './PriorityFlag';
+import { unsetValueClass } from './unsetValue';
+import { cn } from '@/src/lib/utils';
 
 /** The thread's priority with its flag; a menu of the four for those who can triage */
 export function PriorityControl({ projectId, commentId, priority, canEdit }: { projectId: string; commentId: string; priority: CommentPriority; canEdit: boolean }) {
     const [pending, start] = useTransition();
     const update = useCommentUpdate();
     const attempt = useRef<{ value: CommentPriority; key: string } | null>(null);
-    if (!canEdit) return <span className="inline-flex items-center gap-1.5"><PriorityFlag priority={priority} className="size-3.5" /><span className="sr-only">Priority: </span>{priorityLabels[priority]}</span>;
+    // The default Normal is "not set": muted like Unassigned, its flag following the text colour
+    const unset = priority === 'normal';
+    const flag = unset ? 'size-3.5 stroke-current' : 'size-3.5';
+    if (!canEdit) return <span data-unset={unset ? '' : undefined} className={cn('inline-flex items-center gap-1.5', unset && 'text-muted-foreground')}><PriorityFlag priority={priority} className={flag} /><span className="sr-only">Priority: </span>{priorityLabels[priority]}</span>;
     return <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="-ml-1.5 h-7 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11 pointer-coarse:min-w-11" disabled={pending} aria-label={`Priority: ${priorityLabels[priority]}. Change priority`} />}>
-            <PriorityFlag priority={priority} data-icon="inline-start" className="size-3.5" />
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" data-unset={unset ? '' : undefined}
+            className={cn('-ml-1.5 h-7 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11 pointer-coarse:min-w-11', unset && unsetValueClass)} disabled={pending} aria-label={`Priority: ${priorityLabels[priority]}. Change priority`} />}>
+            <PriorityFlag priority={priority} data-icon="inline-start" className={flag} />
             {priorityLabels[priority]}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
