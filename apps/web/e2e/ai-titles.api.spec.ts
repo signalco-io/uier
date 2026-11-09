@@ -6,12 +6,12 @@ import { getAppStore } from '../src/lib/app/store';
 import type { AppContext } from '../src/lib/app/context';
 import { loadProjectComments } from '../src/lib/app/projectComments';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
-import { deleteProjectCommentItem, editProjectCommentText, listProjectComments } from '../src/lib/review/comments';
+import { deleteProjectCommentItem, editProjectCommentText, listProjectComments, setProjectCommentTitle } from '../src/lib/review/comments';
 import { commentRevision } from '../src/lib/review/commentRevision';
 import { toReviewCommentDto } from '../src/lib/review/dto';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 import { AI_TITLE_MODEL, aiTitlePrompt, createAiTitleService, type AiTitleInput } from '../src/lib/titles/generate';
-import { aiTitleSource, cleanAiTitle, currentAiTitle, visibleAiTitle } from '../src/lib/titles/model';
+import { AI_TITLE_CLEANUP, aiTitleSource, cleanAiTitle, cleanManualTitle, currentAiTitle, needsAiTitle, visibleAiTitle } from '../src/lib/titles/model';
 import { aiTitlesEnabled, projectAiTitleMode, workspaceAiTitles } from '../src/lib/titles/settings';
 import { aiTitleEvent, type AiTitleEvent } from '../src/lib/titles/telemetry';
 import { AI_TITLE_BATCH, aiTitleCandidates, EXPIRING_THREAD_WINDOW_MS, makeAiTitle, queueAiTitles } from '../src/lib/titles/threadTitles';
@@ -161,7 +161,99 @@ test('a title is plain text on one line, at most 80 characters', () => {
     expect(cleanAiTitle('Wait for it...')).toBe('Wait for it...');
     expect(cleanAiTitle('a‮b')).toBe('a b');
     expect(cleanAiTitle('y'.repeat(80))).toBe('y'.repeat(80));
-    for (const rejected of ['y'.repeat(81), '   ', '""', '​', 42, null]) expect(cleanAiTitle(rejected)).toBeNull();
+    for (const rejected of ['y'.repeat(81), '   ', '""', '"""', '“”', '«»', '"?"', '…', '​', 42, null]) expect(cleanAiTitle(rejected)).toBeNull();
+});
+
+test('quotes around the whole title go as one pair; quotes that belong to the title stay', () => {
+    expect(cleanAiTitle('“Checkout fails on Safari”')).toBe('Checkout fails on Safari');
+    expect(cleanAiTitle("'Hero image is blurry'")).toBe('Hero image is blurry');
+    expect(cleanAiTitle('„Preise fehlen auf Mobilgeräten“')).toBe('Preise fehlen auf Mobilgeräten');
+    // uier #112: the opening quote belongs to the key's name
+    for (const kept of ['"C" shortcut opens Send feedback popover', '"C" shortcut opens "Send feedback" instead of a comment',
+        'Save button says "Done" too early', '12" display cuts off the menu', '"Pricing" and "Plans" swap places'])
+        expect(cleanAiTitle(kept)).toBe(kept);
+    expect(cleanAiTitle('"Save button says "Done" too early"')).toBe('"Save button says "Done" too early"');
+});
+
+test('a title made before quotes were kept, with a lost quote, is made again; one made since is kept', async () => {
+    const f = await fixture();
+    const lost = 'C" shortcut opens Send feedback popover';
+    const old = { text: lost, source: aiTitleSource(input.text), model: AI_TITLE_MODEL, generatedAt: new Date().toISOString() };
+    await f.store.replace({ ...(await f.read()), aiTitle: old }, (await f.store.get(f.comment.domain, f.comment.id))!.etag);
+    expect(currentAiTitle(await f.read())).toBeUndefined();
+    expect(needsAiTitle(await f.read())).toBe(true);
+    expect(currentAiTitle({ ...f.comment, aiTitle: { ...old, text: 'Checkout button hidden by footer' } })).toBe('Checkout button hidden by footer');
+    // Every quote the old cleanup stripped, but not apostrophes inside a word
+    for (const damaged of ['C’ shortcut opens Send feedback popover', "C' shortcut opens Send feedback popover", 'npm` install fails on Windows'])
+        expect(currentAiTitle({ ...f.comment, aiTitle: { ...old, text: damaged } })).toBeUndefined();
+    for (const intact of ['Users can’t sign in on Safari', "Hero image doesn't load", 'The `npm` install fails'])
+        expect(currentAiTitle({ ...f.comment, aiTitle: { ...old, text: intact } })).toBe(intact);
+    expect(await makeAiTitle(f.comment, 'shown', { service: titled('"C" shortcut opens Send feedback popover') })).toBe('written');
+    const saved = await f.read();
+    expect(saved.aiTitle).toMatchObject({ text: '"C" shortcut opens Send feedback popover', cleanup: AI_TITLE_CLEANUP });
+    expect(currentAiTitle(saved)).toBe('"C" shortcut opens Send feedback popover');
+    expect(currentAiTitle({ ...saved, aiTitle: { ...saved.aiTitle!, text: '12" display cuts off the menu' } })).toBe('12" display cuts off the menu');
+});
+
+test('a member renames a thread: their title replaces the AI title, AI never overwrites it and clearing it brings the AI title back', async () => {
+    const f = await fixture();
+    await makeAiTitle(f.comment, 'new', { service: titled('Checkout button hidden by footer') });
+    const before = await f.read();
+
+    const renamed = await setProjectCommentTitle(f.project, colleague, f.comment.id, '  Pay button\n  hidden on phones ');
+    expect(renamed.manualTitle).toBe('Pay button hidden on phones');
+    expect(renamed.aiTitle?.text).toBe('Checkout button hidden by footer');
+    expect(commentRevision(renamed)).not.toBe(commentRevision(before));
+    expect(renamed.history?.at(-1)).toMatchObject({ action: 'title-edited', actorId: `user:${colleague.userId}` });
+    const view = (await loadProjectComments(appContext(f.project, colleague), f.project)).find(item => item.id === f.comment.id)!;
+    expect(view).toMatchObject({ title: 'Pay button hidden on phones', permissions: { title: true } });
+    expect(view.titleByAi).toBeUndefined();
+    expect((await projectFeedbackExport(f.project, author, f.comment.id, undefined, 'https://uier.test')).context.title).toBe('Pay button hidden on phones');
+
+    // AI titles never replace it, not even after the first message changes
+    let calls = 0;
+    const service = async () => { calls++; return { outcome: 'success' as const, title: 'Other' }; };
+    expect(await makeAiTitle(f.comment, 'shown', { service })).toBe('current');
+    await editProjectCommentText(f.project, author, f.comment.id, 'The footer covers the pay button');
+    expect((await f.read()).manualTitle).toBe('Pay button hidden on phones');
+    expect(await makeAiTitle(f.comment, 'change', { service })).toBe('current');
+    expect(calls).toBe(0);
+    // A member's title shows with AI titles off too
+    f.project.aiTitles = 'off';
+    expect((await loadProjectComments(appContext(f.project, author), f.project))[0]?.title).toBe('Pay button hidden on phones');
+    f.project.aiTitles = undefined;
+
+    // Cleared: the AI title is made again and shows, with its mark
+    const cleared = await setProjectCommentTitle(f.project, colleague, f.comment.id, '   ');
+    expect(cleared.manualTitle).toBeUndefined();
+    expect(cleared.history?.at(-1)).toMatchObject({ action: 'title-cleared' });
+    expect(await makeAiTitle(f.comment, 'change', { service: titled('Footer covers pay button') })).toBe('written');
+    const back = (await loadProjectComments(appContext(f.project, author), f.project))[0]!;
+    expect(back).toMatchObject({ title: 'Footer covers pay button', titleByAi: true });
+
+    // A thread without any title gets one the same way
+    const untitled = await fixture({}, { aiTitles: false });
+    expect((await setProjectCommentTitle(untitled.project, author, untitled.comment.id, 'Checkout on phones')).manualTitle).toBe('Checkout on phones');
+    expect((await loadProjectComments(appContext(untitled.project, author, { aiTitles: false }), untitled.project))[0]?.title).toBe('Checkout on phones');
+});
+
+test('only members who can triage rename a thread, within the length limit, and the title goes with the first message', async () => {
+    const f = await fixture();
+    const guest = { kind: 'guest', visitorId: 'titles-guest' } as const;
+    await expect(setProjectCommentTitle(f.project, guest, f.comment.id, 'Guest title')).rejects.toMatchObject({ status: expect.any(Number) });
+    expect((await f.read()).manualTitle).toBeUndefined();
+    expect(toReviewCommentDto(await f.read(), guest, new Map(), ['https://reviewed.example'], 0, new Map(), f.project)).not.toHaveProperty('manualTitle');
+    expect(cleanManualTitle('y'.repeat(120))).toBe('y'.repeat(120));
+    expect(cleanManualTitle('y'.repeat(121))).toBeNull();
+    await expect(setProjectCommentTitle(f.project, author, f.comment.id, 'y'.repeat(121))).rejects.toMatchObject({ code: 'invalid_request' });
+
+    const reply = { id: 'reply', text: 'Seen it too', authorId: `user:${colleague.userId}`, createdAt: new Date().toISOString() };
+    await f.store.replace({ ...(await f.read()), thread: { items: [(await f.read()).thread.items[0]!, reply] } }, (await f.store.get(f.comment.domain, f.comment.id))!.etag);
+    await setProjectCommentTitle(f.project, author, f.comment.id, 'Pay button hidden');
+    const kept = await deleteProjectCommentItem(f.project, author, f.comment.id, 'first');
+    expect(kept?.manualTitle).toBeUndefined();
+    expect(kept?.history?.filter(entry => entry.action === 'title-cleared')).toHaveLength(1);
+    await expect(setProjectCommentTitle(f.project, admin, f.comment.id, 'Again')).rejects.toMatchObject({ code: 'forbidden' });
 });
 
 test('a title is stored on the thread for its first message, without counting as a change', async () => {

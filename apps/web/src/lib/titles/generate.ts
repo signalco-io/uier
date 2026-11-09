@@ -28,7 +28,7 @@ const kindWords: Record<DbCommentKind, string> = {
 
 const system = `You write titles for website review threads. A reviewer left a message on a web page. You get the message, what kind of message it is and what it was left on.
 
-Write one title that says what the thread is about, so a team can scan a list of threads and know which one to open. Name the concrete problem or request, such as "Checkout button overlaps the footer on mobile", not the act of commenting, such as "User comments on a button". Use the language of the message and sentence case. Plain text on one line: no quotation marks around it, no Markdown, no emoji, no thread number and no period at the end.
+Write one title that says what the thread is about, so a team can scan a list of threads and know which one to open. Name the concrete problem or request, such as "Checkout button overlaps the footer on mobile", not the act of commenting, such as "User comments on a button". Use the language of the message and sentence case. Plain text on one line: no quotation marks around the whole title, no Markdown, no emoji, no thread number and no period at the end. Keep quotation marks that belong to the title, on both sides of what they quote, such as a key or a label: "C" key opens the wrong popover.
 
 Keep the title under 60 characters. A title longer than ${AI_TITLE_MAX_LENGTH} characters is discarded.
 

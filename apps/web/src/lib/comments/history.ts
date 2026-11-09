@@ -50,7 +50,9 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
         add('verification-canceled');
     }
     if (commentPriority(previous.priority) !== commentPriority(next.priority)) add('priority', { priority: commentPriority(next.priority) });
-    if (previous.aiTitle?.text !== next.aiTitle?.text || previous.aiTitle?.source !== next.aiTitle?.source)
+    // A member's own title first: deleting the first message removes both titles in one entry
+    if ((previous.manualTitle ?? '') !== (next.manualTitle ?? '')) add(next.manualTitle ? 'title-edited' : 'title-cleared');
+    else if (previous.aiTitle?.text !== next.aiTitle?.text || previous.aiTitle?.source !== next.aiTitle?.source)
         add(next.aiTitle ? actorId === 'system:ai-title' ? 'title-written' : 'title-edited' : 'title-cleared');
     if (Boolean(previous.private) !== Boolean(next.private)) add(next.private ? 'private' : 'public');
     if (previous.domain !== next.domain || previous.path !== next.path || previous.origin !== next.origin

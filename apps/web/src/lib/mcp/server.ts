@@ -14,7 +14,7 @@ import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/
 import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus } from '../review/comments';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
 import { projectFeedbackExport } from '../review/feedbackContext';
-import { visibleAiTitle } from '../titles/model';
+import { manualThreadTitle, threadTitle } from '../titles/model';
 import { loadAiTitlesEnabled } from '../titles/threadTitles';
 import { sha256Hex } from '../app/tokens';
 import { eligibleParticipants } from '../review/participants';
@@ -121,7 +121,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             input.environment === undefined ? undefined : environmentFilter(project, input.environment));
         const authorId = actorAuthorId(actor);
         const [participants, reads, titles] = await Promise.all([participantNames(project), loadReadSequences(`project:${project.id}`, authorId),
-            comments.some(comment => comment.aiTitle) ? loadAiTitlesEnabled(project) : false]);
+            comments.some(comment => comment.aiTitle && !manualThreadTitle(comment)) ? loadAiTitlesEnabled(project) : false]);
         const search = input.search.toLocaleLowerCase();
         const items = comments.filter(comment => (input.priority === undefined || commentPriority(comment.priority) === input.priority)
             && (input.status === 'all' || (input.status === 'open' ? !comment.resolved
@@ -131,7 +131,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
                 const first = comment.thread.items[0];
                 const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
                 return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
-                    title: visibleAiTitle(comment, titles), summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
+                    title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
                     replyCount: Math.max(0, comment.thread.items.length - 1), unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };

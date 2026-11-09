@@ -17,6 +17,8 @@ export const privateCommentActionSchema = commentActionSchema.extend({ isPrivate
 export const assignCommentActionSchema = commentActionSchema.extend({ assigneeId: userIdSchema.nullable() });
 export const assignCommentsPeopleActionSchema = commentActionSchema.extend({ assigneeIds: assigneeIdsSchema, mode: assignmentModeSchema });
 export const editCommentActionSchema = commentActionSchema.extend({ text: textSchema });
+/** Cleaned and limited by `setProjectCommentTitle`; this only bounds the input */
+export const titleCommentActionSchema = commentActionSchema.extend({ title: z.string().max(1000) });
 export const replyCommentActionSchema = commentActionSchema.extend({ text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
 export const filterAuthorActionSchema = commentActionSchema.extend({ itemId: commentIdSchema.optional() });
