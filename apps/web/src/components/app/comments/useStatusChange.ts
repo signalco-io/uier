@@ -52,7 +52,7 @@ export function useStatusChanger(projectId: string) {
             const request = setCommentStatusAction(projectId, comment.id, status)
                 .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
             if (exit) await exit.finished;
-            startTransition(() => updateComment({ id: comment.id, patch: { resolved: status === 'done', inProgress: status === 'in-progress' } }));
+            startTransition(() => updateComment({ id: comment.id, patch: { resolved: status === 'done', ...(status === 'done' ? { completedAt: new Date().toISOString() } : {}), inProgress: status === 'in-progress' } }));
             const result = await request;
             if (result && !result.ok) {
                 exit?.cancel();

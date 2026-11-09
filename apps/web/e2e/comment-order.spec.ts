@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import { commentRows, createProject, selectionBox, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, openBoardMove, selectionBox, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
 // A project's comments show by priority (Urgent, High, Normal, Low), then by number, highest first:
-// in the list and in each board column, and a thread moves as soon as its priority changes.
+// in the list and active columns. Done uses latest completion, including after reopening.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -19,7 +19,7 @@ async function prioritize(page: Page, number: number, priority: 'Urgent' | 'High
     await expect(selectionBox(page, number)).not.toBeChecked();
 }
 
-test('the list and board columns show threads by priority, then by number', async ({ page, request }, testInfo) => {
+test('active threads use priority and number; Done uses latest completion', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'The order is the same on every screen');
     await signIn(page, uniqueEmail('comment-order'));
     const project = await createProject(page, { urls: [site.origin()] });
@@ -50,4 +50,18 @@ test('the list and board columns show threads by priority, then by number', asyn
     // The board column, in the same order
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveText(order);
+    const done = page.getByRole('region', { name: 'Done comments', exact: true });
+    for (const index of [2, 3, 0]) {
+        await openBoardMove(page, numbers[index]!);
+        await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+        await expect(done.getByRole('listitem').first()).toContainText(`Order thread ${index + 1}`);
+    }
+    await expect(done.getByRole('listitem')).toHaveText([/Order thread 1/, /Order thread 4/, /Order thread 3/]);
+    await page.reload();
+    await expect(done.getByRole('listitem')).toHaveText([/Order thread 1/, /Order thread 4/, /Order thread 3/]);
+    await openBoardMove(page, numbers[2]!, done);
+    await page.getByRole('menuitem', { name: 'Open', exact: true }).click();
+    await openBoardMove(page, numbers[2]!);
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+    await expect(done.getByRole('listitem').first()).toContainText('Order thread 3');
 });

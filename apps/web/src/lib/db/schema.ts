@@ -214,6 +214,8 @@ export type DbComment = {
      */
     screenshot?: DbCommentScreenshot;
     resolved?: boolean;
+    /** Last transition into Done; absent on legacy threads. */
+    completedAt?: string;
     /**
      * In progress (`@uier/toolbar/verification` `feedbackStage`). Missing means not in progress; no
      * migration required. Cleared when the thread is done; kept while a fix check is pending, so a
