@@ -46,6 +46,15 @@ async function postNewComment(page: Page, project: string, text: string) {
     return (await saved.json() as { id: string; position: { selector: string } });
 }
 
+/** The visible pin opens a thread that reports its current anchor state. */
+async function expectPinState(page: Page, pin: Locator, state: 'closed' | 'exact') {
+    await expect(pin).toBeVisible();
+    await pin.click();
+    await expect(thread(page).locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', state);
+    await page.keyboard.press('Escape');
+    await expect(thread(page)).toBeHidden();
+}
+
 /** The saved selector names exactly this element */
 async function expectAnchoredTo(page: Page, selector: string, target: Locator) {
     expect(await target.evaluate((element, saved) => {
@@ -166,7 +175,7 @@ test('point mode keeps popovers and hover menus open, and pins what is in them a
     await expect(newComment(page)).toBeVisible();
     await expect(popover).toBeVisible();
     const popoverComment = await postNewComment(page, project, 'Give the cut-off time.');
-    await expectAnchoredTo(page, popoverComment.position.selector, popover.locator('p'));
+    await expectAnchoredTo(page, popoverComment.position.selector, popover.locator(':scope > p'));
     // Escape in the toolbar did not close it either
     await expect(popover).toBeVisible();
     await popover.evaluate((element: HTMLElement) => element.hidePopover());
@@ -243,4 +252,107 @@ test('a drag that starts on the page draws an area even when it ends over the to
     await expect(page.locator('[data-uier-area=""]')).toHaveCount(1);
     // Nothing on the page was selected by the drag
     expect(await page.evaluate(() => getSelection()?.toString() ?? '')).toBe('');
+});
+
+test('framework popover anchors survive generated ids, remounting and a reload', async ({ page }, testInfo) => {
+    const origin = siteOrigin(testInfo);
+    await signIn(page, uniqueEmail('anchor-framework'));
+    const project = await createProject(page, { urls: [origin] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.goto(`${origin}/${project}/assignment?review=true&host-anchors`);
+    await expect(addComment(page)).toBeVisible();
+    const opener = page.getByRole('button', { name: 'Inspect assignment', exact: true });
+    await opener.click();
+    const popup = page.getByRole('dialog', { name: 'Assignment details' });
+    const summary = popup.getByRole('note', { name: 'Assignment summary' });
+    await expect(popup).toBeVisible();
+    const oldId = await summary.getAttribute('id');
+    await addComment(page).click();
+    await pointAt(page, summary);
+    const saved = await postNewComment(page, project, 'Explain the assignment.');
+    const position = saved.position as { selector: string; layer: { opener: string; label: string } };
+    expect(position.selector).not.toMatch(/base-ui-|_[rR]_|[«:][rR]/);
+    expect(position.layer.opener).not.toMatch(/base-ui-|_[rR]_|[«:][rR]/);
+    expect(position.selector.length).toBeLessThanOrEqual(1024);
+    expect(position.layer.opener.length).toBeLessThanOrEqual(1024);
+    expect(position.selector.split(',')).toHaveLength(3);
+    await expectAnchoredTo(page, position.selector, summary);
+    await expectAnchoredTo(page, position.layer.opener, opener);
+    expect(position.layer.label).toBe('Inspect assignment');
+    const pin = page.locator(`[data-uier-comment="${saved.id}"]`);
+    await popup.getByRole('button', { name: 'Close assignment' }).click();
+    await expectPinState(page, pin, 'closed');
+    // Both the generated ids and one stable attribute change. The remaining alternatives still match.
+    await page.getByRole('button', { name: 'Remount assignment' }).click();
+    await opener.click();
+    await expect(summary).toBeVisible();
+    expect(await summary.getAttribute('id')).not.toBe(oldId);
+    await expect(summary).not.toHaveAttribute('data-testid');
+    await expectAnchoredTo(page, position.selector, summary);
+    await expectPinState(page, pin, 'exact');
+    await popup.getByRole('button', { name: 'Close assignment' }).click();
+    await page.reload();
+    // Saved selectors work without this tab's in-memory trigger tracking.
+    await expectPinState(page, pin, 'closed');
+    await opener.click();
+    await expectPinState(page, pin, 'exact');
+});
+
+test('native popovers remember the actual invoker and distinguish closed from missing content', async ({ page }, testInfo) => {
+    const origin = siteOrigin(testInfo);
+    await signIn(page, uniqueEmail('anchor-popover'));
+    const project = await createProject(page, { urls: [origin] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.goto(`${origin}/${project}/shipping?review=true&host-menus`);
+    await expect(addComment(page)).toBeVisible();
+    await page.evaluate(() => {
+        const button = document.createElement('button');
+        button.id = 'alternate-shipping';
+        button.setAttribute('popovertarget', 'host-popover');
+        button.setAttribute('aria-label', 'Alternate shipping details');
+        button.textContent = 'Alternate shipping details';
+        document.querySelector('#host-popover-open')!.after(button);
+    });
+    const opener = page.getByRole('button', { name: 'Alternate shipping details' });
+    const popover = page.locator('#host-popover');
+    await opener.click();
+    await addComment(page).click();
+    await pointAt(page, popover.locator(':scope > p'));
+    const saved = await postNewComment(page, project, 'Keep the delivery promise.');
+    const position = saved.position as { selector: string; layer: { opener: string } };
+    await expectAnchoredTo(page, position.layer.opener, opener);
+    const pin = page.locator(`[data-uier-comment="${saved.id}"]`);
+    // The layer is still open: losing its content is a missing target, not a closed-layer fallback.
+    await popover.locator(':scope > p').evaluate(element => element.remove());
+    await expect(pin).toBeHidden();
+    await popover.evaluate((element: HTMLElement) => element.hidePopover());
+    await expectPinState(page, pin, 'closed');
+    await pin.click();
+    await expect(thread(page)).toContainText('Open “Alternate shipping details” to see the comment in place.');
+    await page.keyboard.press('Escape');
+});
+
+test('a class-opened script dialog keeps its initiating trigger without aria-controls', async ({ page }, testInfo) => {
+    test.skip(Boolean(testInfo.project.use.hasTouch), 'The chat fixture is a desktop fixed panel');
+    const origin = siteOrigin(testInfo);
+    await signIn(page, uniqueEmail('anchor-script-dialog'));
+    const project = await createProject(page, { urls: [origin] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.goto(`${origin}/${project}/chat?review=true&host-menus`);
+    await expect(addComment(page)).toBeVisible();
+    const opener = page.getByRole('button', { name: 'Chat with us' });
+    // Keyboard activation covers dialogs whose trigger opens them before the click event.
+    await opener.focus();
+    await opener.press('Enter');
+    const chat = page.getByRole('dialog', { name: 'Chat', exact: true });
+    await expect(chat).toBeVisible();
+    await addComment(page).click();
+    await pointAt(page, chat.locator(':scope > p'));
+    const saved = await postNewComment(page, project, 'Give the chat opening hours.');
+    await expectAnchoredTo(page, (saved.position as { selector: string; layer: { opener: string } }).layer.opener, opener);
+    const pin = page.locator(`[data-uier-comment="${saved.id}"]`);
+    await chat.getByRole('button', { name: 'Close chat' }).click();
+    await expectPinState(page, pin, 'closed');
+    await opener.click();
+    await expectPinState(page, pin, 'exact');
 });

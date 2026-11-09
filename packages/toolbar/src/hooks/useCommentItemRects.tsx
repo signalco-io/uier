@@ -5,7 +5,7 @@ import { CommentAnchor, CommentItemPosition, CommentPoint, CommentSelection, isC
 import { getDomVersion, useLayoutVersion } from './useLayoutVersion';
 import { nestedToolbarOpener, queryAnchorElements } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
-import { isInActiveModal } from '../modalLayer';
+import { isInActiveModal, layerOpenerIsExpanded } from '../modalLayer';
 
 /** Selection text limit of the comments API; longer selections are stored cut to this length */
 export const selectionTextMaxLength = 2000;
@@ -318,7 +318,7 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
  */
 export type CommentPlacement = { rects: DOMRect[]; state: AnchorState; opener?: Element; depth?: number };
 
-const isExpanded = (element: Element) => element.getAttribute('aria-expanded') === 'true';
+const isExpanded = layerOpenerIsExpanded;
 
 /**
  * An anchor that is not shown (hidden or missing) in a menu, popover or dialog that is closed now:
