@@ -35,6 +35,10 @@ export function vercelApp(prefix: string, name: string, {
             // project, not in vercel.json: CI deploys prebuilt output without a checkout, so the
             // deploy step never reads vercel.json and deployments would use the project default.
             fluid: true,
+            // Fluid compute refuses the project's old default CPU type (`standard_legacy`, 0.6 vCPU):
+            // the update fails with '"standard_legacy" is not a valid memory type for Fluid compute'.
+            // Standard (1 vCPU, 2 GB) is Fluid's default.
+            functionDefaultCpuType: 'standard',
         },
         rootDirectory,
         nodeVersion,
