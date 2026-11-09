@@ -103,10 +103,19 @@
   including the app's compact tile words and identical copied details from both surfaces.
   `e2e/editing.spec.ts` checks that missing client hints fall back to parsed browser and OS names,
   without sending the raw user-agent string or exposing reproduction details on public feedback.
+- Every place the app takes a message uses one composer, `comments/MessageComposer.tsx`, laid out as the toolbar's
+  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the hint ("@ to mention",
+  or the character count from 900 of 1000) on the left and the buttons on the right (the surface's cancel, Discard while
+  there is text, then the send icon button with its tooltip or a Save text button); under the box the keyboard hint
+  ("Shift+Enter for a new line", plus "Esc to cancel" where Escape cancels), the mention list, the error and notices.
+  The field is described as "Type @ to mention someone with access. Enter to send. Shift+Enter for a new line." (save
+  and Escape for editors) and takes the focus with the caret at the end. Surfaces switch features off through props
+  (`mentionsIn`, `onCancel`/`escapeCancels`, `onDiscard`); don't add another reply box or a variant layout. The
+  Request verification form (`VerificationControl`) is a form of labelled fields, not a message, and stays one.
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
-  `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List and Board, using shadcn controls;
-  Post reply is a ghost button too, as Enter sends (Shift+Enter for a new line), like the toolbar's plain send button.
-  It uses pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
+  `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List, Board and the inbox: the shared composer
+  with mentions, Close reply, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line, Escape is
+  left to the thread). It uses pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
   `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
   Replies preserve status and unread state; `CommentUpdates` appends pending messages and action
@@ -119,14 +128,18 @@
 - A reply's More actions menu (`w-auto min-w-48`, so its items stay on one line) starts with Edit for a message the
   member may edit (`canEditItem`, as the toolbar allows: its author or an admin; the view carries its saved text
   and mentions as `editable` only then). Edit turns the message into `MessageEditor` in place: the saved text with
-  Cancel and Save (Enter saves, Shift+Enter adds a line, Escape cancels), and the menu takes the focus back when it
-  closes. `MentionTextarea` is the field with `@` mentions that the reply form uses too; mentions move with the text.
+  Cancel and Save in the shared composer (Enter saves, Shift+Enter adds a line, Escape cancels), and the menu takes the
+  focus back when it closes. `useMentionTextarea` (`MentionTextarea.tsx`) gives the composer's field its `@` mentions,
+  Enter and Escape; mentions move with the text.
   After a chosen mention the caret is placed in a layout effect, in the same commit as the new value, so typing straight
   on continues after the name; a deferred move (`requestAnimationFrame`) once let later keys land before the name.
   `editCommentReplyAction` calls the review API's edit (`editProjectCommentItem`: `expectedText`, mentions, the
   edited label); the new text shows at once through `CommentUpdates`. When the message changed in the meantime the
   edit is refused, the field keeps the tried text and says why. `e2e/app-message-edit.spec.ts` covers it. The first
-  message is edited from the thread's More actions (Edit comment dialog).
+  message is edited in place the same way from the thread's More actions (Edit, "Edit comment"), without mentions
+  (`editCommentAction` keeps the saved ones where they are); the editor stays open while it saves, keeps the text
+  and says why when the save fails, and gives the focus back to the thread's More actions when it closes (the menu
+  leaves the focus in the editor when Edit opens it). `e2e/project-review.spec.ts` covers it.
 
 Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
 Link a pull request ghost control (plus icon, muted text, like Assignees' Unassigned); choosing it reveals the

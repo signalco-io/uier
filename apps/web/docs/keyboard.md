@@ -36,7 +36,7 @@ handler): it listens on the document in the bubble phase, after React's handlers
 | G then I, B | The project's comments as the list or the board; in place on its comments page (keeps the filters) | a project's pages |
 | G then M, P | My work, Projects | everywhere |
 | J, K | The next or the previous thread: the list opens it (in the thread's place on a phone too), the board focuses the card or opens its thread in the sheet, My work focuses the row | Comments, My work |
-| R, S, A | Reply, the status menu, the assignee menu of the open thread (`CommentCard`; menus open as Enter opens them) | the open thread |
+| R, S, A | Reply, the status menu, the assignee menu of the open thread (`CommentCard`; menus open as Enter opens them; R focuses the reply box through its ref, never the card's first textarea, since a message editor can be open too) | the open thread |
 | X, Ctrl or ⌘ + A, Esc | Select ([triage](triage.md#selection)) | Comments |
 
 - They never act with Ctrl, ⌘ or Alt, when held, while typing, in a menu, a list of options or a dialog

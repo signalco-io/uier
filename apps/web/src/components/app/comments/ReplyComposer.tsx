@@ -1,26 +1,28 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, useTransition } from 'react';
-import { SendIcon } from 'lucide-react';
+import { type RefObject, useMemo, useState, useSyncExternalStore, useTransition } from 'react';
 import { toast } from 'sonner';
 import { createDraftStore } from '@uier/toolbar/drafts';
 import { Button } from '@/src/components/ui/button';
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field';
-import { Spinner } from '@/src/components/ui/spinner';
+import { FieldDescription } from '@/src/components/ui/field';
 import { replyCommentAction } from './actions';
-import { MentionTextarea, type MessageMention } from './MentionTextarea';
+import type { MessageMention } from './MentionTextarea';
+import { MessageComposer } from './MessageComposer';
 import { useCommentUpdate } from './CommentUpdates';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 
 const emptyMentions: MessageMention[] = [];
 const maxLength = 1000;
 
-/** Mounted only for the card whose Reply action was opened. */
-export function ReplyComposer({ projectId, userId, userName, comment, onClose }: {
+/** Mounted only for the card whose Reply action was opened: the shared `MessageComposer` with the thread's seven-day draft. */
+export function ReplyComposer({ projectId, userId, userName, comment, textareaRef, onClose }: {
     projectId: string; userId: string;
     /** The signed-in user's name, for the pending reply's avatar (the reply itself reads "You") */
     userName?: string;
-    comment: ProjectCommentView; onClose: () => void;
+    comment: ProjectCommentView;
+    /** The reply box, for R to focus it rather than another open editor in the card */
+    textareaRef?: RefObject<HTMLTextAreaElement | null>;
+    onClose: () => void;
 }) {
     const drafts = useMemo(() => createDraftStore([typeof location === 'undefined' ? '' : location.origin, 'app', projectId, userId, comment.id]), [projectId, userId, comment.id]);
     const key = 'reply';
@@ -33,16 +35,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, onClose }:
     const [announcement, setAnnouncement] = useState('');
     const [, startTransition] = useTransition();
     const update = useCommentUpdate();
-    const textarea = useRef<HTMLTextAreaElement>(null);
-    const form = useRef<HTMLFormElement>(null);
-    const inputId = useId();
-    const hintId = useId();
 
-    useEffect(() => {
-        const input = textarea.current;
-        input?.focus();
-        input?.setSelectionRange(input.value.length, input.value.length);
-    }, []);
     const setText = (value: string, nextMentions: MessageMention[]) => {
         drafts.set(key, value);
         drafts.setDetails(key, { mentions: nextMentions });
@@ -83,30 +76,15 @@ export function ReplyComposer({ projectId, userId, userName, comment, onClose }:
         });
     };
 
-    return <form ref={form} onSubmit={event => { event.preventDefault(); submit(); }} aria-label="Reply to thread">
-        <FieldGroup className="gap-2">
-            <Field data-invalid={error ? true : undefined} className="gap-2">
-                <FieldLabel htmlFor={inputId} className="sr-only">Reply</FieldLabel>
-                <MentionTextarea projectId={projectId} commentId={comment.id} value={text} mentions={mentions} maxLength={maxLength} textareaRef={textarea}
-                    onValueChange={setText} onSubmit={() => form.current?.requestSubmit()} onMention={name => setAnnouncement(`Mentioned ${name}`)}
-                    id={inputId} name="reply" rows={2} placeholder="Reply..."
-                    className="max-h-44 resize-none overflow-y-auto" aria-describedby={hintId} aria-invalid={error ? true : undefined} />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <FieldDescription id={hintId} className="m-0 text-xs">{text.length >= 900 ? `${text.length}/${maxLength} characters` : '@ to mention · Shift+Enter for a new line'}</FieldDescription>
-                    <div className="ml-auto flex items-center gap-1">
-                        <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={onClose}>Close reply</Button>
-                        {text.length > 0 && <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={() => { drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}>Discard</Button>}
-                        <Button type="submit" variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={!text.trim() || pending}>
-                            {pending ? <Spinner data-icon="inline-start" /> : <SendIcon data-icon="inline-start" />}Post reply
-                        </Button>
-                    </div>
-                </div>
-                {error && <FieldError role="alert">{error} Your draft is kept. Try sending again.</FieldError>}
-                {!storageAvailable && <FieldDescription role="status">Browser storage is unavailable. Keep this page open to keep your draft.</FieldDescription>}
-                {recoveries > 0 && <FieldDescription role="status">Earlier unsent text is kept separately because both drafts exceed the character limit.
-                    <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => drafts.restore(key)}>Restore unsent text</Button></FieldDescription>}
-            </Field>
-        </FieldGroup>
-        <p role="status" className="sr-only">{announcement}</p>
-    </form>;
+    return <MessageComposer label="Reply" formLabel="Reply to thread" name="reply" placeholder="Reply..."
+        value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} textareaRef={textareaRef}
+        submitLabel="Post reply" submitVerb="send" onSubmit={submit} pending={pending}
+        cancelLabel="Close reply" onCancel={onClose}
+        onDiscard={() => { drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}
+        error={error && `${error} Your draft is kept. Try sending again.`} announcement={announcement}
+        notices={<>
+            {!storageAvailable && <FieldDescription role="status">Browser storage is unavailable. Keep this page open to keep your draft.</FieldDescription>}
+            {recoveries > 0 && <FieldDescription role="status">Earlier unsent text is kept separately because both drafts exceed the character limit.
+                <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => drafts.restore(key)}>Restore unsent text</Button></FieldDescription>}
+        </>} />;
 }

@@ -41,10 +41,7 @@ import { Card } from '@/src/components/ui/card';
 import { cn } from '@/src/lib/utils';
 import {
     Dialog,
-    DialogClose,
     DialogContent,
-    DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger
@@ -58,9 +55,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/src/components/ui/dropdown-menu';
-import { Field, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
-import { Textarea } from '@/src/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { ThreadTitle } from './ThreadTitle';
 import { ThreadPullRequests } from './ThreadPullRequests';
@@ -103,8 +98,6 @@ export type AssigneeOption = { userId: string; name: string; avatarUrl?: string 
 export type { ResolveExit } from './useStatusChange';
 
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
-
-const maxTextLength = 1000;
 
 /** Who sees a private thread (`canSeeComment`): the workspace admins and its author */
 const privateHint = 'Only workspace admins and the author can see this thread. Other members and guests cannot.';
@@ -222,7 +215,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const commitSearch = useCommitCommentsSearch();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
-    const [editText, setEditText] = useState(comment.text);
     const [editError, setEditError] = useState<string>();
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const copyIssue = useCopyIssue(projectId, comment.id);
@@ -256,6 +248,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // R, S and A: reply, the status menu and the assignee menu of the thread on screen (not of one a phone keeps
     // hidden until its row is chosen). The menus open as Enter opens them, with their first item highlighted.
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
+    // The reply box itself: an open message editor in the same card is another textarea
+    const replyField = useRef<HTMLTextAreaElement>(null);
     const shown = () => Boolean(cardRef.current?.checkVisibility());
     const openMenu = (trigger: HTMLButtonElement | null) => {
         if (!trigger || trigger.disabled || !shown()) return false;
@@ -265,7 +259,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     useKeyShortcuts({
         r: () => {
             if (!permissions.reply || !shown()) return false;
-            if (replying) cardRef.current?.querySelector('textarea')?.focus();
+            if (replying) replyField.current?.focus();
             else setReplying(true);
         },
         s: () => openMenu(statusTrigger.current),
@@ -317,13 +311,29 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         }
     };
 
-    const saveEdit = () => startTransition(async () => {
-        const result = await editCommentAction(projectId, comment.id, editText);
+    // The first message is edited in place like a reply. Choosing Edit leaves the focus in the editor (the menu
+    // does not take it back); the thread's More actions takes it once the edit closes and nothing is pending.
+    const threadActions = useRef<HTMLButtonElement>(null);
+    const editChosen = useRef(false);
+    const threadActionsFocus = useRef(false);
+    const closeEdit = () => {
+        threadActionsFocus.current = true;
+        setEditing(false);
+    };
+    useEffect(() => {
+        if (!threadActionsFocus.current || pending || editing) return;
+        threadActionsFocus.current = false;
+        threadActions.current?.focus();
+    }, [pending, editing]);
+    const saveEdit = (text: string) => startTransition(async () => {
+        let result: ActionState;
+        try { result = await editCommentAction(projectId, comment.id, text); }
+        catch { result = { ok: false, error: 'Could not save the change. Try again.' }; }
         if (result && !result.ok) {
             setEditError(result.error);
             return;
         }
-        setEditing(false);
+        closeEdit();
     });
 
     useEffect(() => {
@@ -399,7 +409,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">Reply deleted</p>
                     : edit
-                        ? <MessageEditor projectId={projectId} commentId={comment.id} label="Edit reply"
+                        ? <MessageEditor mentionsIn={{ projectId, commentId: comment.id }} label="Edit reply"
                             text={edit.text} mentions={edit.mentions} error={edit.error}
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
@@ -448,13 +458,17 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <CopyMenu copyIssue={copyIssue} canCopyLink={source.available} onCopyLink={copyLink} />
                         <DropdownMenu>
                             <Tooltip>
-                                <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
+                                <TooltipTrigger render={<DropdownMenuTrigger render={<Button ref={threadActions} variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
                                     className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />} />}>
                                     {pending ? <Spinner /> : <MoreHorizontalIcon />}
                                 </TooltipTrigger>
                                 <TooltipContent>More actions</TooltipContent>
                             </Tooltip>
-                            <DropdownMenuContent align="end" className="min-w-48">
+                            <DropdownMenuContent align="end" className="min-w-48" finalFocus={() => {
+                                if (!editChosen.current) return true;
+                                editChosen.current = false;
+                                return false;
+                            }}>
                                 <DropdownMenuGroup>
                                     <DropdownMenuItem
                                         onClick={() => run(
@@ -476,7 +490,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     {permissions.edit && (
                                         <DropdownMenuItem
                                             onClick={() => {
-                                                setEditText(comment.text);
+                                                editChosen.current = true;
                                                 setEditError(undefined);
                                                 setEditing(true);
                                             }}>
@@ -564,7 +578,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             <KindLabel kind={comment.kind} />
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
-                                : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
+                                : editing
+                                    ? <MessageEditor label="Edit comment" text={comment.text} error={editError} pending={pending}
+                                        onCancel={closeEdit} onSave={text => saveEdit(text)} />
+                                    : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && (
                                 <Dialog>
                                     <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label="Screenshot of the commented part of the page" />}>
@@ -586,7 +603,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => setReplying(false)} />
                     : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />Reply
                     </Button>)}
@@ -605,41 +622,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 ) : null}
             </div>
-
-            <Dialog open={editing} onOpenChange={setEditing}>
-                <DialogContent>
-                    <form
-                        className="flex flex-col gap-4"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            saveEdit();
-                        }}>
-                        <DialogHeader>
-                            <DialogTitle>Edit comment</DialogTitle>
-                            <DialogDescription>Everyone who can see the comment sees the new text, marked as edited.</DialogDescription>
-                        </DialogHeader>
-                        <Field data-invalid={editError ? true : undefined}>
-                            <FieldLabel htmlFor={`edit-${comment.id}`}>Text</FieldLabel>
-                            <Textarea
-                                id={`edit-${comment.id}`}
-                                value={editText}
-                                onChange={(event) => setEditText(event.target.value)}
-                                rows={5}
-                                maxLength={maxTextLength}
-                                aria-invalid={editError ? true : undefined}
-                                className="min-h-28" />
-                            {editError && <FieldError>{editError}</FieldError>}
-                        </Field>
-                        <DialogFooter>
-                            <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                            <Button type="submit" disabled={pending}>
-                                {pending && <Spinner data-icon="inline-start" />}
-                                Save
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
 
             <AlertDialog open={confirmingDelete || Boolean(confirmingReply)} onOpenChange={open => {
                 if (!open) { setConfirmingDelete(false); setConfirmingReply(undefined); }
