@@ -111,6 +111,12 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     (stopping at the ends) and open it beside the list; on a phone-sized layout they move the focus and Enter opens the
     row. They do nothing while you type, in a menu or a dialog, or after you clicked into the open thread, where they
     scroll it. A status change (Done, Reopen, In progress) fades a row out of a list it no longer matches.
+    Cards and rows move instead of jumping: one that arrives (a new thread, another person's change, a filter or search
+    that now matches) fades in, one that leaves fades out where it was, and one whose status or priority changes
+    travels to its new column or place while the others slide to theirs, whoever made the change. A dragged card
+    settles from where it was dropped. Keyboard focus stays on a card that moves, and nothing scrolls. Nothing moves
+    on page load, when switching List/Board, with reduced motion, or when more than eight cards arrive, leave or
+    change column at once.
     A thread you open is marked read once it has been on screen for a moment (see
     [unread review activity](#unread-review-activity)).
     The open thread has its state menu, `#number`, unread dot (clicking it marks the comment read), Copy (Copy issue or
@@ -595,7 +601,7 @@ is omitted.
 On Vercel, an expanded, visible, online embedded review subscribes to comment changes over a
 WebSocket. The app's project list and board use the same subscription client. A notification
 refreshes authorized data in place; pending comments/replies, drafts, focus and open thread state
-are preserved. Reconnect subscribes first and then refetches, so changes during a deployment or
+are preserved, and in the app the cards and rows that changed move to their new places (see the comments page above). Reconnect subscribes first and then refetches, so changes during a deployment or
 network gap are recovered. The refresh itself never marks comments read; only a thread open on screen
 reads the new activity it shows, after the same 800 ms as on opening.
 

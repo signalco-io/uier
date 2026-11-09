@@ -225,7 +225,8 @@ Lucide (the UI kit's `@signalco/ui-icons`), 1.75 px stroke, 16 inline with text,
 
 ### Motion
 
-150 ms ease-out enter and exit (fade plus 8 px slide, as the sidebar does), 120 ms colour-only
+150 ms ease-out enter and exit (fade plus 8 px slide, as the sidebar does), 200 ms ease-out for
+an item that changes place (a card to another column, a row to its new order), 120 ms colour-only
 hover and press, nothing on page load. No bounces, parallax or gradient movement.
 
 ## The review layer

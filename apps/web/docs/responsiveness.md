@@ -29,6 +29,8 @@ The list and every board column show the threads by priority (Urgent to Low), th
 highest first: `orderComments` (`commentOrder.ts`, pure, `e2e/comment-order.api.spec.ts`) sorts the
 optimistic snapshot once in `ProjectComments`, so filters, columns, drag landing, selection, the
 keyboard and realtime changes share it; the server keeps loading newest first for My work.
+Whatever changes the shown threads, cards and rows move to their new places (`LayoutMotion`, see
+[the inbox and board note](comments-inbox.md#motion)).
 `commentsQuery.ts` is the shared pure parser. `CommentUpdates` owns optimistic status, assignment,
 follow and read changes for cards, counters and board columns. Failed actions revert through
 `useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already

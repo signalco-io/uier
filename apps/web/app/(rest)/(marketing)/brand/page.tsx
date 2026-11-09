@@ -231,6 +231,7 @@ export default function BrandPage() {
                         <span className="text-xs leading-relaxed text-muted-foreground">16 inline with text, 20 in buttons, 24 in the toolbar. Outlined only; the pin is the one filled shape.</span>
                         <ul className="flex flex-col gap-1.5 text-xs leading-relaxed text-secondary-foreground">
                             <li><span className="font-mono text-foreground">150ms ease-out</span> enter and exit: fade plus 8 px slide.</li>
+                            <li><span className="font-mono text-foreground">200ms ease-out</span> change of place: the item slides there.</li>
                             <li><span className="font-mono text-foreground">120ms</span> hover and press: colour only, no scale.</li>
                             <li><span className="font-mono text-foreground">none</span> on page load. No bounces, parallax or gradient movement.</li>
                         </ul>
