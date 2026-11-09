@@ -108,7 +108,7 @@ export async function makeAiTitle(ref: CommentRef, trigger: AiTitleTrigger, opti
         if (!current) return 'gone';
         const first = current.comment.thread?.items?.[0];
         if (!first || first.deletedAt || aiTitleSource(first.text) !== source) return 'stale';
-        // A concurrent title job may already have won while this one awaited the model or ETag
+        // A member gave it a title meanwhile, or a concurrent title job won while this one awaited the model or ETag
         if (!needsAiTitle(current.comment)) return 'stale';
         const at = new Date(now()).toISOString();
         const write = await store.replace(withThreadHistory(current.comment, { ...current.comment,

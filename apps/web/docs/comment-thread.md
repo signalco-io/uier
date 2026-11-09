@@ -16,8 +16,11 @@
   issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
   thread and, once read, Mark as unread are in More actions. Under that line, `ThreadTitle` shows the thread's
-  [AI title](ai-titles.md) as an `h2` with a sparkles mark ("Title written by AI"); without one there is no heading,
-  as the first message shows in full below. Then On (what it was left on, with the selector or
+  title as an `h2`: one a member gave it, or its [AI title](ai-titles.md) with a sparkles mark ("Title written by
+  AI"). For those who can triage (`permissions.title`) the title is a button: a click or focus turns it into the
+  Thread title field in place (Enter or leaving it saves, Escape cancels and gives focus back; an empty title
+  brings the AI title back), and a thread without a title shows a quiet Add a title. Otherwise, without a title
+  there is no heading, as the first message shows in full below. Then On (what it was left on, with the selector or
   the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
   `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
   the middle is visually hidden, so assistive tech and a copied selection get the whole selector;

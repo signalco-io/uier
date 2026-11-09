@@ -45,6 +45,28 @@ test('a row shows the title AI wrote for its thread, and the first line once tit
     await expect(thread.getByRole('img', { name: 'Title written by AI', exact: true })).toBeVisible();
     await expect(thread).toContainText('The pay button sits under the footer on my phone');
 
+    // A member renames it in place: their title has no AI mark and shows in the row; Escape cancels an edit
+    await hydrated(thread);
+    await thread.getByRole('button', { name: 'Pay button hidden under the footer', exact: true }).click();
+    const field = thread.getByRole('textbox', { name: 'Thread title' });
+    await expect(field).toBeFocused();
+    await field.fill('Pay button behind the footer');
+    await field.press('Enter');
+    await expect(thread.getByRole('heading', { name: 'Pay button behind the footer', exact: true })).toBeVisible();
+    await expect(thread.getByRole('img', { name: 'Title written by AI', exact: true })).toHaveCount(0);
+    // The row has it too (a phone hides the list while a thread is open)
+    await expect(page.getByRole('link', { name: /^Comment #\d+ Pay button behind the footer/, includeHidden: true })).toHaveCount(1);
+    await thread.getByRole('button', { name: 'Pay button behind the footer', exact: true }).click();
+    await field.fill('Something else');
+    await field.press('Escape');
+    await expect(thread.getByRole('heading', { name: 'Pay button behind the footer', exact: true })).toBeVisible();
+    // Cleared (saved on leaving the field): the AI title and its mark are back
+    await thread.getByRole('button', { name: 'Pay button behind the footer', exact: true }).click();
+    await field.fill('');
+    await field.press('Tab');
+    await expect(thread.getByRole('heading', { name: 'Pay button hidden under the footer', exact: true })).toBeVisible();
+    await expect(thread.getByRole('img', { name: 'Title written by AI', exact: true })).toBeVisible();
+
     // The workspace has titles on; the project turns them off in its General settings
     await page.goto('/app/workspace/settings');
     await expect(page.getByRole('switch', { name: 'Thread titles' })).toBeChecked();

@@ -39,7 +39,8 @@ These are estimates, not an invoice. Reconcile them with the Anthropic Console's
 - **New threads** ask once, after the response is sent (Next.js `after()`), so saving a comment never waits
   for the model. Comment creation keeps its existing rate limits.
 - **An edit of the first message** drops the title in the same write and asks once for the new text. Other
-  changes ask only when a thread has no title for its current first message.
+  changes ask only when a thread has no title for its current first message. A thread a member renamed asks
+  for none while their title is set.
 - **Titles that lost a quote** (made before quotes belonging to a title were kept) are made again once, through
   the same bounded list batches; only titles with unbalanced quotes and no `cleanup` mark qualify.
 - **Lists** (a project's comments, My work) ask for at most 10 threads per render (`AI_TITLE_BATCH`), newest

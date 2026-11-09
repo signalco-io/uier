@@ -353,6 +353,14 @@ subjects instead of the start of each message. Rows, board cards, My work and th
 matches it too. Copy issue, MCP packets (`title`, and `title` in `list_feedback` items) and connected
 services' issue titles (from the issue's next update) use it in place of the first message's first words.
 
+- **Renaming.** Members who can triage (as for priority; guests never) click or focus the open thread's
+  title to edit it in place, or Add a title on a thread without one: Enter or leaving the field saves,
+  Escape cancels. Their title is stored as the thread's own (`manualTitle`, at most 120 characters), shows
+  everywhere the AI title would (rows, cards, search, Copy issue, MCP, connected services) without the AI
+  mark, also while AI titles are off, and AI never writes over it: no title is made for the thread while it
+  is set. Clearing it brings the AI title back. It stays when the first message is edited and goes when
+  that message is deleted.
+
 - **Model and timing.** `claude-haiku-5-5` (`src/lib/titles/generate.ts`) with the existing
   `ANTHROPIC_API_KEY`, after the response is sent, so posting never waits for it. The thread shows its
   first line until the title is saved; the save changes the thread, so open pages refresh to it.
@@ -378,8 +386,8 @@ services' issue titles (from the issue's next update) use it in place of the fir
   `commentRevision`, `updatedAt`, sync or notifications. Emails keep naming threads by number and page:
   comment text only appears there as the opt-in excerpts.
 - `e2e/ai-titles.api.spec.ts` covers the setting, the request with the API stubbed, storing, edits,
-  deletion, visibility and the bounds; `e2e/ai-titles.spec.ts` a row and the thread showing a title, and
-  the project setting turning it off. The Anthropic stub gives a title only for a `[stub:title:Words]`
+  deletion, visibility, the bounds and members' titles; `e2e/ai-titles.spec.ts` a row and the thread
+  showing a title, renaming it in place, and the project setting turning it off. The Anthropic stub gives a title only for a `[stub:title:Words]`
   marker in the first message.
 
 ### Review email notifications

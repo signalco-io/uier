@@ -215,6 +215,12 @@ export type DbComment = {
      * that message. Removed when the first message is edited or deleted. Not part of `commentRevision`.
      */
     aiTitle?: DbAiTitle;
+    /**
+     * Project comments: the title a member gave the thread (`setProjectCommentTitle`), plain text on one
+     * line. Shown instead of `aiTitle`, which is no longer made while it is set; removed with the
+     * first message. Part of `commentRevision`.
+     */
+    manualTitle?: string;
     device?: DbCommentDevice;
     /**
      * A screenshot of the commented part of the page, taken by the author when posting: its image

@@ -45,10 +45,41 @@ export function visibleAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle'>, e
     return enabled ? currentAiTitle(comment) : undefined;
 }
 
-/** A thread whose first message has text and no current title */
-export function needsAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle'>) {
+/** A title a member gave the thread (`DbComment.manualTitle`), while its first message is there */
+export function manualThreadTitle(comment: Pick<DbComment, 'thread' | 'manualTitle'>) {
     const first = firstItem(comment);
-    return Boolean(first && !first.deletedAt && first.text?.trim()) && !currentAiTitle(comment);
+    const title = comment.manualTitle?.trim();
+    return first && !first.deletedAt && title ? title : undefined;
+}
+
+/**
+ * The title to show for a thread: the one a member gave it, else its AI title while titles are on.
+ * `ai` says which, so the AI mark shows only on a title AI wrote.
+ */
+export function threadTitle(comment: Pick<DbComment, 'thread' | 'aiTitle' | 'manualTitle'>, aiTitlesOn: boolean) {
+    const manual = manualThreadTitle(comment);
+    if (manual) return { text: manual, ai: false };
+    const ai = visibleAiTitle(comment, aiTitlesOn);
+    return ai ? { text: ai, ai: true } : undefined;
+}
+
+/** A thread whose first message has text, without a title of its own or a current AI title */
+export function needsAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle' | 'manualTitle'>) {
+    const first = firstItem(comment);
+    return Boolean(first && !first.deletedAt && first.text?.trim()) && !manualThreadTitle(comment) && !currentAiTitle(comment);
+}
+
+/** Longest title a member can give a thread */
+export const MANUAL_TITLE_MAX_LENGTH = 120;
+
+/**
+ * A member's title as plain text on one line (whitespace collapsed, invisible characters removed).
+ * Empty clears it; `null` when it is longer than {@link MANUAL_TITLE_MAX_LENGTH} characters.
+ */
+export function cleanManualTitle(raw: string): string | null {
+    const title = raw.replace(invisible, ' ').replace(/\s+/gu, ' ').trim();
+    if (!visibleCharacter.test(title)) return '';
+    return Array.from(title).length > MANUAL_TITLE_MAX_LENGTH ? null : title;
 }
 
 // Bidirectional controls, other format characters and controls (line breaks included) become spaces
