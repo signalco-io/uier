@@ -216,25 +216,6 @@ jobs:
     with:
       production: false
 
-  # Temporary paired benchmark; remove after selecting the production upload runner.
-  upload-benchmark:
-    name: "Upload benchmark (slim=${{ matrix.slim }}, trial=${{ matrix.trial }})"
-    needs: preview-build
-    if: github.event_name == 'pull_request' && github.head_ref == 'perf/speed-up-deployment'
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        trial: [1, 2, 3]
-        slim: [false, true]
-    uses: ./.github/workflows/vercel-deploy_reusable.yml
-    secrets:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-    with:
-      slim: ${{ matrix.slim }}
-
   extension:
     name: "Extension (packaged runtime)"
     needs: changes
@@ -303,7 +284,7 @@ jobs:
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.
     name: "CI OK"
-    needs: [changes, web, infra, preview-build, preview, upload-benchmark, extension, skills]
+    needs: [changes, web, infra, preview-build, preview, extension, skills]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 5

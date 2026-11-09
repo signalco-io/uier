@@ -13,11 +13,6 @@ on:
         required: false
         type: boolean
         default: false
-      slim:
-        description: "Benchmark the upload on the single-CPU runner."
-        required: false
-        type: boolean
-        default: false
     outputs:
       url:
         description: "Deployment URL"
@@ -35,8 +30,8 @@ jobs:
   deploy:
     name: "Deploy prebuilt ${{ inputs.production && 'production' || 'preview' }}"
     if: ${{ !inputs.production || github.ref == 'refs/heads/main' }}
-    runs-on: ${{ inputs.slim && 'ubuntu-slim' || 'ubuntu-latest' }}
-    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: ${{ inputs.production && 'production' || 'preview' }}
     permissions:
       contents: read

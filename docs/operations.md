@@ -205,6 +205,16 @@ duration. Record runner scheduling separately from time blocked by the productio
 changing runners does not remove that lock. Keep the credential boundary and fresh deployment CLI
 installation in every trial.
 
+The [9 November 2026 comparison](https://github.com/signalco-io/uier/actions/runs/42614490070)
+used one preview artifact for three trials per runner. In the completed third pair,
+`ubuntu-latest` took 46 seconds and `ubuntu-slim` took 81 seconds. The other slim uploads took
+139 and 79 seconds; the regular latest preview took 49 seconds. Two latest trials ended with
+Vercel CLI `fetch failed` transport errors after about five minutes and are excluded from the
+successful-upload timing comparison. Across all three trials, median time before the upload
+step was 21 seconds on latest and 49 seconds on slim. Keep the upload on `ubuntu-latest`:
+the setup measurements favor it; these samples do not establish relative transport reliability.
+The temporary benchmark matrix is not part of normal CI.
+
 ### Required GitHub configuration
 
 Workflows resolve credentials from job environments. Reusable-workflow callers name each allowed

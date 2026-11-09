@@ -82,6 +82,7 @@ test('production builds overlap infrastructure but publishing waits for both', (
     assert.doesNotMatch(job('build'), /needs:|secrets:/);
     assert.doesNotMatch(job('infra'), /needs:/);
     assert.match(job('web'), /needs: \[infra, build\]/);
+    assert.doesNotMatch(job('web'), /^    if:/m);
     assert.match(job('web'), /uses: \.\/\.github\/workflows\/vercel-deploy_reusable\.yml/);
     assert.match(job('indexnow'), /needs: \[web, build\]/);
     assert.match(job('indexnow'), /needs\.build\.outputs\.public-pages-changed/);
