@@ -18,7 +18,9 @@
   Done's tab, the three statuses in the menu, and the Active tab while it names one; Active and All have none. The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The count line under them (`TriageSelection`) has the count with the unread
-  count, Mark all as read and Select; Select shown results and the bulk actions are in the selection bar that
+  count, then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
+  accent, so it reads as that count's action), and Select at the end. It has no side padding of its own, so its
+  edges line up with the search and Filter row in the list and the board; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
   sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
