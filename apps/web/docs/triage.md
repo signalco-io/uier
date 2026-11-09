@@ -43,5 +43,7 @@ Keys act from a row, a card or the bar, never while typing or in a menu or dialo
 Ctrl or ⌘ + A the shown results, Escape ends selecting (also from the page). Shift-click on a box selects the
 range from the last box clicked. While selecting, a touch tap on a row selects it instead of opening it; the
 mouse and Enter still open it. Clear selection, Escape or Select again end selecting: nothing selected, no
-outcome, every row back at rest. `triage.spec.ts` covers rest, pointer, Shift-click, keyboard, touch, the bar
+outcome, every row back at rest. The focus goes to Select when the bar had it. A touch screen leaves the row
+boxes out at rest, so a focused box hands the focus to its row's link (Select when the row has none); with a fine
+pointer the box keeps it and stays shown, since the key press makes it `:focus-visible`. `triage.spec.ts` covers rest, pointer, Shift-click, keyboard, touch, the bar
 on a phone, focus and axe in both themes.

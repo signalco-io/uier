@@ -172,6 +172,36 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     // x selects; it never opens the row's thread
     expect(new URL(page.url()).searchParams.get('comment')).toBeNull();
 
+    // Escape from a row's box: a touch screen leaves the boxes out at rest, so the focus moves to the row's link;
+    // with a fine pointer the box keeps it and stays shown, clicked or reached from the keyboard
+    if (mobile) {
+        await select.tap();
+        await box(0).tap();
+    } else {
+        await box(0).click();
+        await page.mouse.move(0, 0);
+    }
+    await expect(box(0)).toBeChecked();
+    await expect(box(0)).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(bar).toHaveCount(0);
+    if (mobile) {
+        await expect(firstLink).toBeFocused();
+        await expect(anyBox).toHaveCount(0);
+    } else {
+        await expect(box(0)).toBeFocused();
+        await expect(box(0)).toHaveCSS('opacity', '1');
+        await firstLink.focus();
+        await page.keyboard.press('Shift+Tab');
+        await expect(box(0)).toBeFocused();
+        await page.keyboard.press('x');
+        await expect(box(0)).toBeChecked();
+        await page.keyboard.press('Escape');
+        await expect(bar).toHaveCount(0);
+        await expect(box(0)).toBeFocused();
+        await expect(box(0)).toHaveCSS('opacity', '1');
+    }
+
     if (mobile) {
         // Touch: Select shows every box; a tap on a row then selects it instead of opening it
         await select.tap();

@@ -130,9 +130,18 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     const retryBatch = retry?.scope === scope ? { ...retry.batch, items: retry.batch.items.filter(item => visible.has(item.id)) } as BulkTriageInput : undefined;
     const outcome = Boolean(result) || details.length > 0 || Boolean(retryBatch?.items.length);
     const open = active || pending || outcome;
-    /** Ends selecting: nothing selected, no outcome, every row back at rest. The focus goes to Select when the bar had it. */
+    /**
+     * Ends selecting: nothing selected, no outcome, every row back at rest. The focus goes to Select when the bar had it.
+     * A touch screen leaves the row boxes out at rest, so a focused one hands the focus to its row's link (Select without one).
+     * With a fine pointer the focused box stays: a key press shows it (`:focus-visible`).
+     */
     const end = () => {
         const focus = document.activeElement;
+        if (focus instanceof HTMLElement && focus.dataset.slot === 'checkbox' && rowId(focus) && regionRef.current?.contains(focus)
+            && window.matchMedia('(pointer: coarse)').matches) {
+            const link = focus.closest('[data-comment-id], [data-board-card]')?.querySelector<HTMLElement>('a[href]');
+            (link ?? selectRef.current)?.focus();
+        }
         setSelection({ scope, ids: [] });
         setExplicit(false);
         setResult('');
