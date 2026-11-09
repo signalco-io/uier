@@ -26,10 +26,18 @@ function capitalize(word: string) {
     return word.charAt(0).toLocaleUpperCase() + word.slice(1);
 }
 
-/** Whether an email is at a webmail or other personal mail provider (`gmail.com`, `outlook.de`, ...) */
+/**
+ * Whether an email is at a webmail or other personal mail provider (`gmail.com`, `outlook.de`,
+ * `yahoo.co.uk`, ...). A provider's name is matched only right before a country or generic ending, so a
+ * company's own subdomain (`live.acme.com`) is not one.
+ */
 export function isPersonalEmailDomain(domain: string) {
     const normalized = domain.toLowerCase().replace(/\.$/, '');
-    return personalDomains.has(normalized) || personalProviders.has(normalized.split('.')[0] ?? '');
+    if (personalDomains.has(normalized))
+        return true;
+    const [provider = '', ...ending] = normalized.split('.');
+    return personalProviders.has(provider)
+        && (ending.length === 1 || (ending.length === 2 && countrySecondLevels.has(ending[0]!)));
 }
 
 /** `maya.tester+uier@example.com` -> `Maya Tester` */

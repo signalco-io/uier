@@ -9,6 +9,7 @@ import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/a
 import { showsEmailLinksOnPage } from '@/src/lib/email/send';
 import { confirmSignIn, confirmSignInCode, requestSignInLink, SIGN_IN_CODE_ERROR } from '@/src/lib/app/signIn';
 import { appCookieOptions, startSession } from '@/src/lib/app/session';
+import { signInDestination } from '@/src/lib/app/signInDestination';
 import { SIGN_IN_REQUEST_COOKIE_NAME, signInRequestToken } from '@/src/lib/app/signInCookie';
 import { emailSchema } from '@/src/lib/app/users';
 import { GOOGLE_SIGN_IN_COOKIE_NAME } from '@/src/lib/app/google/cookie';
@@ -55,8 +56,9 @@ export async function confirmSignInCodeAction(_: ActionState, formData: FormData
     if (!result.data)
         return { ok: false, error: SIGN_IN_CODE_ERROR };
 
-    await startSession(result.data.user.id, result.data.method);
-    redirect(afterSignIn(result.data));
+    // The code came from the account's inbox: this sign-in proves its email, also when it links a provider
+    const proof = await startSession(result.data.user.id, result.data.method, result.data.user.email);
+    redirect(await signInDestination(result.data.user, afterSignIn(result.data), proof));
 }
 
 /**
@@ -75,6 +77,7 @@ export async function confirmSignInAction(_: ActionState, formData: FormData): P
     if (!result.data)
         return { ok: false, error: 'This link has expired or was already used. Ask for a new one.' };
 
-    await startSession(result.data.user.id, result.data.method);
-    redirect(afterSignIn(result.data));
+    // The link came from the account's inbox: this sign-in proves its email
+    const proof = await startSession(result.data.user.id, result.data.method, result.data.user.email);
+    redirect(await signInDestination(result.data.user, afterSignIn(result.data), proof));
 }

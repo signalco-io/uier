@@ -18,7 +18,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Extension releases](browser-extension-release.md): protected release/status CI, owner bootstrap and recovery.
 - [Extension listing](browser-extension-listing.md): prepared copy, artwork and disclosure worksheet.
 - [Review workflow](review-workflow.md): the app, access, assignment, AI thread titles, screenshots, drafts, unread activity and environments.
-- [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
+- [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, email domains, revocation, history, limits and rollback.
 - [Project deletion](project-deletion.md): what deleting a project removes, in what order, what stays and how failed steps are retried.
 - [Project transfer](project-transfer.md): moving a project to another workspace, what moves with it, what stays behind and how an interrupted move is retried.
 - [Screenshot storage](screenshot-storage.md): private Azure Blob bytes, direct reads, migration and cleanup.
