@@ -1,4 +1,4 @@
-import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../../../src/lib/comments/http';
+import { apiErrors, commentContext, commentsApiHandler, parseJsonBody } from '../../../../../src/lib/comments/http';
 import { assertCommentAuthor, getCommentScreenshot, toPublicCommentDto } from '../../../../../src/lib/comments/service';
 import { screenshotUrlMediaType } from '../../../../../src/lib/screenshots/blobStore';
 import { screenshotResponse } from '../../../../../src/lib/comments/screenshot';
@@ -15,12 +15,13 @@ type Params = { id: string };
 export const GET = commentsApiHandler<Params>(async (context, { id }) => {
     if (!isValidId(id))
         throw apiErrors.notFound('Screenshot not found.');
-    return screenshotResponse(await getCommentScreenshot(context, id), context.request.headers.get('accept') === screenshotUrlMediaType ? 'url' : 'bytes');
+    return screenshotResponse(await getCommentScreenshot(await commentContext(context, id), id), context.request.headers.get('accept') === screenshotUrlMediaType ? 'url' : 'bytes');
 });
 
-export const POST = commentsApiHandler<Params>(async (context, { id }) => {
+export const POST = commentsApiHandler<Params>(async (request, { id }) => {
     await assertNotBot();
     if (!isValidId(id)) throw apiErrors.notFound();
+    const context = await commentContext(request, id);
     const input = await parseJsonBody(context.request, replaceScreenshotSchema, MAX_COMMENT_BODY_BYTES);
     const usage = context.project ? usageLinks(context.project, context.actor) : undefined;
     const comment = await replaceSavedScreenshot(getCommentsStore(), context.domain, id, { ...input, usage },

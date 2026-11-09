@@ -1,4 +1,4 @@
-import { PUBLIC_PROJECT_ID } from '../../comments/publicProjectPolicy';
+import { isUierFeedbackProject } from '../../comments/publicProjectPolicy';
 import { configuredAppBaseUrl } from '../../app/deployment';
 import { afterResponse } from '../../afterResponse';
 
@@ -12,7 +12,7 @@ const AFTER_CHANGE_BUDGET_MS = 10_000;
  */
 export function queueMcpEventDelivery(projectId: string) {
     // The public showcase project is never reachable through MCP.
-    if (projectId === PUBLIC_PROJECT_ID) return;
+    if (isUierFeedbackProject(projectId)) return;
     afterResponse(async () => {
         try {
             // Loaded here: the delivery module reads review services that import this one.

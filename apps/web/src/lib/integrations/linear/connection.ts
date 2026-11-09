@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../../app/model';
 import { getAppStore, updateDoc } from '../../app/store';
 import { sha256Hex } from '../../app/tokens';
-import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { isUierFeedbackProject } from '../../comments/publicProject';
 import { KnownPageLinks } from '../../../knownPages';
 import { disconnectIntegration, setIntegrationBinding } from '../connection';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease, GrantLeaseError } from '../grants';
@@ -28,7 +28,7 @@ export async function requireLinearAdmin(project: DbProject, userId: string) {
     const store = getAppStore();
     const current = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     const member = (await store.get<DbMember>(workspacePk(project.workspaceId), memberId(userId)))?.doc;
-    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || current.id === PUBLIC_PROJECT_ID
+    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || isUierFeedbackProject(current.id)
         || member?.type !== 'member' || member.workspaceId !== current.workspaceId || member.userId !== userId || member.role !== 'admin')
         throw new LinearSetupError('admin_required');
     return current;
@@ -64,7 +64,7 @@ async function grantAuthority(grant: LinearGrant, connection?: LinearConnection,
         const member = (await store.get<DbMember>(latest.pk, memberId(latest.connectedBy)))?.doc;
         const project = (await store.get<DbProject>(latest.pk, latest.projectId))?.doc;
         if (member?.type === 'member' && member.role === 'admin' && member.userId === latest.connectedBy && member.workspaceId === grant.workspaceId
-            && project?.type === 'project' && project.workspaceId === grant.workspaceId && project.id !== PUBLIC_PROJECT_ID) return true;
+            && project?.type === 'project' && project.workspaceId === grant.workspaceId && !isUierFeedbackProject(project.id)) return true;
     }
     if (!connection && candidates.length === 1000) throw new LinearSetupError('installation_authority_limit');
     return false;

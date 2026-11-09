@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../../app/model';
 import { getAppStore, updateDoc } from '../../app/store';
 import { sha256Hex } from '../../app/tokens';
-import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { isUierFeedbackProject } from '../../comments/publicProject';
 import { disconnectIntegration, setIntegrationBinding } from '../connection';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants';
 import { consumeOauthState, createOauthState } from '../oauthState';
@@ -24,7 +24,7 @@ export async function requireAzureDevOpsAdmin(project: DbProject, userId: string
     const store = getAppStore();
     const current = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     const member = (await store.get<DbMember>(workspacePk(project.workspaceId), memberId(userId)))?.doc;
-    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || current.id === PUBLIC_PROJECT_ID
+    if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || isUierFeedbackProject(current.id)
         || member?.type !== 'member' || member.workspaceId !== current.workspaceId || member.userId !== userId || member.role !== 'admin')
         throw new AzureDevOpsSetupError('admin_required');
     return current;
@@ -58,7 +58,7 @@ async function grantAuthority(grant: AzureDevOpsGrant) {
     const member = (await store.get<DbMember>(connection.pk, memberId(connection.connectedBy)))?.doc;
     const project = (await store.get<DbProject>(connection.pk, connection.projectId))?.doc;
     return member?.type === 'member' && member.role === 'admin' && member.userId === connection.connectedBy && member.workspaceId === grant.workspaceId
-        && project?.type === 'project' && project.workspaceId === grant.workspaceId && project.id !== PUBLIC_PROJECT_ID;
+        && project?.type === 'project' && project.workspaceId === grant.workspaceId && !isUierFeedbackProject(project.id);
 }
 
 function encryptedTokens(grant: Pick<AzureDevOpsGrant, 'workspaceId' | 'projectId' | 'id' | 'connectionId'>, token: AzureDevOpsToken) {

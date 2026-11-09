@@ -78,10 +78,10 @@ test('the public feedback project and workspace cannot be deleted', async () => 
     const f = await fixture();
     const publicContext: AppContext = { ...f.context, workspace: { ...f.context.workspace, id: PUBLIC_WORKSPACE_ID } };
     for (const [context, id] of [[publicContext, PUBLIC_PROJECT_ID], [publicContext, f.doomed.id], [f.context, PUBLIC_PROJECT_ID]] as const)
-        await expect(deleteProject(context, id, 'uier')).rejects.toThrow('The public feedback project settings are managed by uier.');
+        await expect(deleteProject(context, id, 'uier')).rejects.toThrow('The settings of uier’s feedback projects are managed by uier.');
     const intent: ProjectDeletion = { type: 'project-deletion', pk: 'project-deletion', id: PUBLIC_PROJECT_ID, workspaceId: PUBLIC_WORKSPACE_ID,
         requestedBy: f.admin.id, requestedAt: new Date().toISOString() };
-    await expect(runProjectDeletion(intent)).rejects.toThrow('The public feedback project settings are managed by uier.');
+    await expect(runProjectDeletion(intent)).rejects.toThrow('The settings of uier’s feedback projects are managed by uier.');
     expect((await findProject(PUBLIC_PROJECT_ID))?.id).toBe(PUBLIC_PROJECT_ID);
     expect(await f.store.get('project-deletion', PUBLIC_PROJECT_ID)).toBeNull();
 });

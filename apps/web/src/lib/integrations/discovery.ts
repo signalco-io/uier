@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef, type DbRetiredProjectRef } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
 import type { DbComment, DbSyncTombstone } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { integrationTargets } from './syncSignal';
@@ -15,7 +15,7 @@ export const integrationSyncId = (provider: IntegrationProviderId, connectionId:
 
 export async function integrationProject(projectId: string, store: AppStore = getAppStore()) {
     const ref = (await store.get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
-    if (!ref || ref.type !== 'project-ref' || projectId === PUBLIC_PROJECT_ID) return null;
+    if (!ref || ref.type !== 'project-ref' || isUierFeedbackProject(projectId)) return null;
     const project = (await store.get<DbProject>(workspacePk(ref.workspaceId), projectId))?.doc;
     return project?.type === 'project' && project.workspaceId === ref.workspaceId ? project : null;
 }
@@ -30,7 +30,7 @@ export async function enqueueIntegrationSync(project: DbProject, provider: Integ
     threadId: string, version: number, options: { deletion?: IntegrationSync['deletion']; cleanup?: boolean; requestId?: string;
         destinationRevision?: number; store?: AppStore; now?: number } = {}) {
     const store = options.store ?? getAppStore();
-    if (project.id === PUBLIC_PROJECT_ID || !Number.isSafeInteger(version) || version < 0) throw new Error('Invalid integration source');
+    if (isUierFeedbackProject(project.id) || !Number.isSafeInteger(version) || version < 0) throw new Error('Invalid integration source');
     const next: IntegrationSync = {
         type: `${provider}-sync`, provider, pk: integrationPk(provider, project.id),
         id: integrationSyncId(provider, connectionId, project.id, threadId),
@@ -73,7 +73,7 @@ export type DiscoveryOptions = { store?: AppStore; comments?: CommentsStore; ada
 export async function discoverThreadIntegrationSync(project: DbProject, source: DbComment | DbSyncTombstone, options: DiscoveryOptions = {}) {
     const store = options.store ?? getAppStore();
     const comments = options.comments ?? getCommentsStore();
-    if (project.id === PUBLIC_PROJECT_ID || source.projectId !== project.id || source.domain !== `project:${project.id}`) return false;
+    if (isUierFeedbackProject(project.id) || source.projectId !== project.id || source.domain !== `project:${project.id}`) return false;
     const registry = integrationRegistry(options.adapters);
     const tombstone = 'type' in source && source.type === 'tombstone' ? source : null;
     const projectTargets = integrationTargets(project);

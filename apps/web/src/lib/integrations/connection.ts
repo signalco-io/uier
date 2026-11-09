@@ -3,7 +3,7 @@ import { workspacePk, type DbProject } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { getMember } from '../app/workspaces';
 import { isLiveProject } from '../app/projectPublicIds';
-import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isUierFeedbackProject } from '../comments/publicProject';
 import { integrationProviders, type IntegrationBinding, type IntegrationConnection, type IntegrationProviderId, type IntegrationSync } from './model';
 import { configuredIntegrationAdapters } from './registry';
 import { UserFacingError } from '../app/actionErrors';
@@ -21,7 +21,7 @@ export async function requireIntegrationAdmin(context: AppContext, projectId: st
     const member = await getMember(context.workspace.id, context.user.id);
     const stored = await getAppStore().get<DbProject>(workspacePk(context.workspace.id), projectId);
     if (member?.role !== 'admin' || !stored || stored.doc.type !== 'project'
-        || stored.doc.workspaceId !== context.workspace.id || projectId === PUBLIC_PROJECT_ID || !await isLiveProject(stored.doc))
+        || stored.doc.workspaceId !== context.workspace.id || isUierFeedbackProject(projectId) || !await isLiveProject(stored.doc))
         throw new IntegrationAccessError();
     return stored.doc;
 }
@@ -29,7 +29,7 @@ export async function requireIntegrationAdmin(context: AppContext, projectId: st
 /** Only this provider's entry is changed; etag retries retain all sibling bindings. */
 export async function setIntegrationBinding(workspaceId: string, projectId: string, provider: IntegrationProviderId,
     binding: IntegrationBinding | null, store = getAppStore(), expectedConnectionId?: string) {
-    if (projectId === PUBLIC_PROJECT_ID) throw new Error('Public feedback cannot have integrations');
+    if (isUierFeedbackProject(projectId)) throw new Error('Public feedback cannot have integrations');
     return updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => {
         if (project.type !== 'project' || project.workspaceId !== workspaceId) throw new Error('Integration project mismatch');
         if (expectedConnectionId && project.integrations?.[provider]?.connectionId !== expectedConnectionId)
@@ -43,7 +43,7 @@ export async function setIntegrationBinding(workspaceId: string, projectId: stri
 
 export async function getIntegrationConnection(project: DbProject, provider: IntegrationProviderId, store = getAppStore()) {
     const binding = project.integrations?.[provider];
-    if (!binding || project.id === PUBLIC_PROJECT_ID) return null;
+    if (!binding || isUierFeedbackProject(project.id)) return null;
     const connection = (await store.get<IntegrationConnection>(workspacePk(project.workspaceId), binding.connectionId))?.doc;
     return connection?.type === `${provider}-connection` && connection.provider === provider
         && connection.workspaceId === project.workspaceId && connection.projectId === project.id ? connection : null;
@@ -56,7 +56,7 @@ export async function setIntegrationTwoWaySync(project: DbProject, provider: Int
     const member = await getMember(project.workspaceId, userId);
     const currentProject = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     if (member?.role !== 'admin' || currentProject?.type !== 'project' || currentProject.workspaceId !== project.workspaceId
-        || currentProject.id === PUBLIC_PROJECT_ID) throw new IntegrationAccessError();
+        || isUierFeedbackProject(currentProject.id)) throw new IntegrationAccessError();
     const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);
     if (!adapter?.supportsStatusSync) throw new UserFacingError('This integration does not support two-way status sync.');
     const connection = await getIntegrationConnection(currentProject, provider, store);
@@ -79,7 +79,7 @@ export async function setIntegrationReplySync(project: DbProject, provider: Inte
     const member = await getMember(project.workspaceId, userId);
     const currentProject = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     if (member?.role !== 'admin' || currentProject?.type !== 'project' || currentProject.workspaceId !== project.workspaceId
-        || currentProject.id === PUBLIC_PROJECT_ID) throw new IntegrationAccessError();
+        || isUierFeedbackProject(currentProject.id)) throw new IntegrationAccessError();
     const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);
     if (!adapter?.supportsReplySync) throw new UserFacingError('This integration does not support reply sync.');
     const connection = await getIntegrationConnection(currentProject, provider, store);
@@ -104,7 +104,7 @@ export async function setIntegrationEnabled(project: DbProject, provider: Integr
     const member = await getMember(project.workspaceId, userId);
     const currentProject = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     if (member?.role !== 'admin' || currentProject?.type !== 'project' || currentProject.workspaceId !== project.workspaceId
-        || currentProject.id === PUBLIC_PROJECT_ID) throw new IntegrationAccessError();
+        || isUierFeedbackProject(currentProject.id)) throw new IntegrationAccessError();
     const connection = await getIntegrationConnection(currentProject, provider, store);
     if (!connection) throw new Error('Integration is not connected');
     if (enabled && (!configuredIntegrationAdapters.find(adapter => adapter.provider === provider)?.isConfigured()

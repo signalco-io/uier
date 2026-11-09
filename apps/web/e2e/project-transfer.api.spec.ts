@@ -119,7 +119,7 @@ test('only an admin of both workspaces transfers a project, by its exact name', 
     for (const id of [project.id, project.publicId])
         await expect(transferProject(other.context, id, other.target.id, project.name)).rejects.toThrow('This project no longer exists.');
     // uier's public project and workspace never move, in either direction
-    await expect(transferProject(f.context, PUBLIC_PROJECT_ID, f.target.id, 'uier')).rejects.toThrow('The public feedback project settings are managed by uier.');
+    await expect(transferProject(f.context, PUBLIC_PROJECT_ID, f.target.id, 'uier')).rejects.toThrow('The settings of uier’s feedback projects are managed by uier.');
     await expect(transferProject(f.context, project.id, PUBLIC_WORKSPACE_ID, project.name)).rejects.toThrow('Everyone joins the uier workspace automatically.');
     // The action accepts only well-formed ids
     for (const input of [{ projectId: project.id, workspaceId: 'x', confirmation: project.name },

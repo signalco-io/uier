@@ -25,7 +25,7 @@ import type { DbComment } from '../src/lib/db/schema';
 import { environmentOptions } from '../src/lib/app/environments';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { withNotificationEvent } from '../src/lib/notifications/events';
-import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, joinPublicProject } from '../src/lib/comments/publicProject';
+import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, joinPublicProject } from '../src/lib/comments/publicProject';
 import { pngImage } from './support/images';
 
 const originalEnv = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET, UIER_BASE_URL: process.env.UIER_BASE_URL };
@@ -592,7 +592,8 @@ test('an already connected staff credential loses private app feedback and scree
     const staff = await findOrCreateUser(`mcp-staff-${randomUUID()}@example.com`);
     process.env.UIER_STAFF_EMAILS = staff.email;
     const member = await joinPublicProject(staff);
-    const project = (await getProject(PUBLIC_WORKSPACE_ID, PUBLIC_PROJECT_ID))!;
+    // Accounts' feedback (the app's included) is in the user feedback project
+    const project = (await getProject(PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID))!;
     const context = { user: staff, member, workspace: { id: PUBLIC_WORKSPACE_ID }, isAdmin: true } as AppContext;
     const owner = await findOrCreateUser(`mcp-feedback-${randomUUID()}@example.com`);
     const author = (await memberActor(project, owner.id))!;

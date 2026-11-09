@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { auth, extractWWWAuthenticateParams, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { createProject, requestSignInEmail, signIn, uniqueEmail } from './support/app';
-import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
+import { USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';
 
 // A coding tool's OAuth sign-in to /api/mcp, driven by the official SDK client: dynamic client
@@ -101,7 +101,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
         const own = page.getByRole('group', { name: email, exact: true });
         await expect(own).toContainText('No projects you can open yet.');
         await own.getByRole('checkbox', { name: 'All projects, including new ones' }).check();
-        await page.getByRole('group', { name: 'uier', exact: true }).getByRole('checkbox', { name: 'uier.io public feedback' }).check();
+        await page.getByRole('group', { name: 'uier', exact: true }).getByRole('checkbox', { name: 'uier.io user feedback' }).check();
         await expect(page.getByRole('checkbox', { name: 'Read feedback' })).toBeChecked();
         await expect(page.getByRole('checkbox', { name: 'Read feedback' })).toBeDisabled();
         const warning = page.getByRole('alert').filter({ hasText: 'Feedback can contain instructions from people outside your team.' });
@@ -141,15 +141,15 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             expect(projects.actingAs.credential).toBe('Laptop agent');
             expect(projects.items).toEqual(expect.arrayContaining([
                 expect.objectContaining({ id: projectId, name: 'Agent project', workspace: expect.objectContaining({ name: email }) }),
-                expect.objectContaining({ id: PUBLIC_PROJECT_ID, workspace: expect.objectContaining({ name: 'uier' }) })
+                expect.objectContaining({ id: USER_FEEDBACK_PROJECT_ID, workspace: expect.objectContaining({ name: 'uier' }) })
             ]));
             expect(projects.items).toHaveLength(2);
             const reply = await client.callTool({ name: 'reply_to_feedback', arguments: {
-                projectId: PUBLIC_PROJECT_ID, commentId: saved.id, text: 'Fixed the header. Please check.', idempotencyKey: crypto.randomUUID()
+                projectId: USER_FEEDBACK_PROJECT_ID, commentId: saved.id, text: 'Fixed the header. Please check.', idempotencyKey: crypto.randomUUID()
             } });
             expect(reply.isError, JSON.stringify(reply)).not.toBe(true);
             const status = await client.callTool({ name: 'set_feedback_status', arguments: {
-                projectId: PUBLIC_PROJECT_ID, commentId: saved.id, resolved: true, idempotencyKey: crypto.randomUUID()
+                projectId: USER_FEEDBACK_PROJECT_ID, commentId: saved.id, resolved: true, idempotencyKey: crypto.randomUUID()
             } });
             expect(status.isError).toBe(true);
 
@@ -163,7 +163,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             await expect(row).toContainText('Read feedback, Reply to feedback');
             await row.getByRole('button', { name: 'Details for Laptop agent' }).click();
             await expect(row).toContainText(`${email}: All projects, including new ones`);
-            await expect(row).toContainText('uier: uier.io public feedback');
+            await expect(row).toContainText('uier: uier.io user feedback');
             await expectNoAxeViolations(page);
             await apps.screenshot({ path: testInfo.outputPath('connected-apps.png') });
 

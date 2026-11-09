@@ -35,7 +35,7 @@ and private-thread visibility before requesting it.
 | `notes` | Limits: edits are current saved versions, prior versions are not retained; deleted evidence is omitted. |
 
 Project-backed packets always include the owning `identity.projectId` and a **Project** line in
-Markdown. Public uier feedback uses `uier00000001`, including feedback on `/app/projects/<id>`:
+Markdown. uier's own feedback uses `uier00000002` (from signed-in accounts) or `uier00000001` (from guests), including feedback on `/app/projects/<id>`:
 that path identifies the page being reviewed, not the feedback's owner. Only isolated local host
 partitions without a project omit this field. MCP clients must select the owning project from
 the packet or `list_projects`; a credential must explicitly grant it in its owning workspace.

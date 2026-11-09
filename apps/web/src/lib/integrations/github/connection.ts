@@ -2,7 +2,7 @@ import { randomToken, isRandomToken, sha256Hex } from '../../app/tokens';
 import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject } from '../../app/model';
 import { isLocalRuntime } from '../../comments/environment';
-import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { isUierFeedbackProject } from '../../comments/publicProject';
 import { KnownPageLinks } from '../../../knownPages';
 import { disconnectIntegration, getIntegrationConnection, setIntegrationBinding } from '../connection';
 import { consumeOauthState, createOauthState } from '../oauthState';
@@ -21,7 +21,7 @@ export async function githubAdmin(input: GitHubActorInput, store: AppStore = get
     const member = (await store.get<DbMember>(workspacePk(input.workspaceId), memberId(input.userId)))?.doc;
     const project = (await store.get<DbProject>(workspacePk(input.workspaceId), input.projectId))?.doc;
     if (member?.type !== 'member' || member.userId !== input.userId || member.workspaceId !== input.workspaceId || member.role !== 'admin'
-        || project?.type !== 'project' || project.id !== input.projectId || project.workspaceId !== input.workspaceId || project.id === PUBLIC_PROJECT_ID)
+        || project?.type !== 'project' || project.id !== input.projectId || project.workspaceId !== input.workspaceId || isUierFeedbackProject(project.id))
         throw new GitHubError('admin_required');
     return project;
 }

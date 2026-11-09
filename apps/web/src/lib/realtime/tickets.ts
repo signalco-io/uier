@@ -14,7 +14,22 @@ export type RealtimeClaims = {
     apiOrigin: string;
     audience: 'showcase' | 'review' | 'app';
     identity: Identity;
+    /** A signed-in account on uier's pages also follows the guests' public project (showcase only) */
+    also?: RealtimeScope;
 };
+type RealtimeScope = Pick<RealtimeClaims, 'domain' | 'projectId' | 'workspaceId' | 'identity'>;
+
+function scopeClaims(domain: string, actor: ProjectActor, project?: DbProject): RealtimeScope {
+    return { domain, ...(project ? { projectId: project.id, workspaceId: project.workspaceId } : {}),
+        identity: actor.kind === 'member' ? { kind: 'member', userId: actor.userId }
+            : actor.kind === 'guest' ? { kind: 'guest', visitorId: actor.visitorId } : { kind: 'anonymous' } };
+}
+
+/** The partitions a session follows, each with its own identity; authorized separately on every poll */
+export function realtimeScopes(claims: RealtimeClaims): RealtimeClaims[] {
+    const { also, ...primary } = claims;
+    return also && claims.audience === 'showcase' ? [primary, { ...primary, ...also }] : [primary];
+}
 
 /** Match the review API's public request origin when Vercel terminates TLS upstream. */
 export function realtimeApiOrigin(request: Request) {
@@ -27,16 +42,15 @@ export function realtimeApiOrigin(request: Request) {
 }
 
 /** Origin-bound, five-minute capability. Sent in the first frame, never a URL or browser storage. */
-export function issueRealtimeTicket(request: Request, domain: string, actor: ProjectActor, audience: RealtimeClaims['audience'], project?: DbProject): RealtimeTicket {
+export function issueRealtimeTicket(request: Request, domain: string, actor: ProjectActor, audience: RealtimeClaims['audience'], project?: DbProject,
+    also?: { domain: string; actor: ProjectActor; project?: DbProject }): RealtimeTicket {
     const apiOrigin = realtimeApiOrigin(request);
     const origin = request.headers.get('origin') ?? apiOrigin;
     if (audience !== 'review' && origin !== apiOrigin) throw apiErrors.forbidden();
     if (audience === 'review' && origin !== apiOrigin && (!project || !projectOrigins(project).includes(origin)))
         throw apiErrors.forbidden();
-    const claims: RealtimeClaims = { domain, origin, apiOrigin, audience,
-        ...(project ? { projectId: project.id, workspaceId: project.workspaceId } : {}),
-        identity: actor.kind === 'member' ? { kind: 'member', userId: actor.userId }
-            : actor.kind === 'guest' ? { kind: 'guest', visitorId: actor.visitorId } : { kind: 'anonymous' } };
+    const claims: RealtimeClaims = { ...scopeClaims(domain, actor, project), origin, apiOrigin, audience,
+        ...(also && audience === 'showcase' ? { also: scopeClaims(also.domain, also.actor, also.project) } : {}) };
     return { token: signToken('realtime', claims, 300), url: `${apiOrigin.replace(/^http/, 'ws')}/api/realtime` };
 }
 

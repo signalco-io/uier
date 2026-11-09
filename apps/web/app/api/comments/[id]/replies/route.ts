@@ -1,5 +1,5 @@
 import { assertNotBot } from '../../../../../src/lib/comments/botProtection';
-import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../../../src/lib/comments/http';
+import { apiErrors, commentContext, commentsApiHandler, parseJsonBody } from '../../../../../src/lib/comments/http';
 import { replyToComment } from '../../../../../src/lib/comments/service';
 import { isValidId, replySchema } from '../../../../../src/lib/comments/validation';
 
@@ -12,5 +12,5 @@ export const POST = commentsApiHandler<Params>(async (context, { id }) => {
         throw apiErrors.notFound();
 
     const input = await parseJsonBody(context.request, replySchema);
-    return Response.json(await replyToComment(context, id, input), { status: 201 });
+    return Response.json(await replyToComment(await commentContext(context, id), id, input), { status: 201 });
 });

@@ -5,7 +5,7 @@ import { getVisibleProject, listVisibleProjects } from './projects';
 import { getCommentsStore } from '../repo/commentsStore';
 import { projectPartition } from '../review/comments';
 import { RATE_LIMIT_PAGE_COMMENTS } from '../comments/limits';
-import { PUBLIC_PROJECT_ID } from '../comments/publicProjectPolicy';
+import { isUierFeedbackProject } from '../comments/publicProjectPolicy';
 import {
     APP_COUNTERS_PARTITION,
     authorCommentsLimit,
@@ -60,7 +60,7 @@ async function requestIpBucket() {
  */
 async function personalProjectUsage(project: DbProject, userId: string, ipBucket: string | undefined): Promise<UsageMeter[]> {
     const authorId = `user:${userId}`;
-    const member = project.id !== PUBLIC_PROJECT_ID;
+    const member = !isUierFeedbackProject(project.id);
     const partition = projectPartition(project.id);
     return await Promise.all([
         meter(partition, authorCommentsLimit(authorId, member, !member), 'New comments'),

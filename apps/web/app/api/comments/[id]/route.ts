@@ -1,5 +1,5 @@
 import { assertNotBot } from '../../../../src/lib/comments/botProtection';
-import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../../src/lib/comments/http';
+import { apiErrors, commentContext, commentsApiHandler, parseJsonBody } from '../../../../src/lib/comments/http';
 import { deleteComment, updateCommentResolved } from '../../../../src/lib/comments/service';
 import { isValidId, updateCommentSchema } from '../../../../src/lib/comments/validation';
 
@@ -12,7 +12,7 @@ export const PATCH = commentsApiHandler<Params>(async (context, { id }) => {
         throw apiErrors.notFound();
 
     const input = await parseJsonBody(context.request, updateCommentSchema);
-    return Response.json(await updateCommentResolved(context, id, input));
+    return Response.json(await updateCommentResolved(await commentContext(context, id), id, input));
 });
 
 // DELETE /api/comments/{id} - author only. 204 when the comment was deleted, or 200 with the
@@ -22,7 +22,7 @@ export const DELETE = commentsApiHandler<Params>(async (context, { id }) => {
     if (!isValidId(id))
         throw apiErrors.notFound();
 
-    const comment = await deleteComment(context, id);
+    const comment = await deleteComment(await commentContext(context, id), id);
     return comment
         ? Response.json(comment)
         : new Response(null, { status: 204 });

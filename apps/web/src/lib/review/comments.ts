@@ -27,7 +27,7 @@ import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject } from '../comments/rateLimits';
 import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
 import { KnownPages } from '../../knownPages';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from '../comments/publicProject';
+import { isPrivateAppFeedback, isUierFeedbackProject, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID } from '../comments/publicProject';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, memberActor, refreshMutationActor, assertWriter, type ProjectActor } from './actor';
@@ -110,8 +110,8 @@ function commentRateLimitSubject(request: Request, project: DbProject, actor: Pr
     return {
         domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request),
         // Anyone can join the public feedback project; enrollment raises only its new comments.
-        member: actor.kind === 'member' && (project.id !== PUBLIC_PROJECT_ID || actor.isAdmin),
-        publicAccount: actor.kind === 'member' && project.id === PUBLIC_PROJECT_ID && !actor.isAdmin,
+        member: actor.kind === 'member' && (!isUierFeedbackProject(project.id) || actor.isAdmin),
+        publicAccount: actor.kind === 'member' && isUierFeedbackProject(project.id) && !actor.isAdmin,
         credentialId: actor.kind === 'member' ? actor.agent?.credentialId : undefined,
         usage: usageLinks(project, actor)
     };
@@ -220,13 +220,14 @@ export async function createProjectComment(request: Request, project: DbProject,
         id: `comment_${nanoid()}`,
         domain: partition,
         projectId: project.id,
-        ...(project.id === PUBLIC_PROJECT_ID ? { ttl: commentTtlSeconds() } : {}),
-        ...(isPrivateAppFeedback({ domain: partition, path: input.path }) ? { private: true } : {}),
+        ...(isUierFeedbackProject(project.id) ? { ttl: commentTtlSeconds() } : {}),
+        // An account's feedback on uier is between them and uier's staff
+        ...(isPrivateAppFeedback({ domain: partition, path: input.path }) || project.id === USER_FEEDBACK_PROJECT_ID ? { private: true } : {}),
         origin: input.origin,
         path: input.path,
         ...(input.pageStateVersion === 1 ? { pageStateVersion: 1 as const } : {}),
         ...(input.sourcePath ? { sourcePath: input.sourcePath } : {}),
-        ...(input.queryKeys?.length && project.id !== PUBLIC_PROJECT_ID ? { queryKeys: input.queryKeys } : {}),
+        ...(input.queryKeys?.length && !isUierFeedbackProject(project.id) ? { queryKeys: input.queryKeys } : {}),
         position: input.position,
         number: await store.nextCommentNumber(partition),
         kind: input.kind,
@@ -406,7 +407,7 @@ function guardFingerprint(guard?: CommentChangeGuard) {
     return guard ? { expected: guard.expected, revision: guard.revision } : {};
 }
 export function canTriageProject(project: Pick<DbProject, 'id'>, actor: ProjectActor) {
-    return actor.kind === 'member' && (project.id !== PUBLIC_PROJECT_ID || actor.isAdmin);
+    return actor.kind === 'member' && (!isUierFeedbackProject(project.id) || actor.isAdmin);
 }
 /** Priority shares activity and integration intent, but deliberately creates no email notification. */
 export async function setProjectCommentPriority(project: DbProject, actor: ProjectActor, id: string, priority: CommentPriority, idempotencyKey: string, guard?: CommentChangeGuard, store?: CommentsStore) {
@@ -530,7 +531,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
 /** The whole-thread delete: a durable cleanup intent, then the conditional delete with its integration tombstone */
 export async function deleteProjectThread(store: CommentsStore, project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment, etag: string) {
     await queueThreadCleanup(comment.domain, comment.id, true);
-    return project.id !== PUBLIC_PROJECT_ID
+    return !isUierFeedbackProject(project.id)
         ? store.deleteWithTombstone(comment.domain, comment.id, etag, syncTombstone(project, comment))
         : store.delete(comment.domain, comment.id, etag);
 }
