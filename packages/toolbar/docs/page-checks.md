@@ -16,9 +16,34 @@ Every issue they find has a quick action that posts it as a comment in one click
   panels are reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
 - `components/checks/PageChecks.tsx` owns what the panels keep while closed: the last report of each,
   the comments their quick actions posted (by issue key; keys end with the checked page's path, so after a
-  client-side navigation the same finding on another page can be commented again) and the highlighted element. Opening a panel
-  checks the page when it has no report of the current page; **Check again** runs it again. A report of
+  client-side navigation the same finding on another page can be commented again) and the highlighted element. Both
+  check the page in the background ([below](#in-the-background)), so a panel opens with its report. Opening a panel
+  checks the page when it has no report of the current page (and none is running); **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
+
+## In the background
+
+Both checks run once the toolbar has loaded, without waiting for a panel and without getting in the
+person's way
+([uier #208](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_HGmaIZ3KHhrhjlIFnduAq)).
+
+- When: once per page (`PageChecks` remounts for every page, so again after a client-side navigation),
+  after the page's `load` event (at most 10 s), once it has stopped rendering (`pageSettled`) and when the
+  browser is idle (`requestIdleCallback`, at most 5 s; a short timeout where it is missing), all in
+  `src/checks/pageIdle.ts`. axe-core resolves every rule in a task of its own, so the audit yields to the
+  page between rules; `launch-performance.spec.ts` keeps its long tasks under its budget.
+- Only where the toolbar can show the result: not while it is collapsed (expanding it starts the
+  checks), and the audit only where the Accessibility button is (`auditAvailable()`). Where the browser
+  asks to save data (`Save-Data`), the audit is not downloaded unasked; the panel still runs it.
+- A check a panel asked for meanwhile is not run twice (`auditedPath`, `seoPath`), and an open panel shows
+  "Checking this page..." until the background audit ends. A failed background audit is quiet (opening the
+  panel tries again, and says so if it fails then), unless the panel is open by then. It never clears a highlight.
+- **The indicator.** While a report of this page found something to act on, its button in the pill gets
+  a small amber dot (`AttentionDot`, `--brand-warning`, `data-uier-attention`) and an accessible name that
+  says what (`checksButtonLabel`): "Accessibility, 3 issues found" (every element of every rule) and "SEO,
+  2 to look at" (the panel's "To look at" count, Core Web Vitals included, so it follows them as the page
+  is used; `ChecksAttentionReporter`). The tooltip stays the panel's name. On a narrow screen the dot and
+  the name are on the panel's Options row. Without a report, or with nothing to act on, neither changes.
 
 ## Layout
 
@@ -72,7 +97,7 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   `/toolbar/<sha256>.js` and pinned in the review script by path and SHA-384 SRI (`tsup.config.ts`
   fills in `__UIER_AUDIT_PATH__` / `__UIER_AUDIT_INTEGRITY__` from its final bytes, before the review
   script's own hash). `src/checks/axeLoader.ts` adds it as a classic script, once, only when the panel
-  runs a check, with the review script's nonce and referrer policy and anonymous CORS, resolved against
+  runs a check (in the background or from the panel), with the review script's nonce and referrer policy and anonymous CORS, resolved against
   the review script's URL. A site whose CSP allows the toolbar allows it too; axe-core needs no `eval`
   with its default locale. The development build loads `./audit.js` (`next dev` rewrites `/audit.js`).
 - The asset hands axe-core over through a symbol on its own script element (`auditHandoff.ts`), never a
@@ -168,18 +193,20 @@ checks (a `details` row, "Outline").
 ## Bundle and loading
 
 The panels' code is in the review bundle (about 32 KB minified, no new dependency there); axe-core
-(about 680 KB) loads only from the Accessibility panel. Nothing here runs for ordinary visitors: the
-review bundle itself loads only for reviewers.
+(about 680 KB) is still its own asset, loaded on use: by the background audit once the page is idle, or
+by the panel. Nothing here runs for ordinary visitors of a project's site: the review bundle itself loads
+only for reviewers. uier.io's own public pages show the toolbar to everyone (`showcase` mode), so there the
+background checks run for every visitor whose browser does not ask to save data.
 
 ## Tests
 
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
-(`?page-checks` in `e2e/support/reviewedSite.ts`): no audit request before the Accessibility panel opens
-and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
+(`?page-checks` in `e2e/support/reviewedSite.ts`): one audit request in the background, the buttons' dots
+and names before a panel opens, the panel opening with that report and no new request, rules by impact without the toolbar, Highlight, a comment posted on the element with its
 screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
 element's comment with what was found and its check, findings marked as reported after a reload (with Show) until their thread is done, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
-the panels from Options on a phone, fitting the screen (Mobile Chrome); the SEO panel and the inbox
+the panels from Options on a phone, their rows marked by the background checks, fitting the screen (Mobile Chrome); the SEO panel and the inbox
 staying open across a client-side navigation, a same-site full load and a reload, and not on a page
 opened anew; an Accessibility panel left open while the previous page's audit still runs (a slow
 axe-core) showing the new page's report, a window opened from the site starting without the panel, and

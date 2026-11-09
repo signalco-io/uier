@@ -23,7 +23,8 @@ import { setShortcutsEnabled, toolbarShortcuts, useKeyboardLikely, useShortcutsE
 import { moveFocusInMenu } from '../focusKeys';
 import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
 import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
-import type { ChecksPanelId } from './checks/PageChecks';
+import type { ChecksAttention, ChecksPanelId } from './checks/PageChecks';
+import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
 
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -36,7 +37,7 @@ type ToolbarOptionsProps = {
     onShortcutsRequestHandled?: () => void;
     triggerRef?: Ref<HTMLButtonElement>;
     /** A narrow screen: the Accessibility (where it can load) and SEO panels open from here, not from the pill */
-    pageChecks?: { accessibility: boolean; onOpen: (panel: ChecksPanelId) => void };
+    pageChecks?: { accessibility: boolean; attention?: ChecksAttention; onOpen: (panel: ChecksPanelId) => void };
 };
 
 /** The keyboard shortcuts, by what they do (`toolbarShortcuts`); the single keys are marked off while they are */
@@ -291,12 +292,16 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                     </>}
                     {pageChecks && <>
                         {pageChecks.accessibility && (
-                            <OptionButton icon={<AccessibilityIcon size={16} />} onClick={() => handleOpenPanel('accessibility')}>
+                            <OptionButton icon={<AccessibilityIcon size={16} />} onClick={() => handleOpenPanel('accessibility')}
+                                aria-label={checksButtonLabel('accessibility', pageChecks.attention)}>
                                 Accessibility
+                                <AttentionDot panel="accessibility" attention={pageChecks.attention} className="ml-auto ring-0" />
                             </OptionButton>
                         )}
-                        <OptionButton icon={<SeoIcon size={16} />} onClick={() => handleOpenPanel('seo')}>
+                        <OptionButton icon={<SeoIcon size={16} />} onClick={() => handleOpenPanel('seo')}
+                            aria-label={checksButtonLabel('seo', pageChecks.attention)}>
                             SEO
+                            <AttentionDot panel="seo" attention={pageChecks.attention} className="ml-auto ring-0" />
                         </OptionButton>
                         <Divider role="separator" className="my-1" />
                     </>}

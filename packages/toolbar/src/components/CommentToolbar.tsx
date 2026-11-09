@@ -17,7 +17,8 @@ import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
-import type { ChecksPanelId } from './checks/PageChecks';
+import type { ChecksAttention, ChecksPanelId } from './checks/PageChecks';
+import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
 import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement';
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
@@ -55,6 +56,8 @@ type CommentToolbarProps = {
     onChecksPanelChange: (panel: ChecksPanelId | undefined) => void;
     /** Whether the accessibility audit can load here (not in packaged clients) */
     accessibilityAvailable?: boolean;
+    /** What the background checks of this page found to act on: a dot on their buttons (Options rows on a narrow screen) */
+    checksAttention?: ChecksAttention;
     accessibilityButtonRef?: Ref<HTMLButtonElement>;
     seoButtonRef?: Ref<HTMLButtonElement>;
     /** Options, where the panels' buttons are on a narrow screen */
@@ -94,7 +97,7 @@ function countText(count: number, capped: boolean) {
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
-    checksPanel, onChecksPanelChange, accessibilityAvailable = false, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
+    checksPanel, onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
     shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
@@ -257,12 +260,13 @@ export function CommentToolbar({
                                 <IconButton
                                     ref={accessibilityButtonRef}
                                     variant="plain"
-                                    className="rounded-full"
-                                    aria-label="Accessibility"
+                                    className="relative rounded-full"
+                                    aria-label={checksButtonLabel('accessibility', checksAttention)}
                                     aria-expanded={checksPanel === 'accessibility'}
                                     aria-controls={checksPanel === 'accessibility' ? 'uier-panel-accessibility' : undefined}
                                     onClick={() => toggleChecks('accessibility')}>
                                     <AccessibilityIcon />
+                                    <AttentionDot panel="accessibility" attention={checksAttention} className="absolute right-1.5 top-1.5" />
                                 </IconButton>
                                 </IconTooltip>
                             )}
@@ -271,12 +275,13 @@ export function CommentToolbar({
                             <IconButton
                                 ref={seoButtonRef}
                                 variant="plain"
-                                className="rounded-full"
-                                aria-label="SEO"
+                                className="relative rounded-full"
+                                aria-label={checksButtonLabel('seo', checksAttention)}
                                 aria-expanded={checksPanel === 'seo'}
                                 aria-controls={checksPanel === 'seo' ? 'uier-panel-seo' : undefined}
                                 onClick={() => toggleChecks('seo')}>
                                 <SeoIcon />
+                                <AttentionDot panel="seo" attention={checksAttention} className="absolute right-1.5 top-1.5" />
                             </IconButton>
                             </IconTooltip>
                             )}
@@ -298,7 +303,7 @@ export function CommentToolbar({
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
                                 triggerRef={optionsButtonRef}
-                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable, onOpen: onChecksPanelChange }}
+                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable, attention: checksAttention, onOpen: onChecksPanelChange }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label="Collapse toolbar">
                             <IconButton

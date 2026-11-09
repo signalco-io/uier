@@ -142,7 +142,9 @@ outlined shape of its own beside its name, so colour is never the only signal: C
 (`--foreground`, circle alert), Minor muted grey (`--muted-foreground`, info). The SEO panel's checks
 are a green check (`--brand-success`) for a pass, an amber triangle for what is worth a look and a muted
 info for a note. A summary tile's icon takes its colour only while its count is above 0. Impact has no
-tokens of its own.
+tokens of its own. While the background check of the page found something to act on, the pill's
+Accessibility or SEO button carries a small amber dot (`--brand-warning`), never blue (blue is unread),
+and its name says what was found.
 
 **Status** is a 6 px dot in the status's colour, always beside its name: Open an outlined ink ring
 (`--foreground`, 1 px, not filled), In progress sky (`--brand-in-progress`), Ready to verify violet
