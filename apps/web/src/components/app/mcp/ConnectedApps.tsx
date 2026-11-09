@@ -4,31 +4,53 @@ import { useState, useTransition } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
-import { Button } from '@/src/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/src/components/ui/item';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
+import { ItemGroup } from '@/src/components/ui/item';
 import { Spinner } from '@/src/components/ui/spinner';
 import type { ActionState } from '@/src/lib/app/actionResult';
 import { revokeConnectedAppAction } from '@/src/lib/mcp/oauth/actions';
 import type { ConnectedAppView } from '@/src/lib/mcp/oauth/connectedApps';
-import { DateTime } from '../comments/DateTime';
+import { cn } from '@/src/lib/utils';
+import { AgentAvatar } from '../comments/AgentAvatar';
+import { RelativeTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { Section } from '../PageHeader';
 import { ClientHosts, ClientName } from './ClientDetails';
-import { scopeLabel } from './scopes';
+import { ConnectionAvatar, ConnectionItem, ConnectionReach, factsClassName, ScopeBadges } from './ConnectionSummary';
 
 /** Account: the apps connected with OAuth sign-in, one row per grant, each revocable */
 export function ConnectedApps({ apps }: { apps: ConnectedAppView[] }) {
     return (
-        <section aria-labelledby="connected-apps-title" className="flex flex-col gap-3">
-            <h3 id="connected-apps-title" className="m-0 text-sm font-semibold">Connected apps</h3>
-            <p className="m-0 text-sm text-muted-foreground">Apps you allowed when they asked you to sign in. An app keeps access while it is used, for up to one year, and loses it after 30 days without use. Revoking ends its access on its next request. Feedback it already received stays with it.</p>
+        <Section id="connected-apps" title="Connected apps"
+            description="Coding tools you allowed when they asked you to sign in. Your current project permissions always apply.">
             {apps.length
                 ? <ItemGroup aria-label="Connected apps" className="gap-3">
                     {apps.map(app => <ConnectedAppRow key={app.id} app={app} />)}
                 </ItemGroup>
-                : <p className="m-0 text-sm text-muted-foreground">No connected apps yet.</p>}
-        </section>
+                : <NoConnectedApps />}
+            <p className="m-0 text-xs text-muted-foreground">An app keeps access while it is used, for up to one year, and loses it after 30 days without use. Revoking ends its access on its next request. Feedback it already received stays with it.</p>
+        </Section>
+    );
+}
+
+/** Nothing connected yet: what shows up here, and the way to the setup below */
+function NoConnectedApps() {
+    return (
+        <Empty className="gap-5 border p-8">
+            <EmptyHeader>
+                <EmptyMedia aria-hidden="true" className="flex -space-x-2">
+                    {(['claude', 'codex', 'cursor'] as const).map(kind => <AgentAvatar key={kind} kind={kind} className="size-9 ring-2 ring-card" />)}
+                </EmptyMedia>
+                <EmptyTitle className="text-base">No connected apps yet</EmptyTitle>
+                <EmptyDescription>When a coding tool such as Claude Code signs in with your browser, it shows up here with what it can reach and do.</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+                <a href="#connect" className={buttonVariants({ variant: 'outline' })}>Connect a coding tool</a>
+            </EmptyContent>
+        </Empty>
     );
 }
 
@@ -44,66 +66,62 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
             setConfirming(false);
     });
     return (
-        <Item variant="outline" role="listitem" className="items-start">
-            <ItemContent className="min-w-0">
-                <ItemTitle className="line-clamp-none"><ClientName client={app.client} name={app.name} /></ItemTitle>
-                <ItemDescription className="line-clamp-none">
-                    {app.client.name !== app.name && <span className="block break-words">App: {app.client.name}</span>}
-                    <ClientHosts client={app.client} />
-                </ItemDescription>
-                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                    {app.access.all
-                        ? <p className="m-0">{app.access.summary}</p>
-                        : <Collapsible>
-                            <p className="m-0 flex flex-wrap items-center gap-x-2">
-                                <span>{app.access.summary}</span>
-                                <CollapsibleTrigger render={<Button variant="link" size="sm" className="group h-auto p-0" />}>
-                                    Details<span className="sr-only"> for {app.name}</span>
-                                    <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
-                                </CollapsibleTrigger>
-                            </p>
-                            <CollapsibleContent>
-                                <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0">
-                                    {app.access.workspaces.map((workspace, index) => <li key={index} className="break-words">
-                                        <span className="text-foreground">{workspace.name}</span>{workspace.projects && `: ${workspace.projects}`}
-                                    </li>)}
-                                </ul>
-                            </CollapsibleContent>
-                        </Collapsible>}
-                    <p className="m-0 break-words">{app.scopes.map(scopeLabel).join(', ')}</p>
-                    <p className="m-0">
-                        Connected <DateTime value={app.createdAt} />
-                        {' · '}{app.lastUsedAt ? <>Last used <DateTime value={app.lastUsedAt} /></> : 'Not used yet'}
-                        {' · '}Expires <DateTime value={app.expiresAt} />
-                    </p>
-                </div>
-            </ItemContent>
-            <ItemActions>
-                <AlertDialog open={confirming} onOpenChange={open => { setConfirming(open); if (open) setRevokeTokens(true); }}>
-                    <AlertDialogTrigger render={<Button variant="outline" aria-label={`Revoke ${app.name}`} />}>Revoke</AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle className="break-words">Revoke {app.name}?</AlertDialogTitle>
-                            <AlertDialogDescription>It loses access to uier on its next request. Feedback it already received stays with it. To use it again, connect it again from your coding tool.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        {app.activeCreatedTokenCount > 0 && <div className="flex flex-col gap-2 text-sm">
-                            <p className="m-0">This connection created {app.activeCreatedTokenCount} active access {app.activeCreatedTokenCount === 1 ? 'token' : 'tokens'}. These are separate and listed under Access tokens. Unchecked tokens keep access until their expiry or revocation.</p>
-                            <label className="flex items-center gap-2">
-                                <Checkbox checked={revokeTokens} onCheckedChange={setRevokeTokens} disabled={pending} />
-                                Also revoke the {app.activeCreatedTokenCount} access {app.activeCreatedTokenCount === 1 ? 'token it created' : 'tokens it created'}
-                            </label>
-                        </div>}
-                        <FormMessage state={state} />
-                        <AlertDialogFooter>
-                            <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive" disabled={pending} onClick={() => revoke()}>
-                                {pending && <Spinner data-icon="inline-start" />}
-                                Revoke
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </ItemActions>
-        </Item>
+        <ConnectionItem avatar={<ConnectionAvatar hints={[app.client.name, app.client.metadataHost, app.name]} />}
+            title={<ClientName client={app.client} name={app.name} />}
+            description={<>
+                {app.client.name !== app.name && <span>App: {app.client.name}</span>}
+                <ClientHosts client={app.client} />
+            </>}
+            actions={<AlertDialog open={confirming} onOpenChange={open => { setConfirming(open); if (open) setRevokeTokens(true); }}>
+                <AlertDialogTrigger render={<Button variant="ghost" size="sm" aria-label={`Revoke ${app.name}`} />}>Revoke</AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="break-words">Revoke {app.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>It loses access to uier on its next request. Feedback it already received stays with it. To use it again, connect it again from your coding tool.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {app.activeCreatedTokenCount > 0 && <div className="flex flex-col gap-2 text-sm">
+                        <p className="m-0">This connection created {app.activeCreatedTokenCount} active access {app.activeCreatedTokenCount === 1 ? 'token' : 'tokens'}. These are separate and listed under Access tokens. Unchecked tokens keep access until their expiry or revocation.</p>
+                        <label className="flex items-center gap-2">
+                            <Checkbox checked={revokeTokens} onCheckedChange={setRevokeTokens} disabled={pending} />
+                            Also revoke the {app.activeCreatedTokenCount} access {app.activeCreatedTokenCount === 1 ? 'token it created' : 'tokens it created'}
+                        </label>
+                    </div>}
+                    <FormMessage state={state} />
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" disabled={pending} onClick={() => revoke()}>
+                            {pending && <Spinner data-icon="inline-start" />}
+                            Revoke
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>}>
+            <ConnectionReach>
+                {app.access.all
+                    ? app.access.summary
+                    : <Collapsible>
+                        <p className="m-0 flex flex-wrap items-center gap-x-2">
+                            <span>{app.access.summary}</span>
+                            <CollapsibleTrigger render={<Button variant="link" size="sm" className="group h-auto p-0" />}>
+                                Details<span className="sr-only"> for {app.name}</span>
+                                <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
+                            </CollapsibleTrigger>
+                        </p>
+                        <CollapsibleContent>
+                            <ul className="m-0 mt-2 flex list-none flex-col gap-1 border-l pl-3 text-muted-foreground">
+                                {app.access.workspaces.map((workspace, index) => <li key={index} className="break-words">
+                                    <span className="text-foreground">{workspace.name}</span>{workspace.projects && `: ${workspace.projects}`}
+                                </li>)}
+                            </ul>
+                        </CollapsibleContent>
+                    </Collapsible>}
+            </ConnectionReach>
+            <ScopeBadges scopes={app.scopes} />
+            <p className={cn('m-0 text-xs text-muted-foreground', factsClassName)}>
+                <span>Connected <RelativeTime value={app.createdAt} /></span>
+                <span>{app.lastUsedAt ? <>Last used <RelativeTime value={app.lastUsedAt} /></> : 'Not used yet'}</span>
+                <span>Expires <RelativeTime value={app.expiresAt} /></span>
+            </p>
+        </ConnectionItem>
     );
 }

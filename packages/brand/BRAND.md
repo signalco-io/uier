@@ -171,8 +171,8 @@ logos of connected services in a project's Integrations settings: each is the pr
 mark on a bordered tile, in ink and paper where the provider allows a one-colour logo (GitHub,
 Linear, Notion) and in its own colours where it does not (Slack, Azure DevOps). The AI agents that
 work under an assignee (Claude, Codex, ChatGPT, Cursor) show their product's one-colour mark in ink and
-paper on a bordered circle; in compact assignment groups they are small badges on their person's
-avatar edge. People remain separate groups, and hover cards indent smaller agent avatars beneath
+paper on a bordered circle, as do the connected apps and access tokens in Account → Coding agents; in
+compact assignment groups they are small badges on their person's avatar edge. People remain separate groups, and hover cards indent smaller agent avatars beneath
 their person. A generic agent is Lucide's bot.
 They are third-party marks: never recoloured, redrawn or used as uier's.
 

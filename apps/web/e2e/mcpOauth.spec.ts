@@ -173,6 +173,8 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             await expect(row).toContainText('2 workspaces, all projects in one, 1 project');
             await expect(row).toContainText('Read feedback, Reply to feedback');
             await expect(row).toContainText('Create access tokens');
+            // An app that names no known agent gets the generic agent's mark
+            await expect(row.locator('[data-agent="agent"]')).toBeVisible();
             await page.getByRole('button', { name: 'Show access tokens' }).click();
             const tokenRow = page.getByRole('list', { name: 'Your access tokens' }).getByRole('listitem').filter({ hasText: 'Project watcher' });
             await expect(tokenRow).toContainText('Created by Laptop agent');
@@ -191,7 +193,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             await dialog.getByRole('button', { name: 'Revoke', exact: true }).click();
             await expect(dialog).toHaveCount(0);
             await expect(row).toHaveCount(0);
-            await expect(apps).toContainText('No connected apps yet.');
+            await expect(apps).toContainText('No connected apps yet');
             await expect(tokenRow).toHaveCount(0);
             const revokedWatcher = await fetch(flow.serverUrl, { method: 'POST', headers: { Authorization: `Bearer ${watcherToken}`, 'Content-Type': 'application/json',
                 Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list' }) });
