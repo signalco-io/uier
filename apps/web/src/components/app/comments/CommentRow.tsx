@@ -19,17 +19,11 @@ export function commentTitle(comment: ProjectCommentView) {
     return line ?? (comment.anchor.type === 'text' ? comment.anchor.text : '');
 }
 
-/** What it was left on, in one line: "Link in navigation", "“Free shipping”" or "Whole page" */
-export function anchorSummary(comment: ProjectCommentView) {
-    const { anchor } = comment;
-    return anchor.type === 'text' && anchor.text ? `“${anchor.text}”` : anchor.label;
-}
-
 /** The id of a row's link, to give it the focus back */
 export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
- * One comment in the inbox list or on the board: number, first line, where it was left, who wrote it,
+ * One comment in the inbox list or on the board: number, first line, who wrote it, the page path,
  * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status, age and unread. The
  * whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the
  * selection box sits beside the link.
@@ -94,8 +88,6 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         <span className="truncate">
                             {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span><span className="sr-only">, by </span></>}
                             {author}
-                            <span aria-hidden="true"> · </span><span className="sr-only">, on </span>
-                            {anchorSummary(comment)}
                             <span aria-hidden="true"> · </span><span className="sr-only">, page </span>
                             <span className="font-mono">{comment.path}</span>
                         </span>

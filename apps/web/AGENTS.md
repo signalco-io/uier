@@ -446,7 +446,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   Google and Microsoft sign-in import the provider's picture on a first sign-in or link, only while the account has
   none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
-  first line, author, what it was left on, page path, then priority other than Normal (`PriorityLabel`: its
+  first line, author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status other than Open, the assignee's avatar with their agent's mark stacked on it
   (`AssigneeAvatars`), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces

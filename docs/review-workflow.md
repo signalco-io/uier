@@ -96,8 +96,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (the toolbar inbox's Open,
     In progress, Ready to verify, Done and All, with counts; Open is everything not done). Filters in effect show under the bar, each with a clear button. Each
-    comment is a compact row: number, first line, author, what it was left on (an element in words such as "Link in
-    navigation", an area of one, the selected text, or the whole page), page path, then priority other than Normal (its flag, named for screen readers),
+    comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
+    navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
     status, the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
     or the browser's Back), and in a sheet on the board. On the board, drag a card to another column with the mouse,
