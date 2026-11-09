@@ -26,7 +26,7 @@ import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Switch } from '@/src/components/ui/switch';
-import { KnownPageLinks, KnownPages } from '../../../knownPages';
+import { KnownPageLinks, KnownPages, projectAccessAnchor } from '../../../knownPages';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { destructiveTextClassName, Section } from '../PageHeader';
@@ -163,7 +163,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                 <input type="hidden" name="queryParameters" value={draft.queryParameters} />
                 <input type="hidden" name="hashRouting" value={String(draft.hashRouting)} />
                 <FieldGroup>
-                    <FieldSet>
+                    {/* The header's access label links here */}
+                    <FieldSet id={projectAccessAnchor} className="scroll-mt-6">
                         <FieldLegend variant="label">Who can comment</FieldLegend>
                         <FieldDescription>Who can see and leave comments with the toolbar on your site.</FieldDescription>
                         <RadioGroup value={draft.access} onValueChange={(next) => update(current => ({ ...current, access: next as ProjectAccess }))} aria-label="Who can comment">

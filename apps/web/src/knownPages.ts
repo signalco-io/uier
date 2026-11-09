@@ -84,6 +84,9 @@ export type AccountSection = 'sign-in' | 'notifications' | 'usage' | 'coding-age
 /** The id of a project's card on the usage pages (`code` is its public id), so a link can scroll to it */
 export const projectUsageAnchor = (code: string) => `project-${code}`;
 
+/** The id of Who can comment in a project's Review settings, so a link can scroll to it */
+export const projectAccessAnchor = 'who-can-comment';
+
 /** Pages with a parameter */
 export const KnownPageLinks = {
     integration: (provider: string) => `/integrations/${encodeURIComponent(provider)}`,
@@ -104,6 +107,8 @@ export const KnownPageLinks = {
     /** A project's settings: General, or one of its other sections */
     projectSettings: (projectId: string, section?: ProjectSettingsSection) =>
         `/app/projects/${encodeURIComponent(projectId)}/settings${section ? `/${section}` : ''}`,
+    /** Who can comment, in the project's Review settings */
+    projectAccessSettings: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/settings/review#${projectAccessAnchor}`,
     /** One connected service of a project (Settings → Integrations → its page); OAuth returns land here */
     projectIntegration: (projectId: string, provider: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/settings/integrations/${encodeURIComponent(provider)}`,

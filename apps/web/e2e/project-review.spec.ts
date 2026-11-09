@@ -229,8 +229,9 @@ test('guest mode: anyone with the link comments under their name', async ({ page
     for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`]) {
         await page.goto(path);
         if (path.endsWith(projectId))
-            // The comments page keeps the guest links behind the access label in the header
-            await page.getByRole('button', { name: /^Anyone with the link/ }).click();
+            // The comments page keeps the guest links behind the access label in the header, shown on hover
+            // (for admins the label links to Who can comment in the settings)
+            await page.getByRole('link', { name: /^Anyone with the link/ }).hover();
         const links = page.getByRole('list', { name: 'Guest links' });
         await expect(links.getByRole('listitem')).toHaveCount(2);
         for (const [index, url] of urls.entries()) {
