@@ -20,6 +20,6 @@ export default async function AccountCodingAgentsPage() {
     const accessible = grants.some(grant => grant.access.kind === 'selected') ? (await listAccessibleWorkspaces(user.id, user.email)).workspaces : [];
     return (
         <CodingAgents endpoint={`${await appBaseUrl()}/api/mcp`} apps={grants.map(grant => connectedAppView(grant, accessible))}
-            projects={projects.map(({ id, name }) => ({ id, name }))} credentials={credentials.map(({ id, name, projectIds, scopes, expiresAt }) => ({ id, name, projectIds, scopes, expiresAt }))} />
+            projects={projects.map(({ id, name }) => ({ id, name }))} credentials={credentials.map(({ id, name, projectIds, scopes, expiresAt, createdBy }) => ({ id, name, projectIds, scopes, expiresAt, ...(createdBy ? { createdBy: { name: createdBy.name } } : {}) }))} />
     );
 }

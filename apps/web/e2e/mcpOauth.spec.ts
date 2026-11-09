@@ -85,7 +85,9 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
     const flow = await startSignIn(baseURL, 'E2E coding tool');
     try {
         // Signed out: the authorization URL leads to sign-in and back to the consent page.
-        await signIn(page, email, { from: flow.authorizationUrl });
+        const authorizationUrl = new URL(flow.authorizationUrl);
+        authorizationUrl.searchParams.set('scope', 'feedback:read tokens:create');
+        await signIn(page, email, { from: authorizationUrl.toString() });
         await expect(page).toHaveURL(/\/app\/connect\/[A-Za-z0-9_-]{43}$/);
         await expect(page.getByRole('heading', { level: 1, name: 'Connect E2E coding tool to uier' })).toBeVisible();
         await expect(page.getByText(`Signed in as ${email}.`)).toBeVisible();
@@ -104,9 +106,11 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
         await page.getByRole('group', { name: 'uier', exact: true }).getByRole('checkbox', { name: 'uier.io user feedback' }).check();
         await expect(page.getByRole('checkbox', { name: 'Read feedback' })).toBeChecked();
         await expect(page.getByRole('checkbox', { name: 'Read feedback' })).toBeDisabled();
+        await expect(page.getByRole('checkbox', { name: 'Create access tokens', exact: true })).not.toBeChecked();
         const warning = page.getByRole('alert').filter({ hasText: 'Feedback can contain instructions from people outside your team.' });
         await expect(warning).toHaveCount(0);
         await page.getByRole('checkbox', { name: 'Reply to feedback' }).check();
+        await page.getByRole('checkbox', { name: 'Create access tokens', exact: true }).check();
         await expect(warning).toBeVisible();
         await expect(page.getByRole('checkbox', { name: 'Change status' })).not.toBeChecked();
         await expect(page.getByLabel('Connection name')).toHaveValue('E2E coding tool');
@@ -153,6 +157,13 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             } });
             expect(status.isError).toBe(true);
 
+            const created = await client.callTool({ name: 'create_access_token', arguments: {
+                name: 'Project watcher', workspaceId: projects.items.find(project => project.id === projectId)!.workspace.id,
+                projectIds: [projectId], scopes: ['feedback:read'], days: 7, idempotencyKey: crypto.randomUUID()
+            } });
+            expect(created.isError).not.toBe(true);
+            const watcherToken = (created.structuredContent as { token: string }).token;
+
             await page.goto('/app/account/coding-agents');
             const apps = page.getByRole('region', { name: 'Connected apps' });
             const row = apps.getByRole('listitem').filter({ hasText: 'Laptop agent' });
@@ -161,6 +172,17 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             await expect(row).toContainText('Sends you back to this computer');
             await expect(row).toContainText('2 workspaces, all projects in one, 1 project');
             await expect(row).toContainText('Read feedback, Reply to feedback');
+            await expect(row).toContainText('Create access tokens');
+            await page.getByRole('button', { name: 'Show access tokens' }).click();
+            const tokenRow = page.getByRole('list', { name: 'Your access tokens' }).getByRole('listitem').filter({ hasText: 'Project watcher' });
+            await expect(tokenRow).toContainText('Created by Laptop agent');
+            await expect(tokenRow).toContainText('Read feedback');
+            await expect(page.locator('body')).not.toContainText(watcherToken);
+            await tokenRow.getByRole('button', { name: 'Revoke Project watcher' }).click();
+            await expect(tokenRow).toHaveCount(0);
+            const revokedWatcher = await fetch(flow.serverUrl, { method: 'POST', headers: { Authorization: `Bearer ${watcherToken}`, 'Content-Type': 'application/json',
+                Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list' }) });
+            expect(revokedWatcher.status).toBe(401);
             await row.getByRole('button', { name: 'Details for Laptop agent' }).click();
             await expect(row).toContainText('Personal: All projects, including new ones');
             await expect(row).toContainText('uier: uier.io user feedback');

@@ -9,7 +9,7 @@ to one `McpIdentity` in `credentials.ts` (user, `connection: { id, kind, name, c
 
 - **Connected apps (OAuth).** `uier_at.` access tokens backed by an `mcp-grant`, created through
   consent at `/app/connect/<requestId>` and listed under Account → Coding agents → Connected apps.
-- **Access tokens.** `uier_mcp.` manual credentials for environments without a browser: 30-day,
+- **Access tokens.** `uier_mcp.` credentials for environments without a browser: 30-day,
   named, read-only by default, with explicit project selection in the current workspace; raw secrets
   are shown once and only hashes are stored. They become
   `{ kind: 'selected', workspaces: [{ workspaceId, projects }] }` internally.
@@ -98,6 +98,29 @@ describes these records: change it with what they contain. The event contract,
 `scripts/mcp-report.mjs` and `mcp/report.ts` can validate exported events without loading the server;
 `e2e/mcp-report.api.spec.ts` covers the [daily report](../../../docs/mcp.md#daily-report).
 Access tokens remain bound to one workspace; connected apps reach the workspaces chosen at consent.
+
+**Creating access tokens through MCP.** `tokens:create` ("Create access tokens") is an explicit
+operation in consent and Account's operations list. Consent leaves it off even when requested;
+Select all operations includes it. Existing grants keep their stored scopes. `create_access_token`
+(`createAccessToken.ts`) requires that permission, a name, `workspaceId`, 1–20 distinct explicit
+`projectIds`, scopes, `days` (integer 1–30) and an `idempotencyKey`. It checks every project with
+`mcpProject`, including current membership, and rejects scopes absent from the authenticating token
+(including a narrowed OAuth access token). The issued token can never contain `tokens:create` or
+future/all-project selections. It is an ordinary independently revocable credential; revoking its
+creator does not revoke it, and its own current project/membership checks still apply.
+
+Creation is limited by durable counters to 5 per connection and 10 per account per hour. A per-account
+guard serializes hand-made and MCP creation at the shared 20-active-token limit. One app-container
+transaction writes the credential hash and a `mcp-credential-creation` receipt/audit in the owner's
+partition: input hash, credential metadata, creation/expiry and creating connection. The receipt
+expires after 30 days, also when the token was revoked sooner. No secret is stored. Concurrent calls
+or later retries with the same key return metadata only (`alreadyCreated: true`); changed input
+conflicts. Only the winning response contains `token`. A lost first response requires revoking that
+token before deliberately requesting a replacement. Account receives only the creator's display name
+and labels the token "Created by <connection>". Request telemetry records tool outcome and shapes,
+never the secret or name. `e2e/mcpAccessTokens.api.spec.ts` covers validation, authorization, live
+access, limits, atomicity, retries and secret-free audit/logs; OAuth API coverage includes narrowed
+scopes and refresh. The OAuth browser journey proves opt-in, account provenance and revocation.
 Account guidance and `mcp/workflows.ts` explain where feedback about uier itself lives (the uier
 workspace's public-feedback project). Missing project grants stay `not_found` without exposing
 project existence; direct users to `list_projects` and to reconnecting or explicit token setup

@@ -84,3 +84,13 @@ kept, and workspaces created from the menu use the name the person enters.
 
 Browser coverage checks the Personal name when skipping first-run setup and in OAuth consent,
 project listings and connected-app access details.
+
+## Access tokens created by a connection
+
+The MCP `create_access_token` tool requires the separately granted `tokens:create` operation.
+It selects 1–20 explicit projects in one workspace, rechecks each through `mcpProject` against the
+connection's selection and the person's live membership/team access, and permits only operations on
+the authenticating connection. OAuth access-token narrowing applies. Issued tokens never include
+`tokens:create`, last 1–30 days, and retain live member/private-feedback checks on use. A token is
+independently revocable under Account → Coding agents → Access tokens, with its creator named there.
+See [MCP connector](mcp-connector.md) for atomic audit/retry storage and creation limits.

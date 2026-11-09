@@ -993,6 +993,42 @@ test('manual credentials keep their one-workspace shape next to OAuth connection
     expect((await authenticateMcp(bearer(secret), base)).connection.id).toBe(credential.id);
 });
 
+test('OAuth token creation honors selected and all-project grants, narrowed access-token scopes and refresh retries', async () => {
+    const a = await person('oauth-create-tokens');
+    const reviewed = await project(a.context, 'Token target');
+    const other = await project(a.context, 'Outside selection');
+    const app = await connectApp(a.user, { name: 'OAuth issuer', scopes: ['feedback:read', 'screenshots:read', 'tokens:create'],
+        access: { kind: 'selected', workspaces: [{ workspaceId: a.workspaceId, projects: [reviewed.id] }] } });
+    const input = { name: 'OAuth watcher', workspaceId: a.workspaceId, projectIds: [reviewed.id], scopes: ['feedback:read'], days: 7, idempotencyKey: randomUUID() };
+    const client = await connectMcp(app.tokens.access_token);
+    try {
+        expect(await callTool(client, 'create_access_token', { ...input, projectIds: [other.id] })).toMatchObject({ error: 'not_found' });
+        const created = await callTool(client, 'create_access_token', input);
+        expect(created.token).toMatch(/^uier_mcp\./);
+        expect(created.credential.createdBy).toEqual({ id: app.grantId, kind: 'oauth', name: 'OAuth issuer', clientId: app.clientId });
+        const rotated = await refresh(app.clientId, app.tokens.refresh_token, { scope: 'feedback:read tokens:create' });
+        const narrowed = await connectMcp(rotated.body.access_token);
+        try {
+            expect(await callTool(narrowed, 'create_access_token', { ...input, scopes: ['feedback:read', 'screenshots:read'] })).toMatchObject({ error: 'forbidden' });
+            const retried = await callTool(narrowed, 'create_access_token', input);
+            expect(retried).toMatchObject({ alreadyCreated: true, credential: created.credential });
+            expect(retried.token).toBeUndefined();
+        } finally { await narrowed.close(); }
+        const readOnly = await refresh(app.clientId, rotated.body.refresh_token, { scope: 'feedback:read' });
+        const readClient = await connectMcp(readOnly.body.access_token);
+        try { expect(await callTool(readClient, 'create_access_token', input)).toMatchObject({ error: 'forbidden' }); }
+        finally { await readClient.close(); }
+    } finally { await client.close(); }
+    for (const access of [{ kind: 'all' }, { kind: 'selected', workspaces: [{ workspaceId: a.workspaceId, projects: 'all' }] }] as AgentAccess[]) {
+        const broad = await connectApp(a.user, { access, scopes: ['feedback:read', 'tokens:create'] });
+        const client = await connectMcp(broad.tokens.access_token);
+        try {
+            const created = await callTool(client, 'create_access_token', { ...input, idempotencyKey: randomUUID(), projectIds: [other.id] });
+            expect((await authenticateMcp(bearer(created.token), base)).access).toEqual({ kind: 'selected', workspaces: [{ workspaceId: a.workspaceId, projects: [other.id] }] });
+        } finally { await client.close(); }
+    }
+});
+
 test('idempotent writes keep their receipt across a token refresh and replies carry the connection name', async () => {
     const a = await person('oauth-writes');
     const reviewed = await project(a.context, 'Reviewed');
