@@ -24,6 +24,9 @@
   Never delete the original before this transaction succeeds. Public authors and project authors/admins
   can replace evidence; readers retain the existing comment visibility rules. The screenshot replacement
   API/browser tests cover failure, reload, redaction, private visibility and deletion.
+- A new comment's `screenshot` is either the automatic capture or the reviewer's own attached image
+  (toolbar Attach image or paste). The API cannot tell them apart and needs not: `comments/validation.ts`
+  parses (`parseScreenshot`) and re-encodes (`sanitizeScreenshot`) every one under the same limits and image budget.
 - Reproduction context is allowlisted by `src/lib/comments/reproduction.ts`: only authorized project members
   get it in the review DTO or app cards. Public/guest `device` DTOs stay limited to size and viewport. Capture time
   and viewport belong to the original feedback start; page links validate the project's origin and retain only stored approved page state.
