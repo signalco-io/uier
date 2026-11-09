@@ -369,7 +369,7 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore()) {
+export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean } = {}) {
     const authorize = async (comment: DbComment) => {
         await refreshMutationActor(project, actor, guard?.requireComments);
         visibleOrThrow(comment, actor);
@@ -383,10 +383,13 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
         if (guard && guard.value(comment) !== guard.expected) throw apiErrors.conflict();
         const changed = await change(comment);
         guard?.onResult?.(changed !== comment);
+        // Presence changes only the etag: no unread step, content timestamp, integration or title work.
+        if (options.ephemeral) return changed;
         return changed === comment ? comment : withSyncMark(project, comment, { ...changed, updatedAt: nowIso() });
     };
     const saved = attempt ? await commitChangeSubmission(store, attempt, id, authorize, apply, guard?.onResult)
         : await updateComment(store, project, actor, id, apply);
+    if (options.ephemeral) return saved;
     queueMcpEventDelivery(project.id);
     // A new first message (an edit) gets a new title; a thread made before titles gets its first one
     queueAiTitles(project, [saved], 'change');

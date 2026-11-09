@@ -2,6 +2,7 @@
 
 import { useRef, useState, type MouseEvent } from 'react';
 import { agentModelText, modelName, reasoningText } from '@uier/toolbar/agents';
+import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { cn } from '@/src/lib/utils';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
@@ -28,9 +29,10 @@ export function AssigneeCard({ assignee, me, tabbable = true, onPress, className
     const [open, setOpen] = useState(false);
     const pointer = useRef<string>('');
     const agent = assignee.agent;
+    const working = useAgentWorking(agent?.workingUntil);
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-assignee-card="" aria-label={assignedLabel(assignee, me ? assignee.id : undefined)} tabIndex={tabbable ? undefined : -1}
+            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-assignee-card="" aria-label={assignedLabel(assignee, me ? assignee.id : undefined, working)} tabIndex={tabbable ? undefined : -1}
                 onPointerDown={event => { pointer.current = event.pointerType; }}
                 onClick={event => {
                     // Keyboard clicks have no detail; a tap has no hover to show the card
@@ -53,9 +55,10 @@ export function AssigneeCard({ assignee, me, tabbable = true, onPress, className
                 </Item>
                 {agent && (
                     <Item size="xs" variant="muted">
-                        <ItemMedia><AgentAvatar kind={agent.kind} className="size-8" /></ItemMedia>
+                        <ItemMedia><AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-8" /></ItemMedia>
                         <ItemContent className="min-w-0">
                             <ItemTitle>{agent.label}</ItemTitle>
+                            {working && <ItemDescription>Working now</ItemDescription>}
                             {/* By name like the thread's Assignee field, the reported id as its title; an unknown id as it is, in mono */}
                             {agent.model
                                 ? <ItemDescription data-agent-model="" title={agent.model} className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'}>

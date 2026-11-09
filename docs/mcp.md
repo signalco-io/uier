@@ -355,7 +355,8 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 | `set_feedback_agent` | `feedback:assign` | Attach the connection as the AI agent working under its owner on feedback assigned to them ([agents](#agents-working-on-feedback)) |
-| `clear_feedback_agent` | `feedback:assign` | Remove the agent working under the connection's owner |
+| `set_feedback_agent_working` | `feedback:assign` | Start, renew or clear a five-minute active-work indicator without changing thread status |
+| `clear_feedback_agent` | `feedback:assign` | Remove the agent working under the connection's owner and end its active-work indicator |
 
 All tools are listed for every connection. A call without the needed operation returns a `forbidden`
 tool error ("This connection needs `<scope>`."); there is no step-up sign-in yet.
@@ -849,13 +850,14 @@ attaches itself when it starts working on feedback assigned to its owner:
 | Tool | Scope | Input and meaning |
 | --- | --- | --- |
 | `set_feedback_agent` | `feedback:assign` | Thread ids, stable retry key, optional `agent` (`claude`, `codex`, `chatgpt`, `cursor` or `agent`), optional `sessionId` (up to 200 characters), `model` (up to 100) and `reasoning` (the reasoning level or effort, up to 32), optional `assignToMe`. Attaching moves Open feedback to In progress when the connection also has `feedback:status`. Calling it again updates the details; a detail it leaves out is cleared. |
+| `set_feedback_agent_working` | `feedback:assign` | Thread ids, stable retry key, `working` boolean, and the attached `sessionId` when present. `true` starts/renews a five-minute working lease; `false` clears only the indicator. Renew every two minutes with a fresh action key. |
 | `clear_feedback_agent` | `feedback:assign` | Thread ids and stable retry key. Removes the agent, for example when the tool stops without finishing. |
 
-Both return `{ actingAs, commentId, assigneeId, agent, stage }`, `agent` being `{ kind, label, model?, reasoning?, sessionId?, setAt }`
+All three return `{ actingAs, commentId, assigneeId, agent, stage }`, `agent` being `{ kind, label, model?, reasoning?, sessionId?, setAt, workingUntil? }`
 or `null` and `stage` the thread's status after the write (`open`, `in-progress`, `ready` or `done`).
 
 - **Only under its owner.** The thread must be assigned to the connection's owner. Feedback assigned to
-  someone else is `forbidden` for both tools, whoever the owner is (admins included): nobody puts an
+  someone else is `forbidden` for all three tools, whoever the owner is (admins included): nobody puts an
   agent under another person, and a tool never reassigns feedback to make room.
 - **Unassigned feedback** is `forbidden` ("Assign this thread to yourself first.") unless
   `assignToMe: true`, which assigns the owner and attaches the agent in one write. Pass it only when the
@@ -869,6 +871,19 @@ or `null` and `stage` the thread's status after the write (`open`, `in-progress`
   connection). Feedback that is already In progress, Ready to verify or Done keeps its status, and
   updating the details, attaching again or `clear_feedback_agent` never change it. Without
   `feedback:status` the tool only attaches the agent, so a token without that scope never changes status.
+- **Working now is separate.** After attaching, call `set_feedback_agent_working` with `working: true`.
+  A small spinner appears beside the agent's avatar in lists, boards, My work, the thread, the
+  assignee card and the toolbar. With reduced motion it stays still. The server returns `workingUntil`
+  (an ISO timestamp) only while the lease is live; expired/older attachments have none. The client also
+  expires it locally, even offline. Renew every two minutes while working, with a fresh idempotency key;
+  retry an interrupted action with its original key and input, which never extends that lease.
+  `working: false` clears the indicator while keeping the agent attached. Neither start, renewal, stop
+  nor expiry changes Open/In progress/Ready to verify/Done, unread activity or content timestamps, and
+  they create no activity entry, email, integration signal or `feedback.agent_changed` event.
+  Only the attached connection under the current assignee, with the matching session id (if any), can
+  report work. A stale session or different connection gets `conflict`; attach it first with
+  `set_feedback_agent`. Detaching or changing agent kind, session, connection or assignee ends the lease.
+  Updating model/reasoning within the same attached session keeps the lease until renewed or expired.
 - **The kind** is `agent` when given, otherwise inferred from what the connection calls itself (the
   connected app's or access token's name, its client id, the request's user agent): Claude, Codex, ChatGPT
   (or OpenAI) and Cursor, else AI agent. It only chooses a label and an avatar.

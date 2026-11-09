@@ -16,7 +16,13 @@ export const MAX_AGENT_MODEL_LENGTH = 100;
 export const MAX_AGENT_REASONING_LENGTH = 32;
 
 /** What views show about the agent; `sessionId`, `model` and `reasoning` are what the agent or its assignee said, untrusted. */
-export type AssigneeAgentView = { kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string };
+export type AssigneeAgentView = { kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string; workingUntil?: string };
+
+/** A working claim is a five-minute lease, renewed with a new action key while the agent is active. */
+export const AGENT_WORKING_LEASE_MS = 5 * 60 * 1000;
+export function agentIsWorking(workingUntil: string | undefined, now = Date.now()) {
+    return Boolean(workingUntil && Date.parse(workingUntil) > now);
+}
 
 /**
  * The AI agent that wrote a message for its author through a coding tool connection (MCP): "Ana via

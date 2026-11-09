@@ -44,6 +44,7 @@ const toolScopes = [
     ['cancel_feedback_verification', 'feedback:status', 'Cancel the current fix check after approval.'],
     ['assign_feedback', 'feedback:assign', 'Assign an eligible participant, or unassign, after approval.'],
     ['set_feedback_agent', 'feedback:assign', 'Attach yourself as the agent working under the person on feedback assigned to them; Open feedback moves to In progress when the connection also has feedback:status.'],
+    ['set_feedback_agent_working', 'feedback:assign', 'Report active work with a five-minute lease; renew every two minutes or clear it without changing thread status.'],
     ['clear_feedback_agent', 'feedback:assign', 'Remove the agent working under the person, for example when you stop.'],
 ] as const;
 
@@ -77,7 +78,7 @@ For an approved assignment, first use list_assignees for the thread. Assignment 
 
 ## Show that you are working on it
 
-When the person asks you to work on feedback that is assigned to them, call set_feedback_agent for that thread before you start, with your session id, model and reasoning level when you know them; uier shows you beside them as the agent working on it. Asking you to work on it approves this one write. Call clear_feedback_agent when you stop without finishing. Only the assignee's own connection can attach an agent: feedback assigned to someone else is refused, so do not reassign it to make room. For unassigned feedback, pass assignToMe: true only after the person explicitly approves taking it. A new assignment removes the agent. Replies you post show as written by you for the person ("Ana via Claude"), with the attached agent's model and reasoning level; when you have not attached yourself, pass agent, model and reasoning to reply_to_feedback when you know them.
+When the person asks you to work on feedback that is assigned to them, call set_feedback_agent for that thread before you start, with your session id, model and reasoning level when you know them; uier shows you beside them as the agent working on it. Asking you to work on it approves attaching yourself and reporting active work for this task. After attaching, call set_feedback_agent_working with working: true and the attached sessionId, if any. Renew every two minutes while actively working, with a fresh idempotency key per renewal (reuse the original key only for retries). Each lease expires after five minutes. Call it with working: false when you pause or finish; this keeps the agent attached and never changes the thread status. Call clear_feedback_agent to detach when you stop without finishing; detaching also ends the working indicator. Only the assignee's own connection can attach an agent: feedback assigned to someone else is refused, so do not reassign it to make room. For unassigned feedback, pass assignToMe: true only after the person explicitly approves taking it. A new assignment removes the agent. Replies you post show as written by you for the person ("Ana via Claude"), with the attached agent's model and reasoning level; when you have not attached yourself, pass agent, model and reasoning to reply_to_feedback when you know them.
 
 ## Watch for new activity
 

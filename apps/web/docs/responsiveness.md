@@ -8,6 +8,12 @@ HTTP fallback, draft preservation and the provider boundaries. See [realtime](..
 and `e2e/realtime.api.spec.ts` / `e2e/realtime.spec.ts`. Sockets need Fluid compute, enabled on the
 Vercel project by Pulumi (`infra/src/vercel.ts`), not `vercel.json`: prebuilt CI deploys never read it.
 
+Agent working leases (`assigneeAgent.workingUntil`) use the same etag-based realtime refetch as
+attachment changes. They do not advance unread activity, content timestamps or edit revisions. The avatar's shared
+`useAgentWorking` timer removes the spinner and working label when the lease expires, even without
+a socket or successful refresh; renewals replace that deadline and clean up the old timer. No
+presence polling is added, and replies/drafts/focus remain in their existing client state.
+
 `projects.ts` and `members.ts` share repeated render reads through React `cache` (metadata,
 layouts and pages). `loadWorkspaceAccessForRender` shares the render's team snapshot; mutation
 retries must continue to use uncached `loadWorkspaceAccess`. Nothing caches access across requests.

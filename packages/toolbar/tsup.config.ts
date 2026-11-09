@@ -76,7 +76,7 @@ export default defineConfig(({ env }) => {
     }, {
         // `@uier/toolbar/react` (src/react.ts): the React component that adds the script above to a page.
         // An ES module for bundlers; React comes from the site.
-        entry: { react: './src/react.ts' },
+        entry: { react: './src/react.ts', agentWorking: './src/useAgentWorking.ts' },
         outDir,
         format: ['esm'],
         outExtension: () => ({ js: '.js' }),

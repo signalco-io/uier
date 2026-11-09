@@ -81,6 +81,11 @@
             "development": "./dist-dev/verification.js",
             "default": "./dist/verification.js"
         },
+        "./agent-working": {
+            "types": "./src/useAgentWorking.ts",
+            "development": "./dist-dev/agentWorking.js",
+            "default": "./dist/agentWorking.js"
+        },
         "./agents": {
             "types": "./src/agents.ts",
             "development": "./dist-dev/agents.js",

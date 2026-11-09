@@ -31,7 +31,7 @@ import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
 import { userIdSchema } from '../app/validation';
 import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
-import { setProjectCommentAgent } from '../review/assigneeAgent';
+import { setProjectCommentAgent, setProjectCommentAgentWorking } from '../review/assigneeAgent';
 import { assigneeAgentView } from '../review/assigneeAgentModel';
 import { messageAgentView } from '../review/messageAgent';
 
@@ -243,7 +243,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }));
     const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>) =>
         result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null, agent: assigneeAgentView(saved) ?? null, stage: feedbackStage(saved) });
-    server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
+    server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Then call set_feedback_agent_working with working: true to report that you are actively working now. Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
         ...write,
         agent: z.enum(agentKinds).optional().describe('Which agent you are: claude, codex, chatgpt, cursor, or agent for any other. Omit it to use the one this connection identifies as.'),
         sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe(`Your session or conversation id, when you have one (up to ${MAX_AGENT_SESSION_LENGTH} characters).`),
@@ -256,7 +256,15 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, model: input.model, reasoning: input.reasoning },
             { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status') }));
     }));
-    server.registerTool('clear_feedback_agent', { description: `Remove the AI agent working under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: write, annotations: writeAnnotations }, input => safely(async () => {
+    server.registerTool('set_feedback_agent_working', { description: `Report whether you are actively working now, separately from the thread's In progress status, which never changes here. First attach this connection and session with set_feedback_agent. working: true starts or renews a five-minute lease; renew every two minutes with a fresh idempotency key while working. Retry the same action with its original key; a retry never extends the lease. working: false clears the indicator but keeps you attached. Detaching, changing agent/session or changing assignee ends it too. No unread activity, email or agent event is recorded for these transient heartbeats. ${untrusted}`, inputSchema: {
+        ...write,
+        working: z.boolean().describe('true: actively working now, for five minutes unless renewed. false: stop showing the indicator, keeping the attached agent and thread status.'),
+        sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe('The exact session id attached with set_feedback_agent. Required when the attached agent has a session id; omit when it has none.')
+    }, annotations: writeAnnotations }, input => safely(async () => {
+        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        return agentResult(await setProjectCommentAgentWorking(project, actor, input.commentId, { working: input.working, sessionId: input.sessionId }, key(identity, input.idempotencyKey)));
+    }));
+    server.registerTool('clear_feedback_agent', { description: `Remove the AI agent and any active working indicator under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: write, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey) }));
     }));

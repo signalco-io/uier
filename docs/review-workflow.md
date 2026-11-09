@@ -315,6 +315,13 @@ reported, in mono. MCP packets and Markdown keep the reported id.
   MCP tools call it. `e2e/assignee-agent.api.spec.ts` covers the rules and `e2e/assignee-agent.spec.ts`
   picking an agent, its logo in the thread and the menu, its details (reasoning level included) and its avatar on rows, the board and the toolbar.
 
+The agent can separately report **Working now** through MCP. Its avatar then has a small spinner
+throughout the app and toolbar (still with reduced motion), and the assignee card says Working now.
+This is a five-minute lease, renewed every two minutes while active; expiry clears the indicator even
+offline. Stopping clears only the indicator, and detaching/reassigning also ends it. The thread's
+In progress status stays as it is. These transient updates add no unread activity or notifications.
+See [the MCP tools](mcp.md#agents-working-on-feedback).
+
 #### Messages an AI agent writes
 
 A reply a coding tool posts through MCP for its owner is marked as written by the agent. The app's

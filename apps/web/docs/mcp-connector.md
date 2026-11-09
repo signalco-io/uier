@@ -104,6 +104,13 @@ project existence; direct users to `list_projects` and to reconnecting or explic
 rather than expanding access. List-tool descriptions and field schemas must both
 state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
 
+`set_feedback_agent_working` (`feedback:assign`) reports transient active work after attachment:
+`working: true` starts/renews a server-issued five-minute lease, `false` clears it. Supply the attached
+session id when present; only that connection/session under its owner can change it. Renew every two
+minutes with a fresh action key; receipt retries never extend the lease. It never changes thread
+status or unread activity and emits no agent events. Detach/reassignment ends it; client expiry also
+clears the indicator without another write. See [AI agents](assignee-agents.md).
+
 Tools reuse review services. Replies and status/assignment events retain the human author plus
 connection attribution; replies are also marked with the agent that wrote them (`writtenBy`,
 [AI agents](assignee-agents.md)). All mutations require a stable idempotency key and share atomic submission
