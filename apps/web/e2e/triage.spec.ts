@@ -231,15 +231,16 @@ test('selection caps at the first 50 shown and leaves the remaining result untou
     const { project, headers, comments } = await fixture(page, request, 51);
     await page.getByRole('checkbox', { name: 'Select first 50 shown', exact: true }).check();
     await expect(page.getByText('50 selected', { exact: true })).toBeVisible();
-    await expect(selected(page, comments[0]!.number)).not.toBeChecked();
-    await expect(selected(page, comments[0]!.number)).toBeDisabled();
-    await expect(selected(page, comments[50]!.number)).toBeChecked();
+    // The first 50 in the list's order: by number, lowest first, so the newest one is left out
+    await expect(selected(page, comments[50]!.number)).not.toBeChecked();
+    await expect(selected(page, comments[50]!.number)).toBeDisabled();
+    await expect(selected(page, comments[0]!.number)).toBeChecked();
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: 'Low', exact: true }).click();
     await expect(page.getByText('50 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     const saved = await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json();
     expect(saved.filter((item: { priority: string }) => item.priority === 'low')).toHaveLength(50);
-    expect(saved.find((item: { id: string }) => item.id === comments[0]!.id).priority).toBe('normal');
+    expect(saved.find((item: { id: string }) => item.id === comments[50]!.id).priority).toBe('normal');
 });
 
 

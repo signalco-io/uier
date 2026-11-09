@@ -20,6 +20,7 @@ import { CommentBoard } from './CommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
+import { orderComments } from './commentOrder';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
@@ -95,7 +96,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         setUrlSearchParams({ q: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
-    const [comments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
+    const [optimisticComments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
         if (comment.id !== update.id) return comment;
         if ('patch' in update) return { ...comment, ...update.patch };
         if ('reply' in update) {
@@ -106,6 +107,9 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
+    // Priority first (Urgent to Low), then number, lowest first: the list, every board column, where a
+    // dragged card lands, selection and the keyboard all follow this order, and so do changes as they arrive
+    const comments = orderComments(optimisticComments);
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
     // closed, so it cannot reopen later when the scope changes back
     const openId = openComment.openId;
