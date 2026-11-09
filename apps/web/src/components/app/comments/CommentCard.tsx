@@ -6,7 +6,7 @@ import { FeedbackTypeIcon } from '../FeedbackTypeIcon';
 import { PriorityControl } from './PriorityControl';
 import { useCommitCommentsSearch } from './CommentsSearchNavigation';
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeftIcon,
@@ -74,6 +74,7 @@ import { ReplyComposer } from './ReplyComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
+import { appCommentDrafts } from './replyDrafts';
 import { MessageEditor } from './MessageEditor';
 import type { MessageMention } from './MentionTextarea';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
@@ -203,6 +204,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 }) {
     const router = useRouter();
     const updateComment = useCommentUpdate();
+    const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
     const [replying, setReplying] = useState(false);
     const commitSearch = useCommitCommentsSearch();
     const [pending, startTransition] = useTransition();
@@ -214,6 +216,32 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // The message being edited in place: the saved text it started from (the edit's `expectedText`) and, after a
     // failed save, the text that was tried and why it failed
     const [editingReply, setEditingReply] = useState<{ id: string; expectedText: string; text: string; mentions: MessageMention[]; error?: string }>();
+    // Restore only after hydration, once per thread/account scope. Refreshed props must never reset an open composer.
+    const restoreComposers = useEffectEvent(() => {
+        setEditing(permissions.edit && typeof drafts.details('edit')?.originalText === 'string');
+        const item = comment.replies.find(item => item.editable && typeof drafts.details(`edit-reply:${item.id}`)?.originalText === 'string');
+        if (item) {
+            const saved = drafts.details(`edit-reply:${item.id}`)!;
+            setEditingReply({ id: item.id, expectedText: saved.originalText!, text: saved.text, mentions: saved.mentions ?? [] });
+        }
+    });
+    useEffect(() => { restoreComposers(); }, [drafts]);
+    const beginEdit = (key: string, text: string, mentions: MessageMention[] = []) => {
+        if (typeof drafts.details(key)?.originalText === 'string') return;
+        drafts.set(key, text);
+        drafts.setDetails(key, { originalText: text, mentions });
+    };
+    const finishSavedEdit = (key: string, text: string, mentions: MessageMention[] = []) => {
+        const current = drafts.details(key);
+        if (!current) return true;
+        if (current.text === text && JSON.stringify(current.mentions ?? []) === JSON.stringify(mentions)) {
+            drafts.delete(key);
+            return true;
+        }
+        // Someone continued typing while the save was pending, possibly in a remounted editor.
+        drafts.setDetails(key, { originalText: text.trim() });
+        return false;
+    };
     // The reply whose More actions takes the focus back once its edit closes and nothing is pending
     const replyActionsFocus = useRef<string>(undefined);
     // The Request verification form, opened from the status menu
@@ -309,6 +337,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const editChosen = useRef(false);
     const threadActionsFocus = useRef(false);
     const closeEdit = () => {
+        drafts.delete('edit');
         threadActionsFocus.current = true;
         setEditing(false);
     };
@@ -319,13 +348,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     }, [pending, editing]);
     const saveEdit = (text: string) => startTransition(async () => {
         let result: ActionState;
-        try { result = await editCommentAction(projectId, comment.id, text); }
+        try { result = await drafts.run('edit', () => editCommentAction(projectId, comment.id, text)); }
         catch { result = { ok: false, error: 'Could not save the change. Try again.' }; }
         if (result && !result.ok) {
             setEditError(result.error);
             return;
         }
-        closeEdit();
+        if (finishSavedEdit('edit', text)) closeEdit();
     });
 
     useEffect(() => {
@@ -335,7 +364,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         cardRef.current?.querySelector<HTMLElement>(`[data-reply-actions="${CSS.escape(id)}"]`)?.focus();
     }, [pending, editingReply]);
 
-    const closeReplyEdit = (id: string) => {
+    const closeReplyEdit = (id: string, discard = true) => {
+        if (discard) drafts.delete(`edit-reply:${id}`);
         replyActionsFocus.current = id;
         setEditingReply(undefined);
     };
@@ -347,7 +377,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         const sentMentions = mentions.filter(mention => mention.start >= leading && mention.end <= text.trimEnd().length)
             .map(mention => ({ ...mention, start: mention.start - leading, end: mention.end - leading }));
         const unchanged = sent === expectedText && JSON.stringify(sentMentions) === JSON.stringify(item.editable?.mentions ?? []);
-        closeReplyEdit(item.id);
+        closeReplyEdit(item.id, unchanged);
         if (unchanged) return;
         startTransition(async () => {
             updateComment({ id: comment.id, patch: { replies: comment.replies.map(current => current.id === item.id ? {
@@ -355,10 +385,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 edited: true, editable: { text: sent, mentions: sentMentions }
             } : current) } });
             let result: ActionState;
-            try { result = await editCommentReplyAction(projectId, comment.id, item.id, sent, expectedText, sentMentions); }
+            try { result = await drafts.run(`edit-reply:${item.id}`, () => editCommentReplyAction(projectId, comment.id, item.id, sent, expectedText, sentMentions)); }
             catch { result = { ok: false, error: 'Could not save the change. Try again.' }; }
             // The tried text stays in the field with the reason, as the toolbar keeps it
-            if (result && !result.ok) setEditingReply({ id: item.id, expectedText, text, mentions, error: result.error });
+            if (result && !result.ok) {
+                if (drafts.details(`edit-reply:${item.id}`))
+                    setEditingReply({ id: item.id, expectedText, text, mentions, error: result.error });
+            } else if (!finishSavedEdit(`edit-reply:${item.id}`, text, mentions)) {
+                const newer = drafts.details(`edit-reply:${item.id}`)!;
+                setEditingReply({ id: item.id, expectedText: sent, text: newer.text, mentions: newer.mentions ?? [] });
+            }
         });
     };
 
@@ -377,7 +413,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <DropdownMenuContent align="end" className="w-auto min-w-48">
                             <DropdownMenuGroup>
                                 {editable && (
-                                    <DropdownMenuItem onClick={() => setEditingReply({ id: item.id, expectedText: editable.text, text: editable.text, mentions: editable.mentions })}>
+                                    <DropdownMenuItem onClick={() => {
+                                        beginEdit(`edit-reply:${item.id}`, editable.text, editable.mentions);
+                                        setEditingReply({ id: item.id, expectedText: drafts.details(`edit-reply:${item.id}`)!.originalText!, text: editable.text, mentions: editable.mentions });
+                                    }}>
                                         <PencilIcon />
                                         Edit
                                     </DropdownMenuItem>
@@ -401,7 +440,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">Reply deleted</p>
                     : edit
-                        ? <MessageEditor mentionsIn={{ projectId, commentId: comment.id }} label="Edit reply"
+                        ? <MessageEditor drafts={drafts} draftKey={`edit-reply:${item.id}`} mentionsIn={{ projectId, commentId: comment.id }} label="Edit reply"
                             text={edit.text} mentions={edit.mentions} error={edit.error}
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
@@ -486,6 +525,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                             onClick={() => {
                                                 editChosen.current = true;
                                                 setEditError(undefined);
+                                                beginEdit('edit', comment.text);
                                                 setEditing(true);
                                             }}>
                                             <PencilIcon />
@@ -573,7 +613,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
                                 : editing
-                                    ? <MessageEditor label="Edit comment" text={comment.text} error={editError} pending={pending}
+                                    ? <MessageEditor drafts={drafts} draftKey="edit" label="Edit comment" text={comment.text} error={editError} pending={pending}
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}

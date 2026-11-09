@@ -124,8 +124,9 @@
   `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
   Replies preserve status and unread state; `CommentUpdates` appends pending messages and action
   revalidation reconciles them. Seven-day drafts are scoped to app origin/deployment, project,
-  account and thread. Closing/filtering keeps text; explicit discard, successful send and both
-  app sign-out controls clear relevant drafts. Storage failure stays in memory with a notice.
+  account and thread, without a build id, so a deployment reload uses the same draft. Closing/filtering
+  keeps text; explicit discard, successful send and both app sign-out controls clear relevant drafts.
+  Storage failure stays in memory with a notice.
   Reply's Attach image and image paste use the same memory-only browser reader (`@uier/toolbar/attachments`)
   as new toolbar comments: one PNG, JPEG or WebP up to 512 KB and 4096 px per side. The file name replaces
   the attach button, with Remove; reading holds Enter/send, Discard clears the image, and failed sends restore
@@ -144,6 +145,16 @@
   Enter and Escape; mentions move with the text.
   After a chosen mention the caret is placed in a layout effect, in the same commit as the new value, so typing straight
   on continues after the name; a deferred move (`requestAnimationFrame`) once let later keys land before the name.
+  App edits use that same draft store/scope (`replyDrafts.ts`), with `edit` for the first message and
+  `edit-reply:<itemId>` for each reply. `MessageEditor` writes text and mentions synchronously, including empty
+  text; `CommentCard` restores open editors after hydration when the current view still allows editing.
+  Navigation, thread remounts, RSC refreshes and document reloads retain the draft and the reply's original
+  `expectedText`. Cancel/Escape explicitly discards the edit; successful saves clear it only after the action
+  succeeds. Saves share the draft store's pending lock across remounts and retain newer text typed while a
+  response is pending. Failed saves keep the draft across reloads; sign-out clears edits with replies. Captures
+  and image attachments stay in memory. `e2e/app-composer-drafts.spec.ts` exercises remounts, reloads, empty edits,
+  cancellation/saving and the real Next.js deployment-mismatch navigation fallback with the app reply and the
+  app's own toolbar feedback open. `app-message-edit.spec.ts` checks restored mentions and stale-edit protection.
   `editCommentReplyAction` calls the review API's edit (`editProjectCommentItem`: `expectedText`, mentions, the
   edited label); the new text shows at once through `CommentUpdates`. When the message changed in the meantime the
   edit is refused, the field keeps the tried text and says why. `e2e/app-message-edit.spec.ts` covers it. The first

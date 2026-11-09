@@ -19,3 +19,20 @@ idle view need not rerender the entire shell. Its current-page authorization and
 remain live; [app shell](../../../apps/web/docs/app-shell.md#idle-comments-refreshes) describes the
 five-minute shell safety refresh and preservation of drafts, focus, selected thread and optimistic
 state. The callback reason is local browser metadata, never a new WebSocket payload or identity.
+
+## Refreshes and deployment skew
+
+On `/app/projects/<id>`, `RealtimeComments` calls `router.refresh()` on actual changes, failed revision checks
+and the five-minute shell safety refresh. Matching builds merge the RSC snapshot into stable comment keys;
+toolbar queries also reconcile in place. Neither scheduler explicitly reloads the document. The toolbar's
+React embed leaves its script mounted on client navigation, and the runtime guards duplicate hosts.
+
+The pinned Next.js client (`fetch-server-response`) compares the response's navigation deployment/build id
+with the loaded client and returns an MPA navigation on mismatch. A refresh after a new deployment can
+therefore become a full page load, including when no navigation was requested by the person typing.
+This is a source-confirmed mechanism, not a confirmed trace of feedback #182. Keep this compatibility
+recovery and the current authorization checks; drafts must survive it. `app-composer-drafts.spec.ts`
+substitutes the RSC response's `x-nextjs-deployment-id` to exercise that real fallback and verifies both
+app reply and toolbar feedback drafts. Same-build refresh coverage checks the toolbar textarea remains
+connected and only one toolbar host exists. See [composer drafts](composer-popovers.md#drafts-across-reloads)
+and [app editors](../../../apps/web/docs/comment-thread.md).
