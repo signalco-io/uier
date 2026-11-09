@@ -22,3 +22,26 @@ Ordinary public-project enrollment grants no priority or bulk powers; `canTriage
 in services and DTOs. Priority adds activity/integration intent only, with no email event. Read it via
 `commentPriority` everywhere. Tests: `triage{,.api}.spec.ts`, MCP, feedback-context and integration
 suites. See [review workflow](../../../docs/review-workflow.md#search-priority-and-bulk-triage).
+
+## Selection
+
+Selecting stays out of sight until it is used, like Linear's and Gmail's lists. At rest a row's (or card's)
+box keeps its slot but shows only on hover or keyboard focus (`SelectComment`: `opacity-0`, still focusable,
+named and clickable); a touch screen has no hover, so there the slot is left out (`pointer-coarse:hidden`).
+The count line ends with Select (`Toggle`, "Select comments", pressed while selecting). Selecting is on while
+anything is selected, after Select or after a batch (`explicit`), and then every row shows its box and a
+checked row is tinted. The selection bar (`role="group"`, "Selected feedback actions") floats instead of
+pushing a row into the layout: `sticky` at the bottom of the scrolling panel, after the comments on screen
+(`order-last`) but next after Select in the focus order. It has Clear selection, Select shown results (or
+Select first 50 shown) with the count, then Assign, Priority, Done and Reopen, whose accessible names stay
+"Assign selected", "Prioritize selected", "Mark selected as done" and "Reopen selected"; under `@xl/comments`
+the actions take a line of their own without their icons. The outcome, the threads needing attention and
+Retry failed threads show above the actions, so they never move. The thread beside the list keeps clear of
+the bar through `--selection-bar`.
+
+Keys act from a row, a card or the bar, never while typing or in a menu or dialog: x selects the focused row,
+Ctrl or ⌘ + A the shown results, Escape ends selecting (also from the page). Shift-click on a box selects the
+range from the last box clicked. While selecting, a touch tap on a row selects it instead of opening it; the
+mouse and Enter still open it. Clear selection, Escape or Select again end selecting: nothing selected, no
+outcome, every row back at rest. `triage.spec.ts` covers rest, pointer, Shift-click, keyboard, touch, the bar
+on a phone, focus and axe in both themes.
