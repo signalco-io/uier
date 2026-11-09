@@ -411,6 +411,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
         updatedAt: now
     };
     delete updated.aiTitle;
+    delete updated.manualTitle;
     delete updated.verification;
     delete updated.authorId;
     delete updated.device;

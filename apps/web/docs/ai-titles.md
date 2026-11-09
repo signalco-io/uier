@@ -9,7 +9,7 @@ hash of the first message's text, model, time). Product behaviour is in
 | Path | What |
 | --- | --- |
 | `settings.ts` | `aiTitlesEnabled`: the project's `aiTitles` (`on`/`off`), else the workspace's (`aiTitles !== false`, so missing means on) |
-| `model.ts` | pure: `aiTitleSource`, `currentAiTitle`/`visibleAiTitle`, `needsAiTitle`, `cleanAiTitle` |
+| `model.ts` | pure: `aiTitleSource`, `currentAiTitle`/`visibleAiTitle`, `manualThreadTitle`/`threadTitle` (what shows), `needsAiTitle`, `cleanAiTitle`, `cleanManualTitle` |
 | `generate.ts` | the Haiku request (`createAiTitleService` takes an injected `fetch` for tests) |
 | `threadTitles.ts` | `queueAiTitles` (after the response), `makeAiTitle` (the write), `aiTitleCandidates` |
 | `telemetry.ts` | one `ai_title_usage` event per call |
@@ -25,7 +25,14 @@ hash of the first message's text, model, time). Product behaviour is in
   sync mark or notification event, and `commentRevision` ignores the field. It is dropped when the first
   message changed meanwhile. Edits of the first message (`editProjectCommentText`, `editProjectCommentItem`)
   and its deletion remove `aiTitle` in the same write. The write changes `_etag`, so open pages refresh.
-- **Showing it.** Only `currentAiTitle`/`visibleAiTitle` read it: a title whose source hash no longer matches
+- **A member's title.** `setProjectCommentTitle` (`lib/review/comments.ts`, those who can triage, through
+  `setCommentTitleAction`) stores `manualTitle` (`cleanManualTitle`: one line, at most 120 characters; empty
+  removes it). It is an ordinary change (history `title-edited`/`title-cleared`, `updatedAt`, sync, part of
+  `commentRevision`). `needsAiTitle` is false while it is set, so `makeAiTitle` neither asks nor writes; the
+  stored `aiTitle` stays and shows again once it is cleared. It stays through edits of the first message and
+  is removed with it. `threadTitle` picks what shows (`ai` says which), so every view below uses the member's
+  title first, also while AI titles are off; `ProjectCommentView.titleByAi` puts the AI mark on only an AI title.
+- **Showing it.** Only `currentAiTitle`/`visibleAiTitle` (through `threadTitle`) read it: a title whose source hash no longer matches
   the first message, or with titles off, is never shown. It reaches people only through views of threads
   they can see: `ProjectCommentView.title` (rows through `commentTitle`, the thread's `ThreadTitle`, search),
   `projectFeedbackExport`'s `title` option (Copy issue, MCP packets, connected services) and MCP
@@ -33,7 +40,11 @@ hash of the first message's text, model, time). Product behaviour is in
   excerpts).
 - **The prompt** keeps visitor text inside tags it cannot close and says it is not instructions; the answer
   is a `{ title }` JSON schema, cleaned by `cleanAiTitle` (plain text, one line, at most 80 characters, never
-  cut). Thinking is off, effort `low`, no fallbacks (Haiku has none). Events carry no text, titles or
+  cut; quotes go only as one pair around the whole title, so `"C" shortcut opens "Send feedback"` keeps
+  them; an answer with no letter or digit, such as `"""`, is no title). New titles carry
+  `cleanup: AI_TITLE_CLEANUP`; an older one with unbalanced quotes of any kind the earlier rule stripped
+  (`"`, `'`, `` ` ``, curly and angle quotes; apostrophes inside a word don't count) is not current, so it is
+  made again once through the usual bounded batches. Thinking is off, effort `low`, no fallbacks (Haiku has none). Events carry no text, titles or
   identifiers.
 - **Settings.** Workspace settings → AI (`WorkspaceAiTitlesForm`, a switch that saves at once,
   `setWorkspaceAiTitles`); project General → Thread titles (a select in `ProjectGeneralForm`, saved with
@@ -41,5 +52,6 @@ hash of the first message's text, model, time). Product behaviour is in
 - **Tests.** The Anthropic stub answers title requests (model `claude-haiku-5-5`) with an empty title unless
   the first message has `[stub:title:Words]`, so other tests keep their first lines.
   `e2e/ai-titles.api.spec.ts` covers the setting, the request with an injected fetch, storing, edits,
-  deletion, visibility and the bounds; `e2e/ai-titles.spec.ts` a row and the thread with a title and the
-  project setting turning it off.
+  deletion, visibility, the bounds, quotes, re-making titles that lost a quote and members' titles (who may
+  rename, AI never overwriting, clearing); `e2e/ai-titles.spec.ts` a row and the thread with a title, renaming
+  it in place (Enter, Escape, clearing) and the project setting turning it off.

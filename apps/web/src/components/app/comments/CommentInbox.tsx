@@ -223,7 +223,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                             className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 lg:scroll-mt-1',
                                 leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0')}>
                             <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
-                                <CommentRow comment={comment} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
+                                <CommentRow comment={comment} projectId={projectId} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
                                     selected={comment.id === opened?.id ? 'opened' : comment.id === selected?.id ? 'beside' : undefined}
                                     onOpen={event => open(comment.id, event)} />
                             </div>

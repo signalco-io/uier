@@ -96,8 +96,12 @@ first in Done (in its default sort, [below](#board-column-sorts)), including the
 existing layout motion.
 
 Rows and board cards show one small outlined pull request mark, named "Linked pull request", when a
-current message or reply links to a supported provider PR. It adds no control or tab stop and does not
-fetch provider state; the [open thread's details](comment-thread.md) list the links and their known states.
+current message or reply links to a supported provider PR. It is `PullRequestCard` (`ThreadPullRequests.tsx`),
+which works like the assignee card: hovering it, Enter on it (it shares the row's tab stop rule) or a tap
+opens a popover listing each pull request with its provider's mark, repository and number as an external link,
+and its state badge when known; a mouse click still opens the thread. State is read only while the popover is
+open, through the same endpoint and five-minute reuse as the [open thread's details](comment-thread.md).
+Provider titles are never read, so none shows. Rows without a project id and the board's drag preview keep the plain mark.
 `CommentRow` uses the browser-safe `lib/comments/pullRequestLinks.ts` recognizer for both layouts,
 including My work and the board's drag preview. Deleted messages lose their links; an edited or newly
 saved reply updates the mark through the existing comment refresh.

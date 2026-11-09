@@ -6,7 +6,7 @@ import { getAppStore } from '../app/store';
 import type { DbComment, DbCommentKind } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { AI_TITLE_MODEL, generateAiTitle, isAiTitleConfigured, type AiTitleInput, type AiTitleResult } from './generate';
-import { aiTitleSource, needsAiTitle } from './model';
+import { AI_TITLE_CLEANUP, aiTitleSource, needsAiTitle } from './model';
 import { aiTitlesEnabled } from './settings';
 import type { AiTitleOutcome, AiTitleTrigger } from './telemetry';
 
@@ -108,11 +108,11 @@ export async function makeAiTitle(ref: CommentRef, trigger: AiTitleTrigger, opti
         if (!current) return 'gone';
         const first = current.comment.thread?.items?.[0];
         if (!first || first.deletedAt || aiTitleSource(first.text) !== source) return 'stale';
-        // A concurrent title job may already have won while this one awaited the model or ETag.
-        if (current.comment.aiTitle?.source === source) return 'stale';
+        // A member gave it a title meanwhile, or a concurrent title job won while this one awaited the model or ETag
+        if (!needsAiTitle(current.comment)) return 'stale';
         const at = new Date(now()).toISOString();
         const write = await store.replace(withThreadHistory(current.comment, { ...current.comment,
-            aiTitle: { text: result.title, source, model: AI_TITLE_MODEL, generatedAt: at } }, 'system:ai-title', at), current.etag);
+            aiTitle: { text: result.title, source, model: AI_TITLE_MODEL, generatedAt: at, cleanup: AI_TITLE_CLEANUP } }, 'system:ai-title', at), current.etag);
         if (write === 'ok') return 'written';
         if (write === 'not_found') return 'gone';
         await new Promise(resolve => setTimeout(resolve, 10 * (attempt + 1) + Math.random() * 25));

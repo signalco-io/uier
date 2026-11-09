@@ -118,11 +118,11 @@ Contrast ratios are against the mode's background.
 | Colour | Hex | Use |
 | --- | --- | --- |
 | Blue | `#2E5BFF` | the one accent (white text on it: 5.2). As text on dark use `#7A9BFF` (8.0). |
-| Green | `#15803D` | resolved, success, the Done status (`#22C55E` as a dot on dark) |
+| Green | `#15803D` | resolved, success, the Done status, an open pull request (`#22C55E` as a dot on dark) |
 | Sky | `#0284C5` | the In progress status (`#3ABFF8` on dark) |
-| Violet | `#7C3BED` | the Ready to verify status (`#A689FA` on dark) |
+| Violet | `#7C3BED` | the Ready to verify status, a merged pull request (`#A689FA` on dark) |
 | Amber | `#B45309` | warning, High priority |
-| Red | `#DC2626` | destructive, Urgent priority |
+| Red | `#DC2626` | destructive, Urgent priority, a closed pull request |
 
 **Where blue shows up:** a selected text range (20 % tint), a focused control (2 px ring at
 2 px offset, keyboard only), an unread count, a link. **Primary buttons and pins stay ink.**
@@ -139,6 +139,10 @@ In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`
 Status filter and the toolbar's thread. Sky and violet are status colours only: they are not the
 accent, so a status never reads as unread or a link, and they stay clear of the priority flags'
 amber and red. Each dot is at least 3:1 against its surface in both modes.
+
+**Pull request state** uses the same badge, coloured like GitHub's states: Open green
+(`--brand-success`), Merged violet (`--brand-ready`), Closed red (`--destructive`), Draft muted grey
+(`--muted-foreground`). It is the one other place violet appears; it is still a state, never the accent.
 
 ### Theme tokens
 
