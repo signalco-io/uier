@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
+import { Checkbox } from '@/src/components/ui/checkbox';
 import { Button } from '@/src/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/src/components/ui/item';
@@ -32,11 +33,12 @@ export function ConnectedApps({ apps }: { apps: ConnectedAppView[] }) {
 }
 
 function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
+    const [revokeTokens, setRevokeTokens] = useState(true);
     const [confirming, setConfirming] = useState(false);
     const [state, setState] = useState<ActionState>(null);
     const [pending, startTransition] = useTransition();
     const revoke = () => startTransition(async () => {
-        const result = await revokeConnectedAppAction(app.id);
+        const result = await revokeConnectedAppAction(app.id, revokeTokens);
         setState(result);
         if (result?.ok)
             setConfirming(false);
@@ -77,13 +79,20 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                 </div>
             </ItemContent>
             <ItemActions>
-                <AlertDialog open={confirming} onOpenChange={setConfirming}>
+                <AlertDialog open={confirming} onOpenChange={open => { setConfirming(open); if (open) setRevokeTokens(true); }}>
                     <AlertDialogTrigger render={<Button variant="outline" aria-label={`Revoke ${app.name}`} />}>Revoke</AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle className="break-words">Revoke {app.name}?</AlertDialogTitle>
                             <AlertDialogDescription>It loses access to uier on its next request. Feedback it already received stays with it. To use it again, connect it again from your coding tool.</AlertDialogDescription>
                         </AlertDialogHeader>
+                        {app.activeCreatedTokenCount > 0 && <div className="flex flex-col gap-2 text-sm">
+                            <p className="m-0">This connection created {app.activeCreatedTokenCount} active access {app.activeCreatedTokenCount === 1 ? 'token' : 'tokens'}. These are separate and listed under Access tokens. Unchecked tokens keep access until their expiry or revocation.</p>
+                            <label className="flex items-center gap-2">
+                                <Checkbox checked={revokeTokens} onCheckedChange={setRevokeTokens} disabled={pending} />
+                                Also revoke the {app.activeCreatedTokenCount} access {app.activeCreatedTokenCount === 1 ? 'token it created' : 'tokens it created'}
+                            </label>
+                        </div>}
                         <FormMessage state={state} />
                         <AlertDialogFooter>
                             <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>

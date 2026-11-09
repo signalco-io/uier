@@ -23,8 +23,58 @@ export const credentialSchema = z.object({
 export type McpCredential = AppDoc & {
     type: 'mcp-credential'; userId: string; workspaceId: string; name: string;
     projectIds: string[]; scopes: McpScope[]; createdAt: string; expiresAt: string; ttl: number;
+    createdBy?: McpIdentity['connection'];
+};
+export type McpCredentialView = Pick<McpCredential, 'id' | 'name' | 'workspaceId' | 'projectIds' | 'scopes' | 'createdAt' | 'expiresAt' | 'createdBy'>;
+/** Atomic creation receipt and audit, retained for 30 days; never contains the bearer secret. */
+export type McpCredentialCreation = AppDoc & {
+    type: 'mcp-credential-creation'; inputHash: string; credential: McpCredentialView; ttl: number;
 };
 const credentialPk = (userId: string) => `mcp-user:${userId}`;
+
+export function mcpCredentialView({ id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, createdBy }: McpCredential): McpCredentialView {
+    return { id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, ...(createdBy ? { createdBy } : {}) };
+}
+
+/** Serialize all credential creation for an account, including hand-made tokens, at the 20-token cap. */
+export async function persistMcpCredential(doc: McpCredential, receipt?: McpCredentialCreation) {
+    const store = getAppStore();
+    const guardId = 'mcp-credential-guard';
+    const previousReceipt = async () => {
+        if (receipt) {
+            const previous = await store.get<McpCredentialCreation>(doc.pk, receipt.id);
+            if (previous) {
+                if (previous.doc.type !== receipt.type || previous.doc.inputHash !== receipt.inputHash)
+                    throw apiErrors.conflict();
+                return previous.doc;
+            }
+        }
+        return null;
+    };
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const previous = await previousReceipt();
+        if (previous) return previous;
+        const guard = await store.get<AppDoc & { version: number }>(doc.pk, guardId);
+        if (doc.createdBy?.kind === 'oauth') {
+            const grant = (await store.get<McpGrant>(doc.pk, doc.createdBy.id))?.doc;
+            if (!grant || grant.type !== 'mcp-grant' || !isGrantActive(grant))
+                throw apiErrors.forbidden('The creating connection is no longer active.');
+        }
+        if ((await listMcpCredentials(doc.userId)).length >= 20) {
+            // A concurrent retry may have taken the last slot since the receipt read above.
+            const concurrent = await previousReceipt();
+            if (concurrent) return concurrent;
+            throw apiErrors.invalidRequest('Revoke an existing credential first (maximum 20).');
+        }
+        const next = { type: 'mcp-credential-guard', id: guardId, pk: doc.pk, version: (guard?.doc.version ?? 0) + 1, ttl: 90 * 86400 };
+        if (await store.transact([
+            guard ? { kind: 'replace', doc: next, etag: guard.etag } : { kind: 'create', doc: next },
+            { kind: 'create', doc },
+            ...(receipt ? [{ kind: 'create' as const, doc: receipt }] : [])
+        ])) return null;
+    }
+    throw apiErrors.conflict();
+}
 
 export async function listMcpCredentials(userId: string) {
     return (await getAppStore().query<McpCredential>({ type: 'mcp-credential', pk: credentialPk(userId) }))
@@ -35,8 +85,6 @@ export async function createMcpCredential(context: AppContext, value: unknown) {
     const input = credentialSchema.parse(value);
     for (const projectId of input.projectIds)
         if (!await getVisibleProject(context, projectId)) throw apiErrors.forbidden('Choose projects you can access.');
-    if ((await listMcpCredentials(context.user.id)).length >= 20)
-        throw apiErrors.invalidRequest('Revoke an existing credential first (maximum 20).');
     // Only the hash is persisted. The user id selects a partition; it grants no authority.
     const token = `uier_mcp.${context.user.id}.${randomToken()}`;
     const doc: McpCredential = {
@@ -45,11 +93,11 @@ export async function createMcpCredential(context: AppContext, value: unknown) {
         projectIds: [...new Set(input.projectIds)], scopes: [...new Set(input.scopes)],
         createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + input.days * 86400_000).toISOString(), ttl: input.days * 86400
     };
-    if (!await getAppStore().create(doc)) throw apiErrors.conflict();
+    await persistMcpCredential(doc);
     return { token, credential: doc };
 }
 
-/** Only manual credentials: OAuth records share the partition, and codes and rotated tokens detect replays. */
+/** Only access-token credentials: OAuth records share the partition, and codes and rotated tokens detect replays. */
 export async function revokeMcpCredential(userId: string, id: string) {
     const stored = await getAppStore().get<McpCredential>(credentialPk(userId), id);
     if (stored?.doc.type === 'mcp-credential' && stored.doc.userId === userId)

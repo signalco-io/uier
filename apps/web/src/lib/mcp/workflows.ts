@@ -32,6 +32,7 @@ ${workflow.instructions}` }));
 }
 
 const toolScopes = [
+    ['create_access_token', 'tokens:create', 'Create a named token within the connection’s projects and operations, for 1–30 days. Store the returned secret securely and never repeat it; retries return metadata only.'],
     ['list_projects', 'feedback:read', 'List granted projects.'],
     ['list_feedback', 'feedback:read', 'List and search visible threads.'],
     ['get_feedback', 'feedback:read', 'Read a thread and its context.'],

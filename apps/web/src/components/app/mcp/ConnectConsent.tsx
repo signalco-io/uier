@@ -85,7 +85,7 @@ function ConsentForm({ requestId, request: { email, client, requestedScopes, wor
 }) {
     const [accessKind, setAccessKind] = useState<'all' | 'selected'>('all');
     const [selection, setSelection] = useState<Selection>({});
-    const [scopes, setScopes] = useState<McpScope[]>(() => [...new Set<McpScope>(['feedback:read', ...requestedScopes])]);
+    const [scopes, setScopes] = useState<McpScope[]>(() => [...new Set<McpScope>(['feedback:read', ...requestedScopes.filter(scope => scope !== 'tokens:create')])]);
     const [name, setName] = useState(client.name);
     const [replaceChecked, setReplaceChecked] = useState(replace?.mode === 'optional' ? replace.checked : false);
     const [replaceId, setReplaceId] = useState(replace?.mode === 'required' ? replace.defaultId ?? '' : '');
@@ -192,7 +192,7 @@ function ConsentForm({ requestId, request: { email, client, requestedScopes, wor
                         <FieldSet className="gap-4">
                             <FieldLegend>What it can do</FieldLegend>
                             <div className="-mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                                <FieldDescription>{client.name} asked for the operations selected here.</FieldDescription>
+                                <FieldDescription>{client.name} asked for the operations selected here. Create access tokens is off by default, even when requested.</FieldDescription>
                                 <Button type="button" variant="outline" size="sm" disabled={scopes.length === scopeOptions.length}
                                     onClick={() => setScopes(scopeOptions.map(option => option.scope))}>Select all operations</Button>
                             </div>

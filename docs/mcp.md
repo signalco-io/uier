@@ -73,7 +73,8 @@ out. Only that random request id passes through sign-in. The page shows:
 - **Operations.** Read feedback (always included), Read screenshots, Reply to feedback, Change status and
   Assign feedback (which also lets the tool link pull requests to threads and show itself as the [agent working on feedback assigned to
   you](#agents-working-on-feedback)). The operations the tool asked for are preselected; Claude Code asks for Read feedback.
-  **Select all operations** picks all five. Operations apply to the whole connection, not per workspace.
+  **Create access tokens** lets the tool issue bounded tokens for scripts and watchers. It starts off, even when requested.
+  **Select all operations** picks all six. Operations apply to the whole connection, not per workspace.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
   assignments made through the connection show this name.
 - **Replace.** When you already have a connection from the same tool or with the same name, you can
@@ -115,12 +116,33 @@ again and choose it in the new workspace ([project transfer](project-transfer.md
 Use an access token where no browser can complete sign-in, or with a client that is not offered with
 OAuth yet. In **Account → Coding agents → Access tokens**, give the token a name, select up to 20
 projects in the current workspace, and choose operations. Read feedback is selected initially;
-screenshots, replies, status changes and assignments each need an explicit choice. The app issues a
+screenshots, replies, status changes, assignments and token creation each need an explicit choice. The app issues a
 30-day token, shows the secret once, and lets its owner revoke it from any workspace. You can have up to
 20 at a time. Only a SHA-256 hash and the grant metadata are stored. A token is bound to the workspace
 in which it was created, and its selected projects never expand when new projects are created.
 
-Send it as `Authorization: Bearer <token>`. Keep it out of every file and URL: set `UIER_MCP_TOKEN` in
+A connection granted **Create access tokens** (`tokens:create`) can call `create_access_token` with
+`name` (1–60 characters), `workspaceId`, `projectIds` (1–20 distinct projects in that workspace),
+`scopes`, `days` (integer 1–30) and an `idempotencyKey`. Projects must be in its own selection and
+still accessible to its owner. Operations must be a subset of the authenticating connection's
+operations; `tokens:create` can never be included. There are no all/future-project selections.
+The token is listed here as **Created by <connection>** and can be revoked like a hand-made token.
+Its expiry is capped at the creating Account token’s expiry or the OAuth grant’s hard expiry.
+The connection revoke dialog counts active created tokens and offers to revoke them too, checked
+by default. Uncheck it to keep them until their own expiry or revocation. Live membership and
+project permissions still apply.
+
+The first successful response contains `token`, `credential` metadata and `alreadyCreated: false`.
+**The token is a secret: store it securely and never repeat it in chat, logs, feedback or source
+control.** Only its hash is stored. A 30-day audit/receipt records creation metadata and its creating
+connection, without the secret. A retry with the same key and input returns the metadata and
+`alreadyCreated: true`, never the secret again. Changed input conflicts. If the first response was
+lost, revoke the listed token before requesting a replacement with a new key. Creation is limited
+to 5 per connection and 10 per account per hour, within the shared 20-active-token cap.
+For a watcher, set `umask 077` in the writing shell before creating a file. Write the secret directly
+to a new `0600` scratchpad file, import it into a secret store with `monitor.mjs token --from-file`, and delete the temporary file in cleanup.
+
+Send it as `Authorization: Bearer <token>`. Keep it out of source-controlled files and URLs: set `UIER_MCP_TOKEN` in
 the environment of the process that starts the client, then restart it. Merge the entry into the
 existing client file. Account offers these blocks, built from the same endpoint:
 
@@ -214,7 +236,7 @@ A request with another `Origin` gets 403 before authentication.
 {
   "resource": "https://uier.io/api/mcp",
   "authorization_servers": ["https://uier.io"],
-  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign"],
+  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign", "tokens:create"],
   "bearer_methods_supported": ["header"],
   "resource_name": "uier"
 }
@@ -234,7 +256,7 @@ The authorization server document:
   "code_challenge_methods_supported": ["S256"],
   "token_endpoint_auth_methods_supported": ["none"],
   "revocation_endpoint_auth_methods_supported": ["none"],
-  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign"],
+  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign", "tokens:create"],
   "client_id_metadata_document_supported": true,
   "authorization_response_iss_parameter_supported": true
 }
@@ -284,7 +306,7 @@ see consent would make uier an open redirect.
 - `resource`, when sent, must be the MCP endpoint (`invalid_target`). It is compared after lowercasing
   the scheme and host and removing one trailing slash, never by prefix. A missing `resource` defaults to
   the MCP endpoint.
-- `scope`: the five scopes above, space-separated; anything else is `invalid_scope`. No scope means
+- `scope`: the six scopes above, space-separated; anything else is `invalid_scope`. No scope means
   `feedback:read`.
 - `prompt=none`: `interaction_required`, because consent is always shown.
 - A repeated parameter or a `state` over 1024 characters: `invalid_request`.
@@ -346,6 +368,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 
 | Tool | Scope | Behavior |
 | --- | --- | --- |
+| `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations; return its secret only once |
 | `list_projects` | `feedback:read` | Projects the connection can reach that the owner can still access, with their workspace; optional `workspaceId` filter |
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
@@ -645,11 +668,12 @@ limited by IP.
 
 A limit answers 429 with `temporarily_unavailable` and `Retry-After`. Counters are keyed hashes in the
 comments container, deleted shortly after their window. Each account can have 20 active connected apps
-and 20 access tokens.
+and 20 access tokens. MCP token creation also has the per-connection and account hourly limits in [Access tokens](#access-tokens).
 
 ## Retries and attribution
 
-Every mutation requires an `idempotencyKey` (16–128 letters, numbers, `_` or `-`). Generate one per
+`create_access_token` uses a 30-day atomic receipt but never replays its secret; see [Access tokens](#access-tokens).
+`link_feedback_pull_request` uses its canonical URL as its retry identity. Every other mutation requires an `idempotencyKey` (16–128 letters, numbers, `_` or `-`). Generate one per
 intended action and reuse the same key and exact input after a timeout. Atomic 30-day receipts
 prevent duplicate replies and prevent old status/assignment retries from overwriting subsequent
 changes. Receipts belong to the connection, not to an access token, so a retry after a token refresh

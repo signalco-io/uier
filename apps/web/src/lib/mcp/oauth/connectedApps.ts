@@ -14,9 +14,10 @@ export type ConnectedAppView = {
     createdAt: string;
     lastUsedAt?: string;
     expiresAt: string;
+    activeCreatedTokenCount: number;
 };
 
-export function connectedAppView(grant: McpGrant, accessible: AccessibleWorkspace[]): ConnectedAppView {
+export function connectedAppView(grant: McpGrant & { activeCreatedTokenCount?: number }, accessible: AccessibleWorkspace[]): ConnectedAppView {
     const { access } = grant;
     const workspaces = access.kind === 'all' ? [] : access.workspaces.map(entry => {
         const workspace = accessible.find(candidate => candidate.workspace.id === entry.workspaceId);
@@ -33,6 +34,7 @@ export function connectedAppView(grant: McpGrant, accessible: AccessibleWorkspac
     });
     return {
         id: grant.id,
+        activeCreatedTokenCount: grant.activeCreatedTokenCount ?? 0,
         name: grant.name,
         client: { name: grant.client.name, kind: grant.client.kind, metadataHost: grant.client.metadataHost, redirectHost: grant.client.redirectHost },
         access: { all: access.kind === 'all', summary: describeAccess(access), workspaces },

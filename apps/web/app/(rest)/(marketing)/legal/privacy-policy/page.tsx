@@ -470,6 +470,14 @@ export default function PrivacyPolicyPage() {
                 selection, scopes and expiry. We do not store the token itself.
             </p>
             <p>
+                If you grant Create access tokens, the connection can create named tokens for scripts and
+                watchers within its own projects and operations, for up to 30 days. It receives the secret
+                once. These tokens cannot create more tokens. We store which connection created each token
+                and keep a creation audit and retry receipt, without its secret, for 30 days. A counter
+                serializes token creation and revocation and expires 90 days after its last update. You can see
+                and revoke these tokens in Account, independently of the connection that created them.
+            </p>
+            <p>
                 A coding tool can subscribe to feedback events, such as new feedback, replies and status changes.
                 For each subscription we store the event and its filters, the callback address the tool gives,
                 the signing secret it supplies (encrypted), when the subscription ends and the latest delivery
@@ -640,7 +648,7 @@ export default function PrivacyPolicyPage() {
                 <li>Read cursors: removed when their thread is deleted, and expire no later than a thread with automatic expiry. Otherwise member cursors stay until removed with the account or project on request; guest cursors expire one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, removes access to its screenshot and deletes the stored image. Failed image deletes are retried by a scheduled sweep once an unreferenced image is over an hour old. Legacy public-feedback copies are removed when the migrated thread is deleted or its screenshot is replaced. Cleanup intents contain only thread identifiers and expire one day after successful cleanup.</li>
                 <li>Coding tool connections: until you revoke them, 30 days after the tool last renewed its access, or one year after you allowed them, whichever comes first. A tool&rsquo;s access tokens last one hour; its refresh tokens are replaced on each use and last at most 30 days, and the hash of a used one is kept for a day to detect reuse. Pending sign-in requests: 10 minutes. Sign-in codes: valid for 60 seconds, their hashes kept for 10 minutes. Descriptions of tools that registered themselves: 30 days after their last sign-in; published descriptions: cached for up to 24 hours. Expired records are deleted automatically. Attribution stays with the feedback.</li>
-                <li>Coding tool access tokens: until revoked, at most 90 days through the credential service (30 days in the app). Expired hashes and grant metadata are deleted automatically. Attribution stays with the feedback.</li>
+                <li>Coding tool access tokens: until revoked, at most 90 days through the credential service (30 days in the app and through MCP). Expired hashes and grant metadata are deleted automatically. MCP token-creation audits and retry receipts: 30 days, without secrets. Attribution stays with the feedback.</li>
                 <li>Coding tool event subscriptions: until the tool unsubscribes, the connection loses access, or the subscription period ends without renewal (at most seven days). Delivery records: seven days. Confirmed callback addresses: one day.</li>
                 <li>Moderation author-filter references: 24 hours.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the app or reviewed site’s browser storage, removed on next use after expiry.</li>

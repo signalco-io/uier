@@ -13,11 +13,11 @@ import { FormMessage } from '../FormMessage';
 import { createMcpCredentialAction, revokeMcpCredentialAction } from '@/src/lib/mcp/actions';
 import { scopeLabel, scopeOptions } from './scopes';
 
-export type AccessToken = { id: string; name: string; projectIds: string[]; scopes: string[]; expiresAt: string };
+export type AccessToken = { id: string; name: string; projectIds: string[]; scopes: string[]; expiresAt: string; createdBy?: { name: string } };
 
 /**
- * Manually created credentials for environments without a browser (SSH, containers, CI): one
- * workspace, chosen projects, 30 days, shown once. Collapsed by default under Coding agents.
+ * Hand-made and connection-created credentials: one workspace, chosen projects, up to 30 days.
+ * Secrets from this form are shown once. Collapsed by default under Coding agents.
  */
 export function AccessTokens({ projects, credentials }: { projects: { id: string; name: string }[]; credentials: AccessToken[] }) {
     const [open, setOpen] = useState(false);
@@ -40,7 +40,7 @@ export function AccessTokens({ projects, credentials }: { projects: { id: string
                 </CollapsibleTrigger>
             </div>
             <CollapsibleContent className="flex flex-col gap-5">
-                <p className="m-0 text-sm text-muted-foreground">Tokens expire after 30 days. Revoke them here at any time. Your current project permissions still apply.</p>
+                <p className="m-0 text-sm text-muted-foreground">Tokens expire within 30 days. Revoke them here at any time. Your current project permissions still apply.</p>
                 <p className="m-0 text-sm text-muted-foreground">Each token is limited to selected projects in the current workspace. For feedback about uier itself, switch to the uier workspace and select uier.io public feedback. The project page you were viewing does not own that feedback.</p>
                 <form action={action} className="flex flex-col gap-4">
                     <Input name="name" label="Token label" value={name} onChange={event => setName(event.target.value)} required maxLength={60} placeholder="My coding tool" />
@@ -65,6 +65,7 @@ export function AccessTokens({ projects, credentials }: { projects: { id: string
                     {credentials.map(credential => <li key={credential.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
                         <div className="min-w-0 text-sm">
                             <p className="font-medium break-words">{credential.name}</p>
+                            {credential.createdBy && <p className="break-words text-muted-foreground">Created by {credential.createdBy.name}</p>}
                             <p className="break-words text-muted-foreground">Projects: {credential.projectIds.map(id => projects.find(project => project.id === id)?.name ?? id).join(', ')}</p>
                             <p className="break-words text-muted-foreground">{credential.scopes.map(scopeLabel).join(', ')}</p>
                             <p className="text-muted-foreground">Expires {credential.expiresAt.slice(0, 10)}</p>

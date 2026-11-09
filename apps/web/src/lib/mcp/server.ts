@@ -37,6 +37,7 @@ import { attachmentId, setProjectCommentAgent, setProjectCommentAgentWorking } f
 import { assignedAgents, assignedUserIds, agentIdSchema, assigneeIdsSchema, assignmentModeSchema } from '../review/assignments';
 import { agentSessionUrlSchema, assigneeAgentViews } from '../review/assigneeAgentModel';
 import { messageAgentView } from '../review/messageAgent';
+import { createAccessToken, createAccessTokenSchema } from './createAccessToken';
 
 const page = {
     limit: z.number().int().min(1).max(25).default(20).describe('Results per page: 1–25, default 20. Use nextCursor for more results.'),
@@ -103,6 +104,10 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
     const { access } = identity;
+    server.registerTool('create_access_token', {
+        description: 'Create a named access token for an authorized script or watcher. Requires tokens:create. Choose 1–20 projects in one workspace and a subset of this connection’s operations; tokens:create can never be included. Lifetime: 1–30 days. The returned token is a secret: store it securely and never repeat it in chat, logs, feedback or source control. The secret is returned only once; retries with the same idempotencyKey return metadata only. Listed and revocable in Account → Coding agents → Access tokens. Limited to 5 creations per connection and 10 per account per hour.',
+        inputSchema: createAccessTokenSchema, annotations: writeAnnotations
+    }, input => safely(async () => result({ actingAs, ...await createAccessToken(identity, input) })));
     server.registerTool('list_projects', { description: `List projects this connection can reach that its human owner can still access, with their workspace. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to reconnect and choose it. ${untrusted}`, inputSchema: { ...page, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
         requireMcpScope(identity, 'feedback:read');
         const { workspaces, truncated } = await listAccessibleWorkspaces(identity.user.id, identity.user.email, workspaceId =>
