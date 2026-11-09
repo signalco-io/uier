@@ -351,7 +351,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
 | `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment, agents and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
-| `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, labeled with the connection name |
+| `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent ([replies written by an agent](#replies-written-by-an-agent)) |
 | `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 | `set_feedback_agent` | `feedback:assign` | Attach the connection as the AI agent working under its owner on feedback assigned to them ([agents](#agents-working-on-feedback)) |
@@ -520,7 +520,8 @@ once and always returns `{}`. Revoking the connection ends all of its subscripti
   "data": {
     "projectId": "abc123def456", "commentId": "comment_...", "number": 12, "kind": "bug", "path": "/pricing",
     "url": "https://uier.io/app/review/abc123def456?url=...&comment=comment_...",
-    "actor": { "kind": "member", "name": "Ana", "connector": "Claude Code" },
+    "actor": { "kind": "member", "name": "Ana", "connector": "Claude Code",
+      "agent": { "kind": "claude", "label": "Claude", "model": "claude-opus-5-5", "reasoning": "high" } },
     "contentTrust": "untrusted", "itemId": "item_...", "excerpt": "Up to 280 characters of the reply"
   },
   "cursor": null
@@ -652,7 +653,8 @@ different input returns a conflict. Do not retry an old intention with a new key
 confirm it with the user again. Tool errors include stable error codes; rate limits include retry
 guidance. Authentication errors return HTTP 401, invalid origins HTTP 403.
 
-Replies retain the human author and the connection's name; status/assignment outbox events retain
+Replies retain the human author and the connection's name, and are marked with the agent that wrote
+them ([replies written by an agent](#replies-written-by-an-agent)); status/assignment outbox events retain
 the same attribution and use existing unread and notification rules. Stored attribution records the
 connection id (the connected app or the access token) and whether it was OAuth. No notification bypass
 is added.
@@ -779,6 +781,9 @@ plus polling: starting from now, each event once, a late commit, paging, visibil
 admins and guests cannot), a new assignment or a private thread removes it, it is never emailed, and
 the MCP tools attach a connection only under its owner (`assignToMe` only for unassigned feedback),
 replay retries, and appear in `list_feedback`, packets and `feedback.agent_changed`.
+`e2e/agent-replies.api.spec.ts` covers replies written by an agent: the attached agent's details when
+it matches, what the connection gives otherwise, no mark on app and toolbar replies or from text, the
+author's unchanged permissions, and the mark in app views, the toolbar's DTO, packets, emails and events.
 `e2e/mcpEvents.spec.ts` creates a token in Account, subscribes, posts feedback to the running app and
 expects the webhook right after the request, without the worker.
 `e2e/mcp-report.api.spec.ts` checks the daily report on fixture events: raw and Vercel lines,
@@ -883,3 +888,34 @@ or `null` and `stage` the thread's status after the write (`open`, `in-progress`
 - `get_feedback` packets name the agent beside the assignee (`context.assignee.agent`, and
   `Agent:`, `Model:`, `Reasoning:` and `Session:` in the Markdown). Connected services (GitHub, Linear, Notion, Slack,
   Azure DevOps) get the assignee's name only, never the agent.
+
+### Replies written by an agent
+
+A reply posted with `reply_to_feedback` is the connection owner's message, written for them by the agent
+using the connection. uier marks it with that agent: the app and the toolbar show "You via Claude" or "Ana
+via Claude" with the agent's logo and, for members, its model and reasoning level on hover; emails say
+"Ana via Claude replied on #12" ([review workflow](review-workflow.md#messages-an-ai-agent-writes)).
+
+| Input | Meaning |
+| --- | --- |
+| `agent` | Optional `claude`, `codex`, `chatgpt`, `cursor` or `agent`. Without it, the kind the connection identifies as, as for `set_feedback_agent`. |
+| `model`, `reasoning` | Optional, the same one-line limits as `set_feedback_agent` (100 and 32 characters). Leave them out to use the attached agent's. |
+
+- **The attached agent when it matches.** When an agent is attached under the connection's owner on
+  that thread and it is the same kind, and the same model and reasoning level when the call names them,
+  the reply takes that agent's model and reasoning level. Attaching yourself with `set_feedback_agent`
+  first is enough.
+- **Otherwise what the connection gives**: the kind, model and reasoning level of the call (the kind
+  inferred when it gives none). A connection of someone other than the assignee always records its own.
+- The agent is the provider vocabulary uier already uses (Claude, Codex, ChatGPT, Cursor, AI agent); the
+  session id stays with the thread's agent and is not stored per message.
+- The result adds `itemId` and `writtenBy: { kind, label, model?, reasoning? }` (a retry returns the
+  message it saved). The mark is stored by the server, from the connection and the thread only, never
+  from the text, and it does not change who may edit or delete the message. Replies posted before it
+  existed keep the connection's name ("Ana via Claude Code").
+- Packets add `agent: { kind, label, model?, reasoning? }` to the message and a **Written by agent:**
+  line in the Markdown. `feedback.created`, `feedback.replied` and `feedback.mentioned` payloads add
+  `actor.agent` with the same fields beside `actor.connector`. Connected services keep "Ana via Claude"
+  as the author and never get the model.
+- Fix check requests (`request_feedback_verification`) are not marked: their summary is part of the
+  request, which keeps the connection's name as before.

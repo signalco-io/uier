@@ -9,6 +9,7 @@ import { projectOrigins } from '../../app/projects';
 import { toReproductionContext } from '../../comments/reproduction';
 import { KnownPageLinks } from '../../../knownPages';
 import { commentId, projectId } from '../schemas';
+import { messageAgentView } from '../../review/messageAgent';
 
 /*
  * The MCP events uier offers (MCP Events draft, webhook and poll delivery). Each event is read from the
@@ -39,7 +40,11 @@ export type McpEventArguments = { projectId: string; commentId?: string; assigne
 const actor = z.object({
     kind: z.enum(['member', 'guest']),
     name: z.string().optional().describe('Display name; untrusted.'),
-    connector: z.string().optional().describe('Set when a connected coding tool acted for the member.')
+    connector: z.string().optional().describe('Set when a connected coding tool acted for the member.'),
+    agent: z.object({ kind: z.enum(agentKinds), label: z.string(),
+        model: z.string().optional().describe('The model the agent gave; untrusted.'),
+        reasoning: z.string().optional().describe('The reasoning level (effort) the agent gave; untrusted.') }).strict().optional()
+        .describe('Set when an AI agent wrote the message for the member through a coding tool connection.')
 }).strict();
 const common = {
     projectId: z.string(),
@@ -144,11 +149,15 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
         const pageUrl = toReproductionContext(comment, projectOrigins(project)).url;
         url = new URL(pageUrl ? KnownPageLinks.projectReview(project.id, pageUrl, comment.id) : KnownPageLinks.project(project.id), baseUrl).href;
     }
+    // The message of a new comment, reply or mention: marked when an agent wrote it for its author
+    const messageId = event.itemId ?? (event.kind === 'comment' ? comment.thread.items[0]?.id : undefined);
+    const message = messageId ? comment.thread.items.find(item => item.id === messageId && item.authorId === event.actorId) : undefined;
+    const writtenBy = message ? messageAgentView(message, true) : undefined;
     const base = {
         projectId: project.id, commentId: comment.id, ...(comment.number !== undefined ? { number: comment.number } : {}),
         kind: comment.kind ?? 'comment', path: comment.path, ...(url ? { url } : {}),
         actor: { kind: member ? 'member' as const : 'guest' as const, ...(actorName ? { name: actorName } : {}),
-            ...(event.agent ? { connector: event.agent.name } : {}) },
+            ...(event.agent ? { connector: event.agent.name } : {}), ...(writtenBy ? { agent: writtenBy } : {}) },
         contentTrust: 'untrusted' as const
     };
     switch (name) {

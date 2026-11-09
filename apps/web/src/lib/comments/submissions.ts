@@ -62,7 +62,8 @@ export async function commitNewSubmission(store: CommentsStore, attempt: Submiss
     throw apiErrors.conflict();
 }
 
-export async function commitReplySubmission(store: CommentsStore, attempt: Submission, id: string, item: DbThreadItem,
+/** `item` may be built from the thread as stored for each attempt (a reply marked from the thread's agent). */
+export async function commitReplySubmission(store: CommentsStore, attempt: Submission, id: string, reply: DbThreadItem | ((comment: DbComment) => DbThreadItem),
     visible: (comment: DbComment) => unknown = () => undefined,
     prepare?: (previous: DbComment, updated: DbComment) => DbComment | Promise<DbComment>) {
     for (let retry = 0; retry < 8; retry++) {
@@ -73,6 +74,7 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
         await visible(stored.comment);
         if (stored.comment.thread.items.length >= MAX_THREAD_ITEMS)
             throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
+        const item = typeof reply === 'function' ? reply(stored.comment) : reply;
         const updated = { ...withThreadActivity(stored.comment, item.authorId ?? 'legacy'), thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
         const comment = prepare ? await prepare(stored.comment, updated)
             : withNotificationEvent(updated, item.authorId ?? 'legacy', 'reply', item.createdAt);

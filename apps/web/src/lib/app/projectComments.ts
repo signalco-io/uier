@@ -23,7 +23,8 @@ import {
     projectPartition
 } from '../review/comments';
 import { getCommentsStore } from '../repo/commentsStore';
-import { authorNames, itemAuthorName, messageMentions } from '../review/dto';
+import { authorNames, itemAuthorName, itemPersonName, messageMentions } from '../review/dto';
+import { messageAgentView } from '../review/messageAgent';
 import { listProjectMembers } from './members';
 import type { AppContext } from './context';
 import type { DbProject } from './model';
@@ -42,8 +43,12 @@ export function appActor(context: AppContext): ProjectActor {
     return { kind: 'member', userId: context.user.id, name: context.user.name, isAdmin: context.isAdmin };
 }
 
-/** `avatarUrl`: the profile picture of a member who can still review the project, when they have one */
-export type ProjectCommentAuthor = { name: string; isMe: boolean; avatarUrl?: string };
+/**
+ * `avatarUrl`: the profile picture of a member who can still review the project, when they have one.
+ * `agent`: the AI agent that wrote the message for them through a coding tool connection (`connection`, its
+ * name); `name` is then the person alone and the thread adds "via Claude".
+ */
+export type ProjectCommentAuthor = { name: string; isMe: boolean; avatarUrl?: string; agent?: import('@uier/toolbar/agents').MessageAgentView & { connection?: string } };
 
 export type ProjectCommentMessage = {
     id: string;
@@ -136,6 +141,17 @@ function authorAvatar(item: import('../db/schema').DbThreadItem, avatars: Map<st
     return item.authorId?.startsWith('user:') && !item.deletedAt ? avatars.get(item.authorId.slice('user:'.length)) : undefined;
 }
 
+/** Who wrote a message: the person, and the AI agent that wrote it for them */
+function messageAuthor(item: import('../db/schema').DbThreadItem, names: Map<string, string>, myId: string | undefined, avatars: Map<string, string>): ProjectCommentAuthor {
+    const agent = messageAgentView(item, true);
+    return {
+        name: agent ? itemPersonName(item, names) : itemAuthorName(item, names),
+        isMe: Boolean(myId) && item.authorId === myId,
+        avatarUrl: authorAvatar(item, avatars),
+        ...(agent ? { agent: { ...agent, ...(item.agent?.name ? { connection: item.agent.name } : {}) } } : {})
+    };
+}
+
 function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members), titles = false): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
@@ -173,7 +189,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         title: visibleAiTitle(comment, titles),
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false }
-            : { name: itemAuthorName(first, names), isMe: Boolean(myId) && first.authorId === myId, avatarUrl: authorAvatar(first, avatars) },
+            : messageAuthor(first, names, myId, avatars),
         text: first.deletedAt ? '' : first.text,
         displayText: first.deletedAt ? '' : mentionText(first, participants),
         quotedText: first.deletedAt ? undefined : first.quotedText,
@@ -183,7 +199,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(first.authorId ?? comment.authorId) && !first.deletedAt,
         replies: replies.map(reply => ({
             id: String(reply.id),
-            author: { name: itemAuthorName(reply, names), isMe: Boolean(myId) && reply.authorId === myId, avatarUrl: authorAvatar(reply, avatars) },
+            author: messageAuthor(reply, names, myId, avatars),
             text: reply.deletedAt ? '' : mentionText(reply, participants),
             quotedText: reply.deletedAt ? undefined : reply.quotedText,
             createdAt: reply.createdAt,

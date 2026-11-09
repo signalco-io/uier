@@ -17,6 +17,26 @@ import { CommentScreenshot } from './CommentScreenshot';
 import { CommentComposer } from './CommentComposer';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
+import { agentText, type MessageAgentView } from '../agents';
+import { AgentMark } from './AgentMark';
+import { useIconTooltip } from './IconTooltip';
+
+/**
+ * "via Claude" after a message's author, with the agent's logo: it wrote the message for them through a
+ * coding tool connection. The tooltip and the name add the model and reasoning level members get.
+ */
+function MessageAgent({ agent }: { agent: MessageAgentView }) {
+    const details = agentText(agent);
+    const { triggerProps, tooltip } = useIconTooltip(`Written by ${details}`);
+    return <>
+        <span role="img" tabIndex={-1} aria-label={`via ${details}`} data-message-agent={agent.kind} {...triggerProps}
+            className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+            via
+            <span className="inline-flex items-center gap-1 text-foreground"><AgentMark kind={agent.kind} />{agent.label}</span>
+        </span>
+        {tooltip}
+    </>;
+}
 
 function parseDate(value: string | undefined) {
     if (!value) return undefined;
@@ -85,6 +105,10 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     const quote: string | undefined = threadItem.quotedText;
     const authorName = threadItem.author?.name || 'Guest';
     const isMe = Boolean(threadItem.author?.isMe);
+    // "Ana via Claude": the name ends with the agent that wrote it, shown with its logo
+    const agent = threadItem.agent;
+    const via = agent ? ` via ${agent.label}` : '';
+    const person = via && authorName.endsWith(via) ? authorName.slice(0, -via.length) : authorName;
     const createdAt = parseDate(threadItem.createdAt);
 
     // Public actions belong to the author. Project DTOs include author/admin permissions.
@@ -126,8 +150,9 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                 <Row spacing={1} justifyContent="space-between" className="min-h-6">
                     <Row spacing={1} className="min-w-0">
                         <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
-                            {isMe ? 'You' : authorName}
+                            {isMe ? 'You' : agent ? person : authorName}
                         </Typography>
+                        {agent && <MessageAgent agent={agent} />}
                         {createdAt && (
                             <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                                 <CommentTime date={createdAt} />

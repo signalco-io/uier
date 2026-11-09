@@ -1,4 +1,4 @@
-import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
+import { feedbackMarkdown, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { withImportedReplies } from './importReplies';
 import { randomUUID } from 'node:crypto';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../app/model';
@@ -138,6 +138,13 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         if (feedback?.context.assignee?.agent) {
             // Trackers get the assignee's name, never the AI agent working under them or its session.
             feedback.context.assignee = { name: feedback.context.assignee.name };
+            feedback.markdown = feedbackMarkdown(feedback.context);
+        }
+        if (feedback && [feedback.context.feedback, ...feedback.context.discussion].some(item => item?.agent)) {
+            // A message an agent wrote keeps "Ana via Claude" as its author; its model and reasoning level stay in uier.
+            const withoutAgent = <T extends FeedbackMessage | null>(item: T): T => { if (!item?.agent) return item; const { agent: _agent, ...rest } = item; return rest as T; };
+            feedback.context.feedback = withoutAgent(feedback.context.feedback);
+            feedback.context.discussion = feedback.context.discussion.map(withoutAgent);
             feedback.markdown = feedbackMarkdown(feedback.context);
         }
         if (feedback && source) {

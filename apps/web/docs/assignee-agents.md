@@ -19,5 +19,18 @@ strips `context.assignee.agent` before formatting. The UI is `AgentMark` (each a
 Claude, Codex, ChatGPT, Cursor, a generic bot for AI agent), `AgentAvatar` / `AssigneeAvatars` (the mark on a bordered
 circle, stacked on the assignee's avatar: rows, board cards, the agent menu) and `AgentControl` (the logo beside the
 agent's name in the thread's Assignee field with the model and reasoning level, the assignee's menu, Session and model dialog). The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
-`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts`. See [review workflow](../../../docs/review-workflow.md#ai-agents-under-the-assignee)
+`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts`.
+
+**Messages an agent writes.** `DbThreadItem.writtenBy` marks a reply an MCP connection posted for its owner:
+kind, optional model and reasoning level. `replyToProjectComment` sets it only for an MCP actor (one with a
+connector) from `ReplyInput.writtenBy`, which only `reply_to_feedback` passes; `messageAgentFor`
+(`review/messageAgent.ts`, pure) decides it from the thread as stored in the same write (the reply's item is built
+per attempt in `commitReplySubmission`): the agent attached under the author when its kind matches and the model and
+reasoning level match when named, else the claim. Never derive it from text or a toolbar/app request. Read it only
+through `messageAgentView` (kind and label for everyone, model and reasoning level for members). It shows as
+`MessageAgent` in the app's thread (after the author: "via", the logo, the label; a hover popover with the details and
+the connection's name), as "via" with the mark and an `IconTooltip` in the toolbar's `CommentThreadItem`
+(`AgentMark`), in `itemAuthorName` ("Ana via Claude"; older replies keep "via <connection>"), packets (`agent` on the
+message, stripped before integration delivery), email digests and MCP event `actor.agent`. Permissions follow the
+author as before. Tests: `agent-replies{,.api}.spec.ts`. See [review workflow](../../../docs/review-workflow.md#ai-agents-under-the-assignee)
 and [MCP](../../../docs/mcp.md#agents-working-on-feedback).

@@ -102,7 +102,8 @@ their eligibility; bulk acknowledgement needs no new notification storage.
 Emails name the actor, action and page for each eligible event. A mention says "mentioned you";
 assignment says "assigned #N to you" or "unassigned you from #N", without naming other recipients.
 Guests are explicitly labeled as guests; removed members become "Former member" and missing
-guest names become "Guest". Connector actions include "via <connector>". A digest shows at most ten
+guest names become "Guest". Connector actions include "via <connector>"; a comment, reply or mention
+an AI agent wrote through MCP names the agent instead ("Ana via Claude replied on #12"). A digest shows at most ten
 event lines, then "and N more". Multiple-event subjects summarize counts, rather than listing names.
 Subjects include the project, thread number (when present) and pathname, without query/hash state.
 Each name, connector label, project name and pathname used in a subject/body action line is limited

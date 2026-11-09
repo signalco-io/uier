@@ -105,7 +105,8 @@ rather than expanding access. List-tool descriptions and field schemas must both
 state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
 
 Tools reuse review services. Replies and status/assignment events retain the human author plus
-connection attribution. All mutations require a stable idempotency key and share atomic submission
+connection attribution; replies are also marked with the agent that wrote them (`writtenBy`,
+[AI agents](assignee-agents.md)). All mutations require a stable idempotency key and share atomic submission
 receipts; do not implement retry deduplication in process memory. Reads never acknowledge unread
 activity. Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
 to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
