@@ -136,12 +136,12 @@ colour is never the only signal: Low muted grey (`--muted-foreground`), Normal i
 High amber (`--brand-warning`), Urgent red (`--destructive`). Lists and boards show it only for a
 priority other than Normal, so the threads that differ stand out. Priority has no tokens of its own.
 
-**Status** is a 6 px dot in the status's colour, always beside its name: Open ink (`--foreground`),
-In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`), Done green
-(`--brand-success`). The same dot shows on list rows, board column headers, the status menu, the
+**Status** is a 6 px dot in the status's colour, always beside its name: Open an outlined ink ring
+(`--foreground`, 1 px, not filled), In progress sky (`--brand-in-progress`), Ready to verify violet
+(`--brand-ready`), Done green (`--brand-success`). The same dot shows on list rows, board column headers, the status menu, the
 Status filter and the toolbar's thread. Sky and violet are status colours only: they are not the
 accent, so a status never reads as unread or a link, and they stay clear of the priority flags'
-amber and red. Each dot is at least 3:1 against its surface in both modes.
+amber and red. Each dot or ring is at least 3:1 against its surface in both modes.
 
 **Pull request state** uses the same badge, coloured like GitHub's states: Open green
 (`--brand-success`), Merged violet (`--brand-ready`), Closed red (`--destructive`), Draft muted grey

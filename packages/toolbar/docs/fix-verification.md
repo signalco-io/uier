@@ -6,7 +6,7 @@ Request verification form opens from Thread options or the status menu's Ready t
 options' button gets the focus back),
 reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
 The status badge reads `feedbackStage`'s label: In progress for a thread in progress and Ready
-to verify for pending unresolved requests, its dot in the status's colour (Open ink, In progress
+to verify for pending unresolved requests, its dot in the status's colour (Open an outlined ink ring, In progress
 `--brand-in-progress`, Ready to verify `--brand-ready`, Done `--brand-success`, as the app's `StateDot`;
 `data-status-dot`); the status menu's Done
 says Done without verification there, and its Open and In progress cancel the check. Confirmation requires the server's current request revision.

@@ -5,7 +5,7 @@ import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
-// Each status has its own dot colour, always beside its name: Open ink, In progress sky, Ready to verify
+// Each status has its own dot colour, always beside its name: Open an ink ring, In progress sky, Ready to verify
 // violet, Done green (BRAND.md, "Status"). The same dot shows on list rows, board column headers, the
 // thread's status menu and the Status filter, in both themes.
 
@@ -34,7 +34,15 @@ async function expectDot(scope: Locator, status: Status) {
     const dot = scope.locator(`[data-status-dot="${status}"]`);
     await expect(dot).toBeVisible();
     await expect(dot).toHaveAttribute('aria-hidden', 'true');
-    await expect(dot).toHaveCSS('background-color', await tokenColor(scope.page(), tokens[status]));
+    const color = await tokenColor(scope.page(), tokens[status]);
+    if (status === 'open') {
+        // Open is an outlined ring: an ink border, not filled
+        await expect(dot).toHaveCSS('border-top-color', color);
+        await expect(dot).toHaveCSS('border-top-width', '1px');
+        await expect(dot).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    } else {
+        await expect(dot).toHaveCSS('background-color', color);
+    }
 }
 
 test('each status shows its own colour in the board, the list, the status menu and the filter, light and dark', async ({ page, request }) => {

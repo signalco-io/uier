@@ -19,11 +19,12 @@ export function commentStatus(comment: Pick<ProjectCommentView, 'resolved' | 'in
 }
 
 /**
- * Each status's dot colour (BRAND.md, "Status"): Open ink, In progress sky, Ready to verify violet, Done green.
+ * Each status's dot (BRAND.md, "Status"): Open an ink ring (outlined, not filled), In progress sky, Ready to verify
+ * violet, Done green.
  * The name always goes beside the dot. The toolbar's `CommentStatusBadge` uses the same tokens.
  */
 const stateDotColors: Record<CommentStatus, string> = {
-    open: 'bg-foreground',
+    open: 'border border-foreground',
     'in-progress': 'bg-[hsl(var(--brand-in-progress))]',
     ready: 'bg-[hsl(var(--brand-ready))]',
     done: 'bg-[hsl(var(--brand-success))]'
