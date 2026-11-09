@@ -1,9 +1,9 @@
 # Azure DevOps Boards integration
 
 > Update, 9 November 2026: [linked PR state](../apps/web/docs/integrations.md#linked-pull-request-state)
-> adds delegated `vso.code` read to new connections for PRs in the bound organization/project. Existing
-> work-item-only grants retain their consent on refresh and can reconnect for code read. Missing scope
-> leaves a plain link. No code or PR writes are added; hosted consent acceptance remains a separate gate.
+> can read PRs in the bound organization/project with delegated `vso.code`, requested only by an explicit
+> **Show pull request state** reconnect; ordinary connections keep work_write and profile only, and grants
+> keep their consent on refresh. Without code read a PR stays a plain link. No code or PR writes are added; hosted consent acceptance remains a separate gate.
 
 > Update, 2 November 2026: optional, default-off [reply sync](integrations.md#two-way-reply-sync)
 > supersedes the original discussion-import non-goals below. New replies and original edits/deletions
