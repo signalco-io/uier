@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
-import { validate } from './validate.mjs';
 
 export const repository = 'signalco-io/uier';
 export const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -12,7 +11,7 @@ export function releaseVersion(tag) {
     return tag.slice('extension-v'.length);
 }
 export function releaseGate(browser, env = process.env) {
-    assert(['firefox', 'safari'].includes(browser));
+    assert.equal(browser, 'firefox');
     assert.equal(env.GITHUB_REPOSITORY, repository);
     assert.equal(env.RELEASE_REF_PROTECTED, 'true', 'Release ref must be protected');
     assert.equal(env[`${browser.toUpperCase()}_PUBLISHING_ENABLED`], 'true', 'Owner has not enabled this browser release');
@@ -32,14 +31,6 @@ export async function readArtifact({ root, browser, version, commit, clean = tru
     assert.equal(new Set(files).size, files.length, 'Duplicate ZIP entries');
     assert.deepEqual([...files].sort(), metadata.files, 'Package inventory differs from receipt');
     return { ...metadata, bytes, name, directory };
-}
-export async function extractArtifact(options) {
-    const artifact = await readArtifact(options);
-    const directory = resolve(options.root, 'dist');
-    await rm(directory, { recursive: true, force: true }); await mkdir(directory, { recursive: true });
-    execFileSync('unzip', ['-q', resolve(artifact.directory, artifact.name), '-d', directory]);
-    assert.deepEqual((await validate(directory, options)).files, artifact.files);
-    return artifact;
 }
 export async function sourceArchive({ directory, version, cwd = process.cwd() }) {
     await mkdir(directory, { recursive: true });

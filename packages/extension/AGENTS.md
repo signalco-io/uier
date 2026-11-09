@@ -14,7 +14,7 @@ loading runtime; never inject a remote script or use page globals for credential
 is forbidden. The only cross-world protocol is secret-free toolbar coexistence.
 
 worker.ts is the sole credential owner. Chromium storage.session and local access stay TRUSTED_CONTEXTS.
-Firefox/Safari session storage stays private by default; persistent refresh credentials use extension-origin
+Firefox session storage stays private by default; persistent refresh credentials use extension-origin
 IndexedDB because their storage.local cannot be restricted to trusted contexts. Never fall back to local.
 Only the API-scoped refresh credential/local identity/pending attempt persist across browser restarts.
 Access lasts 15 minutes; refresh rotates with 30-day inactivity and one-year absolute limits.
@@ -43,4 +43,3 @@ worker may remount a restored document after checking its live binding; stale la
 
 Browser differences belong in browser.ts, auth.ts, storage.ts and scripts/manifest.mjs. Preserve
 native document IDs and top-frame targeting; do not downgrade sender checks for compatibility.
-Safari uses a fixed logical client ID, but sender checks always use the native runtime ID.

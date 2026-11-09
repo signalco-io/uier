@@ -10,7 +10,7 @@ import { createManifest } from './manifest.mjs';
 import { brand, MARK_PATH } from '../../../packages/brand/src/brand.ts';
 const sharedRoot = resolve(import.meta.dirname, '..');
 export async function buildExtension({ root, browser = 'chrome', test = process.argv.includes('--test'), hostedTest = process.argv.includes('--hosted-test') }) {
-if (!['chrome', 'firefox', 'safari'].includes(browser)) throw new Error('Unknown browser target.');
+if (!['chrome', 'firefox'].includes(browser)) throw new Error('Unknown browser target.');
 if (test && hostedTest) throw new Error('Choose one test API.');
 const dest = resolve(root, test ? 'dist-test' : hostedTest ? 'dist-hosted-test' : 'dist');
 await rm(dest, { recursive: true, force: true });
@@ -22,7 +22,7 @@ const api = test ? `http://127.0.0.1:${testPort}` : 'https://uier.io';
 const css = await readFile(resolve(root, '../../packages/toolbar/dist/index.css'), 'utf8');
 for (const [name, entry] of Object.entries({ worker: 'worker.ts', content: 'content.ts', popup: 'popup.tsx', helper: 'helper.ts' })) {
     await build({ entryPoints: [resolve(sharedRoot, 'src', entry)], outfile: resolve(dest, `${name}.js`), bundle: true,
-        format: browser === 'chrome' && name === 'worker' ? 'esm' : 'iife', platform: 'browser', target: browser === 'chrome' ? 'chrome120' : browser === 'firefox' ? 'firefox153' : 'safari18.4', minify: true,
+        format: browser === 'chrome' && name === 'worker' ? 'esm' : 'iife', platform: 'browser', target: browser === 'chrome' ? 'chrome120' : 'firefox153', minify: true,
         alias: { 'next/link': resolve(root, '../../packages/toolbar/src/components/ToolbarLink.tsx') },
         define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}', __UIER_API_URL__: JSON.stringify(api), __UIER_DEV__: 'false', __EXTENSION_API__: JSON.stringify(api), __EXTENSION_BROWSER__: JSON.stringify(browser),
             // No remote scripts in packaged clients: the toolbar's accessibility audit is not available here

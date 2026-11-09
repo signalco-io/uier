@@ -1,7 +1,7 @@
-export type ExtensionClient = { id: string; browser: 'chrome' | 'firefox' | 'safari'; redirectUri: string };
+export type ExtensionClient = { id: string; browser: 'chrome' | 'firefox'; redirectUri: string };
 export const extensionClientIdPattern = /^[A-Za-z0-9@._{}-]{1,256}$/;
 const uuid = '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
-const dynamicOrigin = new RegExp(`^(moz-extension|safari-web-extension):\\/\\/${uuid}$`, 'i');
+const dynamicOrigin = new RegExp(`^moz-extension:\\/\\/${uuid}$`, 'i');
 
 /** Registration is explicit. A malformed or ambiguous additional registration fails closed. */
 export function extensionClients(): ExtensionClient[] {
@@ -17,21 +17,19 @@ export function extensionClients(): ExtensionClient[] {
         if (!input || typeof input !== 'object') return chrome;
         const value = input as Record<string, unknown>;
         if (typeof value.id !== 'string' || !extensionClientIdPattern.test(value.id)
-            || ids.has(value.id) || (value.browser !== 'firefox' && value.browser !== 'safari') || typeof value.redirectUri !== 'string'
-            || value.redirectUri.length > 512 || !validRedirect(value.redirectUri, value.browser)) return chrome;
+            || ids.has(value.id) || value.browser !== 'firefox' || typeof value.redirectUri !== 'string'
+            || value.redirectUri.length > 512 || !validRedirect(value.redirectUri)) return chrome;
         ids.add(value.id);
         clients.push({ id: value.id, browser: value.browser, redirectUri: value.redirectUri });
     }
     return [...chrome, ...clients];
 }
 
-function validRedirect(value: string, browser: 'firefox' | 'safari') {
+function validRedirect(value: string) {
     try {
         const url = new URL(value);
         if (url.username || url.password || url.search || url.hash || url.href !== value) return false;
-        if (browser === 'firefox') return url.protocol === 'https:' && /^[a-z0-9]+\.extensions\.allizom\.org$/.test(url.hostname) && url.pathname === '/' && !url.port;
-        const local = process.env.UIER_LOCAL === '1' && url.protocol === 'http:' && url.hostname === '127.0.0.1';
-        return (url.protocol === 'https:' || local) && url.pathname === '/extension-callback';
+        return url.protocol === 'https:' && /^[a-z0-9]+\.extensions\.allizom\.org$/.test(url.hostname) && url.pathname === '/' && !url.port;
     } catch { return false; }
 }
 
@@ -44,7 +42,7 @@ export function extensionClientOrigin(client: ExtensionClient, origin?: string):
         return origin === undefined || origin === expected ? expected : undefined;
     }
     const match = origin && dynamicOrigin.exec(origin);
-    return match && match[1]!.toLowerCase() === (client.browser === 'firefox' ? 'moz-extension' : 'safari-web-extension') ? origin : undefined;
+    return match ? origin : undefined;
 }
 
 /** Only extension schemes for explicitly enabled browser families get CORS transport. */

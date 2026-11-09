@@ -6,31 +6,24 @@ limits. Legacy packages retain eight-hour sessions. Refresh uses atomic session/
 hashed credentials and persisted attempt hashes: exact retries return the same derived successor,
 different-attempt reuse revokes the session. Known refresh credentials can revoke after access expiry.
 Project/exact-origin credentials last five minutes. `UIER_EXTENSION_CLIENT_IDS` remains the explicit
-Chromium allowlist. Firefox and Safari use `UIER_EXTENSION_CLIENTS`, a JSON array of
-`{ id, browser: 'firefox' | 'safari', redirectUri }` registrations, disabled by default. Invalid or
+Chromium allowlist. Firefox uses `UIER_EXTENSION_CLIENTS`, a JSON array of
+`{ id, browser: 'firefox', redirectUri }` registrations, disabled by default. Invalid or
 duplicate registrations disable the additional clients without changing the Chromium allowlist.
 Firefox's stable client is `uier@signalco.io`; register the exact HTTPS URL returned by
-`browser.identity.getRedirectURL()` (including its trailing slash). Safari's logical client is
-`io.uier.safari.Extension`; register `https://uier.io/extension-callback`, or the exact API origin's
-equivalent. Only local runtime permits `http://127.0.0.1:<port>/extension-callback`.
+`browser.identity.getRedirectURL()` (including its trailing slash).
 Registration grants transport only, never identity or BotID bypass. Recheck current
 membership, session and addresses before calling shared review services. Keep embed CORS unchanged.
 `/app/extension` is explicit consent after first-party sign-in. `/extension-verification` is a
-nonce-protected frame for the packaged helper. Firefox and Safari send their current extension
+nonce-protected frame for the packaged helper. Firefox sends their current extension
 origin during authorization; the one-use handoff, session, access token and project scope bind that
 origin. Only UUID origins in the registered browser's extension scheme are accepted. Refresh
-possession can rebind the origin because Safari can assign a new UUID after restarting; old access
-and project scope tokens then fail. Retry recovery preserves the same successor and expiry.
+possession can rebind the extension origin; old access and project scope tokens then fail. Retry recovery preserves the same successor and expiry.
 The helper supplies `clientId` and `extensionOrigin` query parameters. Server validation sets one
 exact `frame-ancestors` origin, the frame checks its actual message parent, and the verification
 endpoint compares that origin with the signed scope and live session. Existing Chromium helpers
 without these parameters retain their registered Chrome origins. Extension-family CORS permits
 transport from syntactically valid enabled extension origins, while all identity still requires a
 live token. No web origin gets that transport grant.
-Safari uses a dedicated first-party sign-in tab because its extension API has no identity flow.
-`/extension-callback` contains no client providers or analytics, sends `no-store`, `no-referrer` and
-`noindex`, and never reads or renders its transient state/code. The worker observes only the tab
-it created and validates the exact callback, state and PKCE before exchanging the code.
 No app cookie reaches the worker. Read [the design and remaining gates](../../../docs/browser-extension.md).
 
 Installation uses the script/extension tabs in InstallGuide. Keep Check installation inside the

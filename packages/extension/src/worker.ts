@@ -117,9 +117,9 @@ async function signIn() {
     const verifier = random(), state = random();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const redirectUri = redirectURL(apiOrigin);
+    const redirectUri = redirectURL();
     const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
-    const result = await launchAuth(`${apiOrigin}/app/extension?${query}`, redirectUri);
+    const result = await launchAuth(`${apiOrigin}/app/extension?${query}`);
     if (!result) throw new Error('Sign-in was cancelled.');
     const url = new URL(result);
     if (url.origin + url.pathname !== redirectUri || url.hash || url.searchParams.get('state') !== state) throw new Error('Invalid sign-in callback.');

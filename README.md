@@ -42,8 +42,8 @@ scheduled cleanup retries failed deletes once unreferenced images are older than
 The [desktop browser extension](docs/browser-extension.md) lets signed-in members review sites
 without an embed. Version 0.1.2 is available in the Chrome Web Store and passed automatic-upgrade and
 post-update acceptance in Chrome and Edge. See the [release receipts](docs/browser-extension-release.md)
-for public visibility and the app installation-link rollout. Firefox and Safari targets reuse the
-same [local extension package](packages/extension); see their [build and loading instructions](docs/browser-extension.md#browser-targets).
+for public visibility and the app installation-link rollout. The Firefox target reuses the
+same [local extension package](packages/extension); see its [build and loading instructions](docs/browser-extension.md#browser-targets).
 
 ## Run locally
 
@@ -121,7 +121,7 @@ This is a TypeScript monorepo using pnpm and Turborepo.
 | --- | --- |
 | [`apps/web`](apps/web) | Next.js website, signed-in app and APIs; deployed to Vercel |
 | [`packages/toolbar`](packages/toolbar) | React review toolbar, bundled with tsup and isolated in a shadow DOM |
-| [`apps/extension`](apps/extension) · [`apps/extension-firefox`](apps/extension-firefox) · [`apps/extension-safari`](apps/extension-safari) | Thin browser packaging targets |
+| [`apps/extension`](apps/extension) · [`apps/extension-firefox`](apps/extension-firefox) | Thin browser packaging targets |
 | [`packages/extension`](packages/extension) | Shared extension runtime, UI and build tools |
 | [`packages/brand`](packages/brand) | Shared design tokens, logo components, copy and assets |
 | [`infra`](infra) | Pulumi infrastructure for Vercel, Cloudflare, Azure Cosmos DB and Blob Storage |

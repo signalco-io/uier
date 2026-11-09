@@ -28,5 +28,5 @@ All executable resources are bundled; the package does not download a remote run
 
 Run adapter/release tests with `pnpm -C packages/extension test` and
 `pnpm -C apps/extension-firefox test`. Chrome's production-ZIP acceptance is a separate local
-integration test; it does not establish Firefox/Safari hosted acceptance. See
-[release automation](browser-extension-firefox-safari-release.md).
+integration test; it does not establish Firefox hosted acceptance. See
+[release automation](browser-extension-firefox-release.md).

@@ -1,6 +1,6 @@
 import { browser, browserKind } from './browser';
 
-// Firefox/Safari local storage cannot be restricted to trusted extension contexts. Their
+// Firefox local storage cannot be restricted to trusted extension contexts. Their
 // background-origin IndexedDB is inaccessible to isolated content scripts on reviewed sites.
 // Chromium retains its existing restricted local store so installed sessions survive upgrades.
 let database: Promise<IDBDatabase> | undefined;
@@ -37,7 +37,7 @@ export const credentialStorage = {
     }
 };
 export function secureStorage() {
-    // Session storage is private to trusted contexts by default in Firefox and Safari.
+    // Session storage is private to trusted contexts by default in Firefox.
     // Do not fall back to persistent storage for access tokens, proofs, drafts or bindings.
     if (!browser.storage.session) return Promise.reject(new Error('This browser needs an update to run uier.'));
     return browserKind === 'chrome' ? Promise.all([

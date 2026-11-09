@@ -10,5 +10,5 @@ production ZIP name, version and protected publishing/receipt protocol must rema
 
 This folder owns Chrome release/store scripts, artwork and persistent Chromium acceptance. Run
 root typecheck/build/short tests, shared package tests, validate/package and the unchanged production
-ZIP suite after runtime changes. Do not infer hosted, Firefox or Safari acceptance from Chromium.
+ZIP suite after runtime changes. Do not infer hosted or Firefox acceptance from Chromium.
 Never remove pre-write store receipts or retry ambiguous store writes.

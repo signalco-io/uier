@@ -10,7 +10,7 @@ test('publishing requires the repository, protected ref, browser flag and native
     const valid = { GITHUB_REPOSITORY: 'signalco-io/uier', RELEASE_REF_PROTECTED: 'true', FIREFOX_PUBLISHING_ENABLED: 'true', HOSTED_ACCEPTANCE_URL: 'https://github.com/signalco-io/uier/issues/123#issuecomment-456' };
     releaseGate('firefox', valid);
     for (const key of Object.keys(valid)) assert.throws(() => releaseGate('firefox', { ...valid, [key]: '' }));
-    assert.throws(() => releaseGate('safari', valid));
+    assert.throws(() => releaseGate('unsupported', valid));
     assert.equal(releaseVersion('extension-v0.1.3'), '0.1.3');
     for (const tag of ['main', 'v0.1.3', 'extension-v0.1.3;false']) assert.throws(() => releaseVersion(tag));
 });

@@ -8,8 +8,7 @@ providers. The fixed `/review-session` script and its SHA-256 source share `revi
 `/extension-verification` is also nonce-protected and frameable only by its registered helper;
 its `clientId`/`extensionOrigin` query selects one exact, validated extension origin. Legacy
 Chromium helper requests retain the registered Chrome origins. No extension-scheme wildcard is
-used. Case variants get deny/`frame-ancestors 'none'`. Safari's exact `/extension-callback` also
-gets a nonce, `no-store`, `no-referrer` and `noindex`; it stays unframeable.
+used. Case variants get deny/`frame-ancestors 'none'`.
 
 Public pages deliberately retain static rendering and `script-src 'unsafe-inline'`: their generated
 Next bootstrap and theme scripts vary by build. We do not apply request nonces to cached HTML.

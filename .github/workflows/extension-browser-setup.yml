@@ -1,13 +1,7 @@
-name: Extension browser account check
+name: Extension Firefox account check
 
 on:
   workflow_dispatch:
-    inputs:
-      browser:
-        description: Browser publisher to verify without store writes
-        type: choice
-        options: [firefox, safari]
-        required: true
 
 permissions: {}
 
@@ -16,7 +10,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: extension-${{ inputs.browser }}-production
+    environment: extension-firefox-production
     permissions:
       contents: read
     steps:
@@ -29,16 +23,7 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Verify Mozilla publisher authentication
-        if: inputs.browser == 'firefox'
         env:
           AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
           AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
         run: node apps/extension-firefox/scripts/inspect-store.mjs
-      - name: Verify App Store Connect authentication and app identity
-        if: inputs.browser == 'safari'
-        env:
-          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
-          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
-          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
-        run: node apps/extension-safari/scripts/inspect-store.mjs

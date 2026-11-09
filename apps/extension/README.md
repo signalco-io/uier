@@ -1,7 +1,7 @@
 # uier browser extension
 
-Chrome/Edge shell of the shared [extension runtime](../../packages/extension). Firefox and Safari
-have thin sibling apps that use the same local package. Version 0.1.2 is published in the Chrome Web Store.
+Chrome/Edge shell of the shared [extension runtime](../../packages/extension). Firefox
+has a thin sibling app that uses the same local package. Version 0.1.2 is published in the Chrome Web Store.
 Both native browsers automatically upgraded from 0.1.1 and passed post-update acceptance.
 The release runbook records the app installation-link rollout.
 The [design and hosted gate](../../docs/browser-extension.md) records security boundaries, local

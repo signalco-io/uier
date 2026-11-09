@@ -103,8 +103,8 @@ export async function refreshExtensionSession(input: unknown) {
                 throw apiErrors.signInRequired();
             }
             if (current.refreshHash !== retained.doc.successorHash) throw apiErrors.signInRequired();
-            // Safari may use a new extension UUID after restarting. Possession of the refresh
-            // credential rebinds the current session; old access/scoped claims stop matching.
+            // Possession of the refresh credential rebinds the current extension origin;
+            // old access/scoped claims stop matching.
             if (current.extensionOrigin !== extensionOrigin) {
                 if (!await store.transact([{ kind: 'replace', doc: { ...current, extensionOrigin }, etag: stored.etag }])) continue;
                 return credentials({ ...current, extensionOrigin }, nextToken);

@@ -18,7 +18,7 @@ export function reviewable(url: string | undefined) {
     try {
         const u = new URL(url);
         return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password
-            && u.hostname !== 'addons.mozilla.org' && u.hostname !== 'apps.apple.com'
+            && u.hostname !== 'addons.mozilla.org'
             && u.hostname !== 'chromewebstore.google.com' && u.hostname !== 'microsoftedge.microsoft.com'
             && !(u.hostname === 'chrome.google.com' && u.pathname.startsWith('/webstore'));
     } catch { return false; }

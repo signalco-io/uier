@@ -19,19 +19,3 @@ test('browser extension pages link the store item the app links', async ({ reque
         expect(await response.text(), path).toContain(`href="${extensionStoreUrl}"`);
     }
 });
-
-test('Safari sign-in callback protects transient handoff URLs and loads only local resources', async ({ request }) => {
-    const response = await request.get('/extension-callback?code=fictional-handoff&state=fictional-state');
-    expect(response.status()).toBe(200);
-    const headers = response.headers();
-    expect(headers['cache-control']).toContain('no-store');
-    expect(headers['referrer-policy']).toBe('no-referrer');
-    expect(headers['x-robots-tag']).toBe('noindex, nofollow');
-    expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
-    expect(headers['content-security-policy']).toContain("'nonce-");
-    const html = await response.text();
-    expect(html).toContain('Return to the extension');
-    expect(html).not.toMatch(/<iframe\b|_vercel\/insights|uier-toolbar/i);
-    for (const [, resource] of html.matchAll(/\b(?:src|href)="([^"]+)"/g))
-        expect(new URL(resource!, response.url()).origin).toBe(new URL(response.url()).origin);
-});

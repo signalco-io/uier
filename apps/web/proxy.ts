@@ -25,9 +25,8 @@ export async function proxy(request: NextRequest) {
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
     const extensionDemo = pathname === KnownPages.ExtensionDemo;
-    const extensionCallback = pathname === '/extension-callback';
     const bridge = pathname === '/review-verification' || pathname === '/review-session' || pathname === '/extension-verification';
-    const nonce = appPage || extensionCallback || (pathname === '/review-verification' || pathname === '/extension-verification') ? randomBytes(16).toString('base64') : undefined;
+    const nonce = appPage || (pathname === '/review-verification' || pathname === '/extension-verification') ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
     const policy = createSecureHeaders({
@@ -54,10 +53,6 @@ export async function proxy(request: NextRequest) {
         for (const { key, value } of policy) response.headers.set(key, value);
         response.headers.set('Content-Security-Policy', csp);
         if (bridge || nonce || extensionDemo) response.headers.set('Cache-Control', 'no-store');
-        if (extensionCallback) {
-            response.headers.set('Referrer-Policy', 'no-referrer');
-            response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-        }
         if (extensionDemo) response.headers.set('X-Robots-Tag', 'noindex');
         if (!bridge) {
             response.headers.set('Permissions-Policy', permissionsPolicy);

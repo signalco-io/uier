@@ -27,4 +27,4 @@ hosted test artifact.
 CI lints with pinned `web-ext` and retains the deterministic ZIP. The protected release workflow
 can submit this ZIP and the exact committed source to Mozilla for signing/review. It uses
 `extension-firefox-production`, API secrets, native evidence and a separate publishing flag.
-Dry runs need no store credentials. See [release setup and recovery](../../docs/browser-extension-firefox-safari-release.md#firefox-setup).
+Dry runs need no store credentials. See [release setup and recovery](../../docs/browser-extension-firefox-release.md#firefox-setup).

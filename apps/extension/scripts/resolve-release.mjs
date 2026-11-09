@@ -7,7 +7,7 @@ const version = validateTag(tag);
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const commit = git('rev-parse', '--verify', `refs/tags/${tag}^{commit}`);
 execFileSync('git', ['merge-base', '--is-ancestor', commit, 'origin/main']);
-for (const app of ['extension', 'extension-firefox', 'extension-safari']) {
+for (const app of ['extension', 'extension-firefox']) {
     const pkg = JSON.parse(git('show', `${commit}:apps/${app}/package.json`));
     assert.equal(pkg.version, version, `${app} version differs from the release tag`);
 }

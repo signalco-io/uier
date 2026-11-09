@@ -3,7 +3,7 @@ import { brand } from '@uier/brand';
 import { KnownPages } from '../src/knownPages';
 import { extensionRelease, extensionStoreUrl } from '../src/lib/extension/release';
 import { guides } from '../src/lib/guides';
-import { assertAccessibility, expectNoAxeViolations } from './accessibility';
+import { assertAccessibility } from './accessibility';
 
 // Content of the browser extension pages (#308). browser-extension.api.spec.ts checks the store link;
 // seo.api.spec.ts and social-cards.api.spec.ts check their metadata, sitemap entries and cards.
@@ -74,18 +74,4 @@ test('the footer, guides, homepage and stack question link the extension', async
     await expect(question.getByRole('link', { name: 'browser extension' })).toHaveAttribute('href', KnownPages.BrowserExtension);
     await page.goto(KnownPages.Guides);
     await expect(page.locator(`main a[href="${guides.browserExtension.path}"]`)).toBeVisible();
-});
-
-test('Safari callback is readable without the marketing toolbar or external requests', async ({ page, baseURL }) => {
-    const external: string[] = [];
-    page.on('request', request => {
-        if (new URL(request.url()).origin !== new URL(baseURL!).origin) external.push(request.url());
-    });
-    await page.goto('/extension-callback?code=fictional-handoff&state=fictional-state');
-    await expect(page.getByRole('heading', { level: 1, name: 'Return to the extension' })).toBeVisible();
-    await expect(page.locator('#uier-toolbar')).toHaveCount(0);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    // Audit product requests before axe's own fetches, which are outside the product flow.
-    expect(external).toEqual([]);
-    await expectNoAxeViolations(page);
 });

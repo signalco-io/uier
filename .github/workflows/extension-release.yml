@@ -12,7 +12,7 @@ on:
       browser:
         description: 'Browser stores to release'
         type: choice
-        options: [all, chrome, firefox, safari]
+        options: [all, chrome, firefox]
         default: all
       dry_run:
         description: 'Build and test only; no store credentials or writes'
@@ -70,9 +70,6 @@ jobs:
           pnpm -C apps/extension-firefox lint:store
           pnpm -C apps/extension-firefox package
           pnpm -C apps/extension-firefox test
-          pnpm -C apps/extension-safari validate
-          pnpm -C apps/extension-safari package
-          pnpm -C apps/extension-safari test
       - name: Retain the exact committed source for Mozilla reviewers
         env:
           RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
@@ -99,12 +96,6 @@ jobs:
         with:
           name: extension-firefox-release-package
           path: apps/extension-firefox/release/
-          if-no-files-found: error
-          retention-days: 90
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: extension-safari-release-resources
-          path: apps/extension-safari/release/
           if-no-files-found: error
           retention-days: 90
       - name: Record dry-run outcome
@@ -178,41 +169,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
-  safari-native:
-    name: Safari native archive (unsigned)
-    needs: build
-    if: github.event_name == 'push' || inputs.browser == 'all' || inputs.browser == 'safari'
-    runs-on: macos-15
-    timeout-minutes: 25
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ needs.build.outputs.commit }}
-          persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: extension-safari-release-resources
-          path: apps/extension-safari/release/
-      - name: Verify and extract the retained Safari resources
-        env:
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
-        run: pnpm -C packages/extension release:extract safari
-      - run: pnpm -C apps/extension-safari native:build
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: always()
-        with:
-          name: extension-safari-native-evidence
-          path: apps/extension-safari/release/native/
-          retention-days: 30
-
   firefox-publish:
     needs: [build, publish]
     if: >-
@@ -262,81 +218,5 @@ jobs:
         with:
           name: extension-firefox-store-receipt
           path: apps/extension-firefox/release/*.store.json
-          if-no-files-found: ignore
-          retention-days: 90
-
-  safari-publish:
-    # Serialize journal changes after both store jobs; do not race draft-release creation.
-    needs: [build, publish, firefox-publish, safari-native]
-    if: >-
-      always() && !cancelled() && needs.build.result == 'success' && needs.safari-native.result == 'success' &&
-      (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
-      (needs.firefox-publish.result == 'success' || needs.firefox-publish.result == 'skipped') &&
-      (github.event_name == 'push' || !inputs.dry_run) &&
-      (github.event_name == 'push' || inputs.browser == 'all' || inputs.browser == 'safari') &&
-      vars.SAFARI_PUBLISHING_ENABLED == 'true'
-    runs-on: macos-15
-    timeout-minutes: 45
-    environment: extension-safari-production
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ needs.build.outputs.commit }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Recheck the immutable release tag
-        env:
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
-          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
-        run: node apps/extension/scripts/resolve-release.mjs
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: extension-safari-release-resources
-          path: apps/extension-safari/release/
-      - name: Check Safari release gates before importing certificates
-        env:
-          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
-          SAFARI_PUBLISHING_ENABLED: ${{ vars.SAFARI_PUBLISHING_ENABLED }}
-          HOSTED_ACCEPTANCE_URL: ${{ vars.SAFARI_HOSTED_ACCEPTANCE_URL }}
-        run: node packages/extension/scripts/release-gates.mjs safari
-      - name: Import distribution and installer certificates into a temporary keychain
-        # The previous step checks all owner gates before this action receives signing secrets.
-        uses: Apple-Actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
-        with:
-          p12-file-base64: ${{ secrets.SAFARI_CERTIFICATES_P12_BASE64 }}
-          p12-password: ${{ secrets.SAFARI_CERTIFICATES_P12_PASSWORD }}
-      - name: Sign, upload, and optionally submit the Safari app for review
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.build.outputs.tag }}
-          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
-          SAFARI_PUBLISHING_ENABLED: ${{ vars.SAFARI_PUBLISHING_ENABLED }}
-          HOSTED_ACCEPTANCE_URL: ${{ vars.SAFARI_HOSTED_ACCEPTANCE_URL }}
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-          ASC_APP_ID: ${{ vars.ASC_APP_ID }}
-          ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
-          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
-          SAFARI_SIGNING_IDENTITY: ${{ vars.SAFARI_SIGNING_IDENTITY }}
-          SAFARI_APP_PROFILE_BASE64: ${{ secrets.SAFARI_APP_PROFILE_BASE64 }}
-          SAFARI_EXTENSION_PROFILE_BASE64: ${{ secrets.SAFARI_EXTENSION_PROFILE_BASE64 }}
-          SAFARI_SUBMIT_FOR_REVIEW: ${{ vars.SAFARI_SUBMIT_FOR_REVIEW }}
-          SAFARI_METADATA_READY: ${{ vars.SAFARI_METADATA_READY }}
-        run: pnpm -C apps/extension-safari publish:store
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        if: always()
-        with:
-          name: extension-safari-store-receipt
-          path: |
-            apps/extension-safari/release/*.store.json
-            apps/extension-safari/release/native/build.json
           if-no-files-found: ignore
           retention-days: 90

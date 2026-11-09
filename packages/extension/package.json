@@ -38,7 +38,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test scripts/*.test.mjs",
-    "release:source": "node scripts/release-source.mjs",
-    "release:extract": "node scripts/extract-release.mjs"
+    "release:source": "node scripts/release-source.mjs"
   }
 }

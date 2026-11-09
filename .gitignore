@@ -75,10 +75,6 @@ apps/extension/release/
 apps/extension-firefox/dist-test/
 apps/extension-firefox/dist-hosted-test/
 apps/extension-firefox/release/
-apps/extension-safari/dist-test/
-apps/extension-safari/dist-hosted-test/
-apps/extension-safari/release/
-apps/extension-safari/xcode/
 
 # Unmodified production ZIP extracted for persistent Chromium acceptance
 apps/extension/test-package/
