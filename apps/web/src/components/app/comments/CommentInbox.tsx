@@ -98,12 +98,18 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
 }) {
     const { openId, hrefFor, open, close, sideBySide } = openComment;
     const opened = openId ? allComments.find(comment => comment.id === openId) : undefined;
-    const selected = opened ?? comments[0];
-    const listRef = useRef<HTMLUListElement>(null);
-    const detailRef = useRef<HTMLDivElement>(null);
     // Comment id → the status it is leaving for; it stays hidden only while it has another one
     const [leaving, setLeaving] = useState<Record<string, CommentStatus>>({});
     const isLeaving = (comment: ProjectCommentView) => comment.id in leaving && leaving[comment.id] !== commentStatus(comment);
+    // The thread shown beside the list until another is chosen: the first one, kept while it is listed, so a
+    // thread that arrives above it (a realtime refresh) does not take its place. A filter that hides it shows the
+    // new first one.
+    const [shownId, setShownId] = useState<string>();
+    const shown = comments.find(comment => comment.id === shownId) ?? comments[0];
+    if (!opened && shown && shown.id !== shownId) setShownId(shown.id);
+    const selected = opened ?? shown;
+    const listRef = useRef<HTMLUListElement>(null);
+    const detailRef = useRef<HTMLDivElement>(null);
 
     // The row the keyboard is on: the one last focused or opened. It follows the open thread whenever
     // that changes (a click, an arrow key, Back or Forward) and holds the list's one tab stop.
@@ -150,8 +156,8 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
             if (from >= 0) next = walk(from + step, step);
             // The open thread left the list: the row that took its place is next, the one above it previous
             else if (opened) next = walk(step > 0 ? lastIndex.current : lastIndex.current - 1, step);
-            // Beside the list the first thread is shown until another is chosen
-            else next = sideBySide() ? walk(step, step) : walk(0, 1);
+            // Beside the list a thread is shown until another is chosen: the keys go on from it
+            else next = sideBySide() ? walk((shown ? comments.indexOf(shown) : 0) + step, step) : walk(0, 1);
         }
         // At the first or the last row the keys do nothing, rather than scroll the page
         event.preventDefault();

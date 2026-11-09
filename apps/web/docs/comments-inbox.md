@@ -14,7 +14,9 @@
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
-  the history entry and the first shown thread is open until another is chosen; narrower (a phone, a tablet in portrait) a row opens
+  the history entry and the first shown thread is open until another is chosen (it stays while it is listed, so a thread
+  that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
+  hides it shows the new first one; `e2e/realtime.spec.ts`); narrower (a phone, a tablet in portrait) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
   it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Each row is a link (it opens in a new tab too); its selection box starts the meta line under the author (a
   card's bottom left) and shows only when it is used ([App triage](triage.md#selection)), but keeps its room (and the
