@@ -37,7 +37,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * column), then at its right end who it is assigned to (`AssigneeCard`: each assignee's avatar with its agents' marks on
  * its edge; hovering them shows the assignees and their agents). The meta line starts under the title, so the path lines up
  * with "#12 …"; the selection box (`SelectComment`) sits before it, under the author. The box shows only while the row is
- * hovered, focused or selecting, but keeps its room, so nothing moves when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
+ * hovered, focused or selecting (a long press selects the row on a touch screen), but keeps its room, so nothing moves when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
  * open in a new tab).
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, projectId, tabbable = true }: {
@@ -89,7 +89,9 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             // On dark the surface is as dark as the column: the page's black sets a card apart from it
             card && 'border bg-card hover:bg-muted/40 dark:bg-background dark:hover:bg-muted/40',
             // Selected for a bulk action
-            'has-[[data-slot=checkbox][data-checked]]:bg-muted/60')}>
+            'has-[[data-slot=checkbox][data-checked]]:bg-muted/60',
+            // A long press selects a row that has a box on a touch screen: no text selection or link menu there
+            'pointer-coarse:has-[[data-slot=checkbox]]:select-none pointer-coarse:has-[[data-slot=checkbox]]:[-webkit-touch-callout:none]')}>
             {/* Two columns: the unread dot and the author over the selection box, then the title over the meta line, so the page path lines up with "#12 …" */}
             <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
                 {/* Who wrote it starts the title line, before "#12 …"; centred on its first line, like the unread dot */}

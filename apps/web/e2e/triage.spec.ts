@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { backToComments, openReply, commentRowLink, commentRows, createProject, inBackground, openComment, openCommentFilters, selectionBar, selectShownResults, selectThread, rowOf, setProjectAccess, signIn, startSelecting, uniqueEmail } from './support/app';
+import { backToComments, openReply, commentRowLink, commentRows, createProject, inBackground, longPress, openComment, openCommentFilters, selectionBar, selectShownResults, selectThread, rowOf, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { toolbar, animationsFinished, threadOptions } from './support/toolbar';
@@ -38,7 +38,7 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     const search = page.getByRole('searchbox', { name: 'Search feedback' });
     await search.fill('checkout');
     await expect(commentRows(page)).toHaveCount(1);
-    // Nothing selected: no bar, and the box shows only on hover (a touch screen starts with Select)
+    // Nothing selected: no bar, and the box shows only on hover (a touch screen starts with a long press on the row)
     await expect(selectionBar(page)).toHaveCount(0);
     await selectThread(page, comments[0]!.number);
     await page.getByRole('combobox', { name: 'Assign selected', exact: true }).click();
@@ -62,7 +62,7 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('listitem')).toHaveCount(1);
     // Another view ends the selection; the outcome stays until it is dismissed
-    await expect(page.getByRole('button', { name: 'Select comments', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(selectionBar(page).getByRole('button', { name: 'Clear selection', exact: true })).toHaveCount(0);
     await selectThread(page, comments[0]!.number);
     await page.getByRole('button', { name: 'Reopen selected', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
@@ -78,7 +78,6 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     // Escape ends the selection: the bar goes and the boxes are quiet again
     await page.keyboard.press('Escape');
     await expect(selectionBar(page)).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Select comments', exact: true })).toHaveAttribute('aria-pressed', 'false');
     await page.reload();
     await expect(search).toHaveValue('checkout');
     await expect(openColumn.getByRole('img', { name: 'Urgent priority', exact: true })).toBeVisible();
@@ -124,38 +123,27 @@ test('search covers replies, quotes, paths and numbers with local URL history an
     await expect.poll(() => new URL(page.url()).searchParams.get('q')?.length).toBe(200);
 });
 
-test('selection stays quiet until it is used, by pointer, keyboard or touch, and Escape or Clear selection ends it', async ({ page, request }, testInfo) => {
+test('selection stays quiet until it is used, by pointer, keyboard or a long press, and Escape or Clear selection ends it', async ({ page, request }, testInfo) => {
     const { comments } = await fixture(page, request);
     const mobile = testInfo.project.name.startsWith('Mobile');
     const bar = selectionBar(page);
-    const select = page.getByRole('button', { name: 'Select comments', exact: true });
     const box = (index: number) => selected(page, comments[index]!.number);
-    const anyBox = page.getByRole('checkbox', { name: /^Select comment #/ });
-    // At rest no bar takes room and no row shows its box: a pointer finds it on the row it hovers,
-    // a touch screen leaves it out until Select is on
+    const link = (index: number) => commentRowLink(page, comments[index]!.number);
+    // At rest no bar takes room and no row shows its box: a pointer finds it on the row it hovers, a touch screen
+    // starts with a long press on a row. The count line has no Select (uier #179)
     await expect(bar).toHaveCount(0);
-    await expect(select).toHaveAttribute('aria-pressed', 'false');
-    // Select shows at rest only on a touch screen; a mouse starts selecting from a row's box
-    const selectShown = () => select.evaluate(element => getComputedStyle(element).position !== 'absolute');
-    expect(await selectShown()).toBe(mobile);
-    // The count line shows the guests' unread threads; once they are read it shows nothing with a mouse, so it takes
-    // no room (and no gap) until Select has the focus
-    const countLine = select.locator('xpath=../..');
-    const countLineShown = () => countLine.evaluate(element => getComputedStyle(element).position !== 'absolute');
+    await expect(page.getByRole('button', { name: 'Select comments', exact: true })).toHaveCount(0);
+    for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
+    // On a touch screen a tap where the box is goes through to the row; screen readers still find the box
+    await expect(box(0)).toHaveCSS('pointer-events', mobile ? 'none' : 'auto');
+    // The count line shows the guests' unread threads; once they are read it shows nothing, so it takes no room (and no gap)
+    const countLine = await page.getByRole('status').filter({ hasText: /^\d+ unread$/ }).locator('xpath=..').elementHandle();
+    const countLineShown = () => countLine!.evaluate(element => getComputedStyle(element).position !== 'absolute');
     expect(await countLineShown()).toBe(true);
     await page.getByRole('button', { name: 'Mark all as read', exact: true }).press('Enter');
     await expect(page.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
-    await expect.poll(countLineShown).toBe(mobile);
+    await expect.poll(countLineShown).toBe(false);
     if (!mobile) {
-        await select.focus();
-        await expect.poll(countLineShown).toBe(true);
-        expect(await selectShown()).toBe(true);
-        await select.blur();
-        await expect.poll(countLineShown).toBe(false);
-    }
-    if (mobile) await expect(anyBox).toHaveCount(0);
-    else {
-        for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
         // Its room is kept: the box (and the assignee and status before it) stay where they are when it shows
         const atRest = await boxPlace(box(1));
         await rowOf(box(1)).hover();
@@ -166,8 +154,6 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
         await rowOf(box(0)).hover();
         await box(0).check();
         await expect(bar).toBeVisible();
-        await expect(select).toHaveAttribute('aria-pressed', 'true');
-        expect(await selectShown()).toBe(true);
         await page.mouse.move(0, 0);
         await expect(box(2)).toHaveCSS('opacity', '1');
         await box(2).click({ modifiers: ['Shift'] });
@@ -177,11 +163,10 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
         await expect(bar).toHaveCount(0);
         await expect(page.getByRole('checkbox', { name: /^Select comment #/, checked: true })).toHaveCount(0);
         await expect(box(0)).toHaveCSS('opacity', '0');
-        expect(await selectShown()).toBe(false);
     }
 
     // Keyboard: x selects the focused row, Ctrl or ⌘ + A the shown results, Escape ends it and the focus stays
-    const firstLink = commentRowLink(page, comments[0]!.number);
+    const firstLink = link(0);
     await firstLink.focus();
     await page.keyboard.press('x');
     await expect(box(0)).toBeChecked();
@@ -198,10 +183,9 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     // x selects; it never opens the row's thread
     expect(new URL(page.url()).searchParams.get('comment')).toBeNull();
 
-    // Escape from a row's box: a touch screen leaves the boxes out at rest, so the focus moves to the row's link;
-    // with a fine pointer the box keeps it and stays shown, clicked or reached from the keyboard
+    // Escape from a row's box: the box keeps the focus and stays shown, clicked, tapped or reached from the keyboard
     if (mobile) {
-        await select.tap();
+        await longPress(page, link(1), () => expect(box(1)).toBeChecked());
         await box(0).tap();
     } else {
         await rowOf(box(0)).hover();
@@ -212,48 +196,58 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     await expect(box(0)).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(bar).toHaveCount(0);
-    if (mobile) {
-        await expect(firstLink).toBeFocused();
-        await expect(anyBox).toHaveCount(0);
-    } else {
-        await expect(box(0)).toBeFocused();
-        await expect(box(0)).toHaveCSS('opacity', '1');
-        await firstLink.focus();
-        // The box ends the row, after its link
-        await page.keyboard.press('Tab');
-        await expect(box(0)).toBeFocused();
-        await page.keyboard.press('x');
-        await expect(box(0)).toBeChecked();
-        await page.keyboard.press('Escape');
-        await expect(bar).toHaveCount(0);
-        await expect(box(0)).toBeFocused();
-        await expect(box(0)).toHaveCSS('opacity', '1');
-    }
+    await expect(box(0)).toBeFocused();
+    await expect(box(0)).toHaveCSS('opacity', '1');
+    await firstLink.focus();
+    // The box ends the row, after its link
+    await page.keyboard.press('Tab');
+    await expect(box(0)).toBeFocused();
+    await page.keyboard.press('x');
+    await expect(box(0)).toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(bar).toHaveCount(0);
+    await expect(box(0)).toBeFocused();
+    await expect(box(0)).toHaveCSS('opacity', '1');
 
     if (mobile) {
-        // Touch: Select shows every box; a tap on a row then selects it instead of opening it
-        await select.tap();
-        await expect(bar).toBeVisible();
-        await expect(bar.getByText('0 selected', { exact: true })).toBeVisible();
-        await expect(box(0)).toBeVisible();
-        await commentRowLink(page, comments[1]!.number).tap();
-        await expect(box(1)).toBeChecked();
-        expect(new URL(page.url()).searchParams.get('comment')).toBeNull();
+        // Touch: a long press on a row selects it while the finger is still down; it opens nothing, selects no text and
+        // shows no menu. Every row then shows its box, and a tap on a row selects it instead of opening it
+        await page.evaluate(() => {
+            const counts = { menus: 0 };
+            Object.assign(window, { longPressCounts: counts });
+            window.addEventListener('contextmenu', event => { if (!event.defaultPrevented) counts.menus++; });
+        });
+        await longPress(page, link(1), async () => {
+            await expect(box(1)).toBeChecked();
+            await expect(bar).toBeVisible();
+        });
+        await expect(bar.getByText('1 selected', { exact: true })).toBeVisible();
+        await expect(box(0)).toHaveCSS('opacity', '1');
+        await expect(box(0)).toHaveCSS('pointer-events', 'auto');
+        expect(await page.evaluate(() => document.getSelection()?.toString() ?? '')).toBe('');
+        expect(await page.evaluate(() => (window as unknown as { longPressCounts: { menus: number } }).longPressCounts.menus)).toBe(0);
+        await link(0).tap();
+        await expect(box(0)).toBeChecked();
         await box(2).tap();
+        await expect(bar.getByText('3 selected', { exact: true })).toBeVisible();
+        // A long press while selecting toggles the row too
+        await longPress(page, link(1), () => expect(box(1)).not.toBeChecked());
         await expect(bar.getByText('2 selected', { exact: true })).toBeVisible();
-        for (const control of [select, bar.getByRole('button', { name: 'Clear selection', exact: true }), bar.getByRole('combobox', { name: 'Assign selected', exact: true }),
+        expect(new URL(page.url()).searchParams.get('comment')).toBeNull();
+        for (const control of [bar.getByRole('button', { name: 'Clear selection', exact: true }), bar.getByRole('combobox', { name: 'Assign selected', exact: true }),
             bar.getByRole('combobox', { name: 'Prioritize selected', exact: true }), bar.getByRole('button', { name: 'Mark selected as done', exact: true }), bar.getByRole('button', { name: 'Reopen selected', exact: true })])
             expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         // The bar fits the phone: its actions take a line of their own
         const barBox = (await bar.boundingBox())!;
         expect(barBox.x).toBeGreaterThanOrEqual(0);
         expect(barBox.x + barBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+        // Clear selection gives the focus to the row last selected
         await bar.getByRole('button', { name: 'Clear selection', exact: true }).tap();
         await expect(bar).toHaveCount(0);
-        await expect(select).toBeFocused();
-        await expect(anyBox).toHaveCount(0);
+        await expect(link(1)).toBeFocused();
+        await expect(box(1)).toHaveCSS('pointer-events', 'none');
         // At rest a tap opens the thread again
-        await commentRowLink(page, comments[1]!.number).tap();
+        await link(1).tap();
         await expect.poll(() => new URL(page.url()).searchParams.get('comment')).toBe(comments[1]!.id);
     }
 });
@@ -262,7 +256,6 @@ test('selection resets on search and view changes, and the bar passes accessibil
     const { comments } = await fixture(page, request);
     const first = selected(page, comments[0]!.number);
     const bar = selectionBar(page);
-    const select = page.getByRole('button', { name: 'Select comments', exact: true });
     await selectThread(page, comments[0]!.number);
     await expect(first).toBeChecked();
     await expect(bar.getByRole('checkbox', { name: 'Select shown results', exact: true })).toHaveAttribute('aria-checked', 'mixed');
@@ -274,11 +267,13 @@ test('selection resets on search and view changes, and the bar passes accessibil
     await expect(page.getByRole('checkbox', { name: /^Select comment #/, checked: true })).toHaveCount(0);
     await page.goBack();
     await expect(bar).toHaveCount(0);
-    // Select, then Tab: the bar is next in the focus order, though it floats over the end of the list
-    await select.press('Enter');
-    await expect(select).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('Tab');
-    await expect(bar.getByRole('button', { name: 'Clear selection', exact: true })).toBeFocused();
+    // x on a row, then Shift+Tab: the bar comes before the comments in the focus order, though it floats over the end of the list
+    const firstLink = commentRowLink(page, comments[0]!.number);
+    await firstLink.focus();
+    await page.keyboard.press('x');
+    await expect(first).toBeChecked();
+    await page.keyboard.press('Shift+Tab');
+    await expect(bar.getByRole('button', { name: 'Reopen selected', exact: true })).toBeFocused();
     await bar.getByRole('checkbox', { name: 'Select shown results', exact: true }).check();
     await expect(first).toBeChecked();
     for (const action of ['Mark selected as done', 'Reopen selected']) await expect(bar.getByRole('button', { name: action, exact: true })).toBeEnabled();
@@ -289,15 +284,15 @@ test('selection resets on search and view changes, and the bar passes accessibil
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
+    // Clear selection gives the focus to the row last selected
     await bar.getByRole('button', { name: 'Clear selection', exact: true }).click();
     await expect(bar).toHaveCount(0);
-    await expect(select).toBeFocused();
+    await expect(firstLink).toBeFocused();
     await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveClass(/dark/);
-    await startSelecting(page);
-    await first.check();
+    await selectThread(page, comments[0]!.number);
     await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('triage-dark.png') });

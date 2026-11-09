@@ -340,7 +340,7 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
 - **Desktop Chrome** and **Mobile Chrome** run the board's moves
   ([`comment-board.spec.ts`](../apps/web/e2e/comment-board.spec.ts)): dragging with the mouse (column states,
   the landing placeholder, Escape, to and from In progress, Ready to verify to In progress canceling the check), a refused drop, Move from the keyboard with its focus and announcement, a
-  long press on a touch screen (Mobile Chrome, through CDP touch events) and rollback when saving fails.
+  hold-and-move on a touch screen and a long press that selects instead (Mobile Chrome, through CDP touch events) and rollback when saving fails.
 - **Desktop Chrome** and **Mobile Chrome** run users and invitations
   ([`users.spec.ts`](../apps/web/e2e/users.spec.ts)): a commenter invited to one project and an invited admin,
   single-use links, replaced and revoked invitations, the users list and its project filter, and deleting a
@@ -348,7 +348,7 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
 - **Tablet Chrome** (an iPad mini's 768 × 1024 with touch, in Chromium) runs only
   [`tablet.spec.ts`](../apps/web/e2e/tablet.spec.ts), in the full suite: the sidebar as a sheet in portrait and docked
   in landscape, the project header, settings, a thread in the list's place or beside it, the board's columns with a
-  long-press move and the projects grid.
+  hold-and-move and the projects grid.
 - **Desktop Chrome** and **Mobile Chrome** also run the app ([`app.spec.ts`](../apps/web/e2e/app.spec.ts)):
   sign-in (single-use links, redirects back), onboarding and the install guide, review links, done and
   reopened projects, project settings, the sidebar and the account page, with axe checks on every page.

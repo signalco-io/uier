@@ -225,32 +225,60 @@ export const selectionBar = (page: Page) => page.getByRole('group', { name: 'Sel
 /** A thread's selection box in the list or on the board, by its number */
 export const selectionBox = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
 
-/** Turns Select on in the count line: every row shows its box, as a touch screen needs before it can select */
-export async function startSelecting(page: Page) {
-    const select = page.getByRole('button', { name: 'Select comments', exact: true });
-    // With a mouse Select stays out of sight until something is selected (it shows when focused); Enter works everywhere
-    if (await select.getAttribute('aria-pressed') !== 'true') await select.press('Enter');
-    await expect(select).toHaveAttribute('aria-pressed', 'true');
-    await expect(selectionBar(page)).toBeVisible();
-}
-
 /** The row (or board card) that holds a control, as a mouse hovers it */
 export const rowOf = (control: Locator) => control.locator('xpath=ancestor::*[@data-comment-row][1]');
 
 /**
- * Checks a thread's selection box. At rest a box takes no room and shows on hover, so a mouse hovers its row
- * first; a touch screen leaves it out until Select is on, so this turns Select on first there.
+ * Holds a finger on an element (its middle) until `held` passes, then lifts it: browser touch events, as a phone sends
+ * them, so the browser's own long-press handling (its menu, text selection, the click after it) takes part too.
  */
-export async function selectThread(page: Page, number: number) {
-    const box = selectionBox(page, number);
-    if (!await box.isVisible()) await startSelecting(page);
-    else await rowOf(box).hover();
-    await box.check();
+export async function longPress(page: Page, target: Locator, held: () => Promise<unknown>) {
+    // Waits until the finger would land on it (nothing over it, such as a closing sheet), without tapping
+    await target.tap({ trial: true });
+    const box = (await target.boundingBox())!;
+    const session = await page.context().newCDPSession(page);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+    try { await held(); } finally {
+        await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await session.detach();
+    }
 }
 
-/** Checks Select shown results (or Select first 50 shown) in the selection bar, opening it with Select first */
+/**
+ * Resolves once a board card held by a finger is ready to lift (`data-hold`, after 250 ms), at once, so the test can
+ * move the finger before the long press (which selects the card instead) without waiting a fixed time
+ */
+export const heldForDrag = (card: Locator) => card.evaluate(element => new Promise<void>(resolve => {
+    if (element.hasAttribute('data-hold')) return resolve();
+    new MutationObserver((_, observer) => { if (element.hasAttribute('data-hold')) { observer.disconnect(); resolve(); } }).observe(element, { attributes: true });
+}));
+
+/** Whether the page is on a touch screen (a coarse pointer), where a long press on a row selects it */
+const touchScreen = (page: Page) => page.evaluate(() => window.matchMedia('(pointer: coarse)').matches);
+
+/**
+ * Selects a thread by its box. With a mouse a box shows on hover, so this hovers its row first; on a touch screen it
+ * starts with a long press on the row (its link), and while selecting a tap on the box toggles it.
+ */
+export async function selectBox(page: Page, box: Locator) {
+    const row = rowOf(box);
+    if (!await touchScreen(page)) {
+        await row.hover();
+        await box.check();
+    } else if (await box.evaluate(element => getComputedStyle(element).pointerEvents === 'none')) {
+        await longPress(page, row.getByRole('link').first(), () => expect(box).toBeChecked());
+    } else await box.check();
+    await expect(box).toBeChecked();
+}
+
+/** Checks a thread's selection box (see `selectBox`) */
+export async function selectThread(page: Page, number: number) {
+    await selectBox(page, selectionBox(page, number));
+}
+
+/** Checks Select shown results (or Select first 50 shown) in the selection bar, selecting the first shown thread to open it */
 export async function selectShownResults(page: Page, name: 'Select shown results' | 'Select first 50 shown' = 'Select shown results') {
-    await startSelecting(page);
+    await selectBox(page, page.getByRole('checkbox', { name: /^Select comment #/ }).first());
     await selectionBar(page).getByRole('checkbox', { name, exact: true }).check();
 }
 

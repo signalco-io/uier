@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { commentRows, createProject, openReply, setProjectAccess, signIn, startSelecting, uniqueEmail } from './support/app';
+import { commentRows, createProject, openReply, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
@@ -39,7 +39,7 @@ async function inbox(page: Page, request: APIRequestContext, count: number) {
 const openId = (page: Page) => new URL(page.url()).searchParams.get('comment');
 const blur = (page: Page) => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 
-test('↑ and ↓ open the next and previous threads beside the list, from the list or the page', async ({ page, request }, testInfo) => {
+test('↑ and ↓ open the next and previous threads beside the list, from the list or the page', async ({ page, request }) => {
     await page.setViewportSize({ width: 1280, height: 640 });
     const { project, links, rows } = await inbox(page, request, 8);
     const thread = page.getByRole('article');
@@ -60,11 +60,6 @@ test('↑ and ↓ open the next and previous threads beside the list, from the l
     await expect.poll(() => openId(page)).toBe(rows[1]!.id);
     await expect(thread).toContainText(rows[1]!.text);
 
-    // A touch screen leaves the selection boxes out until Select is on (a pointer that hovers has them at rest)
-    if (testInfo.project.name.startsWith('Mobile')) {
-        await startSelecting(page);
-        await links.nth(1).focus();
-    }
     // One tab stop: Tab goes to the row's selection box (under its author, after its link), then on to the open thread
     await expect(page.locator('[id^="comment-row-"]:not([tabindex="-1"])')).toHaveCount(1);
     await expect(commentRows(page).getByRole('checkbox').and(page.locator(':not([tabindex="-1"])'))).toHaveCount(1);

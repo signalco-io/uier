@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    DndContext, DragOverlay, MouseSensor, TouchSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
+    DndContext, DragOverlay, MouseSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
     type Active, type Announcements, type DraggableSyntheticListeners, type DropAnimation, type Over
 } from '@dnd-kit/core';
 import { ArrowRightLeftIcon } from 'lucide-react';
@@ -24,6 +24,8 @@ import type { useOpenComment } from './CommentInbox';
 import { LayoutMotion, motionSettled } from './LayoutMotion';
 import { shortcutLetter } from '@uier/toolbar/keyboard';
 import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
+import { HoldTouchSensor } from './holdTouchSensor';
+import { longPressDelay, pressTolerance } from './TriageSelection';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
 const statuses = commentStatuses;
@@ -140,8 +142,8 @@ function openMoveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
 }
 
 /**
- * A board card: the row's summary, dragged by itself to another column (the mouse, or a long press on
- * a touch screen), and Move (the same statuses, like the thread's status menu) for the keyboard and
+ * A board card: the row's summary, dragged by itself to another column (the mouse, or held then moved on
+ * a touch screen; a long press held still selects it instead), and Move (the same statuses, like the thread's status menu) for the keyboard and
  * screen readers: Tab to it, or press M on the card. A pointer that does not drag opens the thread and
  * its status menu.
  */
@@ -164,8 +166,10 @@ function BoardCard({ projectId, comment, href, opened, moving, tabbable, onOpen,
     return (
         <li ref={setNodeRef} {...fromCardSurface(listeners)} data-board-card={comment.id}
             onKeyDown={canMove ? openMoveFromKeyboard : undefined}
-            className={cn('rounded-lg transition-opacity duration-150 ease-out',
+            className={cn('rounded-lg transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-opacity',
                 canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
+                // Held on a touch screen: a move now lifts it (`HoldTouchSensor`)
+                'data-hold:scale-[0.98]',
                 isDragging && 'opacity-40')}>
             {canMove && <span id={shortcutId} hidden>Press M to move it to another column.</span>}
             <CommentRow card comment={comment} projectId={projectId} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen} tabbable={tabbable}
@@ -270,8 +274,8 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
     const client = useSyncExternalStore(subscribeNothing, () => true, () => false);
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-        // A long press, so a swipe over the cards still scrolls the page
-        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } })
+        // Held, then moved: a swipe over the cards still scrolls the page, and a long press held still selects the card
+        useSensor(HoldTouchSensor, { delay: 250, tolerance: pressTolerance, longPress: longPressDelay })
     );
     // The list's order: a column's sort keeps it for ties, and so does the place a dragged card would land
     const order = new Map(allComments.map((comment, index) => [comment.id, index]));

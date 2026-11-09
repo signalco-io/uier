@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { appNavigation, closeAppNavigation, commentRowLink, commentRows, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { appNavigation, closeAppNavigation, commentRowLink, commentRows, createProject, heldForDrag, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -81,7 +81,7 @@ test('in portrait a tapped row opens its thread in the list\'s place, clear of t
     await expect(thread).toBeHidden();
 });
 
-test('in portrait the board shows its columns side by side, scrolls sideways and moves a card with a long press', async ({ page, request }) => {
+test('in portrait the board shows its columns side by side, scrolls sideways and moves a card held and moved', async ({ page, request }) => {
     await page.setViewportSize(portrait);
     const project = await projectWithThreads(page, request, ['First board thread', 'Second board thread']);
     await page.goto(`/app/projects/${project}?view=board`);
@@ -97,16 +97,17 @@ test('in portrait the board shows its columns side by side, scrolls sideways and
     expect(await grid.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
     expect(await noSidewaysScroll(page)).toBe(true);
 
-    // A long press lifts the card; it follows the finger into the column beside
+    // Held, the card lifts once the finger moves; it follows the finger into the column beside
     const card = column('Open').getByRole('listitem').filter({ hasText: 'First board thread' });
     const session = await page.context().newCDPSession(page);
     const from = await box(card);
     const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
     await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
-    await expect(page.locator('[data-drag-preview]')).toBeVisible();
+    await heldForDrag(card);
     const end = { x: inProgress.x + inProgress.width / 2, y: inProgress.y + 40 };
     for (let step = 1; step <= 10; step++)
         await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10 }] });
+    await expect(page.locator('[data-drag-preview]')).toBeVisible();
     await expect(column('In progress')).toHaveAttribute('data-drop', 'over');
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect(column('In progress').getByRole('listitem').filter({ hasText: 'First board thread' })).toBeVisible();

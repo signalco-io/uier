@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, useTransition, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
-import { CircleCheckIcon, FlagIcon, ListChecksIcon, RotateCcwIcon, UserIcon, XIcon } from 'lucide-react';
+import { CircleCheckIcon, FlagIcon, RotateCcwIcon, UserIcon, XIcon } from 'lucide-react';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { priorities, priorityLabels } from '@uier/toolbar/triage';
 import { Button } from '@/src/components/ui/button';
@@ -10,7 +10,6 @@ import { Checkbox } from '@/src/components/ui/checkbox';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Separator } from '@/src/components/ui/separator';
 import { Spinner } from '@/src/components/ui/spinner';
-import { Toggle } from '@/src/components/ui/toggle';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { BulkTriageInput, TriageOperation } from '../../../lib/review/bulkTriageSchema';
 import { triageCommentsAction } from './actions';
@@ -20,10 +19,17 @@ import { PriorityFlag } from './PriorityFlag';
 import { ownsKeys } from '../keyboard/keys';
 
 const limit = 50;
+/**
+ * How long a touch on a row (or card) is held to select it. A board card held for 250 ms lifts when the finger moves,
+ * so this leaves the person time to start moving it
+ */
+export const longPressDelay = 600;
+/** How far a finger may move while it is held, before the press becomes a scroll (or, on the board, a drag) */
+export const pressTolerance = 10;
 const Selection = createContext<{
     ids: Set<string>;
     pending: boolean;
-    /** Selecting: every row shows its selection box. At rest a box shows on hover or keyboard focus, never on a touch screen */
+    /** Selecting: every row shows its selection box. At rest a box shows on hover or keyboard focus, and takes no taps on a touch screen */
     active: boolean;
     /** `event`: the click, for Shift (a range from the last box) */
     toggle: (id: string, event?: Event) => void;
@@ -45,10 +51,11 @@ export function SelectComment({ comment, tabbable = true, className }: {
     if (!selection || !comment.permissions.triage) return null;
     const checked = selection.ids.has(comment.id);
     return (
-        // Above the link that covers the row. At rest the box is transparent but keeps its room at the end of the meta
-        // line (still focusable and named), so the assignee beside it does not move when it shows on hover or keyboard
-        // focus; a touch screen has no hover, so there it is left out until Select (or a key) starts selecting
-        <div className={cn('relative z-10 flex h-5 shrink-0 items-center', className, !selection.active && 'pointer-coarse:hidden')}>
+        // Above the link that covers the row. At rest the box is transparent but keeps its room under the author (still
+        // focusable and named, so screen readers find it on a touch screen too), so nothing moves when it shows on hover
+        // or keyboard focus. A touch screen has no hover: there a tap goes through it to the row, and a long press on the
+        // row starts selecting
+        <div className={cn('relative z-10 flex h-5 shrink-0 items-center', className, !selection.active && 'pointer-coarse:pointer-events-none')}>
             {/* Only set to take it out: an explicit `undefined` would replace Base UI's own tab index */}
             <Checkbox aria-label={`Select comment ${comment.number === undefined ? comment.id : `#${comment.number}`}`} {...!tabbable && { tabIndex: -1 }}
                 checked={checked} disabled={selection.pending || (!checked && selection.ids.size >= limit)}
@@ -76,11 +83,11 @@ function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): B
 }
 
 /**
- * Selecting threads for one action at a time. Quiet at rest: the count line has Select (only on a touch screen), and a row's box shows on
- * hover or keyboard focus. Once something is selected (or Select is on) every row shows its box and a floating bar
- * holds the actions, Select shown results and the outcome, over the bottom of the list instead of a row above it.
+ * Selecting threads for one action at a time. Quiet at rest: a row's box shows on hover or keyboard focus, and on a
+ * touch screen a long press on a row (or card) selects it. Once something is selected every row shows its box and a
+ * floating bar holds the actions, Select shown results and the outcome, over the bottom of the list instead of a row above it.
  * x selects the focused row, Shift-click a range, Ctrl or ⌘ + A the shown results, and Escape or Clear selection ends it.
- * On a touch screen a tap on a row selects it while selecting.
+ * On a touch screen a tap (or a long press) on a row toggles it while selecting.
  *
  * Only the explicit, visible selection enters a batch. Polls and later filter changes never extend it.
  */
@@ -97,7 +104,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     children: ReactNode;
 }) {
     const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({ scope, ids: [] });
-    // Select is on (or a batch ran): the bar stays, with nothing selected too, until Clear selection or Escape
+    // A batch ran (or Select shown results was used): the bar stays, with nothing selected too, until Clear selection or Escape
     const [explicit, setExplicit] = useState(false);
     const [pending, start] = useTransition();
     const [result, setResult] = useState('');
@@ -110,7 +117,6 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     const resultRef = useRef<HTMLParagraphElement>(null);
     const regionRef = useRef<HTMLDivElement>(null);
     const barRef = useRef<HTMLDivElement>(null);
-    const selectRef = useRef<HTMLButtonElement>(null);
     // The box last clicked, where Shift-click starts its range
     const anchor = useRef<string>(undefined);
     const update = useCommentUpdate();
@@ -137,16 +143,14 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     const outcome = Boolean(result) || details.length > 0 || Boolean(retryBatch?.items.length);
     const open = active || pending || outcome;
     /**
-     * Ends selecting: nothing selected, no outcome, every row back at rest. The focus goes to Select when the bar had it.
-     * A touch screen leaves the row boxes out at rest, so a focused one hands the focus to its row's link (Select without one).
-     * With a fine pointer the focused box stays: a key press shows it (`:focus-visible`).
+     * Ends selecting: nothing selected, no outcome, every row back at rest. When the bar had the focus it goes to the row
+     * last selected (its link), or the first shown row. A focused row box keeps it and stays shown after a key press (`:focus-visible`).
      */
     const end = () => {
         const focus = document.activeElement;
-        if (focus instanceof HTMLElement && focus.dataset.slot === 'checkbox' && rowId(focus) && regionRef.current?.contains(focus)
-            && window.matchMedia('(pointer: coarse)').matches) {
-            const link = focus.closest('[data-comment-id], [data-board-card]')?.querySelector<HTMLElement>('a[href]');
-            (link ?? selectRef.current)?.focus();
+        if (focus && barRef.current?.contains(focus)) {
+            const id = [anchor.current, ...ids, eligible[0]?.id].find(id => id && visible.has(id));
+            if (id) regionRef.current?.querySelector<HTMLElement>(`:is([data-comment-id="${CSS.escape(id)}"], [data-board-card="${CSS.escape(id)}"]) a[href]`)?.focus();
         }
         setSelection({ scope, ids: [] });
         setExplicit(false);
@@ -154,7 +158,6 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         setDetails([]);
         setRetry(null);
         anchor.current = undefined;
-        if (focus && barRef.current?.contains(focus)) selectRef.current?.focus();
     };
     const run = (batch: BulkTriageInput) => {
         const originalScope = scope;
@@ -248,6 +251,84 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         return () => observer.disconnect();
     }, [open]);
 
+    /**
+     * A long press on a row or a card (its link) with a finger selects it: the press then opens nothing, drags nothing
+     * (the board lifts a card only when the finger moves first) and shows no context menu. `undefined`: not a row that can be selected
+     */
+    const pressable = useEffectEvent((target: EventTarget | null) => {
+        if (!(target instanceof Element) || !target.closest('a') || pending) return;
+        const id = rowId(target);
+        return id && visible.has(id) && (ids.has(id) || ids.size < limit) ? id : undefined;
+    });
+    const longPress = useEffectEvent((id: string) => {
+        if (pending || !visible.has(id) || (!ids.has(id) && ids.size >= limit)) return false;
+        toggle(id);
+        return true;
+    });
+    useEffect(() => {
+        const region = regionRef.current;
+        if (!region) return;
+        // The finger is down: `timer` until the press is long, then `held` until it is lifted. A click that follows a long press
+        // (`after`, until the next press) neither opens the row nor toggles it again.
+        let press: { x: number; y: number; timer: number } | undefined;
+        let held = false;
+        let after = false;
+        const cancel = () => {
+            if (press) window.clearTimeout(press.timer);
+            press = undefined;
+        };
+        const down = (event: PointerEvent) => {
+            cancel();
+            held = false;
+            after = false;
+            if (event.pointerType !== 'touch' || !event.isPrimary) return;
+            const id = pressable(event.target);
+            if (!id) return;
+            press = { x: event.clientX, y: event.clientY, timer: window.setTimeout(() => {
+                press = undefined;
+                held = longPress(id);
+            }, longPressDelay) };
+        };
+        const move = (event: PointerEvent) => {
+            if (press && event.isPrimary && Math.hypot(event.clientX - press.x, event.clientY - press.y) > pressTolerance) cancel();
+        };
+        const up = () => {
+            cancel();
+            if (held) after = true;
+            held = false;
+        };
+        // While a press may become long, and while it is held: no link menu, no text selection, no dragged link
+        const prevent = (event: Event) => { if (press || held) event.preventDefault(); };
+        const click = (event: globalThis.MouseEvent) => {
+            if (!after) return;
+            after = false;
+            // A keyboard click (Enter) carries no pointer detail and goes through
+            if (event.detail === 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        region.addEventListener('pointerdown', down);
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
+        region.addEventListener('contextmenu', prevent);
+        region.addEventListener('dragstart', prevent);
+        region.addEventListener('selectstart', prevent);
+        // Before React's handlers on the root, so neither the link nor a tap that selects sees it
+        window.addEventListener('click', click, { capture: true });
+        return () => {
+            cancel();
+            region.removeEventListener('pointerdown', down);
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            window.removeEventListener('pointercancel', up);
+            region.removeEventListener('contextmenu', prevent);
+            region.removeEventListener('dragstart', prevent);
+            region.removeEventListener('selectstart', prevent);
+            window.removeEventListener('click', click, { capture: true });
+        };
+    }, []);
+
     /** On a touch screen, while selecting, a tap on a row (its link) selects it instead of opening it */
     const tapToSelect = (event: MouseEvent<HTMLDivElement>) => {
         const target = event.target as Element;
@@ -262,32 +343,21 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     };
 
     // On a narrow screen the actions keep their words and drop their icons
-    // The count line shows nothing: no summary or actions, and Select (when there is anything to select) only on a touch screen
-    const quiet = !summary && !actions && !active;
+    // The count line shows nothing: no unread count and nothing to act on
+    const quiet = !summary && !actions;
     const actionClassName = 'pointer-coarse:min-h-11 @max-xl/comments:[&_[data-icon]]:hidden';
     return <Selection.Provider value={{ ids, pending, active, toggle }}>
         <div ref={regionRef} className="contents"
             style={{ '--selection-bar': open ? `calc(${barHeight}px + 1rem)` : '0px' } as CSSProperties} onClickCapture={tapToSelect}>
-            {/* The count line: the unread count, Mark all as read and Select */}
+            {/* The count line: the unread count and Mark all as read. Selecting starts from the rows (a box, x, a long press) */}
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
-            {/* With nothing to show (no unread count, Select out of sight) it takes no room, not even the column's gap:
-                `sr-only` takes it out of the flow and keeps Select focusable, and it shows again while Select has the focus */}
-            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName, lineClassName,
-                quiet && (eligible.length ? 'pointer-fine:[&:not(:has(:focus-visible))]:sr-only pointer-fine:[&:not(:has(:focus-visible))]:min-h-0' : 'sr-only min-h-0'))}>
+            {/* With nothing to show (no unread count) it takes no room, not even the column's gap: `sr-only` takes it
+                out of the flow and keeps its status mounted for announcements */}
+            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName, lineClassName, quiet && 'sr-only min-h-0')}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
                 {actions}
-                <div className="ml-auto flex items-center gap-1">
-                    {eligible.length > 0 && (
-                        <Toggle ref={selectRef} size="sm" aria-label="Select comments" pressed={active} disabled={pending}
-                            // With a mouse, hovering a row's box starts selecting: Select shows only while selecting (or focused
-                            // from the keyboard). A touch screen has no hover, so there it always shows.
-                            onPressedChange={pressed => { if (pressed) setExplicit(true); else end(); }} className={cn('pointer-coarse:min-h-11', !active && 'pointer-fine:not-focus-visible:sr-only')}>
-                            <ListChecksIcon data-icon="inline-start" />Select
-                        </Toggle>
-                    )}
-                </div>
             </div>
-            {/* Floating over the end of the comments (after them on screen, `order-last`), next after Select in the focus order */}
+            {/* Floating over the end of the comments (after them on screen, `order-last`), before them in the focus order */}
             {open && (
                 <div ref={barRef} role="group" aria-label="Selected feedback actions"
                     className={cn('sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 order-last flex max-w-full flex-col gap-1 self-center rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-md @max-xl/comments:w-full',
