@@ -288,7 +288,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const replyShortcut = useKeyShortcutLabel('R');
     const statusShortcut = useKeyShortcutLabel('S');
     const assigneeShortcut = useKeyShortcutLabel('A');
-    // After the page link: the environment's name; the address itself is in the link
+    // Before the page link: the environment's name; the address itself is in the link
     const sourceText = source.available
         ? source.label !== source.origin ? source.label : undefined
         : `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''} · Original source unavailable`;
@@ -564,13 +564,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <ThreadTitle key={`${comment.id}-title`} projectId={projectId} commentId={comment.id} title={comment.title} byAi={comment.titleByAi} canRename={permissions.title} />
                 <CopyIssueResult state={copyIssue} />
 
-                {/* From the most abstract to the most detailed: the page (it opens the review there) and its environment, the
+                {/* From the most abstract to the most detailed: the page (its environment, then the link that opens the review there), the
                     element or text, who has it, its priority, then its pull requests.
                     A properties list: every row is one control tall (44px on touch screens), labels and values centred on it,
                     and a ghost control pulled left by its padding so its text starts where plain text does. */}
                 <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 text-sm" data-thread-details>
                     <dt className={detailLabelClass}>Page</dt>
                     <dd className={`${detailValueClass} gap-x-2`}>
+                        {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
                         {source.available ? (
                             <a href={reviewLink} target="_blank" rel="noopener"
                                 className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 text-sm underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
@@ -579,7 +580,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                             </a>
                         ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
-                        {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
                     </dd>
                     <dt className={detailLabelClass}>On</dt>
                     {/* The selector beside the label while it fits, else on its own line; padded so its first line sits where a one-line row's does */}
