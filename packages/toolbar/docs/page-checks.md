@@ -34,6 +34,8 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
 - **Issues** (`IssueList`): one muted row per element, its short name with Highlight and Comment on the
   right. A line every issue of a list shares is said once (by the check's reason, or under the rule's
   title), not on every element (`sharedSummary`); a single SEO issue's detail is in its check's reason.
+  So an SEO check whose count alone doesn't say why (link addresses, heading levels) adds the shared line
+  to its reason ("2 links look broken. It runs a script instead of opening a page.").
 
 ## Accessibility
 
@@ -127,7 +129,7 @@ review bundle itself loads only for reviewers.
 and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
 screenshot and details, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
-element's comment and a noindex page (its Indexing note, no canonical needed) (Desktop Chrome);
+element's comment, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome). `toolbar-assets.api.spec.ts`:
 the audit asset is pinned by path and SRI in the review script, absent from the loader and the review
 script, and served with CORS and immutable caching.

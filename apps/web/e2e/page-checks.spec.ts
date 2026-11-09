@@ -207,6 +207,15 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('canonical')).toHaveAttribute('data-uier-check-state', 'none');
     await expect(check('canonical')).toContainText('Not needed on a noindex page.');
     await expect(check('canonical').getByRole('button', { name: 'Comment' })).toHaveCount(0);
+
+    // Links that look broken for the same reason say it once, in the check's reason, above their rows
+    await page.evaluate(() => {
+        document.getElementById('missing-anchor')?.setAttribute('href', 'javascript:void(0)');
+    });
+    await panel.getByRole('button', { name: 'Check again' }).click();
+    await expect(check('link-address')).toContainText('2 links look broken. It runs a script instead of opening a page.');
+    await expect(check('link-address').getByRole('listitem')).toHaveCount(2);
+    await expect(check('link-address').getByRole('listitem').filter({ hasText: 'It runs a script' })).toHaveCount(0);
 });
 
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {
