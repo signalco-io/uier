@@ -216,9 +216,10 @@ rechecks scope, selected projects and current membership through `mcpProject`. B
 transport requests, not per-thread export storage reads. Keep `get_feedback`'s contract stable.
 
 Project comment rate limits use only server-resolved actors: members get 100 new comments and 300
-replies per project per hour and skip the 30-write shared IP budget. Guests and `PUBLIC_PROJECT_ID`
-commenters retain visitor limits (10 new comments, 30 replies and 30 writes per IP per hour).
-The anonymous comments service always uses visitor limits. MCP replies first consume a 30-reply
+replies per project per hour and skip the 30-write shared IP budget. Guests keep visitor limits
+(10 new comments, 30 replies and 30 writes per IP per hour). Signed-in `PUBLIC_PROJECT_ID` commenters
+get `RATE_LIMIT_PUBLIC_ACCOUNT_COMMENTS` (30 new comments, three times a visitor's) and otherwise keep
+visitor limits, through the review API and the same-origin comments service alike. MCP replies first consume a 30-reply
 per-connection/project budget (access token or connected app), then the owner's budget; rejected
 connections must not exhaust the owner. Page, screenshot, paid rewrite and MCP transport limits stay independent. Coverage is in
 `review-rate-limits.api.spec.ts`, `public-project.api.spec.ts`, `mcp.api.spec.ts` and the unchanged

@@ -55,14 +55,15 @@ async function requestIpBucket() {
 /**
  * The person's own hourly limits in a project, counted the way the APIs count them. Members get the member
  * limits in their projects. uier's own feedback project is the exception: the toolbar on uier's pages writes
- * through the anonymous comments API, which keeps the visitor and IP limits for every writer, staff included.
+ * through the anonymous comments API, which keeps the visitor and IP limits for every writer, staff included,
+ * except that a signed-in account gets more new comments.
  */
 async function personalProjectUsage(project: DbProject, userId: string, ipBucket: string | undefined): Promise<UsageMeter[]> {
     const authorId = `user:${userId}`;
     const member = project.id !== PUBLIC_PROJECT_ID;
     const partition = projectPartition(project.id);
     return await Promise.all([
-        meter(partition, authorCommentsLimit(authorId, member), 'New comments'),
+        meter(partition, authorCommentsLimit(authorId, member, !member), 'New comments'),
         meter(partition, authorRepliesLimit(authorId, member), 'Replies', 'Yours, and those your coding agents write for you'),
         meter(partition, authorRewritesLimit(authorId), 'Rewrite suggestions'),
         // Members are not counted by address

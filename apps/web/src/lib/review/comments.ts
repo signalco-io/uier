@@ -109,8 +109,9 @@ export function canMakeCommentPrivate(actor: ProjectActor) {
 function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
     return {
         domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request),
-        // Anyone can join the public feedback project; enrollment must not raise its limits.
+        // Anyone can join the public feedback project; enrollment raises only its new comments.
         member: actor.kind === 'member' && (project.id !== PUBLIC_PROJECT_ID || actor.isAdmin),
+        publicAccount: actor.kind === 'member' && project.id === PUBLIC_PROJECT_ID && !actor.isAdmin,
         credentialId: actor.kind === 'member' ? actor.agent?.credentialId : undefined,
         usage: usageLinks(project, actor)
     };

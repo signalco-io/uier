@@ -45,7 +45,12 @@ export const MAX_LIST_RESPONSE_BYTES = 1_000_000;
 export const RATE_LIMIT_WINDOW_SECONDS = HOUR;
 export const RATE_LIMIT_VISITOR_COMMENTS = 10;
 export const RATE_LIMIT_VISITOR_REPLIES = 30;
-/** Current project members; public feedback commenters retain the visitor limits. */
+/**
+ * Signed-in accounts on uier's public feedback project: three times a visitor's new comments.
+ * Their replies and the shared IP limit stay a visitor's, since anyone can sign up.
+ */
+export const RATE_LIMIT_PUBLIC_ACCOUNT_COMMENTS = 3 * RATE_LIMIT_VISITOR_COMMENTS;
+/** Current project members; public feedback commenters are not members here. */
 export const RATE_LIMIT_MEMBER_COMMENTS = 100;
 export const RATE_LIMIT_MEMBER_REPLIES = 300;
 export const RATE_LIMIT_IP_WRITES = 30;

@@ -49,6 +49,8 @@ function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
         domain: context.domain,
         authorId: writerId(context),
         ipBucket: rateLimitIpBucket(context.request),
+        // Only uier's public feedback project resolves a member here: a signed-in account on uier's pages
+        publicAccount: context.actor?.kind === 'member',
         ...(context.project ? { usage: usageLinks(context.project, context.actor) } : {})
     };
 }
