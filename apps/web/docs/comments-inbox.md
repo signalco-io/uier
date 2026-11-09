@@ -66,8 +66,10 @@ rows with the status filter it waits for their entrance motion to settle before 
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
-  mouse after 6 px or a 250 ms long press on a touch screen, so a swipe still scrolls the page (auto-scroll at
-  the edges). The lifted card is a `DragOverlay` copy (`CommentRow preview`, no link id, inert) with the
+  mouse after 6 px; on a touch screen a card held 250 ms is armed (`data-hold`) and lifts when the finger then moves more
+  than 10 px (`HoldTouchSensor`), so a swipe still scrolls the page and a long press held still (600 ms) selects the card
+  instead ([App triage](triage.md#selection)); a dragged card auto-scrolls at
+  the edges. The lifted card is a `DragOverlay` copy (`CommentRow preview`, no link id, inert) with the
   floating elevation; the original stays at 40 %. Columns carry `data-drop`: `target` (dashed) where the card
   can go, `over` (ring, a placeholder of the card's height where it lands in the list's order), `refused`
   (dimmed) where `allowedStatuses` does not allow it, `home`; while dragging every column is as tall as the
@@ -82,7 +84,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   column.". After a move the card travels to its new column, the focus goes to Move on it there (scrolled into view
   once it has arrived, `motionSettled`) and a status region says "Comment #12 moved to Done."; during a save Move
   stays focusable and offers no other column. The single-pointer
-  alternative to dragging (and the touch path besides a long press) is the card's tap: it opens the thread, whose
+  alternative to dragging (and the touch path besides holding and moving) is the card's tap: it opens the thread, whose
   status menu has the same statuses. dnd-kit's live region announces pointer drags. Columns and both paths
   follow the `statuses` list, never fixed ids. `e2e/comment-board.spec.ts` covers mouse, touch, refused drops,
   Escape, the keyboard path (Move hidden at rest, M, Tab), In progress (to and from it, and from Ready to verify)
@@ -100,8 +102,9 @@ rows with the status filter it waits for their entrance motion to settle before 
   light and dark, with axe. It opens the board's Move through `openBoardMove`, as a keyboard user does,
   rather than clicking its visually hidden pointer target.
 
-The touch drag test centres its source card in the viewport before the long press so edge auto-scroll
-does not invalidate the captured drop coordinates as card heights change.
+The touch drag test centres its source card in the viewport before the hold so edge auto-scroll
+does not invalidate the captured drop coordinates as card heights change. It moves the finger as soon as the card is
+armed (`heldForDrag`), before the long press would select it.
 
 The list and active board columns sort by priority, then newest number. Done sorts by the last
 transition into Done (`completedAt`), newest first, regardless of priority or number. Legacy Done

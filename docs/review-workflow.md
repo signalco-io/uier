@@ -812,11 +812,12 @@ list rows and board cards show it only for a priority other than Normal, so the 
 stand out. The toolbar keeps its text label.
 
 List and Board select threads with explicit checkboxes that stay quiet at rest: a row's box shows on hover
-or keyboard focus, and a touch screen starts with Select in the count line. While selecting, every row shows
+or keyboard focus, and on a touch screen a long press on a row or card selects it (screen readers reach the
+row's box). While selecting, every row shows
 its box and a bar floats over the end of the comments with Clear selection, the indeterminate Select shown
 results, the selected count, assignment/unassignment, priority, Mark selected as done and Reopen selected.
 x selects the focused row, Shift-click a range, Ctrl or ⌘ + A the shown results, and Escape ends selecting;
-on a touch screen a tap on a row selects it while selecting. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
+on a touch screen a tap on a row toggles it while selecting. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
 In progress threads as they are ([In progress](#in-progress)).
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
 visible order (Open, In progress, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view

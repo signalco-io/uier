@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
-import { commentRowLink, createProject, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
+import { commentRowLink, createProject, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -56,7 +56,7 @@ async function dragWithMouse(page: Page, card: Locator, target: Locator, { drop 
     if (drop) await page.mouse.up();
 }
 
-/** A long press lifts the card on a touch screen; then it follows the finger */
+/** Held on a touch screen, the card lifts once the finger moves; then it follows the finger */
 async function dragWithTouch(page: Page, card: Locator, target: Locator) {
     // Keep the gesture away from the viewport edge: taller cards can trigger auto-scroll,
     // moving the destination away from the coordinates captured below.
@@ -65,7 +65,12 @@ async function dragWithTouch(page: Page, card: Locator, target: Locator) {
     const from = (await card.boundingBox())!;
     const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
     await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    // Held: the card is ready to lift, but only a move lifts it (before the long press, which would select it instead)
+    await heldForDrag(card);
+    expect(await dragPreview(page).count()).toBe(0);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x, y: start.y + 16 }] });
     await expect(dragPreview(page)).toBeVisible();
+    await expect(card).not.toHaveAttribute('data-hold');
     const to = (await target.boundingBox())!;
     const end = { x: to.x + to.width / 2, y: to.y + 40 };
     for (let step = 1; step <= 10; step++)
@@ -146,13 +151,12 @@ function placement(target: Locator) {
     });
 }
 
-/** The parts of the page around the comments: the header, the comments section, the search and the count line (its Select) */
+/** The parts of the page around the comments: the header, the comments section and the search */
 function pageParts(page: Page) {
     return Promise.all([
         page.getByRole('heading', { level: 1 }),
         page.locator('#comments'),
-        page.locator('#feedback-search'),
-        page.getByRole('button', { name: 'Select comments', exact: true })
+        page.locator('#feedback-search')
     ].map(placement));
 }
 
@@ -285,7 +289,7 @@ test('board cards are darker than their column on dark', async ({ page, request 
 });
 
 test('a card starts its title with its author\'s avatar, keeps its selection box under it hidden at rest without moving, and an empty column centres its line', async ({ page, request }, testInfo) => {
-    test.skip(testInfo.project.name.startsWith('Mobile'), 'Hover; a touch screen leaves the box out until Select');
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'Hover; a touch screen selects with a long press');
     const { column, card } = await board(page, request);
     const first = card('Open', 'First board thread');
     // The author is an avatar named for assistive tech, with the name in a tooltip, not a line of text
@@ -648,10 +652,23 @@ test('a column the card cannot move to refuses it', async ({ page, request }, te
     await expect(page.getByRole('menuitem', { name: 'Ready to verify', exact: true })).toBeDisabled();
 });
 
-test('board cards move with a long press on a touch screen', async ({ page, request }, testInfo) => {
+test('board cards move when held and moved on a touch screen; a long press held still selects the card', async ({ page, request }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('Mobile'), 'Touch screens');
     const { comments, column, card } = await board(page, request);
-    // No Move on a card: a long press drags it, a tap opens the thread and its status menu
+    // A long press held still selects the card (uier #179): it lifts nothing and opens nothing, and the card stays
+    const second = card('Open', 'Second board thread');
+    const box = second.getByRole('checkbox');
+    await longPress(page, second.getByRole('link'), async () => {
+        await expect(box).toBeChecked();
+        await expect(second).not.toHaveAttribute('data-hold');
+    });
+    await expect(dragPreview(page)).toHaveCount(0);
+    await expect(selectionBar(page).getByText('1 selected', { exact: true })).toBeVisible();
+    await expect(page.getByRole('article')).toHaveCount(0);
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await selectionBar(page).getByRole('button', { name: 'Clear selection', exact: true }).tap();
+    await expect(selectionBar(page)).toHaveCount(0);
+    // No Move on a card: held then moved it drags, a tap opens the thread and its status menu
     await expect.poll(() => moveShown(column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }))).toBe(false);
     // The phone stacks the columns: In progress is the one below Open, on the screen
     await dragWithTouch(page, card('Open', 'First board thread'), column('In progress'));
