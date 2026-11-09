@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Timeago } from '@signalco/ui/Timeago';
 
-// Anything newer reads "just now" instead of "0 seconds ago"
-const justNowSeconds = 10;
+// The first minute reads "just now" instead of counting seconds (the app's relative times do the same)
+const justNowSeconds = 60;
 
 /** Relative time of a thread item ("just now", "5 minutes ago") */
 export function CommentTime({ date }: { date: Date }) {
