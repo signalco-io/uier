@@ -42,13 +42,17 @@ test('the assignee picks the agent working with them, edits its session and mode
     const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitemradio', { name: 'Claude', exact: true }) });
     await animationsFinished(menu);
     await expect(menu.getByRole('menuitemradio')).toHaveText(['Claude', 'Codex', 'ChatGPT', 'Cursor', 'AI agent']);
+    // Each agent shows its own logo beside its name
+    for (const [kind, label] of [['claude', 'Claude'], ['codex', 'Codex'], ['chatgpt', 'ChatGPT'], ['cursor', 'Cursor'], ['agent', 'AI agent']])
+        await expect(menu.getByRole('menuitemradio', { name: label, exact: true }).locator(`[data-agent-mark="${kind}"]`)).toBeVisible();
     await expectNoAxeViolations(page);
     await menu.getByRole('menuitemradio', { name: 'Claude', exact: true }).click();
     const agent = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
     await expect(agent).toBeVisible();
     await expect(page.getByText('Agent set to Claude.', { exact: true })).toBeVisible();
-    // Its mark is stacked on the assignee's avatar, in the thread and on the row
-    await expect(thread.locator('[data-agent="claude"]')).toBeVisible();
+    // The thread shows Claude's logo beside its name, once; the row stacks its mark on the assignee's avatar
+    await expect(agent.locator('[data-agent-mark="claude"]')).toBeVisible();
+    await expect(thread.locator('[data-agent-mark]')).toHaveCount(1);
     await expectRowAvatar(`Assigned to ${name}, with Claude`);
 
     // Session id and model are the less common, manual path

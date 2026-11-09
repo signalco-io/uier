@@ -833,8 +833,8 @@ human connection owner and connection identity, including across token refresh.
 ### Agents working on feedback
 
 The person a thread is assigned to can have one AI agent working under them: Claude, Codex, ChatGPT,
-Cursor or a generic AI agent, with the session id and model it reported. The app shows its mark beside
-the assignee's avatar ([review workflow](review-workflow.md#ai-agents-under-the-assignee)). A coding tool
+Cursor or a generic AI agent, with the session id and model it reported. The app shows its logo with
+the assignee ([review workflow](review-workflow.md#ai-agents-under-the-assignee)). A coding tool
 attaches itself when it starts working on feedback assigned to its owner:
 
 | Tool | Scope | Input and meaning |
