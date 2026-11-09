@@ -670,6 +670,8 @@ test('reply sync uses native Notion comments, follows original edits/deletions, 
     };
     const mapping = { title: 'title', uierId: 'id', kind: 'kind' };
     expect(notionProperties(context, mapping).kind).toEqual({ select: { name: 'Design review' } });
+    // Notion refuses commas in select option names
+    expect(notionProperties({ ...context, feedbackType: { id: 'custom_design', label: 'Copy, wording', icon: 'message' } }, mapping).kind).toEqual({ select: { name: 'Copy wording' } });
     for (const kind of ['feedback', 'bug', 'rewrite', 'comment'] as const)
         expect(notionProperties({ ...context, kind }, mapping).kind).toEqual({ select: { name: kind } });
 });
