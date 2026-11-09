@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { commentRows, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
@@ -56,7 +56,7 @@ test('each status shows its own colour in the board, the list, the status menu a
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
     await expect(column('Open').getByRole('listitem')).toHaveCount(4);
     const move = async (status: Status, to: string) => {
-        await column('Open').getByRole('button', { name: `Move comment #${numbers[status]}`, exact: true }).click();
+        await openBoardMove(page, numbers[status], column('Open'));
         await page.getByRole('menuitem', { name: to, exact: true }).click();
     };
     await move('in-progress', 'In progress');
