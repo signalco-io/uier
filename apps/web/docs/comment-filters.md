@@ -9,8 +9,13 @@
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board, then the status tabs
-  (list only: Active, the default with no `?status=`, is every status but Done; then Open, In progress, Ready to
-  verify, Done and All, each one status except All; `statusMatches` in `commentLabels.ts`). Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
+  (list only, `StatusTabs`: Active, Done and All, with counts. Active, the default with no `?status=`, is every status
+  but Done; `statusMatches` in `commentLabels.ts`). Open, In progress and Ready to verify fold under Active
+  (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab opens a menu of
+  Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
+  progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
+  `ready` links still open on that status. The menu button is a plain button inside the toggle group: Tab reaches it,
+  the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The list header (`TriageSelection`) has Select shown results, the count with
   the unread count, and Mark all as read; the bulk actions appear only once something is selected.
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
