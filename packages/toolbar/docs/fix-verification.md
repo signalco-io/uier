@@ -5,7 +5,9 @@
 Request verification form opens from Thread options, whose button gets the focus back),
 reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
 The status badge reads `feedbackStage`'s label: In progress for a thread in progress and Ready
-to verify for pending unresolved requests; the ordinary action
+to verify for pending unresolved requests, its dot in the status's colour (Open ink, In progress
+`--brand-in-progress`, Ready to verify `--brand-ready`, Done `--brand-success`, as the app's `StateDot`;
+`data-status-dot`); the ordinary action
 says Done without verification. Confirmation requires the server's current request revision.
 Workflow mutations refresh all lists/activity, preserve failed details and never auto-acknowledge
 activity. Ready remains in Open counts, with its own filter. The extension contract adds the

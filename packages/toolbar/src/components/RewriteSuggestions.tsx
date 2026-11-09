@@ -9,7 +9,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { AI } from '@signalco/ui-icons';
 import { CommentsApiError } from '../hooks/api';
 import { useRewriteSuggestions } from '../hooks/useRewriteSuggestions';
-import { CommentsErrorMessage, retryAfterText } from './CommentsErrorMessage';
+import { CommentsErrorMessage, retryAfterText, UsageLink } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 
@@ -86,6 +86,7 @@ export function RewriteSuggestions({ text, onPick }: RewriteSuggestionsProps) {
                 ? (
                     <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>
                         No more suggestions for now. Try again {retryAfterText(rateLimited.retryAfter)}. You can still write your own.
+                        <UsageLink error={rateLimited} />
                     </p>
                 )
                 : <CommentsErrorMessage error={suggest.error} />}

@@ -53,6 +53,8 @@
         --brand-selection: 227 100% 59% / 0.2; /* tint for a commented text range (and an area with an open thread) */
         --brand-success: 142 72% 29%;        /* #15803D resolved */
         --brand-warning: 26 90% 37%;         /* #B45309, also the High priority flag */
+        --brand-in-progress: 200 98% 39%;    /* #0284C5 sky, the In progress status dot (4.1:1 on paper) */
+        --brand-ready: 262 83% 58%;          /* #7C3BED violet, the Ready to verify status dot (5.7:1 on paper) */
 
         /* The app's sidebar (shadcn/ui): one step off the page, ink text, ink 200 for hover and the current item */
         --sidebar: 0 0% 96%;                 /* #F5F5F5 ink 100 */
@@ -106,6 +108,8 @@
         --brand-selection: 227 100% 59% / 0.25;
         --brand-success: 142 71% 45%;        /* #22C55E reads better on black */
         --brand-warning: 38 92% 50%;
+        --brand-in-progress: 198 93% 60%;    /* #3ABFF8 (10.0:1 on black) */
+        --brand-ready: 255 92% 76%;          /* #A689FA (7.6:1 on black) */
 
         --sidebar: 0 0% 4%;                  /* #0A0A0A surface, next to the black page */
         --sidebar-foreground: 0 0% 93%;

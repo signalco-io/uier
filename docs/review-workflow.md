@@ -99,7 +99,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     under Active, in the menu beside it, and the tab then reads "Active: In progress"; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
-    status (a dot and its name, Open too, so an Active list shows where each thread is; board cards leave it to their column), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
+    status (a dot in the status's colour and its name, Open too, so an Active list shows where each thread is: Open ink, In progress sky, Ready to verify violet, Done green; board cards leave it to their column, and board column headers, the status menu, the Status filter and the toolbar's thread use the same colours), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
     or the browser's Back), and in a sheet on the board. On the board, drag a card to another column with the mouse,
     or press and hold it on a touch screen (the page scrolls at the edges), or tap it and change the thread's status.
@@ -224,6 +224,33 @@ consumes Enter or Tab. Replies appear while sending; errors keep recoverable tex
 mentions. Current access, comments-off state, private visibility, eligible mentions and the
 50-message thread limit are checked on the server. Replies use the existing notifications and
 integration synchronization, and capture no screenshot.
+
+### Markdown in messages
+
+Thread messages show their Markdown in the app (the open thread, the board's sheet) and in the toolbar
+(pin popovers and the inbox), since coding agents reply in it. Messages are stored as written; only
+the display changes.
+
+- Supported: paragraphs, with every line break kept as in plain text; bold, italic, `~~strikethrough~~`,
+  inline code and fenced code blocks; links, `<https://…>` and bare http(s) addresses; ordered and
+  unordered lists; block quotes (a quote ends at its last `>` line, so a reply typed under it stays
+  outside); headings, shown as bold text; thematic breaks. Not supported, shown as typed: tables,
+  reference links, indented code, footnotes, HTML entities.
+- Never HTML: tags show as text. Images are links to the image, so reading a thread never loads a
+  third-party address (which would reveal readers' IP addresses). Links open only http, https and mailto
+  addresses, in a new tab with `rel="noopener noreferrer nofollow ugc"`; any other link (`javascript:`,
+  `data:`, a relative path) stays the text it was written as. Each link names its full address on hover,
+  and link text that looks like an address on another site (`[https://uier.io](https://example.com)`)
+  shows the real address instead.
+- Mentions are ranges over the text: Markdown never changes or splits them, a name is never read as
+  Markdown, and in code a mention shows as `@` and the name.
+- Long code and addresses wrap inside the message on any screen.
+- List rows (the app's inbox, board cards and My work) show the first message's first line without
+  its Markdown markers. AI titles, emails, digests, feedback packets and connected services (which take
+  Markdown themselves) get the text as it was written.
+
+The parser is `@uier/toolbar/markdown`, small and written for this subset: no HTML pass-through and no
+dependency in the toolbar bundle ([toolbar note](../packages/toolbar/docs/message-markdown.md)).
 
 ### Assignment and mentions
 

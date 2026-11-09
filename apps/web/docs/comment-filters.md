@@ -14,7 +14,8 @@
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
-  `ready` links still open on that status. The menu button is a plain button inside the toggle group: Tab reaches it,
+  `ready` links still open on that status. Each status shows its `StateDot` in its colour ([status colours](comments-inbox.md)):
+  Done's tab, the three statuses in the menu, and the Active tab while it names one; Active and All have none. The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The count line under them (`TriageSelection`) has the count with the unread
   count, Mark all as read and Select; Select shown results and the bulk actions are in the selection bar that

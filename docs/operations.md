@@ -293,6 +293,8 @@ manifest (404) bootstraps the first release. Other failures stop deployment; do 
 by clearing the archive source. The manifest records when each hash was last the current version.
 The archive contains both loaders and their review scripts. Each loader embeds its review script's
 content-addressed URL and integrity value; retain both together.
+Each bundle is limited to 1,000,000 uncompressed bytes, checked both before publishing new assets
+and while downloading retained assets, so a new release cannot exceed its own retention limit.
 Keep each production bundle and its review API contract working for one year after that date;
 breaking API changes must retain the old contract through the supported window. Sites update
 their pinned snippet to receive fixes. Previews/local pins carry no production retention promise.

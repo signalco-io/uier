@@ -1,6 +1,7 @@
 import { cx } from '@signalco/ui-primitives/cx';
 import { CommentsApiError } from '../hooks/api';
 import { commentTextMaxLength, destructiveTextClassName } from './@types/Comments';
+import type { ToastAction } from './Toaster';
 
 /** "in 30 seconds", "in 5 minutes", "in about an hour" */
 export function retryAfterText(seconds: number | undefined) {
@@ -70,6 +71,16 @@ export function getCommentsErrorMessage(error: unknown) {
     return 'Something went wrong. Try again.';
 }
 
+/**
+ * View usage, for a limit a signed-in member reached: the account's or the workspace's usage page on uier,
+ * which the API names (guests have no account, so they get none)
+ */
+export function usageAction(error: unknown): ToastAction | undefined {
+    return error instanceof CommentsApiError && error.code === 'rate_limited' && error.usageUrl
+        ? { label: 'View usage', href: error.usageUrl }
+        : undefined;
+}
+
 export function CommentsErrorMessage({ error, className }: { error: unknown; className?: string }) {
     if (!error) {
         return null;
@@ -78,6 +89,18 @@ export function CommentsErrorMessage({ error, className }: { error: unknown; cla
     return (
         <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName, className)}>
             {getCommentsErrorMessage(error)}
+            <UsageLink error={error} />
         </p>
+    );
+}
+
+/** View usage after an inline message, when {@link usageAction} has one */
+export function UsageLink({ error }: { error: unknown }) {
+    const usage = usageAction(error);
+    return usage && (
+        <>
+            {' '}
+            <a href={usage.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{usage.label}</a>
+        </>
     );
 }

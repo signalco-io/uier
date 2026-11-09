@@ -77,6 +77,8 @@ export type CommentsStore = {
      * (and changes nothing) when the limit is reached. The counter expires after `ttlSeconds`.
      */
     incrementCounter(domain: string, id: string, limit: number, ttlSeconds: number): Promise<boolean>;
+    /** The counter `id`'s count, without changing it; 0 when it does not exist (or expired) */
+    getCounter(domain: string, id: string): Promise<number>;
 
     /** The domain's next comment number (1, 2, 3, ...), atomically: its public id (`#12`) */
     nextCommentNumber(domain: string): Promise<number>;

@@ -2,6 +2,7 @@
 
 import type { MouseEvent, ReactNode } from 'react';
 import { BugIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
+import { markdownPlainText } from '@uier/toolbar/markdown';
 import { cn } from '@/src/lib/utils';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { RelativeTime } from './DateTime';
@@ -16,7 +17,8 @@ const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as
 export function commentTitle(comment: ProjectCommentView) {
     if (comment.deleted) return 'Comment deleted';
     if (comment.title) return comment.title;
-    const line = comment.displayText.split('\n').map(text => text.trim()).find(Boolean);
+    // The words without their Markdown: `**Fixed** in [abc1234](…)` reads "Fixed in abc1234"
+    const line = markdownPlainText(comment.displayText, comment.displayMentions).split('\n').map(text => text.trim()).find(Boolean);
     return line ?? (comment.anchor.type === 'text' ? comment.anchor.text : '');
 }
 

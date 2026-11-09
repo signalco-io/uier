@@ -95,7 +95,7 @@ every change in the package.
 | `components/ComposerFooter.tsx` | the line under every composer: "Shift+Enter for a new line" (the app's wording; only with `any-pointer: fine`) and "Draft saved in this browser" for a composer that opened with kept text. It describes the text box; keep it free of claims beyond browser-local storage |
 | `components/CommentThreadItemMenu.tsx` | item options (edit with Save/Cancel and stale-edit protection; Reattach comment on the first message; delete with a confirmation); `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns focus to the menu |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
-| `components/CommentsErrorMessage.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...) |
+| `components/CommentsErrorMessage.tsx`, `Toaster.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...); a member's limit adds **View usage**, the API's usage page ([usage](../../apps/web/docs/usage.md)) |
 | `components/Announcer.tsx` | the polite live region ("Comment posted", "Reply posted", "Comment deleted", "Reply deleted") |
 | `components/ProjectNotice.tsx` | shared ink notice pill: one next step and Exit review, wrapping at narrow widths; button links retain coarse-pointer hit areas |
 | `components/ShowcaseHint.tsx` | first-run hint and About uier: on uier.io's landing page only (showcase without a project, `showAbout` in `CommentsGlobal`), not on its other pages, in the app, in reviews or in embeds |

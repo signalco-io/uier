@@ -53,6 +53,10 @@ export const brand = {
         accentOnDark: '#7A9BFF',
         success: '#15803D',
         warning: '#B45309',
+        inProgress: '#0284C5',
+        inProgressOnDark: '#3ABFF8',
+        ready: '#7C3BED',
+        readyOnDark: '#A689FA',
         destructive: '#DC2626'
     },
     fonts: {

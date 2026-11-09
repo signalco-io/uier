@@ -1,7 +1,7 @@
 # Comments inbox and board
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
-  title (`commentTitle`: the [AI title](ai-titles.md), else the first line), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
+  title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
   (`AssigneeAvatars`), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
@@ -45,3 +45,10 @@
   and rollback; `openBoardMove` in `e2e/support/app.ts` opens Move the way a keyboard user does. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
   from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole
   page (no page title is stored).
+- Status colours: `StateDot` (`comments/CommentStatus.tsx`) gives each status its own dot, Open ink
+  (`--foreground`), In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`) and Done
+  green (`--brand-success`; BRAND.md, "Status"), always beside the name. List rows, board column headers, the
+  thread's status menu (`StateMenu`, `StateBadge`) and the Status filter (Done, the statuses under Active) all use it; the
+  toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
+  `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
+  light and dark, with axe.
