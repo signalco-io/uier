@@ -135,7 +135,7 @@ export async function pageStateSettings(page: Page) {
 
 /** Opens the invite dialog from the project header: Invite is in the popover of who can comment */
 export async function openProjectInvite(page: Page, access: ProjectAccessLabel = 'Invited people') {
-    await page.getByRole('button', { name: access, exact: true }).click();
+    await page.getByRole('link', { name: access, exact: true }).hover();
     await page.getByRole('dialog', { name: access }).getByRole('button', { name: 'Invite', exact: true }).click();
 }
 

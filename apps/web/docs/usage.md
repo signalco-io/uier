@@ -43,3 +43,5 @@ guests, and `usedOf` counts; `public-project.api.spec.ts` the account link for e
 `usage.spec.ts` (full suite, desktop and mobile) uses up a commenter's hour on uier's feedback project, follows
 **View usage** from the toast to the account's page, then opens the project's workspace from the workspace's
 page, with axe checks in light and dark.
+`app.spec.ts` and `users.spec.ts` include Usage in the account, admin workspace and commenter
+workspace navigation expectations, retaining the checks that restrict management tabs to admins.

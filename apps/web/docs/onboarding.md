@@ -3,6 +3,8 @@
 The comments-off case in `e2e/project-review.spec.ts` checks the onboarding and empty-list
 notices and their Settings links, then the saved Comments off choice in Review settings.
 Each page keeps its accessibility checks and must offer neither Invite nor guest links.
+The admin invite helper in `e2e/support/app.ts` hovers the header's access link to open its
+popover before choosing Invite; clicking that link navigates to Review settings.
 
 - **First run.** A new user (`findOrCreateUserWithStatus`) has `welcomePending`. Email sign-in without `next`
   goes straight to `/app/welcome` (`(auth)/welcome`), and `/app` sends there too while it is set. The step

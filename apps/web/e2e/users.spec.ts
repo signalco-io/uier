@@ -148,7 +148,7 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await expect(commenterWorkspace).toHaveAttribute('href', '/app/workspace/clients');
     await commenter.page.goto('/app/workspace');
     await expect(commenter.page).toHaveURL(/\/app\/workspace\/clients$/);
-    await expect(commenter.page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Clients']);
+    await expect(commenter.page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Clients', 'Usage']);
     expect((await commenter.page.goto('/app/workspace/teams'))?.status()).toBe(404);
     await commenter.page.goto('/app/projects');
     // Commenters' settings open at their own project emails; the sections that set up the project are not theirs
