@@ -10,7 +10,7 @@ const photo = async (width: number, height: number) => ({
     buffer: await sharp({ create: { width, height, channels: 3, background: { r: 30, g: 110, b: 190 } } }).jpeg().toBuffer()
 });
 
-test('the profile picture is uploaded, shown beside the name, replaced and removed', async ({ page }) => {
+test('the profile picture is uploaded, shown beside the name, replaced and removed', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('avatar'), { from: '/app/sign-in?next=%2Fapp%2Faccount' });
     await expect(page).toHaveURL(/\/app\/account$/);
     const profile = page.locator('#profile');
@@ -73,9 +73,26 @@ test('the profile picture is uploaded, shown beside the name, replaced and remov
     // The replaced picture is gone
     expect((await page.request.get(first!)).status()).toBe(404);
 
-    await (await menuItem('Remove picture')).click();
+    // Removing with the keyboard (a tap on a phone) gives the focus back to the avatar, when it fails and when it works
+    const keyboard = testInfo.project.use.isMobile !== true;
+    const removePicture = async () => {
+        if (!keyboard) return (await menuItem('Remove picture')).click();
+        await avatarButton.focus();
+        await page.keyboard.press('Enter');
+        // The menu puts the focus on its first item once open; then down to Remove picture
+        await expect(page.getByRole('menuitem', { name: 'Upload a new picture' })).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByRole('menuitem', { name: 'Remove picture' })).toBeFocused();
+        await page.keyboard.press('Enter');
+    };
+    await page.route('**/api/account/avatar', route => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }), { times: 1 });
+    await removePicture();
+    await expect(profile.getByRole('alert')).toHaveText('Your picture could not be saved. Try again.');
+    if (keyboard) await expect(avatarButton).toBeFocused();
+    await expect(profilePicture).toBeVisible();
+    await removePicture();
     await expect(page.getByText('Your picture is removed.')).toBeVisible();
     await expect(profilePicture).toHaveCount(0);
-    await expect(avatarButton).toBeVisible();
+    if (keyboard) await expect(avatarButton).toBeFocused();
     await expectMenuPicture(null);
 });

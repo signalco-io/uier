@@ -33,10 +33,13 @@ function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avat
             router.refresh();
         }
     });
+    // While a change saves, the menu stays closed but the avatar keeps the focus: a disabled trigger
+    // can't take it back from the closing menu, which would leave it on the page's body
+    const [open, setOpen] = useState(false);
     return (
         <>
-            <DropdownMenu>
-                <DropdownMenuTrigger render={<EditablePicture aria-label="Edit profile picture" aria-describedby={descriptionId} pending={pending} disabled={pending} />}>
+            <DropdownMenu open={open} onOpenChange={next => setOpen(next && !pending)}>
+                <DropdownMenuTrigger render={<EditablePicture aria-label="Edit profile picture" aria-describedby={descriptionId} pending={pending} />}>
                     <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" className="size-16" fallbackClassName="text-xl" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-auto">

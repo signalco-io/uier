@@ -20,7 +20,7 @@ export function EditablePicture({ children, pending, className, badgeClassName, 
     badgeClassName?: string;
 }) {
     return (
-        <Button variant="ghost" size="icon" data-editable-picture className={cn('relative size-16 shrink-0 rounded-full p-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent', className)} {...props}>
+        <Button variant="ghost" size="icon" data-editable-picture aria-busy={pending || undefined} className={cn('relative size-16 shrink-0 rounded-full p-0 hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent', className)} {...props}>
             {children}
             {pending && (
                 <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-background/70">
@@ -52,8 +52,12 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
     const input = useRef<HTMLInputElement>(null);
     const [pending, startTransition] = useTransition();
     const [error, setError] = useState<string>();
+    // One change at a time: a second one while the first saves is ignored
+    const busy = useRef(false);
 
     const send = (method: 'POST' | 'DELETE', file?: File) => {
+        if (busy.current) return;
+        busy.current = true;
         onPendingChange?.(true);
         startTransition(async () => {
             setError(undefined);
@@ -73,6 +77,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
             } catch {
                 setError(`${failed} Check your connection and try again.`);
             } finally {
+                busy.current = false;
                 onPendingChange?.(false);
             }
         });
