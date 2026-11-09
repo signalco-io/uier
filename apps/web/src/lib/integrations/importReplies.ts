@@ -1,4 +1,5 @@
 import { sha256Hex } from '../app/tokens';
+import { withThreadHistory } from '../comments/history';
 import { withThreadActivity } from '../comments/activity';
 import { MAX_TEXT_LENGTH, MAX_THREAD_ITEMS } from '../comments/limits';
 import { ordinaryVerificationStatus } from '../comments/verificationState';
@@ -17,7 +18,8 @@ export function withImportedReplies(comment: DbComment, connection: IntegrationC
         changed = withNotificationEvent(ordinaryVerificationStatus(withThreadActivity(changed, actorId), input.resolved),
             actorId, input.resolved ? 'resolved' : 'reopened', input.at);
     }
-    if (!connection.replySync?.enabled) return { comment: changed, full };
+    const finish = () => ({ comment: withThreadHistory(comment, changed, `integration:${connection.provider}`, input.at), full });
+    if (!connection.replySync?.enabled) return finish();
     for (const reply of input.replies) {
         if (typeof reply.id !== 'string' || !reply.id || reply.id.length > 200 || typeof reply.authorId !== 'string' || !reply.authorId
             || (reply.target !== undefined && (typeof reply.target !== 'string' || !reply.target || reply.target.length > 500))
@@ -43,5 +45,5 @@ export function withImportedReplies(comment: DbComment, connection: IntegrationC
         changed = withNotificationEvent({ ...withThreadActivity(changed, authorId), thread: { ...changed.thread, items: [...changed.thread.items, item] } },
             authorId, 'reply', input.at, undefined, undefined, { itemId: id });
     }
-    return { comment: changed, full };
+    return finish();
 }

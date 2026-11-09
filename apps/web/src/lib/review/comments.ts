@@ -1,4 +1,5 @@
 import { ordinaryVerificationStatus, withOrdinaryStage } from '../comments/verificationState';
+import { withThreadHistory } from '../comments/history';
 import { feedbackStage, feedbackStatusTargets, type FeedbackStatusTarget } from '@uier/toolbar/verification';
 import { commentPriority, priorities, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from './commentRevision';
@@ -386,7 +387,7 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
         guard?.onResult?.(changed !== comment);
         // Presence changes only the etag: no unread step, content timestamp, integration or title work.
         if (options.ephemeral) return changed;
-        return changed === comment ? comment : withSyncMark(project, comment, { ...changed, updatedAt: nowIso() });
+        return changed === comment ? comment : withSyncMark(project, comment, { ...withThreadHistory(comment, changed, actorAuthorId(actor)!), updatedAt: nowIso() });
     };
     const saved = attempt ? await commitChangeSubmission(store, attempt, id, authorize, apply, guard?.onResult)
         : await updateComment(store, project, actor, id, apply);
@@ -605,7 +606,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             delete kept.authorId;
             delete kept.device;
             delete kept.screenshot;
-            return withSyncMark(project, comment, kept);
+            return withSyncMark(project, comment, withThreadHistory(comment, kept, actorAuthorId(actor)!));
         }
 
         const remaining = items.filter(other => other !== item);
@@ -625,5 +626,5 @@ export async function reattachProjectAnchor(project: DbProject, actor: ProjectAc
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden();
         if (comment.origin !== origin) throw apiErrors.forbidden('Choose a target on the original reviewed site.');
-    }, (previous, updated) => withSyncMark(project, previous, updated));
+    }, (previous, updated) => withSyncMark(project, previous, withThreadHistory(previous, updated, actorAuthorId(actor)!)));
 }

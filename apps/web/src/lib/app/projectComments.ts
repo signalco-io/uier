@@ -3,6 +3,7 @@ import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from '../review/commentRevision';
 import { environmentFilter, type FeedbackSource } from './environments';
 import type { ReadActivity } from '../comments/activity';
+import { threadHistoryView, type ThreadHistoryEntry } from '../comments/history';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { commentAnchor, type CommentAnchorView } from './commentAnchor';
 import { projectCommentRouting } from './projectCommentRouting';
@@ -77,6 +78,7 @@ export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; ag
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    history?: ThreadHistoryEntry[];
     priority: CommentPriority;
     revision: string;
     integrationLinks?: ExternalFeedbackLink[];
@@ -212,6 +214,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         revision: commentRevision(comment),
         source,
         activity,
+        history: threadHistoryView(comment, { member: actor.kind === 'member', authorId: myId, admin: actor.kind === 'member' && actor.isAdmin }, participants),
         id: comment.id,
         url: `${origin}${commentSourcePath(comment)}`,
         path,

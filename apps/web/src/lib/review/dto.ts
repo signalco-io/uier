@@ -1,6 +1,7 @@
 import { verificationDetails, verificationPermissions } from './fixVerificationDto';
 import { feedbackSource, type FeedbackSource } from '../app/environments';
 import { readActivity } from '../comments/activity';
+import { threadHistoryView, type ThreadHistoryEntry } from '../comments/history';
 import type { DbComment, DbThreadItem } from '../db/schema';
 import { toCommentDto, type CommentDto } from '../comments/dto';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
@@ -46,6 +47,7 @@ export function messageMentions(item: DbThreadItem, names: Map<string, string>) 
 export type ReviewAssignee = { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
 export type ReviewCommentDto = CommentDto & {
+    history?: ThreadHistoryEntry[];
     source?: FeedbackSource;
     /** `agent`: the AI agent working under the assignee, for members only */
     assignee?: ReviewAssignee;
@@ -78,6 +80,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        ...(actor.kind === 'member' ? { history: threadHistoryView(comment, { member: true, authorId, admin: actor.isAdmin }, participants) } : {}),
         ...(project ? { verification: verificationDetails(comment, project, actor, participants), verificationPermissions: verificationPermissions(comment, project, actor, participants) } : {}),
         ...(project ? { source: feedbackSource(project, comment.origin) } : {}),
         activity: readActivity(comment, authorId, readSequence),

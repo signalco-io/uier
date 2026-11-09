@@ -224,6 +224,9 @@ Assignment uses `CommentAssignment` and the shared review service. `assignees[]`
 `agents[]` (members only), falling back to the singular fields on older responses. The people picker
 keeps several choices selected and uses atomic add/remove; Done closes it and Unassign clears everyone.
 Agents are display-only here: only their own assignee changes them, in the app or through MCP.
+`CommentActivity` shows the server-filtered member history in a compact, initially closed section,
+oldest first with relative times. Keep raw actor/assignee ids and private-period filtering on the server;
+see [thread history](../../apps/web/docs/read-state-and-activity.md#thread-history).
 `src/agents.ts` (`@uier/toolbar/agents`) is the pure vocabulary both share: kinds, labels, `inferAgentKind`,
 model names (`modelName`, `agentText`) and the one-colour marks. The optional `workingUntil` lease
 shows a small spinner in `CommentAssignment` only while live. `@uier/toolbar/agent-working`

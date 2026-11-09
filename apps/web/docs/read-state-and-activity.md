@@ -1,5 +1,32 @@
 # Read state and activity
 
+## Thread history
+
+`src/lib/comments/history.ts` records a separate `DbComment.history` in the same conditional write
+as each change, retaining the newest 200 entries per thread in write order. This is independent of
+the unread cursor and `notificationEvents` delivery outbox. Existing threads start recording on
+their next change; no historical actions are invented from current state or delivery events.
+
+The shared `review/comments.ts` mutation service covers app, toolbar, MCP and bulk triage: each
+added/removed person, each attached/updated/removed agent, status, verification request/confirm/
+reject/cancel, priority and public/private changes. Removing an assignee records all their removed
+agents separately. The AI title job records its own authorship; first-message edits/deletion record
+the old title being cleared. Integration status imports, legacy public status writes, anchor
+reattachment and the public-to-account feedback move also record history. Board moves use the
+same status writes. No-op changes, failed ETag attempts, receipt replays and agent working leases
+add no entries. AI title history does not change unread state, notifications or content revision.
+
+History retains only action metadata, actor/subject references and server time: no old titles,
+message text, verification details, page URLs, selectors, connection names/ids or agent sessions/models.
+App and review DTOs project descriptions with the current project-member directory, replacing departed
+people with Former member and omitting account/actor ids. Guest/public DTOs omit history. Entries
+from a private period remain visible only to the thread author and admins after publication; current
+thread access is always checked first. Feedback exports and integration packets do not include history.
+`e2e/thread-history.api.spec.ts` covers retention, concurrency/retries, workflow, projection and delivery
+isolation; `thread-history.spec.ts` covers the app/toolbar controls, reloads, themes and accessibility.
+
+## Read cursors and freshness
+
 - `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
   Read acknowledgements require current project/thread access and acknowledge only a rendered
   sequence. Mark as unread (`markThreadUnread`, `DELETE .../read`, `markCommentUnreadAction`) is the one

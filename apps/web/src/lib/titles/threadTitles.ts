@@ -1,4 +1,5 @@
 import { afterResponse } from '../afterResponse';
+import { withThreadHistory } from '../comments/history';
 import { commentAnchor } from '../app/commentAnchor';
 import { workspacePk, type DbProject, type DbWorkspace } from '../app/model';
 import { getAppStore } from '../app/store';
@@ -107,8 +108,11 @@ export async function makeAiTitle(ref: CommentRef, trigger: AiTitleTrigger, opti
         if (!current) return 'gone';
         const first = current.comment.thread?.items?.[0];
         if (!first || first.deletedAt || aiTitleSource(first.text) !== source) return 'stale';
-        const write = await store.replace({ ...current.comment,
-            aiTitle: { text: result.title, source, model: AI_TITLE_MODEL, generatedAt: new Date(now()).toISOString() } }, current.etag);
+        // A concurrent title job may already have won while this one awaited the model or ETag.
+        if (current.comment.aiTitle?.source === source) return 'stale';
+        const at = new Date(now()).toISOString();
+        const write = await store.replace(withThreadHistory(current.comment, { ...current.comment,
+            aiTitle: { text: result.title, source, model: AI_TITLE_MODEL, generatedAt: at } }, 'system:ai-title', at), current.etag);
         if (write === 'ok') return 'written';
         if (write === 'not_found') return 'gone';
         await new Promise(resolve => setTimeout(resolve, 10 * (attempt + 1) + Math.random() * 25));

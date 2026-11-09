@@ -1,5 +1,11 @@
 # The open thread
 
+- `ThreadActivity` adds a compact, initially closed Activity section below Reply in the app.
+  The toolbar's `CommentActivity` fits the same section into pin popovers and inbox threads.
+  Each shows authorized entries oldest first, with relative times and a bounded scrolling list.
+  It adds no reads or acknowledgements. See [thread history](read-state-and-activity.md#thread-history)
+  for retention, write paths and private-period filtering. Guests receive no history section.
+
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
   state, `#number` and the unread dot (the Mark as read button, "Unread. Mark as read") on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:

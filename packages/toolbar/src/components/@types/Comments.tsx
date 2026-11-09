@@ -169,6 +169,8 @@ export type CommentReproduction = {
 export type CommentActivity = { sequence: number; lastOtherSequence: number; readSequence: number; unread: boolean };
 
 export type CommentItem = {
+    /** Authorized member-only history; no raw actor, account or connector identifiers. */
+    history?: { id: string; at: string; description: string }[];
     integrationLinks?: import('../../feedbackContext').ExternalFeedbackLink[];
     source?: { environment: string; label: string; origin?: string; available: boolean };
     notifications?: { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };

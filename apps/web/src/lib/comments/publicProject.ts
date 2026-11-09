@@ -1,4 +1,5 @@
 import { brand } from '@uier/brand';
+import { withThreadHistory } from './history';
 import { KnownPages } from '../../knownPages';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { memberId, projectRefPk, userPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../app/model';
@@ -111,7 +112,7 @@ async function moveToUserFeedback(app: AppStore, comments: CommentsStore, id: st
     for (let attempt = 0; attempt < 8; attempt++) {
         const source = await comments.get(PUBLIC_PROJECT_PARTITION, id);
         if (!source) return;
-        const moved: DbComment = { ...source.comment, domain: USER_FEEDBACK_PARTITION, projectId: USER_FEEDBACK_PROJECT_ID, private: true };
+        const moved: DbComment = withThreadHistory(source.comment, { ...source.comment, domain: USER_FEEDBACK_PARTITION, projectId: USER_FEEDBACK_PROJECT_ID, private: true }, 'system:uier');
         if (moved.screenshot && !await comments.getScreenshot(USER_FEEDBACK_PARTITION, id)) {
             const image = await comments.getScreenshot(PUBLIC_PROJECT_PARTITION, id);
             if (image) {
