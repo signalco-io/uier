@@ -20,6 +20,7 @@ import { CommentItem, CommentItemThreadItem } from './@types/Comments';
 import { agentText, type MessageAgentView } from '../agents';
 import { AgentMark } from './AgentMark';
 import { useIconTooltip } from './IconTooltip';
+import { MessageMarkdown } from './MessageMarkdown';
 
 /**
  * "via Claude" after a message's author, with the agent's logo: it wrote the message for them through a
@@ -99,9 +100,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     }
 
     const { text } = threadItem;
-    let displayText = text;
-    for (const mention of (threadItem.mentions ?? []).slice().reverse())
-        displayText = displayText.slice(0, mention.start) + `@${mention.name ?? 'Former member'}` + displayText.slice(mention.end);
+    const mentions = threadItem.mentions?.map(mention => ({ start: mention.start, end: mention.end, name: mention.name ?? 'Former member' }));
     const quote: string | undefined = threadItem.quotedText;
     const authorName = threadItem.author?.name || 'Guest';
     const isMe = Boolean(threadItem.author?.isMe);
@@ -195,7 +194,8 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             finishEdit();
                             announce(first ? 'Comment edited' : 'Reply edited');
                         }} />
-                ) : <Typography level="body1" className="whitespace-pre-wrap break-words text-sm">{displayText}{threadItem.editedAt && <span className="text-muted-foreground"> (edited)</span>}</Typography>}
+                ) : <MessageMarkdown text={text} mentions={mentions}
+                    suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground"> (edited)</span>} />}
                 {first && <CommentScreenshot comment={comment} />}
                 <CommentsErrorMessage error={error} />
             </Stack>
