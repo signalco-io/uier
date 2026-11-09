@@ -3,14 +3,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRightIcon, GitPullRequestIcon } from 'lucide-react';
 import { Badge } from '@/src/components/ui/badge';
-import { threadPullRequestLinks, type PullRequestLink, type PullRequestStatus } from '@/src/lib/comments/pullRequestLinks';
+import { cn } from '@/src/lib/utils';
+import { threadPullRequestLinks, type PullRequestLink, type PullRequestState, type PullRequestStatus } from '@/src/lib/comments/pullRequestLinks';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 
 const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies'>) =>
     threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies]);
 
 const providers = { github: 'GitHub', gitlab: 'GitLab', 'azure-devops': 'Azure DevOps' };
-const labels = { open: 'Open', merged: 'Merged', closed: 'Closed', draft: 'Draft' };
+const labels: Record<PullRequestState, string> = { open: 'Open', merged: 'Merged', closed: 'Closed', draft: 'Draft' };
+/**
+ * Each state's dot (BRAND.md, "Status"), like GitHub's: Open green, Merged violet, Closed red, Draft muted grey.
+ * The name always goes beside the dot.
+ */
+const stateDotColors: Record<PullRequestState, string> = {
+    open: 'bg-[hsl(var(--brand-success))]',
+    merged: 'bg-[hsl(var(--brand-ready))]',
+    closed: 'bg-[hsl(var(--destructive))]',
+    draft: 'bg-muted-foreground'
+};
+
+/** A known state as the brand's badge: a 6 px dot in the state's colour beside its name */
+export function PullRequestStateBadge({ state }: { state: PullRequestState }) {
+    return (
+        <Badge variant="outline" className="gap-1.5" data-pull-request-state={state}>
+            <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[state])} />
+            {labels[state]}
+        </Badge>
+    );
+}
 
 function PullRequestValues({ projectId, commentId, links, revision }: {
     projectId: string; commentId: string; links: PullRequestLink[]; revision: string;
@@ -60,7 +81,7 @@ function PullRequestValues({ projectId, commentId, links, revision }: {
                             <span className="truncate">{providers[link.provider]} {repository}{link.provider === 'gitlab' ? ' !' : ' #'}{link.number}</span>
                             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                         </a>
-                        {state && <Badge variant="outline">{labels[state]}</Badge>}
+                        {state && <PullRequestStateBadge state={state} />}
                     </div>
                 );
             })}

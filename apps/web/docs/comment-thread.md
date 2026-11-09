@@ -38,7 +38,8 @@
   Markdown destinations, autolinks and bare links count; duplicate URLs, query strings and fragments collapse
   to one canonical link. Edited text is re-read and deleted messages contribute nothing. The row appears
   immediately, including for a pending reply; only saved text can trigger a server read. Open, Merged,
-  Closed and Draft appear beside the link when known, otherwise it stays a plain link. Nothing changes
+  Closed and Draft appear beside the link when known as `PullRequestStateBadge` (a dot coloured like GitHub's
+  states: green, violet, red, muted grey; BRAND.md "Pull request state"), otherwise it stays a plain link. Nothing changes
   the thread's uier status. State reads happen only while the detail is on screen in a visible tab, on
   opening and every five minutes; the server cache and provider budgets are shared across instances.
   See [integration state reads](integrations.md#linked-pull-request-state) for authority, permissions and
