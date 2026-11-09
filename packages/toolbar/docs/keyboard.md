@@ -58,6 +58,15 @@ C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the fo
 controls are marked `data-uier-thread-header`, `data-uier-status` (the status menu's badge) and `data-uier-reply`. On uier's own app
 pages the app takes a key first (its listeners run before the toolbar's) unless the focus is in the toolbar.
 
+## Switches in menus
+
+A menu row that turns something on or off (`OptionSwitch` in `ToolbarOptions.tsx`; the single-key
+shortcuts' **Shortcuts**) keeps one fixed label, shows a switch at its end with the current state (brand
+tokens: filled `primary` when on, an outlined `muted-foreground` track when off) and is a `role="switch"`
+button with `aria-checked`, so it is announced as on or off and Enter or Space toggles it. The menu stays
+open with the new state. Switches sit in their own group, first, with a separator (`role="separator"`) from
+the action rows.
+
 Escape in a new comment or feedback expanded to a modal goes back to its popover; Escape there closes it
 ([popovers](composer-popovers.md)).
 
@@ -66,5 +75,5 @@ labelled and uses the plain button variant; on touch input it has a 44px minimum
 
 ## Tests
 
-`apps/web/e2e/shortcuts.spec.ts` (desktop): C, the switch in Options (↓ in the menu), the pill's tab stop
+`apps/web/e2e/shortcuts.spec.ts` (desktop): C, the Shortcuts switch in Options (↓ in the menu, toggled in place), the pill's tab stop
 and arrows, `?`, G then I, `/`, the status tabs, J and K between inbox cards, R and S (the status menu).

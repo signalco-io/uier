@@ -299,8 +299,8 @@ error boundary, so one bad comment never breaks the toolbar.
   failed writes retain their rendered cursors for Retry. A newer reply stays unread. The public and
   project APIs accept `POST comments/read` with `{ threads: [{ id, sequence }] }`, at most 200 entries
   and 48 KiB, returning `{ reads: [{ id, activity }] }` for successful acknowledgements only.
-- **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** starts with **Keyboard shortcuts**
-  (the list, also on **?**) and **Turn off shortcuts** (Turn on shortcuts while they are off; both shown where a
+- **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** starts with the **Shortcuts** switch in its
+  own group (on or off in place) and **Keyboard shortcuts** (the list, also on **?**; both shown where a
   keyboard is likely, `any-pointer: fine`, and always while they are off), then lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them). It always ends with

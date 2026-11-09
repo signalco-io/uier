@@ -96,18 +96,24 @@ test('the shortcuts can be turned off in Options, and stay off in this browser',
     const options = page.getByRole('dialog', { name: 'Options' });
 
     await optionsButton.click();
-    await expect(options.getByRole('button', { name: 'Turn off shortcuts', exact: true })).toBeVisible();
+    const shortcutsSwitch = options.getByRole('switch', { name: 'Shortcuts', exact: true });
+    await expect(shortcutsSwitch).toBeChecked();
     // Faded in: measured colours are only final after that
     await animationsFinished(options);
     await expectNoAxeViolations(page);
-    // Like a menu: ↓ goes to the first item, Keyboard shortcuts, then to the switch
+    // Like a menu: ↓ goes to the first item, the switch in its own group, then to Keyboard shortcuts
+    await page.keyboard.press('ArrowDown');
+    await expect(shortcutsSwitch).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(options.getByRole('button', { name: 'Keyboard shortcuts', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowDown');
-    await expect(options.getByRole('button', { name: 'Turn off shortcuts', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    // The switch toggles in place: the menu stays open with the new state
     await page.keyboard.press('Enter');
+    await expect(shortcutsSwitch).not.toBeChecked();
+    await expect(shortcutsSwitch).toBeFocused();
+    await expectNoAxeViolations(page);
+    await page.keyboard.press('Escape');
     await expect(options).toBeHidden();
-    await expect(page.getByText('Shortcuts turned off')).toBeAttached();
     await expect(add).not.toHaveAttribute('aria-keyshortcuts');
     await page.keyboard.press('c');
     await expect(instruction(page)).toHaveCount(0);
@@ -122,7 +128,9 @@ test('the shortcuts can be turned off in Options, and stay off in this browser',
     await page.keyboard.press('?');
     await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toHaveCount(0);
     await optionsButton.click();
-    await options.getByRole('button', { name: 'Turn on shortcuts', exact: true }).click();
+    await options.getByRole('switch', { name: 'Shortcuts', exact: true }).click();
+    await expect(options.getByRole('switch', { name: 'Shortcuts', exact: true })).toBeChecked();
+    await page.keyboard.press('Escape');
     // Closed: the toolbar's dialogs keep their keys
     await expect(options).toBeHidden();
     await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');

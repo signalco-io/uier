@@ -262,13 +262,15 @@ test('one switch for the app and its toolbar: turned off on either side, the oth
     const optionsButton = toolbar(page).getByRole('button', { name: 'Options', exact: true });
     const options = page.getByRole('dialog', { name: 'Options' });
     await optionsButton.click();
-    await options.getByRole('button', { name: 'Turn on shortcuts', exact: true }).click();
+    await options.getByRole('switch', { name: 'Shortcuts', exact: true }).click();
+    await page.keyboard.press('Escape');
     await expect(options).toBeHidden();
     await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');
 
     // Off in the toolbar's Options: the app's letters stop
     await optionsButton.click();
-    await options.getByRole('button', { name: 'Turn off shortcuts', exact: true }).click();
+    await options.getByRole('switch', { name: 'Shortcuts', exact: true }).click();
+    await page.keyboard.press('Escape');
     await expect(options).toBeHidden();
     await expect(add).not.toHaveAttribute('aria-keyshortcuts');
     await blur(page);
