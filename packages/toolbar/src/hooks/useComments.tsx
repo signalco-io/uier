@@ -9,7 +9,7 @@ import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
-import { getCommentsErrorMessage } from '../components/CommentsErrorMessage';
+import { getCommentsErrorMessage, usageAction } from '../components/CommentsErrorMessage';
 import { showErrorToast } from '../components/Toaster';
 import { pageQueryKeys, pagePath, sourcePagePath, type PageStatePolicy } from '../pageState';
 import { getToolbarHost } from '../mount';
@@ -132,7 +132,7 @@ const notSent: Record<CommentKind | 'reply', string> = {
 
 function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
     const reason = getCommentsErrorMessage(error);
-    showErrorToast(notSent[kind], /kept/.test(reason) ? reason : `${reason} Your text is kept.`);
+    showErrorToast(notSent[kind], /kept/.test(reason) ? reason : `${reason} Your text is kept.`, usageAction(error));
 }
 
 async function getComments(path: string, client: QueryClient, environment?: string) {

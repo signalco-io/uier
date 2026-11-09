@@ -27,6 +27,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Project settings](project-settings.md): settings sections, one save per page, notification settings.
 - [Environments](environments.md): the site addresses table and environment filters.
 - [Account](account.md): account sections and profile pictures.
+- [Usage](usage.md): the account's and the workspace's Usage pages, and the toolbar's links to them.
 - [First run, onboarding and installation](onboarding.md): welcome step, onboarding steps, installation check, snippets.
 - [Projects](projects.md): public ids, addresses, deletion and transfer.
 - [Clients](clients.md): client documents, names, appearance and visibility.

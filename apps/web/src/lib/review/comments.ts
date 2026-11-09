@@ -24,12 +24,10 @@ import { messageAgentClaimSchema, messageAgentFor, type MessageAgentClaim } from
 import { getCommentsStore, type CommentsStore, type ConditionalWriteResult } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, type RateLimitSubject } from '../comments/rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject } from '../comments/rateLimits';
 import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
 import { KnownPages } from '../../knownPages';
 import { isPrivateAppFeedback, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION } from '../comments/publicProject';
-import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from '../comments/visitor';
-import { isLocalRuntime } from '../comments/environment';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, memberActor, refreshMutationActor, assertWriter, type ProjectActor } from './actor';
@@ -107,22 +105,14 @@ export function canMakeCommentPrivate(actor: ProjectActor) {
     return isAdmin(actor);
 }
 
-function rateLimitIpBucket(request: Request) {
-    const ip = resolveClientIp(request);
-    if (!ip)
-        return isLocalRuntime() ? undefined : 'unknown';
-    if (isLocalRuntime() && isLoopbackIp(ip))
-        return undefined;
-    return ipRateLimitBucket(ip);
-}
-
 /** Actors come from resolveActor/memberActor or mcpProject, which recheck current access. */
 function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
     return {
         domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request),
         // Anyone can join the public feedback project; enrollment must not raise its limits.
         member: actor.kind === 'member' && (project.id !== PUBLIC_PROJECT_ID || actor.isAdmin),
-        credentialId: actor.kind === 'member' ? actor.agent?.credentialId : undefined
+        credentialId: actor.kind === 'member' ? actor.agent?.credentialId : undefined,
+        usage: usageLinks(project, actor)
     };
 }
 
@@ -287,7 +277,7 @@ export async function getProjectScreenshot(project: DbProject, actor: ProjectAct
 export async function replaceProjectScreenshot(project: DbProject, actor: ProjectActor, id: string,
     input: { screenshot: ParsedScreenshot; expectedRevision: string | null }) {
     assertWriter(actor);
-    return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, input, async comment => {
+    return replaceSavedScreenshot(getCommentsStore(), projectPartition(project.id), id, { ...input, usage: usageLinks(project, actor) }, async comment => {
         await refreshMutationActor(project, actor);
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can replace this screenshot.');
@@ -299,7 +289,7 @@ export async function replaceProjectScreenshot(project: DbProject, actor: Projec
  * partition, and per IP and in total across the app (the same counters as `POST /api/rewrite`)
  */
 export async function enforceProjectRewriteLimits(request: Request, project: DbProject, actor: ProjectActor) {
-    await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request) });
+    await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request), usage: usageLinks(project, actor) });
 }
 
 function parseClaim(claim: MessageAgentClaim) {

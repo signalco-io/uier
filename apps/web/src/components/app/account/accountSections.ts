@@ -9,5 +9,6 @@ export const accountSections: SettingsSection<AccountSection>[] = [
     { label: 'General' },
     { section: 'sign-in', label: 'Sign-in' },
     { section: 'notifications', label: 'Notifications' },
+    { section: 'usage', label: 'Usage' },
     { section: 'coding-agents', label: 'Coding agents' }
 ];
