@@ -910,11 +910,14 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await page.goto(`/app/projects/${projectId}`);
     await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText(/^2 comments/);
     await expect(page).toHaveTitle('Reviewed site · uier');
-    // A row says who, on what and where; it opens the thread
-    await expect(commentRows(page).filter({ hasText: 'Team photo is blurry.' })).toContainText(new RegExp(`Ben · .*Heading · .*${about}`));
+    // A row says who and where (what it was left on is only in the thread); it opens the thread
+    const benRow = commentRows(page).filter({ hasText: 'Team photo is blurry.' });
+    await expect(benRow).toContainText(new RegExp(`Ben · , page ${about}`));
+    await expect(benRow).not.toContainText('Heading');
     const benCard = await openComment(page, 'Team photo is blurry.');
     await expect(benCard).toHaveAccessibleName('Comment by Ben');
     await expect(benCard).toContainText('Mobile');
+    await expect(benCard.getByRole('definition').filter({ hasText: 'body>main>h1' })).toContainText('Heading');
     await expect(benCard).toContainText('body>main>h1');
     await expectNoAxeViolations(page);
 
