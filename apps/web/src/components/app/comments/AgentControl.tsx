@@ -3,7 +3,7 @@
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { toast } from 'sonner';
-import { ChevronDownIcon, PlusIcon } from 'lucide-react';
+import { PlusIcon } from 'lucide-react';
 import {
     assigneeAgents, commentAssignees, agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, MAX_AGENT_SESSION_URL_LENGTH, agentSessionLink, agentModelText, modelName, reasoningText, type AgentKind, type AssigneeAgentView
 } from '@uier/toolbar/agents';
@@ -153,7 +153,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                         <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
                         <span className="shrink-0">{agent.label}</span>
                         <AgentDetails agent={agent} />
-                        {pending ? <Spinner data-icon="inline-end" /> : <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />}
+                        {pending && <Spinner data-icon="inline-end" />}
                     </> : <>
                         {pending ? <Spinner data-icon="inline-start" /> : <PlusIcon aria-hidden="true" data-icon="inline-start" />}
                         Add agent
