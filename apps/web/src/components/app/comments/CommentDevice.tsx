@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, GlobeIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from 'lucide-react';
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item';
@@ -10,15 +10,17 @@ import type { ReproductionContext } from '../../../lib/comments/reproduction';
 import type { DbDeviceSize } from '../../../lib/db/schema';
 import { hoverPopoverTrigger } from '../hoverPopover';
 import { DateTime } from './DateTime';
+import { BrowserMark, OsMark } from './DeviceMark';
 import { deviceLabels } from './commentLabels';
 
 const deviceIcons = { desktop: MonitorIcon, tablet: TabletIcon, mobile: SmartphoneIcon } as const;
 
 /**
- * The screen and the browser a comment was left from, as two icons next to its time. Hovering or
- * clicking them shows the original capture (size, viewport, browser, OS, time and the reviewed
- * page) with the reproduction details to copy as text. Only authorized project members get this
- * context (`reproduction.ts`).
+ * The screen and the browser a comment was left from, as two icons next to its time (the browser's own
+ * mark, `DeviceMark`, or a globe when unknown). Hovering or clicking them shows the original capture
+ * (size, viewport, the browser and OS with their marks, time and the reviewed page) with the
+ * reproduction details to copy as text. Only authorized project members get this context
+ * (`reproduction.ts`).
  */
 export function CommentDevice({ device, context }: { device?: DbDeviceSize; context: ReproductionContext }) {
     const [copied, setCopied] = useState(false);
@@ -46,7 +48,7 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
             <PopoverTrigger {...hoverPopoverTrigger} render={<Button variant="ghost" size="xs" className="shrink-0 px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" />}>
                 {/* No icon for a screen size that was not recorded: a monitor would say desktop */}
                 {device && <SizeIcon aria-hidden="true" className="size-3.5" />}
-                <GlobeIcon aria-hidden="true" className="size-3.5" />
+                <BrowserMark name={context.browser} className="size-3.5" />
                 <span className="sr-only">{name}</span>
             </PopoverTrigger>
             <PopoverContent align="start" aria-label="Device and browser" className="w-72 gap-3 p-3">
@@ -59,10 +61,10 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                         </ItemContent>
                     </Item>
                     <Item size="xs" variant="muted">
-                        <ItemMedia variant="icon"><GlobeIcon aria-hidden="true" /></ItemMedia>
+                        <ItemMedia variant="icon"><BrowserMark name={context.browser} /></ItemMedia>
                         <ItemContent>
                             <ItemTitle>{browser}</ItemTitle>
-                            <ItemDescription>{os}</ItemDescription>
+                            <ItemDescription className="flex items-center gap-1"><OsMark name={context.os} className="size-3.5" />{os}</ItemDescription>
                         </ItemContent>
                     </Item>
                 </div>

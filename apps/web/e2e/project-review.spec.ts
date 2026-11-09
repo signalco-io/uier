@@ -412,7 +412,7 @@ test('guest edits and original reproduction details persist; only members see an
     await setProjectAccess(page, projectId, 'Anyone with the link');
     const guest = await anonymousVisitor(browser, testInfo);
     await guest.page.addInitScript(() => Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: {
-        brands: [{ brand: 'Not_A Brand', version: '99' }, { brand: 'Chromium', version: '123' }, { brand: 'Example Browser', version: '123' }], platform: 'Example OS'
+        brands: [{ brand: 'Not_A Brand', version: '99' }, { brand: 'Chromium', version: '123' }, { brand: 'Microsoft Edge', version: '123' }], platform: 'macOS'
     } }));
     const path = `/${projectId}/pricing`;
     await guest.page.goto(`${siteOrigin()}${path}?toolbar-code=${projectId}&session_token=never-copy-this#private`);
@@ -429,7 +429,7 @@ test('guest edits and original reproduction details persist; only members see an
     const response = await posted;
     const sent = response.request().postDataJSON();
     expect(sent.device.windowSize).toEqual(originalViewport);
-    expect(sent.device.browser).toBe('Example Browser (123)');
+    expect(sent.device.browser).toBe('Microsoft Edge (123)');
     expect(sent.device.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     const savedComment = await response.json();
     expect(savedComment.reproduction).toBeUndefined();
@@ -445,7 +445,9 @@ test('guest edits and original reproduction details persist; only members see an
     await guestDevice.click();
     const guestDetails = guest.page.getByRole('dialog', { name: 'Device', exact: true });
     await expect(guestDetails).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
-    await expect(guestDetails).not.toContainText('Example');
+    await expect(guestDetails).not.toContainText('Microsoft Edge');
+    await expect(guestDetails).not.toContainText('macOS');
+    await expect(guestThread.locator('[data-browser-mark], [data-os-mark]')).toHaveCount(0);
     await expect(guestDetails.getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
     // Escape closes only the details and returns focus to the icons
     await guest.page.keyboard.press('Escape');
@@ -468,12 +470,14 @@ test('guest edits and original reproduction details persist; only members see an
     const thread = openThread(page);
     // The screen and browser icons by the time name the original capture
     const device = thread.getByRole('button', { name: /^Device:/ });
-    await expect(device).toHaveAccessibleName(/Example Browser \(123\) · Example OS/);
+    await expect(device).toHaveAccessibleName(/Microsoft Edge \(123\) · macOS/);
+    // The browser's own mark beside the screen icon
+    await expect(device.locator('[data-browser-mark="edge"]')).toBeVisible();
     const details = page.getByRole('dialog', { name: 'Device and browser' });
     if (!testInfo.project.name.startsWith('Mobile')) {
         // Hovering shows the details and never moves focus, neither into them nor back to the icons
         await device.hover();
-        await expect(details).toContainText('Example Browser (123)');
+        await expect(details).toContainText('Microsoft Edge (123)');
         await page.mouse.move(0, 0);
         await expect(details).toBeHidden();
         await expect(device).not.toBeFocused();
@@ -484,7 +488,10 @@ test('guest edits and original reproduction details persist; only members see an
     const copyDetails = details.getByRole('button', { name: 'Copy reproduction details', exact: true });
     await expect(copyDetails).toBeFocused();
     await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
-    await expect(details).toContainText('Example OS');
+    await expect(details).toContainText('macOS');
+    // Each name with its mark
+    await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
+    await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
     await expect(details).toContainText('Captured');
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
     await copyDetails.click();
@@ -517,11 +524,12 @@ test('guest edits and original reproduction details persist; only members see an
     await expect(card).toContainText('Corrected guest reply. (edited)');
     // The screen and browser icons by the time: hovering shows the original capture, a click keeps it open to copy
     const cardDevice = card.getByRole('button', { name: /^Device:/ });
-    await expect(cardDevice).toHaveAccessibleName(/Example Browser \(123\) · Example OS/);
+    await expect(cardDevice).toHaveAccessibleName(/Microsoft Edge \(123\) · macOS/);
+    await expect(cardDevice.locator('[data-browser-mark="edge"]')).toBeVisible();
     // The same details dialog as the toolbar's (`details` above)
     if (!testInfo.project.name.startsWith('Mobile')) {
         await cardDevice.hover();
-        await expect(details).toContainText('Example Browser (123)');
+        await expect(details).toContainText('Microsoft Edge (123)');
         await page.mouse.move(0, 0);
         await expect(details).toBeHidden();
         // Hovering never moves focus, neither into the details nor back to the icons
@@ -529,7 +537,9 @@ test('guest edits and original reproduction details persist; only members see an
     }
     await cardDevice.click();
     await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
-    await expect(details).toContainText('Example OS');
+    await expect(details).toContainText('macOS');
+    await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
+    await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
     await details.getByRole('button', { name: 'Copy reproduction details', exact: true }).click();
     await expect(details).toBeVisible();
