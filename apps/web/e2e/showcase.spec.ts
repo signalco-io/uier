@@ -417,6 +417,14 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await expect(instruction).toHaveText(testInfo.project.use.hasTouch
         ? 'Tap anywhere to pin a comment.Cancel'
         : 'Click anywhere to pin a comment, or drag over an area. Esc to cancel.Cancel');
+    // Centred above the pill, never over it (uier #159)
+    await expect.poll(async () => {
+        const pill = await toolbar(page).boundingBox();
+        const message = await instruction.locator('p').boundingBox();
+        if (!pill || !message) return false;
+        return message.y + message.height <= pill.y
+            && Math.abs(message.x + message.width / 2 - (pill.x + pill.width / 2)) <= 1;
+    }).toBe(true);
     await page.keyboard.press('Escape');
     await expect(add).toHaveAttribute('aria-pressed', 'false');
     await expect(instruction).toHaveCount(0);

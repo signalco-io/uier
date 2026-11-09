@@ -18,6 +18,7 @@ import { CommentBubble } from './CommentBubble';
 import { InlineCommentThreads } from './InlineCommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
+import { useToolbarNotice } from '../hooks/useReviewMovement';
 import { InkScope } from './InkScope';
 import { Toaster } from './Toaster';
 import { useAnnounce } from './Announcer';
@@ -704,15 +705,7 @@ export function CommentsGlobal({
     return (
         <ReattachContext.Provider value={requestReattach}>
             {commentItems.isError && (
-                <InkScope>
-                    <div className="fixed bottom-20 left-1/2 z-[51] flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
-                        <div>
-                            <p className="m-0 text-sm">Comments could not be loaded.</p>
-                            <CommentsErrorMessage error={commentItems.error} />
-                        </div>
-                        <Button variant="outlined" size="sm" onClick={() => commentItems.refetch()}>Try again</Button>
-                    </div>
-                </InkScope>
+                <CommentsLoadError error={commentItems.error} onRetry={() => commentItems.refetch()} />
             )}
             {!collapsed && <InlineCommentThreads comments={pinnedComments} />}
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
@@ -854,5 +847,21 @@ export function CommentsGlobal({
             )}
             <Toaster />
         </ReattachContext.Provider>
+    );
+}
+
+/** Beside the pill, wherever it was moved: never over it */
+function CommentsLoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+    const notice = useToolbarNotice<HTMLDivElement>();
+    return (
+        <InkScope>
+            <div ref={notice.ref} style={notice.style} className="fixed z-[51] flex w-max max-w-[calc(100vw-2rem)] items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
+                <div>
+                    <p className="m-0 text-sm">Comments could not be loaded.</p>
+                    <CommentsErrorMessage error={error} />
+                </div>
+                <Button variant="outlined" size="sm" onClick={onRetry}>Try again</Button>
+            </div>
+        </InkScope>
     );
 }

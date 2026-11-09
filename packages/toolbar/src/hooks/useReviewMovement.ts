@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type MouseEvent, type KeyboardEvent, type RefObject } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent, type MouseEvent, type KeyboardEvent, type RefObject } from 'react';
 
 export type Point = { x: number; y: number };
 const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), Math.max(min, max));
@@ -110,6 +110,59 @@ export function useReviewDrag(callbacks: {
     };
 }
 
+type Box = { left: number; top: number; width: number; height: number };
+
+// Where the pill is now, so notices elsewhere in the review layer (toasts, errors) can stay clear of it
+let toolbarBox: Box | undefined;
+const toolbarBoxListeners = new Set<() => void>();
+function publishToolbarBox(box: Box | undefined) {
+    if (box === toolbarBox || (box && toolbarBox && box.left === toolbarBox.left && box.top === toolbarBox.top
+        && box.width === toolbarBox.width && box.height === toolbarBox.height)) return;
+    toolbarBox = box;
+    toolbarBoxListeners.forEach(listener => listener());
+}
+
+/** A notice's place: centred on the pill, above it when there is room, else below it; always inside the viewport */
+export function noticePosition(toolbar: Box | undefined, notice: { width: number; height: number }, view: Box, gap = 8, margin = 16) {
+    if (!toolbar) {
+        // No pill (yet): centred above the pill's default place
+        return { left: view.left + (view.width - notice.width) / 2, top: view.top + view.height - 80 - notice.height };
+    }
+    const left = clamp(toolbar.left + (toolbar.width - notice.width) / 2, view.left + margin, view.left + view.width - notice.width - margin);
+    const above = toolbar.top - gap - notice.height;
+    const below = toolbar.top + toolbar.height + gap;
+    const roomAbove = above - (view.top + margin);
+    const roomBelow = view.top + view.height - margin - (below + notice.height);
+    return { left, top: roomAbove >= 0 || roomAbove >= roomBelow ? above : below };
+}
+
+/**
+ * A fixed notice beside the toolbar (point-mode instruction, Resume draft, toasts): it never covers
+ * the pill, wherever the pill was moved and however tall the notice is. Put `ref` (a callback ref) and `style` on its
+ * outermost fixed element, without `left`/`top` or a translate in its classes.
+ */
+export function useToolbarNotice<T extends HTMLElement>() {
+    const [element, ref] = useState<T | null>(null);
+    const view = useReviewViewport();
+    const toolbar = useSyncExternalStore(
+        listener => { toolbarBoxListeners.add(listener); return () => toolbarBoxListeners.delete(listener); },
+        () => toolbarBox);
+    const [size, setSize] = useState({ width: 0, height: 0 });
+    useLayoutEffect(() => {
+        if (!element) return;
+        const measure = () => {
+            const width = element.offsetWidth, height = element.offsetHeight;
+            setSize(old => old.width === width && old.height === height ? old : { width, height });
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [element]);
+    const { left, top } = noticePosition(toolbar, size, view);
+    return { ref, style: { left, top } as CSSProperties };
+}
+
 const positionKey = 'uier:toolbar-position:v1';
 function isPosition(value: unknown): value is Point {
     if (!value || typeof value !== 'object') return false;
@@ -136,6 +189,10 @@ export function useToolbarMovement(ref: RefObject<HTMLElement | null>, onStart?:
     }, [ref]);
     const left = clamp(view.left + (position?.x ?? 0.5) * view.width - size.width / 2, view.left + 16, view.left + view.width - size.width - 16);
     const top = clamp(position ? view.top + position.y * view.height - size.height / 2 : view.top + view.height - size.height - 16, view.top + 16, view.top + view.height - size.height - 16);
+    useLayoutEffect(() => {
+        publishToolbarBox(size.width ? { left, top, width: size.width, height: size.height } : undefined);
+    }, [left, top, size]);
+    useEffect(() => () => publishToolbarBox(undefined), []);
     const origin = useRef({ left, top, position });
     const update = (next: Point | undefined, persist = false) => {
         latest.current = next;
@@ -156,7 +213,6 @@ export function useToolbarMovement(ref: RefObject<HTMLElement | null>, onStart?:
         ...drag,
         custom: Boolean(position), reset,
         style: { left, top, maxWidth: Math.max(0, view.width - 32), padding: 'env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)' } as CSSProperties,
-        instructionStyle: { left: view.left + view.width / 2, top: top > view.top + 64 ? top - 44 : top + size.height + 8 } as CSSProperties,
         onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
             drag.handle.onKeyDown(event);
             if (event.defaultPrevented) return;
