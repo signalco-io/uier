@@ -28,7 +28,7 @@ import { useKeyShortcutLabel } from '../keyboard/keys';
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
 const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 
-/** A filter in effect, beside the status tabs: the filter's name, what it is set to and a button that clears it */
+/** A filter in effect, left of the Filter button: the filter's name, what it is set to and a button that clears it */
 function FilterChip({ name, value, icon, onClear }: { name?: string; value: string; icon?: React.ReactNode; onClear: () => void }) {
     return (
         <Button size="xs" variant="outline" className="max-w-full font-normal pointer-coarse:min-h-11"
@@ -42,8 +42,8 @@ function FilterChip({ name, value, icon, onClear }: { name?: string; value: stri
 }
 
 /**
- * Search, the status tabs and one Filter button (priority, environment and page, people, unread);
- * the filters in effect show on the status tabs' line, each named, with its own clear button. All kept in the URL.
+ * Search, one Filter button (priority, environment and page, people, unread) and the status tabs;
+ * the filters in effect show left of the Filter button, each named, with its own clear button. All kept in the URL.
  */
 export function CommentFilters({ className, unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, historySources, author, search, onSearch, priority }: {
     /** The header's width: the list's or the board's (ProjectComments) */
@@ -99,8 +99,10 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
 
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-2', className)}>
-            <div className="flex min-w-0 items-center gap-2">
-                <InputGroup className="min-w-0 flex-1 sm:max-w-80 pointer-coarse:min-h-11">
+            {/* Search on the left; the filters in effect, Filter and List/Board on the right. The filters in effect wrap
+                within their room, and on a phone go to their own line under the row. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <InputGroup className="min-w-0 flex-1 sm:max-w-80 sm:min-w-48 pointer-coarse:min-h-11">
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
                     <InputGroupInput ref={searchRef} id="feedback-search" type="search" aria-label="Search feedback" maxLength={MAX_FEEDBACK_SEARCH} className="pointer-coarse:min-h-11"
                         // `/` goes here from the page (`AppShortcuts`)
@@ -114,9 +116,16 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                         </InputGroupAddon>
                     )}
                 </InputGroup>
+                {active > 0 && (
+                    <div role="group" aria-label="Filters in effect"
+                        className="order-last flex min-w-0 basis-full flex-wrap items-center gap-1.5 sm:order-none sm:flex-1 sm:basis-0 sm:justify-end">
+                        {chips.map(chip => <FilterChip key={chip.key} name={chip.name} value={chip.value} onClear={chip.clear} />)}
+                        {author && <FilterChip name="Author" value={author.name} icon={<UserIcon data-icon="inline-start" />} onClear={() => go({ author: undefined })} />}
+                    </div>
+                )}
                 <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
                     {/* Named by its words: "Filter", or "Filter 2" with two in effect */}
-                    <PopoverTrigger render={<Button variant="outline" className="shrink-0 pointer-coarse:min-h-11" />}>
+                    <PopoverTrigger render={<Button variant="outline" className="ml-auto shrink-0 pointer-coarse:min-h-11" />}>
                         <ListFilterIcon data-icon="inline-start" />
                         Filter
                         {active > 0 && <Badge variant="secondary" className="h-5 min-w-5 px-1.5 tabular-nums">{active}</Badge>}
@@ -172,7 +181,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                     </PopoverContent>
                 </Popover>
                 {/* Icon-only tabs; the tooltip and the accessible name say which */}
-                <ToggleGroup size="sm" spacing={0.5} aria-label="View" className={cn(segmentedGroup, 'ml-auto shrink-0')} value={[view]}
+                <ToggleGroup size="sm" spacing={0.5} aria-label="View" className={cn(segmentedGroup, 'shrink-0')} value={[view]}
                     // A new layout starts with no thread open (the board would open it in a sheet over itself)
                     onValueChange={([value]) => value && go({ view: value === 'board' ? 'board' : undefined, comment: undefined })}>
                     {([['list', 'List', ListIcon], ['board', 'Board', KanbanIcon]] as const).map(([value, label, Icon]) => (
@@ -186,19 +195,8 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                 </ToggleGroup>
             </div>
             {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side.
-                Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it.
-                The filters in effect share the tabs' line and wrap under them only when there is no room. */}
-            {(view === 'list' || active > 0) && (
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-                    {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
-                    {active > 0 && (
-                        <div role="group" aria-label="Filters in effect" className="flex min-w-0 flex-wrap items-center gap-1.5">
-                            {chips.map(chip => <FilterChip key={chip.key} name={chip.name} value={chip.value} onClear={chip.clear} />)}
-                            {author && <FilterChip name="Author" value={author.name} icon={<UserIcon data-icon="inline-start" />} onClear={() => go({ author: undefined })} />}
-                        </div>
-                    )}
-                </div>
-            )}
+                Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it. */}
+            {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );
 }
