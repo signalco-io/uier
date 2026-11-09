@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useSyncExternalStore, useTransition } from 'react';
+import { type RefObject, useMemo, useState, useSyncExternalStore, useTransition } from 'react';
 import { toast } from 'sonner';
 import { createDraftStore } from '@uier/toolbar/drafts';
 import { Button } from '@/src/components/ui/button';
@@ -15,11 +15,14 @@ const emptyMentions: MessageMention[] = [];
 const maxLength = 1000;
 
 /** Mounted only for the card whose Reply action was opened: the shared `MessageComposer` with the thread's seven-day draft. */
-export function ReplyComposer({ projectId, userId, userName, comment, onClose }: {
+export function ReplyComposer({ projectId, userId, userName, comment, textareaRef, onClose }: {
     projectId: string; userId: string;
     /** The signed-in user's name, for the pending reply's avatar (the reply itself reads "You") */
     userName?: string;
-    comment: ProjectCommentView; onClose: () => void;
+    comment: ProjectCommentView;
+    /** The reply box, for R to focus it rather than another open editor in the card */
+    textareaRef?: RefObject<HTMLTextAreaElement | null>;
+    onClose: () => void;
 }) {
     const drafts = useMemo(() => createDraftStore([typeof location === 'undefined' ? '' : location.origin, 'app', projectId, userId, comment.id]), [projectId, userId, comment.id]);
     const key = 'reply';
@@ -74,7 +77,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, onClose }:
     };
 
     return <MessageComposer label="Reply" formLabel="Reply to thread" name="reply" placeholder="Reply..."
-        value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength}
+        value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} textareaRef={textareaRef}
         submitLabel="Post reply" submitVerb="send" onSubmit={submit} pending={pending}
         cancelLabel="Close reply" onCancel={onClose}
         onDiscard={() => { drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}

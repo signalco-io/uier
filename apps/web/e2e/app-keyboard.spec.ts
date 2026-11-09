@@ -153,6 +153,17 @@ test('the list: J and K from the open thread, R, S, A and /, and ? lists them wi
     await expect(box).toHaveValue('jsa?/');
     await expect(thread).toContainText(await rowText(1));
     await box.fill('');
+    // With the first message's editor open too, R still goes to the reply box
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+    const editor = thread.getByRole('textbox', { name: 'Edit comment', exact: true });
+    await expect(editor).toBeFocused();
+    await blur(page);
+    await page.keyboard.press('r');
+    await expect(box).toBeFocused();
+    await expect(editor).toBeVisible();
+    await editor.press('Escape');
+    await expect(editor).toHaveCount(0);
 
     // / goes to the search
     await blur(page);
