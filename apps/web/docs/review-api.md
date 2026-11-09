@@ -17,6 +17,7 @@
 
 - Message edits through the review API compare `expectedText` before changing a thread item; author/admin
   permission checks and etag retries preserve concurrent replies. `editedAt` is shown in the toolbar and app.
+  The app's in-place reply edit (`editCommentReplyAction`) uses the same `editProjectCommentItem`.
 - Saved image replacements use `POST .../comments/<id>/screenshot` with shared screenshot validation,
   the daily image budget and `expectedRevision`. `replaceScreenshot.ts` checks visibility/edit rights
   on each attempt; stores upload immutable Blob bytes, then atomically swap comment metadata and

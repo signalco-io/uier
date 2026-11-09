@@ -2,7 +2,7 @@ import { priorities } from '@uier/toolbar/triage';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { z } from 'zod';
 import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
-import { idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
+import { editThreadItemSchema, idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
 import { mentionsSchema } from '../../../lib/review/participants';
 import { bulkReadSchema } from '../../../lib/comments/bulkRead';
 import { assigneeIdsSchema, assignmentModeSchema, agentIdSchema } from '../../../lib/review/assignments';
@@ -23,6 +23,8 @@ export const editCommentActionSchema = commentActionSchema.extend({ text: textSc
 export const titleCommentActionSchema = commentActionSchema.extend({ title: z.string().max(1000) });
 export const replyCommentActionSchema = commentActionSchema.extend({ text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
+/** One message's new text, the saved text it was edited from and its mentions (the review API's edit) */
+export const editReplyActionSchema = deleteReplyActionSchema.extend({ ...editThreadItemSchema.shape, mentions: mentionsSchema.optional() });
 export const filterAuthorActionSchema = commentActionSchema.extend({ itemId: commentIdSchema.optional() });
 export const readCommentActionSchema = commentActionSchema.extend({ sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) });
 export const readCommentsActionSchema = bulkReadSchema.extend({ projectId: projectIdSchema });

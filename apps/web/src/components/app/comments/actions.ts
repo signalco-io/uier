@@ -26,6 +26,7 @@ import { ApiError } from '../../../lib/comments/http';
 import {
     getProjectComment,
     deleteProjectCommentItem,
+    editProjectCommentItem,
     editProjectCommentText,
     removeProjectComment,
     replyToProjectComment,
@@ -47,7 +48,7 @@ import type { ReadThreadInput } from '../../../lib/comments/bulkRead';
 import { createCommentAuthorFilter } from '../../../lib/app/commentAuthors';
 import { assertCanUseComments } from '../../../lib/review/actor';
 import { eligibleParticipants } from '../../../lib/review/participants';
-import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
+import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema, editReplyActionSchema,
     filterAuthorActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
     replyCommentActionSchema, statusCommentActionSchema, titleCommentActionSchema } from './actionSchemas';
 
@@ -127,6 +128,22 @@ export async function updateCommentAssigneesAction(projectId: string, commentId:
 export async function editCommentAction(projectId: string, commentId: string, text: string) {
     return await commentAction(editCommentActionSchema, { projectId, commentId, text },
         ({ project, actor }, input) => editProjectCommentText(project, actor, input.commentId, input.text));
+}
+
+/**
+ * One message, as the toolbar edits it: only by its author or an admin, and only while its saved text is still
+ * `expectedText`, so a newer message is never overwritten. Mentions are checked again by the service.
+ */
+export async function editCommentReplyAction(projectId: string, commentId: string, itemId: string, text: string, expectedText: string, mentions: { userId: string; start: number; end: number }[]) {
+    return commentAction(editReplyActionSchema, { projectId, commentId, itemId, text, expectedText, mentions }, async ({ project, actor }, input) => {
+        try {
+            await editProjectCommentItem(project, actor, input.commentId, input.itemId, { text: input.text, expectedText: input.expectedText, mentions: input.mentions });
+        } catch (error) {
+            if (error instanceof ApiError && error.code === 'conflict')
+                throw new UserFacingError('This message changed while you were editing. Your text is kept. Copy it, then cancel and reopen the edit to see the latest message.');
+            throw error;
+        }
+    });
 }
 
 /** The thread's own title; an empty one removes it, so the AI title shows again */
