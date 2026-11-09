@@ -2,7 +2,10 @@
 
 - **Account** (`account/`) uses the same `SettingsLayout` and `Section` cards: General (the account page
   itself: profile (picture and name), appearance, workspace access, which lists only what is set: role, then relationship and teams when
-  there are any, then projects), Sign-in (Google, Microsoft, passkeys, sign out), Notifications (each project's emails),
+  there are any, then projects), Sign-in (Google, Microsoft, passkeys, sign out; each method's card has its mark
+  before the title through `Section`'s `icon`: Google's "G" and Microsoft's logo from `SignInProviderLogos`, the
+  same files as the sign-in card's buttons and in the providers' own colours, and `KeyRound` for passkeys, the
+  sign-in card's passkey icon), Notifications (each project's emails),
   Usage (the person's own limits, see [Usage](usage.md)) and Coding agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
   linking outcomes land on Sign-in, and the breadcrumbs end with the section. A change to `SettingsLayout`
   applies to both settings.

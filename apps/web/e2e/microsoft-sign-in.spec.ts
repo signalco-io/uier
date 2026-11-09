@@ -24,6 +24,8 @@ test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks
     await page.waitForURL(url => url.pathname === '/app/account/sign-in');
     const section = page.getByRole('region', { name: 'Microsoft account' });
     await expect(section).toContainText('Linked to');
+    // Each sign-in method's card carries its mark: Microsoft's logo (uier #204)
+    await expect(section.locator('h2 [data-section-icon] img[src="/microsoft.svg"]')).toBeVisible();
 
     // Linked sign-in needs no email claim or repeat email proof.
     await page.context().clearCookies();

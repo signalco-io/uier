@@ -2,6 +2,7 @@ import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { cn } from 'cn';
 import { buttonVariants } from '@/src/components/ui/button';
+import { MicrosoftLogo } from '@/src/components/app/SignInProviderLogos';
 import { KnownPages } from '@/src/knownPages';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
 import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
@@ -28,9 +29,7 @@ export function MicrosoftSignInButton({ next, lastUsed }: { next?: string; lastU
         // Full navigation: this route starts a sign-in and must never be prefetched.
         <a href={`${KnownPages.AppSignInMicrosoft}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
             aria-label="Sign in with Microsoft" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
-            {/* Official Microsoft asset, kept in its original colours. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/microsoft.svg" width={16} height={16} alt="" data-icon="inline-start" className="size-4 shrink-0" />
+            <MicrosoftLogo data-icon="inline-start" />
             Microsoft
             {lastUsed && <LastUsedBadge />}
         </a>

@@ -26,6 +26,8 @@ test('Sign in with Google confirms a non-Gmail address by email, links the accou
     await page.waitForURL(url => url.pathname === '/app/account/sign-in');
     const section = page.getByRole('region', { name: 'Google account' });
     await expect(section).toContainText(`Linked to ${email}.`);
+    // Each sign-in method's card carries its mark: Google's "G" (uier #204)
+    await expect(section.locator('h2 [data-section-icon] svg')).toBeVisible();
 
     await section.getByRole('button', { name: 'Unlink Google account' }).click();
     await expect(section.getByRole('status')).toHaveText('Google account unlinked. Sign in with your email from now on.');

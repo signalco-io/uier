@@ -56,6 +56,7 @@ export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; 
     return (
         <Section
             id="passkeys"
+            icon={<KeyRoundIcon />}
             title="Passkeys"
             description="Sign in with your fingerprint, face or screen lock instead of an email code. Those never leave your device."
             actions={supported && !signInAgain ? (
