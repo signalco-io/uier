@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useContext, useEffect, useRef, useState } from 'react';
+import { Fragment, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -9,7 +9,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Close, ExternalLink, LogOut, MoreHorizontal } from '@signalco/ui-icons';
+import { ArrowLeft, Close, ExternalLink, LayoutList, LogOut, MoreHorizontal, Reset, ToggleLeft, ToggleRight } from '@signalco/ui-icons';
 import { BRAND_URL, Mark } from '@uier/brand';
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
@@ -59,6 +59,22 @@ function ShortcutList({ enabled }: { enabled: boolean }) {
                 </div>
             ))}
         </dl>
+    );
+}
+
+/**
+ * One row of the options: its 16 px icon first, so every row's icon (and the mark in
+ * "Powered by uier") lines up in one column.
+ */
+function OptionButton({ icon, className, ...props }: ComponentProps<typeof Button> & { icon: ReactNode }) {
+    return (
+        <Button
+            {...props}
+            variant="plain"
+            size="sm"
+            fullWidth
+            className={cx('justify-start', className)}
+            startDecorator={<span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">{icon}</span>} />
     );
 }
 
@@ -148,9 +164,11 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
         announce(shortcutsEnabled ? 'Shortcuts turned off' : 'Shortcuts turned on. Press ? to see them.');
     };
     const shortcutSwitch = (
-        <Button variant="plain" size="sm" fullWidth className="justify-start" onClick={handleToggleShortcuts}>
+        <OptionButton
+            icon={shortcutsEnabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+            onClick={handleToggleShortcuts}>
             {shortcutsEnabled ? 'Turn off shortcuts' : 'Turn on shortcuts'}
-        </Button>
+        </OptionButton>
     );
 
     const tip = useIconTooltip('Options');
@@ -188,9 +206,9 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                     <Divider className="my-1" />
                     <Stack>
                         {shortcutSwitch}
-                        <Button variant="plain" size="sm" fullWidth className="justify-start" onClick={() => setShowingShortcuts(false)}>
+                        <OptionButton icon={<ArrowLeft size={16} />} onClick={() => setShowingShortcuts(false)}>
                             All options
-                        </Button>
+                        </OptionButton>
                     </Stack>
                 </Stack>
             ) : confirmingSignOut ? (
@@ -217,67 +235,48 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
             ) : (
                 <Stack>
                     {showShortcutSwitch && <>
-                        <Button ref={shortcutsButtonRef} variant="plain" size="sm" fullWidth className="justify-start" onClick={() => setShowingShortcuts(true)}>
+                        <OptionButton ref={shortcutsButtonRef} icon={<LayoutList size={16} />} onClick={() => setShowingShortcuts(true)}>
                             Keyboard shortcuts
                             {shortcutsEnabled && <kbd aria-hidden="true" className="ml-auto pl-3 font-mono font-normal text-muted-foreground">?</kbd>}
-                        </Button>
+                        </OptionButton>
                         {shortcutSwitch}
                     </>}
                     {onResetPosition && (
-                        <Button variant="plain" size="sm" className="justify-start" onClick={() => { handleOpenChange(false); onResetPosition(); }}>
+                        <OptionButton icon={<Reset size={16} />} onClick={() => { handleOpenChange(false); onResetPosition(); }}>
                             Reset toolbar position
-                        </Button>
+                        </OptionButton>
                     )}
                     {projectUrl && (
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            fullWidth
-                            className="justify-start"
+                        <OptionButton
+                            icon={<ExternalLink size={16} />}
                             href={projectUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            startDecorator={<ExternalLink size={16} />}
                             onClick={() => handleOpenChange(false)}>
                             View project
-                        </Button>
+                        </OptionButton>
                     )}
                     {onExitReview && (
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            fullWidth
-                            className="justify-start"
-                            startDecorator={<Close size={16} />}
-                            onClick={handleExitReview}>
+                        <OptionButton icon={<Close size={16} />} onClick={handleExitReview}>
                             {mode === 'feedback' ? 'Close toolbar' : 'Exit review'}
-                        </Button>
+                        </OptionButton>
                     )}
                     {canSignOut && (
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            fullWidth
-                            className="justify-start"
-                            startDecorator={<LogOut size={16} />}
-                            onClick={handleAskSignOut}>
+                        <OptionButton icon={<LogOut size={16} />} onClick={handleAskSignOut}>
                             Sign out...
-                        </Button>
+                        </OptionButton>
                     )}
                     {(hasActions || showShortcutSwitch) && <Divider className="my-1" />}
                     {/* The referrer (the reviewed site's origin) tells uier.io where people came from */}
-                    <Button
-                        variant="plain"
-                        size="sm"
-                        fullWidth
-                        className="justify-start text-muted-foreground hover:text-foreground"
+                    <OptionButton
+                        icon={<Mark size={16} />}
+                        className="text-muted-foreground hover:text-foreground"
                         href={BRAND_URL}
                         target="_blank"
                         rel="noopener"
-                        startDecorator={<Mark size={16} aria-hidden="true" />}
                         onClick={() => handleOpenChange(false)}>
                         Powered by uier
-                    </Button>
+                    </OptionButton>
                 </Stack>
             )}
         </Popper></>
