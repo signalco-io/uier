@@ -60,7 +60,8 @@ rows with the status filter it waits for their entrance motion to settle before 
   (`page-wide`): when the columns don't fit, the header stays at that width while the board scrolls under it. The
   project header (its mark, name, access label, Open review and Settings) takes the same width as the filters' header,
   in the list and on the board (uier #168: the filters' header carries `data-header-wide`, and the project layout widens
-  its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line,
+  its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line
+  under the filters takes that width too (uier #187: `TriageSelection`'s `lineClassName`, the header's width classes);
   the selection bar and the empty states stay in the reading column. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows

@@ -158,7 +158,7 @@ function pageParts(page: Page) {
 
 const boardStatuses = ['Open', 'In progress', 'Ready to verify', 'Done'];
 
-test('the board widens on a wide window, the filters and project headers with it; the page stays in the reading column', async ({ page, request }, testInfo) => {
+test('the board widens on a wide window, the filters and project headers and the count line with it; the page stays in the reading column', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
@@ -171,14 +171,19 @@ test('the board widens on a wide window, the filters and project headers with it
     // The project header: its mark (the first part of the title's row) and the settings button at the row's end
     const mark = page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]');
     const settings = page.getByRole('main').getByLabel('Settings', { exact: true });
-    // The filters and project headers span the board's columns: search and the project's mark start with the first,
-    // the view toggle and the settings button end with the last
+    // The count line under the filters: the guests' threads are unread, so it shows their count (uier #187)
+    const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
+    const countLine = unread.locator('xpath=..');
+    // The filters and project headers and the count line span the board's columns: search, the project's mark and the
+    // unread count start with the first, the view toggle, the settings button and the count line end with the last
     const headerSpans = async (first: Locator, last: Locator) => {
         const left = (await placement(first)).left, right = (await placement(last)).right;
         expect((await placement(search)).left).toBeCloseTo(left, 0);
         expect((await placement(view)).right).toBeCloseTo(right, 0);
         expect((await placement(mark)).left).toBeCloseTo(left, 0);
         expect((await placement(settings)).right).toBeCloseTo(right, 0);
+        expect((await placement(unread)).left).toBeCloseTo(left, 0);
+        expect((await placement(countLine)).right).toBeCloseTo(right, 0);
     };
     // The page keeps the reading width, 64rem with the 32 px gutters, centred
     const comments = atBoard[1]!;
@@ -198,14 +203,14 @@ test('the board widens on a wide window, the filters and project headers with it
     expect(boxes[0]!.width).toBeLessThanOrEqual(320);
     await headerSpans(column('Open'), column('Done'));
 
-    // The list: the comments and the count line are where the board had them; the filters and project headers span
+    // The list: the comments are where the board had them; the filters and project headers and the count line span
     // the list and the thread beside it
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const list = page.getByRole('list', { name: 'Comments', exact: true });
     await expect(list).toBeVisible();
     await expect(page.locator('[data-board-scroll]')).toHaveCount(0);
     const atList = await pageParts(page);
-    expect([atList[1], atList[3]]).toEqual([atBoard[1], atBoard[3]]);
+    expect(atList[1]).toEqual(atBoard[1]);
     // The list with its thread beside it is the wide element now
     const split = page.locator('[data-page-width="wide"]');
     await headerSpans(list, split);
@@ -259,6 +264,8 @@ test('the board widens on a wide window, the filters and project headers with it
     expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
     expect(laptopHeader.mark.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.settings.right).toBeCloseTo(laptopComments!.right, 0);
+    expect((await placement(unread)).left).toBeCloseTo(laptopComments!.left, 0);
+    expect((await placement(countLine)).right).toBeCloseTo(laptopComments!.right, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(column('Done')).toBeInViewport({ ratio: 1 });

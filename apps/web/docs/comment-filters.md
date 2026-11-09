@@ -26,8 +26,8 @@
   Unread toggle ("Unread 7") is a filter like Only unread here: no dot, the count in the unread accent. Neither view has "15 of 93 comments": the
   list's status tabs and the board's columns already count what is shown. With a mouse Select is `sr-only` until something is selected (or it has keyboard focus),
   since hovering a row's box starts selecting; a touch screen always shows it. When it shows nothing (no unread count and, with a mouse, nothing selected) the
-  count line is `sr-only` too: it takes no room and no gap in the column, and shows again while Select has the keyboard focus. The count line has no side padding of its own, so its
-  edges line up with the search and Filter row in the list and the board; Select shown results and the bulk actions are in the selection bar that
+  count line is `sr-only` too: it takes no room and no gap in the column, and shows again while Select has the keyboard focus. The count line has no side padding of its own and takes the filters header's width, so its
+  edges line up with the search and Filter row (and the view toggle) in the list and the board, the board's wide layout too; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
   sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
