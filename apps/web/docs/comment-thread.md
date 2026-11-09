@@ -25,7 +25,8 @@
   reasoning level and connection; [AI agents](assignee-agents.md)). The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
-  text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.
+  text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
+  popover puts a mark beside the operating system too (`DeviceMark.tsx`: `BrowserMark`, `OsMark`). Pending actions show `Spinner`.
 - The open thread reads itself (`comments/useReadWhenShown.ts`, the toolbar's rule): once its `article` has been
   on screen for 800 ms in a visible, focused window it is marked read at its shown sequence through
   `markCommentReadAction`. That covers a click, a `?comment=` link (My work, copied links, Back/Forward), the
@@ -41,6 +42,30 @@
   `e2e/comment-auto-read.spec.ts` covers it. A test about something else that holds, fails or counts the
   page's server actions, or checks the unread dot, calls `inBackground(page)` (`e2e/support/app.ts`) first, so a
   slow step cannot add a read write.
+- Device marks (`comments/DeviceMark.tsx`, the toolbar's `components/info/DeviceMark.tsx`, both over the pure
+  `@uier/toolbar/devices`): `browserKind` and `osKind` read the stored names ("Safari (18.1)", "macOS 15.1", and on
+  older comments the client hint brand and platform, "Microsoft Edge (156)", "macOS") and choose a one-colour mark in
+  the text colour, like `AgentMark`, decorative beside the written name. Browsers: Chrome (also Chromium and headless
+  Chrome), Edge, Safari, Firefox, Samsung Internet, Opera (and Opera GX, Opera Mini), Brave, Vivaldi, DuckDuckGo and
+  the Facebook and Instagram in-app browsers, else a globe. Systems: Windows, macOS, iOS and iPadOS (the Apple mark),
+  Android, Linux, Chrome OS, Ubuntu, Fedora, HarmonyOS, FreeBSD and KaiOS, else a window (OpenBSD, NetBSD, Tizen,
+  webOS and Fuchsia are named but have no mark of their own). Sources are in `devices.ts` (Simple Icons CC0, Bootstrap
+  Icons MIT, Tabler and Lucide outlines); never redraw a vendor's logo.
+- Device details (`getDeviceInfo` in the toolbar, `describeDevice` and `parseUserAgent` in `@uier/toolbar/devices`):
+  the toolbar parses the user-agent string in the reviewer's browser when Chromium's client hints are missing
+  (Safari, Firefox, every iOS browser) and sends only the names, never the string. Client hints name Chromium
+  browsers (only they tell Brave from Chrome) unless the string names an in-app browser. A version is shown only
+  when it is real: macOS stays at 10_15_7, Windows 10 and 11 both say NT 10.0, Chrome's reduced Android string says
+  "Android 10; K" and Safari 26 keeps iOS at 18_6, so those show no version; on iOS Safari's own version is the
+  system's, and an iPad asking for the desktop site (a Mac string with touch points) is iPadOS. Chromium's
+  high-entropy hints are asked once, for `platformVersion` (Windows 11 is 13 and later) and a phone's `model`, and
+  the post waits for them at most a second (`completeDeviceInfo`). The toolbar also records the primary input
+  (`pointer: coarse` is touch), the colour scheme, reduced motion and the page's `<html lang>` (language, script and
+  region only). The API keeps bounded names and drops settings it does not know (`deviceSchema`); the popovers list
+  model, input, colour scheme, reduced motion and page language under the browser row when recorded
+  (`deviceSettings`), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
+  strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
+  mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers.
 - `comments/ReplyComposer.tsx` is a lazy inline reply form in List and Board, using shadcn controls
   and pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;

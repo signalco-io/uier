@@ -131,15 +131,36 @@ export type CommentItemThread = {
 
 export type CommentDeviceSize = 'desktop' | 'tablet' | 'mobile';
 
-/** Device info sent when creating a comment */
+/** The primary pointer (`pointer: coarse` is touch), the colour scheme the page's CSS sees */
+export type CommentDeviceInput = 'touch' | 'mouse';
+export type CommentColorScheme = 'light' | 'dark';
+
+/** Device info sent when creating a comment (`getDeviceInfo`): parsed names and settings, never the user-agent string */
 export type CommentDeviceInfo = {
     capturedAt?: string;
     size?: CommentDeviceSize;
     windowSize?: [number, number];
+    /** "Safari (18.1)" */
     browser?: string;
+    /** "macOS 15.1", "Windows" (no version when the browser reports a frozen one) */
     os?: string;
     pixelRatio?: number;
+    /** A phone's or tablet's model, when the browser reports it ("Pixel 8") */
+    model?: string;
+    input?: CommentDeviceInput;
+    colorScheme?: CommentColorScheme;
+    reducedMotion?: boolean;
+    /** The page's `<html lang>`: language, script and region ("en-GB") */
+    pageLanguage?: string;
 }
+
+/** The member-only device details of a saved comment, as the API returns them (`ReproductionContext`) */
+export type CommentReproduction = {
+    browser?: string; os?: string; model?: string; capturedAt?: string;
+    windowSize?: [number, number]; pixelRatio?: number;
+    input?: CommentDeviceInput; colorScheme?: CommentColorScheme; reducedMotion?: boolean; pageLanguage?: string;
+    url?: string; text: string;
+};
 
 /** A comment as returned by the comments API (`CommentDto`) */
 export type CommentActivity = { sequence: number; lastOtherSequence: number; readSequence: number; unread: boolean };
@@ -166,10 +187,7 @@ export type CommentItem = {
     /** The coarse device size and the viewport (width, height) it was left from */
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };
     /** Detailed, safe reproduction fields returned only to authorized project members. */
-    reproduction?: {
-        browser?: string; os?: string; capturedAt?: string;
-        windowSize?: [number, number]; pixelRatio?: number; url?: string; text: string;
-    };
+    reproduction?: CommentReproduction;
     priority?: import('../../triage').CommentPriority;
     verification?: import('../../verification').VerificationDetails;
     verificationPermissions?: import('../../verification').VerificationPermissions;

@@ -48,14 +48,28 @@ export type DbCommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
 
 export type DbDeviceSize = 'desktop' | 'tablet' | 'mobile';
 
+/**
+ * Where a comment was left from, parsed in the reviewer's browser (`getDeviceInfo`). Only bounded names
+ * and settings: never the user-agent string, the IP address or anything derived from it.
+ */
 export type DbCommentDevice = {
     /** ISO time in the reviewer's browser when feedback/capture starts. */
     capturedAt?: string;
     size?: DbDeviceSize;
     windowSize?: [number, number];
     pixelRatio?: number;
+    /** "Safari (18.1)", "Microsoft Edge (156)" */
     browser?: string;
+    /** "macOS 15.1", "iOS 18.1", "Windows"; older comments the client hint platform ("macOS") */
     os?: string;
+    /** A phone's or tablet's model, when the browser reports one ("Pixel 8") */
+    model?: string;
+    /** Primary pointer: `touch` (coarse) or `mouse` (fine) */
+    input?: 'touch' | 'mouse';
+    colorScheme?: 'light' | 'dark';
+    reducedMotion?: boolean;
+    /** The page's `<html lang>`: language, script and region ("en-GB") */
+    pageLanguage?: string;
 };
 
 /** A selected account identity and its range in the saved message (UTF-16 offsets). */

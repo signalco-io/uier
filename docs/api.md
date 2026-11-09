@@ -327,9 +327,15 @@ Save and Cancel keep the original author, creation time, anchor, screenshot and 
 the attempted text. A stale edit must be reviewed against the latest message before retrying; edits are marked
 in the toolbar, inbox and app, including replies.
 
-Authorized project members additionally receive `reproduction`: browser/version and OS from supported low-entropy
-client hints, the original viewport and pixel ratio, the browser's capture-start timestamp and a safe reviewed-page
-link. Threads, inbox entries and app cards offer expandable, copyable details. Missing/older fields say Unknown
+Authorized project members additionally receive `reproduction`: browser/version and OS, the original viewport and
+pixel ratio, the browser's capture-start timestamp and a safe reviewed-page link, and on newer comments the phone or
+tablet model, primary input (`touch`/`mouse`), colour scheme (`light`/`dark`), reduced motion and the page's language
+tag. The toolbar parses the browser and OS in the reviewer's browser from Chromium's client hints or, without them,
+the user-agent string, and sends only those names (`device.browser` and `device.os`, at most 64 characters; a version
+only when the browser reports a real one); the user-agent string itself is never sent or stored, and neither is the
+IP address or anything derived from it. `device.model` (64 characters), `input`, `colorScheme`, `reducedMotion` and
+`pageLanguage` (language, script and region, `en-GB`) are dropped when the value is not one the API knows, without
+failing the comment. Threads, inbox entries and app cards offer expandable, copyable details. Missing/older fields say Unknown
 or Unavailable. Public and guest responses keep the restricted `device` shape and omit `reproduction`, even for
 the author. Links retain the stored page identity described below; review tokens and unapproved query fields are
 excluded. Replies, edits and viewport changes keep the original context.

@@ -365,9 +365,13 @@ error boundary, so one bad comment never breaks the toolbar.
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.
   Capture excludes the toolbar and inline review threads; DOM/CORS limitations remain in
   [Screenshots](../../docs/review-workflow.md#screenshots).
-- Every comment saves the device size, viewport and supported browser/OS hints when feedback starts (`getDeviceInfo`).
+- Every comment saves the device size, viewport, pixel ratio, browser and OS when feedback starts (`getDeviceInfo`):
+  names parsed in the browser from Chromium's client hints or the user-agent string (`describeDevice` in
+  `src/userAgent.ts`; the string itself is never sent), a phone's model when the browser reports it, the primary
+  input, colour scheme, reduced motion and the page's language.
   A thread shows it as two icons after the first message's time, like the app's comment cards: the screen size
-  (desktop, tablet or phone; none when it was not recorded) and, for authorized project members, a browser globe.
+  (desktop, tablet or phone; none when it was not recorded) and, for authorized project members, the browser's own
+  mark (a globe when it is not recognised). The details show the browser and the operating system with their marks.
   Hovering shows the details without moving focus; a click keeps them open, Enter opens them with the focus
   inside, and Escape returns it to the icons. Everyone sees the screen size and viewport ("1280×720 CSS px"); members also see
   the pixel ratio, browser/version, OS, original capture time and a safe page link, with **Copy reproduction
