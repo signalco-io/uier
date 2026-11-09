@@ -36,6 +36,7 @@ export function AccountMenu({ name, email, avatarUrl }: { name: string; email: s
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
 
+    // The menu's header: the person with their email
     const person = (
         <>
             <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" />
@@ -50,9 +51,15 @@ export function AccountMenu({ name, email, avatarUrl }: { name: string; email: s
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
-                    <DropdownMenuTrigger render={<SidebarMenuButton size="lg" disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
+                    {/* A row like Give feedback and the navigation above it: the avatar is centred in their 16px
+                        icon column (spilling over its box, not widening it), so names line up with their labels,
+                        expanded and collapsed; the email is in the menu */}
+                    <DropdownMenuTrigger render={<SidebarMenuButton disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
                         <span className="sr-only">Account: </span>
-                        {person}
+                        <span className="flex size-4 shrink-0 items-center justify-center">
+                            <PersonAvatar name={name} avatarUrl={avatarUrl} size="sm" aria-hidden="true" />
+                        </span>
+                        <span className="truncate">{name}</span>
                         <ChevronsUpDownIcon className="ml-auto" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
