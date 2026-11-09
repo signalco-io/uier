@@ -46,6 +46,20 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     }
     if (testInfo.project.name.startsWith('Mobile')) await backToComments(page);
     await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(1);
+    // Hovering the mark (a tap on touch screens) lists the pull requests with their provider and state
+    const mark = commentRows(page).getByRole('button', { name: 'Linked pull request', exact: true });
+    const card = page.getByRole('dialog', { name: 'Pull requests', exact: true });
+    if (testInfo.project.name.startsWith('Mobile')) await mark.tap();
+    // The list may still settle after the reply, moving the row from under the pointer: hover again until it shows
+    else await expect(async () => { await mark.hover(); await expect(card).toBeVisible({ timeout: 1000 }); }).toPass();
+    await expect(card.getByRole('link')).toHaveCount(5);
+    await expect(card.locator('[data-provider-mark="gitlab"]')).toHaveCount(1);
+    await expect(card.getByRole('link', { name: /^GitLab acme\/site !4/ })).toHaveAttribute('href', 'https://gitlab.com/acme/site/-/merge_requests/4');
+    await expect(card.locator('[data-pull-request-state="merged"]')).toHaveText('Merged');
+    await animationsFinished(card);
+    expect((await new AxeBuilder({ page }).include('[data-pull-request-card]').analyze()).violations).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(card).toBeHidden();
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(page.locator('[data-board-card]').getByLabel('Linked pull request')).toHaveCount(1);
     thread = await openComment(page, 'Check the checkout button');

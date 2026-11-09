@@ -37,7 +37,7 @@ export function MyWorkList({ label, items }: { label: string; items: MyWorkItem[
             }}>
             {items.map(({ projectId, projectName, comment }) => (
                 <li key={comment.id} className="min-w-0" data-my-work-row={comment.id}>
-                    <CommentRow comment={comment} project={projectName} tabbable={comment.id === tabStop}
+                    <CommentRow comment={comment} project={projectName} projectId={projectId} tabbable={comment.id === tabStop}
                         href={`${KnownPageLinks.project(projectId)}?comment=${encodeURIComponent(comment.id)}#comments`} />
                 </li>
             ))}

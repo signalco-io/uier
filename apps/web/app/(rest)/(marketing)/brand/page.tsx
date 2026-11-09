@@ -18,6 +18,7 @@ import { Badge as AppBadge } from '../../../../src/components/ui/badge';
 import { Button as AppButton } from '../../../../src/components/ui/button';
 import { PriorityLabel } from '../../../../src/components/app/comments/PriorityFlag';
 import { StateBadge } from '../../../../src/components/app/comments/CommentStatus';
+import { PullRequestStateBadge } from '../../../../src/components/app/comments/ThreadPullRequests';
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
 import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
@@ -157,11 +158,11 @@ export default function BrandPage() {
                     <TokenSwatch token="--foreground" name="Text" role="text, icons" />
                     <TokenSwatch token="--primary" name="Primary" role="solid buttons, pins" />
                     <TokenSwatch token="--brand-accent" name="Blue" role="the accent (white text on it: 5.2:1)" />
-                    <TokenSwatch token="--brand-success" name="Green" role="resolved, Done" />
+                    <TokenSwatch token="--brand-success" name="Green" role="resolved, Done, open pull request" />
                     <TokenSwatch token="--brand-in-progress" name="Sky" role="In progress" />
-                    <TokenSwatch token="--brand-ready" name="Violet" role="Ready to verify" />
+                    <TokenSwatch token="--brand-ready" name="Violet" role="Ready to verify, merged pull request" />
                     <TokenSwatch token="--brand-warning" name="Amber" role="warning, High priority" />
-                    <TokenSwatch token="--destructive" name="Red" role="destructive, Urgent priority" />
+                    <TokenSwatch token="--destructive" name="Red" role="destructive, Urgent priority, closed pull request" />
                     <TokenSwatch token="--brand-selection" name="Selection" role="commented text or area" bordered />
                     <TokenSwatch token="--sidebar" name="Sidebar" role="the app's sidebar" bordered />
                     <TokenSwatch token="--sidebar-accent" name="Sidebar accent" role="sidebar hover, current item" />
@@ -280,6 +281,10 @@ export default function BrandPage() {
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs">
                         {feedbackStages.map(status => <StateBadge key={status} status={status} />)}
                         <span className="text-muted-foreground">Status: a dot in its colour, always beside its name. Open is ink, Done is green.</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs">
+                        {(['open', 'merged', 'closed', 'draft'] as const).map(state => <PullRequestStateBadge key={state} state={state} />)}
+                        <span className="text-muted-foreground">Pull request state: the same badge, coloured like GitHub. Merged is the one other use of violet.</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
                         {priorities.map(priority => <PriorityLabel key={priority} priority={priority} />)}
