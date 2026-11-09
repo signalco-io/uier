@@ -7,7 +7,8 @@ so web development never installs Pulumi dependencies.
 It manages:
 
 - the Vercel project `uier` (root directory `apps/web`, Node 26, region `dub1`, Fluid compute,
-  which the `/api/realtime` WebSockets require; prebuilt CI deploys never read `apps/web/vercel.json`) with the
+  which the `/api/realtime` WebSockets require, with the `standard` 1 vCPU function size, the
+  smallest Fluid accepts; prebuilt CI deploys never read `apps/web/vercel.json`) with the
   domains `uier.io` and `www.uier.io` (a `308` redirect to `uier.io`), and the comments API
   variables (`COSMOSDB_ENDPOINT`, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` for separate production
   and preview identities, `comments` / `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
