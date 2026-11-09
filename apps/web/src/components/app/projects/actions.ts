@@ -1,5 +1,7 @@
 'use server';
 
+import { projectFeedbackTypesSchema } from '../../../lib/app/feedbackTypeSchema';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -123,6 +125,9 @@ const aiTitlesSchema = z.enum(projectAiTitleModes, 'Choose whether threads get t
 /** Review: who can comment, the brief and the page state, one save; only what changed is written */
 export async function updateProjectReviewAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
+        const feedbackTypes = formData.has('feedbackTypes')
+            ? formData.get('feedbackTypes') === 'workspace' ? undefined : projectFeedbackTypesSchema.parse(JSON.parse(String(formData.get('feedbackTypes'))))
+            : undefined;
         const access = accessSchema.parse(formData.get('access'));
         const brief = projectBriefSchema.parse(formData.get('brief') ?? '');
         const pageState = projectPageStateSchema.parse({
@@ -132,6 +137,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
         const { context, project } = await adminProject(formData.get('projectId'));
         assertMutableProject(context.workspace.id, project.id);
         const update: ProjectUpdate = {};
+        if (formData.has('feedbackTypes') && JSON.stringify(feedbackTypes) !== JSON.stringify(project.feedbackTypes))
+            update.feedbackTypes = feedbackTypes;
         if (access !== project.access)
             update.access = access;
         if (brief !== (project.brief || undefined))

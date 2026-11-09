@@ -46,7 +46,7 @@ export type DbCommentPosition = DbCommentPoint | DbCommentSelection | DbCommentP
  * A comment on the page (pinned), general feedback or a bug report (`page` position), or a rewrite
  * suggestion for selected text (its first item is the suggested text, `quotedText` the original)
  */
-export type DbCommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
+export type DbCommentKind = import('@uier/toolbar/feedback-types').CommentKind;
 
 export type DbDeviceSize = 'desktop' | 'tablet' | 'mobile';
 
@@ -209,6 +209,8 @@ export type DbComment = {
     number?: number;
     /** Missing on old documents: `comment` */
     kind?: DbCommentKind;
+    /** Server-captured custom type display, retained even after settings change. */
+    feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
     thread: { items: DbThreadItem[] };
     /**
      * Project comments: the thread's title, written by AI from its first message after it was saved

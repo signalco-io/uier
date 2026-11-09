@@ -111,6 +111,8 @@ export type DbWorkspace = AppDoc & {
     aiTitles?: boolean;
     /** Admin-only style guidance for rewrite suggestions. Never project/reviewer DTO data. */
     rewriteInstructions?: string;
+    /** Defaults for each project's Give feedback form. Missing keeps the standard types. */
+    feedbackTypes?: import('@uier/toolbar/feedback-types').FeedbackType[];
 };
 
 export type MemberRole = 'admin' | 'commenter';
@@ -192,6 +194,8 @@ export type DbProject = AppDoc & {
     aiTitles?: 'on' | 'off';
     /** Missing inherits the workspace. Empty replace intentionally uses no style guidance. */
     rewriteInstructions?: import('./inheritedSettings').ProjectSetting<string>;
+    /** Missing inherits the workspace list; replace keeps a project's own list. */
+    feedbackTypes?: import('./inheritedSettings').ProjectSetting<import('@uier/toolbar/feedback-types').FeedbackType[]>;
     /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */

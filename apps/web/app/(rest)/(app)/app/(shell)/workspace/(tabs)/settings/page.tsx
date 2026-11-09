@@ -1,3 +1,5 @@
+import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
+import { WorkspaceFeedbackTypesForm } from './WorkspaceFeedbackTypesForm';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
@@ -28,6 +30,7 @@ export default async function WorkspaceSettingsPage() {
                 <WorkspaceNameForm name={context.workspace.name} />
                 <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
                 <WorkspaceRewriteInstructionsForm instructions={workspaceRewriteInstructions(context.workspace)} />
+                <WorkspaceFeedbackTypesForm types={workspaceFeedbackTypes(context.workspace)} />
                 <WorkspaceDomainsSection context={context} />
             </div>
         </div>

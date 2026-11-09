@@ -14,7 +14,9 @@ import { feedbackDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
-import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
+import { defaultFeedbackTypes, type FeedbackTypeId } from '../feedbackTypes';
+import { useProjectViewer } from '../project/ProjectGate';
+import { CommentKindIcon } from './CommentKindLabel';
 import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { useAnnounce } from './Announcer';
@@ -23,15 +25,8 @@ import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
 
-type FeedbackKind = 'feedback' | 'bug';
-
-const kinds: { value: FeedbackKind; placeholder: string; submitLabel: string; sent: string }[] = [
-    { value: 'feedback', placeholder: 'What works well, what could be better?', submitLabel: 'Send feedback', sent: 'Feedback sent' },
-    { value: 'bug', placeholder: 'What went wrong, and what did you expect?', submitLabel: 'Send bug report', sent: 'Bug report sent' }
-];
-
 /**
- * The toolbar's feedback button: general feedback (heart) or a bug report (bug) about the page,
+ * The toolbar's feedback button: the project's enabled feedback types about the page,
  * not pinned to an element. Saved as a comment with a `page` position and its kind, so it shows
  * in the inbox like any other thread.
  */
@@ -45,6 +40,8 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // Dark like the pill it opens from
     const container = useInkContainer() ?? rootElement;
     const { create } = useComments();
+    const { feedbackTypes = defaultFeedbackTypes } = useProjectViewer();
+    const kinds = feedbackTypes.filter(type => type.enabled);
     const drafts = useDrafts();
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
@@ -59,8 +56,10 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // The reviewer's own image, sent instead of the screenshot; also per feedback
     const attachment = useAttachedImage();
     const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
-    const [kind, setKind] = useState<FeedbackKind>(() => (drafts.details(`${feedbackDraftKey}:bug`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:feedback`)?.updatedAt ?? 0) ? 'bug' : 'feedback');
-    const selected = kinds.find(k => k.value === kind) ?? kinds[0]!;
+    const [selectedKind, setKind] = useState<FeedbackTypeId>(() => kinds.reduce<(typeof kinds)[number] | undefined>((latest, type) =>
+        (drafts.details(`${feedbackDraftKey}:${type.id}`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:${latest?.id}`)?.updatedAt ?? 0) ? type : latest, kinds[0])?.id ?? 'feedback');
+    const selected = kinds.find(type => type.id === selectedKind) ?? kinds[0];
+    const kind = selected?.id ?? 'feedback';
 
     const handleOpenChange = (next: boolean) => {
         setOpen(next);
@@ -85,7 +84,9 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     };
 
     const openOnRequest = useEffectEvent(() => {
-        if (!open) {
+        if (!selected) {
+            announce('Feedback types are turned off for this project. You can still leave a pinned comment.');
+        } else if (!open) {
             handleOpenChange(true);
         }
         onOpenRequestHandled?.();
@@ -100,10 +101,12 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // send keeps its image. A failure says so, keeps the text and brings the image and the choice to
     // omit the screenshot back, unless another image was attached meanwhile.
     const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
+        if (!selected) return;
         const sent = { image: attachment.image, omitScreenshot };
         const sending = create.mutateAsync({
             position: { type: 'page' },
             kind,
+            feedbackType: kind.startsWith('custom_') ? { id: selected.id, label: selected.label, icon: selected.icon } : undefined,
             text,
             mentions,
             device: device.current,
@@ -121,10 +124,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             }
             throw error;
         }
-        announce(selected.sent);
+        announce(kind === 'bug' ? 'Bug report sent' : kind === 'feedback' ? 'Feedback sent' : `${selected.label} sent`);
     };
 
     const tip = useIconTooltip('Send feedback');
+    if (!selected) return null;
     // A pasted image file is attached instead of the screenshot
     const form = (
         <div className="contents" onPaste={attachment.handlePaste}>
@@ -137,30 +141,30 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 attachment={attachment}
                 actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
             <div className="bg-card px-3 pt-2">
-                {/* Like the inbox's status switch: two pressed/unpressed buttons */}
-                <Row role="group" aria-label="Type" className="rounded-md bg-muted p-0.5">
+                {/* Enabled types wrap in pairs, with the same pressed state as the inbox switch */}
+                <Row role="group" aria-label="Type" className="flex-wrap rounded-md bg-muted p-0.5">
                     {kinds.map((k) => (
                         <Button
-                            key={k.value}
+                            key={k.id}
                             size="sm"
                             variant="plain"
-                            aria-pressed={kind === k.value}
+                            aria-pressed={kind === k.id}
                             className={cx(
-                                'flex-1 gap-1.5 rounded-sm',
-                                kind === k.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
+                                'min-w-0 basis-1/3 flex-1 gap-1.5 rounded-sm',
+                                kind === k.id ? 'bg-accent text-foreground' : 'text-muted-foreground'
                             )}
-                            startDecorator={<CommentKindIcon kind={k.value} />}
-                            onClick={() => setKind(k.value)}>
-                            {commentKindLabels[k.value]}
+                            startDecorator={<CommentKindIcon kind={k.id} feedbackType={k} />}
+                            onClick={() => setKind(k.id)}>
+                            <span className="truncate" title={k.label}>{k.label}</span>
                         </Button>
                     ))}
                 </Row>
             </div>
             <CommentComposer
                 key={kind}
-                label={commentKindLabels[kind]}
+                label={selected.label}
                 placeholder={selected.placeholder}
-                submitLabel={selected.submitLabel}
+                submitLabel={kind === 'bug' ? 'Send bug report' : 'Send feedback'}
                 draftKey={`${feedbackDraftKey}:${kind}`}
                 autoFocus
                 tall={expanded}

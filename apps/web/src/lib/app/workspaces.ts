@@ -1,3 +1,4 @@
+import { feedbackTypesSchema } from './feedbackTypeSchema';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { getAppStore, updateDoc } from './store';
@@ -146,4 +147,15 @@ export async function ensureOwnWorkspace(user: DbUser): Promise<DbMember> {
             return existing;
     }
     throw new Error(`User ${user.id} was removed from ${MAX_OWN_WORKSPACES} workspaces of their own`);
+}
+
+/** Workspace defaults, saved by a current admin. Project overrides and existing threads stay intact. */
+export async function setWorkspaceFeedbackTypes(workspaceId: string, userId: string, value: unknown) {
+    assertMutableWorkspace(workspaceId);
+    const feedbackTypes = feedbackTypesSchema.parse(value);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin')
+        throw new UserFacingError('Only admins can do this.');
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, feedbackTypes }));
+    if (!updated) throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
 }

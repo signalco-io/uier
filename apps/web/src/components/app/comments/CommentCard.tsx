@@ -1,5 +1,8 @@
 'use client';
 
+import { commentKindIcon, commentKindLabel, type FeedbackTypeSnapshot } from '@uier/toolbar/feedback-types';
+import { FeedbackTypeIcon } from '../FeedbackTypeIcon';
+
 import { PriorityControl } from './PriorityControl';
 import { useCommitCommentsSearch } from './CommentsSearchNavigation';
 
@@ -10,9 +13,7 @@ import {
     ArrowUpRightIcon,
     BellIcon,
     BellOffIcon,
-    BugIcon,
     ChevronDownIcon,
-    HeartIcon,
     LockIcon,
     LockOpenIcon,
     MailIcon,
@@ -69,7 +70,7 @@ import { CommentDevice } from './CommentDevice';
 import { SelectorCode } from './SelectorCode';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
-import { integrationLabels, kindLabels } from './commentLabels';
+import { integrationLabels } from './commentLabels';
 import { useCommentUpdate } from './CommentUpdates';
 import { useReadWhenShown } from './useReadWhenShown';
 import { VerificationControl } from './VerificationControl';
@@ -96,8 +97,6 @@ import {
 export type AssigneeOption = { userId: string; name: string; avatarUrl?: string };
 
 export type { ResolveExit } from './useStatusChange';
-
-const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
 /** Who sees a private thread (`canSeeComment`): the workspace admins and its author */
 const privateHint = 'Only workspace admins and the author can see this thread. Other members and guests cannot.';
@@ -130,14 +129,13 @@ const detailLabelClass = 'flex h-8 items-center text-muted-foreground pointer-co
 const detailValueClass = 'm-0 flex min-h-8 min-w-0 flex-wrap items-center pointer-coarse:min-h-11';
 
 /** "Feedback", "Bug report" or "Suggested rewrite" above the first message, as in the toolbar */
-function KindLabel({ kind }: { kind: DbCommentKind }) {
+function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?: FeedbackTypeSnapshot }) {
     if (kind === 'comment')
         return null;
-    const Icon = kindIcons[kind];
     return (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary-foreground">
-            <Icon aria-hidden="true" className="size-3.5" />
-            {kindLabels[kind]}
+            {kind === 'rewrite' ? <ReplaceIcon aria-hidden="true" className="size-3.5" /> : <FeedbackTypeIcon icon={commentKindIcon(kind, feedbackType)} className="size-3.5" />}
+            {commentKindLabel(kind, feedbackType)}
         </span>
     );
 }
@@ -575,7 +573,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     <li>
                         <Message author={comment.deleted ? 'Deleted' : author} agent={!comment.deleted && <MessageAgent author={comment.author} />} avatarName={comment.author.name} avatarUrl={comment.author.avatarUrl} createdAt={comment.createdAt}
                             meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
-                            <KindLabel kind={comment.kind} />
+                            <KindLabel kind={comment.kind} feedbackType={comment.feedbackType} />
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
                                 : editing

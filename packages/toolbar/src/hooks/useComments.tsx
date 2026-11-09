@@ -1,5 +1,6 @@
 import type { CommentPriority } from '../triage';
 
+import { isFeedbackTypeId } from '../feedbackTypes';
 import { useProjectViewer } from '../project/ProjectGate';
 import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,6 +45,8 @@ export type CreateCommentInput = {
     position: CommentItemPosition;
     /** `comment` (default) for pinned comments; `feedback` and `bug` with a `page` position */
     kind?: CommentKind;
+    /** Optimistic display only. The server captures its own snapshot from project settings. */
+    feedbackType?: import('../feedbackTypes').FeedbackTypeSnapshot;
     text: string;
     mentions?: Mention[];
     quotedText?: string;
@@ -111,7 +114,7 @@ function optimisticComment(path: string, input: CreateCommentInput, authorName: 
     const createdAt = new Date().toISOString();
     const id = input.localId ?? newLocalId();
     return {
-        id, path, position: input.position, kind: input.kind ?? 'comment', pending: true,
+        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, pending: true,
         thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
         device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
         resolved: false, isMine: true, createdAt,
@@ -128,7 +131,7 @@ function replacePending(comments: CommentItem[], localId: string, saved: Comment
         : comment.id === saved.id ? [mergeReadCursor(saved, comment.activity?.readSequence)] : [comment]);
 }
 
-const notSent: Record<CommentKind | 'reply', string> = {
+const notSent: Partial<Record<CommentKind | 'reply', string>> = {
     comment: 'Your comment wasn\'t posted',
     rewrite: 'Your suggestion wasn\'t posted',
     feedback: 'Your feedback wasn\'t sent',
@@ -138,7 +141,7 @@ const notSent: Record<CommentKind | 'reply', string> = {
 
 function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
     const reason = getCommentsErrorMessage(error);
-    showErrorToast(notSent[kind], /kept/.test(reason) ? reason : `${reason} Your text is kept.`, usageAction(error));
+    showErrorToast(notSent[kind] ?? notSent.feedback!, /kept/.test(reason) ? reason : `${reason} Your text is kept.`, usageAction(error));
 }
 
 async function getComments(path: string, client: QueryClient, environment?: string) {
@@ -310,9 +313,9 @@ export function useComments(refreshOnMount = false): {
 
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => {
-            const key = input.kind === 'rewrite' ? newRewriteDraftKey : input.kind === 'feedback' || input.kind === 'bug' ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
+            const key = input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
             // The same content is the same attempt (a retry the API can recognize), whatever its local id
-            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, ...content } = input;
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, ...content } = input;
             return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content })) });
         },
         onMutate: (input: CreateCommentInput) => {

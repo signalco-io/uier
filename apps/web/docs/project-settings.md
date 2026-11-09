@@ -77,3 +77,26 @@ limits, membership checks, stored defaults at the request boundary, prompt delim
 one content-free accounting event per call. `rewrite-instructions.spec.ts` covers desktop/mobile
 save/discard/reload, workspace changes, exact provider guidance through the stub, server validation,
 accessibility, guest projection and actual server-action replay as a commenter and signed out.
+
+- **Feedback types** live in Workspace settings and Project settings → Review. Workspaces keep
+  `feedbackTypes`; a missing project value inherits live workspace defaults through
+  `lib/app/inheritedSettings.ts`, while `{ mode: 'replace', value }` keeps a complete project list.
+  Missing workspace settings use Feedback and Bug report. Each list retains those two stable IDs
+  (they can be disabled), and supports up to 12 types with distinct names. Custom types use
+  `custom_<random id>`, one of eight curated icons, a name up to 40 characters and a required
+  placeholder up to 300 characters. No arbitrary SVG, URL or markup is accepted. The type switches
+  are part of the list draft and save with the page's Save/Discard footer, alongside the other
+  Review settings. New/disabled types do not change pinned comments or suggested rewrites.
+  Returning to workspace defaults clears the saved override. Existing forms that send no type
+  setting preserve it. Actions check admin/project authority; persistence services validate the
+  list again. `feedbackTypeSchema.ts` is the pure input boundary; `feedbackTypes.ts` resolves settings.
+- Review info exposes the configured types only to reviewers who can comment. The toolbar shows
+  enabled choices; with none enabled it hides Send feedback, while pinned comments remain
+  available. New submissions recheck the effective list on the server, reject disabled or foreign
+  custom IDs and restrict feedback types to page positions. A successful idempotency retry keeps
+  its original receipt even if an admin has since disabled the type. New custom threads capture
+  `{ id, label, icon }` in `feedbackType` on the server. Lists, threads, exports and MCP use this saved
+  display snapshot, so disabling, renaming, transferring the project or dropping an override cannot
+  relabel existing threads. Old built-in threads keep their original kind without a migration.
+  `feedback-types.api.spec.ts`, `feedback-types.spec.ts` (desktop/mobile, settings authority, drafts,
+  modal writing, accessibility and historical display) and `mcp.api.spec.ts` cover these contracts.

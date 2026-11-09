@@ -1,5 +1,6 @@
 import { SVGProps } from 'react';
-import { Bug, Replace } from '@signalco/ui-icons';
+import { AI, Bookmark, Bug, Comment, Info, Lightning, Replace, Rocket } from '@signalco/ui-icons';
+import { commentKindIcon, commentKindLabel, type FeedbackTypeSnapshot } from '../feedbackTypes';
 import type { CommentKind } from './@types/Comments';
 
 /** Lucide's heart (the UI kit has no heart icon), drawn like the kit's icons next to it */
@@ -12,7 +13,7 @@ export function HeartIcon({ size = 24, ...rest }: SVGProps<SVGSVGElement> & { si
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={1.75}
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -22,30 +23,19 @@ export function HeartIcon({ size = 24, ...rest }: SVGProps<SVGSVGElement> & { si
     );
 }
 
-export const commentKindLabels: Record<Exclude<CommentKind, 'comment'>, string> = {
-    feedback: 'Feedback',
-    bug: 'Bug report',
-    rewrite: 'Suggested rewrite'
-};
-
-export function CommentKindIcon({ kind, size = 16 }: { kind: Exclude<CommentKind, 'comment'>; size?: number }) {
-    switch (kind) {
-        case 'bug': return <Bug size={size} aria-hidden="true" />;
-        case 'rewrite': return <Replace size={size} aria-hidden="true" />;
-        default: return <HeartIcon size={size} />;
-    }
+export function CommentKindIcon({ kind, feedbackType, size = 16 }: { kind: Exclude<CommentKind, 'comment'>; feedbackType?: FeedbackTypeSnapshot; size?: number }) {
+    if (kind === 'rewrite') return <Replace size={size} aria-hidden="true" />;
+    const icon = commentKindIcon(kind, feedbackType);
+    if (icon === 'heart') return <HeartIcon size={size} />;
+    const Icon = { bug: Bug, message: Comment, sparkles: AI, rocket: Rocket, bookmark: Bookmark, info: Info, lightning: Lightning }[icon];
+    return <Icon size={size} aria-hidden="true" />;
 }
 
-/** "Feedback", "Bug report" or "Suggested rewrite" above the first message of a thread; nothing for comments */
-export function CommentKindLabel({ kind }: { kind: CommentKind }) {
-    if (kind === 'comment') {
-        return null;
-    }
-
-    return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary-foreground">
-            <CommentKindIcon kind={kind} size={14} />
-            {commentKindLabels[kind]}
-        </span>
-    );
+/** The saved type above a thread's first message. Plain comments have no chip. */
+export function CommentKindLabel({ kind, feedbackType }: { kind: CommentKind; feedbackType?: FeedbackTypeSnapshot }) {
+    if (kind === 'comment') return null;
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary-foreground">
+        <CommentKindIcon kind={kind} feedbackType={feedbackType} size={14} />
+        {commentKindLabel(kind, feedbackType)}
+    </span>;
 }

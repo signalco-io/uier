@@ -48,7 +48,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 
 | Request | What |
 | --- | --- |
-| `GET /api/review/<code>` | the project (name, who can comment, page-state policy), the reviewer and whether they can comment, the sign-in URL |
+| `GET /api/review/<code>` | the project (name, who can comment, page-state policy; configured `feedbackTypes` only when the reviewer can comment), the reviewer and whether they can comment, the sign-in URL |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
@@ -653,3 +653,12 @@ to Open and leaves In progress) or `{ status: 'open' | 'in-progress' | 'done' }`
 `ready` or another value is `400 invalid_request`. The same people who resolve may set it (project
 members; a guest or visitor on their own thread). A status write that leaves Ready to verify ends the
 check without confirmation. Activity summaries add `inProgress`, a subset of `open`.
+
+
+Project page feedback also accepts an enabled custom type's stable `kind: "custom_<id>"` with
+`position: { type: "page" }`. The server resolves the project's current workspace defaults or
+replacement list and rejects disabled, unknown or other-project types. It captures a custom
+thread's `feedbackType: { id, label, icon }` itself; submitted display metadata is ignored. The
+snapshot remains on authorized comment DTOs after settings change. Built-in `comment`, `rewrite`,
+`feedback` and `bug` retain their existing meaning and positions; turning off a page feedback type
+does not block reading or replying to old threads. See [project settings](../apps/web/docs/project-settings.md).

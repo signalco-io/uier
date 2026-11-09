@@ -1,3 +1,4 @@
+import { feedbackTypeForSubmission } from '../app/feedbackTypes';
 import { ordinaryVerificationStatus, withOrdinaryStage } from '../comments/verificationState';
 import { withThreadHistory } from '../comments/history';
 import { feedbackStage, feedbackStatusTargets, type FeedbackStatusTarget } from '@uier/toolbar/verification';
@@ -213,6 +214,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return visibleOrThrow(recovered, actor);
+    const feedbackType = await feedbackTypeForSubmission(project, input.kind);
     await enforceNewCommentLimits(store, commentRateLimitSubject(request, project, actor, authorId), input.path);
     const screenshot = await availableScreenshot(store, partition, input.screenshot);
 
@@ -233,6 +235,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         position: input.position,
         number: await store.nextCommentNumber(partition),
         kind: input.kind,
+        ...(feedbackType ? { feedbackType } : {}),
         thread: {
             items: [{
                 id: `item_${nanoid()}`,

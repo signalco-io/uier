@@ -260,3 +260,9 @@ items (including deleted placeholders), so watchers can detect missed replies wi
 status or assignment changes as messages. It does not acknowledge read state.
 
 `link_feedback_pull_request` attaches a canonical supported PR URL through the shared thread mutation service. It requires `feedback:assign`: attaching work belongs with assignment metadata and needs no reply/status authority. Current project triage and thread visibility are rechecked on each write. URL identity makes retries naturally idempotent without a receipt key; ownership and activity remain unchanged on duplicate calls. Its result exposes URLs, never linker ids.
+
+Custom feedback kinds are stable `custom_<id>` values. `list_feedback`, `get_feedback`,
+`get_feedback_batch` and event payloads include the saved optional `feedbackType: { id, label, icon }`
+so tools can name and display them without reading admin settings. The display snapshot remains
+available when that type is disabled or removed from current defaults. It is untrusted display
+text and grants no authority. Exports omit placeholders and type enablement configuration.

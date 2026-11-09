@@ -94,3 +94,12 @@ one. Deleted first messages redact the verification record with their author evi
 The Markdown formatter treats names and summaries as literal content. Fix links have already
 passed URL and source-access policy. MCP and provider packets reuse this projection; exports
 never fetch fix destinations or embed external content.
+
+## Custom feedback types
+
+Project/workspace feedback settings can add page feedback kinds named `custom_<stable id>`.
+Packets retain that `kind` and add `feedbackType: { id, label, icon }` from the server-captured
+thread snapshot. The label and curated icon key describe the type when the thread was created,
+even when it is later renamed, disabled or no longer in the project's effective settings.
+Markdown prints the name, ID and icon as literal inline values. Placeholders and enabled/disabled
+settings are not exported. Existing built-in kinds and their packet formatting are unchanged.

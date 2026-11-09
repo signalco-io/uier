@@ -19,7 +19,7 @@ const DEADLINE_MS = 20_000;
 
 const titleFormat = betaZodOutputFormat(z.object({ title: z.string() }));
 
-const kindWords: Record<DbCommentKind, string> = {
+const kindWords: Partial<Record<DbCommentKind, string>> = {
     comment: 'a comment pinned to part of the page',
     feedback: 'general feedback about the page',
     bug: 'a bug report about the page',
@@ -63,7 +63,7 @@ function contained(value: string) {
 export function aiTitlePrompt(input: AiTitleInput) {
     const selected = input.selectedText?.replace(/\s+/gu, ' ').trim();
     return [
-        `<kind>\n${kindWords[input.kind] ?? kindWords.comment}\n</kind>`,
+        `<kind>\n${kindWords[input.kind] ?? 'feedback about the page'}\n</kind>`,
         input.leftOn ? `<left_on>\n${contained(input.leftOn)}\n</left_on>` : '',
         selected ? `<selected_text>\n${contained(Array.from(selected).slice(0, SELECTED_TEXT_LIMIT).join(''))}\n</selected_text>` : '',
         `<message>\n${contained(input.text)}\n</message>`
