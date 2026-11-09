@@ -4,7 +4,8 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, commentBubble, openThread, toolbar } from './support/toolbar';
+import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, toolbar } from './support/toolbar';
+import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // The toolbar's Accessibility and SEO panels (packages/toolbar/docs/page-checks.md) on a project's
 // site on another origin, with the install guide's Content-Security-Policy: axe-core loads as its
@@ -269,6 +270,53 @@ test('an open panel stays open on the next page and shows that page', async ({ p
     await page.goto(`${site.origin()}/${project}/pricing?page-checks`);
     await expect(toolbar(page)).toBeVisible();
     await expect(panel).toBeHidden();
+});
+
+test('a panel that stays open shows the page it reached, never the previous one, and not in a window opened from it', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(90_000);
+    await signIn(page, uniqueEmail('panel-next-page'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const posted = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/features`, position: { type: 'page' }, kind: 'feedback', text: 'Features need a comparison table', authorName: 'Reviewer'
+    } });
+    expect(posted.status()).toBe(201);
+    await page.context().clearCookies();
+    // axe-core loads slowly: the audit started on this page still runs after the next one rendered
+    const audit = await auditPath();
+    await page.route(`**${audit}`, async route => {
+        await new Promise(resolve => setTimeout(resolve, 2_000));
+        await route.continue();
+    });
+    await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
+    await toolbar(page).getByRole('button', { name: 'Accessibility', exact: true }).click();
+    const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
+    await expect(accessibility.getByRole('status')).toHaveText('Checking this page...');
+    await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/pricing$/, '/team')}${location.search}`));
+    await expect(accessibility.getByRole('status')).toHaveText(/^\d+ issues? found\.$/, { timeout: 20_000 });
+    await expect(accessibility).not.toContainText('These results are for');
+
+    // A window opened from the site copies its session storage and has its referrer, but starts without a panel
+    const [opened] = await Promise.all([
+        page.context().waitForEvent('page'),
+        page.evaluate(url => { window.open(url); }, `${site.origin()}/${project}/features?review=true&page-checks`)
+    ]);
+    await expect(toolbar(opened)).toBeVisible();
+    await expect(opened.getByRole('complementary', { name: 'Accessibility' })).toBeHidden();
+    await expect(opened.getByRole('complementary', { name: 'Comments' })).toBeHidden();
+    await opened.close();
+    await expect(accessibility).toBeVisible();
+
+    // The inbox showing another page lists its comments once that page is this one
+    await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await chooseInboxPages(page, new RegExp(`^/${project}/features`));
+    await expect(inbox).toContainText('Features need a comparison table');
+    await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/team$/, '/features')}${location.search}`));
+    await expect(inbox).toContainText('Features need a comparison table');
+    await expect(inboxPages(page)).toHaveAccessibleName(/This page$/);
 });
 
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {

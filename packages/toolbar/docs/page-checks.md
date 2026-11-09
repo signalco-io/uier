@@ -44,17 +44,21 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
 
 - `CommentsGlobal` remounts for every page (keyed by the path), so `src/openPanel.ts` keeps the open
   panel in module memory for client-side navigation and in `sessionStorage` (`uier:toolbar-panel`) for
-  a full page load. A full load restores it only when it came from the site itself (a same-origin
-  referrer, back or forward, a reload); a page opened anew, such as from a review link, starts without
-  one. Exit review forgets it; `feedback` mode and an Accessibility panel without its audit never restore.
+  a full page load. A full load restores it only when it continues the tab on the site (a same-origin
+  referrer with history before it, back or forward, a reload); a page opened anew, such as from a
+  review link, starts without one. So does a window opened from the site: it gets a copy of the
+  opener's `sessionStorage` and its referrer, but no history of its own (`history.length` 1). Exit
+  review forgets it; `feedback` mode and an Accessibility panel without its audit never restore.
 - The inbox keeps its filter (status, pages, search) across client-side navigation only, in memory: its
-  search is never written to the site's storage. "This page" then lists the new page.
+  search is never written to the site's storage. "This page" then lists the new page, and a page chosen
+  in the picker that the inbox then reaches is "This page" too (`useInboxComments`), with its comments.
 - A restored panel (`RestoredPanelContext`) neither slides in nor takes the focus, so a link click
   leaves the focus on the page; the showcase hint stays closed. Opening a panel again behaves as usual.
 - A restored checks panel checks the new page once it has rendered (`src/checks/pageSettled.ts`: no
   added, removed or edited nodes for 300 ms, at most 3 s), since a client-side router can change the
   address before the page. The Accessibility panel shows "Checking this page..." meanwhile; Check again
-  checks at once.
+  checks at once. An audit still running from the previous page is not reused: the new one waits for
+  it and checks this page.
 
 ## Accessibility
 
@@ -71,7 +75,9 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   an AMD `define`, and puts both back.
 - `src/checks/accessibility.ts` runs every rule axe-core runs by default (WCAG A and AA, best practices)
   on the document, excluding the toolbar's host and inline thread slots by reference, without frames
-  (`iframes: false`). One audit runs at a time. The panel lists only what axe-core finds
+  (`iframes: false`). One audit runs at a time: one asked for while another runs waits for it, then
+  checks the page as it is then (never sharing the running one's report), and the panel shows only its
+  latest audit. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
   the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
   then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
@@ -151,6 +157,9 @@ the folded outline, Core Web Vitals not counting the toolbar's presses, a guest'
 element's comment, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome); the SEO panel and the inbox
 staying open across a client-side navigation, a same-site full load and a reload, and not on a page
-opened anew (Desktop Chrome). `toolbar-assets.api.spec.ts`:
+opened anew; an Accessibility panel left open while the previous page's audit still runs (a slow
+axe-core) showing the new page's report, a window opened from the site starting without the panel, and
+the inbox showing another page listing its comments once it reaches that page (Desktop Chrome).
+`toolbar-assets.api.spec.ts`:
 the audit asset is pinned by path and SRI in the review script, absent from the loader and the review
 script, and served with CORS and immutable caching.

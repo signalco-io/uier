@@ -57,12 +57,16 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
     const postIssue = useIssueComment();
     const nameGate = useGuestNameGate();
 
+    // Only the latest audit's result is shown (a page reached since, or Check again, asked for a newer one)
+    const latestAudit = useRef(0);
     const runAccessibility = () => {
+        const audit = ++latestAudit.current;
         setAccessibility(current => ({ ...current, checking: true, error: false }));
         setHighlighted(undefined);
         checkAccessibility(pathRef.current).then(report => {
-            setAccessibility({ report, checking: false });
+            if (audit === latestAudit.current) setAccessibility({ report, checking: false });
         }, error => {
+            if (audit !== latestAudit.current) return;
             console.warn('uier-toolbar: The accessibility check could not run', error);
             setAccessibility(current => ({ ...current, checking: false, error: true }));
         });

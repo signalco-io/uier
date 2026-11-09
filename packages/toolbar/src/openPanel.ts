@@ -12,10 +12,15 @@ const isDockPanel = (value: unknown): value is DockPanelId => value === 'inbox' 
 let memory: { panel?: DockPanelId; filter?: CommentsFilter } = {};
 let documentRead = false;
 
-/** This document was reached from the site itself: a link or redirect on it, back or forward, or a reload */
+/**
+ * This document continues the tab's review on the site: a link or redirect on it, back or forward, or
+ * a reload. A window opened from the site gets a copy of its `sessionStorage` and its referrer, but
+ * starts its own history: it is a page opened anew.
+ */
 function fromThisSite() {
     const navigation = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
     if (navigation?.type === 'reload' || navigation?.type === 'back_forward') return true;
+    if (history.length < 2) return false;
     try {
         return Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
     } catch {

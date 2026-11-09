@@ -41,10 +41,13 @@ export function useInboxComments(filter: CommentsFilter) {
     const siteQuery = useSiteComments(true, Boolean(filter.unread));
     const { data: activity } = useActivitySummary();
     const { environment, currentEnvironment } = useProjectViewer();
-    const scope = filter.page ?? 'current';
 
     const isCurrentPage = (comment: CommentItem) => comment.path === path && (!comment.source || comment.source.environment === currentEnvironment);
     const showCurrent = !environment || environment === 'all' || environment === currentEnvironment;
+    // A page chosen in the picker that is now this page (the inbox stayed open on the way here) is
+    // "This page": its key without an environment or with the one being reviewed, as `isCurrentPage`
+    const isThisPage = filter.page === `page:|${path}` || filter.page === `page:${currentEnvironment ?? ''}|${path}`;
+    const scope: CommentsPageFilter = showCurrent && isThisPage ? 'current' : filter.page ?? 'current';
     const currentQuery = filter.unread ? siteQuery : pageQuery;
     const current = showCurrent ? (filter.unread ? siteQuery.data?.filter(isCurrentPage) : pageQuery.data) : [];
     const others = siteQuery.data?.filter(comment => !isCurrentPage(comment));
