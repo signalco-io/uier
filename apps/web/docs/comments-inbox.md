@@ -19,7 +19,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets; the
   list and the thread then break out of the reading column to the panel's width, at most 96rem, with `page-wide`'s length
-  ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most; the filters' header (search, Filter, List/Board, the status tabs and the filters in effect) takes the same width, `ProjectComments`) it replaces
+  ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most; the filters' header (search, Filter, List/Board, the status tabs and the filters in effect) and the project header above it take the same width, `ProjectComments`) it replaces
   the history entry and the first shown thread is open until another is chosen (it stays while it is listed, so a thread
   that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
   hides it shows the new first one; `e2e/realtime.spec.ts`); narrower (a phone, a tablet in portrait) a row opens
@@ -58,7 +58,10 @@ rows with the status filter it waits for their entrance motion to settle before 
   `data-page-width="wide"`), and from `md` the filters' header takes the columns' width (`--board-width`: 20rem a
   column and the gaps, never narrower than the reading column), up to the panel's width less the gutters
   (`page-wide`): when the columns don't fit, the header stays at that width while the board scrolls under it. The
-  project header, the count line, the selection bar and the empty states stay in the reading column. An empty column's line ("Nothing open.", "Drop here." while
+  project header (its mark, name, access label, Open review and Settings) takes the same width as the filters' header,
+  in the list and on the board (uier #168: the filters' header carries `data-header-wide`, and the project layout widens
+  its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line,
+  the selection bar and the empty states stay in the reading column. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the

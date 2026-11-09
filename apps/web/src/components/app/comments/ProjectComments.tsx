@@ -215,10 +215,10 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs.
             The header (search, Filter, the view toggle, the status tabs) is as wide as what is under it: the list with its
             thread beside it (CommentInbox) or the board's columns (CommentBoard). It never scrolls with the board: when
-            the columns don't fit, it stays at the panel's width less the gutters (`page-wide`), the board's visible part. */}
-        <div ref={containerRef} className="@container/comments flex flex-col gap-2"
-            style={{ '--board-width': `calc(${commentStatuses.length} * 20rem + ${commentStatuses.length - 1}rem)` } as React.CSSProperties}>
-            <div className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden',
+            the columns don't fit, it stays at the panel's width less the gutters (`page-wide`), the board's visible part.
+            The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`). */}
+        <div ref={containerRef} className="@container/comments flex flex-col gap-2">
+            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden',
                 headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
                 headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]')}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />

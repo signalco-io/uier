@@ -158,7 +158,7 @@ function pageParts(page: Page) {
 
 const boardStatuses = ['Open', 'In progress', 'Ready to verify', 'Done'];
 
-test('the board widens on a wide window, the filters header with it; the page header stays in the reading column', async ({ page, request }, testInfo) => {
+test('the board widens on a wide window, the filters and project headers with it; the page stays in the reading column', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
@@ -168,10 +168,17 @@ test('the board widens on a wide window, the filters header with it; the page he
     const atBoard = await pageParts(page);
     const view = page.getByRole('group', { name: 'View', exact: true });
     const search = page.locator('[data-slot="input-group"]').filter({ has: page.locator('#feedback-search') });
-    // The filters header spans the board's columns: search starts with the first, the view toggle ends with the last
+    // The project header: its mark (the first part of the title's row) and the settings button at the row's end
+    const mark = page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]');
+    const settings = page.getByRole('main').getByLabel('Settings', { exact: true });
+    // The filters and project headers span the board's columns: search and the project's mark start with the first,
+    // the view toggle and the settings button end with the last
     const headerSpans = async (first: Locator, last: Locator) => {
-        expect((await placement(search)).left).toBeCloseTo((await placement(first)).left, 0);
-        expect((await placement(view)).right).toBeCloseTo((await placement(last)).right, 0);
+        const left = (await placement(first)).left, right = (await placement(last)).right;
+        expect((await placement(search)).left).toBeCloseTo(left, 0);
+        expect((await placement(view)).right).toBeCloseTo(right, 0);
+        expect((await placement(mark)).left).toBeCloseTo(left, 0);
+        expect((await placement(settings)).right).toBeCloseTo(right, 0);
     };
     // The page keeps the reading width, 64rem with the 32 px gutters, centred
     const comments = atBoard[1]!;
@@ -191,18 +198,17 @@ test('the board widens on a wide window, the filters header with it; the page he
     expect(boxes[0]!.width).toBeLessThanOrEqual(320);
     await headerSpans(column('Open'), column('Done'));
 
-    // The list: the page header and the count line are where the board had them; the filters header spans the list
-    // and the thread beside it
+    // The list: the comments and the count line are where the board had them; the filters and project headers span
+    // the list and the thread beside it
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const list = page.getByRole('list', { name: 'Comments', exact: true });
     await expect(list).toBeVisible();
     await expect(page.locator('[data-board-scroll]')).toHaveCount(0);
     const atList = await pageParts(page);
-    expect([atList[0], atList[1], atList[3]]).toEqual([atBoard[0], atBoard[1], atBoard[3]]);
+    expect([atList[1], atList[3]]).toEqual([atBoard[1], atBoard[3]]);
     // The list with its thread beside it is the wide element now
     const split = page.locator('[data-page-width="wide"]');
-    expect((await placement(search)).left).toBeCloseTo((await placement(list)).left, 0);
-    expect((await placement(view)).right).toBeCloseTo((await placement(split)).right, 0);
+    await headerSpans(list, split);
 
     // On a very wide window the columns stop at 20rem and the row is centred; the page keeps the reading width
     await page.getByRole('button', { name: 'Board', exact: true }).click();
@@ -246,15 +252,18 @@ test('the board widens on a wide window, the filters header with it; the page he
     expect(scrolling.left).toBe(0);
     // At either end the first and the last column line up with the page's content
     expect((await placement(column('Open'))).left).toBeCloseTo(laptopComments!.left, 0);
-    // The filters header stays at the panel's width less the gutters and does not scroll with the board
-    const laptopHeader = { search: await placement(search), view: await placement(view) };
+    // The filters and project headers stay at the panel's width less the gutters and do not scroll with the board
+    const headers = async () => ({ search: await placement(search), view: await placement(view), mark: await placement(mark), settings: await placement(settings) });
+    const laptopHeader = await headers();
     expect(laptopHeader.search.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
+    expect(laptopHeader.mark.left).toBeCloseTo(laptopComments!.left, 0);
+    expect(laptopHeader.settings.right).toBeCloseTo(laptopComments!.right, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(column('Done')).toBeInViewport({ ratio: 1 });
     expect((await placement(column('Done'))).right).toBeCloseTo(laptopComments!.right, 0);
-    expect({ search: await placement(search), view: await placement(view) }).toEqual(laptopHeader);
+    expect(await headers()).toEqual(laptopHeader);
 });
 
 test('board cards are darker than their column on dark', async ({ page, request }) => {
