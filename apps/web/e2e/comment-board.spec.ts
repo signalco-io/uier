@@ -208,14 +208,23 @@ test('only the board widens on a wide window; the header and filters stay where 
     await expect(await openComment(page, 'First board thread')).toHaveAccessibleName('Comment by Reviewer');
     expect(await columnBoxes()).toEqual(beforeSheet);
 
-    // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it
-    // and the four columns fit without scrolling sideways
+    // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it.
+    // The four columns keep a readable 18rem and the board scrolls sideways; the page does not
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024 - 64);
     const [, laptopComments] = await pageParts(page);
     expect((await placement(grid)).width).toBeCloseTo(laptopComments!.width, 0);
-    expect((await columns()).at(-1)!.right).toBeGreaterThanOrEqual(31);
+    for (const name of boardStatuses) expect((await column(name).boundingBox())!.width).toBeGreaterThanOrEqual(288);
+    const scroll = () => grid.evaluate(element => ({ width: element.scrollWidth, room: element.clientWidth, left: element.scrollLeft }));
+    const scrolling = await scroll();
+    expect(scrolling.width).toBeGreaterThan(scrolling.room);
+    // From its start: the first column is not cut off on the left
+    expect(scrolling.left).toBe(0);
+    expect((await column('Open').boundingBox())!.x).toBeGreaterThanOrEqual((await grid.boundingBox())!.x);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
+    await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    await expect(column('Done')).toBeInViewport({ ratio: 1 });
 });
 
 test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
@@ -317,7 +326,9 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(card('Done', 'First board thread')).not.toContainText('Done');
 
     if (!testInfo.project.name.startsWith('Mobile')) {
-        // Dragged from Done to In progress, then back to Open
+        // Dragged from Done to In progress, then back to Open, on a window where all four columns fit (narrower,
+        // the board scrolls sideways and Done starts out of view)
+        await page.setViewportSize({ width: 1674, height: 900 });
         await dragWithMouse(page, card('Done', 'First board thread'), column('In progress'));
         await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
         await dragWithMouse(page, card('In progress', 'First board thread'), column('Open'));

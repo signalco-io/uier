@@ -23,7 +23,8 @@
   buttons. `e2e/comment-keyboard.spec.ts` covers the keys; the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
-  there are, each up to 20rem and centred beyond that. Only the board's grid is wider than the reading width (`lg:page-wide`,
+  there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
+  (`data-board-scroll`, `justify-center-safe`) rather than squeezing them. Only the board's grid is wider than the reading width (`lg:page-wide`,
   `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
   stay in the reading column, as in the list. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
