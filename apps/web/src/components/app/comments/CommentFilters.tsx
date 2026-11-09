@@ -1,14 +1,15 @@
 'use client';
 
 import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { KanbanIcon, ListFilterIcon, ListIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { setUrlSearchParams, urlWith } from '@/src/hooks/use-url-search-params';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/src/components/ui/dropdown-menu';
 import { Field, FieldGroup, FieldLabel, FieldTitle } from '@/src/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/src/components/ui/input-group';
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
@@ -16,7 +17,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { EnvironmentOption } from '../../../lib/app/environments';
-import { peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
+import { activeStatusFilters, isActiveStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
@@ -173,20 +174,10 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                     ))}
                 </ToggleGroup>
             </div>
-            {/* Active (the default, every status but Done), each status on its own and All; the board shows the statuses side by side.
+            {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side.
+                Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it.
                 The scroller's padding gives the tabs room without adding to the rows' spacing. */}
-            {view === 'list' && (
-                <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
-                    <ToggleGroup size="sm" spacing={0.5} aria-label="Status" className={cn(segmentedGroup, 'w-max')} value={[status]}
-                        onValueChange={([value]) => value && go({ status: value === 'active' ? undefined : value })}>
-                        {(Object.keys(statusFilterLabels) as StatusFilter[]).map(value => (
-                            <ToggleGroupItem key={value} value={value} className={segmentedItem}>
-                                {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{statusCounts[value]}</span>
-                            </ToggleGroupItem>
-                        ))}
-                    </ToggleGroup>
-                </div>
-            )}
+            {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
             {active > 0 && (
                 <div role="group" aria-label="Filters in effect" className="flex flex-wrap items-center gap-1.5">
                     {chips.map(chip => <FilterChip key={chip.key} label={chip.label} onClear={chip.clear} />)}
@@ -196,6 +187,62 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                     )}
                 </div>
             )}
+        </div>
+    );
+}
+
+/**
+ * The list's status tabs: Active, Done and All. The menu beside Active picks one of the statuses folded under it
+ * (Open, In progress, Ready to verify), which the Active tab then shows ("Active: In progress"); pressing that tab
+ * goes back to every active status.
+ */
+function StatusTabs({ status, counts, onStatus }: {
+    status: StatusFilter;
+    counts: Record<StatusFilter, number>;
+    onStatus: (status: StatusFilter) => void;
+}) {
+    const activeShown = isActiveStatusFilter(status);
+    const activeValue = activeShown ? status : 'active';
+    const activeLabel = activeValue === 'active' ? statusFilterLabels.active : `${statusFilterLabels.active}: ${statusFilterLabels[activeValue]}`;
+    return (
+        <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
+            <ToggleGroup size="sm" spacing={0.5} aria-label="Status" className={cn(segmentedGroup, 'w-max')} value={[activeShown ? 'active' : status]}
+                // Pressing the Active tab again while it shows one of its statuses unpresses it: back to every active status
+                onValueChange={([value]) => {
+                    if (value) onStatus(value as StatusFilter);
+                    else if (activeShown && status !== 'active') onStatus('active');
+                }}>
+                <ToggleGroupItem value="active" className={segmentedItem}>
+                    {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span>
+                </ToggleGroupItem>
+                <DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Active statuses"
+                            className={cn(segmentedItem, '-ml-0.5 w-5 min-w-5 px-0 data-popup-open:text-foreground pointer-coarse:min-w-8')} />} />}>
+                            <ChevronDownIcon />
+                        </TooltipTrigger>
+                        <TooltipContent>Active statuses</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="start" className="w-52">
+                        <DropdownMenuRadioGroup value={activeShown ? status : null} onValueChange={(value: StatusFilter) => onStatus(value)}>
+                            {(['active', ...activeStatusFilters] as const).map((value, index) => (
+                                <Fragment key={value}>
+                                    {index === 1 && <DropdownMenuSeparator />}
+                                    <DropdownMenuRadioItem value={value} closeOnClick className="pointer-coarse:min-h-11">
+                                        {statusFilterLabels[value]}
+                                        <span className="ml-auto tabular-nums text-muted-foreground">{counts[value]}</span>
+                                    </DropdownMenuRadioItem>
+                                </Fragment>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                {(['done', 'all'] as const).map(value => (
+                    <ToggleGroupItem key={value} value={value} className={segmentedItem}>
+                        {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
+                    </ToggleGroupItem>
+                ))}
+            </ToggleGroup>
         </div>
     );
 }

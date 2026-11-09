@@ -956,7 +956,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(page).toHaveURL(/people=unassigned/);
     await expect(commentRows(page)).toHaveCount(1);
     await expect(commentRowLink(page, 'Pricing needs a table.')).toBeVisible();
-    await expect(page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Open 1' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Active 1' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'comments' })).toHaveText(/^1 of 2 comments/);
     await expect(page.getByRole('button', { name: 'Clear filter: Unassigned' })).toBeVisible();
     // It survives a reload and combines with search and page
@@ -997,7 +997,10 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await backToComments(page);
     await expect(commentRowLink(page, 'Pricing needs a table.')).toHaveCount(0);
     await expect(page.getByText('Nothing done yet')).toBeVisible();
-    await status.getByRole('button', { name: 'Open 2' }).click();
+    // Open is folded under Active, in the menu beside it
+    await status.getByRole('button', { name: 'Active statuses', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Open 2', exact: true }).click();
+    await expect(status.getByRole('button', { name: 'Active: Open 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await setStatus('Pricing needs a table.', 'Done');
     await backToComments(page);
     await expect(commentRowLink(page, 'Pricing needs a table.')).toHaveCount(0);

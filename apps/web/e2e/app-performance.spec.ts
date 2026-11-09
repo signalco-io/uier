@@ -180,7 +180,7 @@ test('failed optimistic status changes restore the card and counts', async ({ pa
         pending.release();
         await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeEnabled();
         // The status tabs update at once (behind the thread where it takes the whole width)
-        await expect(page.getByRole('button', { name: 'Open 1', exact: true, includeHidden: true })).toBeAttached();
+        await expect(page.getByRole('button', { name: 'Active 1', exact: true, includeHidden: true })).toBeAttached();
         await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
     } finally { pending.release(); }
 });

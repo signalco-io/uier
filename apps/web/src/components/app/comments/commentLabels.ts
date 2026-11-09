@@ -44,6 +44,14 @@ export const statusFilterLabels: Record<StatusFilter, string> = {
     all: 'All'
 };
 
+/** The statuses folded under Active in the list's status filter, each one also a choice of its own */
+export const activeStatusFilters = ['open', 'in-progress', 'ready'] as const satisfies readonly StatusFilter[];
+
+/** Whether the status filter shows Active or one of the statuses folded under it */
+export function isActiveStatusFilter(filter: StatusFilter) {
+    return filter === 'active' || (activeStatusFilters as readonly StatusFilter[]).includes(filter);
+}
+
 /** Whether a thread in `status` is listed under the status filter */
 export function statusMatches(filter: StatusFilter, status: import('@uier/toolbar/verification').FeedbackStage) {
     return filter === 'all' || (filter === 'active' ? status !== 'done' : status === filter);

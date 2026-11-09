@@ -296,9 +296,8 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
-    await expect(tabs.getByRole('button')).toHaveText([/^Active/, /^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^All/]);
-    await expect(tabs.getByRole('button', { name: /^Active/ })).toContainText(/\d/);
-    await tabs.getByRole('button', { name: /^In progress/ }).click();
+    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/]);
+    await chooseActiveStatus(page, /^In progress \d+$/);
     await expect(page).toHaveURL(/status=in-progress/);
     const row = page.locator('[data-comment-id]').filter({ hasText: 'Second board thread' });
     await expect(row).toBeVisible();
@@ -306,6 +305,15 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     // The row says its status
     await expect(row).toContainText('In progress');
 });
+
+/** Opens the menu folded under the Active tab and picks one of its statuses */
+async function chooseActiveStatus(page: Page, name: string | RegExp) {
+    await page.getByRole('group', { name: 'Status', exact: true }).getByRole('button', { name: 'Active statuses', exact: true }).click();
+    const menu = page.getByRole('menu');
+    await animationsFinished(menu);
+    await menu.getByRole('menuitemradio', { name, exact: typeof name === 'string' }).click();
+    await expect(menu).toHaveCount(0);
+}
 
 test('the list shows Active by default, every status but Done, and each row says its status', async ({ page, request }) => {
     const { project, comments, column } = await board(page, request);
@@ -322,10 +330,12 @@ test('the list shows Active by default, every status but Done, and each row says
     await move(comments[0]!.number, 'In progress');
     await move(comments[1]!.number, 'Done');
 
-    // No `?status=`: Active, with Open and In progress threads but not the Done one
+    // No `?status=`: Active, with Open and In progress threads but not the Done one. Active, Done and All are the tabs;
+    // Open, In progress and Ready to verify fold under Active
     await page.goto(`/app/projects/${project}`);
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
-    await expect(tabs.getByRole('button')).toHaveText([/^Active 2$/, /^Open 1$/, /^In progress 1$/, /^Ready to verify 0$/, /^Done 1$/, /^All 3$/]);
+    const toggles = tabs.locator('[aria-pressed]');
+    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/]);
     await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const rows = page.locator('[data-comment-id]');
     const row = (text: string) => rows.filter({ hasText: text });
@@ -338,20 +348,64 @@ test('the list shows Active by default, every status but Done, and each row says
         await expect(state).toBeInViewport({ ratio: 1 });
     }
 
-    // One status at a time still filters, and stays in the address
-    await tabs.getByRole('button', { name: 'Open 1', exact: true }).click();
+    // The menu beside Active lists the folded statuses with their counts, Active checked
+    const more = tabs.getByRole('button', { name: 'Active statuses', exact: true });
+    await expect(more).toHaveAttribute('aria-haspopup', 'menu');
+    await more.click();
+    const menu = page.getByRole('menu');
+    await animationsFinished(menu);
+    await expect(menu.getByRole('menuitemradio')).toHaveText([/^Active\s*2$/, /^Open\s*1$/, /^In progress\s*1$/, /^Ready to verify\s*0$/]);
+    await expect(menu.getByRole('menuitemradio', { name: 'Active 2', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+
+    // One status at a time still filters, stays in the address, and the Active tab names it
+    await chooseActiveStatus(page, 'Open 1');
     await expect(page).toHaveURL(/status=open/);
+    await expect(tabs.getByRole('button', { name: 'Active: Open 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(rows).toHaveCount(1);
     await expect(row('Third board thread')).toHaveCount(1);
+    // Pressing the Active tab again goes back to every active status
+    await tabs.getByRole('button', { name: 'Active: Open 1', exact: true }).click();
+    await expect(page).not.toHaveURL(/status=/);
+    await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(rows).toHaveCount(2);
+
     await tabs.getByRole('button', { name: 'Done 1', exact: true }).click();
+    await expect(page).toHaveURL(/status=done/);
+    await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'false');
     await expect(rows).toHaveCount(1);
     await expect(row('Second board thread').getByText('Status: Done', { exact: true })).toBeVisible();
+    // From Done straight to a folded status
+    await chooseActiveStatus(page, 'Ready to verify 0');
+    await expect(page).toHaveURL(/status=ready/);
+    await expect(tabs.getByRole('button', { name: 'Active: Ready to verify 0', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(rows).toHaveCount(0);
+    await tabs.getByRole('button', { name: 'All 3', exact: true }).click();
+    await expect(page).toHaveURL(/status=all/);
+    await expect(rows).toHaveCount(3);
+
+    // A `?status=` link opens on the folded status
     await page.goto(`/app/projects/${project}?status=in-progress`);
-    await expect(tabs.getByRole('button', { name: 'In progress 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.getByRole('button', { name: 'Active: In progress 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(rows).toHaveCount(1);
     await expect(row('First board thread')).toHaveCount(1);
+    await expectNoAxeViolations(page);
+    // From the keyboard: the menu opens from the button beside Active and a status is chosen with Enter
+    await more.focus();
+    await page.keyboard.press('Enter');
+    await animationsFinished(menu);
+    await expect(menu.getByRole('menuitemradio', { name: 'In progress 1', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('End');
+    await expect(menu.getByRole('menuitemradio', { name: 'Ready to verify 0', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await expect(menu.getByRole('menuitemradio', { name: 'Open 1', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/status=open/);
+    await expect(tabs.getByRole('button', { name: 'Active: Open 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     // Back to Active: the address drops `status`
-    await tabs.getByRole('button', { name: 'Active 2', exact: true }).click();
+    await chooseActiveStatus(page, 'Active 2');
     await expect(page).not.toHaveURL(/status=/);
     await expect(rows).toHaveCount(2);
 });

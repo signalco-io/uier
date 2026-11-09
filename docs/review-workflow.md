@@ -95,8 +95,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Above them: search, one Filter button (priority; environment and page in one control, with environments on the left
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (Active,
-    Open, In progress, Ready to verify, Done and All, with counts; Active, the default, is everything not done,
-    and `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
+    Done and All, with counts; Active, the default, is everything not done. Open, In progress and Ready to verify fold
+    under Active, in the menu beside it, and the tab then reads "Active: In progress"; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
     status (a dot and its name, Open too, so an Active list shows where each thread is), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
@@ -769,7 +769,7 @@ permissions. Update it in the same pull request when they change.
 ## In progress
 
 A thread is Open, In progress, Ready to verify or Done. In progress says someone is working on it.
-It sits between Open and Ready to verify on the board, has its own status tab in the app and the
+It sits between Open and Ready to verify on the board, has its own status filter in the app (under Active) and a tab in the
 toolbar inbox, and, like Ready to verify, counts as open: the Open tab, Open counts, My work and
 `resolved: false` all include it. Board columns are exclusive.
 
