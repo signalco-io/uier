@@ -53,6 +53,9 @@ handler): it listens on the document in the bubble phase, after React's handlers
   cancels an edit), which no hint under the text box repeats ([thread](comment-thread.md)). Keys print in Geist Mono (`Kbd`, BRAND.md: mono means machine); symbols have their names for screen
   readers.
 
+The app has one notification region (Sonner), including its Alt+T focus shortcut; the shared
+signalco container is disabled there so screen readers do not find duplicate notification landmarks.
+
 ## Tests
 
 `e2e/app-keyboard.spec.ts` (desktop, full suite): the board's tab stop, arrows, J and K in the sheet, S and R;

@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
@@ -23,6 +24,19 @@ test('signed-out visitors are sent to sign in and come back afterwards', { tag: 
 
     await signIn(page, uniqueEmail(), { from: page.url() });
     await expect(page).toHaveURL(/\/app\/account$/);
+});
+
+test('app pages have unique landmarks and one notification region', async ({ page }) => {
+    await signIn(page, uniqueEmail());
+    const project = await createProject(page, { urls: ['https://example.com'] });
+    for (const path of [`/app/projects/${project}`, '/app/projects', '/app/account']) {
+        await page.goto(path);
+        await expect(page).toHaveTitle(/\S/);
+        // Both Sonner implementations use this name by default, even without a toast.
+        await expect(page.getByRole('region', { name: 'Notifications alt+T', exact: true })).toHaveCount(1);
+        const scan = await new AxeBuilder({ page }).withRules(['landmark-unique']).analyze();
+        expect(scan.violations).toEqual([]);
+    }
 });
 
 test('a sign-in link works once', { tag: '@smoke' }, async ({ page, browser }) => {

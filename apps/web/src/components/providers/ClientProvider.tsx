@@ -36,12 +36,12 @@ function DocumentPolicyBoundary() {
     return null;
 }
 
-export function ClientProvider({children, nonce}: PropsWithChildren<{ nonce?: string }>) {
+export function ClientProvider({children, nonce, signalcoNotifications = true}: PropsWithChildren<{ nonce?: string; signalcoNotifications?: boolean }>) {
     return (
         <ThemeProvider attribute="class" nonce={nonce}>
             <QueryClientProvider client={queryClient}>
                 <ReactQueryDevtools initialIsOpen={false} />
-                <ThemedNotificationsContainer />
+                {signalcoNotifications && <ThemedNotificationsContainer />}
                 <DocumentPolicyBoundary />
                 {children}
                 {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}

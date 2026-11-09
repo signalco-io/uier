@@ -1,5 +1,10 @@
 # App shell, navigation and the projects list
 
+- **Notification landmark.** App pages mount only the shadcn Sonner toaster. The shared
+  `ClientProvider` disables its signalco notification container in the app layout; public pages
+  keep it. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
+  `e2e/app.spec.ts` checks one notification region and axe `landmark-unique` on the project, projects
+  list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a

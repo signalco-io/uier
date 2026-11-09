@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default async function AppLayout({ children }: PropsWithChildren) {
     const nonce = (await headers()).get('x-nonce') ?? undefined;
     return (
-        <ClientProvider nonce={nonce}>
+        <ClientProvider nonce={nonce} signalcoNotifications={false}>
             <TooltipProvider delay={300}>
                 {children}
                 <Toaster position="bottom-right" />
