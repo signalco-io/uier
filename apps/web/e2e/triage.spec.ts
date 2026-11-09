@@ -49,7 +49,7 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     await selected(page, comments[0]!.number).check();
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: 'Urgent', exact: true }).click();
-    await expect(commentRows(page)).toContainText('Urgent');
+    await expect(commentRows(page).getByRole('img', { name: 'Urgent priority', exact: true })).toBeVisible();
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await selected(page, comments[0]!.number).check();
@@ -72,7 +72,7 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     await expect(openColumn.getByRole('img', { name: /^Assigned to / })).toHaveCount(0);
     await page.reload();
     await expect(search).toHaveValue('checkout');
-    await expect(openColumn).toContainText('Urgent');
+    await expect(openColumn.getByRole('img', { name: 'Urgent priority', exact: true })).toBeVisible();
     await expect((await openComment(page, comments[0]!.number)).getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe(`/app/projects/${project}`);
 });

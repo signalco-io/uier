@@ -14,18 +14,19 @@ const flagColors: Record<CommentPriority, string> = {
     urgent: 'stroke-[hsl(var(--destructive))]'
 };
 
-/** The priority's flag. Decorative: the priority's name always stands next to it, so colour is never the only signal. */
+/** The priority's flag. Decorative: its name stands next to it, or names it (`PriorityLabel`), so colour is never the only signal. */
 export function PriorityFlag({ priority, className, ...props }: { priority: CommentPriority } & Omit<LucideProps, 'ref'>) {
     return <FlagIcon aria-hidden="true" data-priority={priority} {...props} className={cn('shrink-0', flagColors[priority], className)} />;
 }
 
-/** The flag and the name, on list rows and board cards; assistive tech reads "Priority: High" */
+/**
+ * The flag alone, on list rows and board cards; assistive tech reads "High priority". The row's other
+ * icon-only indicators (Private, the assignee) are named the same way, without a tooltip.
+ */
 export function PriorityLabel({ priority }: { priority: CommentPriority }) {
     return (
-        <span className="inline-flex items-center gap-1 text-foreground">
+        <span role="img" aria-label={`${priorityLabels[priority]} priority`} className="inline-flex items-center">
             <PriorityFlag priority={priority} className="size-3.5" />
-            <span className="sr-only">Priority: </span>
-            {priorityLabels[priority]}
         </span>
     );
 }
