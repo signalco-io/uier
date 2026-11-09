@@ -1077,13 +1077,24 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}?view=board`);
 
-    // Edit (admin) and link to comment
+    // Edit (admin), in place in the shared message composer, and link to comment
     const anaCard = await openComment(page, 'Pricing needs a table.');
-    await anaCard.getByRole('button', { name: /More actions/ }).click();
+    const threadActions = anaCard.getByRole('button', { name: /^More actions for the comment/ });
+    await threadActions.click();
     await page.getByRole('menuitem', { name: 'Edit' }).click();
-    await page.getByRole('dialog').getByRole('textbox', { name: 'Text' }).fill('Pricing needs a comparison table.');
-    await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    const editor = anaCard.getByRole('textbox', { name: 'Edit comment', exact: true });
+    await expect(editor).toBeFocused();
+    await expect(editor).toHaveValue('Pricing needs a table.');
+    await expect(editor).toHaveAccessibleDescription('Enter to save. Shift+Enter for a new line. Escape to cancel.');
+    await editor.press('Escape');
+    await expect(editor).toHaveCount(0);
+    await expect(threadActions).toBeFocused();
+    await threadActions.click();
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+    await editor.fill('Pricing needs a comparison table.');
+    await anaCard.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(anaCard).toContainText('Pricing needs a comparison table. (edited)');
+    await expect(threadActions).toBeFocused();
     await expect(anaCard.getByRole('link', { name: new RegExp(`${pricing}$`) })).toHaveAttribute('href', new RegExp(`^/app/review/${projectId}\\?url=.*&comment=comment_`));
 
     // Delete (admin)

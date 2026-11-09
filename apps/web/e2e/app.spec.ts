@@ -975,6 +975,9 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
         const input = card.getByRole('textbox', { name: 'Reply', exact: true });
         await expect(input).toBeFocused();
+        // The shared message composer: its hints and buttons in one box
+        await expect(input).toHaveAccessibleDescription('Type @ to mention someone with access. Enter to send. Shift+Enter for a new line.');
+        await expect(card.getByRole('form', { name: 'Reply to thread' }).getByRole('group').getByRole('button', { name: 'Post reply' })).toBeDisabled();
         await input.fill('Keep this draft');
         await card.getByRole('button', { name: 'Close reply' }).click();
         await backToComments(page);
