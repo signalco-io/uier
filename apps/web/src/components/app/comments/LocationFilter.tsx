@@ -143,11 +143,8 @@ export function LocationFilter({ environment, environments, historySources, page
                     ))}
                 </div>
                 <div aria-busy={loading} className={cn('flex min-w-0 flex-col gap-1 p-1 transition-opacity', loading && 'opacity-60')}>
-                    {/* Which environment the pages are from */}
-                    <div className="flex min-w-0 items-baseline justify-between gap-2 pr-2">
-                        <GroupLabel>Pages</GroupLabel>
-                        <span className="min-w-0 truncate text-xs text-muted-foreground">{environmentLabel ?? 'All environments'}</span>
-                    </div>
+                    {/* The environment column beside it shows which environment the pages are from */}
+                    <GroupLabel>Pages</GroupLabel>
                     <div className="px-1">
                         <InputGroup className="h-8">
                             <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
