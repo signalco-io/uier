@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { FolderOpenIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
+import { FolderOpenIcon, PlusIcon } from 'lucide-react';
 import { buttonVariants } from '@/src/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
@@ -18,6 +18,7 @@ import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
 import { ProjectStatusPanel, ProjectStatusTabs } from '@/src/components/app/projects/ProjectStatusTabs';
+import { CommentCountBubble } from '@/src/components/app/projects/CommentCountBubble';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
@@ -107,13 +108,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                 <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
                                                 <span className="truncate">{access.label}</span>
                                             </span>
-                                            {/* The icon and the number, so the count never wraps to a line of its own; the
-                                                words are for screen readers ("11 open comments") */}
-                                            <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
-                                                <MessageSquareIcon className="size-4 shrink-0" aria-hidden="true" />
-                                                {open}
-                                                <span className="sr-only">{open === 1 ? ' open comment' : ' open comments'}</span>
-                                            </span>
+                                            {/* The number inside a comment bubble at the line's right end, so it never wraps on its own */}
+                                            <CommentCountBubble count={open} className="ml-auto" />
                                         </CardDescription>
                                     </CardHeader>
                                 </Card>
